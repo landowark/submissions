@@ -1,9 +1,13 @@
 
 
-{% for key, value in sub.items() if key != 'reagents' %}
+{% for key, value in sub.items() if key != 'reagents' and key != 'samples' %}
 {{ key }}: {{ value }}
 {% endfor %}
 Reagents:
 {% for item in sub['reagents'] %}
     {{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})
+{% endfor %}
+Samples:
+{% for item in sub['samples'] %}
+    {{ item['well'] }}: {{ item['name'] }}
 {% endfor %}

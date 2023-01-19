@@ -16,6 +16,12 @@ def get_kits_by_use( ctx:dict, kittype_str:str|None) -> list:
 
 
 def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None:
+    for sample in base_submission.samples:
+        sample.rsl_plate = base_submission
+        try:
+            ctx['database_session'].add(sample)
+        except IntegrityError:
+            continue
     ctx['database_session'].add(base_submission)
     try:
         ctx['database_session'].commit()
@@ -53,6 +59,11 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
                 # Because of unique constraint, the submitter plate number cannot be None, so...
                 if info_dict[item] == None:
                     info_dict[item] = uuid.uuid4().hex.upper()
+                field_value = info_dict[item]
+            # case "samples":
+            #     for sample in info_dict[item]:
+            #         instance.samples.append(sample)
+            #     continue
             case _:
                 field_value = info_dict[item]
         try:
@@ -60,6 +71,7 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         except AttributeError:
             print(f"Could not set attribute: {item} to {info_dict[item]}")
             continue
+    # print(instance.__dict__)
     return instance
     # looked_up = []
     # for reagent in reagents:
@@ -184,7 +196,11 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> None:
     Args:
         ctx (dict): Context dictionary passed down from frontend
         exp (dict): Experiment dictionary created from yaml file
-    """    
+    """
+    try:
+        exp['password'].decode()
+    except (UnicodeDecodeError, AttributeError):
+        exp['password'] = exp['password'].encode()
     if base64.b64encode(exp['password']) != b'cnNsX3N1Ym1pNTVpb25z':
         print(f"Not the correct password.")
         return

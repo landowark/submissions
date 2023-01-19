@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QDateEdit, QTableView,
     QTextEdit, QSizePolicy, QWidget,
     QGridLayout, QPushButton, QSpinBox,
-    QScrollBar
+    QScrollBar, QScrollArea
 )
 from PyQt6.QtCore import Qt, QDate, QAbstractTableModel
 from PyQt6.QtGui import QFontMetrics
@@ -135,6 +135,7 @@ class SubmissionsSheet(QTableView):
         # print(index)
         value=index.sibling(index.row(),0).data()
         dlg = SubmissionDetails(ctx=self.ctx, id=value)
+        # dlg.show()
         if dlg.exec():
             pass
 
@@ -146,32 +147,42 @@ class SubmissionDetails(QDialog):
         super().__init__()
 
         self.setWindowTitle("Submission Details")
+        interior = QScrollArea()
+        interior.setParent(self)
         data = lookup_submission_by_id(ctx=ctx, id=id)
         base_dict = data.to_dict()
         base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
+        base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
         template = env.get_template("submission_details.txt")
         text = template.render(sub=base_dict)
-        txt_field = QTextEdit(self)
-        txt_field.setReadOnly(True)
-        txt_field.document().setPlainText(text)
-
-        font = txt_field.document().defaultFont()
+        txt_editor = QTextEdit(self)
+        
+        txt_editor.setReadOnly(True)
+        txt_editor.document().setPlainText(text)
+        
+        font = txt_editor.document().defaultFont()
         fontMetrics = QFontMetrics(font)
-        textSize = fontMetrics.size(0, txt_field.toPlainText())
+        textSize = fontMetrics.size(0, txt_editor.toPlainText())
 
         w = textSize.width() + 10
         h = textSize.height() + 10
-        txt_field.setMinimumSize(w, h)
-        txt_field.setMaximumSize(w, h)
-        txt_field.resize(w, h)
+        txt_editor.setMinimumSize(w, h)
+        txt_editor.setMaximumSize(w, h)
+        txt_editor.resize(w, h)
+        interior.resize(w,900)
         # txt_field.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
-        QBtn = QDialogButtonBox.StandardButton.Ok
+        # QBtn = QDialogButtonBox.StandardButton.Ok
         # self.buttonBox = QDialogButtonBox(QBtn)
         # self.buttonBox.accepted.connect(self.accept)
-        txt_field.setText(text)
+        txt_editor.setText(text)
+        # txt_editor.verticalScrollBar()
+        interior.setWidget(txt_editor)
         self.layout = QVBoxLayout()
-        self.layout.addWidget(txt_field)
+        self.setFixedSize(w, 900)
+        # self.layout.addWidget(txt_editor)
         # self.layout.addStretch()
+        self.layout.addWidget(interior)
+        
 
 
 class ReportDatePicker(QDialog):

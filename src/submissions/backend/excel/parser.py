@@ -1,9 +1,12 @@
 import pandas as pd
 from pathlib import Path
-from datetime import datetime
+from backend.db.models.samples import WWSample, BCSample
 import logging
 from collections import OrderedDict
 import re
+import numpy as np
+from datetime import date
+import uuid
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -21,8 +24,8 @@ class SheetParser(object):
                 self.xl = None
         self.sub = OrderedDict()
         self.sub['submission_type'] = self._type_decider()        
-        parse = getattr(self, f"_parse_{self.sub['submission_type'].lower()}")
-        parse()
+        parse_sub = getattr(self, f"_parse_{self.sub['submission_type'].lower()}")
+        parse_sub()
 
     def _type_decider(self):
         try:
@@ -46,6 +49,7 @@ class SheetParser(object):
         self.sub['submitting_lab'] = submission_info.iloc[0][3]
         self.sub['sample_count'] = str(submission_info.iloc[2][3])
         self.sub['extraction_kit'] = submission_info.iloc[3][3]
+        
         return submission_info
 
 
@@ -71,7 +75,10 @@ class SheetParser(object):
         self.sub['lot_ethanol'] = submission_info.iloc[10][6]
         self.sub['lot_positive_control'] = submission_info.iloc[103][1]
         self.sub['lot_plate'] = submission_info.iloc[12][6]
-        
+        sample_parser = SampleParser(submission_info.iloc[15:111])
+        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        self.sub['samples'] = sample_parse()
+
 
     def _parse_wastewater(self):
         # submission_info = self.xl.parse("WW Submissions (ENTER HERE)")
@@ -102,6 +109,9 @@ class SheetParser(object):
         self.sub['lot_pre_mix_2'] = qprc_info.iloc[2][14]
         self.sub['lot_positive_control'] = qprc_info.iloc[3][14]
         self.sub['lot_ddh2o'] = qprc_info.iloc[4][14]
+        sample_parser = SampleParser(submission_info.iloc[16:40])
+        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        self.sub['samples'] = sample_parse()
         # tech = str(submission_info.iloc[11][1])
         # if tech == "nan":
         #     tech = "Unknown"
@@ -120,3 +130,59 @@ class SheetParser(object):
         # self.sub['lot_ethanol'] = submission_info.iloc[10][6]
         # self.sub['lot_positive_control'] = None #submission_info.iloc[103][1]
         # self.sub['lot_plate'] = submission_info.iloc[12][6]
+
+
+class SampleParser(object):
+
+
+    def __init__(self, df:pd.DataFrame) -> None:
+        self.samples = df.to_dict("records")
+
+
+    def parse_bacterial_culture_samples(self) -> list[BCSample]:
+        new_list = []
+        for sample in self.samples:
+            new = BCSample()
+            new.well_number = sample['This section to be filled in completely by submittor']
+            new.sample_id = sample['Unnamed: 1']
+            new.organism = sample['Unnamed: 2']
+            new.concentration = sample['Unnamed: 3']
+            print(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
+            try:
+                not_a_nan = not np.isnan(new.sample_id)
+            except TypeError:
+                not_a_nan = True
+            if not_a_nan:
+                new_list.append(new)
+        return new_list
+
+
+    def parse_wastewater_samples(self) -> list[WWSample]:
+        new_list = []
+        for sample in self.samples:
+            new = WWSample()
+            new.ww_processing_num = sample['Unnamed: 2']
+            try:
+                not_a_nan = not np.isnan(sample['Unnamed: 3'])
+            except TypeError:
+                not_a_nan = True
+            if not_a_nan:
+                new.ww_sample_full_id = sample['Unnamed: 3']
+            else:
+                new.ww_sample_full_id = uuid.uuid4().hex.upper()
+            new.rsl_number = sample['Unnamed: 9']
+            try:
+                not_a_nan = not np.isnan(sample['Unnamed: 5'])
+            except TypeError:
+                not_a_nan = True
+            if not_a_nan:
+                new.collection_date = sample['Unnamed: 5']
+            else:
+                new.collection_date = date.today()
+            new.testing_type = sample['Unnamed: 6']
+            new.site_status = sample['Unnamed: 7']
+            new.notes = str(sample['Unnamed: 8'])
+            new.well_number = sample['Unnamed: 1']
+            new_list.append(new)
+        return new_list
+    

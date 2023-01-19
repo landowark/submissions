@@ -90,6 +90,7 @@ class App(QMainWindow):
 
     def importSubmission(self):
         logger.debug(self.ctx)
+        self.samples = []
         home_dir = str(Path(self.ctx["directory_path"]))
         fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir)[0])
         logger.debug(f"Attempting to parse file: {fname}")
@@ -107,27 +108,31 @@ class App(QMainWindow):
             (?P<extraction_kit>^extraction_kit$) |
             (?P<submitted_date>^submitted_date$) |
             (?P<submitting_lab>)^submitting_lab$ |
+            (?P<samples>)^samples$ |
             (?P<reagent>^lot_.*$)
 
         """, re.VERBOSE)
         for item in prsr.sub:
             logger.debug(f"Item: {item}")
-            self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
+            
             try:
                 mo = variable_parser.fullmatch(item).lastgroup
             except AttributeError:
                 mo = "other"
+            print(f"Mo: {mo}")
             match mo:
                 case 'submitting_lab':
+                    self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     print(f"{item}: {prsr.sub[item]}")
                     add_widget = QComboBox()
                     labs = [item.__str__() for item in lookup_all_orgs(ctx=self.ctx)]
                     try:
                         labs = difflib.get_close_matches(prsr.sub[item], labs, len(labs), 0)
-                    except TypeError:
+                    except (TypeError, ValueError):
                         pass
                     add_widget.addItems(labs)
                 case 'extraction_kit':
+                    self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     if prsr.sub[item] == 'nan':
                         msg = QMessageBox()
                         # msg.setIcon(QMessageBox.critical)
@@ -143,10 +148,12 @@ class App(QMainWindow):
                     else:
                         add_widget.addItems(['bacterial_culture'])
                 case 'submitted_date':
+                    self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     add_widget = QDateEdit(calendarPopup=True)
                     # add_widget.setDateTime(QDateTime.date(prsr.sub[item]))
                     add_widget.setDate(prsr.sub[item])
                 case 'reagent':
+                    self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     add_widget = QComboBox()
                     add_widget.setEditable(True)
                     # Ensure that all reagenttypes have a name that matches the items in the excel parser
@@ -169,7 +176,12 @@ class App(QMainWindow):
                             relevant_reagents.insert(0, str(prsr.sub[item]))
                     logger.debug(f"Relevant reagents: {relevant_reagents}")
                     add_widget.addItems(relevant_reagents)
+                # TODO: make samples not appear in frame.
+                case 'samples':
+                    print(f"{item}: {prsr.sub[item]}")
+                    self.samples = prsr.sub[item]
                 case _:
+                    self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     add_widget = QLineEdit()
                     add_widget.setText(str(prsr.sub[item]).replace("_", " "))
             self.table_widget.formlayout.addWidget(add_widget)
@@ -215,6 +227,7 @@ class App(QMainWindow):
             if wanted_reagent != None:
                 parsed_reagents.append(wanted_reagent)
                 logger.debug(info)
+        info['samples'] = self.samples
         base_submission = construct_submission_info(ctx=self.ctx, info_dict=info)
         for reagent in parsed_reagents:
             base_submission.reagents.append(reagent)

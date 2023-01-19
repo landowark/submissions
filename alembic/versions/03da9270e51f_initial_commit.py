@@ -1,8 +1,8 @@
 """initial commit
 
-Revision ID: 4cba0c1ffe03
+Revision ID: 03da9270e51f
 Revises: 
-Create Date: 2023-01-18 08:59:34.382715
+Create Date: 2023-01-19 09:01:03.022482
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '4cba0c1ffe03'
+revision = '03da9270e51f'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -48,22 +48,6 @@ def upgrade() -> None:
     sa.Column('kit_id', sa.INTEGER(), nullable=True),
     sa.Column('eol_ext', sa.Interval(), nullable=True),
     sa.ForeignKeyConstraint(['kit_id'], ['_kits.id'], name='fk_RT_kits_id', ondelete='SET NULL', use_alter=True),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('_ww_samples',
-    sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('ww_processing_num', sa.String(length=64), nullable=True),
-    sa.Column('ww_sample_full_id', sa.String(length=64), nullable=True),
-    sa.Column('rsl_number', sa.String(length=64), nullable=True),
-    sa.Column('collection_date', sa.TIMESTAMP(), nullable=True),
-    sa.Column('testing_type', sa.String(length=64), nullable=True),
-    sa.Column('site_status', sa.String(length=64), nullable=True),
-    sa.Column('notes', sa.String(length=2000), nullable=True),
-    sa.Column('ct_n1', sa.FLOAT(precision=2), nullable=True),
-    sa.Column('ct_n2', sa.FLOAT(precision=2), nullable=True),
-    sa.Column('seq_submitted', sa.BOOLEAN(), nullable=True),
-    sa.Column('ww_seq_run_id', sa.String(length=64), nullable=True),
-    sa.Column('sample_type', sa.String(length=8), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_control_samples',
@@ -119,15 +103,23 @@ def upgrade() -> None:
     sa.Column('technician', sa.String(length=64), nullable=True),
     sa.Column('reagents_id', sa.String(), nullable=True),
     sa.Column('control_id', sa.INTEGER(), nullable=True),
-    sa.Column('sample_id', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['control_id'], ['_control_samples.id'], name='fk_BC_control_id', ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['extraction_kit_id'], ['_kits.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['extraction_kit_id'], ['_kits.id'], name='fk_BS_extkit_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['reagents_id'], ['_reagents.id'], name='fk_BS_reagents_id', ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['sample_id'], ['_ww_samples.id'], name='fk_WW_sample_id', ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['submitting_lab_id'], ['_organizations.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['submitting_lab_id'], ['_organizations.id'], name='fk_BS_sublab_id', ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('rsl_plate_num'),
     sa.UniqueConstraint('submitter_plate_num')
+    )
+    op.create_table('_bc_samples',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('well_number', sa.String(length=8), nullable=True),
+    sa.Column('sample_id', sa.String(length=64), nullable=False),
+    sa.Column('organism', sa.String(length=64), nullable=True),
+    sa.Column('concentration', sa.String(length=16), nullable=True),
+    sa.Column('rsl_plate_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['rsl_plate_id'], ['_submissions.id'], name='fk_BCS_sample_id', ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_reagents_submissions',
     sa.Column('reagent_id', sa.INTEGER(), nullable=True),
@@ -135,19 +127,39 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['reagent_id'], ['_reagents.id'], ),
     sa.ForeignKeyConstraint(['submission_id'], ['_submissions.id'], )
     )
+    op.create_table('_ww_samples',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('ww_processing_num', sa.String(length=64), nullable=True),
+    sa.Column('ww_sample_full_id', sa.String(length=64), nullable=False),
+    sa.Column('rsl_number', sa.String(length=64), nullable=True),
+    sa.Column('rsl_plate_id', sa.INTEGER(), nullable=True),
+    sa.Column('collection_date', sa.TIMESTAMP(), nullable=True),
+    sa.Column('testing_type', sa.String(length=64), nullable=True),
+    sa.Column('site_status', sa.String(length=64), nullable=True),
+    sa.Column('notes', sa.String(length=2000), nullable=True),
+    sa.Column('ct_n1', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('ct_n2', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('seq_submitted', sa.BOOLEAN(), nullable=True),
+    sa.Column('ww_seq_run_id', sa.String(length=64), nullable=True),
+    sa.Column('sample_type', sa.String(length=8), nullable=True),
+    sa.Column('well_number', sa.String(length=8), nullable=True),
+    sa.ForeignKeyConstraint(['rsl_plate_id'], ['_submissions.id'], name='fk_WWS_sample_id', ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('_ww_samples')
     op.drop_table('_reagents_submissions')
+    op.drop_table('_bc_samples')
     op.drop_table('_submissions')
     op.drop_table('_orgs_contacts')
     op.drop_table('_reagentstypes_kittypes')
     op.drop_table('_reagents')
     op.drop_table('_organizations')
     op.drop_table('_control_samples')
-    op.drop_table('_ww_samples')
     op.drop_table('_reagent_types')
     op.drop_table('_kits')
     op.drop_table('_control_types')

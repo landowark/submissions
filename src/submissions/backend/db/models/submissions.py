@@ -15,10 +15,10 @@ class BasicSubmission(Base):
     submitter_plate_num = Column(String(127), unique=True) #: The number given to the submission by the submitting lab
     submitted_date = Column(TIMESTAMP) #: Date submission received
     submitting_lab = relationship("Organization", back_populates="submissions") #: client
-    submitting_lab_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete="SET NULL"))
+    submitting_lab_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete="SET NULL", name="fk_BS_sublab_id"))
     sample_count = Column(INTEGER) #: Number of samples in the submission
     extraction_kit = relationship("KitType", back_populates="submissions") #: The extraction kit used
-    extraction_kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL"))
+    extraction_kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", name="fk_BS_extkit_id"))
     submission_type = Column(String(32))
     technician = Column(String(64))
     # Move this into custom types?
@@ -94,10 +94,12 @@ class BasicSubmission(Base):
 class  BacterialCulture(BasicSubmission):
     control = relationship("Control", back_populates="submissions") #: A control sample added to submission
     control_id = Column(INTEGER, ForeignKey("_control_samples.id", ondelete="SET NULL", name="fk_BC_control_id"))
+    samples = relationship("BCSample", back_populates="rsl_plate", uselist=True)
+    # bc_sample_id = Column(INTEGER, ForeignKey("_bc_samples.id", ondelete="SET NULL", name="fk_BC_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "bacterial_culture", "polymorphic_load": "inline"}
     
 
 class Wastewater(BasicSubmission):
-    samples = relationship("Sample", back_populates="rsl_plate")
-    sample_id = Column(String, ForeignKey("_ww_samples.id", ondelete="SET NULL", name="fk_WW_sample_id"))
+    samples = relationship("WWSample", back_populates="rsl_plate", uselist=True)
+    # ww_sample_id = Column(String, ForeignKey("_ww_samples.id", ondelete="SET NULL", name="fk_WW_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "wastewater", "polymorphic_load": "inline"}
