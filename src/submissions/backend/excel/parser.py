@@ -54,7 +54,6 @@ class SheetParser(object):
 
 
     def _parse_bacterial_culture(self):
-        # submission_info = self.xl.parse("Sample List")
         submission_info = self._parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2
         tech = str(submission_info.iloc[11][1])
@@ -86,13 +85,6 @@ class SheetParser(object):
         enrichment_info = self.xl.parse("Enrichment Worksheet")
         extraction_info = self.xl.parse("Extraction Worksheet")
         qprc_info = self.xl.parse("qPCR Worksheet")
-        # iloc is [row][column] and the first row is set as header row so -2
-        # self.sub['submitter_plate_num'] = submission_info.iloc[0][1]
-        # self.sub['rsl_plate_num'] = str(submission_info.iloc[10][1])
-        # self.sub['submitted_date'] = submission_info.iloc[1][1].date()#.strftime("%Y-%m-%d")
-        # self.sub['submitting_lab'] = submission_info.iloc[0][3]
-        # self.sub['sample_count'] = str(submission_info.iloc[2][3])
-        # self.sub['extraction_kit'] = submission_info.iloc[3][3]
         self.sub['technician'] = f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}"
         # reagents
         self.sub['lot_lysis_buffer'] = enrichment_info.iloc[0][14]
@@ -112,24 +104,6 @@ class SheetParser(object):
         sample_parser = SampleParser(submission_info.iloc[16:40])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
-        # tech = str(submission_info.iloc[11][1])
-        # if tech == "nan":
-        #     tech = "Unknown"
-        # elif len(tech.split(",")) > 1:
-        #     tech_reg = re.compile(r"[A-Z]{2}")
-        #     tech = ", ".join(tech_reg.findall(tech))
-        
-        
-        # self.sub['lot_wash_1'] = submission_info.iloc[1][6]
-        # self.sub['lot_wash_2'] = submission_info.iloc[2][6]
-        # self.sub['lot_binding_buffer'] = submission_info.iloc[3][6]
-        # self.sub['lot_magnetic_beads'] = submission_info.iloc[4][6]
-        # self.sub['lot_lysis_buffer'] = submission_info.iloc[5][6]
-        # self.sub['lot_elution_buffer'] = submission_info.iloc[6][6]
-        # self.sub['lot_isopropanol'] = submission_info.iloc[9][6]
-        # self.sub['lot_ethanol'] = submission_info.iloc[10][6]
-        # self.sub['lot_positive_control'] = None #submission_info.iloc[103][1]
-        # self.sub['lot_plate'] = submission_info.iloc[12][6]
 
 
 class SampleParser(object):
@@ -147,9 +121,9 @@ class SampleParser(object):
             new.sample_id = sample['Unnamed: 1']
             new.organism = sample['Unnamed: 2']
             new.concentration = sample['Unnamed: 3']
-            print(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
+            # print(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
             try:
-                not_a_nan = not np.isnan(new.sample_id)
+                not_a_nan = not np.isnan(new.sample_id) and new.sample_id.lower() != 'blank'
             except TypeError:
                 not_a_nan = True
             if not_a_nan:

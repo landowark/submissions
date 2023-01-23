@@ -4,9 +4,9 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QDateEdit, QTableView,
     QTextEdit, QSizePolicy, QWidget,
     QGridLayout, QPushButton, QSpinBox,
-    QScrollBar, QScrollArea
+    QScrollBar, QScrollArea, QHBoxLayout
 )
-from PyQt6.QtCore import Qt, QDate, QAbstractTableModel
+from PyQt6.QtCore import Qt, QDate, QAbstractTableModel, QSize
 from PyQt6.QtGui import QFontMetrics
 
 from backend.db import get_all_reagenttype_names, submissions_to_df, lookup_submission_by_id, lookup_all_sample_types, create_kit_from_yaml
@@ -35,7 +35,7 @@ class AddReagentQuestion(QDialog):
         self.buttonBox.rejected.connect(self.reject)
 
         self.layout = QVBoxLayout()
-        message = QLabel(f"Couldn't find reagent type {reagent_type.replace('_', ' ').title()}: {reagent_lot} in the database.\nWould you like to add it?")
+        message = QLabel(f"Couldn't find reagent type {reagent_type.replace('_', ' ').title().strip('Lot')}: {reagent_lot} in the database.\nWould you like to add it?")
         self.layout.addWidget(message)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
@@ -151,6 +151,7 @@ class SubmissionDetails(QDialog):
         interior.setParent(self)
         data = lookup_submission_by_id(ctx=ctx, id=id)
         base_dict = data.to_dict()
+        del base_dict['id']
         base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
         base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
         template = env.get_template("submission_details.txt")
@@ -307,3 +308,25 @@ class ReagentTypeForm(QWidget):
         eol = QSpinBox()
         eol.setMinimum(0)
         grid.addWidget(eol, 0,3)
+
+
+class ControlsDatePicker(QWidget):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.start_date = QDateEdit(calendarPopup=True)
+        threemonthsago = QDate.currentDate().addDays(-90)
+        self.start_date.setDate(threemonthsago)
+        self.end_date = QDateEdit(calendarPopup=True)
+        self.end_date.setDate(QDate.currentDate())
+        self.layout = QHBoxLayout()
+        self.layout.addWidget(QLabel("Start Date"))
+        self.layout.addWidget(self.start_date)
+        self.layout.addWidget(QLabel("End Date"))
+        self.layout.addWidget(self.end_date)
+        
+        self.setLayout(self.layout)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def sizeHint(self):
+        return QSize(80,20)  

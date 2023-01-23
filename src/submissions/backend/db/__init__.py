@@ -3,10 +3,13 @@ import pandas as pd
 # from sqlite3 import IntegrityError
 from sqlalchemy.exc import IntegrityError
 import logging
-import datetime
+from datetime import date, datetime
 from sqlalchemy import and_
 import uuid
 import base64
+from sqlalchemy import JSON
+import json
+from dateutil.relativedelta import relativedelta
 
 logger = logging.getLogger(__name__)
 
@@ -227,3 +230,51 @@ def lookup_all_sample_types(ctx:dict) -> list[str]:
     uses = [item.used_for for item in ctx['database_session'].query(models.KitType).all()]
     uses = list(set([item for sublist in uses for item in sublist]))
     return uses
+
+
+
+def get_all_available_modes(ctx:dict) -> list[str]:
+    rel = ctx['database_session'].query(models.Control).first()
+    cols = [item.name for item in list(rel.__table__.columns) if isinstance(item.type, JSON)]
+    return cols
+
+
+
+def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, end_date:date|None=None) -> list:
+    """
+    Returns a list of control objects that are instances of the input controltype.
+
+    Args:
+        con_type (str): Name of the control type.
+        ctx (dict): Settings passed down from gui.
+
+    Returns:
+        list: Control instances.
+    """
+    
+    # print(f"Using dates: {start_date} to {end_date}")
+    query = ctx['database_session'].query(models.ControlType).filter_by(name=con_type)
+    try:
+        output = query.first().instances
+    except AttributeError:
+        output = None
+    # Hacky solution to my not being able to get the sql query to work.
+    if start_date != None and end_date != None:
+        output = [item for item in output if item.submitted_date.date() > start_date and item.submitted_date.date() < end_date]
+    # print(f"Type {con_type}: {query.first()}")
+    return output
+
+
+def get_control_subtypes(ctx:dict, type:str, mode:str):
+    try:
+        outs = get_all_controls_by_type(ctx=ctx, con_type=type)[0]
+    except TypeError:
+        return []
+    jsoner = json.loads(getattr(outs, mode))
+    print(f"JSON out: {jsoner}")
+    try:
+        genera = list(jsoner.keys())[0]
+    except IndexError:
+        return []
+    subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
+    return subtypes

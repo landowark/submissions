@@ -1,5 +1,10 @@
 import sys
 from pathlib import Path
+import os
+if getattr(sys, 'frozen', False):
+    os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = "1"
+else :
+    pass
 from configure import get_config, create_database_session, setup_logger
 ctx = get_config(None)
 from PyQt6.QtWidgets import QApplication
@@ -10,7 +15,7 @@ logger = setup_logger(verbose=True)
 ctx["database_session"] = create_database_session(Path(ctx['database']))
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
+    app = QApplication(['', '--no-sandbox'])
     ex = App(ctx=ctx)
     sys.exit(app.exec())
 

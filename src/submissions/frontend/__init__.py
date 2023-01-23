@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QSpinBox
 )
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtCore import QDateTime, QDate
+from PyQt6.QtCore import QDateTime, QDate, QSignalBlocker
 from PyQt6.QtCore import pyqtSlot
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
@@ -19,16 +19,20 @@ import plotly.express as px
 import yaml
 
 from backend.excel.parser import SheetParser
+from backend.excel.reports import convert_control_by_mode, convert_data_list_to_df
 from backend.db import (construct_submission_info, lookup_reagent, 
     construct_reagent, store_reagent, store_submission, lookup_kittype_by_use,
     lookup_regent_by_type_name_and_kit_name, lookup_all_orgs, lookup_submissions_by_date_range,
-    get_all_Control_Types_names, create_kit_from_yaml
+    get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
+    get_control_subtypes
 )
 from backend.excel.reports import make_report_xlsx
 import numpy
-from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder
+from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder, ControlsDatePicker
 import logging
 import difflib
+
+from frontend.visualizations.charts import create_charts
 
 logger = logging.getLogger(__name__)
 logger.info("Hello, I am a logger")
@@ -54,7 +58,8 @@ class App(QMainWindow):
         self._createMenuBar()
         self._createToolBar()
         self._connectActions()
-        self.renderPage()
+        # self.renderPage()
+        self.controls_getter()
         self.show()
 
     def _createMenuBar(self):
@@ -86,6 +91,10 @@ class App(QMainWindow):
         self.addReagentAction.triggered.connect(self.add_reagent)
         self.generateReportAction.triggered.connect(self.generateReport)
         self.addKitAction.triggered.connect(self.add_kit)
+        self.table_widget.control_typer.currentIndexChanged.connect(self.controls_getter)
+        self.table_widget.mode_typer.currentIndexChanged.connect(self.controls_getter)
+        self.table_widget.datepicker.start_date.dateChanged.connect(self.controls_getter)
+        self.table_widget.datepicker.end_date.dateChanged.connect(self.controls_getter)
 
 
     def importSubmission(self):
@@ -207,6 +216,28 @@ class App(QMainWindow):
         html += '</body></html>'
         self.table_widget.webengineview.setHtml(html)
         self.table_widget.webengineview.update()
+        # type = self.table_widget.control_typer.currentText()
+        # mode = self.table_widget.mode_typer.currentText()
+        # controls = get_all_controls_by_type(ctx=self.ctx, type=type)
+        # data = []
+        # for control in controls:
+        #     dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=mode)
+        #     data.append(dicts)
+        # data = [item for sublist in data for item in sublist]
+        # # print(data)
+        # df = convert_data_list_to_df(ctx=self.ctx, input=data)
+        # fig = create_charts(ctx=self.ctx, df=df)
+        
+        # print(fig)
+        # html = '<html><body>'
+        # html += plotly.offline.plot(fig, output_type='div', auto_open=True, image = 'png', image_filename='plot_image')
+        # html += '</body></html>'
+        # html = plotly.io.to_html(fig)
+        # # print(html)
+        # # with open("C:\\Users\\lwark\\Desktop\\test.html", "w") as f:
+        # #     f.write(html)
+        # self.table_widget.webengineview.setHtml(html)
+        # self.table_widget.webengineview.update()
 
 
     def submit_new_sample(self):
@@ -294,19 +325,101 @@ class App(QMainWindow):
 
     def add_kit(self):
         home_dir = str(Path(self.ctx["directory_path"]))
-        fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir)[0])
+        fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir, filter = "yml(*.yml)")[0])
         assert fname.exists()
-        with open(fname.__str__(), "r") as stream:
-            try:
-                exp = yaml.load(stream, Loader=yaml.Loader)
-            except yaml.YAMLError as exc:
-                logger.error(f'Error reading yaml file {fname}: {exc}')
-                return {}
+        try:
+            with open(fname.__str__(), "r") as stream:
+                try:
+                    exp = yaml.load(stream, Loader=yaml.Loader)
+                except yaml.YAMLError as exc:
+                    logger.error(f'Error reading yaml file {fname}: {exc}')
+                    return {}
+        except PermissionError:
+            return
         create_kit_from_yaml(ctx=self.ctx, exp=exp)
+
+
+    def controls_getter(self):
+        # self.table_widget.webengineview.setHtml("")
+        try:
+            self.table_widget.sub_typer.disconnect()
+        except TypeError:
+            pass
+        if self.table_widget.datepicker.start_date.date() > self.table_widget.datepicker.end_date.date():
+            print("that is not allowed!")
+            # self.table_widget.datepicker.start_date.setDate(e_date)
+            threemonthsago = self.table_widget.datepicker.end_date.date().addDays(-90)
+            with QSignalBlocker(self.table_widget.datepicker.start_date) as blocker:
+                self.table_widget.datepicker.start_date.setDate(threemonthsago)
+            self.controls_getter()
+            return
+        self.start_date = self.table_widget.datepicker.start_date.date().toPyDate()
+        self.end_date = self.table_widget.datepicker.end_date.date().toPyDate()
+        self.con_type = self.table_widget.control_typer.currentText()
+        self.mode = self.table_widget.mode_typer.currentText()
+        self.table_widget.sub_typer.clear()
+        sub_types = get_control_subtypes(ctx=self.ctx, type=self.con_type, mode=self.mode)
+        if sub_types != []:
+            with QSignalBlocker(self.table_widget.sub_typer) as blocker: 
+                self.table_widget.sub_typer.addItems(sub_types)
+            self.table_widget.sub_typer.setEnabled(True)
+            self.table_widget.sub_typer.currentTextChanged.connect(self.chart_maker)
+        else:
+           
+            self.table_widget.sub_typer.clear()
+            self.table_widget.sub_typer.setEnabled(False)
+        self.chart_maker()
         
         
+    def chart_maker(self):
+        print(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
+        if self.table_widget.sub_typer.currentText() == "":
+            self.subtype = None
+        else:
+            self.subtype = self.table_widget.sub_typer.currentText()
+        print(f"Subtype: {self.subtype}")
+        controls = get_all_controls_by_type(ctx=self.ctx, con_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
+        if controls == None:
+            return
+        data = []
+        for control in controls:
+            dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=self.mode)
+            data.append(dicts)
+        data = [item for sublist in data for item in sublist]
+        # print(data)
+        df = convert_data_list_to_df(ctx=self.ctx, input=data, subtype=self.subtype)
+        if self.subtype == None:
+            title = self.mode
+        else:
+            title = f"{self.mode} - {self.subtype}"
+        fig = create_charts(ctx=self.ctx, df=df, ytitle=title)
+        print(f"Updating figure...")
+        html = '<html><body>'
+        if fig != None:
+            html += plotly.offline.plot(fig, output_type='div', include_plotlyjs='cdn')#, image = 'png', auto_open=True, image_filename='plot_image')
+        else:
+            html += "<h1>No data was retrieved for the given parameters.</h1>"
+        html += '</body></html>'
+        # with open("C:\\Users\\lwark\\Desktop\\test.html", "w") as f:
+        #     f.write(html)
+        self.table_widget.webengineview.setHtml(html)
+        self.table_widget.webengineview.update()
+        print("Figure updated... I hope.")
+
+
+    # def datechange(self):
         
-    
+    #     s_date = self.table_widget.datepicker.start_date.date()
+    #     e_date = self.table_widget.datepicker.end_date.date()
+    #     if s_date > e_date:
+    #         print("that is not allowed!")
+    #         # self.table_widget.datepicker.start_date.setDate(e_date)
+    #         threemonthsago = e_date.addDays(-90)
+    #         self.table_widget.datepicker.start_date.setDate(threemonthsago)
+    #     self.chart_maker()
+
+        
+   
 class AddSubForm(QWidget):
     
     def __init__(self, parent):
@@ -354,7 +467,7 @@ class AddSubForm(QWidget):
         # self.tab1.layout.addWidget(self.scroller)
         # self.tab1.setWidget(self.scroller)
         # self.tab1.setMinimumHeight(300)
-
+        self.datepicker = ControlsDatePicker()
         self.webengineview = QWebEngineView()
         # data = '''<html>Hello World</html>'''
         # self.webengineview.setHtml(data)
@@ -362,7 +475,15 @@ class AddSubForm(QWidget):
         self.control_typer = QComboBox()
         con_types = get_all_Control_Types_names(ctx=parent.ctx)
         self.control_typer.addItems(con_types)
+        self.mode_typer = QComboBox()
+        mode_types = get_all_available_modes(ctx=parent.ctx)
+        self.mode_typer.addItems(mode_types)
+        self.sub_typer = QComboBox()
+        self.sub_typer.setEnabled(False)
+        self.tab2.layout.addWidget(self.datepicker)
         self.tab2.layout.addWidget(self.control_typer)
+        self.tab2.layout.addWidget(self.mode_typer)
+        self.tab2.layout.addWidget(self.sub_typer)
         self.tab2.layout.addWidget(self.webengineview)
         self.tab2.setLayout(self.tab2.layout)
         # Add tabs to widget
@@ -372,113 +493,3 @@ class AddSubForm(QWidget):
         self.tab3.setLayout(self.tab3.layout)
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
-
-        
-        
-    # @pyqtSlot()
-    # def on_click(self):
-    #     print("\n")
-    #     for currentQTableWidgetItem in self.tableWidget.selectedItems():
-    #         print(currentQTableWidgetItem.row(), currentQTableWidgetItem.column(), currentQTableWidgetItem.text())
-
-
-
-# import sys
-# from pathlib import Path
-
-# from textual import events
-# from textual.app import App, ComposeResult
-# from textual.containers import Container, Vertical
-# from textual.reactive import var
-# from textual.widgets import DirectoryTree, Footer, Header, Input, Label
-# from textual.css.query import NoMatches
-# sys.path.append(Path(__file__).absolute().parents[1].__str__())
-# from backend.excel.parser import SheetParser
-
-
-# class FormField(Input):
-
-#     def on_mount(self):
-#         self.placeholder = "Value not set."
-
-#     def update(self, input:str):
-#         self.value = input
-
-
-# class DataBrowser(App):
-#     """
-#     File browser input
-#     """    
-
-#     CSS_PATH = "static/css/data_browser.css"
-#     BINDINGS = [
-#         ("ctrl+f", "toggle_files", "Toggle Files"),
-#         ("ctrl+q", "quit", "Quit"),
-#     ]
-
-#     show_tree = var(True)
-#     context = {}
-
-#     def watch_show_tree(self, show_tree: bool) -> None:
-#         """Called when show_tree is modified."""
-#         self.set_class(show_tree, "-show-tree")
-
-#     def compose(self) -> ComposeResult:
-#         """Compose our UI."""
-#         if 'directory_path' in self.context:
-#             path = self.context['directory_path']
-#         else:
-#             path = "."
-#         yield Header()
-#         yield Container(
-#             DirectoryTree(path, id="tree-view"),
-#             Vertical(
-#                 Label("[b]File Name[/b]", classes='box'), FormField(id="file-name", classes='box'),
-#                 # Label("[b]Sample Type[/b]", classes='box'), FormField(id="sample-type", classes='box'),
-#                 id="form-view"
-#             )
-#         )
-#         yield Footer()
-
-
-#     def on_mount(self, event: events.Mount) -> None:
-#         self.query_one(DirectoryTree).focus()
-
-
-#     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-#         """Called when the user click a file in the directory tree."""
-#         event.stop()
-#         sample = SheetParser(Path(event.path), **self.context)
-#         sample_view = self.query_one("#file-name", FormField)
-#         # sample_type = self.query_one("#sample-type", FormField)
-#         sample_view.update(event.path)
-#         # sample_type.update(sample.sub['sample_type'])
-#         form_view = self.query_one("#form-view", Vertical)
-#         if sample.sub != None:
-#             for var in sample.sub.keys():
-#                 # if var == "sample_type":
-#                 #     continue
-#                 try:
-#                     deleter = self.query_one(f"#{var}_label")
-#                     deleter.remove()
-#                 except NoMatches:
-#                     pass
-#                 try:    
-#                     deleter = self.query_one(f"#{var}")
-#                     deleter.remove()
-#                 except NoMatches:
-#                     pass
-#                 form_view.mount(Label(var.replace("_", " ").upper(), id=f"{var}_label", classes='box added'))
-#                 form_view.mount(FormField(id=var, classes='box added', value=sample.sub[var]))
-#         else:
-#             adds = self.query(".added")
-#             for add in adds:
-#                 add.remove()
-
-#     def action_toggle_files(self) -> None:
-#         """Called in response to key binding."""
-#         self.show_tree = not self.show_tree
-
-# if __name__ == "__main__":
-#     app = DataBrowser()
-#     app.run()
