@@ -1,13 +1,12 @@
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, text, JSON, INTEGER, ForeignKey, UniqueConstraint, Table
-from sqlalchemy.orm import relationship, relationships
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table
+from sqlalchemy.orm import relationship
 from datetime import datetime as dt
 
 reagents_submissions = Table("_reagents_submissions", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("submission_id", INTEGER, ForeignKey("_submissions.id")))
 
 class BasicSubmission(Base):
 
-    # TODO: Figure out if I want seperate tables for different sample types.
     __tablename__ = "_submissions"
 
     id = Column(INTEGER, primary_key=True) #: primary key   
@@ -32,7 +31,6 @@ class BasicSubmission(Base):
     }
 
     def to_dict(self):
-        print(self.submitting_lab)
         try:
             sub_lab = self.submitting_lab.name
         except AttributeError:

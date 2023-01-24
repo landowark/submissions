@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QPushButton, QMenuBar, QFileDialog,
     QLineEdit, QMessageBox, QComboBox, QDateEdit, QHBoxLayout,
-    QSpinBox
+    QSpinBox, QScrollArea
 )
 from PyQt6.QtGui import QAction, QIcon
 from PyQt6.QtCore import QDateTime, QDate, QSignalBlocker
@@ -108,8 +108,9 @@ class App(QMainWindow):
             prsr = SheetParser(fname, **self.ctx)
         except PermissionError:
             return
-        print(f"prsr.sub = {prsr.sub}")
+        logger.debug(f"prsr.sub = {prsr.sub}")
         # replace formlayout with tab1.layout
+        # self.form = self.table_widget.formlayout
         for item in self.table_widget.formlayout.parentWidget().findChildren(QWidget):
             item.setParent(None)
         variable_parser = re.compile(r"""
@@ -128,11 +129,11 @@ class App(QMainWindow):
                 mo = variable_parser.fullmatch(item).lastgroup
             except AttributeError:
                 mo = "other"
-            print(f"Mo: {mo}")
+            logger.debug(f"Mo: {mo}")
             match mo:
                 case 'submitting_lab':
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-                    print(f"{item}: {prsr.sub[item]}")
+                    logger.debug(f"{item}: {prsr.sub[item]}")
                     add_widget = QComboBox()
                     labs = [item.__str__() for item in lookup_all_orgs(ctx=self.ctx)]
                     try:
@@ -167,15 +168,15 @@ class App(QMainWindow):
                     add_widget.setEditable(True)
                     # Ensure that all reagenttypes have a name that matches the items in the excel parser
                     query_var = item.replace("lot_", "")
-                    print(f"Query for: {query_var}")
+                    logger.debug(f"Query for: {query_var}")
                     if isinstance(prsr.sub[item], numpy.float64):
-                        print(f"{prsr.sub[item]} is a numpy float!")
+                        logger.debug(f"{prsr.sub[item]} is a numpy float!")
                         try:
                             prsr.sub[item] = int(prsr.sub[item])
                         except ValueError:
                             pass
                     relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name_and_kit_name(ctx=self.ctx, type_name=query_var, kit_name=prsr.sub['extraction_kit'])]
-                    print(f"Relevant reagents: {relevant_reagents}")
+                    logger.debug(f"Relevant reagents: {relevant_reagents}")
                     if prsr.sub[item] not in relevant_reagents and prsr.sub[item] != 'nan':
                         try:
                             check = not numpy.isnan(prsr.sub[item])
@@ -187,7 +188,7 @@ class App(QMainWindow):
                     add_widget.addItems(relevant_reagents)
                 # TODO: make samples not appear in frame.
                 case 'samples':
-                    print(f"{item}: {prsr.sub[item]}")
+                    logger.debug(f"{item}: {prsr.sub[item]}")
                     self.samples = prsr.sub[item]
                 case _:
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
@@ -216,28 +217,7 @@ class App(QMainWindow):
         html += '</body></html>'
         self.table_widget.webengineview.setHtml(html)
         self.table_widget.webengineview.update()
-        # type = self.table_widget.control_typer.currentText()
-        # mode = self.table_widget.mode_typer.currentText()
-        # controls = get_all_controls_by_type(ctx=self.ctx, type=type)
-        # data = []
-        # for control in controls:
-        #     dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=mode)
-        #     data.append(dicts)
-        # data = [item for sublist in data for item in sublist]
-        # # print(data)
-        # df = convert_data_list_to_df(ctx=self.ctx, input=data)
-        # fig = create_charts(ctx=self.ctx, df=df)
-        
-        # print(fig)
-        # html = '<html><body>'
-        # html += plotly.offline.plot(fig, output_type='div', auto_open=True, image = 'png', image_filename='plot_image')
-        # html += '</body></html>'
-        # html = plotly.io.to_html(fig)
-        # # print(html)
-        # # with open("C:\\Users\\lwark\\Desktop\\test.html", "w") as f:
-        # #     f.write(html)
-        # self.table_widget.webengineview.setHtml(html)
-        # self.table_widget.webengineview.update()
+
 
 
     def submit_new_sample(self):
@@ -297,8 +277,8 @@ class App(QMainWindow):
                 case QLineEdit():
                     # ad hoc check to prevent double reporting of qdatedit under lineedit for some reason
                     if not isinstance(prev_item, QDateEdit) and not isinstance(prev_item, QComboBox) and not isinstance(prev_item, QSpinBox):
-                        print(f"Previous: {prev_item}")
-                        print(f"Item: {item}")
+                        logger.debug(f"Previous: {prev_item}")
+                        logger.debug(f"Item: {item}")
                         values.append(item.text())
                 case QComboBox():
                     values.append(item.currentText())
@@ -346,7 +326,7 @@ class App(QMainWindow):
         except TypeError:
             pass
         if self.table_widget.datepicker.start_date.date() > self.table_widget.datepicker.end_date.date():
-            print("that is not allowed!")
+            logger.warning("Start date after end date is not allowed!")
             # self.table_widget.datepicker.start_date.setDate(e_date)
             threemonthsago = self.table_widget.datepicker.end_date.date().addDays(-90)
             with QSignalBlocker(self.table_widget.datepicker.start_date) as blocker:
@@ -372,12 +352,12 @@ class App(QMainWindow):
         
         
     def chart_maker(self):
-        print(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
+        logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
         if self.table_widget.sub_typer.currentText() == "":
             self.subtype = None
         else:
             self.subtype = self.table_widget.sub_typer.currentText()
-        print(f"Subtype: {self.subtype}")
+        logger.debug(f"Subtype: {self.subtype}")
         controls = get_all_controls_by_type(ctx=self.ctx, con_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
         if controls == None:
             return
@@ -386,14 +366,14 @@ class App(QMainWindow):
             dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=self.mode)
             data.append(dicts)
         data = [item for sublist in data for item in sublist]
-        # print(data)
+        # logger.debug(data)
         df = convert_data_list_to_df(ctx=self.ctx, input=data, subtype=self.subtype)
         if self.subtype == None:
             title = self.mode
         else:
             title = f"{self.mode} - {self.subtype}"
         fig = create_charts(ctx=self.ctx, df=df, ytitle=title)
-        print(f"Updating figure...")
+        logger.debug(f"Updating figure...")
         html = '<html><body>'
         if fig != None:
             html += plotly.offline.plot(fig, output_type='div', include_plotlyjs='cdn')#, image = 'png', auto_open=True, image_filename='plot_image')
@@ -404,7 +384,7 @@ class App(QMainWindow):
         #     f.write(html)
         self.table_widget.webengineview.setHtml(html)
         self.table_widget.webengineview.update()
-        print("Figure updated... I hope.")
+        logger.debug("Figure updated... I hope.")
 
 
     # def datechange(self):
@@ -412,7 +392,7 @@ class App(QMainWindow):
     #     s_date = self.table_widget.datepicker.start_date.date()
     #     e_date = self.table_widget.datepicker.end_date.date()
     #     if s_date > e_date:
-    #         print("that is not allowed!")
+    #         logger.debug("that is not allowed!")
     #         # self.table_widget.datepicker.start_date.setDate(e_date)
     #         threemonthsago = e_date.addDays(-90)
     #         self.table_widget.datepicker.start_date.setDate(threemonthsago)
@@ -448,6 +428,12 @@ class AddSubForm(QWidget):
         self.formlayout = QVBoxLayout(self)
         self.formwidget.setLayout(self.formlayout)
         self.formwidget.setFixedWidth(300)
+        
+        self.interior = QScrollArea()
+        self.interior.setWidgetResizable(True)
+        self.interior.setFixedWidth(325)
+        self.interior.setParent(self.tab1)
+        self.interior.setWidget(self.formwidget)
 
         self.sheetwidget = QWidget(self)
         self.sheetlayout = QVBoxLayout(self)
@@ -455,22 +441,16 @@ class AddSubForm(QWidget):
         self.sub_wid = SubmissionsSheet(parent.ctx)
         self.sheetlayout.addWidget(self.sub_wid)
 
-
         self.tab1.layout = QHBoxLayout(self)
         self.tab1.setLayout(self.tab1.layout)
         # self.tab1.layout.addLayout(self.formlayout)
+        
+        # self.tab1.layout.addWidget(self.formwidget)
         self.tab1.layout.addWidget(self.formwidget)
         self.tab1.layout.addWidget(self.sheetwidget)
         # self.tab1.layout.addLayout(self.sheetlayout)
-        # self.tab1.setWidgetResizable(True)
-        # self.tab1.setVerticalScrollBar(QScrollBar())
-        # self.tab1.layout.addWidget(self.scroller)
-        # self.tab1.setWidget(self.scroller)
-        # self.tab1.setMinimumHeight(300)
         self.datepicker = ControlsDatePicker()
         self.webengineview = QWebEngineView()
-        # data = '''<html>Hello World</html>'''
-        # self.webengineview.setHtml(data)
         self.tab2.layout = QVBoxLayout(self)
         self.control_typer = QComboBox()
         con_types = get_all_Control_Types_names(ctx=parent.ctx)
@@ -493,3 +473,5 @@ class AddSubForm(QWidget):
         self.tab3.setLayout(self.tab3.layout)
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
+        print(self.tab1.layout.parentWidget().findChildren(QScrollArea))
+        

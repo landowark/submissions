@@ -6,11 +6,10 @@ if getattr(sys, 'frozen', False):
 else :
     pass
 from configure import get_config, create_database_session, setup_logger
+logger = setup_logger(verbosity=3)
 ctx = get_config(None)
 from PyQt6.QtWidgets import QApplication
 from frontend import App
-
-logger = setup_logger(verbose=True)
 
 ctx["database_session"] = create_database_session(Path(ctx['database']))
 

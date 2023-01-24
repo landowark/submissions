@@ -14,6 +14,9 @@ from jinja2 import Environment, FileSystemLoader
 
 import sys
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 if getattr(sys, 'frozen', False):
     loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
@@ -62,7 +65,7 @@ class AddReagentForm(QDialog):
         exp_input.setDate(QDate.currentDate())
         type_input = QComboBox()
         type_input.addItems([item.replace("_", " ").title() for item in get_all_reagenttype_names(ctx=ctx)])
-        print(f"Trying to find index of {reagent_type}")
+        logger.debug(f"Trying to find index of {reagent_type}")
         try:
             reagent_type = reagent_type.replace("_", " ").title()
         except AttributeError:
@@ -132,7 +135,7 @@ class SubmissionsSheet(QTableView):
 
     def show_details(self, item):
         index=(self.selectionModel().currentIndex())
-        # print(index)
+        # logger.debug(index)
         value=index.sibling(index.row(),0).data()
         dlg = SubmissionDetails(ctx=self.ctx, id=value)
         # dlg.show()
@@ -245,7 +248,7 @@ class KitAdder(QWidget):
     def submit(self):
         labels, values, reagents = self.extract_form_info(self)
         info = {item[0]:item[1] for item in zip(labels, values)}
-        print(info)
+        logger.debug(info)
         # info['reagenttypes'] = reagents
         # del info['name']
         # del info['extension_of_life_(months)']
@@ -257,7 +260,7 @@ class KitAdder(QWidget):
         yml_type[used]['kits'][info['kit_name']] = {}
         yml_type[used]['kits'][info['kit_name']]['cost'] = info['cost_per_run']
         yml_type[used]['kits'][info['kit_name']]['reagenttypes'] = reagents
-        print(yml_type)
+        logger.debug(yml_type)
         create_kit_from_yaml(ctx=self.ctx, exp=yml_type)
 
     def extract_form_info(self, object):
@@ -265,7 +268,7 @@ class KitAdder(QWidget):
         values = []
         reagents = {}
         for item in object.findChildren(QWidget):
-            print(item.parentWidget())
+            logger.debug(item.parentWidget())
             # if not isinstance(item.parentWidget(), ReagentTypeForm):
             match item:
                 case QLabel():
@@ -273,8 +276,8 @@ class KitAdder(QWidget):
                 case QLineEdit():
                     # ad hoc check to prevent double reporting of qdatedit under lineedit for some reason
                     if not isinstance(prev_item, QDateEdit) and not isinstance(prev_item, QComboBox) and not isinstance(prev_item, QSpinBox) and not isinstance(prev_item, QScrollBar):
-                        print(f"Previous: {prev_item}")
-                        print(f"Item: {item}, {item.text()}")
+                        logger.debug(f"Previous: {prev_item}")
+                        logger.debug(f"Item: {item}, {item.text()}")
                         values.append(item.text())
                 case QComboBox():
                     values.append(item.currentText())
@@ -286,7 +289,7 @@ class KitAdder(QWidget):
                     
                     re_labels, re_values, _ = self.extract_form_info(item) 
                     reagent = {item[0]:item[1] for item in zip(re_labels, re_values)}
-                    print(reagent)
+                    logger.debug(reagent)
                     # reagent = {reagent['name:']:{'eol':reagent['extension_of_life_(months):']}}
                     reagents[reagent['name']] = {'eol_ext':int(reagent['extension_of_life_(months)'])}
             prev_item = item

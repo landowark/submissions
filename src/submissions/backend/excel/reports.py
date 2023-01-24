@@ -3,6 +3,9 @@ from pandas import DataFrame
 import numpy as np
 from backend.db import models
 import json
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 def make_report_xlsx(records:list[dict]) -> DataFrame:
     df = DataFrame.from_records(records)
@@ -10,7 +13,7 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
     # table = df.pivot_table(values="Cost", index=["Submitting Lab", "Extraction Kit"], columns=["Cost", "Sample Count"], aggfunc={'Cost':np.sum,'Sample Count':np.sum})
     df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Cost': ['sum', 'count'], 'Sample Count':['sum']})
     # df2['Cost'] = df2['Cost'].map('${:,.2f}'.format)
-    print(df2.columns)
+    logger.debug(df2.columns)
     # df2['Cost']['sum'] = df2['Cost']['sum'].apply('${:,.2f}'.format)
     df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')] = df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')].applymap('${:,.2f}'.format)
     return df2
@@ -27,7 +30,7 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
 #     for ii in range(data_size):
 #         new_dict = {}
 #         for genus in sub_dict:
-#             print(genus)
+#             logger.debug(genus)
 #             sub_name = list(sub_dict[genus].keys())[ii]
 #             new_dict[genus] = sub_dict[genus][sub_name]
 #         output.append({"date":dict_name, "name": sub_name, "data": new_dict})
@@ -55,10 +58,10 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
 #         #     col_dict = entry[col_name]
 #         #     series = pd.Series(data=col_dict.values(), index=col_dict.keys(), name=col_name)
 #         #     # df[col_name] = series.values
-#         #     # print(df.index)
+#         #     # logger.debug(df.index)
 #         #     series_list.append(series)
 #         # df = DataFrame(series_list).T.fillna(0)
-#         # print(df)
+#         # logger.debug(df)
 #         dfs['name'] = df
 #     return dfs
 
@@ -74,14 +77,14 @@ def convert_control_by_mode(ctx:dict, control:models.Control, mode:str):
         for key in data[genus]:
             _dict[key] = data[genus][key]
         output.append(_dict)
-    # print(output)
+    # logger.debug(output)
     return output
 
 
 def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -> DataFrame:
     df = DataFrame.from_records(input)
     safe = ['name', 'submitted_date', 'genus', 'target']
-    print(df)
+    logger.debug(df)
     for column in df.columns:
         if "percent" in column:
             count_col = [item for item in df.columns if "count" in item][0]
@@ -90,5 +93,5 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
         if column not in safe:
             if subtype != None and column != subtype:
                 del df[column]
-    # print(df)
+    # logger.debug(df)
     return df

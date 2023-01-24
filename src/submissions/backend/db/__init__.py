@@ -11,7 +11,7 @@ from sqlalchemy import JSON
 import json
 from dateutil.relativedelta import relativedelta
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(f"submissions.{__name__}")
 
 def get_kits_by_use( ctx:dict, kittype_str:str|None) -> list:
     pass
@@ -35,7 +35,7 @@ def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None:
 
 
 def store_reagent(ctx:dict, reagent:models.Reagent) -> None:
-    print(reagent.__dict__)
+    logger.debug(reagent.__dict__)
     ctx['database_session'].add(reagent)
     ctx['database_session'].commit()
 
@@ -46,18 +46,18 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     info_dict['submission_type'] = info_dict['submission_type'].replace(" ", "_").lower()
     instance = model()
     for item in info_dict:
-        print(f"Setting {item} to {info_dict[item]}")
+        logger.debug(f"Setting {item} to {info_dict[item]}")
         match item:
             case "extraction_kit":
                 q_str = info_dict[item]
-                print(f"Looking up kit {q_str}")
+                logger.debug(f"Looking up kit {q_str}")
                 field_value = lookup_kittype_by_name(ctx=ctx, name=q_str)
-                print(f"Got {field_value} for kit {q_str}")
+                logger.debug(f"Got {field_value} for kit {q_str}")
             case "submitting_lab":
                 q_str = info_dict[item].replace(" ", "_").lower()
-                print(f"looking up organization: {q_str}")
+                logger.debug(f"looking up organization: {q_str}")
                 field_value = lookup_org_by_name(ctx=ctx, name=q_str)
-                print(f"Got {field_value} for organization {q_str}")
+                logger.debug(f"Got {field_value} for organization {q_str}")
             case "submitter_plate_num":
                 # Because of unique constraint, the submitter plate number cannot be None, so...
                 if info_dict[item] == None:
@@ -72,16 +72,16 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         try:
             setattr(instance, item, field_value)
         except AttributeError:
-            print(f"Could not set attribute: {item} to {info_dict[item]}")
+            logger.debug(f"Could not set attribute: {item} to {info_dict[item]}")
             continue
-    # print(instance.__dict__)
+    # logger.debug(instance.__dict__)
     return instance
     # looked_up = []
     # for reagent in reagents:
     #     my_reagent = lookup_reagent(reagent)
-    #     print(my_reagent)
+    #     logger.debug(my_reagent)
     #     looked_up.append(my_reagent)
-    # print(looked_up)
+    # logger.debug(looked_up)
     # instance.reagents = looked_up
     # ctx['database_session'].add(instance)
     # ctx['database_session'].commit()
@@ -89,7 +89,7 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
 def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
     reagent = models.Reagent()
     for item in info_dict:
-        print(f"Reagent info item: {item}")
+        logger.debug(f"Reagent info item: {item}")
         match item:
             case "lot":
                 reagent.lot = info_dict[item].upper()
@@ -100,7 +100,7 @@ def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
     try:
         reagent.expiry = reagent.expiry + reagent.type.eol_ext
     except TypeError as e:
-        print(f"WE got a type error: {e}.")
+        logger.debug(f"WE got a type error: {e}.")
     except AttributeError:
         pass
     return reagent
@@ -116,9 +116,9 @@ def get_all_reagenttype_names(ctx:dict) -> list[str]:
     return lookedup
 
 def lookup_reagenttype_by_name(ctx:dict, rt_name:str) -> models.ReagentType:
-    print(f"Looking up ReagentType by name: {rt_name}")
+    logger.debug(f"Looking up ReagentType by name: {rt_name}")
     lookedup = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==rt_name).first()
-    print(f"Found ReagentType: {lookedup}")
+    logger.debug(f"Found ReagentType: {lookedup}")
     return lookedup
 
 
@@ -127,7 +127,7 @@ def lookup_kittype_by_use(ctx:dict, used_by:str) -> list[models.KitType]:
     return ctx['database_session'].query(models.KitType).filter(models.KitType.used_for.contains(used_by))
 
 def lookup_kittype_by_name(ctx:dict, name:str) -> models.KitType:
-    print(f"Querying kittype: {name}")
+    logger.debug(f"Querying kittype: {name}")
     return ctx['database_session'].query(models.KitType).filter(models.KitType.name==name).first()
 
 
@@ -154,11 +154,11 @@ def lookup_all_orgs(ctx:dict) -> list[models.Organization]:
     return ctx['database_session'].query(models.Organization).all()
 
 def lookup_org_by_name(ctx:dict, name:str|None) -> models.Organization:
-    print(f"Querying organization: {name}")
+    logger.debug(f"Querying organization: {name}")
     return ctx['database_session'].query(models.Organization).filter(models.Organization.name==name).first()
 
 def submissions_to_df(ctx:dict, type:str|None=None):
-    print(f"Type: {type}")
+    logger.debug(f"Type: {type}")
     subs = [item.to_dict() for item in lookup_all_submissions_by_type(ctx=ctx, type=type)]
     df = pd.DataFrame.from_records(subs)
     return df
@@ -205,7 +205,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> None:
     except (UnicodeDecodeError, AttributeError):
         exp['password'] = exp['password'].encode()
     if base64.b64encode(exp['password']) != b'cnNsX3N1Ym1pNTVpb25z':
-        print(f"Not the correct password.")
+        logger.debug(f"Not the correct password.")
         return
     for type in exp:
         if type == "password":
@@ -220,8 +220,8 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> None:
                     rt = look_up
                     rt.kits.append(kit)
                 ctx['database_session'].add(rt)
-                print(rt.__dict__)
-            print(kit.__dict__)
+                logger.debug(rt.__dict__)
+            logger.debug(kit.__dict__)
         ctx['database_session'].add(kit)
     ctx['database_session'].commit()
 
@@ -252,7 +252,7 @@ def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, 
         list: Control instances.
     """
     
-    # print(f"Using dates: {start_date} to {end_date}")
+    # logger.debug(f"Using dates: {start_date} to {end_date}")
     query = ctx['database_session'].query(models.ControlType).filter_by(name=con_type)
     try:
         output = query.first().instances
@@ -261,7 +261,7 @@ def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, 
     # Hacky solution to my not being able to get the sql query to work.
     if start_date != None and end_date != None:
         output = [item for item in output if item.submitted_date.date() > start_date and item.submitted_date.date() < end_date]
-    # print(f"Type {con_type}: {query.first()}")
+    # logger.debug(f"Type {con_type}: {query.first()}")
     return output
 
 
@@ -271,7 +271,7 @@ def get_control_subtypes(ctx:dict, type:str, mode:str):
     except TypeError:
         return []
     jsoner = json.loads(getattr(outs, mode))
-    print(f"JSON out: {jsoner}")
+    logger.debug(f"JSON out: {jsoner}")
     try:
         genera = list(jsoner.keys())[0]
     except IndexError:

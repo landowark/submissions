@@ -13,11 +13,14 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class SheetParser(object):
 
     def __init__(self, filepath:Path|None = None, **kwargs):
+        logger.debug(f"Parsing {filepath.__str__()}")
         for kwarg in kwargs:
             setattr(self, f"_{kwarg}", kwargs[kwarg])
         if filepath == None:
+            logger.debug(f"No filepath.")
             self.xl = None
         else:
+            
             try:
                 self.xl = pd.ExcelFile(filepath.__str__())
             except ValueError:
@@ -76,6 +79,7 @@ class SheetParser(object):
         self.sub['lot_plate'] = submission_info.iloc[12][6]
         sample_parser = SampleParser(submission_info.iloc[15:111])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        logger.debug(f"Parser result: {self.sub}")
         self.sub['samples'] = sample_parse()
 
 
@@ -121,9 +125,10 @@ class SampleParser(object):
             new.sample_id = sample['Unnamed: 1']
             new.organism = sample['Unnamed: 2']
             new.concentration = sample['Unnamed: 3']
-            # print(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
+            # logger.debug(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
+            logger.debug(f"Got sample_id: {new.sample_id}")
             try:
-                not_a_nan = not np.isnan(new.sample_id) and new.sample_id.lower() != 'blank'
+                not_a_nan = not np.isnan(new.sample_id) and str(new.sample_id).lower() != 'blank'
             except TypeError:
                 not_a_nan = True
             if not_a_nan:

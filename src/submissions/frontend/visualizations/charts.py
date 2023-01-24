@@ -5,7 +5,7 @@ from plotly.graph_objects import Figure
 import logging
 from backend.excel import get_unique_values_in_df_column
 
-logger = logging.getLogger("controls.tools.vis_functions")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
@@ -160,7 +160,7 @@ def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None)
             color_discrete_sequence=None
         else:
             color = "target"
-            print(get_unique_values_in_df_column(df, 'target'))
+            # print(get_unique_values_in_df_column(df, 'target'))
             match get_unique_values_in_df_column(df, 'target'):
                 case ['Target']:
                     color_discrete_sequence=["blue"]

@@ -1,5 +1,5 @@
 import yaml
-import sys, os, stat, platform
+import sys, os, stat, platform, shutil
 import logging
 from logging import handlers
 from pathlib import Path
@@ -8,23 +8,25 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(f"submissions.{__name__}")
 
 package_dir = Path(__file__).parents[2].resolve()
 logger.debug(f"Package dir: {package_dir}")
 
-if platform.system == "Windows":
-    os_config_dir = "AppData"
-    logger.debug(f"Got platform Windows, config_dir: {os_config_dir}")
+if platform.system() == "Windows":
+    os_config_dir = "AppData/local"
+    print(f"Got platform Windows, config_dir: {os_config_dir}")
 else:
     os_config_dir = ".config"
-    logger.debug(f"Got platform other, config_dir: {os_config_dir}")
+    print(f"Got platform other, config_dir: {os_config_dir}")
 
 
 main_aux_dir = Path.home().joinpath(f"{os_config_dir}/submissions")
 
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
+
+
 
 
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
@@ -79,6 +81,16 @@ def get_config(settings_path: str|None) -> dict:
     ## register the tag handler
     yaml.add_constructor('!join', join)
     # if user hasn't defined config path in cli args
+    logger.debug(f"Making directory: {CONFIGDIR.__str__()}")
+    try:
+        CONFIGDIR.mkdir(parents=True)
+    except FileExistsError:
+        pass
+    logger.debug(f"Making directory: {LOGDIR.__str__()}")
+    try:
+        LOGDIR.mkdir(parents=True)
+    except FileExistsError:
+        pass
     if settings_path == None:
         # Check user .config/ozma directory
         # if Path.exists(Path.joinpath(CONFIGDIR, "config.yml")):
@@ -94,6 +106,7 @@ def get_config(settings_path: str|None) -> dict:
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
                 settings_path = package_dir.joinpath('config.yml')
+            shutil.copyfile(settings_path.__str__(), CONFIGDIR.joinpath("config.yml").__str__())
     else:
         if Path(settings_path).is_dir():
             settings_path = settings_path.joinpath("config.yml")
@@ -103,6 +116,7 @@ def get_config(settings_path: str|None) -> dict:
             logger.error("No config.yml file found. Using empty dictionary.")
             return {}
     logger.debug(f"Using {settings_path} for config file.")
+    
     with open(settings_path, "r") as stream:
         try:
             settings = yaml.load(stream, Loader=yaml.Loader)
@@ -141,7 +155,7 @@ def create_database_session(database_path: Path|None) -> Session:
     return session
 
 
-def setup_logger(verbose:bool=False):
+def setup_logger(verbosity:int=3):
     """Set logger levels using settings.
 
     Args:
@@ -161,34 +175,38 @@ def setup_logger(verbose:bool=False):
     fh.setLevel(logging.DEBUG)
     fh.name = "File"
     # create console handler with a higher log level
-    ch = logging.StreamHandler()
-    if verbose:
-        ch.setLevel(logging.DEBUG)
-    else:
-        ch.setLevel(logging.WARNING)
+    ch = logging.StreamHandler(stream=sys.stdout)
+    match verbosity:
+        case 3:
+            ch.setLevel(logging.DEBUG)
+        case 2:
+            ch.setLevel(logging.INFO)
+        case 1:
+            ch.setLevel(logging.WARNING)
     ch.name = "Stream"
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
-    ch.setLevel(logging.ERROR)
+    # ch.setLevel(logging.ERROR)
     # add the handlers to the logger
     logger.addHandler(fh)
     logger.addHandler(ch)
-    stderr_logger = logging.getLogger('STDERR')
+    # stderr_logger = logging.getLogger('STDERR')
+    
     return logger
     # sl = StreamToLogger(stderr_logger, logging.ERROR)
     # sys.stderr = sl
 
-def set_logger_verbosity(verbosity):
-    """Does what it says.
-    """
-    handler = [item for item in logger.parent.handlers if item.name == "Stream"][0]
-    match verbosity:
-        case 3:
-            handler.setLevel(logging.DEBUG)
-        case 2:
-            handler.setLevel(logging.INFO)
-        case 1:
-            handler.setLevel(logging.WARNING)
+# def set_logger_verbosity(verbosity):
+#     """Does what it says.
+#     """
+#     handler = [item for item in logger.parent.handlers if item.name == "Stream"][0]
+#     match verbosity:
+#         case 3:
+#             handler.setLevel(logging.DEBUG)
+#         case 2:
+#             handler.setLevel(logging.INFO)
+#         case 1:
+#             handler.setLevel(logging.WARNING)
 
