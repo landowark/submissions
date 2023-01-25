@@ -168,20 +168,27 @@ def setup_logger(verbosity:int=3):
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
     try:
-        fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
-    except FileNotFoundError as e:
-        Path(LOGDIR).mkdir(parents=True, exist_ok=True)
-        fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
+        Path(LOGDIR).mkdir(parents=True)
+    #     fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
+    # except FileNotFoundError as e:
+    except FileExistsError:
+        pass
+    fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
     fh.setLevel(logging.DEBUG)
     fh.name = "File"
     # create console handler with a higher log level
     ch = logging.StreamHandler(stream=sys.stdout)
+    # create custom logger with STERR -> log
+    # ch = StreamToLogger(logger=logger, log_level=verbosity)
     match verbosity:
         case 3:
+            # verb = logging.DEBUG
             ch.setLevel(logging.DEBUG)
         case 2:
+            # verb = logging.INFO
             ch.setLevel(logging.INFO)
         case 1:
+            # verb = logging.WARNING
             ch.setLevel(logging.WARNING)
     ch.name = "Stream"
     # create formatter and add it to the handlers
@@ -190,13 +197,27 @@ def setup_logger(verbosity:int=3):
     ch.setFormatter(formatter)
     # ch.setLevel(logging.ERROR)
     # add the handlers to the logger
+    
     logger.addHandler(fh)
     logger.addHandler(ch)
+    def handle_exception(exc_type, exc_value, exc_traceback):
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+        sys.exit(f"Uncaught error: {exc_type}, {exc_traceback}, check logs.")
+
+    sys.excepthook = handle_exception
     # stderr_logger = logging.getLogger('STDERR')
-    
+    # sys.stderr = logger
     return logger
     # sl = StreamToLogger(stderr_logger, logging.ERROR)
     # sys.stderr = sl
+
+
+
+
 
 # def set_logger_verbosity(verbosity):
 #     """Does what it says.

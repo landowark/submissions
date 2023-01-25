@@ -4,11 +4,10 @@ from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QPushButton, QMenuBar, QFileDialog,
     QLineEdit, QMessageBox, QComboBox, QDateEdit, QHBoxLayout,
-    QSpinBox, QScrollArea
+    QSpinBox, QScrollArea, QScrollBar, QSizePolicy
 )
 from PyQt6.QtGui import QAction, QIcon
-from PyQt6.QtCore import QDateTime, QDate, QSignalBlocker
-from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtCore import pyqtSlot, QDateTime, QDate, QSignalBlocker, Qt
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 import pandas as pd
@@ -198,25 +197,27 @@ class App(QMainWindow):
         submit_btn = QPushButton("Submit")
         self.table_widget.formlayout.addWidget(submit_btn)
         submit_btn.clicked.connect(self.submit_new_sample)
+        # self.table_widget.interior.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.MinimumExpanding)
+        print(self.table_widget.formwidget.size())
+        
 
-
-    def renderPage(self):
-        """
-        Test function for plotly chart rendering
-        """        
-        df = pd.read_excel("C:\\Users\\lwark\\Desktop\\test_df.xlsx", engine="openpyxl")
-        fig = px.bar(df, x="submitted_date", y="kraken_percent", color="genus", title="Long-Form Input")
-        fig.update_layout(
-            xaxis_title="Submitted Date (* - Date parsed from fastq file creation date)",
-            yaxis_title="Kraken Percent",
-            showlegend=True,
-            barmode='stack'
-        )
-        html = '<html><body>'
-        html += plotly.offline.plot(fig, output_type='div', include_plotlyjs='cdn', auto_open=True, image = 'png', image_filename='plot_image')
-        html += '</body></html>'
-        self.table_widget.webengineview.setHtml(html)
-        self.table_widget.webengineview.update()
+    # def renderPage(self):
+    #     """
+    #     Test function for plotly chart rendering
+    #     """        
+    #     df = pd.read_excel("C:\\Users\\lwark\\Desktop\\test_df.xlsx", engine="openpyxl")
+    #     fig = px.bar(df, x="submitted_date", y="kraken_percent", color="genus", title="Long-Form Input")
+    #     fig.update_layout(
+    #         xaxis_title="Submitted Date (* - Date parsed from fastq file creation date)",
+    #         yaxis_title="Kraken Percent",
+    #         showlegend=True,
+    #         barmode='stack'
+    #     )
+    #     html = '<html><body>'
+    #     html += plotly.offline.plot(fig, output_type='div', include_plotlyjs='cdn', auto_open=True, image = 'png', image_filename='plot_image')
+    #     html += '</body></html>'
+    #     self.table_widget.webengineview.setHtml(html)
+    #     self.table_widget.webengineview.update()
 
 
 
@@ -429,10 +430,13 @@ class AddSubForm(QWidget):
         self.formwidget.setLayout(self.formlayout)
         self.formwidget.setFixedWidth(300)
         
-        self.interior = QScrollArea()
+        self.interior = QScrollArea(self.tab1)
+        # self.interior.verticalScrollBar()
+        # self.interior.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.interior.setWidgetResizable(True)
+        
         self.interior.setFixedWidth(325)
-        self.interior.setParent(self.tab1)
+        # self.interior.setParent(self.tab1)
         self.interior.setWidget(self.formwidget)
 
         self.sheetwidget = QWidget(self)
@@ -445,8 +449,8 @@ class AddSubForm(QWidget):
         self.tab1.setLayout(self.tab1.layout)
         # self.tab1.layout.addLayout(self.formlayout)
         
+        self.tab1.layout.addWidget(self.interior)
         # self.tab1.layout.addWidget(self.formwidget)
-        self.tab1.layout.addWidget(self.formwidget)
         self.tab1.layout.addWidget(self.sheetwidget)
         # self.tab1.layout.addLayout(self.sheetlayout)
         self.datepicker = ControlsDatePicker()
