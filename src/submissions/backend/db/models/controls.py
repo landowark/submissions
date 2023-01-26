@@ -32,5 +32,6 @@ class Control(Base):
     matches = Column(JSON) #: unstructured hashes in matches.tsv for each organism
     kraken = Column(JSON) #: unstructured output from kraken_report
     # UniqueConstraint('name', name='uq_control_name')
-    submissions = relationship("BacterialCulture", back_populates="control")
+    submission_id = Column(INTEGER, ForeignKey("_submissions.id"))
+    submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id])
 

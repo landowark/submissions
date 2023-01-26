@@ -27,7 +27,7 @@ from backend.db import (construct_submission_info, lookup_reagent,
 )
 from backend.excel.reports import make_report_xlsx
 import numpy
-from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder, ControlsDatePicker
+from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder, ControlsDatePicker, OverwriteSubQuestion
 import logging
 import difflib
 
@@ -240,9 +240,16 @@ class App(QMainWindow):
                 parsed_reagents.append(wanted_reagent)
                 logger.debug(info)
         info['samples'] = self.samples
-        base_submission = construct_submission_info(ctx=self.ctx, info_dict=info)
+        base_submission, output = construct_submission_info(ctx=self.ctx, info_dict=info)
+        if output['message'] != None:
+            dlg = OverwriteSubQuestion(output['message'], base_submission.rsl_plate_num)
+            if dlg.exec():
+                base_submission.reagents = []
+            else:
+                return
         for reagent in parsed_reagents:
             base_submission.reagents.append(reagent)
+        logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
         result = store_submission(ctx=self.ctx, base_submission=base_submission)
         if result != None:
             msg = QMessageBox()
@@ -250,8 +257,11 @@ class App(QMainWindow):
             msg.setText("Error")
             msg.setInformativeText(result['message'])
             msg.setWindowTitle("Error")
+            msg.show()
             msg.exec()
         self.table_widget.sub_wid.setData()
+        for item in self.table_widget.formlayout.parentWidget().findChildren(QWidget):
+            item.setParent(None)
 
 
     def add_reagent(self, reagent_lot:str|None=None, reagent_type:str|None=None):

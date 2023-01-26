@@ -1,7 +1,9 @@
 from . import models
 import pandas as pd
-# from sqlite3 import IntegrityError
-from sqlalchemy.exc import IntegrityError
+import sqlalchemy.exc
+import sqlite3
+# from sqlalchemy.exc import IntegrityError, OperationalError
+# from sqlite3 import IntegrityError, OperationalError
 import logging
 from datetime import date, datetime
 from sqlalchemy import and_
@@ -19,48 +21,69 @@ def get_kits_by_use( ctx:dict, kittype_str:str|None) -> list:
 
 
 def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None:
+    logger.debug(f"Hello from store_submission")
     for sample in base_submission.samples:
         sample.rsl_plate = base_submission
+        logger.debug(f"Attempting to add sample: {sample.to_string()}")
         try:
             ctx['database_session'].add(sample)
-        except IntegrityError:
+        except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
+            logger.debug(f"Hit an integrity error : {e}")
             continue
     ctx['database_session'].add(base_submission)
+    logger.debug(f"Attempting to add submission: {base_submission.rsl_plate_num}")
     try:
         ctx['database_session'].commit()
-    except IntegrityError:
+    except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
+        logger.debug(f"Hit an integrity error : {e}")
         ctx['database_session'].rollback()
         return {"message":"This plate number already exists, so we can't add it."}
+    except (sqlite3.OperationalError, sqlalchemy.exc.IntegrityError) as e:
+        logger.debug(f"Hit an operational error: {e}")
+        ctx['database_session'].rollback()
+        return {"message":"The database is locked for editing."}
     return None
 
 
 def store_reagent(ctx:dict, reagent:models.Reagent) -> None:
     logger.debug(reagent.__dict__)
     ctx['database_session'].add(reagent)
-    ctx['database_session'].commit()
+    try:
+        ctx['database_session'].commit()
+    except OperationalError:
+        return {"message":"The database is locked for editing."}
 
 
 def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmission:
     query = info_dict['submission_type'].replace(" ", "")
+    instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
+    msg = "This submission already exists.\nWould you like to overwrite?"
     model = getattr(models, query)
     info_dict['submission_type'] = info_dict['submission_type'].replace(" ", "_").lower()
-    instance = model()
+    if instance == None:
+        instance = model()
+        msg = None
     for item in info_dict:
         logger.debug(f"Setting {item} to {info_dict[item]}")
         match item:
             case "extraction_kit":
                 q_str = info_dict[item]
                 logger.debug(f"Looking up kit {q_str}")
-                field_value = lookup_kittype_by_name(ctx=ctx, name=q_str)
+                try:
+                    field_value = lookup_kittype_by_name(ctx=ctx, name=q_str)
+                except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
+                    logger.error(f"Hit an integrity error: {e}")
                 logger.debug(f"Got {field_value} for kit {q_str}")
             case "submitting_lab":
                 q_str = info_dict[item].replace(" ", "_").lower()
-                logger.debug(f"looking up organization: {q_str}")
+                logger.debug(f"Looking up organization: {q_str}")
                 field_value = lookup_org_by_name(ctx=ctx, name=q_str)
                 logger.debug(f"Got {field_value} for organization {q_str}")
             case "submitter_plate_num":
                 # Because of unique constraint, the submitter plate number cannot be None, so...
-                if info_dict[item] == None:
+                logger.debug(f"Submitter plate id: {info_dict[item]}")
+                if info_dict[item] == None or info_dict[item] == "None":
+                    logger.debug(f"Got None as a submitter plate number, inserting random string to preserve database unique constraint.")
                     info_dict[item] = uuid.uuid4().hex.upper()
                 field_value = info_dict[item]
             # case "samples":
@@ -75,7 +98,9 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
             logger.debug(f"Could not set attribute: {item} to {info_dict[item]}")
             continue
     # logger.debug(instance.__dict__)
-    return instance
+    logger.debug(f"Constructed instance: {instance.to_string()}")
+    logger.debug(msg)
+    return instance, {'message':msg}
     # looked_up = []
     # for reagent in reagents:
     #     my_reagent = lookup_reagent(reagent)
@@ -129,7 +154,7 @@ def lookup_kittype_by_use(ctx:dict, used_by:str) -> list[models.KitType]:
 def lookup_kittype_by_name(ctx:dict, name:str) -> models.KitType:
     logger.debug(f"Querying kittype: {name}")
     return ctx['database_session'].query(models.KitType).filter(models.KitType.name==name).first()
-
+    
 
 def lookup_regent_by_type_name(ctx:dict, type_name:str) -> list[models.ReagentType]:
     # return [item for item in ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name==type_name).all()]
@@ -235,7 +260,11 @@ def lookup_all_sample_types(ctx:dict) -> list[str]:
 
 def get_all_available_modes(ctx:dict) -> list[str]:
     rel = ctx['database_session'].query(models.Control).first()
-    cols = [item.name for item in list(rel.__table__.columns) if isinstance(item.type, JSON)]
+    try:
+        cols = [item.name for item in list(rel.__table__.columns) if isinstance(item.type, JSON)]
+    except AttributeError as e:
+        logger.debug(f"Failed to get available modes from db: {e}")
+        cols = []
     return cols
 
 

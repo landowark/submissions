@@ -44,6 +44,25 @@ class AddReagentQuestion(QDialog):
         self.setLayout(self.layout)
 
 
+class OverwriteSubQuestion(QDialog):
+    def __init__(self, message:str, rsl_plate_num:str):
+        super().__init__()
+
+        self.setWindowTitle(f"Overwrite {rsl_plate_num}?")
+
+        QBtn = QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        self.layout = QVBoxLayout()
+        message = QLabel(message)
+        self.layout.addWidget(message)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+
 class AddReagentForm(QDialog):
     def __init__(self, ctx:dict, reagent_lot:str|None, reagent_type:str|None):
         super().__init__()

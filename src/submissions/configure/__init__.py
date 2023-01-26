@@ -73,15 +73,14 @@ def get_config(settings_path: str|None) -> dict:
     Returns:
         setting: dictionary of settings.
     """
-    # with open("C:\\Users\\lwark\\Desktop\\packagedir.txt", "w") as f:
-    #     f.write(package_dir.__str__())
     def join(loader, node):
         seq = loader.construct_sequence(node)
         return ''.join([str(i) for i in seq])
     ## register the tag handler
     yaml.add_constructor('!join', join)
-    # if user hasn't defined config path in cli args
+
     logger.debug(f"Making directory: {CONFIGDIR.__str__()}")
+    # make directories
     try:
         CONFIGDIR.mkdir(parents=True)
     except FileExistsError:
@@ -91,10 +90,9 @@ def get_config(settings_path: str|None) -> dict:
         LOGDIR.mkdir(parents=True)
     except FileExistsError:
         pass
+    # if user hasn't defined config path in cli args
     if settings_path == None:
-        # Check user .config/ozma directory
-        # if Path.exists(Path.joinpath(CONFIGDIR, "config.yml")):
-        #     settings_path = Path.joinpath(CONFIGDIR, "config.yml")
+        # Check user .config/submissions directory
         if CONFIGDIR.joinpath("config.yml").exists():
             settings_path = CONFIGDIR.joinpath("config.yml")
         # Check user .ozma directory
@@ -116,7 +114,6 @@ def get_config(settings_path: str|None) -> dict:
             logger.error("No config.yml file found. Using empty dictionary.")
             return {}
     logger.debug(f"Using {settings_path} for config file.")
-    
     with open(settings_path, "r") as stream:
         try:
             settings = yaml.load(stream, Loader=yaml.Loader)
@@ -182,22 +179,17 @@ def setup_logger(verbosity:int=3):
     # ch = StreamToLogger(logger=logger, log_level=verbosity)
     match verbosity:
         case 3:
-            # verb = logging.DEBUG
             ch.setLevel(logging.DEBUG)
         case 2:
-            # verb = logging.INFO
             ch.setLevel(logging.INFO)
         case 1:
-            # verb = logging.WARNING
             ch.setLevel(logging.WARNING)
     ch.name = "Stream"
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - {%(pathname)s:%(lineno)d} - %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
-    # ch.setLevel(logging.ERROR)
     # add the handlers to the logger
-    
     logger.addHandler(fh)
     logger.addHandler(ch)
     def handle_exception(exc_type, exc_value, exc_traceback):
@@ -206,18 +198,10 @@ def setup_logger(verbosity:int=3):
             return
 
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-        sys.exit(f"Uncaught error: {exc_type}, {exc_traceback}, check logs.")
+        # sys.exit(f"Uncaught error: {exc_type}, {exc_traceback}, check logs.")
 
     sys.excepthook = handle_exception
-    # stderr_logger = logging.getLogger('STDERR')
-    # sys.stderr = logger
     return logger
-    # sl = StreamToLogger(stderr_logger, logging.ERROR)
-    # sys.stderr = sl
-
-
-
-
 
 # def set_logger_verbosity(verbosity):
 #     """Does what it says.

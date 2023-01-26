@@ -30,6 +30,9 @@ class BasicSubmission(Base):
         "with_polymorphic": "*",
     }
 
+    def to_string(self):
+        return f"{self.rsl_plate_num} - {self.submitter_plate_num}"
+
     def to_dict(self):
         try:
             sub_lab = self.submitting_lab.name
@@ -90,8 +93,8 @@ class BasicSubmission(Base):
 # Below are the custom submission 
 
 class  BacterialCulture(BasicSubmission):
-    control = relationship("Control", back_populates="submissions") #: A control sample added to submission
-    control_id = Column(INTEGER, ForeignKey("_control_samples.id", ondelete="SET NULL", name="fk_BC_control_id"))
+    # control_id = Column(INTEGER, ForeignKey("_control_samples.id", ondelete="SET NULL", name="fk_BC_control_id"))
+    controls = relationship("Control", back_populates="submission", uselist=True) #: A control sample added to submission
     samples = relationship("BCSample", back_populates="rsl_plate", uselist=True)
     # bc_sample_id = Column(INTEGER, ForeignKey("_bc_samples.id", ondelete="SET NULL", name="fk_BC_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "bacterial_culture", "polymorphic_load": "inline"}
