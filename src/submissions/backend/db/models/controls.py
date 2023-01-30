@@ -1,5 +1,5 @@
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, text, JSON, INTEGER, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship
 
 class ControlType(Base):
@@ -32,6 +32,6 @@ class Control(Base):
     matches = Column(JSON) #: unstructured hashes in matches.tsv for each organism
     kraken = Column(JSON) #: unstructured output from kraken_report
     # UniqueConstraint('name', name='uq_control_name')
-    submission_id = Column(INTEGER, ForeignKey("_submissions.id"))
-    submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id])
+    submission_id = Column(INTEGER, ForeignKey("_submissions.id")) #: parent submission id
+    submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
 

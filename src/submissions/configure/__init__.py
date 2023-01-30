@@ -1,9 +1,9 @@
 import yaml
-import sys, os, stat, platform, shutil
+import sys, os, stat, platform, getpass
 import logging
 from logging import handlers
 from pathlib import Path
-
+# from getpass import getuser
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 
@@ -64,8 +64,9 @@ class StreamToLogger(object):
             self.logger.log(self.log_level, line.rstrip())
 
 
-def get_config(settings_path: str|None) -> dict:
-    """Get configuration settings from path or default if blank.
+def get_config(settings_path: str|None=None) -> dict:
+    """
+    Get configuration settings from path or default if blank.
 
     Args:
         settings_path (str, optional): _description_. Defaults to "".
@@ -91,6 +92,7 @@ def get_config(settings_path: str|None) -> dict:
     except FileExistsError:
         pass
     # if user hasn't defined config path in cli args
+    copy_settings_trigger = False
     if settings_path == None:
         # Check user .config/submissions directory
         if CONFIGDIR.joinpath("config.yml").exists():
@@ -104,7 +106,9 @@ def get_config(settings_path: str|None) -> dict:
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
                 settings_path = package_dir.joinpath('config.yml')
-            shutil.copyfile(settings_path.__str__(), CONFIGDIR.joinpath("config.yml").__str__())
+            # Tell program we need to copy the config.yml to the user directory
+            copy_settings_trigger = True
+            # shutil.copyfile(settings_path.__str__(), CONFIGDIR.joinpath("config.yml").__str__())
     else:
         if Path(settings_path).is_dir():
             settings_path = settings_path.joinpath("config.yml")
@@ -120,11 +124,15 @@ def get_config(settings_path: str|None) -> dict:
         except yaml.YAMLError as exc:
             logger.error(f'Error reading yaml file {settings_path}: {exc}')
             return {}
+    # copy settings to config directory
+    if copy_settings_trigger:
+        settings = copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=settings)
     return settings
 
 
 def create_database_session(database_path: Path|None) -> Session:
-    """Get database settings from path or default if blank.
+    """
+    Get database settings from path or default if blank.
 
     Args:
         database_path (str, optional): _description_. Defaults to "".
@@ -153,7 +161,8 @@ def create_database_session(database_path: Path|None) -> Session:
 
 
 def setup_logger(verbosity:int=3):
-    """Set logger levels using settings.
+    """
+    Set logger levels using settings.
 
     Args:
         verbose (bool, optional): _description_. Defaults to False.
@@ -203,15 +212,22 @@ def setup_logger(verbosity:int=3):
     sys.excepthook = handle_exception
     return logger
 
-# def set_logger_verbosity(verbosity):
-#     """Does what it says.
-#     """
-#     handler = [item for item in logger.parent.handlers if item.name == "Stream"][0]
-#     match verbosity:
-#         case 3:
-#             handler.setLevel(logging.DEBUG)
-#         case 2:
-#             handler.setLevel(logging.INFO)
-#         case 1:
-#             handler.setLevel(logging.WARNING)
+def copy_settings(settings_path:Path, settings:dict) -> dict:
+    """
+    copies relevant settings dictionary from the default config.yml to a new directory
+
+    Args:
+        settings_path (Path): path to write the file to
+        settings (dict): settings dictionary obtained from default config.yml
+
+    Returns:
+        dict: output dictionary for use in first run
+    """    
+    # if the current user is not a superuser remove the superusers entry
+    if not getpass.getuser() in settings['super_users']:
+        del settings['super_users']
+    with open(settings_path, 'w') as f:
+        yaml.dump(settings, f)
+    return settings
+         
 

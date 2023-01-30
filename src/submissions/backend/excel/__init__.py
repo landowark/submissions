@@ -1,4 +1,3 @@
-
 from pandas import DataFrame
 import re
 
@@ -6,14 +5,14 @@ import re
 
 def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
     """
-    _summary_
+    get all unique values in a dataframe column by name
 
     Args:
-        df (DataFrame): _description_
-        column_name (str): _description_
+        df (DataFrame): input dataframe
+        column_name (str): name of column of interest
 
     Returns:
-        list: _description_
+        list: sorted list of unique values
     """    
     return sorted(df[column_name].unique())
 
@@ -23,7 +22,7 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
     Removes semi-duplicates from dataframe after finding sequencing repeats.
 
     Args:
-        settings (dict): settings passed down from click
+        settings (dict): settings passed from gui
         df (DataFrame): initial dataframe
 
     Returns:

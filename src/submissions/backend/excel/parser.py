@@ -11,40 +11,68 @@ import uuid
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class SheetParser(object):
-
-    def __init__(self, filepath:Path|None = None, **kwargs):
+    """
+    object to pull and contain data from excel file
+    """
+    def __init__(self, filepath:Path|None = None, **kwargs) -> None:
+        """
+        Args:
+            filepath (Path | None, optional): file path to excel sheet. Defaults to None.
+        """
         logger.debug(f"Parsing {filepath.__str__()}")
+        # set attributes based on kwargs from gui ctx
         for kwarg in kwargs:
             setattr(self, f"_{kwarg}", kwargs[kwarg])
         if filepath == None:
-            logger.debug(f"No filepath.")
+            logger.error(f"No filepath given.")
             self.xl = None
         else:
-            
             try:
                 self.xl = pd.ExcelFile(filepath.__str__())
-            except ValueError:
+            except ValueError as e:
+                logger.error(f"Incorrect value: {e}")
                 self.xl = None
         self.sub = OrderedDict()
-        self.sub['submission_type'] = self._type_decider()        
+        # make decision about type of sample we have
+        self.sub['submission_type'] = self._type_decider()
+        # select proper parser based on sample type
         parse_sub = getattr(self, f"_parse_{self.sub['submission_type'].lower()}")
         parse_sub()
 
-    def _type_decider(self):
+    def _type_decider(self) -> str:
+        """
+        makes decisions about submission type based on structure of excel file
+
+        Returns:
+            str: submission type name
+        """        
         try:
             for type in self._submission_types:
                 if self.xl.sheet_names == self._submission_types[type]['excel_map']:
                     return type.title()
             return "Unknown"
-        except:
+        except Exception as e:
+            logger.warning(f"We were unable to parse the submission type due to: {e}")
             return "Unknown"
 
 
-    def _parse_unknown(self):
+    def _parse_unknown(self) -> None:
+        """
+        Dummy function to handle unknown excel structures
+        """        
         self.sub = None
     
 
-    def _parse_generic(self, sheet_name:str):
+    def _parse_generic(self, sheet_name:str) -> pd.DataFrame:
+        """
+        Pulls information common to all submission types and passes on dataframe
+
+        Args:
+            sheet_name (str): name of excel worksheet to pull from
+
+        Returns:
+            pd.DataFrame: relevant dataframe from excel sheet
+        """        
         submission_info = self.xl.parse(sheet_name=sheet_name, dtype=object)
         
         self.sub['submitter_plate_num'] = submission_info.iloc[0][1] #if pd.isnull(submission_info.iloc[0][1]) else string_formatter(submission_info.iloc[0][1])
@@ -57,7 +85,10 @@ class SheetParser(object):
         return submission_info
 
 
-    def _parse_bacterial_culture(self):
+    def _parse_bacterial_culture(self) -> None:
+        """
+        pulls info specific to bacterial culture sample type
+        """        
         submission_info = self._parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2
         tech = str(submission_info.iloc[11][1])
@@ -68,7 +99,7 @@ class SheetParser(object):
             tech = ", ".join(tech_reg.findall(tech))
         self.sub['technician'] = tech
         # reagents
-        
+        # must be prefixed with 'lot_' to be recognized by gui
         self.sub['lot_wash_1'] = submission_info.iloc[1][6] #if pd.isnull(submission_info.iloc[1][6]) else string_formatter(submission_info.iloc[1][6])
         self.sub['lot_wash_2'] = submission_info.iloc[2][6] #if pd.isnull(submission_info.iloc[2][6]) else string_formatter(submission_info.iloc[2][6])
         self.sub['lot_binding_buffer'] = submission_info.iloc[3][6] #if pd.isnull(submission_info.iloc[3][6]) else string_formatter(submission_info.iloc[3][6])
@@ -79,13 +110,17 @@ class SheetParser(object):
         self.sub['lot_ethanol'] = submission_info.iloc[10][6] #if pd.isnull(submission_info.iloc[10][6]) else string_formatter(submission_info.iloc[10][6])
         self.sub['lot_positive_control'] = submission_info.iloc[103][1] #if pd.isnull(submission_info.iloc[103][1]) else string_formatter(submission_info.iloc[103][1])
         self.sub['lot_plate'] = submission_info.iloc[12][6] #if pd.isnull(submission_info.iloc[12][6]) else string_formatter(submission_info.iloc[12][6])
+        # get individual sample info
         sample_parser = SampleParser(submission_info.iloc[15:111])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
         self.sub['samples'] = sample_parse()
 
 
-    def _parse_wastewater(self):
+    def _parse_wastewater(self) -> None:
+        """
+        pulls info specific to wastewater sample type
+        """        
         # submission_info = self.xl.parse("WW Submissions (ENTER HERE)")
         submission_info = self._parse_generic("WW Submissions (ENTER HERE)")
         enrichment_info = self.xl.parse("Enrichment Worksheet", dtype=object)
@@ -108,19 +143,28 @@ class SheetParser(object):
         self.sub['lot_pre_mix_2'] = qprc_info.iloc[2][14] #if pd.isnull(qprc_info.iloc[2][14]) else string_formatter(qprc_info.iloc[2][14])
         self.sub['lot_positive_control'] = qprc_info.iloc[3][14] #if pd.isnull(qprc_info.iloc[3][14]) else string_formatter(qprc_info.iloc[3][14])
         self.sub['lot_ddh2o'] = qprc_info.iloc[4][14] #if pd.isnull(qprc_info.iloc[4][14]) else string_formatter(qprc_info.iloc[4][14])
+        # gt individual sample info
         sample_parser = SampleParser(submission_info.iloc[16:40])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
 
 
 class SampleParser(object):
-
+    """
+    object to pull data for samples in excel sheet and construct individual sample objects
+    """
 
     def __init__(self, df:pd.DataFrame) -> None:
         self.samples = df.to_dict("records")
 
 
     def parse_bacterial_culture_samples(self) -> list[BCSample]:
+        """
+        construct bacterial culture specific sample objects
+
+        Returns:
+            list[BCSample]: list of sample objects
+        """        
         new_list = []
         for sample in self.samples:
             new = BCSample()
@@ -130,6 +174,7 @@ class SampleParser(object):
             new.concentration = sample['Unnamed: 3']
             # logger.debug(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
             logger.debug(f"Got sample_id: {new.sample_id}")
+            # need to exclude empties and blanks
             try:
                 not_a_nan = not np.isnan(new.sample_id) and str(new.sample_id).lower() != 'blank'
             except TypeError:
@@ -140,10 +185,17 @@ class SampleParser(object):
 
 
     def parse_wastewater_samples(self) -> list[WWSample]:
+        """
+        construct wastewater specific sample objects
+
+        Returns:
+            list[WWSample]: list of sample objects
+        """        
         new_list = []
         for sample in self.samples:
             new = WWSample()
             new.ww_processing_num = sample['Unnamed: 2']
+            # need to ensure we have a sample id for database integrity
             try:
                 not_a_nan = not np.isnan(sample['Unnamed: 3'])
             except TypeError:
@@ -153,6 +205,7 @@ class SampleParser(object):
             else:
                 new.ww_sample_full_id = uuid.uuid4().hex.upper()
             new.rsl_number = sample['Unnamed: 9']
+            # need to ensure we get a collection date
             try:
                 not_a_nan = not np.isnan(sample['Unnamed: 5'])
             except TypeError:
@@ -169,11 +222,11 @@ class SampleParser(object):
         return new_list
     
 
-def string_formatter(input):
-    logger.debug(f"{input} : {type(input)}")
-    match input:
-        case int() | float() | np.float64:
-            return "{:0.0f}".format(input)
-        case _:
-            return input
+# def string_formatter(input):
+#     logger.debug(f"{input} : {type(input)}")
+#     match input:
+#         case int() | float() | np.float64:
+#             return "{:0.0f}".format(input)
+#         case _:
+#             return input
         

@@ -13,14 +13,15 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     Constructs figures based on parsed pandas dataframe.
 
     Args:
-        settings (dict): settings passed down from click
+        settings (dict): settings passed down from gui
         df (pd.DataFrame): input dataframe
         group_name (str): controltype
 
     Returns:
-        Figure: _description_
+        Figure: plotly figure
     """    
     from backend.excel import drop_reruns_from_df
+    # converts starred genera to normal and splits off list of starred
     genera = []
     if df.empty:
         return None
@@ -35,15 +36,17 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     df['genus'] = df['genus'].replace({'\*':''}, regex=True)
     df['genera'] = genera
     df = df.dropna()
+    # remove original runs, using reruns if applicable
     df = drop_reruns_from_df(ctx=ctx, df=df)
+    # sort by and exclude from
     sorts = ['submitted_date', "target", "genus"]
     exclude = ['name', 'genera']
     modes = [item for item in df.columns if item not in sorts and item not in exclude and "_hashes" not in item]
     # Set descending for any columns that have "{mode}" in the header.
     ascending = [False if item == "target" else True for item in sorts]
     df = df.sort_values(by=sorts, ascending=ascending)
+    # actual chart construction is done by
     fig = construct_chart(ctx=ctx, df=df, modes=modes, ytitle=ytitle)
-    
     return fig
     
 
@@ -186,7 +189,7 @@ def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None)
 
 def construct_refseq_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:str) -> Figure:
     """
-    Constructs intial refseq chart for both contains and matches.
+    Constructs intial refseq chart for both contains and matches (depreciated).
 
     Args:
         settings (dict): settings passed down from click.
@@ -218,7 +221,7 @@ def construct_refseq_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:
 
 def construct_kraken_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:str) -> Figure:
     """
-    Constructs intial refseq chart for each mode in the kraken config settings.
+    Constructs intial refseq chart for each mode in the kraken config settings. (depreciated)
 
     Args:
         settings (dict): settings passed down from click.

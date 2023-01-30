@@ -8,13 +8,22 @@ import logging
 logger = logging.getLogger(f"submissions.{__name__}")
 
 def make_report_xlsx(records:list[dict]) -> DataFrame:
+    """
+    create the dataframe for a report
+
+    Args:
+        records (list[dict]): list of dictionaries created from submissions
+
+    Returns:
+        DataFrame: output dataframe
+    """    
     df = DataFrame.from_records(records)
+    # put submissions with the same lab together
     df = df.sort_values("Submitting Lab")
-    # table = df.pivot_table(values="Cost", index=["Submitting Lab", "Extraction Kit"], columns=["Cost", "Sample Count"], aggfunc={'Cost':np.sum,'Sample Count':np.sum})
+    # aggregate cost and sample count columns
     df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Cost': ['sum', 'count'], 'Sample Count':['sum']})
-    # df2['Cost'] = df2['Cost'].map('${:,.2f}'.format)
     logger.debug(df2.columns)
-    # df2['Cost']['sum'] = df2['Cost']['sum'].apply('${:,.2f}'.format)
+    # apply formating to cost column
     df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')] = df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')].applymap('${:,.2f}'.format)
     return df2
 
@@ -65,7 +74,18 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
 #         dfs['name'] = df
 #     return dfs
 
-def convert_control_by_mode(ctx:dict, control:models.Control, mode:str):
+def convert_control_by_mode(ctx:dict, control:models.Control, mode:str) -> list[dict]:
+    """
+    split control object into analysis types
+
+    Args:
+        ctx (dict): settings passed from gui
+        control (models.Control): control to be parsed into list
+        mode (str): analysis type
+
+    Returns:
+        list[dict]: list of records
+    """    
     output = []
     data = json.loads(getattr(control, mode))
     for genus in data:
@@ -82,6 +102,17 @@ def convert_control_by_mode(ctx:dict, control:models.Control, mode:str):
 
 
 def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -> DataFrame:
+    """
+    Convert list of control records to dataframe
+
+    Args:
+        ctx (dict): settings passed from gui
+        input (list[dict]): list of dictionaries containing records
+        subtype (str | None, optional): _description_. Defaults to None.
+
+    Returns:
+        DataFrame: _description_
+    """    
     df = DataFrame.from_records(input)
     safe = ['name', 'submitted_date', 'genus', 'target']
     logger.debug(df)

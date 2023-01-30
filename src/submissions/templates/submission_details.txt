@@ -1,4 +1,4 @@
-
+{# template for constructing submission details #}
 
 {% for key, value in sub.items() if key != 'reagents' and key != 'samples' %}
 {{ key }}: {{ value }}
