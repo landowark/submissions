@@ -1,5 +1,5 @@
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT
 from sqlalchemy.orm import relationship
 from datetime import datetime as dt
 
@@ -26,6 +26,8 @@ class BasicSubmission(Base):
     # Move this into custom types?
     reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
+    extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
+    run_cost = Column(FLOAT(2))
 
     __mapper_args__ = {
         "polymorphic_identity": "basic_submission",
@@ -73,6 +75,7 @@ class BasicSubmission(Base):
             "Sample Count": self.sample_count,
             "Extraction Kit": ext_kit,
             "Technician": self.technician,
+            "Cost": self.run_cost,
         }
         return output
 
@@ -99,10 +102,11 @@ class BasicSubmission(Base):
         except AttributeError:
             ext_kit = None
         # get extraction kit cost from nested kittype object
-        try:
-            cost = self.extraction_kit.cost_per_run
-        except AttributeError:
-            cost = None
+        # depreciated as it will change kit cost overtime
+        # try:
+        #     cost = self.extraction_kit.cost_per_run
+        # except AttributeError:
+        #     cost = None
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -112,7 +116,7 @@ class BasicSubmission(Base):
             "Submitting Lab": sub_lab,
             "Sample Count": self.sample_count,
             "Extraction Kit": ext_kit,
-            "Cost": cost
+            "Cost": self.run_cost
         }
         return output
 

@@ -1,9 +1,21 @@
-import pandas as pd
-from pandas import DataFrame
-import numpy as np
+
+from pandas import DataFrame, concat
 from backend.db import models
 import json
 import logging
+from jinja2 import Environment, FileSystemLoader
+from datetime import date
+import sys
+from pathlib import Path
+
+logger = logging.getLogger(f"submissions.{__name__}")
+
+if getattr(sys, 'frozen', False):
+    loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
+else:
+    loader_path = Path(__file__).parents[2].joinpath('templates').absolute().__str__()
+loader = FileSystemLoader(loader_path)
+env = Environment(loader=loader)
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -22,10 +34,48 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
     df = df.sort_values("Submitting Lab")
     # aggregate cost and sample count columns
     df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Cost': ['sum', 'count'], 'Sample Count':['sum']})
-    logger.debug(df2.columns)
     # apply formating to cost column
-    df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')] = df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')].applymap('${:,.2f}'.format)
+    # df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')] = df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')].applymap('${:,.2f}'.format)
     return df2
+
+
+def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
+    
+    """
+    generates html from the report dataframe
+
+    Args:
+        df (DataFrame): input dataframe generated from 'make_report_xlsx' above
+        start_date (date): starting date of the report period
+        end_date (date): ending date of the report period
+
+    Returns:
+        str: html string
+    """    
+    old_lab = ""
+    output = []
+    for ii, row in enumerate(df.iterrows()):
+        row = [item for item in row]
+        lab = row[0][0]
+        logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
+        kit = dict(name=row[0][1], cost=row[1][('Cost', 'sum')], plate_count=int(row[1][('Cost', 'count')]), sample_count=int(row[1][('Sample Count', 'sum')]))
+        if lab == old_lab:
+            output[ii-1]['kits'].append(kit)
+            output[ii-1]['total_cost'] += kit['cost']
+            output[ii-1]['total_samples'] += kit['sample_count']
+            output[ii-1]['total_plates'] += kit['plate_count']
+        else:
+            adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'], total_plates=kit['plate_count'])
+            output.append(adder)
+        old_lab = lab
+    logger.debug(output)
+    dicto = {'start_date':start_date, 'end_date':end_date, 'labs':output}#, "table":table}
+    temp = env.get_template('summary_report.html')
+    html = temp.render(input=dicto)
+    return html
+
+
+            
 
 
 # def split_controls_dictionary(ctx:dict, input_dict) -> list[dict]:
@@ -126,3 +176,4 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
                 del df[column]
     # logger.debug(df)
     return df
+

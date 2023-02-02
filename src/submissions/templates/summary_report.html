@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Submissions Report for {{ input['start_date'] }} - {{ input['end_date'] }}</title>
+    </head>
+    <body>
+        <h2>Submissions Report {{ input['start_date'] }} - {{ input['end_date'] }}</h2>
+        <br>
+        {{ input['table'] }}
+        <br>
+        {% for lab in input['labs'] %}
+        <h3><u>{{ lab['lab'] }}:</u></h3>
+            {% for kit in lab['kits'] %}
+            <p><b>{{ kit['name'] }}</b></p>
+                <p>     Plates: {{ kit['plate_count'] }}, Samples: {{ kit['sample_count'] }}, Cost: {{ "${:,.2f}".format(kit['cost']) }}</p>
+            {% endfor %}
+            <p><b>Lab total:</b></p>
+                <p>     Plates: {{ lab['total_plates'] }}, Samples: {{ lab['total_samples'] }}, Cost: {{ "${:,.2f}".format(lab['total_cost']) }}</p>
+        <br>
+        {% endfor %}
+    </body>
+</html>

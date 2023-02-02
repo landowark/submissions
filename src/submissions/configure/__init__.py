@@ -226,6 +226,8 @@ def copy_settings(settings_path:Path, settings:dict) -> dict:
     # if the current user is not a superuser remove the superusers entry
     if not getpass.getuser() in settings['super_users']:
         del settings['super_users']
+    if not getpass.getuser() in settings['power_users']:
+        del settings['power_users']
     with open(settings_path, 'w') as f:
         yaml.dump(settings, f)
     return settings

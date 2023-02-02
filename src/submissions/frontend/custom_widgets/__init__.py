@@ -302,11 +302,16 @@ class KitAdder(QWidget):
         used_for.setEditable(True)
         self.grid.addWidget(used_for,3,1)
         # set cost per run
-        self.grid.addWidget(QLabel("Cost per run:"),4,0)
+        self.grid.addWidget(QLabel("Constant cost per full plate (plates, work hours, etc.):"),4,0)
         cost = QSpinBox()
         cost.setMinimum(0)
         cost.setMaximum(9999)
         self.grid.addWidget(cost,4,1)
+        self.grid.addWidget(QLabel("Mutable cost per full plate (tips, reagents, etc.):"),5,0)
+        cost = QSpinBox()
+        cost.setMinimum(0)
+        cost.setMaximum(9999)
+        self.grid.addWidget(cost,5,1)
         # button to add additional reagent types
         self.add_RT_btn = QPushButton("Add Reagent Type")
         self.grid.addWidget(self.add_RT_btn)
@@ -338,7 +343,8 @@ class KitAdder(QWidget):
         yml_type[used] = {}
         yml_type[used]['kits'] = {}
         yml_type[used]['kits'][info['kit_name']] = {}
-        yml_type[used]['kits'][info['kit_name']]['cost'] = info['cost_per_run']
+        yml_type[used]['kits'][info['kit_name']]['constant_cost'] = info["Constant cost per full plate (plates, work hours, etc.)"]
+        yml_type[used]['kits'][info['kit_name']]['mutable_cost'] = info["Mutable cost per full plate (tips, reagents, etc.)"]
         yml_type[used]['kits'][info['kit_name']]['reagenttypes'] = reagents
         logger.debug(yml_type)
         # send to kit constructor
@@ -381,20 +387,19 @@ class KitAdder(QWidget):
                     if not isinstance(prev_item, QDateEdit) and not isinstance(prev_item, QComboBox) and not isinstance(prev_item, QSpinBox) and not isinstance(prev_item, QScrollBar):
                         logger.debug(f"Previous: {prev_item}")
                         logger.debug(f"Item: {item}, {item.text()}")
-                        values.append(item.text())
+                        values.append(item.text().strip())
                 case QComboBox():
-                    values.append(item.currentText())
+                    values.append(item.currentText().strip())
                 case QDateEdit():
                     values.append(item.date().toPyDate())
                 case QSpinBox():
                     values.append(item.value())
                 case ReagentTypeForm():
-                    
                     re_labels, re_values, _ = self.extract_form_info(item) 
                     reagent = {item[0]:item[1] for item in zip(re_labels, re_values)}
                     logger.debug(reagent)
                     # reagent = {reagent['name:']:{'eol':reagent['extension_of_life_(months):']}}
-                    reagents[reagent['name']] = {'eol_ext':int(reagent['extension_of_life_(months)'])}
+                    reagents[reagent["name_(*exactly*_as_it_appears_in_the_excel_submission_form)"].strip()] = {'eol_ext':int(reagent['extension_of_life_(months)'])}
             prev_item = item
         return labels, values, reagents
 
@@ -408,7 +413,7 @@ class ReagentTypeForm(QWidget):
         super().__init__()
         grid = QGridLayout()
         self.setLayout(grid)
-        grid.addWidget(QLabel("Name:"),0,0)
+        grid.addWidget(QLabel("Name (*Exactly* as it appears in the excel submission form):"),0,0)
         reagent_getter = QComboBox()
         # lookup all reagent type names from db
         reagent_getter.addItems(get_all_reagenttype_names(ctx=parent_ctx))

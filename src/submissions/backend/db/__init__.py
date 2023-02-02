@@ -5,7 +5,7 @@ import sqlite3
 # from sqlalchemy.exc import IntegrityError, OperationalError
 # from sqlite3 import IntegrityError, OperationalError
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from sqlalchemy import and_
 import uuid
 import base64
@@ -132,6 +132,12 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         except AttributeError:
             logger.debug(f"Could not set attribute: {item} to {info_dict[item]}")
             continue
+        # calculate cost of the run: immutable cost + mutable times number of columns
+        try:
+            instance.run_cost = instance.extraction_kit.immutable_cost + (instance.extraction_kit.mutable_cost * ((instance.sample_count / 8)/12))
+        except TypeError:
+            logger.debug(f"Looks like that kit doesn't have cost breakdown yet, using full plate cost.")
+            instance.run_cost = instance.extraction_kit.cost_per_run
     logger.debug(f"Constructed instance: {instance.to_string()}")
     logger.debug(msg)
     return instance, {'message':msg}
@@ -395,12 +401,13 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> None:
         exp (dict): Experiment dictionary created from yaml file
     """
     try:
-        super_users = ctx['super_users']
+        power_users = ctx['power_users']
     except KeyError:
         logger.debug("This user does not have permission to add kits.")
         return {'code':1,'message':"This user does not have permission to add kits."}
-    if getuser not in super_users:
-        logger.debug("This user does not have permission to add kits.")
+    logger.debug(f"Adding kit for user: {getuser()}")
+    if getuser() not in power_users:
+        logger.debug(f"{getuser()} does not have permission to add kits.")
         return {'code':1, 'message':"This user does not have permission to add kits."}
     for type in exp:
         if type == "password":
@@ -410,7 +417,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> None:
             for r in exp[type]['kits'][kt]['reagenttypes']:
                 look_up = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 if look_up == None:
-                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=datetime.timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit])
+                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit])
                 else:
                     rt = look_up
                     rt.kits.append(kit)

@@ -14,6 +14,8 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 
 from pathlib import Path
 import plotly
+import pandas as pd
+from xhtml2pdf import pisa
 # import plotly.express as px
 import yaml
 
@@ -25,7 +27,7 @@ from backend.db import (construct_submission_info, lookup_reagent,
     get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
     get_control_subtypes
 )
-from backend.excel.reports import make_report_xlsx
+from backend.excel.reports import make_report_xlsx, make_report_html
 import numpy
 from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder, ControlsDatePicker, OverwriteSubQuestion
 import logging
@@ -362,17 +364,22 @@ class App(QMainWindow):
             subs = lookup_submissions_by_date_range(ctx=self.ctx, start_date=info['start_date'], end_date=info['end_date'])
             # convert each object to dict
             records = [item.report_dict() for item in subs]
-            # make dataframe from record dictionaries
             df = make_report_xlsx(records=records)
-            # setup filedialog to handle save location of report
-            home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submissions_Report_{info['start_date']}-{info['end_date']}.xlsx").resolve().__str__()
-            fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".xlsx")[0])
-            # save file
-            try:
-                df.to_excel(fname, engine="openpyxl")
-            except PermissionError:
-                pass
+            html = make_report_html(df=df, start_date=info['start_date'], end_date=info['end_date'])
+            # make dataframe from record dictionaries
+            # df = make_report_xlsx(records=records)
+            # # setup filedialog to handle save location of report
+            home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf").resolve().__str__()
+            # fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".xlsx")[0])
+            fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
+            # logger.debug(f"report output name: {fname}")
+            # df.to_excel(fname, engine='openpyxl')
+            with open(fname, "w+b") as f:
+                pisa.CreatePDF(html, dest=f)
+            df.to_excel(fname.with_suffix(".xlsx"), engine='openpyxl')       
 
+            
+            
 
     def add_kit(self):
         """
