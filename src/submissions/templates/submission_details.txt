@@ -1,7 +1,7 @@
 {# template for constructing submission details #}
 
 {% for key, value in sub.items() if key != 'reagents' and key != 'samples' %}
-{{ key }}: {{ value }}
+{% if key=='Cost' %} {{ key }}: {{ "${:,.2f}".format(value) }} {% else %} {{ key }}: {{ value }} {% endif %}
 {% endfor %}
 Reagents:
 {% for item in sub['reagents'] %}

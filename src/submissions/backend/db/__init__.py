@@ -2,16 +2,14 @@ from . import models
 import pandas as pd
 import sqlalchemy.exc
 import sqlite3
-# from sqlalchemy.exc import IntegrityError, OperationalError
-# from sqlite3 import IntegrityError, OperationalError
 import logging
 from datetime import date, datetime, timedelta
 from sqlalchemy import and_
 import uuid
-import base64
+# import base64
 from sqlalchemy import JSON
 import json
-from dateutil.relativedelta import relativedelta
+# from dateutil.relativedelta import relativedelta
 from getpass import getuser
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -94,11 +92,14 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
     msg = "This submission already exists.\nWould you like to overwrite?"
     # get model based on submission type converted above
+    logger.debug(f"Looking at models for submission type: {query}")
     model = getattr(models, query)
+    logger.debug(f"We've got the model: {type(model)}")
     info_dict['submission_type'] = info_dict['submission_type'].replace(" ", "_").lower()
     # if query return nothing, ie doesn't already exist in db
     if instance == None:
         instance = model()
+        logger.debug(f"Submission doesn't exist yet, creating new instance: {instance}")
         msg = None
     for item in info_dict:
         logger.debug(f"Setting {item} to {info_dict[item]}")
@@ -133,11 +134,11 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
             logger.debug(f"Could not set attribute: {item} to {info_dict[item]}")
             continue
         # calculate cost of the run: immutable cost + mutable times number of columns
-        try:
-            instance.run_cost = instance.extraction_kit.immutable_cost + (instance.extraction_kit.mutable_cost * ((instance.sample_count / 8)/12))
-        except TypeError:
-            logger.debug(f"Looks like that kit doesn't have cost breakdown yet, using full plate cost.")
-            instance.run_cost = instance.extraction_kit.cost_per_run
+    try:
+        instance.run_cost = instance.extraction_kit.immutable_cost + (instance.extraction_kit.mutable_cost * ((instance.sample_count / 8)/12))
+    except (TypeError, AttributeError):
+        logger.debug(f"Looks like that kit doesn't have cost breakdown yet, using full plate cost.")
+        instance.run_cost = instance.extraction_kit.cost_per_run
     logger.debug(f"Constructed instance: {instance.to_string()}")
     logger.debug(msg)
     return instance, {'message':msg}

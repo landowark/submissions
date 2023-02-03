@@ -15,9 +15,12 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
 import plotly
 import pandas as pd
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import NamedStyle
 from xhtml2pdf import pisa
 # import plotly.express as px
 import yaml
+import pprint
 
 from backend.excel.parser import SheetParser
 from backend.excel.reports import convert_control_by_mode, convert_data_list_to_df
@@ -35,7 +38,7 @@ import difflib
 from datetime import date
 from frontend.visualizations.charts import create_charts
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
 
 class App(QMainWindow):
@@ -64,6 +67,7 @@ class App(QMainWindow):
         self._connectActions()
         self.controls_getter()
         self.show()
+        
 
     def _createMenuBar(self):
         """
@@ -261,10 +265,11 @@ class App(QMainWindow):
                     logger.debug("Will not add reagent.")
             if wanted_reagent != None:
                 parsed_reagents.append(wanted_reagent)
-                logger.debug(info)
+                # logger.debug(info)
         # move samples into preliminary submission dict
         info['samples'] = self.samples
         # construct submission object
+        logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
         base_submission, output = construct_submission_info(ctx=self.ctx, info_dict=info)
         # check output message for issues
         if output['message'] != None:
@@ -376,7 +381,31 @@ class App(QMainWindow):
             # df.to_excel(fname, engine='openpyxl')
             with open(fname, "w+b") as f:
                 pisa.CreatePDF(html, dest=f)
-            df.to_excel(fname.with_suffix(".xlsx"), engine='openpyxl')       
+            writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
+            df.to_excel(writer, sheet_name="Report") 
+            worksheet = writer.sheets['Report']
+            for idx, col in enumerate(df):  # loop through all columns
+                series = df[col]
+                max_len = max((
+                    series.astype(str).map(len).max(),  # len of largest item
+                    len(str(series.name))  # len of column name/header
+                    )) + 20  # adding a little extra space
+                try:
+                    worksheet.column_dimensions[get_column_letter(idx)].width = max_len 
+                except ValueError:
+                    pass
+                # set_column(idx, idx, max_len)  # set column width
+            # colu = worksheet.column_dimensions["C"]
+            # style = NamedStyle(name="custom_currency", number_format='Currency')
+            for cell in worksheet['C']:
+                # try:
+                #     check = int(cell.row)
+                # except TypeError:
+                #     continue
+                if cell.row > 3:
+                    cell.style = 'Currency'
+            writer.close()
+                  
 
             
             
