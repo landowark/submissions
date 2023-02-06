@@ -35,6 +35,7 @@ import numpy
 from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder, ControlsDatePicker, OverwriteSubQuestion
 import logging
 import difflib
+from getpass import getuser
 from datetime import date
 from frontend.visualizations.charts import create_charts
 
@@ -65,7 +66,7 @@ class App(QMainWindow):
         self._createMenuBar()
         self._createToolBar()
         self._connectActions()
-        self.controls_getter()
+        self._controls_getter()
         self.show()
         
 
@@ -109,10 +110,10 @@ class App(QMainWindow):
         self.addReagentAction.triggered.connect(self.add_reagent)
         self.generateReportAction.triggered.connect(self.generateReport)
         self.addKitAction.triggered.connect(self.add_kit)
-        self.table_widget.control_typer.currentIndexChanged.connect(self.controls_getter)
-        self.table_widget.mode_typer.currentIndexChanged.connect(self.controls_getter)
-        self.table_widget.datepicker.start_date.dateChanged.connect(self.controls_getter)
-        self.table_widget.datepicker.end_date.dateChanged.connect(self.controls_getter)
+        self.table_widget.control_typer.currentIndexChanged.connect(self._controls_getter)
+        self.table_widget.mode_typer.currentIndexChanged.connect(self._controls_getter)
+        self.table_widget.datepicker.start_date.dateChanged.connect(self._controls_getter)
+        self.table_widget.datepicker.end_date.dateChanged.connect(self._controls_getter)
 
 
     def importSubmission(self):
@@ -268,6 +269,7 @@ class App(QMainWindow):
                 # logger.debug(info)
         # move samples into preliminary submission dict
         info['samples'] = self.samples
+        info['uploaded_by'] = getuser()
         # construct submission object
         logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
         base_submission, output = construct_submission_info(ctx=self.ctx, info_dict=info)
@@ -445,7 +447,7 @@ class App(QMainWindow):
 
 
 
-    def controls_getter(self):
+    def _controls_getter(self):
         """
         Lookup controls from database and send to chartmaker
         """        
@@ -476,14 +478,14 @@ class App(QMainWindow):
             with QSignalBlocker(self.table_widget.sub_typer) as blocker: 
                 self.table_widget.sub_typer.addItems(sub_types)
             self.table_widget.sub_typer.setEnabled(True)
-            self.table_widget.sub_typer.currentTextChanged.connect(self.chart_maker)
+            self.table_widget.sub_typer.currentTextChanged.connect(self._chart_maker)
         else:
             self.table_widget.sub_typer.clear()
             self.table_widget.sub_typer.setEnabled(False)
-        self.chart_maker()
+        self._chart_maker()
         
         
-    def chart_maker(self):
+    def _chart_maker(self):
         """
         Creates plotly charts for webview
         """        

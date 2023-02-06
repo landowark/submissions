@@ -1,6 +1,11 @@
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship
+import logging
+from operator import itemgetter
+import json
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 class ControlType(Base):
     """
@@ -34,4 +39,25 @@ class Control(Base):
     # UniqueConstraint('name', name='uq_control_name')
     submission_id = Column(INTEGER, ForeignKey("_submissions.id")) #: parent submission id
     submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
+
+
+    def to_sub_dict(self):
+        kraken = json.loads(self.kraken)
+        kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
+        new_kraken = []
+        for item in kraken:
+            kraken_percent = kraken[item]['kraken_count'] / kraken_cnt_total
+            new_kraken.append({'name': item, 'kraken_count':kraken[item]['kraken_count'], 'kraken_percent':"{0:.0%}".format(kraken_percent)})
+        new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
+        if self.controltype.targets == []:
+            targets = ["None"]
+        else:
+            targets = self.controltype.targets
+        output = {
+            "name" : self.name,
+            "type" : self.controltype.name,
+            "targets" : " ,".join(targets),
+            "kraken" : new_kraken[0:5]
+        }
+        return output
 

@@ -94,7 +94,7 @@ def generic_figure_markers(fig:Figure, modes:list=[], ytitle:str|None=None) -> F
             ])
         )
     )
-    logger.debug(f"Returning figure {fig}")
+    # logger.debug(f"Returning figure {fig}")
     assert type(fig) == Figure
     return fig
 

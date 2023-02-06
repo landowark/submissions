@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Submission Details for {{ sub['Plate Number'] }}</title>
+    </head>
+    <body>
+        <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>
+        {% for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' %}
+        {% if key=='Cost' %} <p>{{ key }}: {{ "${:,.2f}".format(value) }}</p> {% else %} <p>{{ key }}: {{ value }}</p> {% endif %}
+        {% endfor %}
+        <h3><u>Reagents:</u></h3>
+        {% for item in sub['reagents'] %}
+            <p>{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})</p>
+        {% endfor %}
+        <h3><u>Samples:</u></h3>
+        {% for item in sub['samples'] %}
+            <p>{{ item['well'] }}: {{ item['name'] }}</p>
+        {% endfor %}
+        {% if sub['controls'] %}
+        <h3><u>Attached Controls:</u></h3>
+        {% for item in sub['controls'] %}
+            <p><b>{{ item['name'] }}:</b> {{ item['type'] }} (Targets: {{ item['targets'] }})</p>
+            {% if item['kraken'] %}
+            <p>{{ item['name'] }} Top 5 Kraken Results</p>
+            {% for genera in item['kraken'] %}
+                <p>{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})</p>
+            {% endfor %}
+            {% endif %}
+        {% endfor %}
+        {% endif %}
+    </body>
+</html>

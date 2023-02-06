@@ -165,7 +165,7 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
     """    
     df = DataFrame.from_records(input)
     safe = ['name', 'submitted_date', 'genus', 'target']
-    logger.debug(df)
+    # logger.debug(df)
     for column in df.columns:
         if "percent" in column:
             count_col = [item for item in df.columns if "count" in item][0]

@@ -2,6 +2,9 @@ from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT
 from sqlalchemy.orm import relationship
 from datetime import datetime as dt
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 # table containing reagents/submission relationships
 reagents_submissions = Table("_reagents_submissions", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("submission_id", INTEGER, ForeignKey("_submissions.id")))
@@ -28,6 +31,7 @@ class BasicSubmission(Base):
     reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
     run_cost = Column(FLOAT(2))
+    uploaded_by = Column(String(32))
 
     __mapper_args__ = {
         "polymorphic_identity": "basic_submission",
@@ -77,6 +81,7 @@ class BasicSubmission(Base):
             "Technician": self.technician,
             "Cost": self.run_cost,
         }
+        logger.debug(f"{self.rsl_plate_num} technician: {output['Technician']}")
         return output
 
 
@@ -107,6 +112,7 @@ class BasicSubmission(Base):
         #     cost = self.extraction_kit.cost_per_run
         # except AttributeError:
         #     cost = None
+        
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -131,6 +137,13 @@ class  BacterialCulture(BasicSubmission):
     samples = relationship("BCSample", back_populates="rsl_plate", uselist=True)
     # bc_sample_id = Column(INTEGER, ForeignKey("_bc_samples.id", ondelete="SET NULL", name="fk_BC_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "bacterial_culture", "polymorphic_load": "inline"}
+
+
+    def to_dict(self) -> dict:
+        output = super().to_dict()
+        output['controls'] = [item.to_sub_dict() for item in self.controls]
+        # logger.debug(f"{self.rsl_plate_num} technician: {output}")
+        return output
     
 
 class Wastewater(BasicSubmission):

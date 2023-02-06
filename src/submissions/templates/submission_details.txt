@@ -1,6 +1,6 @@
 {# template for constructing submission details #}
 
-{% for key, value in sub.items() if key != 'reagents' and key != 'samples' %}
+{% for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' %}
 {% if key=='Cost' %} {{ key }}: {{ "${:,.2f}".format(value) }} {% else %} {{ key }}: {{ value }} {% endif %}
 {% endfor %}
 Reagents:
@@ -11,3 +11,13 @@ Samples:
 {% for item in sub['samples'] %}
     {{ item['well'] }}: {{ item['name'] }}
 {% endfor %}
+{% if sub['controls'] %}
+Attached Controls:
+{% for item in sub['controls'] %}
+    {{ item['name'] }}: {{ item['type'] }} (Targets: {{ item['targets'] }})
+    {% if item['kraken'] %}
+        {{ item['name'] }} Top 5 Kraken Results
+        {% for genera in item['kraken'] %}
+            {{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }}){% endfor %}{% endif %}
+{% endfor %}
+{% endif %}

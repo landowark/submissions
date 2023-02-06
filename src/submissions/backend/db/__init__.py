@@ -341,6 +341,12 @@ def submissions_to_df(ctx:dict, type:str|None=None) -> pd.DataFrame:
     # pass to lookup function
     subs = [item.to_dict() for item in lookup_all_submissions_by_type(ctx=ctx, type=type)]
     df = pd.DataFrame.from_records(subs)
+    # logger.debug(f"Pre: {df['Technician']}")
+    try:
+        df = df.drop("controls", axis=1)
+    except:
+        logger.warning(f"Couldn't drop 'controls' column from submissionsheet df.")
+    # logger.debug(f"Post: {df['Technician']}")
     return df
      
     

@@ -5,14 +5,14 @@ from PyQt6.QtWidgets import (
     QTextEdit, QSizePolicy, QWidget,
     QGridLayout, QPushButton, QSpinBox,
     QScrollBar, QScrollArea, QHBoxLayout,
-    QMessageBox
+    QMessageBox, QFileDialog, QToolBar
 )
 from PyQt6.QtCore import Qt, QDate, QAbstractTableModel, QSize
-from PyQt6.QtGui import QFontMetrics
+from PyQt6.QtGui import QFontMetrics, QAction
 
 from backend.db import get_all_reagenttype_names, submissions_to_df, lookup_submission_by_id, lookup_all_sample_types, create_kit_from_yaml
 from jinja2 import Environment, FileSystemLoader
-
+from xhtml2pdf import pisa
 import sys
 from pathlib import Path
 import logging
@@ -212,23 +212,25 @@ class SubmissionDetails(QDialog):
     def __init__(self, ctx:dict, id:int) -> None:
 
         super().__init__()
-
+        self.ctx = ctx
         self.setWindowTitle("Submission Details")
+        
         # create scrollable interior
         interior = QScrollArea()
         interior.setParent(self)
         # get submision from db
         data = lookup_submission_by_id(ctx=ctx, id=id)
-        base_dict = data.to_dict()
+        self.base_dict = data.to_dict()
+        logger.debug(f"Base dict: {self.base_dict}")
         # don't want id
-        del base_dict['id']
+        del self.base_dict['id']
         # convert sub objects to dicts
-        base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
-        base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
+        self.base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
+        self.base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
         # retrieve jinja template
         template = env.get_template("submission_details.txt")
         # render using object dict
-        text = template.render(sub=base_dict)
+        text = template.render(sub=self.base_dict)
         # create text field
         txt_editor = QTextEdit(self)
         txt_editor.setReadOnly(True)
@@ -247,7 +249,37 @@ class SubmissionDetails(QDialog):
         interior.setWidget(txt_editor)
         self.layout = QVBoxLayout()
         self.setFixedSize(w, 900)
-        self.layout.addWidget(interior)
+        btn = QPushButton("Export PDF")
+        btn.setParent(self)
+        btn.setFixedWidth(w)
+        btn.clicked.connect(self.export)
+        
+
+    # def _create_actions(self):
+    #     self.exportAction = QAction("Export", self)
+        
+
+    def export(self):
+        template = env.get_template("submission_details.html")
+        html = template.render(sub=self.base_dict)
+        # logger.debug(f"Submission details: {self.base_dict}")
+        home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
+        fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
+        # logger.debug(f"report output name: {fname}")
+        # df.to_excel(fname, engine='openpyxl')
+        if fname.__str__() == ".":
+            logger.debug("Saving pdf was cancelled.")
+            return
+        try:
+            with open(fname, "w+b") as f:
+                pisa.CreatePDF(html, dest=f)
+        except PermissionError as e:
+            logger.error(f"Error saving pdf: {e}")
+            msg = QMessageBox()
+            msg.setText("Permission Error")
+            msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
+            msg.setWindowTitle("Permission Error")
+            msg.exec()
         
 
 
