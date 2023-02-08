@@ -3,6 +3,7 @@ from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JS
 from sqlalchemy.orm import relationship
 from datetime import datetime as dt
 import logging
+import json
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -69,6 +70,10 @@ class BasicSubmission(Base):
             ext_kit = self.extraction_kit.name
         except AttributeError:
             ext_kit = None
+        try:
+            ext_info = json.loads(self.extraction_info)
+        except TypeError:
+            ext_info = None
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -80,8 +85,9 @@ class BasicSubmission(Base):
             "Extraction Kit": ext_kit,
             "Technician": self.technician,
             "Cost": self.run_cost,
+            "ext_info": ext_info
         }
-        logger.debug(f"{self.rsl_plate_num} technician: {output['Technician']}")
+        # logger.debug(f"{self.rsl_plate_num} extraction: {output['Extraction Status']}")
         return output
 
 

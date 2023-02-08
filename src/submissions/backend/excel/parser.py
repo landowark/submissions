@@ -92,6 +92,9 @@ class SheetParser(object):
 
         def _parse_reagents(df:pd.DataFrame) -> None:
             for ii, row in df.iterrows():
+                # skip positive control
+                if ii == 11:
+                    continue
                 logger.debug(f"Running reagent parse for {row[1]} with type {type(row[1])} and value: {row[2]} with type {type(row[2])}")
                 try:
                     check = not np.isnan(row[1])
@@ -162,7 +165,7 @@ class SheetParser(object):
                     check = True
                 if not isinstance(row[5], float) and check:
                     # must be prefixed with 'lot_' to be recognized by gui
-                    output_key = re.sub(r"\d{1,3}%", "", row[0].replace(' ', '_').lower())
+                    output_key = re.sub(r"\d{1,3}%", "", row[0].lower().strip().replace(' ', '_'))
                     try:
                         output_var = row[5].upper()
                     except AttributeError:

@@ -130,16 +130,18 @@ def get_config(settings_path: str|None=None) -> dict:
     return settings
 
 
-def create_database_session(database_path: Path|None) -> Session:
+def create_database_session(database_path: Path|str|None=None) -> Session:
     """
     Get database settings from path or default if blank.
 
     Args:
-        database_path (str, optional): _description_. Defaults to "".
-    
+        database_path (Path | str | None, optional): path to sqlite database. Defaults to None.
+
     Returns:
-        database_path: string of database path
-    """
+        Session: database session
+    """    
+    if isinstance(database_path, str):
+        database_path = Path(database_path)
     if database_path == None:
         if Path.home().joinpath(".submissions", "submissions.db").exists():
             database_path = Path.home().joinpath(".submissions", "submissions.db")

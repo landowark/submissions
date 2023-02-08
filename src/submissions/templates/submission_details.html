@@ -5,28 +5,58 @@
     </head>
     <body>
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>
-        {% for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' %}
-        {% if key=='Cost' %} <p>{{ key }}: {{ "${:,.2f}".format(value) }}</p> {% else %} <p>{{ key }}: {{ value }}</p> {% endif %}
-        {% endfor %}
+        <p>{% for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' and key != 'ext_info' %}
+            {% if loop.index == 1 %}
+                &nbsp;&nbsp;&nbsp;{% if key=='Cost' %}{{ key }}: {{ "${:,.2f}".format(value) }}{% else %}{{ key }}: {{ value }}{% endif %}<br>
+            {% else %}
+                &nbsp;&nbsp;&nbsp;&nbsp;{% if key=='Cost' %}{{ key }}: {{ "${:,.2f}".format(value) }}{% else %}{{ key }}: {{ value }}{% endif %}<br>
+            {% endif %}
+        {% endfor %}</p>
         <h3><u>Reagents:</u></h3>
-        {% for item in sub['reagents'] %}
-            <p>{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})</p>
-        {% endfor %}
+        <p>{% for item in sub['reagents'] %}
+            {% if loop.index == 1%}
+                &nbsp;&nbsp;&nbsp;{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
+            {% else %}
+                &nbsp;&nbsp;&nbsp;&nbsp;{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
+            {% endif %}
+        {% endfor %}</p>
         <h3><u>Samples:</u></h3>
-        {% for item in sub['samples'] %}
-            <p>{{ item['well'] }}: {{ item['name'] }}</p>
-        {% endfor %}
+        <p>{% for item in sub['samples'] %}
+            {% if loop.index == 1 %}
+                &nbsp;&nbsp;&nbsp;{{ item['well'] }}: {{ item['name'] }}<br>
+            {% else %}
+                &nbsp;&nbsp;&nbsp;&nbsp;{{ item['well'] }}: {{ item['name'] }}<br>
+            {% endif %}
+        {% endfor %}</p>
         {% if sub['controls'] %}
         <h3><u>Attached Controls:</u></h3>
         {% for item in sub['controls'] %}
-            <p><b>{{ item['name'] }}:</b> {{ item['type'] }} (Targets: {{ item['targets'] }})</p>
+            <p>&nbsp;&nbsp;&nbsp;<b>{{ item['name'] }}:</b> {{ item['type'] }} (Targets: {{ item['targets'] }})</p>
             {% if item['kraken'] %}
-            <p>{{ item['name'] }} Top 5 Kraken Results</p>
-            {% for genera in item['kraken'] %}
-                <p>{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})</p>
-            {% endfor %}
+            <p>&nbsp;&nbsp;&nbsp;{{ item['name'] }} Top 5 Kraken Results:</p>
+            <p>{% for genera in item['kraken'] %}
+                {% if loop.index == 1 %}
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br>
+                {% else %}
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br>
+                {% endif %}
+            {% endfor %}</p>
             {% endif %}
         {% endfor %}
+        {% endif %}
+        {% if sub['ext_info'] %}
+        <h3><u>Extraction Status:</u></h3>
+        <p>{% for key, value in sub['ext_info'].items() %}
+            {% if loop.index == 1%}
+                &nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+            {% else %}
+                {% if "column" in key %}
+                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}uL<br>
+                {% else %}
+                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+                {% endif %}
+            {% endif %}
+        {% endfor %}</p>
         {% endif %}
     </body>
 </html>

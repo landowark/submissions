@@ -1,3 +1,4 @@
+import json
 import re
 from PyQt6.QtWidgets import (
     QMainWindow, QLabel, QToolBar, 
@@ -16,7 +17,6 @@ from pathlib import Path
 import plotly
 import pandas as pd
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import NamedStyle
 from xhtml2pdf import pisa
 # import plotly.express as px
 import yaml
@@ -26,9 +26,9 @@ from backend.excel.parser import SheetParser
 from backend.excel.reports import convert_control_by_mode, convert_data_list_to_df
 from backend.db import (construct_submission_info, lookup_reagent, 
     construct_reagent, store_reagent, store_submission, lookup_kittype_by_use,
-    lookup_regent_by_type_name_and_kit_name, lookup_all_orgs, lookup_submissions_by_date_range,
+    lookup_regent_by_type_name, lookup_all_orgs, lookup_submissions_by_date_range,
     get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
-    get_control_subtypes
+    get_control_subtypes, lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num
 )
 from backend.excel.reports import make_report_xlsx, make_report_html
 import numpy
@@ -79,9 +79,12 @@ class App(QMainWindow):
         # Creating menus using a title
         editMenu = menuBar.addMenu("&Edit")
         reportMenu = menuBar.addMenu("&Reports")
+        maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
         fileMenu.addAction(self.importAction)
         reportMenu.addAction(self.generateReportAction)
+        maintenanceMenu.addAction(self.joinControlsAction)
+        maintenanceMenu.addAction(self.joinExtractionAction)
         
     def _createToolBar(self):
         """
@@ -100,6 +103,8 @@ class App(QMainWindow):
         self.addReagentAction = QAction("Add Reagent", self)
         self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Add Kit", self)
+        self.joinControlsAction = QAction("Link Controls")
+        self.joinExtractionAction = QAction("Link Ext Logs")
 
 
     def _connectActions(self):
@@ -114,6 +119,8 @@ class App(QMainWindow):
         self.table_widget.mode_typer.currentIndexChanged.connect(self._controls_getter)
         self.table_widget.datepicker.start_date.dateChanged.connect(self._controls_getter)
         self.table_widget.datepicker.end_date.dateChanged.connect(self._controls_getter)
+        self.joinControlsAction.triggered.connect(self.linkControls)
+        self.joinExtractionAction.triggered.connect(self.linkExtractions)
 
 
     def importSubmission(self):
@@ -215,7 +222,17 @@ class App(QMainWindow):
                         except ValueError:
                             pass
                     # query for reagents using type name from sheet and kit from sheet
-                    relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name_and_kit_name(ctx=self.ctx, type_name=query_var, kit_name=prsr.sub['extraction_kit'])]
+                    logger.debug(f"Attempting lookup of reagents by type: {query_var} and kit: {prsr.sub['extraction_kit']}")
+                    # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+                    relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=self.ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
+                    output_reg = []
+                    for reagent in relevant_reagents:
+                        if isinstance(reagent, set):
+                            for thing in reagent:
+                                output_reg.append(thing)
+                        elif isinstance(reagent, str):
+                            output_reg.append(reagent)
+                    relevant_reagents = output_reg
                     logger.debug(f"Relevant reagents: {relevant_reagents}")
                     # if reagent in sheet is not found insert it into items
                     if prsr.sub[item] not in relevant_reagents and prsr.sub[item] != 'nan':
@@ -283,6 +300,7 @@ class App(QMainWindow):
         # add reagents to submission object
         for reagent in parsed_reagents:
             base_submission.reagents.append(reagent)
+            # base_submission.reagents_id = reagent.id
         logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
         result = store_submission(ctx=self.ctx, base_submission=base_submission)
         # check result of storing for issues
@@ -463,7 +481,7 @@ class App(QMainWindow):
             # block signal that will rerun controls getter and set start date
             with QSignalBlocker(self.table_widget.datepicker.start_date) as blocker:
                 self.table_widget.datepicker.start_date.setDate(threemonthsago)
-            self.controls_getter()
+            self._controls_getter()
             return
             # convert to python useable date object
         self.start_date = self.table_widget.datepicker.start_date.date().toPyDate()
@@ -532,6 +550,102 @@ class App(QMainWindow):
         self.table_widget.webengineview.setHtml(html)
         self.table_widget.webengineview.update()
         logger.debug("Figure updated... I hope.")
+
+
+    def linkControls(self):
+        # all_bcs = self.ctx['database_session'].query(models.BacterialCulture).all()
+        all_bcs = lookup_all_submissions_by_type(self.ctx, "Bacterial Culture")
+        logger.debug(all_bcs)
+        all_controls = get_all_controls(self.ctx)
+        ac_list = [control.name for control in all_controls]
+        count = 0
+        for bcs in all_bcs:
+            logger.debug(f"Running for {bcs.rsl_plate_num}")
+            logger.debug(f"Here is the current control: {[control.name for control in bcs.controls]}")
+            samples = [sample.sample_id for sample in bcs.samples]
+            logger.debug(bcs.controls)
+            for sample in samples:
+                # if "Jan" in sample and "EN" in sample:
+                #     sample = sample.replace("EN-", "EN1-")
+                #     logger.debug(f"Checking for {sample}")
+                # replace below is a stopgap method because some dingus decided to add spaces in some of the ATCC49... so it looks like "ATCC 49"...
+                if " " in sample:
+                    logger.warning(f"There is not supposed to be a space in the sample name!!!")
+                    sample = sample.replace(" ", "")
+                if sample not in ac_list:
+                    continue
+                else:
+                    for control in all_controls:
+                        diff = difflib.SequenceMatcher(a=sample, b=control.name).ratio()
+                        if diff > 0.955:
+                            logger.debug(f"Checking {sample} against {control.name}... {diff}")
+                        # if sample == control.name:
+                            logger.debug(f"Found match:\n\tSample: {sample}\n\tControl: {control.name}\n\tDifference: {diff}")
+                            if control in bcs.controls:
+                                logger.debug(f"{control.name} already in {bcs.rsl_plate_num}, skipping")
+                                continue
+                            else:
+                                logger.debug(f"Adding {control.name} to {bcs.rsl_plate_num} as control")
+                                bcs.controls.append(control)
+                                # bcs.control_id.append(control.id)
+                                control.submission = bcs
+                                control.submission_id = bcs.id
+                                self.ctx["database_session"].add(control)
+                                count += 1
+            self.ctx["database_session"].add(bcs)
+            # logger.debug(f"To be added: {ctx['database_session'].new}")
+            logger.debug(f"Here is the new control: {[control.name for control in bcs.controls]}")
+            # p = ctx["database_session"].query(models.BacterialCulture).filter(models.BacterialCulture.rsl_plate_num==bcs.rsl_plate_num).first()
+        result = f"We added {count} controls to bacterial cultures."
+        logger.debug(result)
+        # logger.debug(ctx["database_session"].new)
+        self.ctx['database_session'].commit()
+        msg = QMessageBox()
+        # msg.setIcon(QMessageBox.critical)
+        msg.setText("Controls added")
+        msg.setInformativeText(result)
+        msg.setWindowTitle("Controls added")
+        msg.exec()
+
+
+
+    def linkExtractions(self):
+        home_dir = str(Path(self.ctx["directory_path"]))
+        fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir, filter = "csv(*.csv)")[0])
+        with open(fname.__str__(), 'r') as f:
+            runs = [col.strip().split(",") for col in f.readlines()]
+        # check = []
+        for run in runs:
+            obj = dict(
+                    start_time=run[0].strip(), 
+                    rsl_plate_num=run[1].strip(), 
+                    sample_count=run[2].strip(), 
+                    status=run[3].strip(),
+                    experiment_name=run[4].strip(),
+                    end_time=run[5].strip()
+                )
+            for ii in range(6, len(run)):
+                obj[f"column{str(ii-5)}_vol"] = run[ii]
+            # check.append(json.dumps(obj))
+            # sub = self.ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num.startswith(obj["rsl_plate_num"])).first()
+            sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=obj['rsl_plate_num'])
+            try:
+                logger.debug(f"Found submission: {sub.rsl_plate_num}")
+            except AttributeError:
+                continue
+            output = json.dumps(obj)
+            try:
+                if output in sub.extraction_info:
+                    logger.debug(f"Looks like we already have that info.")
+                    continue
+            except TypeError:
+                pass
+            try:
+                sub.extraction_info += output
+            except TypeError:
+                sub.extraction_info = output
+            self.ctx['database_session'].add(sub)
+            self.ctx["database_session"].commit()
 
 
 class AddSubForm(QWidget):

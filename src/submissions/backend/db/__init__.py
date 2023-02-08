@@ -1,4 +1,6 @@
 from . import models
+from .models.kits import reagenttypes_kittypes
+from .models.submissions import reagents_submissions
 import pandas as pd
 import sqlalchemy.exc
 import sqlite3
@@ -7,12 +9,22 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import and_
 import uuid
 # import base64
-from sqlalchemy import JSON
+from sqlalchemy import JSON, event
+from sqlalchemy.engine import Engine
 import json
 # from dateutil.relativedelta import relativedelta
 from getpass import getuser
+import numpy as np
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
+# The below should allow automatic creation of foreign keys in the database
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
 
 def get_kits_by_use( ctx:dict, kittype_str:str|None) -> list:
     pass
@@ -266,7 +278,7 @@ def lookup_regent_by_type_name(ctx:dict, type_name:str) -> list[models.Reagent]:
 
 def lookup_regent_by_type_name_and_kit_name(ctx:dict, type_name:str, kit_name:str) -> list[models.Reagent]:
     """
-    Lookup reagents by their type name and kits they belong to
+    Lookup reagents by their type name and kits they belong to (Broken)
 
     Args:
         ctx (dict): settings pass by gui
@@ -276,11 +288,31 @@ def lookup_regent_by_type_name_and_kit_name(ctx:dict, type_name:str, kit_name:st
     Returns:
         list[models.Reagent]: list of retrieved reagents
     """    
+    # What I want to do is get the reagent type by name 
     # Hang on, this is going to be a long one.
-    by_type = ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name.endswith(type_name))
-    # add filter for kit name
-    add_in = by_type.join(models.ReagentType.kits).filter(models.KitType.name==kit_name)
-    return add_in
+    # by_type = ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name.endswith(type_name)).all()
+    rt_types = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name.endswith(type_name))
+    
+    
+    
+
+    # add filter for kit name... which I can not get to work.
+    # add_in = by_type.join(models.ReagentType.kits).filter(models.KitType.name==kit_name)
+    try:
+        check = not np.isnan(kit_name)
+    except TypeError:
+        check = True
+    if check:
+        kit_type = lookup_kittype_by_name(ctx=ctx, name=kit_name)
+        logger.debug(f"reagenttypes: {[item.name for item in rt_types.all()]}, kit: {kit_type.name}")
+        rt_types = rt_types.join(reagenttypes_kittypes).filter(reagenttypes_kittypes.c.kits_id==kit_type.id).first()
+
+        # for item in by_type:
+        #     logger.debug([thing.name for thing in item.type.kits])
+        # output = [item for item in by_type if kit_name in [thing.name for thing in item.type.kits]]
+    # else:
+    output = rt_types.instances
+    return output
 
 
 def lookup_all_submissions_by_type(ctx:dict, type:str|None=None) -> list[models.BasicSubmission]:
@@ -344,6 +376,10 @@ def submissions_to_df(ctx:dict, type:str|None=None) -> pd.DataFrame:
     # logger.debug(f"Pre: {df['Technician']}")
     try:
         df = df.drop("controls", axis=1)
+    except:
+        logger.warning(f"Couldn't drop 'controls' column from submissionsheet df.")
+    try:
+        df = df.drop("ext_info", axis=1)
     except:
         logger.warning(f"Couldn't drop 'controls' column from submissionsheet df.")
     # logger.debug(f"Post: {df['Technician']}")
@@ -428,6 +464,9 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> None:
                 else:
                     rt = look_up
                     rt.kits.append(kit)
+                    # add this because I think it's necessary to get proper back population
+                    # rt.kit_id.append(kit.id)
+                    kit.reagent_types_id.append(rt.id)
                 ctx['database_session'].add(rt)
                 logger.debug(rt.__dict__)
             logger.debug(kit.__dict__)
@@ -521,3 +560,15 @@ def get_control_subtypes(ctx:dict, type:str, mode:str) -> list[str]:
         return []
     subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
     return subtypes
+
+
+def get_all_controls(ctx:dict):
+    return ctx['database_session'].query(models.Control).all()
+
+
+def lookup_submission_by_rsl_num(ctx:dict, rsl_num:str):
+    return ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num.startswith(rsl_num)).first()
+
+
+def lookup_submissions_using_reagent(ctx:dict, reagent:models.Reagent) -> list[models.BasicSubmission]:
+    return ctx['database_session'].query(models.BasicSubmission).join(reagents_submissions).filter(reagents_submissions.c.reagent_id==reagent.id)
