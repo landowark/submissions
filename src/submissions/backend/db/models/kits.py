@@ -78,7 +78,7 @@ class Reagent(Base):
         Returns:
             str: string representing this object's lot number
         """        
-        return self.lot
+        return str(self.lot)
 
     def to_sub_dict(self) -> dict:
         """

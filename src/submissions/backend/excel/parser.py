@@ -7,6 +7,7 @@ import re
 import numpy as np
 from datetime import date
 import uuid
+from frontend.functions import check_not_nan
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -59,7 +60,8 @@ class SheetParser(object):
     def _parse_unknown(self) -> None:
         """
         Dummy function to handle unknown excel structures
-        """        
+        """    
+        logger.error(f"Unknown excel workbook structure. Cannot parse.")    
         self.sub = None
     
 
@@ -96,11 +98,11 @@ class SheetParser(object):
                 if ii == 11:
                     continue
                 logger.debug(f"Running reagent parse for {row[1]} with type {type(row[1])} and value: {row[2]} with type {type(row[2])}")
-                try:
-                    check = not np.isnan(row[1])
-                except TypeError:
-                    check = True
-                if not isinstance(row[2], float) and check:
+                # try:
+                #     check = not np.isnan(row[1])
+                # except TypeError:
+                #     check = True
+                if not isinstance(row[2], float) and check_not_nan(row[1]):
                     # must be prefixed with 'lot_' to be recognized by gui
                     try:
                         reagent_type = row[1].replace(' ', '_').lower().strip()
@@ -114,7 +116,18 @@ class SheetParser(object):
                         logger.debug(f"Couldn't upperize {row[2]}, must be a number")
                         output_var = row[2]
                     logger.debug(f"Output variable is {output_var}")
-                    self.sub[f"lot_{reagent_type}"] = output_var
+                    # self.sub[f"lot_{reagent_type}"] = output_var
+                    # update 2023-02-10 to above allowing generation of expiry date in adding reagent to db.
+                    logger.debug(f"Expiry date for imported reagent: {row[3]}")
+                    try:
+                        check = not np.isnan(row[3])
+                    except TypeError:
+                        check = True
+                    if check:
+                        expiry = row[3].date()
+                    else:
+                        expiry = date.today()
+                    self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
 
         submission_info = self._parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2

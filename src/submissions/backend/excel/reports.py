@@ -33,7 +33,9 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
     # put submissions with the same lab together
     df = df.sort_values("Submitting Lab")
     # aggregate cost and sample count columns
-    df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Cost': ['sum', 'count'], 'Sample Count':['sum']})
+    df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Extraction Kit':'count', 'Cost': 'sum', 'Sample Count':'sum'})
+    df2 = df2.rename(columns={"Extraction Kit": 'Kit Count'})
+    logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
     # apply formating to cost column
     # df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')] = df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')].applymap('${:,.2f}'.format)
     return df2
@@ -54,11 +56,14 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     """    
     old_lab = ""
     output = []
+    logger.debug(f"Report DataFrame: {df}")
     for ii, row in enumerate(df.iterrows()):
         row = [item for item in row]
+        logger.debug(f"Row: {row}")
+        
         lab = row[0][0]
         logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
-        kit = dict(name=row[0][1], cost=row[1][('Cost', 'sum')], plate_count=int(row[1][('Cost', 'count')]), sample_count=int(row[1][('Sample Count', 'sum')]))
+        kit = dict(name=row[0][1], cost=row[1]['Cost'], plate_count=int(row[1]['Kit Count']), sample_count=int(row[1]['Sample Count']))
         if lab == old_lab:
             output[ii-1]['kits'].append(kit)
             output[ii-1]['total_cost'] += kit['cost']

@@ -329,7 +329,7 @@ def lookup_all_submissions_by_type(ctx:dict, type:str|None=None) -> list[models.
     if type == None:
         subs = ctx['database_session'].query(models.BasicSubmission).all()
     else:
-        subs = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.submission_type==type).all()
+        subs = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.submission_type==type.lower().replace(" ", "_")).all()
     return subs
 
 def lookup_all_orgs(ctx:dict) -> list[models.Organization]:

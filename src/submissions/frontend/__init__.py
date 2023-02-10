@@ -10,9 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-
 # import pandas as pd
-
 from pathlib import Path
 import plotly
 import pandas as pd
@@ -21,7 +19,7 @@ from xhtml2pdf import pisa
 # import plotly.express as px
 import yaml
 import pprint
-
+import numpy as np
 from backend.excel.parser import SheetParser
 from backend.excel.reports import convert_control_by_mode, convert_data_list_to_df
 from backend.db import (construct_submission_info, lookup_reagent, 
@@ -30,9 +28,13 @@ from backend.db import (construct_submission_info, lookup_reagent,
     get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
     get_control_subtypes, lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num
 )
+from .functions import check_kit_integrity, check_not_nan
 from backend.excel.reports import make_report_xlsx, make_report_html
+
 import numpy
-from frontend.custom_widgets import AddReagentQuestion, AddReagentForm, SubmissionsSheet, ReportDatePicker, KitAdder, ControlsDatePicker, OverwriteSubQuestion
+from frontend.custom_widgets.sub_details import SubmissionsSheet
+from frontend.custom_widgets.pop_ups import AddReagentQuestion, OverwriteSubQuestion, AlertPop
+from frontend.custom_widgets import AddReagentForm, ReportDatePicker, KitAdder, ControlsDatePicker
 import logging
 import difflib
 from getpass import getuser
@@ -130,6 +132,7 @@ class App(QMainWindow):
         logger.debug(self.ctx)
         # initialize samples
         self.samples = []
+        self.reagents = {}
         # set file dialog
         home_dir = str(Path(self.ctx["directory_path"]))
         fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir)[0])
@@ -180,14 +183,9 @@ class App(QMainWindow):
                     # create label
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     # if extraction kit not available, all other values fail
-                    if prsr.sub[item] == 'nan':
-                        msg = QMessageBox()
-                        # msg.setIcon(QMessageBox.critical)
-                        msg.setText("Error")
-                        msg.setInformativeText('You need to enter a value for extraction kit.')
-                        msg.setWindowTitle("Error")
+                    if np.isnan(prsr.sub[item]):
+                        msg = AlertPop(message="Make sure to check your extraction kit!", status="warning")
                         msg.exec()
-                        break
                     # create combobox to hold looked up kits
                     add_widget = QComboBox()
                     # lookup existing kits by 'submission_type' decided on by sheetparser
@@ -216,13 +214,13 @@ class App(QMainWindow):
                     query_var = item.replace("lot_", "")
                     logger.debug(f"Query for: {query_var}")
                     if isinstance(prsr.sub[item], numpy.float64):
-                        logger.debug(f"{prsr.sub[item]} is a numpy float!")
+                        logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
                         try:
-                            prsr.sub[item] = int(prsr.sub[item])
+                            prsr.sub[item] = int(prsr.sub[item]['lot'])
                         except ValueError:
                             pass
                     # query for reagents using type name from sheet and kit from sheet
-                    logger.debug(f"Attempting lookup of reagents by type: {query_var} and kit: {prsr.sub['extraction_kit']}")
+                    logger.debug(f"Attempting lookup of reagents by type: {query_var}")
                     # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
                     relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=self.ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
                     output_reg = []
@@ -235,15 +233,12 @@ class App(QMainWindow):
                     relevant_reagents = output_reg
                     logger.debug(f"Relevant reagents: {relevant_reagents}")
                     # if reagent in sheet is not found insert it into items
-                    if prsr.sub[item] not in relevant_reagents and prsr.sub[item] != 'nan':
-                        try:
-                            check = not numpy.isnan(prsr.sub[item])
-                        except TypeError:
-                            check = True
-                        if check:
-                            relevant_reagents.insert(0, str(prsr.sub[item]))
-                    logger.debug(f"Relevant reagents: {relevant_reagents}")
+                    if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
+                        if check_not_nan(prsr.sub[item]['lot']):
+                            relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
+                    logger.debug(f"New relevant reagents: {relevant_reagents}")
                     add_widget.addItems(relevant_reagents)
+                    self.reagents[item] = prsr.sub[item]
                 # TODO: make samples not appear in frame.
                 case 'samples':
                     # hold samples in 'self' until form submitted
@@ -259,6 +254,7 @@ class App(QMainWindow):
         submit_btn = QPushButton("Submit")
         self.table_widget.formlayout.addWidget(submit_btn)
         submit_btn.clicked.connect(self.submit_new_sample)
+        logger.debug(f"Imported reagents: {self.reagents}")
         
     def submit_new_sample(self):
         """
@@ -278,7 +274,9 @@ class App(QMainWindow):
             if wanted_reagent == None:
                 dlg = AddReagentQuestion(reagent_type=reagent, reagent_lot=reagents[reagent])
                 if dlg.exec():
-                    wanted_reagent = self.add_reagent(reagent_lot=reagents[reagent], reagent_type=reagent.replace("lot_", ""))
+                    logger.debug(f"checking reagent: {reagent} in self.reagents. Result: {self.reagents[reagent]}")
+                    expiry_date = self.reagents[reagent]['exp']
+                    wanted_reagent = self.add_reagent(reagent_lot=reagents[reagent], reagent_type=reagent.replace("lot_", ""), expiry=expiry_date)
                 else:
                     logger.debug("Will not add reagent.")
             if wanted_reagent != None:
@@ -301,15 +299,17 @@ class App(QMainWindow):
         for reagent in parsed_reagents:
             base_submission.reagents.append(reagent)
             # base_submission.reagents_id = reagent.id
+        logger.debug("Checking kit integrity...")
+        kit_integrity = check_kit_integrity(base_submission)
+        if kit_integrity != None:
+            msg = AlertPop(message=kit_integrity['message'], status="critical")
+            msg.exec()
+            return
         logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
         result = store_submission(ctx=self.ctx, base_submission=base_submission)
-        # check result of storing for issues
+        # # check result of storing for issues
         if result != None:
-            msg = QMessageBox()
-            # msg.setIcon(QMessageBox.critical)
-            msg.setText("Error")
-            msg.setInformativeText(result['message'])
-            msg.setWindowTitle("Error")
+            msg = AlertPop(result['message'])
             msg.exec()
         # update summary sheet
         self.table_widget.sub_wid.setData()
@@ -318,7 +318,7 @@ class App(QMainWindow):
             item.setParent(None)
 
 
-    def add_reagent(self, reagent_lot:str|None=None, reagent_type:str|None=None):
+    def add_reagent(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None):
         """
         Action to create new reagent in DB.
 
@@ -332,7 +332,7 @@ class App(QMainWindow):
         if isinstance(reagent_lot, bool):
             reagent_lot = ""
         # create form
-        dlg = AddReagentForm(ctx=self.ctx, reagent_lot=reagent_lot, reagent_type=reagent_type)
+        dlg = AddReagentForm(ctx=self.ctx, reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry)
         if dlg.exec():
             # extract form info
             labels, values = self.extract_form_info(dlg)
@@ -341,7 +341,7 @@ class App(QMainWindow):
             # create reagent object
             reagent = construct_reagent(ctx=self.ctx, info_dict=info)
             # send reagent to db
-            store_reagent(ctx=self.ctx, reagent=reagent)
+            # store_reagent(ctx=self.ctx, reagent=reagent)
             return reagent
             
 
@@ -417,18 +417,15 @@ class App(QMainWindow):
                 # set_column(idx, idx, max_len)  # set column width
             # colu = worksheet.column_dimensions["C"]
             # style = NamedStyle(name="custom_currency", number_format='Currency')
-            for cell in worksheet['C']:
+            for cell in worksheet['D']:
                 # try:
                 #     check = int(cell.row)
                 # except TypeError:
                 #     continue
-                if cell.row > 3:
+                if cell.row > 1:
                     cell.style = 'Currency'
             writer.close()
                   
-
-            
-            
 
     def add_kit(self):
         """
@@ -477,7 +474,7 @@ class App(QMainWindow):
         # correct start date being more recent than end date and rerun
         if self.table_widget.datepicker.start_date.date() > self.table_widget.datepicker.end_date.date():
             logger.warning("Start date after end date is not allowed!")
-            threemonthsago = self.table_widget.datepicker.end_date.date().addDays(-90)
+            threemonthsago = self.table_widget.datepicker.end_date.date().addDays(-60)
             # block signal that will rerun controls getter and set start date
             with QSignalBlocker(self.table_widget.datepicker.start_date) as blocker:
                 self.table_widget.datepicker.start_date.setDate(threemonthsago)
@@ -572,12 +569,14 @@ class App(QMainWindow):
                 if " " in sample:
                     logger.warning(f"There is not supposed to be a space in the sample name!!!")
                     sample = sample.replace(" ", "")
-                if sample not in ac_list:
+                # if sample not in ac_list:
+                if not any([ac.startswith(sample) for ac in ac_list]):
                     continue
                 else:
                     for control in all_controls:
                         diff = difflib.SequenceMatcher(a=sample, b=control.name).ratio()
-                        if diff > 0.955:
+                        # if diff > 0.955:
+                        if control.name.startswith(sample):
                             logger.debug(f"Checking {sample} against {control.name}... {diff}")
                         # if sample == control.name:
                             logger.debug(f"Found match:\n\tSample: {sample}\n\tControl: {control.name}\n\tDifference: {diff}")

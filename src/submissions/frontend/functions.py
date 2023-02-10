@@ -1,5 +1,7 @@
-from ..models import *
+# from ..models import *
+from backend.db.models import *
 import logging
+import numpy as np
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -15,7 +17,15 @@ def check_kit_integrity(sub:BasicSubmission):
     if check:
         result = None
     else:
-        result = {'message' : f"Couldn't verify reagents match listed kit components.\n\nIt looks like you are missing: {[x.upper for x in ext_kit_rtypes if x not in common]}\n\nAlternatively, you may have set the wrong extraction kit."}
+        result = {'message' : f"Couldn't verify reagents match listed kit components.\n\nIt looks like you are missing: {[x.upper() for x in ext_kit_rtypes if x not in common]}\n\nAlternatively, you may have set the wrong extraction kit."}
     return result
     
-    
+
+def check_not_nan(cell_contents) -> bool:
+    try:
+        return not np.isnan(cell_contents)
+    except ValueError:
+        return True
+    except Exception as e:
+        logger.debug(f"Check encounteded unknown error: {e}")
+        return False
