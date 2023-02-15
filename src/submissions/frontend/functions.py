@@ -21,11 +21,3 @@ def check_kit_integrity(sub:BasicSubmission):
     return result
     
 
-def check_not_nan(cell_contents) -> bool:
-    try:
-        return not np.isnan(cell_contents)
-    except ValueError:
-        return True
-    except Exception as e:
-        logger.debug(f"Check encounteded unknown error: {e}")
-        return False

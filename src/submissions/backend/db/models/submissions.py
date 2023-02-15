@@ -17,7 +17,7 @@ class BasicSubmission(Base):
     __tablename__ = "_submissions"
 
     id = Column(INTEGER, primary_key=True) #: primary key   
-    rsl_plate_num = Column(String(32), unique=True) #: RSL name (e.g. RSL-22-0012)
+    rsl_plate_num = Column(String(32), unique=True, nullable=False) #: RSL name (e.g. RSL-22-0012)
     submitter_plate_num = Column(String(127), unique=True) #: The number given to the submission by the submitting lab
     submitted_date = Column(TIMESTAMP) #: Date submission received
     submitting_lab = relationship("Organization", back_populates="submissions") #: client org

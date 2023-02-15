@@ -10,6 +10,7 @@ from pathlib import Path
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+# set path of templates depending on pyinstaller/raw python
 if getattr(sys, 'frozen', False):
     loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
 else:

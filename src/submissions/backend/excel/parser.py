@@ -1,13 +1,13 @@
 import pandas as pd
 from pathlib import Path
-from backend.db.models.samples import WWSample, BCSample
+from backend.db.models import WWSample, BCSample
 import logging
 from collections import OrderedDict
 import re
 import numpy as np
 from datetime import date
 import uuid
-from frontend.functions import check_not_nan
+from tools import check_not_nan
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -15,7 +15,7 @@ class SheetParser(object):
     """
     object to pull and contain data from excel file
     """
-    def __init__(self, filepath:Path|None = None, **kwargs) -> None:
+    def __init__(self, filepath:Path|None = None, **kwargs):
         """
         Args:
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
@@ -77,12 +77,12 @@ class SheetParser(object):
         """        
         submission_info = self.xl.parse(sheet_name=sheet_name, dtype=object)
         
-        self.sub['submitter_plate_num'] = submission_info.iloc[0][1] #if pd.isnull(submission_info.iloc[0][1]) else string_formatter(submission_info.iloc[0][1])
-        self.sub['rsl_plate_num'] =  submission_info.iloc[10][1] #if pd.isnull(submission_info.iloc[10][1]) else string_formatter(submission_info.iloc[10][1])
-        self.sub['submitted_date'] = submission_info.iloc[1][1] #if pd.isnull(submission_info.iloc[1][1]) else submission_info.iloc[1][1].date()#.strftime("%Y-%m-%d")
-        self.sub['submitting_lab'] = submission_info.iloc[0][3] #if pd.isnull(submission_info.iloc[0][3]) else string_formatter(submission_info.iloc[0][3]) 
-        self.sub['sample_count'] = submission_info.iloc[2][3] #if pd.isnull(submission_info.iloc[2][3]) else string_formatter(submission_info.iloc[2][3])
-        self.sub['extraction_kit'] = submission_info.iloc[3][3] #if #pd.isnull(submission_info.iloc[3][3]) else string_formatter(submission_info.iloc[3][3])
+        self.sub['submitter_plate_num'] = submission_info.iloc[0][1]
+        self.sub['rsl_plate_num'] =  submission_info.iloc[10][1]
+        self.sub['submitted_date'] = submission_info.iloc[1][1]
+        self.sub['submitting_lab'] = submission_info.iloc[0][3]
+        self.sub['sample_count'] = submission_info.iloc[2][3]
+        self.sub['extraction_kit'] = submission_info.iloc[3][3]
         
         return submission_info
 
@@ -93,6 +93,12 @@ class SheetParser(object):
         """
 
         def _parse_reagents(df:pd.DataFrame) -> None:
+            """
+            Pulls reagents from the bacterial sub-dataframe
+
+            Args:
+                df (pd.DataFrame): input sub dataframe
+            """            
             for ii, row in df.iterrows():
                 # skip positive control
                 if ii == 11:
@@ -119,16 +125,15 @@ class SheetParser(object):
                     # self.sub[f"lot_{reagent_type}"] = output_var
                     # update 2023-02-10 to above allowing generation of expiry date in adding reagent to db.
                     logger.debug(f"Expiry date for imported reagent: {row[3]}")
-                    try:
-                        check = not np.isnan(row[3])
-                    except TypeError:
-                        check = True
-                    if check:
+                    # try:
+                    #     check = not np.isnan(row[3])
+                    # except TypeError:
+                    #     check = True
+                    if check_not_nan(row[3]):
                         expiry = row[3].date()
                     else:
                         expiry = date.today()
                     self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
-
         submission_info = self._parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2
         tech = str(submission_info.iloc[11][1])
@@ -160,9 +165,6 @@ class SheetParser(object):
         logger.debug(f"Parser result: {self.sub}")
         self.sub['samples'] = sample_parse()
 
-        
-
-
 
     def _parse_wastewater(self) -> None:
         """
@@ -170,23 +172,32 @@ class SheetParser(object):
         """        
 
         def _parse_reagents(df:pd.DataFrame) -> None:
-            logger.debug(df)
+            """
+            Pulls reagents from the bacterial sub-dataframe
+
+            Args:
+                df (pd.DataFrame): input sub dataframe
+            """
+            # logger.debug(df)
             for ii, row in df.iterrows():
-                try:
-                    check = not np.isnan(row[5])
-                except TypeError:
-                    check = True
-                if not isinstance(row[5], float) and check:
+                # try:
+                #     check = not np.isnan(row[5])
+                # except TypeError:
+                #     check = True
+                if not isinstance(row[5], float) and check_not_nan(row[5]):
                     # must be prefixed with 'lot_' to be recognized by gui
+                    # regex below will remove 80% from 80% ethanol in the Wastewater kit.
                     output_key = re.sub(r"\d{1,3}%", "", row[0].lower().strip().replace(' ', '_'))
                     try:
                         output_var = row[5].upper()
                     except AttributeError:
-                        logger.debug(f"Couldn't upperize {row[2]}, must be a number")
+                        logger.debug(f"Couldn't upperize {row[5]}, must be a number")
                         output_var = row[5]
-                    self.sub[f"lot_{output_key}"] = output_var
-
-        # submission_info = self.xl.parse("WW Submissions (ENTER HERE)")
+                    if check_not_nan(row[7]):
+                        expiry = row[7].date()
+                    else:
+                        expiry = date.today()
+                    self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
         submission_info = self._parse_generic("WW Submissions (ENTER HERE)")
         enrichment_info = self.xl.parse("Enrichment Worksheet", dtype=object)
         enr_reagent_range = enrichment_info.iloc[0:4, 9:20]
@@ -214,16 +225,10 @@ class SheetParser(object):
         # self.sub['lot_pre_mix_2'] = qprc_info.iloc[2][14] #if pd.isnull(qprc_info.iloc[2][14]) else string_formatter(qprc_info.iloc[2][14])
         # self.sub['lot_positive_control'] = qprc_info.iloc[3][14] #if pd.isnull(qprc_info.iloc[3][14]) else string_formatter(qprc_info.iloc[3][14])
         # self.sub['lot_ddh2o'] = qprc_info.iloc[4][14] #if pd.isnull(qprc_info.iloc[4][14]) else string_formatter(qprc_info.iloc[4][14])
-        # gt individual sample info
+        # get individual sample info
         sample_parser = SampleParser(submission_info.iloc[16:40])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
-
-        
-
-
-
-    
 
 
 class SampleParser(object):
@@ -241,7 +246,8 @@ class SampleParser(object):
 
         Returns:
             list[BCSample]: list of sample objects
-        """        
+        """       
+        # logger.debug(f"Samples: {self.samples}") 
         new_list = []
         for sample in self.samples:
             new = BCSample()
@@ -297,13 +303,3 @@ class SampleParser(object):
             new.well_number = sample['Unnamed: 1']
             new_list.append(new)
         return new_list
-    
-
-# def string_formatter(input):
-#     logger.debug(f"{input} : {type(input)}")
-#     match input:
-#         case int() | float() | np.float64:
-#             return "{:0.0f}".format(input)
-#         case _:
-#             return input
-        

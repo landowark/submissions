@@ -19,21 +19,23 @@ from xhtml2pdf import pisa
 # import plotly.express as px
 import yaml
 import pprint
-import numpy as np
 from backend.excel.parser import SheetParser
 from backend.excel.reports import convert_control_by_mode, convert_data_list_to_df
 from backend.db import (construct_submission_info, lookup_reagent, 
     construct_reagent, store_reagent, store_submission, lookup_kittype_by_use,
     lookup_regent_by_type_name, lookup_all_orgs, lookup_submissions_by_date_range,
     get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
-    get_control_subtypes, lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num
+    get_control_subtypes, lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num,
+    create_org_from_yaml
 )
-from .functions import check_kit_integrity, check_not_nan
+
+from .functions import check_kit_integrity
+from tools import check_not_nan
 from backend.excel.reports import make_report_xlsx, make_report_html
 
 import numpy
 from frontend.custom_widgets.sub_details import SubmissionsSheet
-from frontend.custom_widgets.pop_ups import AddReagentQuestion, OverwriteSubQuestion, AlertPop
+from frontend.custom_widgets.pop_ups import AlertPop, QuestionAsker
 from frontend.custom_widgets import AddReagentForm, ReportDatePicker, KitAdder, ControlsDatePicker
 import logging
 import difflib
@@ -96,6 +98,7 @@ class App(QMainWindow):
         self.addToolBar(toolbar)
         toolbar.addAction(self.addReagentAction)
         toolbar.addAction(self.addKitAction)
+        toolbar.addAction(self.addOrgAction)
 
     def _createActions(self):
         """
@@ -105,6 +108,7 @@ class App(QMainWindow):
         self.addReagentAction = QAction("Add Reagent", self)
         self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Add Kit", self)
+        self.addOrgAction = QAction("Add Org", self)
         self.joinControlsAction = QAction("Link Controls")
         self.joinExtractionAction = QAction("Link Ext Logs")
 
@@ -117,6 +121,7 @@ class App(QMainWindow):
         self.addReagentAction.triggered.connect(self.add_reagent)
         self.generateReportAction.triggered.connect(self.generateReport)
         self.addKitAction.triggered.connect(self.add_kit)
+        self.addOrgAction.triggered.connect(self.add_org)
         self.table_widget.control_typer.currentIndexChanged.connect(self._controls_getter)
         self.table_widget.mode_typer.currentIndexChanged.connect(self._controls_getter)
         self.table_widget.datepicker.start_date.dateChanged.connect(self._controls_getter)
@@ -183,7 +188,7 @@ class App(QMainWindow):
                     # create label
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     # if extraction kit not available, all other values fail
-                    if np.isnan(prsr.sub[item]):
+                    if not check_not_nan(prsr.sub[item]):
                         msg = AlertPop(message="Make sure to check your extraction kit!", status="warning")
                         msg.exec()
                     # create combobox to hold looked up kits
@@ -231,7 +236,7 @@ class App(QMainWindow):
                         elif isinstance(reagent, str):
                             output_reg.append(reagent)
                     relevant_reagents = output_reg
-                    logger.debug(f"Relevant reagents: {relevant_reagents}")
+                    logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
                     # if reagent in sheet is not found insert it into items
                     if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
                         if check_not_nan(prsr.sub[item]['lot']):
@@ -272,11 +277,13 @@ class App(QMainWindow):
             logger.debug(f"Looked up reagent: {wanted_reagent}")
             # if reagent not found offer to add to database
             if wanted_reagent == None:
-                dlg = AddReagentQuestion(reagent_type=reagent, reagent_lot=reagents[reagent])
+                # dlg = AddReagentQuestion(reagent_type=reagent, reagent_lot=reagents[reagent])
+                r_lot = reagents[reagent]
+                dlg = QuestionAsker(title=f"Add {r_lot}?", message=f"Couldn't find reagent type {reagent.replace('_', ' ').title().strip('Lot')}: {r_lot} in the database.\n\nWould you like to add it?")
                 if dlg.exec():
                     logger.debug(f"checking reagent: {reagent} in self.reagents. Result: {self.reagents[reagent]}")
                     expiry_date = self.reagents[reagent]['exp']
-                    wanted_reagent = self.add_reagent(reagent_lot=reagents[reagent], reagent_type=reagent.replace("lot_", ""), expiry=expiry_date)
+                    wanted_reagent = self.add_reagent(reagent_lot=r_lot, reagent_type=reagent.replace("lot_", ""), expiry=expiry_date)
                 else:
                     logger.debug("Will not add reagent.")
             if wanted_reagent != None:
@@ -287,14 +294,23 @@ class App(QMainWindow):
         info['uploaded_by'] = getuser()
         # construct submission object
         logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
-        base_submission, output = construct_submission_info(ctx=self.ctx, info_dict=info)
+        base_submission, result = construct_submission_info(ctx=self.ctx, info_dict=info)
         # check output message for issues
-        if output['message'] != None:
-            dlg = OverwriteSubQuestion(output['message'], base_submission.rsl_plate_num)
-            if dlg.exec():
-                base_submission.reagents = []
-            else:
+        match result['code']:
+            case 1:
+        # if output['code'] > 0:
+            # dlg = OverwriteSubQuestion(output['message'], base_submission.rsl_plate_num)
+                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result['message'])
+                if dlg.exec():
+                    base_submission.reagents = []
+                else:
+                    return
+            case 2:
+                dlg = AlertPop(message=result['message'], status='critical')
+                dlg.exec()
                 return
+            case _:
+                pass
         # add reagents to submission object
         for reagent in parsed_reagents:
             base_submission.reagents.append(reagent)
@@ -447,18 +463,57 @@ class App(QMainWindow):
             return
         # send to kit creator function
         result = create_kit_from_yaml(ctx=self.ctx, exp=exp)
-        msg = QMessageBox()
+        # msg = QMessageBox()
         # msg.setIcon(QMessageBox.critical)
         match result['code']:
             case 0:
-                msg.setText("Kit added")
-                msg.setInformativeText(result['message'])
-                msg.setWindowTitle("Kit added")
+                msg = AlertPop(message=result['message'], status='info')
+                # msg.setText("Kit added")
+                # msg.setInformativeText(result['message'])
+                # msg.setWindowTitle("Kit added")
             case 1:
-                msg.setText("Permission Error")
-                msg.setInformativeText(result['message'])
-                msg.setWindowTitle("Permission Error")
+                msg = AlertPop(message=result['message'], status='critical')
+                # msg.setText("Permission Error")
+                # msg.setInformativeText(result['message'])
+                # msg.setWindowTitle("Permission Error")
         msg.exec()
+
+
+    def add_org(self):
+        """
+        Constructs new kit from yaml and adds to DB.
+        """
+        # setup file dialog to find yaml flie
+        home_dir = str(Path(self.ctx["directory_path"]))
+        fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir, filter = "yml(*.yml)")[0])
+        assert fname.exists()
+        # read yaml file
+        try:
+            with open(fname.__str__(), "r") as stream:
+                try:
+                    org = yaml.load(stream, Loader=yaml.Loader)
+                except yaml.YAMLError as exc:
+                    logger.error(f'Error reading yaml file {fname}: {exc}')
+                    return {}
+        except PermissionError:
+            return
+        # send to kit creator function
+        result = create_org_from_yaml(ctx=self.ctx, org=org)
+        # msg = QMessageBox()
+        # msg.setIcon(QMessageBox.critical)
+        match result['code']:
+            case 0:
+                msg = AlertPop(message=result['message'], status='information')
+                # msg.setText("Organization added")
+                # msg.setInformativeText(result['message'])
+                # msg.setWindowTitle("Kit added")
+            case 1:
+                msg = AlertPop(message=result['message'], status='critical')
+                # msg.setText("Permission Error")
+                # msg.setInformativeText(result['message'])
+                # msg.setWindowTitle("Permission Error")
+        msg.exec()
+
 
 
 

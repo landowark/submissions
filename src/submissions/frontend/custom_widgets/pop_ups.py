@@ -22,49 +22,66 @@ loader = FileSystemLoader(loader_path)
 env = Environment(loader=loader)
 
 
-class AddReagentQuestion(QDialog):
+# class AddReagentQuestion(QDialog):
+#     """
+#     dialog to ask about adding a new reagne to db
+#     """    
+#     def __init__(self, reagent_type:str, reagent_lot:str) -> QDialog:
+#         super().__init__()
+
+#         self.setWindowTitle(f"Add {reagent_lot}?")
+
+#         QBtn = QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
+
+#         self.buttonBox = QDialogButtonBox(QBtn)
+#         self.buttonBox.accepted.connect(self.accept)
+#         self.buttonBox.rejected.connect(self.reject)
+
+#         self.layout = QVBoxLayout()
+#         message = QLabel(f"Couldn't find reagent type {reagent_type.replace('_', ' ').title().strip('Lot')}: {reagent_lot} in the database.\n\nWould you like to add it?")
+#         self.layout.addWidget(message)
+#         self.layout.addWidget(self.buttonBox)
+#         self.setLayout(self.layout)
+
+
+# class OverwriteSubQuestion(QDialog):
+#     """
+#     dialog to ask about overwriting existing submission
+#     """    
+#     def __init__(self, message:str, rsl_plate_num:str) -> QDialog:
+#         super().__init__()
+
+#         self.setWindowTitle(f"Overwrite {rsl_plate_num}?")
+
+#         QBtn = QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
+
+#         self.buttonBox = QDialogButtonBox(QBtn)
+#         self.buttonBox.accepted.connect(self.accept)
+#         self.buttonBox.rejected.connect(self.reject)
+
+#         self.layout = QVBoxLayout()
+#         message = QLabel(message)
+#         self.layout.addWidget(message)
+#         self.layout.addWidget(self.buttonBox)
+#         self.setLayout(self.layout)
+
+
+class QuestionAsker(QDialog):
     """
-    dialog to ask about adding a new reagne to db
+    dialog to ask yes/no questions
     """    
-    def __init__(self, reagent_type:str, reagent_lot:str) -> QDialog:
+    def __init__(self, title:str, message:str) -> QDialog:
         super().__init__()
-
-        self.setWindowTitle(f"Add {reagent_lot}?")
-
+        self.setWindowTitle(title)
         QBtn = QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
-
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-
-        self.layout = QVBoxLayout()
-        message = QLabel(f"Couldn't find reagent type {reagent_type.replace('_', ' ').title().strip('Lot')}: {reagent_lot} in the database.\n\nWould you like to add it?")
-        self.layout.addWidget(message)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
-
-
-class OverwriteSubQuestion(QDialog):
-    """
-    dialog to ask about overwriting existing submission
-    """    
-    def __init__(self, message:str, rsl_plate_num:str) -> QDialog:
-        super().__init__()
-
-        self.setWindowTitle(f"Overwrite {rsl_plate_num}?")
-
-        QBtn = QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
-
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-
         self.layout = QVBoxLayout()
         message = QLabel(message)
         self.layout.addWidget(message)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
-
 
 class AlertPop(QMessageBox):
 

@@ -36,7 +36,7 @@ class Contact(Base):
     """
     __tablename__ = "_contacts"
 
-    id = id = Column(INTEGER, primary_key=True) #: primary key  
+    id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: contact name
     email = Column(String(64)) #: contact email
     phone = Column(String(32)) #: contact phone number

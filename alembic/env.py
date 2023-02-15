@@ -7,6 +7,7 @@ from alembic import context
 import sys
 from pathlib import Path
 sys.path.append(Path(__file__).parents[1].joinpath("src").resolve().__str__())
+sys.path.append(Path(__file__).parents[1].joinpath("src", "submissions").resolve().__str__())
 print(sys.path)
 
 # this is the Alembic Config object, which provides
