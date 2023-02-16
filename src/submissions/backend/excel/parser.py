@@ -187,14 +187,18 @@ class SheetParser(object):
                 if not isinstance(row[5], float) and check_not_nan(row[5]):
                     # must be prefixed with 'lot_' to be recognized by gui
                     # regex below will remove 80% from 80% ethanol in the Wastewater kit.
-                    output_key = re.sub(r"\d{1,3}%", "", row[0].lower().strip().replace(' ', '_'))
+                    output_key = re.sub(r"^\d{1,3}%\s?", "", row[0].lower().strip().replace(' ', '_'))
+                    output_key = output_key.strip("_")
                     try:
                         output_var = row[5].upper()
                     except AttributeError:
                         logger.debug(f"Couldn't upperize {row[5]}, must be a number")
                         output_var = row[5]
                     if check_not_nan(row[7]):
-                        expiry = row[7].date()
+                        try:
+                            expiry = row[7].date()
+                        except AttributeError:
+                            expiry = date.today()
                     else:
                         expiry = date.today()
                     self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}

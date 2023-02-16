@@ -1,4 +1,6 @@
 # __init__.py
 
 # Version of the realpython-reader package
-__version__ = "1.3.0"
+__version__ = "202302.3b"
+__author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
+__copyright__ = "2022-2023, Government of Canada"

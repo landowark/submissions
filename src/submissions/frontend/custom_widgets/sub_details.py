@@ -2,17 +2,19 @@ from datetime import date
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
     QTextEdit, QPushButton, QScrollArea, 
-    QMessageBox, QFileDialog
+    QMessageBox, QFileDialog, QMenu
 )
 from PyQt6.QtCore import Qt, QAbstractTableModel
-from PyQt6.QtGui import QFontMetrics
+from PyQt6.QtGui import QFontMetrics, QAction, QCursor
 
-from backend.db import submissions_to_df, lookup_submission_by_id, lookup_all_sample_types, create_kit_from_yaml
+from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id
 from jinja2 import Environment, FileSystemLoader
 from xhtml2pdf import pisa
 import sys
 from pathlib import Path
 import logging
+from .pop_ups import AlertPop, QuestionAsker
+from tools import check_is_power_user
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -91,6 +93,14 @@ class SubmissionsSheet(QTableView):
         sets data in model
         """        
         self.data = submissions_to_df(ctx=self.ctx)
+        try:
+            del self.data['samples']
+        except KeyError:
+            pass
+        try:
+            del self.data['reagents']
+        except KeyError:
+            pass
         self.model = pandasModel(self.data)
         self.setModel(self.model)
         # self.resize(800,600)
@@ -99,13 +109,41 @@ class SubmissionsSheet(QTableView):
         """
         creates detailed data to show in seperate window
         """        
-        index=(self.selectionModel().currentIndex())
+        index = (self.selectionModel().currentIndex())
         # logger.debug(index)
-        value=index.sibling(index.row(),0).data()
+        value = index.sibling(index.row(),0).data()
         dlg = SubmissionDetails(ctx=self.ctx, id=value)
         # dlg.show()
         if dlg.exec():
             pass
+
+
+    def contextMenuEvent(self, event):
+        self.menu = QMenu(self)
+        renameAction = QAction('Delete', self)
+        detailsAction = QAction('Details', self)
+        # Originally I intended to limit deletions to power users.
+        # renameAction.setEnabled(False)
+        # if check_is_power_user(ctx=self.ctx):
+        #     renameAction.setEnabled(True)
+        renameAction.triggered.connect(lambda: self.delete_item(event))
+        detailsAction.triggered.connect(lambda: self.show_details())
+        self.menu.addAction(detailsAction)
+        self.menu.addAction(renameAction)
+        # add other required actions
+        self.menu.popup(QCursor.pos())
+
+
+    def delete_item(self, event):
+        index = (self.selectionModel().currentIndex())
+        value = index.sibling(index.row(),0).data()
+        logger.debug(index)
+        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
+        if msg.exec():
+            delete_submission_by_id(ctx=self.ctx, id=value)
+        else:
+            return
+        self.setData()
 
 
 
@@ -130,8 +168,8 @@ class SubmissionDetails(QDialog):
         # don't want id
         del self.base_dict['id']
         # convert sub objects to dicts
-        self.base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
-        self.base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
+        # self.base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
+        # self.base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
         # retrieve jinja template
         template = env.get_template("submission_details.txt")
         # render using object dict

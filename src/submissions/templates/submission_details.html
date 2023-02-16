@@ -20,6 +20,7 @@
                 &nbsp;&nbsp;&nbsp;&nbsp;{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
             {% endif %}
         {% endfor %}</p>
+        {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}
             {% if loop.index == 1 %}
@@ -28,6 +29,7 @@
                 &nbsp;&nbsp;&nbsp;&nbsp;{{ item['well'] }}: {{ item['name'] }}<br>
             {% endif %}
         {% endfor %}</p>
+        {% endif %}
         {% if sub['controls'] %}
         <h3><u>Attached Controls:</u></h3>
         {% for item in sub['controls'] %}

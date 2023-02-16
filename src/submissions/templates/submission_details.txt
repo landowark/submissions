@@ -6,10 +6,10 @@
 Reagents:
 {% for item in sub['reagents'] %}
     {{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }}){% endfor %}
-    
+{% if sub['samples']%}
 Samples:
 {% for item in sub['samples'] %}
-    {{ item['well'] }}: {{ item['name'] }}{% endfor %}
+    {{ item['well'] }}: {{ item['name'] }}{% endfor %}{% endif %}
 {% if sub['controls'] %}
 Attached Controls:
 {% for item in sub['controls'] %}

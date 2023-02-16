@@ -15,7 +15,9 @@ import json
 # from dateutil.relativedelta import relativedelta
 from getpass import getuser
 import numpy as np
-from tools import check_not_nan
+from tools import check_not_nan, check_is_power_user
+import yaml
+from pathlib import Path
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -367,7 +369,8 @@ def lookup_org_by_name(ctx:dict, name:str|None) -> models.Organization:
         models.Organization: retrieved organization
     """    
     logger.debug(f"Querying organization: {name}")
-    return ctx['database_session'].query(models.Organization).filter(models.Organization.name==name).first()
+    # return ctx['database_session'].query(models.Organization).filter(models.Organization.name==name).first()
+    return ctx['database_session'].query(models.Organization).filter(models.Organization.name.startswith(name)).first()
 
 def submissions_to_df(ctx:dict, sub_type:str|None=None) -> pd.DataFrame:
     """
@@ -457,13 +460,10 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
     Returns:
         dict: a dictionary containing results of db addition
     """    
-    try:
-        power_users = ctx['power_users']
-    except KeyError:
-        logger.debug("This user does not have permission to add kits.")
-        return {'code':1,'message':"This user does not have permission to add kits."}
-    logger.debug(f"Adding kit for user: {getuser()}")
-    if getuser() not in power_users:
+    # try:
+    #     power_users = ctx['power_users']
+    # except KeyError:
+    if not check_is_power_user(ctx=ctx):
         logger.debug(f"{getuser()} does not have permission to add kits.")
         return {'code':1, 'message':"This user does not have permission to add kits."}
     for type in exp:
@@ -499,13 +499,14 @@ def create_org_from_yaml(ctx:dict, org:dict) -> dict:
     Returns:
         dict: dictionary containing results of db addition
     """    
-    try:
-        power_users = ctx['power_users']
-    except KeyError:
-        logger.debug("This user does not have permission to add kits.")
-        return {'code':1,'message':"This user does not have permission to add organizations."}
-    logger.debug(f"Adding organization for user: {getuser()}")
-    if getuser() not in power_users:
+    # try:
+    #     power_users = ctx['power_users']
+    # except KeyError:
+    #     logger.debug("This user does not have permission to add kits.")
+    #     return {'code':1,'message':"This user does not have permission to add organizations."}
+    # logger.debug(f"Adding organization for user: {getuser()}")
+    # if getuser() not in power_users:
+    if not check_is_power_user(ctx=ctx):
         logger.debug(f"{getuser()} does not have permission to add kits.")
         return {'code':1, 'message':"This user does not have permission to add organizations."}
     for client in org:
@@ -624,3 +625,23 @@ def lookup_submission_by_rsl_num(ctx:dict, rsl_num:str):
 
 def lookup_submissions_using_reagent(ctx:dict, reagent:models.Reagent) -> list[models.BasicSubmission]:
     return ctx['database_session'].query(models.BasicSubmission).join(reagents_submissions).filter(reagents_submissions.c.reagent_id==reagent.id).all()
+
+
+def delete_submission_by_id(ctx:dict, id:int) -> None:
+    """
+    Deletes a submission and its associated samples from the database.
+
+    Args:
+        ctx (dict): settings passed down from gui
+        id (int): id of submission to be deleted.
+    """    
+    # In order to properly do this Im' going to have to delete all of the secondary table stuff as well.
+    sub = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.id==id).first()
+    backup = sub.to_dict()
+    with open(Path(ctx['backup_path']).joinpath(f"{sub.rsl_plate_num}-backup({date.today().strftime('%Y%m%d')}).yml"), "w") as f:
+        yaml.dump(backup, f)
+    sub.reagents = []
+    for sample in sub.samples:
+        ctx['database_session'].delete(sample)
+    ctx["database_session"].delete(sub)
+    ctx["database_session"].commit()

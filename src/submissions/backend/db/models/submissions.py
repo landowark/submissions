@@ -74,6 +74,14 @@ class BasicSubmission(Base):
             ext_info = json.loads(self.extraction_info)
         except TypeError:
             ext_info = None
+        try:
+            reagents = [item.to_sub_dict() for item in self.reagents]
+        except:
+            reagents = None
+        try:
+            samples = [item.to_sub_dict() for item in self.samples]
+        except:
+            samples = None
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -85,6 +93,8 @@ class BasicSubmission(Base):
             "Extraction Kit": ext_kit,
             "Technician": self.technician,
             "Cost": self.run_cost,
+            "reagents": reagents,
+            "samples": samples,
             "ext_info": ext_info
         }
         # logger.debug(f"{self.rsl_plate_num} extraction: {output['Extraction Status']}")

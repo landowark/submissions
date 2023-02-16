@@ -52,7 +52,7 @@ class App(QMainWindow):
         super().__init__()
         self.ctx = ctx
         try:
-            self.title = f"Submissions App (v{ctx['package'].__version__})"
+            self.title = f"Submissions App (v{ctx['package'].__version__}) - {ctx['database']}"
         except AttributeError:
             self.title = f"Submissions App"
         # set initial app position and size
@@ -85,6 +85,7 @@ class App(QMainWindow):
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
+        helpMenu.addAction(self.helpAction)
         fileMenu.addAction(self.importAction)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinControlsAction)
@@ -111,6 +112,7 @@ class App(QMainWindow):
         self.addOrgAction = QAction("Add Org", self)
         self.joinControlsAction = QAction("Link Controls")
         self.joinExtractionAction = QAction("Link Ext Logs")
+        self.helpAction = QAction("&About", self)
 
 
     def _connectActions(self):
@@ -128,6 +130,12 @@ class App(QMainWindow):
         self.table_widget.datepicker.end_date.dateChanged.connect(self._controls_getter)
         self.joinControlsAction.triggered.connect(self.linkControls)
         self.joinExtractionAction.triggered.connect(self.linkExtractions)
+        self.helpAction.triggered.connect(self.showAbout)
+
+    def showAbout(self):
+        output = f"Version: {self.ctx['package'].__version__}\n\nAuthor: {self.ctx['package'].__author__['name']} - {self.ctx['package'].__author__['email']}\n\nCopyright: {self.ctx['package'].__copyright__}"
+        about = AlertPop(message=output, status="information")
+        about.exec()
 
 
     def importSubmission(self):

@@ -56,7 +56,7 @@ class Control(Base):
         output = {
             "name" : self.name,
             "type" : self.controltype.name,
-            "targets" : " ,".join(targets),
+            "targets" : ", ".join(targets),
             "kraken" : new_kraken[0:5]
         }
         return output

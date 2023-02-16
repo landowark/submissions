@@ -41,6 +41,9 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
     # df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')] = df2.iloc[:, (df2.columns.get_level_values(1)=='sum') & (df2.columns.get_level_values(0)=='Cost')].applymap('${:,.2f}'.format)
     return df2
 
+# def split_row_item(item:str) -> float:
+#     return item.split(" ")[-1]
+
 
 def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     
@@ -59,17 +62,23 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     output = []
     logger.debug(f"Report DataFrame: {df}")
     for ii, row in enumerate(df.iterrows()):
-        row = [item for item in row]
-        logger.debug(f"Row: {row}")
-        
+        # row = [item for item in row]
+        logger.debug(f"Row {ii}: {row}")
         lab = row[0][0]
+        logger.debug(type(row))
         logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
-        kit = dict(name=row[0][1], cost=row[1]['Cost'], plate_count=int(row[1]['Kit Count']), sample_count=int(row[1]['Sample Count']))
+        logger.debug(f"Name: {row[0][1]}")
+        data = [item for item in row[1]]
+        # logger.debug(data)
+        # logger.debug(f"Cost: {split_row_item(data[1])}")
+        # logger.debug(f"Kit count: {split_row_item(data[0])}")
+        # logger.debug(f"Sample Count: {split_row_item(data[2])}")
+        kit = dict(name=row[0][1], cost=data[1], plate_count=int(data[0]), sample_count=int(data[2]))
         if lab == old_lab:
-            output[ii-1]['kits'].append(kit)
-            output[ii-1]['total_cost'] += kit['cost']
-            output[ii-1]['total_samples'] += kit['sample_count']
-            output[ii-1]['total_plates'] += kit['plate_count']
+            output[-1]['kits'].append(kit)
+            output[-1]['total_cost'] += kit['cost']
+            output[-1]['total_samples'] += kit['sample_count']
+            output[-1]['total_plates'] += kit['plate_count']
         else:
             adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'], total_plates=kit['plate_count'])
             output.append(adder)
