@@ -25,6 +25,7 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     genera = []
     if df.empty:
         return None
+
     for item in df['genus'].to_list():
         try:
             if item[-1] == "*":
@@ -41,7 +42,7 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     # sort by and exclude from
     sorts = ['submitted_date', "target", "genus"]
     exclude = ['name', 'genera']
-    modes = [item for item in df.columns if item not in sorts and item not in exclude and "_hashes" not in item]
+    modes = [item for item in df.columns if item not in sorts and item not in exclude]# and "_hashes" not in item]
     # Set descending for any columns that have "{mode}" in the header.
     ascending = [False if item == "target" else True for item in sorts]
     df = df.sort_values(by=sorts, ascending=ascending)

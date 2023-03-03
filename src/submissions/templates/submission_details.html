@@ -47,8 +47,9 @@
         {% endfor %}
         {% endif %}
         {% if sub['ext_info'] %}
+        {% for entry in sub['ext_info'] %}
         <h3><u>Extraction Status:</u></h3>
-        <p>{% for key, value in sub['ext_info'].items() %}
+        <p>{% for key, value in entry.items() %}
             {% if loop.index == 1%}
                 &nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
             {% else %}
@@ -59,6 +60,7 @@
                 {% endif %}
             {% endif %}
         {% endfor %}</p>
+        {% endfor %}
         {% endif %}
     </body>
 </html>

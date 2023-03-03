@@ -20,17 +20,18 @@ from xhtml2pdf import pisa
 import yaml
 import pprint
 from backend.excel.parser import SheetParser
-from backend.excel.reports import convert_control_by_mode, convert_data_list_to_df
+from backend.excel.reports import convert_data_list_to_df
 from backend.db import (construct_submission_info, lookup_reagent, 
-    construct_reagent, store_reagent, store_submission, lookup_kittype_by_use,
+    construct_reagent, store_submission, lookup_kittype_by_use,
     lookup_regent_by_type_name, lookup_all_orgs, lookup_submissions_by_date_range,
     get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
     get_control_subtypes, lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num,
     create_org_from_yaml
 )
+from backend.db import lookup_kittype_by_name
 
 from .functions import check_kit_integrity
-from tools import check_not_nan
+from tools import check_not_nan, create_reagent_list
 from backend.excel.reports import make_report_xlsx, make_report_html
 
 import numpy
@@ -108,8 +109,8 @@ class App(QMainWindow):
         self.importAction = QAction("&Import", self)
         self.addReagentAction = QAction("Add Reagent", self)
         self.generateReportAction = QAction("Make Report", self)
-        self.addKitAction = QAction("Add Kit", self)
-        self.addOrgAction = QAction("Add Org", self)
+        self.addKitAction = QAction("Import Kit", self)
+        self.addOrgAction = QAction("Import Org", self)
         self.joinControlsAction = QAction("Link Controls")
         self.joinExtractionAction = QAction("Link Ext Logs")
         self.helpAction = QAction("&About", self)
@@ -137,6 +138,40 @@ class App(QMainWindow):
         about = AlertPop(message=output, status="information")
         about.exec()
 
+    def insert_reagent_import(self, item:str, prsr:SheetParser|None=None) -> QComboBox:
+        add_widget = QComboBox()
+        add_widget.setEditable(True)
+        # Ensure that all reagenttypes have a name that matches the items in the excel parser
+        query_var = item.replace("lot_", "")
+        logger.debug(f"Query for: {query_var}")
+        if prsr != None:
+            if isinstance(prsr.sub[item], numpy.float64):
+                logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
+                try:
+                    prsr.sub[item] = int(prsr.sub[item]['lot'])
+                except ValueError:
+                    pass
+        # query for reagents using type name from sheet and kit from sheet
+        logger.debug(f"Attempting lookup of reagents by type: {query_var}")
+        # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+        relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=self.ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
+        output_reg = []
+        for reagent in relevant_reagents:
+            if isinstance(reagent, set):
+                for thing in reagent:
+                    output_reg.append(thing)
+            elif isinstance(reagent, str):
+                output_reg.append(reagent)
+        relevant_reagents = output_reg
+        # if reagent in sheet is not found insert it into items
+        if prsr != None:
+            logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
+            if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
+                if check_not_nan(prsr.sub[item]['lot']):
+                    relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
+        logger.debug(f"New relevant reagents: {relevant_reagents}")
+        add_widget.addItems(relevant_reagents)
+        return add_widget
 
     def importSubmission(self):
         """
@@ -155,6 +190,7 @@ class App(QMainWindow):
         try:
             prsr = SheetParser(fname, **self.ctx)
         except PermissionError:
+            logger.error(f"Couldn't get permission to access file: {fname}")
             return
         logger.debug(f"prsr.sub = {prsr.sub}")
         # destroy any widgets from previous imports
@@ -169,6 +205,7 @@ class App(QMainWindow):
             (?P<samples>)^samples$ |
             (?P<reagent>^lot_.*$)
         """, re.VERBOSE)
+        # reagents = []
         for item in prsr.sub:
             logger.debug(f"Item: {item}")
             # attempt to match variable name to regex group
@@ -207,6 +244,7 @@ class App(QMainWindow):
                         add_widget.addItems(uses)
                     else:
                         add_widget.addItems(['bacterial_culture'])
+                    self.ext_kit = prsr.sub[item]
                 case 'submitted_date':
                     # create label
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
@@ -219,40 +257,41 @@ class App(QMainWindow):
                     except:
                         add_widget.setDate(date.today())
                 case 'reagent':
+                    # TODO make this a function so I can add in missing reagents below when checking kit integrity.
                     # create label
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-                    add_widget = QComboBox()
-                    add_widget.setEditable(True)
-                    # Ensure that all reagenttypes have a name that matches the items in the excel parser
-                    query_var = item.replace("lot_", "")
-                    logger.debug(f"Query for: {query_var}")
-                    if isinstance(prsr.sub[item], numpy.float64):
-                        logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
-                        try:
-                            prsr.sub[item] = int(prsr.sub[item]['lot'])
-                        except ValueError:
-                            pass
-                    # query for reagents using type name from sheet and kit from sheet
-                    logger.debug(f"Attempting lookup of reagents by type: {query_var}")
-                    # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-                    relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=self.ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
-                    output_reg = []
-                    for reagent in relevant_reagents:
-                        if isinstance(reagent, set):
-                            for thing in reagent:
-                                output_reg.append(thing)
-                        elif isinstance(reagent, str):
-                            output_reg.append(reagent)
-                    relevant_reagents = output_reg
-                    logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
-                    # if reagent in sheet is not found insert it into items
-                    if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
-                        if check_not_nan(prsr.sub[item]['lot']):
-                            relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
-                    logger.debug(f"New relevant reagents: {relevant_reagents}")
-                    add_widget.addItems(relevant_reagents)
+                    # add_widget = QComboBox()
+                    # add_widget.setEditable(True)
+                    # # Ensure that all reagenttypes have a name that matches the items in the excel parser
+                    # query_var = item.replace("lot_", "")
+                    # logger.debug(f"Query for: {query_var}")
+                    # if isinstance(prsr.sub[item], numpy.float64):
+                    #     logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
+                    #     try:
+                    #         prsr.sub[item] = int(prsr.sub[item]['lot'])
+                    #     except ValueError:
+                    #         pass
+                    # # query for reagents using type name from sheet and kit from sheet
+                    # logger.debug(f"Attempting lookup of reagents by type: {query_var}")
+                    # # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+                    # relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=self.ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
+                    # output_reg = []
+                    # for reagent in relevant_reagents:
+                    #     if isinstance(reagent, set):
+                    #         for thing in reagent:
+                    #             output_reg.append(thing)
+                    #     elif isinstance(reagent, str):
+                    #         output_reg.append(reagent)
+                    # relevant_reagents = output_reg
+                    # logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
+                    # # if reagent in sheet is not found insert it into items
+                    # if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
+                    #     if check_not_nan(prsr.sub[item]['lot']):
+                    #         relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
+                    # logger.debug(f"New relevant reagents: {relevant_reagents}")
+                    # add_widget.addItems(relevant_reagents)
+                    add_widget = self.insert_reagent_import(item, prsr=prsr)
                     self.reagents[item] = prsr.sub[item]
-                # TODO: make samples not appear in frame.
                 case 'samples':
                     # hold samples in 'self' until form submitted
                     logger.debug(f"{item}: {prsr.sub[item]}")
@@ -263,6 +302,17 @@ class App(QMainWindow):
                     add_widget = QLineEdit()
                     add_widget.setText(str(prsr.sub[item]).replace("_", " "))
             self.table_widget.formlayout.addWidget(add_widget)
+        # compare self.reagents with expected reagents in kit
+        if hasattr(self, 'ext_kit'):
+            kit = lookup_kittype_by_name(ctx=self.ctx, name=self.ext_kit)
+            kit_integrity = check_kit_integrity(kit, [item.replace("lot_", "") for item in self.reagents])
+            if kit_integrity != None:
+                msg = AlertPop(message=kit_integrity['message'], status="critical")
+                msg.exec()
+                for item in kit_integrity['missing']:
+                    self.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
+                    add_widget =self.insert_reagent_import(item)
+                    self.table_widget.formlayout.addWidget(add_widget)
         # create submission button
         submit_btn = QPushButton("Submit")
         self.table_widget.formlayout.addWidget(submit_btn)
@@ -580,11 +630,14 @@ class App(QMainWindow):
             # return
             fig = None
         else:
-            data = []
-            for control in controls:
-                # change each control to list of dicts
-                dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=self.mode)
-                data.append(dicts)
+            # data = []
+            # for control in controls:
+            #     # change each control to list of dicts
+            #     # dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=self.mode)
+            #     dicts = control.convert_by_mode(mode=self.mode)
+            #     data.append(dicts)
+            # change each control to list of dicts
+            data = [control.convert_by_mode(mode=self.mode) for control in controls]
             # flatten data to one dimensional list
             data = [item for sublist in data for item in sublist]
             # logger.debug(data)
@@ -677,6 +730,7 @@ class App(QMainWindow):
         with open(fname.__str__(), 'r') as f:
             runs = [col.strip().split(",") for col in f.readlines()]
         # check = []
+        count = 0
         for run in runs:
             obj = dict(
                     start_time=run[0].strip(), 
@@ -693,21 +747,42 @@ class App(QMainWindow):
             sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=obj['rsl_plate_num'])
             try:
                 logger.debug(f"Found submission: {sub.rsl_plate_num}")
+                count += 1
             except AttributeError:
                 continue
-            output = json.dumps(obj)
+            # output = json.dumps(obj)
+            if sub.extraction_info != None:
+                # try:
+                # logger.debug(f"Attempting update on ext info: {sub.extraction_info} for {sub.rsl_plate_num}")
+                existing = json.loads(sub.extraction_info)
+                # except:
+                    # existing = None
+            else:
+                existing = None
             try:
-                if output in sub.extraction_info:
+                if json.dumps(obj) in sub.extraction_info:
                     logger.debug(f"Looks like we already have that info.")
                     continue
             except TypeError:
                 pass
-            try:
-                sub.extraction_info += output
-            except TypeError:
-                sub.extraction_info = output
+            if existing != None:
+                try:
+                    # sub.extraction_info += output
+                    logger.debug(f"Updating {type(existing)}: {existing} with {type(obj)}: {obj}")
+                    existing.append(obj)
+                    logger.debug(f"Setting: {existing}")
+                    sub.extraction_info = json.dumps(existing)
+                except TypeError:
+                    logger.error(f"Error updating!")
+                    sub.extraction_info = json.dumps([obj])
+                logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.extraction_info}")
+            else:
+                sub.extraction_info = json.dumps([obj])        
             self.ctx['database_session'].add(sub)
             self.ctx["database_session"].commit()
+        dlg = AlertPop(message=f"We added {count} logs to the database.", status='information')
+        dlg.exec()
+
 
 
 class AddSubForm(QWidget):

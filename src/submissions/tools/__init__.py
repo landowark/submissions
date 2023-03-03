@@ -23,3 +23,7 @@ def check_is_power_user(ctx:dict) -> bool:
         logger.debug(f"Check encounteded unknown error: {type(e).__name__} - {e}")
         check = False
     return check
+
+
+def create_reagent_list(in_dict:dict) -> list[str]:
+    return [item.strip("lot_") for item in in_dict.keys()]

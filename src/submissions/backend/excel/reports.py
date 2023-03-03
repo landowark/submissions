@@ -1,10 +1,11 @@
 
 from pandas import DataFrame, concat
-from backend.db import models
+from operator import itemgetter
+# from backend.db import models
 import json
 import logging
 from jinja2 import Environment, FileSystemLoader
-from datetime import date
+from datetime import date, timedelta
 import sys
 from pathlib import Path
 
@@ -139,31 +140,32 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
 #         dfs['name'] = df
 #     return dfs
 
-def convert_control_by_mode(ctx:dict, control:models.Control, mode:str) -> list[dict]:
-    """
-    split control object into analysis types
+# def convert_control_by_mode(ctx:dict, control:models.Control, mode:str) -> list[dict]:
+#     """
+#     split control object into analysis types... can I move this into the class itself?
+#     turns out I can
 
-    Args:
-        ctx (dict): settings passed from gui
-        control (models.Control): control to be parsed into list
-        mode (str): analysis type
+#     Args:
+#         ctx (dict): settings passed from gui
+#         control (models.Control): control to be parsed into list
+#         mode (str): analysis type
 
-    Returns:
-        list[dict]: list of records
-    """    
-    output = []
-    data = json.loads(getattr(control, mode))
-    for genus in data:
-        _dict = {}
-        _dict['name'] = control.name
-        _dict['submitted_date'] = control.submitted_date
-        _dict['genus'] = genus
-        _dict['target'] = 'Target' if genus.strip("*") in control.controltype.targets else "Off-target"
-        for key in data[genus]:
-            _dict[key] = data[genus][key]
-        output.append(_dict)
-    # logger.debug(output)
-    return output
+#     Returns:
+#         list[dict]: list of records
+#     """    
+#     output = []
+#     data = json.loads(getattr(control, mode))
+#     for genus in data:
+#         _dict = {}
+#         _dict['name'] = control.name
+#         _dict['submitted_date'] = control.submitted_date
+#         _dict['genus'] = genus
+#         _dict['target'] = 'Target' if genus.strip("*") in control.controltype.targets else "Off-target"
+#         for key in data[genus]:
+#             _dict[key] = data[genus][key]
+#         output.append(_dict)
+#     # logger.debug(output)
+#     return output
 
 
 def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -> DataFrame:
@@ -178,17 +180,81 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
     Returns:
         DataFrame: _description_
     """    
+    # copy = input
+    # for item in copy:
+    #     item['submitted_date'] = item['submitted_date'].strftime("%Y-%m-%d")
+    # with open("controls.json", "w") as f:
+    #     f.write(json.dumps(copy))
+    # for item in input:
+    #     logger.debug(item.keys())
     df = DataFrame.from_records(input)
+    df.to_excel("test.xlsx", engine="openpyxl")
     safe = ['name', 'submitted_date', 'genus', 'target']
     # logger.debug(df)
     for column in df.columns:
         if "percent" in column:
             count_col = [item for item in df.columns if "count" in item][0]
             # The actual percentage from kraken was off due to exclusion of NaN, recalculating.
-            df[column] = 100 * df[count_col] / df.groupby('submitted_date')[count_col].transform('sum')
+            # df[column] = 100 * df[count_col] / df.groupby('submitted_date')[count_col].transform('sum')
+            df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
         if column not in safe:
             if subtype != None and column != subtype:
                 del df[column]
     # logger.debug(df)
+    # df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
+    df = displace_date(df)
+    df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
+    df = df_column_renamer(df=df)
     return df
 
+
+def df_column_renamer(df:DataFrame) -> DataFrame:
+    """
+    Ad hoc function I created to clarify some fields
+
+    Args:
+        df (DataFrame): input dataframe
+
+    Returns:
+        DataFrame: dataframe with 'clarified' column names
+    """  
+    df = df[df.columns.drop(list(df.filter(regex='_hashes')))]  
+    return df.rename(columns = {
+        "contains_ratio":"contains_shared_hashes_ratio",
+        "matches_ratio":"matches_shared_hashes_ratio",
+        "kraken_count":"kraken2_read_count",
+        "kraken_percent":"kraken2_read_percent"
+    })
+
+
+def displace_date(df:DataFrame) -> DataFrame:
+    """
+    This function serves to split samples that were submitted on the same date by incrementing dates.
+
+    Args:
+        df (DataFrame): input dataframe composed of control records
+
+    Returns:
+        DataFrame: output dataframe with dates incremented.
+    """    
+    # dict_list = []
+    # for item in df['name'].unique():
+    #     dict_list.append(dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']))
+    logger.debug(f"Unique items: {df['name'].unique()}")
+    # logger.debug(df.to_string())
+    # the assumption is that closest names will have closest dates...
+    dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
+    for ii, item in enumerate(dict_list):
+        # if ii > 0:
+        try:
+            check = item['date'] == dict_list[ii-1]['date']
+        except IndexError:
+            check = False
+        if check:
+            logger.debug(f"We found one! Increment date!\n{item['date'] - timedelta(days=1)}")
+            mask = df['name'] == item['name']
+            # logger.debug(f"We will increment dates in: {df.loc[mask, 'submitted_date']}")
+            df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
+            # logger.debug(f"Do these look incremented: {df.loc[mask, 'submitted_date']}")
+    return df
+                

@@ -260,6 +260,7 @@ class ControlsDatePicker(QWidget):
 
         self.start_date = QDateEdit(calendarPopup=True)
         # start date is three month prior to end date by default
+        # edit: 2 month, but the variable name is the same cause I'm lazy
         threemonthsago = QDate.currentDate().addDays(-60)
         self.start_date.setDate(threemonthsago)
         self.end_date = QDateEdit(calendarPopup=True)

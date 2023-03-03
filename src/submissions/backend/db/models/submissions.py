@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime as dt
 import logging
 import json
+from json.decoder import JSONDecodeError
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -74,6 +75,9 @@ class BasicSubmission(Base):
             ext_info = json.loads(self.extraction_info)
         except TypeError:
             ext_info = None
+        except JSONDecodeError as e:
+            ext_info = None
+            logger.debug(f"Json error in {self.rsl_plate_num}: {e}")
         try:
             reagents = [item.to_sub_dict() for item in self.reagents]
         except:

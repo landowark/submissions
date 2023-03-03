@@ -19,8 +19,9 @@ Attached Controls:
         {% for genera in item['kraken'] %}
             {{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }}){% endfor %}{% endif %}
 {% endfor %}{% endif %}
-{% if sub['ext_info'] %}
+{% if sub['ext_info'] %}{% for entry in sub['ext_info'] %}
 Extraction Status:
-{% for key, value in sub['ext_info'].items() %}
+{% for key, value in entry.items() %}
     {{ key|replace('_', ' ')|title() }}: {{ value }}{% endfor %}
+{% endfor %}
 {% endif %}

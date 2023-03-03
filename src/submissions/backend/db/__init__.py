@@ -576,17 +576,23 @@ def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, 
         list: Control instances.
     """
     
-    # logger.debug(f"Using dates: {start_date} to {end_date}")
-    query = ctx['database_session'].query(models.ControlType).filter_by(name=con_type)
-    try:
-        output = query.first().instances
-    except AttributeError:
-        output = None
-    # Hacky solution to my not being able to get the sql query to work.
+    logger.debug(f"Using dates: {start_date} to {end_date}")
     if start_date != None and end_date != None:
-        output = [item for item in output if item.submitted_date.date() > start_date and item.submitted_date.date() < end_date]
-    # logger.debug(f"Type {con_type}: {query.first()}")
+        output = ctx['database_session'].query(models.Control).join(models.ControlType).filter_by(name=con_type).filter(models.Control.submitted_date.between(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))).all()
+    else:
+        output = ctx['database_session'].query(models.Control).join(models.ControlType).filter_by(name=con_type).all()
+    logger.debug(f"Returned controls between dates: {output}")
     return output
+    # query = ctx['database_session'].query(models.ControlType).filter_by(name=con_type)
+    # try:
+    #     output = query.first().instances
+    # except AttributeError:
+    #     output = None
+    # # Hacky solution to my not being able to get the sql query to work.
+    # if start_date != None and end_date != None:
+    #     output = [item for item in output if item.submitted_date.date() > start_date and item.submitted_date.date() < end_date]
+    # # logger.debug(f"Type {con_type}: {query.first()}")
+    # return output
 
 
 def get_control_subtypes(ctx:dict, type:str, mode:str) -> list[str]:
