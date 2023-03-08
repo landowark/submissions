@@ -30,7 +30,7 @@ from backend.db import (construct_submission_info, lookup_reagent,
 )
 from backend.db import lookup_kittype_by_name
 
-from .functions import check_kit_integrity
+from .functions import check_kit_integrity, insert_reagent_import
 from tools import check_not_nan, create_reagent_list
 from backend.excel.reports import make_report_xlsx, make_report_html
 
@@ -138,40 +138,7 @@ class App(QMainWindow):
         about = AlertPop(message=output, status="information")
         about.exec()
 
-    def insert_reagent_import(self, item:str, prsr:SheetParser|None=None) -> QComboBox:
-        add_widget = QComboBox()
-        add_widget.setEditable(True)
-        # Ensure that all reagenttypes have a name that matches the items in the excel parser
-        query_var = item.replace("lot_", "")
-        logger.debug(f"Query for: {query_var}")
-        if prsr != None:
-            if isinstance(prsr.sub[item], numpy.float64):
-                logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
-                try:
-                    prsr.sub[item] = int(prsr.sub[item]['lot'])
-                except ValueError:
-                    pass
-        # query for reagents using type name from sheet and kit from sheet
-        logger.debug(f"Attempting lookup of reagents by type: {query_var}")
-        # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-        relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=self.ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
-        output_reg = []
-        for reagent in relevant_reagents:
-            if isinstance(reagent, set):
-                for thing in reagent:
-                    output_reg.append(thing)
-            elif isinstance(reagent, str):
-                output_reg.append(reagent)
-        relevant_reagents = output_reg
-        # if reagent in sheet is not found insert it into items
-        if prsr != None:
-            logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
-            if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
-                if check_not_nan(prsr.sub[item]['lot']):
-                    relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
-        logger.debug(f"New relevant reagents: {relevant_reagents}")
-        add_widget.addItems(relevant_reagents)
-        return add_widget
+
 
     def importSubmission(self):
         """
@@ -257,7 +224,7 @@ class App(QMainWindow):
                     except:
                         add_widget.setDate(date.today())
                 case 'reagent':
-                    # TODO make this a function so I can add in missing reagents below when checking kit integrity.
+                    
                     # create label
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     # add_widget = QComboBox()
@@ -290,7 +257,7 @@ class App(QMainWindow):
                     #         relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
                     # logger.debug(f"New relevant reagents: {relevant_reagents}")
                     # add_widget.addItems(relevant_reagents)
-                    add_widget = self.insert_reagent_import(item, prsr=prsr)
+                    add_widget = insert_reagent_import(ctx=self.ctx, item=item, prsr=prsr)
                     self.reagents[item] = prsr.sub[item]
                 case 'samples':
                     # hold samples in 'self' until form submitted
@@ -311,7 +278,7 @@ class App(QMainWindow):
                 msg.exec()
                 for item in kit_integrity['missing']:
                     self.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
-                    add_widget =self.insert_reagent_import(item)
+                    add_widget = insert_reagent_import(ctx=self.ctx, item=item)
                     self.table_widget.formlayout.addWidget(add_widget)
         # create submission button
         submit_btn = QPushButton("Submit")
