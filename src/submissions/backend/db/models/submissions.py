@@ -22,18 +22,18 @@ class BasicSubmission(Base):
     submitter_plate_num = Column(String(127), unique=True) #: The number given to the submission by the submitting lab
     submitted_date = Column(TIMESTAMP) #: Date submission received
     submitting_lab = relationship("Organization", back_populates="submissions") #: client org
-    submitting_lab_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete="SET NULL", name="fk_BS_sublab_id"))
+    submitting_lab_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete="SET NULL", name="fk_BS_sublab_id")) #: client lab id from _organizations
     sample_count = Column(INTEGER) #: Number of samples in the submission
     extraction_kit = relationship("KitType", back_populates="submissions") #: The extraction kit used
     extraction_kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", name="fk_BS_extkit_id"))
     submission_type = Column(String(32)) #: submission type (should be string in D3 of excel sheet)
-    technician = Column(String(64)) #: initials of processing tech
+    technician = Column(String(64)) #: initials of processing tech(s)
     # Move this into custom types?
     reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
-    run_cost = Column(FLOAT(2))
-    uploaded_by = Column(String(32))
+    run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from kit costs at time of creation.
+    uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
 
     __mapper_args__ = {
         "polymorphic_identity": "basic_submission",
@@ -71,6 +71,7 @@ class BasicSubmission(Base):
             ext_kit = self.extraction_kit.name
         except AttributeError:
             ext_kit = None
+        # load scraped extraction info
         try:
             ext_info = json.loads(self.extraction_info)
         except TypeError:
@@ -80,7 +81,8 @@ class BasicSubmission(Base):
             logger.debug(f"Json error in {self.rsl_plate_num}: {e}")
         try:
             reagents = [item.to_sub_dict() for item in self.reagents]
-        except:
+        except Exception as e:
+            logger.error(f"We got an error retrieving reagents: {e}")
             reagents = None
         try:
             samples = [item.to_sub_dict() for item in self.samples]

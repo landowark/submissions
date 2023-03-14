@@ -1,6 +1,6 @@
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, JSON, Float, INTEGER, ForeignKey, UniqueConstraint, Table
-from sqlalchemy.orm import relationship, validates
+from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
+from sqlalchemy.orm import relationship
 
 
 # table containing organization/contact relationship
@@ -32,7 +32,7 @@ class Organization(Base):
 
 class Contact(Base):
     """
-    Base of Contace
+    Base of Contact
     """
     __tablename__ = "_contacts"
 

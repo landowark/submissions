@@ -1,6 +1,10 @@
+from copy import deepcopy
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
 from sqlalchemy.orm import relationship
+import logging
+
+logger = logging.getLogger(f'submissions.{__name__}')
 
 
 # Table containing reagenttype-kittype relationships
@@ -44,7 +48,6 @@ class ReagentType(Base):
     kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", use_alter=True, name="fk_RT_kits_id")) #: id of joined kit type
     kits = relationship("KitType", back_populates="reagent_types", uselist=True, foreign_keys=[kit_id]) #: kits this reagent is used in
     instances = relationship("Reagent", back_populates="type") #: concrete instances of this reagent type
-    # instances_id = Column(INTEGER, ForeignKey("_reagents.id", ondelete='SET NULL'))
     eol_ext = Column(Interval()) #: extension of life interval
 
     def __str__(self) -> str:
@@ -76,9 +79,11 @@ class Reagent(Base):
         string representing this object
 
         Returns:
-            str: string representing this object's lot number
-        """        
-        return str(self.lot)
+            str: string representing this object's type and lot number
+        """    
+        lot = str(self.lot)
+        r_type = str(self.type)    
+        return f"{r_type} - {lot}"
 
     def to_sub_dict(self) -> dict:
         """
@@ -91,8 +96,15 @@ class Reagent(Base):
             type = self.type.name.replace("_", " ").title()
         except AttributeError:
             type = "Unknown"
+        try:
+            place_holder = self.expiry + self.type.eol_ext
+            # logger.debug(f"EOL_ext for {self.lot} -- {self.expiry} + {self.type.eol_ext} = {place_holder}")
+        except TypeError as e:
+            logger.debug(f"We got a type error setting {self.lot} expiry: {e}.")
+        except AttributeError as e:
+            logger.debug(f"We got an attribute error setting {self.lot} expiry: {e}.")
         return {
             "type": type,
             "lot": self.lot,
-            "expiry": self.expiry.strftime("%Y-%m-%d")
+            "expiry": place_holder.strftime("%Y-%m-%d")
         }

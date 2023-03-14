@@ -9,12 +9,15 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QDate, QSize
 # from PyQt6.QtGui import QFontMetrics, QAction
-
-from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml
+from tools import check_not_nan
+from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, lookup_regent_by_type_name
+from backend.excel.parser import SheetParser
 from jinja2 import Environment, FileSystemLoader
 import sys
 from pathlib import Path
 import logging
+import numpy as np
+from .pop_ups import AlertPop
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -45,15 +48,18 @@ class AddReagentForm(QDialog):
         self.buttonBox.rejected.connect(self.reject)
         # get lot info
         lot_input = QLineEdit()
+        lot_input.setObjectName("lot")
         lot_input.setText(reagent_lot)
         # get expiry info
         exp_input = QDateEdit(calendarPopup=True)
+        exp_input.setObjectName('expiry')
         if expiry == None:
             exp_input.setDate(QDate.currentDate())
         else:
             exp_input.setDate(expiry)
         # get reagent type info
         type_input = QComboBox()
+        type_input.setObjectName('type')
         type_input.addItems([item.replace("_", " ").title() for item in get_all_reagenttype_names(ctx=ctx)])
         logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
@@ -175,17 +181,18 @@ class KitAdder(QWidget):
         # send to kit constructor
         result = create_kit_from_yaml(ctx=self.ctx, exp=yml_type)
         # result = create_kit_from_yaml(ctx=self.ctx, exp=exp)
-        msg = QMessageBox()
-        # msg.setIcon(QMessageBox.critical)
-        match result['code']:
-            case 0:
-                msg.setText("Kit added")
-                msg.setInformativeText(result['message'])
-                msg.setWindowTitle("Kit added")
-            case 1:
-                msg.setText("Permission Error")
-                msg.setInformativeText(result['message'])
-                msg.setWindowTitle("Permission Error")
+        msg = AlertPop(message=result['message'], status=result['status'])
+        # match result['code']:
+        #     case 0:
+        #         msg = AlertPop(message=result['message'], status="information")
+        #         # msg.setText()
+        #         # msg.setInformativeText(result['message'])
+        #         # msg.setWindowTitle("Kit added")
+        #     case 1:
+        #         msg = AlertPop(m)
+        #         msg.setText("Permission Error")
+        #         msg.setInformativeText(result['message'])
+        #         msg.setWindowTitle("Permission Error")
         msg.exec()
 
     def extract_form_info(self, object):
@@ -276,3 +283,41 @@ class ControlsDatePicker(QWidget):
 
     def sizeHint(self) -> QSize:
         return QSize(80,20)  
+
+
+class ImportReagent(QComboBox):
+
+    def __init__(self, ctx:dict, item:str, prsr:SheetParser|None=None):
+        super().__init__()
+        self.setEditable(True)
+        # Ensure that all reagenttypes have a name that matches the items in the excel parser
+        query_var = item.replace("lot_", "")
+        logger.debug(f"Query for: {query_var}")
+        if prsr != None:
+            if isinstance(prsr.sub[item], np.float64):
+                logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
+                try:
+                    prsr.sub[item] = int(prsr.sub[item]['lot'])
+                except ValueError:
+                    pass
+        # query for reagents using type name from sheet and kit from sheet
+        logger.debug(f"Attempting lookup of reagents by type: {query_var}")
+        # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+        relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
+        output_reg = []
+        for reagent in relevant_reagents:
+            if isinstance(reagent, set):
+                for thing in reagent:
+                    output_reg.append(thing)
+            elif isinstance(reagent, str):
+                output_reg.append(reagent)
+        relevant_reagents = output_reg
+        # if reagent in sheet is not found insert it into items
+        if prsr != None:
+            logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
+            if str(prsr.sub[item]['lot']) not in relevant_reagents and prsr.sub[item]['lot'] != 'nan':
+                if check_not_nan(prsr.sub[item]['lot']):
+                    relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
+        logger.debug(f"New relevant reagents: {relevant_reagents}")
+        self.addItems(relevant_reagents)
+        

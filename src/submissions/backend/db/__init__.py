@@ -92,7 +92,7 @@ def store_reagent(ctx:dict, reagent:models.Reagent) -> None|dict:
 
 def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmission:
     """
-    Construct submission obejct from dictionary
+    Construct submission object from dictionary
 
     Args:
         ctx (dict): settings passed down from gui
@@ -110,7 +110,6 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         msg = "A proper RSL plate number is required."
         return instance, {'code': 2, 'message': "A proper RSL plate number is required."}
     instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
-    
     # get model based on submission type converted above
     logger.debug(f"Looking at models for submission type: {query}")
     model = getattr(models, query)
@@ -121,7 +120,7 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         instance = model()
         logger.debug(f"Submission doesn't exist yet, creating new instance: {instance}")
         msg = None
-        code =0
+        code = 0
     else:
         code = 1
         msg = "This submission already exists.\nWould you like to overwrite?"
@@ -164,7 +163,6 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         logger.debug(f"Looks like that kit doesn't have cost breakdown yet, using full plate cost.")
         instance.run_cost = instance.extraction_kit.cost_per_run
     # We need to make sure there's a proper rsl plate number
-    
     try:
         logger.debug(f"Constructed instance: {instance.to_string()}")
     except AttributeError as e:
@@ -196,12 +194,13 @@ def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
             case "type":
                 reagent.type = lookup_reagenttype_by_name(ctx=ctx, rt_name=info_dict[item].replace(" ", "_").lower())
     # add end-of-life extension from reagent type to expiry date
-    try:
-        reagent.expiry = reagent.expiry + reagent.type.eol_ext
-    except TypeError as e:
-        logger.debug(f"We got a type error: {e}.")
-    except AttributeError:
-        pass
+    # Edit: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
+    # try:
+    #     reagent.expiry = reagent.expiry + reagent.type.eol_ext
+    # except TypeError as e:
+    #     logger.debug(f"We got a type error: {e}.")
+    # except AttributeError:
+    #     pass
     return reagent
 
 
@@ -465,7 +464,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
     # except KeyError:
     if not check_is_power_user(ctx=ctx):
         logger.debug(f"{getuser()} does not have permission to add kits.")
-        return {'code':1, 'message':"This user does not have permission to add kits."}
+        return {'code':1, 'message':"This user does not have permission to add kits.", "status":"warning"}
     for type in exp:
         if type == "password":
             continue
@@ -486,7 +485,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
             logger.debug(kit.__dict__)
         ctx['database_session'].add(kit)
     ctx['database_session'].commit()
-    return {'code':0, 'message':'Kit has been added'}
+    return {'code':0, 'message':'Kit has been added', 'status': 'information'}
 
 def create_org_from_yaml(ctx:dict, org:dict) -> dict:
     """

@@ -39,9 +39,9 @@ class Control(Base):
     # UniqueConstraint('name', name='uq_control_name')
     submission_id = Column(INTEGER, ForeignKey("_submissions.id")) #: parent submission id
     submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
-    refseq_version = Column(String(16))
-    kraken2_version = Column(String(16))
-    kraken2_db_version = Column(String(32))
+    refseq_version = Column(String(16)) #: version of refseq used in fastq parsing
+    kraken2_version = Column(String(16)) #: version of kraken2 used in fastq parsing
+    kraken2_db_version = Column(String(32)) #: folder name of kraken2 db
 
 
     def to_sub_dict(self) -> dict:
@@ -51,17 +51,22 @@ class Control(Base):
         Returns:
             dict: output dictionary containing: Name, Type, Targets, Top Kraken results
         """        
+        # load json string into dict
         kraken = json.loads(self.kraken)
+        # calculate kraken count total to use in percentage
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
         new_kraken = []
         for item in kraken:
+            # calculate kraken percent (overwrites what's already been scraped)
             kraken_percent = kraken[item]['kraken_count'] / kraken_cnt_total
             new_kraken.append({'name': item, 'kraken_count':kraken[item]['kraken_count'], 'kraken_percent':"{0:.0%}".format(kraken_percent)})
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
+        # set targets
         if self.controltype.targets == []:
             targets = ["None"]
         else:
             targets = self.controltype.targets
+        # construct output dictionary
         output = {
             "name" : self.name,
             "type" : self.controltype.name,
@@ -72,36 +77,43 @@ class Control(Base):
 
     def convert_by_mode(self, mode:str) -> list[dict]:
         """
-        split control object into analysis types
+        split control object into analysis types for controls graphs
 
         Args:
             control (models.Control): control to be parsed into list
-            mode (str): analysis type
+            mode (str): analysis type, 'contains', etc
 
         Returns:
             list[dict]: list of records
         """    
         output = []
+        # load json string for mode (i.e. contains, matches, kraken2)
         data = json.loads(getattr(self, mode))
-        # if len(data) == 0:
-        #     data = self.create_dummy_data(mode)
         logger.debug(f"Length of data: {len(data)}")
+        # dict keys are genera of bacteria, e.g. 'Streptococcus'
         for genus in data:
             _dict = {}
             _dict['name'] = self.name
             _dict['submitted_date'] = self.submitted_date
             _dict['genus'] = genus
+            # get Target or Off-target of genus
             _dict['target'] = 'Target' if genus.strip("*") in self.controltype.targets else "Off-target"
-            
+            # set 'contains_hashes', etc for genus, 
             for key in data[genus]:
                 _dict[key] = data[genus][key]
-                if _dict[key] == {}:
-                    print(self.name, mode)
             output.append(_dict)
-        # logger.debug(output)
         return output
     
-    def create_dummy_data(self, mode):
+    def create_dummy_data(self, mode:str) -> dict:
+        """
+        Create non-zero length data to maintain entry of zero length 'contains' (depreciated)
+
+        Args:
+            mode (str): analysis type, 'contains', etc
+
+        Returns:
+            dict: dictionary of 'Nothing' genus
+        """        
         match mode:
             case "contains":
                 data = {"Nothing": {"contains_hashes":"0/400", "contains_ratio":0.0}}

@@ -10,13 +10,13 @@ class WWSample(Base):
     __tablename__ = "_ww_samples"
 
     id = Column(INTEGER, primary_key=True) #: primary key
-    ww_processing_num = Column(String(64))
+    ww_processing_num = Column(String(64)) #: wastewater processing number 
     ww_sample_full_id = Column(String(64), nullable=False)
     rsl_number = Column(String(64)) #: rsl plate identification number
     rsl_plate = relationship("Wastewater", back_populates="samples") #: relationship to parent plate
     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWS_submission_id"))
     collection_date = Column(TIMESTAMP) #: Date submission received
-    testing_type = Column(String(64))
+    testing_type = Column(String(64)) 
     site_status = Column(String(64))
     notes = Column(String(2000))
     ct_n1 = Column(FLOAT(2))
@@ -40,7 +40,7 @@ class WWSample(Base):
         gui friendly dictionary
 
         Returns:
-            dict: well location and id
+            dict: well location and id NOTE: keys must sync with BCSample to_sub_dict below
         """
         return {
             "well": self.well_number,
@@ -76,7 +76,7 @@ class BCSample(Base):
         gui friendly dictionary
 
         Returns:
-            dict: well location and name (sample id, organism)
+            dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
         return {
             "well": self.well_number,

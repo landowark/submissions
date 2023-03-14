@@ -164,7 +164,7 @@ class SubmissionDetails(QDialog):
         # get submision from db
         data = lookup_submission_by_id(ctx=ctx, id=id)
         self.base_dict = data.to_dict()
-        logger.debug(f"Base dict: {self.base_dict}")
+        # logger.debug(f"Base dict: {self.base_dict}")
         # don't want id
         del self.base_dict['id']
         # convert sub objects to dicts
