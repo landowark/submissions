@@ -74,16 +74,15 @@ class SheetParser(object):
 
         Returns:
             pd.DataFrame: relevant dataframe from excel sheet
-        """        
+        """      
+        # self.xl is a pd.ExcelFile so we need to parse it into a df  
         submission_info = self.xl.parse(sheet_name=sheet_name, dtype=object)
-        
         self.sub['submitter_plate_num'] = submission_info.iloc[0][1]
         self.sub['rsl_plate_num'] =  submission_info.iloc[10][1]
         self.sub['submitted_date'] = submission_info.iloc[1][1]
         self.sub['submitting_lab'] = submission_info.iloc[0][3]
         self.sub['sample_count'] = submission_info.iloc[2][3]
         self.sub['extraction_kit'] = submission_info.iloc[3][3]
-        
         return submission_info
 
 
@@ -104,10 +103,6 @@ class SheetParser(object):
                 if ii == 11:
                     continue
                 logger.debug(f"Running reagent parse for {row[1]} with type {type(row[1])} and value: {row[2]} with type {type(row[2])}")
-                # try:
-                #     check = not np.isnan(row[1])
-                # except TypeError:
-                #     check = True
                 if not isinstance(row[2], float) and check_not_nan(row[1]):
                     # must be prefixed with 'lot_' to be recognized by gui
                     try:
@@ -122,13 +117,7 @@ class SheetParser(object):
                         logger.debug(f"Couldn't upperize {row[2]}, must be a number")
                         output_var = row[2]
                     logger.debug(f"Output variable is {output_var}")
-                    # self.sub[f"lot_{reagent_type}"] = output_var
-                    # update 2023-02-10 to above allowing generation of expiry date in adding reagent to db.
                     logger.debug(f"Expiry date for imported reagent: {row[3]}")
-                    # try:
-                    #     check = not np.isnan(row[3])
-                    # except TypeError:
-                    #     check = True
                     if check_not_nan(row[3]):
                         expiry = row[3].date()
                     else:
@@ -146,19 +135,8 @@ class SheetParser(object):
         # reagents
         # must be prefixed with 'lot_' to be recognized by gui
         # Todo: find a more adaptable way to read reagents.
-
         reagent_range = submission_info.iloc[1:13, 4:8]
         _parse_reagents(reagent_range)
-        # self.sub['lot_wash_1'] = submission_info.iloc[1][6] #if pd.isnull(submission_info.iloc[1][6]) else string_formatter(submission_info.iloc[1][6])
-        # self.sub['lot_wash_2'] = submission_info.iloc[2][6] #if pd.isnull(submission_info.iloc[2][6]) else string_formatter(submission_info.iloc[2][6])
-        # self.sub['lot_binding_buffer'] = submission_info.iloc[3][6] #if pd.isnull(submission_info.iloc[3][6]) else string_formatter(submission_info.iloc[3][6])
-        # self.sub['lot_magnetic_beads'] = submission_info.iloc[4][6] #if pd.isnull(submission_info.iloc[4][6]) else string_formatter(submission_info.iloc[4][6])
-        # self.sub['lot_lysis_buffer'] = submission_info.iloc[5][6] #if np.nan(submission_info.iloc[5][6]) else string_formatter(submission_info.iloc[5][6])
-        # self.sub['lot_elution_buffer'] = submission_info.iloc[6][6] #if pd.isnull(submission_info.iloc[6][6]) else string_formatter(submission_info.iloc[6][6])
-        # self.sub['lot_isopropanol'] = submission_info.iloc[9][6] #if pd.isnull(submission_info.iloc[9][6]) else string_formatter(submission_info.iloc[9][6])
-        # self.sub['lot_ethanol'] = submission_info.iloc[10][6] #if pd.isnull(submission_info.iloc[10][6]) else string_formatter(submission_info.iloc[10][6])
-        # self.sub['lot_positive_control'] = submission_info.iloc[103][1] #if pd.isnull(submission_info.iloc[103][1]) else string_formatter(submission_info.iloc[103][1])
-        # self.sub['lot_plate'] = submission_info.iloc[12][6] #if pd.isnull(submission_info.iloc[12][6]) else string_formatter(submission_info.iloc[12][6])
         # get individual sample info
         sample_parser = SampleParser(submission_info.iloc[15:111])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
@@ -178,12 +156,8 @@ class SheetParser(object):
             Args:
                 df (pd.DataFrame): input sub dataframe
             """
-            # logger.debug(df)
+            # iterate through sub-df rows
             for ii, row in df.iterrows():
-                # try:
-                #     check = not np.isnan(row[5])
-                # except TypeError:
-                #     check = True
                 if not isinstance(row[5], float) and check_not_nan(row[5]):
                     # must be prefixed with 'lot_' to be recognized by gui
                     # regex below will remove 80% from 80% ethanol in the Wastewater kit.
@@ -202,34 +176,26 @@ class SheetParser(object):
                     else:
                         expiry = date.today()
                     self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
+        # parse submission sheet
         submission_info = self._parse_generic("WW Submissions (ENTER HERE)")
+        # parse enrichment sheet
         enrichment_info = self.xl.parse("Enrichment Worksheet", dtype=object)
+        # set enrichment reagent range
         enr_reagent_range = enrichment_info.iloc[0:4, 9:20]
+        # parse extraction sheet
         extraction_info = self.xl.parse("Extraction Worksheet", dtype=object)
+        # set extraction reagent range 
         ext_reagent_range = extraction_info.iloc[0:5, 9:20]
+        # parse qpcr sheet
         qprc_info = self.xl.parse("qPCR Worksheet", dtype=object)
+        # set qpcr reagent range
         pcr_reagent_range = qprc_info.iloc[0:5, 9:20]
+        # compile technician info
         self.sub['technician'] = f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}"
         _parse_reagents(enr_reagent_range)
         _parse_reagents(ext_reagent_range)
         _parse_reagents(pcr_reagent_range)
-        # reagents
-        # logger.debug(qprc_info)
-        # self.sub['lot_lysis_buffer'] = enrichment_info.iloc[0][14] #if pd.isnull(enrichment_info.iloc[0][14]) else string_formatter(enrichment_info.iloc[0][14])
-        # self.sub['lot_proteinase_K'] = enrichment_info.iloc[1][14] #if pd.isnull(enrichment_info.iloc[1][14]) else string_formatter(enrichment_info.iloc[1][14]) 
-        # self.sub['lot_magnetic_virus_particles'] = enrichment_info.iloc[2][14] #if pd.isnull(enrichment_info.iloc[2][14]) else string_formatter(enrichment_info.iloc[2][14])
-        # self.sub['lot_enrichment_reagent_1'] = enrichment_info.iloc[3][14] #if pd.isnull(enrichment_info.iloc[3][14]) else string_formatter(enrichment_info.iloc[3][14])
-        # self.sub['lot_binding_buffer'] = extraction_info.iloc[0][14] #if pd.isnull(extraction_info.iloc[0][14]) else string_formatter(extraction_info.iloc[0][14])
-        # self.sub['lot_magnetic_beads'] = extraction_info.iloc[1][14] #if pd.isnull(extraction_info.iloc[1][14]) else string_formatter(extraction_info.iloc[1][14])
-        # self.sub['lot_wash'] = extraction_info.iloc[2][14] #if pd.isnull(extraction_info.iloc[2][14]) else string_formatter(extraction_info.iloc[2][14])
-        # self.sub['lot_ethanol'] = extraction_info.iloc[3][14] #if pd.isnull(extraction_info.iloc[3][14]) else string_formatter(extraction_info.iloc[3][14])
-        # self.sub['lot_elution_buffer'] = extraction_info.iloc[4][14] #if pd.isnull(extraction_info.iloc[4][14]) else string_formatter(extraction_info.iloc[4][14])
-        # self.sub['lot_master_mix'] = qprc_info.iloc[0][14] #if pd.isnull(qprc_info.iloc[0][14]) else string_formatter(qprc_info.iloc[0][14])
-        # self.sub['lot_pre_mix_1'] = qprc_info.iloc[1][14] #if pd.isnull(qprc_info.iloc[1][14]) else string_formatter(qprc_info.iloc[1][14])
-        # self.sub['lot_pre_mix_2'] = qprc_info.iloc[2][14] #if pd.isnull(qprc_info.iloc[2][14]) else string_formatter(qprc_info.iloc[2][14])
-        # self.sub['lot_positive_control'] = qprc_info.iloc[3][14] #if pd.isnull(qprc_info.iloc[3][14]) else string_formatter(qprc_info.iloc[3][14])
-        # self.sub['lot_ddh2o'] = qprc_info.iloc[4][14] #if pd.isnull(qprc_info.iloc[4][14]) else string_formatter(qprc_info.iloc[4][14])
-        # get individual sample info
+        # parse samples
         sample_parser = SampleParser(submission_info.iloc[16:40])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
@@ -241,6 +207,12 @@ class SampleParser(object):
     """
 
     def __init__(self, df:pd.DataFrame) -> None:
+        """
+        convert sample sub-dataframe to dictionary of records
+
+        Args:
+            df (pd.DataFrame): input sample dataframe
+        """        
         self.samples = df.to_dict("records")
 
 
@@ -287,6 +259,7 @@ class SampleParser(object):
                 not_a_nan = not np.isnan(sample['Unnamed: 3'])
             except TypeError:
                 not_a_nan = True
+            # if we don't have a sample full id, make one up
             if not_a_nan:
                 new.ww_sample_full_id = sample['Unnamed: 3']
             else:

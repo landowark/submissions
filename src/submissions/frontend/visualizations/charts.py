@@ -25,7 +25,6 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     genera = []
     if df.empty:
         return None
-
     for item in df['genus'].to_list():
         try:
             if item[-1] == "*":
@@ -95,7 +94,6 @@ def generic_figure_markers(fig:Figure, modes:list=[], ytitle:str|None=None) -> F
             ])
         )
     )
-    # logger.debug(f"Returning figure {fig}")
     assert type(fig) == Figure
     return fig
 
@@ -148,8 +146,7 @@ def output_figures(settings:dict, figs:list, group_name:str):
             except AttributeError:
                 logger.error(f"The following figure was a string: {fig}")
 
-# Below are the individual construction functions. They must be named "construct_{mode}_chart" and 
-# take only json_in and mode to hook into the main processor.
+
 
 def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None) -> Figure:
     fig = Figure()
@@ -186,14 +183,15 @@ def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None)
     # sys.exit(f"number of traces={len(fig.data)}")
     return generic_figure_markers(fig=fig, modes=modes, ytitle=ytitle)
 
-
+# Below are the individual construction functions. They must be named "construct_{mode}_chart" and 
+# take only json_in and mode to hook into the main processor.
 
 def construct_refseq_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:str) -> Figure:
     """
     Constructs intial refseq chart for both contains and matches (depreciated).
 
     Args:
-        settings (dict): settings passed down from click.
+        settings (dict): settings passed down from gui.
         df (pd.DataFrame): dataframe containing all sample data for the group.
         group_name (str): name of the group being processed.
         mode (str): contains or matches, overwritten by hardcoding, so don't think about it too hard.

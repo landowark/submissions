@@ -1,20 +1,17 @@
-from datetime import date
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
     QTextEdit, QPushButton, QScrollArea, 
     QMessageBox, QFileDialog, QMenu
 )
-from PyQt6.QtCore import Qt, QAbstractTableModel
+from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QFontMetrics, QAction, QCursor
-
 from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id
 from jinja2 import Environment, FileSystemLoader
 from xhtml2pdf import pisa
 import sys
 from pathlib import Path
 import logging
-from .pop_ups import AlertPop, QuestionAsker
-from tools import check_is_power_user
+from .pop_ups import QuestionAsker
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -45,7 +42,7 @@ class pandasModel(QAbstractTableModel):
         """
         return self._data.shape[0]
 
-    def columnCount(self, parnet=None) -> int:
+    def columnCount(self, parent=None) -> int:
         """
         does what it says
 
@@ -85,7 +82,7 @@ class SubmissionsSheet(QTableView):
         self.setData()
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
-        # self.clicked.connect(self.test)
+        self.setSortingEnabled(True)
         self.doubleClicked.connect(self.show_details)
  
     def setData(self) -> None: 
@@ -93,6 +90,8 @@ class SubmissionsSheet(QTableView):
         sets data in model
         """        
         self.data = submissions_to_df(ctx=self.ctx)
+        self.data['id'] = self.data['id'].apply(str)
+        self.data['id'] = self.data['id'].str.zfill(3)
         try:
             del self.data['samples']
         except KeyError:
@@ -101,8 +100,11 @@ class SubmissionsSheet(QTableView):
             del self.data['reagents']
         except KeyError:
             pass
-        self.model = pandasModel(self.data)
-        self.setModel(self.model)
+        proxyModel = QSortFilterProxyModel()
+        proxyModel.setSourceModel(pandasModel(self.data))
+        # self.model = pandasModel(self.data)
+        # self.setModel(self.model)
+        self.setModel(proxyModel)
         # self.resize(800,600)
 
     def show_details(self) -> None:
@@ -110,22 +112,22 @@ class SubmissionsSheet(QTableView):
         creates detailed data to show in seperate window
         """        
         index = (self.selectionModel().currentIndex())
-        # logger.debug(index)
         value = index.sibling(index.row(),0).data()
         dlg = SubmissionDetails(ctx=self.ctx, id=value)
-        # dlg.show()
         if dlg.exec():
             pass
 
 
     def contextMenuEvent(self, event):
+        """
+        Creates actions for right click menu events.
+
+        Args:
+            event (_type_): the item of interest
+        """        
         self.menu = QMenu(self)
         renameAction = QAction('Delete', self)
         detailsAction = QAction('Details', self)
-        # Originally I intended to limit deletions to power users.
-        # renameAction.setEnabled(False)
-        # if check_is_power_user(ctx=self.ctx):
-        #     renameAction.setEnabled(True)
         renameAction.triggered.connect(lambda: self.delete_item(event))
         detailsAction.triggered.connect(lambda: self.show_details())
         self.menu.addAction(detailsAction)
@@ -164,12 +166,8 @@ class SubmissionDetails(QDialog):
         # get submision from db
         data = lookup_submission_by_id(ctx=ctx, id=id)
         self.base_dict = data.to_dict()
-        # logger.debug(f"Base dict: {self.base_dict}")
         # don't want id
         del self.base_dict['id']
-        # convert sub objects to dicts
-        # self.base_dict['reagents'] = [item.to_sub_dict() for item in data.reagents]
-        # self.base_dict['samples'] = [item.to_sub_dict() for item in data.samples]
         # retrieve jinja template
         template = env.get_template("submission_details.txt")
         # render using object dict
@@ -192,24 +190,18 @@ class SubmissionDetails(QDialog):
         interior.setWidget(txt_editor)
         self.layout = QVBoxLayout()
         self.setFixedSize(w, 900)
+        # button to export a pdf version
         btn = QPushButton("Export PDF")
         btn.setParent(self)
         btn.setFixedWidth(w)
         btn.clicked.connect(self.export)
         
 
-    # def _create_actions(self):
-    #     self.exportAction = QAction("Export", self)
-        
-
     def export(self):
         template = env.get_template("submission_details.html")
         html = template.render(sub=self.base_dict)
-        # logger.debug(f"Submission details: {self.base_dict}")
         home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
-        # logger.debug(f"report output name: {fname}")
-        # df.to_excel(fname, engine='openpyxl')
         if fname.__str__() == ".":
             logger.debug("Saving pdf was cancelled.")
             return
@@ -223,4 +215,3 @@ class SubmissionDetails(QDialog):
             msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
             msg.setWindowTitle("Permission Error")
             msg.exec()
-        

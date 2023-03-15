@@ -3,7 +3,6 @@ import sys, os, stat, platform, getpass
 import logging
 from logging import handlers
 from pathlib import Path
-# from getpass import getuser
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 
@@ -26,9 +25,6 @@ main_aux_dir = Path.home().joinpath(f"{os_config_dir}/submissions")
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
-
-
-
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
     def doRollover(self):
@@ -43,7 +39,6 @@ class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
     def _open(self):
         prevumask=os.umask(0o002)
-        #os.fdopen(os.open('/path/to/file', os.O_WRONLY, 0600))
         rtv=handlers.RotatingFileHandler._open(self)
         os.umask(prevumask)
         return rtv
@@ -74,12 +69,12 @@ def get_config(settings_path: str|None=None) -> dict:
     Returns:
         setting: dictionary of settings.
     """
+    # custom pyyaml constructor to join fields
     def join(loader, node):
         seq = loader.construct_sequence(node)
         return ''.join([str(i) for i in seq])
-    ## register the tag handler
+    # register the tag handler
     yaml.add_constructor('!join', join)
-
     logger.debug(f"Making directory: {CONFIGDIR.__str__()}")
     # make directories
     try:
@@ -97,7 +92,7 @@ def get_config(settings_path: str|None=None) -> dict:
         # Check user .config/submissions directory
         if CONFIGDIR.joinpath("config.yml").exists():
             settings_path = CONFIGDIR.joinpath("config.yml")
-        # Check user .ozma directory
+        # Check user .submissions directory
         elif Path.home().joinpath(".submissions", "config.yml").exists():
             settings_path = Path.home().joinpath(".submissions", "config.yml")
         # finally look in the local config
@@ -108,10 +103,11 @@ def get_config(settings_path: str|None=None) -> dict:
                 settings_path = package_dir.joinpath('config.yml')
             # Tell program we need to copy the config.yml to the user directory
             copy_settings_trigger = True
-            # shutil.copyfile(settings_path.__str__(), CONFIGDIR.joinpath("config.yml").__str__())
     else:
+        # check if user defined path is directory
         if Path(settings_path).is_dir():
             settings_path = settings_path.joinpath("config.yml")
+        # check if user defined path is file
         elif Path(settings_path).is_file():
             settings_path = settings_path
         else:
@@ -132,7 +128,7 @@ def get_config(settings_path: str|None=None) -> dict:
 
 def create_database_session(database_path: Path|str|None=None) -> Session:
     """
-    Get database settings from path or default if blank.
+    Get database settings from path or default database if database_path is blank.
 
     Args:
         database_path (Path | str | None, optional): path to sqlite database. Defaults to None.
@@ -140,17 +136,22 @@ def create_database_session(database_path: Path|str|None=None) -> Session:
     Returns:
         Session: database session
     """    
+    # convert string to path object
     if isinstance(database_path, str):
         database_path = Path(database_path)
+    # check if database path defined by user
     if database_path == None:
+        # check in user's .submissions directory for submissions.db
         if Path.home().joinpath(".submissions", "submissions.db").exists():
             database_path = Path.home().joinpath(".submissions", "submissions.db")
         # finally, look in the local dir
         else:
             database_path = package_dir.joinpath("submissions.db")
     else:
+        # check if user defined path is directory
         if database_path.is_dir():
             database_path = database_path.joinpath("submissions.db")
+        # check if user defined path is a file
         elif database_path.is_file():
             database_path = database_path
         else:
@@ -177,17 +178,16 @@ def setup_logger(verbosity:int=3):
     # create file handler which logs even debug messages
     try:
         Path(LOGDIR).mkdir(parents=True)
-    #     fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
-    # except FileNotFoundError as e:
     except FileExistsError:
         pass
     fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
+    # file logging will always be debug
     fh.setLevel(logging.DEBUG)
     fh.name = "File"
     # create console handler with a higher log level
-    ch = logging.StreamHandler(stream=sys.stdout)
     # create custom logger with STERR -> log
-    # ch = StreamToLogger(logger=logger, log_level=verbosity)
+    ch = logging.StreamHandler(stream=sys.stdout)
+    # set looging level based on verbosity
     match verbosity:
         case 3:
             ch.setLevel(logging.DEBUG)
@@ -203,14 +203,12 @@ def setup_logger(verbosity:int=3):
     # add the handlers to the logger
     logger.addHandler(fh)
     logger.addHandler(ch)
+    # Output exception and traceback to logger
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
-
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-        # sys.exit(f"Uncaught error: {exc_type}, {exc_traceback}, check logs.")
-
     sys.excepthook = handle_exception
     return logger
 
@@ -233,5 +231,3 @@ def copy_settings(settings_path:Path, settings:dict) -> dict:
     with open(settings_path, 'w') as f:
         yaml.dump(settings, f)
     return settings
-         
-

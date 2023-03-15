@@ -35,6 +35,7 @@ class BasicSubmission(Base):
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
 
+    # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
         "polymorphic_identity": "basic_submission",
         "polymorphic_on": submission_type,
@@ -148,23 +149,25 @@ class BasicSubmission(Base):
         }
         return output
 
-# Below are the custom submission 
+# Below are the custom submission types
 
 class  BacterialCulture(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """    
-    # control_id = Column(INTEGER, ForeignKey("_control_samples.id", ondelete="SET NULL", name="fk_BC_control_id"))
     controls = relationship("Control", back_populates="submission", uselist=True) #: A control sample added to submission
     samples = relationship("BCSample", back_populates="rsl_plate", uselist=True)
-    # bc_sample_id = Column(INTEGER, ForeignKey("_bc_samples.id", ondelete="SET NULL", name="fk_BC_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "bacterial_culture", "polymorphic_load": "inline"}
 
-
     def to_dict(self) -> dict:
+        """
+        Extends parent class method to add controls to dict
+
+        Returns:
+            dict: dictionary used in submissions summary
+        """        
         output = super().to_dict()
         output['controls'] = [item.to_sub_dict() for item in self.controls]
-        # logger.debug(f"{self.rsl_plate_num} technician: {output}")
         return output
     
 

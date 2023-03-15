@@ -21,7 +21,7 @@ class KitType(Base):
     name = Column(String(64), unique=True) #: name of kit
     submissions = relationship("BasicSubmission", back_populates="extraction_kit") #: submissions this kit was used for
     used_for = Column(JSON) #: list of names of sample types this kit can process
-    cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit
+    cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit NOTE: depreciated, use the constant and mutable costs instead
     mutable_cost = Column(FLOAT(2)) #: dollar amount that can change with number of columns (reagents, tips, etc)
     constant_cost = Column(FLOAT(2)) #: dollar amount that will remain constant (plates, man hours, etc)
     reagent_types = relationship("ReagentType", back_populates="kits", uselist=True, secondary=reagenttypes_kittypes) #: reagent types this kit contains
@@ -81,9 +81,7 @@ class Reagent(Base):
         Returns:
             str: string representing this object's type and lot number
         """    
-        lot = str(self.lot)
-        r_type = str(self.type)    
-        return f"{r_type} - {lot}"
+        return str(self.lot)
 
     def to_sub_dict(self) -> dict:
         """

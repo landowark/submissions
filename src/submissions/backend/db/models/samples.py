@@ -16,6 +16,9 @@ class WWSample(Base):
     rsl_plate = relationship("Wastewater", back_populates="samples") #: relationship to parent plate
     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWS_submission_id"))
     collection_date = Column(TIMESTAMP) #: Date submission received
+    well_number = Column(String(8)) #: location on plate
+    # The following are fields from the sample tracking excel sheet Ruth put together.
+    # I have no idea when they will be implemented or how.
     testing_type = Column(String(64)) 
     site_status = Column(String(64))
     notes = Column(String(2000))
@@ -24,7 +27,7 @@ class WWSample(Base):
     seq_submitted = Column(BOOLEAN())
     ww_seq_run_id = Column(String(64))
     sample_type = Column(String(8))
-    well_number = Column(String(8)) #: location on plate
+    
 
     def to_string(self) -> str:
         """

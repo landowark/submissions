@@ -1,12 +1,11 @@
 import json
 import re
-from typing import Tuple
 from PyQt6.QtWidgets import (
     QMainWindow, QLabel, QToolBar, 
     QTabWidget, QWidget, QVBoxLayout,
     QPushButton, QFileDialog,
     QLineEdit, QMessageBox, QComboBox, QDateEdit, QHBoxLayout,
-    QSpinBox, QScrollArea
+    QScrollArea
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QSignalBlocker
@@ -27,15 +26,13 @@ from backend.db import (construct_submission_info, lookup_reagent,
     lookup_regent_by_type_name, lookup_all_orgs, lookup_submissions_by_date_range,
     get_all_Control_Types_names, create_kit_from_yaml, get_all_available_modes, get_all_controls_by_type,
     get_control_subtypes, lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num,
-    create_org_from_yaml
+    create_org_from_yaml, store_reagent
 )
 from backend.db import lookup_kittype_by_name
 
 from .functions import check_kit_integrity
-from tools import check_not_nan
+from tools import check_not_nan, extract_form_info
 from backend.excel.reports import make_report_xlsx, make_report_html
-
-import numpy
 from frontend.custom_widgets.sub_details import SubmissionsSheet
 from frontend.custom_widgets.pop_ups import AlertPop, QuestionAsker
 from frontend.custom_widgets import AddReagentForm, ReportDatePicker, KitAdder, ControlsDatePicker, ImportReagent
@@ -233,12 +230,18 @@ class App(QMainWindow):
                     # hold samples in 'self' until form submitted
                     logger.debug(f"{item}: {prsr.sub[item]}")
                     self.samples = prsr.sub[item]
+                    add_widget = None
                 case _:
                     # anything else gets added in as a line edit
                     self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
                     add_widget = QLineEdit()
                     add_widget.setText(str(prsr.sub[item]).replace("_", " "))
-            self.table_widget.formlayout.addWidget(add_widget)
+            try:
+                add_widget.setObjectName(item)
+                logger.debug(f"Widget name set to: {add_widget.objectName()}")
+                self.table_widget.formlayout.addWidget(add_widget)
+            except AttributeError as e:
+                logger.error(e)
         # compare self.reagents with expected reagents in kit
         if hasattr(self, 'ext_kit'):
             kit = lookup_kittype_by_name(ctx=self.ctx, name=self.ext_kit)
@@ -261,9 +264,10 @@ class App(QMainWindow):
         Attempt to add sample to database when 'submit' button clicked
         """        
         # get info from form
-        labels, values = self.extract_form_info(self.table_widget.tab1)
-        info = {item[0]:item[1] for item in zip(labels, values) if not item[0].startswith("lot_")}
-        reagents = {item[0]:item[1] for item in zip(labels, values) if item[0].startswith("lot_")}
+        info = extract_form_info(self.table_widget.tab1)
+        reagents = {k:v for k,v in info.items() if k.startswith("lot_")}
+        info = {k:v for k,v in info.items() if not k.startswith("lot_")}
+        logger.debug(f"Info: {info}")
         logger.debug(f"Reagents: {reagents}")
         parsed_reagents = []
         # compare reagents in form to reagent database
@@ -308,7 +312,6 @@ class App(QMainWindow):
         # add reagents to submission object
         for reagent in parsed_reagents:
             base_submission.reagents.append(reagent)
-            # base_submission.reagents_id = reagent.id
         logger.debug("Checking kit integrity...")
         kit_integrity = check_kit_integrity(base_submission)
         if kit_integrity != None:
@@ -317,7 +320,7 @@ class App(QMainWindow):
             return
         logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
         result = store_submission(ctx=self.ctx, base_submission=base_submission)
-        # # check result of storing for issues
+        # check result of storing for issues
         if result != None:
             msg = AlertPop(result['message'])
             msg.exec()
@@ -345,47 +348,16 @@ class App(QMainWindow):
         dlg = AddReagentForm(ctx=self.ctx, reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry)
         if dlg.exec():
             # extract form info
-            labels, values = self.extract_form_info(dlg)
-            info = {item[0]:item[1] for item in zip(labels, values)}
+            info = extract_form_info(dlg)
+            logger.debug(f"dictionary from form: {info}")
+            # return None
             logger.debug(f"Reagent info: {info}")
             # create reagent object
             reagent = construct_reagent(ctx=self.ctx, info_dict=info)
             # send reagent to db
-            # store_reagent(ctx=self.ctx, reagent=reagent)
+            store_reagent(ctx=self.ctx, reagent=reagent)
             return reagent
             
-
-    def extract_form_info(self, object) -> Tuple[list, list]:
-        """
-        retrieves arbitrary number of labels, values from form
-
-        Args:
-            object (_type_): the form widget
-
-        Returns:
-            _type_: _description_
-        """        
-        labels = []
-        values = []
-        # grab all widgets in form
-        prev_item = None
-        for item in object.layout.parentWidget().findChildren(QWidget):
-            match item:
-                case QLabel():
-                    labels.append(item.text().replace(" ", "_").lower())
-                case QLineEdit():
-                    # ad hoc check to prevent double reporting of qdatedit under lineedit for some reason
-                    if not isinstance(prev_item, QDateEdit) and not isinstance(prev_item, QComboBox) and not isinstance(prev_item, QSpinBox):
-                        logger.debug(f"Previous: {prev_item}")
-                        logger.debug(f"Item: {item}")
-                        values.append(item.text())
-                case QComboBox():
-                    values.append(item.currentText())
-                case QDateEdit():
-                    values.append(item.date().toPyDate())
-            # value for ad hoc check above
-            prev_item = item
-        return labels, values
 
     def generateReport(self):
         """
@@ -394,8 +366,10 @@ class App(QMainWindow):
         # Custom two date picker for start & end dates
         dlg = ReportDatePicker()
         if dlg.exec():
-            labels, values = self.extract_form_info(dlg)
-            info = {item[0]:item[1] for item in zip(labels, values)}
+            # labels, values = extract_form_info(dlg)
+            # info = {item[0]:item[1] for item in zip(labels, values)}
+            info = extract_form_info(dlg)
+            logger.debug(f"Report info: {info}")
             # find submissions based on date range
             subs = lookup_submissions_by_date_range(ctx=self.ctx, start_date=info['start_date'], end_date=info['end_date'])
             # convert each object to dict
@@ -404,7 +378,7 @@ class App(QMainWindow):
             html = make_report_html(df=df, start_date=info['start_date'], end_date=info['end_date'])
             # make dataframe from record dictionaries
             # df = make_report_xlsx(records=records)
-            # # setup filedialog to handle save location of report
+            # setup filedialog to handle save location of report
             home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf").resolve().__str__()
             # fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".xlsx")[0])
             fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])

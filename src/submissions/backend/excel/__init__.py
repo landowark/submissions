@@ -2,7 +2,6 @@ from pandas import DataFrame
 import re
 
 
-
 def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
     """
     get all unique values in a dataframe column by name
@@ -40,3 +39,5 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
                 # logger.debug(f"First run: {first_run}")
                 df = df.drop(df[df.name == first_run].index)
         return df
+    else:
+        return None
