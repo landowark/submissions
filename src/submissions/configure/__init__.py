@@ -1,3 +1,6 @@
+'''
+Contains functions for setting up program from config.yml and database.
+'''
 import yaml
 import sys, os, stat, platform, getpass
 import logging
@@ -59,16 +62,18 @@ class StreamToLogger(object):
             self.logger.log(self.log_level, line.rstrip())
 
 
-def get_config(settings_path: str|None=None) -> dict:
+def get_config(settings_path: Path|str|None=None) -> dict:
     """
     Get configuration settings from path or default if blank.
 
     Args:
-        settings_path (str, optional): _description_. Defaults to "".
+        settings_path (Path | str | None, optional): Path to config.yml Defaults to None.
 
     Returns:
-        setting: dictionary of settings.
-    """
+        dict: Dictionary of settings.
+    """    
+    if isinstance(settings_path, str):
+        settings_path = Path(settings_path)
     # custom pyyaml constructor to join fields
     def join(loader, node):
         seq = loader.construct_sequence(node)
@@ -105,10 +110,10 @@ def get_config(settings_path: str|None=None) -> dict:
             copy_settings_trigger = True
     else:
         # check if user defined path is directory
-        if Path(settings_path).is_dir():
+        if settings_path.is_dir():
             settings_path = settings_path.joinpath("config.yml")
         # check if user defined path is file
-        elif Path(settings_path).is_file():
+        elif settings_path.is_file():
             settings_path = settings_path
         else:
             logger.error("No config.yml file found. Using empty dictionary.")
@@ -128,7 +133,7 @@ def get_config(settings_path: str|None=None) -> dict:
 
 def create_database_session(database_path: Path|str|None=None) -> Session:
     """
-    Get database settings from path or default database if database_path is blank.
+    Creates a session to sqlite3 database from path or default database if database_path is blank.
 
     Args:
         database_path (Path | str | None, optional): path to sqlite database. Defaults to None.

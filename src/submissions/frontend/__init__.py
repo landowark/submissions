@@ -1,3 +1,6 @@
+'''
+Operations for all user interactions.
+'''
 import json
 import re
 from PyQt6.QtWidgets import (
@@ -19,8 +22,7 @@ from xhtml2pdf import pisa
 # import plotly.express as px
 import yaml
 import pprint
-from backend.excel.parser import SheetParser
-from backend.excel.reports import convert_data_list_to_df
+from backend.excel import convert_data_list_to_df, make_report_xlsx, make_report_html, SheetParser
 from backend.db import (construct_submission_info, lookup_reagent, 
     construct_reagent, store_submission, lookup_kittype_by_use,
     lookup_regent_by_type_name, lookup_all_orgs, lookup_submissions_by_date_range,
@@ -29,18 +31,15 @@ from backend.db import (construct_submission_info, lookup_reagent,
     create_org_from_yaml, store_reagent
 )
 from backend.db import lookup_kittype_by_name
-
-from .functions import check_kit_integrity
-from tools import check_not_nan, extract_form_info
-from backend.excel.reports import make_report_xlsx, make_report_html
-from frontend.custom_widgets.sub_details import SubmissionsSheet
-from frontend.custom_widgets.pop_ups import AlertPop, QuestionAsker
-from frontend.custom_widgets import AddReagentForm, ReportDatePicker, KitAdder, ControlsDatePicker, ImportReagent
+from .functions import extract_form_info
+from tools import check_not_nan, check_kit_integrity
+# from backend.excel.reports import 
+from frontend.custom_widgets import SubmissionsSheet, AlertPop, QuestionAsker, AddReagentForm, ReportDatePicker, KitAdder, ControlsDatePicker, ImportReagent
 import logging
 import difflib
 from getpass import getuser
 from datetime import date
-from frontend.visualizations.charts import create_charts
+from frontend.visualizations import create_charts
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")

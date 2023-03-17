@@ -1,3 +1,6 @@
+'''
+All models for individual samples.
+'''
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, BOOLEAN
 from sqlalchemy.orm import relationship

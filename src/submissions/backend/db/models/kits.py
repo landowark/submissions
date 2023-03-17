@@ -1,4 +1,6 @@
-from copy import deepcopy
+'''
+All kit and reagent related models
+'''
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
 from sqlalchemy.orm import relationship

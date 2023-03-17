@@ -1,3 +1,6 @@
+'''
+All client organization related models.
+'''
 from . import Base
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship

@@ -1,3 +1,6 @@
+'''
+All control related models.
+'''
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship

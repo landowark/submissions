@@ -1,3 +1,6 @@
+'''
+Functions for constructing controls graphs using plotly.
+'''
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
@@ -149,8 +152,19 @@ def output_figures(settings:dict, figs:list, group_name:str):
 
 
 def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None) -> Figure:
-    fig = Figure()
+    """
+    Creates a plotly chart for controls from a pandas dataframe
 
+    Args:
+        ctx (dict): settings passed down from gui
+        df (pd.DataFrame): input dataframe of controls
+        modes (list): analysis modes to construct charts for
+        ytitle (str | None, optional): title on the y-axis. Defaults to None.
+
+    Returns:
+        Figure: output stacked bar chart.
+    """        
+    fig = Figure()
     for ii, mode in enumerate(modes):
         if "count" in mode:
             df[mode] = pd.to_numeric(df[mode],errors='coerce')
@@ -161,7 +175,6 @@ def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None)
             color_discrete_sequence=None
         else:
             color = "target"
-            # print(get_unique_values_in_df_column(df, 'target'))
             match get_unique_values_in_df_column(df, 'target'):
                 case ['Target']:
                     color_discrete_sequence=["blue"]
@@ -180,7 +193,6 @@ def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None)
         )
         bar.update_traces(visible = ii == 0)
         fig.add_traces(bar.data)
-    # sys.exit(f"number of traces={len(fig.data)}")
     return generic_figure_markers(fig=fig, modes=modes, ytitle=ytitle)
 
 # Below are the individual construction functions. They must be named "construct_{mode}_chart" and 
@@ -264,17 +276,3 @@ def divide_chunks(input_list:list, chunk_count:int):
     """    
     k, m = divmod(len(input_list), chunk_count)
     return (input_list[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(chunk_count))
-
-########This must be at bottom of module###########
-
-function_map = {}
-for item in dict(locals().items()):
-    try:
-        if dict(locals().items())[item].__module__ == __name__:
-            try:
-                function_map[item] = dict(locals().items())[item]
-            except KeyError:
-                pass
-    except AttributeError:
-        pass
-###################################################

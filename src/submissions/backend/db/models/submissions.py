@@ -1,3 +1,6 @@
+'''
+Models for the main submission types.
+'''
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT
 from sqlalchemy.orm import relationship

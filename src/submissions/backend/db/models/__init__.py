@@ -1,5 +1,7 @@
+'''
+Contains all models for sqlalchemy
+'''
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 
 Base = declarative_base()
 metadata = Base.metadata

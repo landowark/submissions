@@ -1,11 +1,13 @@
-
+'''
+Contains functions for generating summary reports
+'''
 from pandas import DataFrame
-# from backend.db import models
 import logging
 from jinja2 import Environment, FileSystemLoader
 from datetime import date, timedelta
 import sys
 from pathlib import Path
+import re
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -93,30 +95,22 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
     Returns:
         DataFrame: _description_
     """    
-    # copy = input
-    # for item in copy:
-    #     item['submitted_date'] = item['submitted_date'].strftime("%Y-%m-%d")
-    # with open("controls.json", "w") as f:
-    #     f.write(json.dumps(copy))
-    # for item in input:
-    #     logger.debug(item.keys())
+    
     df = DataFrame.from_records(input)
     df.to_excel("test.xlsx", engine="openpyxl")
     safe = ['name', 'submitted_date', 'genus', 'target']
-    # logger.debug(df)
     for column in df.columns:
         if "percent" in column:
             count_col = [item for item in df.columns if "count" in item][0]
             # The actual percentage from kraken was off due to exclusion of NaN, recalculating.
-            # df[column] = 100 * df[count_col] / df.groupby('submitted_date')[count_col].transform('sum')
             df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
         if column not in safe:
             if subtype != None and column != subtype:
                 del df[column]
-    # logger.debug(df)
-    # df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
+    # move date of sample submitted on same date as previous ahead one.
     df = displace_date(df)
     df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
+    # ad hoc method to make data labels more accurate.
     df = df_column_renamer(df=df)
     return df
 
@@ -150,24 +144,59 @@ def displace_date(df:DataFrame) -> DataFrame:
     Returns:
         DataFrame: output dataframe with dates incremented.
     """    
-    # dict_list = []
-    # for item in df['name'].unique():
-    #     dict_list.append(dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']))
     logger.debug(f"Unique items: {df['name'].unique()}")
-    # logger.debug(df.to_string())
-    # the assumption is that closest names will have closest dates...
+    # get submitted dates for each control
     dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
     for ii, item in enumerate(dict_list):
-        # if ii > 0:
         try:
             check = item['date'] == dict_list[ii-1]['date']
         except IndexError:
             check = False
         if check:
-            logger.debug(f"We found one! Increment date!\n{item['date'] - timedelta(days=1)}")
+            logger.debug(f"We found one! Increment date!\n\t{item['date'] - timedelta(days=1)}")
+            # get df locations where name == item name
             mask = df['name'] == item['name']
-            # logger.debug(f"We will increment dates in: {df.loc[mask, 'submitted_date']}")
+            # increment date in dataframe
             df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
-            # logger.debug(f"Do these look incremented: {df.loc[mask, 'submitted_date']}")
     return df
                 
+
+def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
+    """
+    get all unique values in a dataframe column by name
+
+    Args:
+        df (DataFrame): input dataframe
+        column_name (str): name of column of interest
+
+    Returns:
+        list: sorted list of unique values
+    """    
+    return sorted(df[column_name].unique())
+
+
+def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
+    """
+    Removes semi-duplicates from dataframe after finding sequencing repeats.
+
+    Args:
+        settings (dict): settings passed from gui
+        df (DataFrame): initial dataframe
+
+    Returns:
+        DataFrame: dataframe with originals removed in favour of repeats.
+    """    
+    sample_names = get_unique_values_in_df_column(df, column_name="name")
+    if 'rerun_regex' in ctx:
+        # logger.debug(f"Compiling regex from: {settings['rerun_regex']}")
+        rerun_regex = re.compile(fr"{ctx['rerun_regex']}")
+        for sample in sample_names:
+            # logger.debug(f'Running search on {sample}')
+            if rerun_regex.search(sample):
+                # logger.debug(f'Match on {sample}')
+                first_run = re.sub(rerun_regex, "", sample)
+                # logger.debug(f"First run: {first_run}")
+                df = df.drop(df[df.name == first_run].index)
+        return df
+    else:
+        return None

@@ -1,3 +1,6 @@
+'''
+contains parser object for pulling values from client generated submission sheets.
+'''
 import pandas as pd
 from pathlib import Path
 from backend.db.models import WWSample, BCSample

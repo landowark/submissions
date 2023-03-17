@@ -1,3 +1,6 @@
+'''
+Contains widgets specific to the submission summary and submission details.
+'''
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
     QTextEdit, QPushButton, QScrollArea, 

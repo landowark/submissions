@@ -1,3 +1,6 @@
+'''
+Contains dialogs for notification and prompting.
+'''
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog, 
     QDialogButtonBox, QMessageBox
