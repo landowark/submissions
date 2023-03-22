@@ -294,7 +294,10 @@ class ImportReagent(QComboBox):
         self.setEditable(True)
         # Ensure that all reagenttypes have a name that matches the items in the excel parser
         query_var = item.replace("lot_", "")
-        logger.debug(f"Import Reagent is looking at: {prsr.sub[item]} for {item}")
+        if prsr != None:
+            logger.debug(f"Import Reagent is looking at: {prsr.sub[item]} for {item}")
+        else:
+            logger.debug(f"Import Reagent is going to retrieve all reagents for {item}")
         logger.debug(f"Query for: {query_var}")
         if prsr != None:
             if isinstance(prsr.sub[item], np.float64):

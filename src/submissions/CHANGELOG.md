@@ -1,3 +1,8 @@
+**202303.04**
+
+- Completed partial imports that will add in missing reagents found in the kit indicated by the user.
+- Added web documentation to the help menu.
+
 **202303.03**
 
 - Increased robustness by utilizing PyQT6 widget names to pull data from forms instead of previously used label/input zip.

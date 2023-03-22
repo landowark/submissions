@@ -8,6 +8,7 @@ from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
+from tools import check_if_app
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -102,7 +103,8 @@ def get_config(settings_path: Path|str|None=None) -> dict:
             settings_path = Path.home().joinpath(".submissions", "config.yml")
         # finally look in the local config
         else:
-            if getattr(sys, 'frozen', False):
+            # if getattr(sys, 'frozen', False):
+            if check_if_app():
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
                 settings_path = package_dir.joinpath('config.yml')
@@ -173,7 +175,7 @@ def setup_logger(verbosity:int=3):
     Set logger levels using settings.
 
     Args:
-        verbose (bool, optional): _description_. Defaults to False.
+        verbosit (int, optional): Level of verbosity desired 3 is highest. Defaults to 3.
 
     Returns:
         logger: logger object

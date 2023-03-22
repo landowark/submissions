@@ -1,3 +1,7 @@
+'''
+Contains miscellaenous functions used by both frontend and backend.
+'''
+import sys
 import numpy as np
 import logging
 import getpass
@@ -6,6 +10,15 @@ from backend.db.models import BasicSubmission, KitType
 logger = logging.getLogger(f"submissions.{__name__}")
 
 def check_not_nan(cell_contents) -> bool:
+    """
+    Check to ensure excel sheet cell contents are not blank.
+
+    Args:
+        cell_contents (_type_): The contents of the cell in question.
+
+    Returns:
+        bool: True if cell has value, else, false.
+    """    
     # check for nan as a string first
     if cell_contents == 'nan':
         cell_contents = np.nan
@@ -19,6 +32,15 @@ def check_not_nan(cell_contents) -> bool:
 
 
 def check_is_power_user(ctx:dict) -> bool:
+    """
+    Check to ensure current user is in power users list.
+
+    Args:
+        ctx (dict): settings passed down from gui.
+
+    Returns:
+        bool: True if user is in power users, else false.
+    """    
     try:
         check = getpass.getuser() in ctx['power_users']
     except KeyError as e:
@@ -30,6 +52,15 @@ def check_is_power_user(ctx:dict) -> bool:
 
 
 def create_reagent_list(in_dict:dict) -> list[str]:
+    """
+    Makes list of reagent types without "lot\_" prefix for each key in a dictionary
+
+    Args:
+        in_dict (dict): input dictionary of reagents
+
+    Returns:
+        list[str]: list of reagent types with "lot\_" prefix removed.
+    """    
     return [item.strip("lot_") for item in in_dict.keys()]
 
 
@@ -67,5 +98,21 @@ def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None
         result = None
     else:
         # missing = [x for x in ext_kit_rtypes if x not in common]
-        result = {'message' : f"Couldn't verify reagents match listed kit components.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.", 'missing': missing}
+        result = {'message' : f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", 'missing': missing}
     return result
+
+
+def check_if_app(ctx:dict=None) -> bool:
+    """
+    Checks if the program is running from pyinstaller compiled
+
+    Args:
+        ctx (dict, optional): Settings passed down from gui. Defaults to None.
+
+    Returns:
+        bool: True if running from pyinstaller. Else False.
+    """    
+    if getattr(sys, 'frozen', False):
+        return True
+    else:
+        return False

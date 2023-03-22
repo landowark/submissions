@@ -50,7 +50,7 @@ class pandasModel(QAbstractTableModel):
         does what it says
 
         Args:
-            parnet (_type_, optional): _description_. Defaults to None.
+            parent (_type_, optional): _description_. Defaults to None.
 
         Returns:
             int: number of columns in data
@@ -140,6 +140,12 @@ class SubmissionsSheet(QTableView):
 
 
     def delete_item(self, event):
+        """
+        Confirms user deletion and sends id to backend for deletion.
+
+        Args:
+            event (_type_): _description_
+        """        
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),0).data()
         logger.debug(index)
@@ -201,6 +207,9 @@ class SubmissionDetails(QDialog):
         
 
     def export(self):
+        """
+        Renders submission to html, then creates and saves .pdf file to user selected file.
+        """        
         template = env.get_template("submission_details.html")
         html = template.render(sub=self.base_dict)
         home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()

@@ -35,7 +35,7 @@ class BasicSubmission(Base):
     reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
-    run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from kit costs at time of creation.
+    run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
 
     # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.

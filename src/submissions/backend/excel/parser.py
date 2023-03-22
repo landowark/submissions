@@ -27,6 +27,7 @@ class SheetParser(object):
         # set attributes based on kwargs from gui ctx
         for kwarg in kwargs:
             setattr(self, f"_{kwarg}", kwargs[kwarg])
+        # self.__dict__.update(kwargs)
         if filepath == None:
             logger.error(f"No filepath given.")
             self.xl = None
@@ -38,12 +39,12 @@ class SheetParser(object):
                 self.xl = None
         self.sub = OrderedDict()
         # make decision about type of sample we have
-        self.sub['submission_type'] = self._type_decider()
+        self.sub['submission_type'] = self.type_decider()
         # select proper parser based on sample type
-        parse_sub = getattr(self, f"_parse_{self.sub['submission_type'].lower()}")
+        parse_sub = getattr(self, f"parse_{self.sub['submission_type'].lower()}")
         parse_sub()
 
-    def _type_decider(self) -> str:
+    def type_decider(self) -> str:
         """
         makes decisions about submission type based on structure of excel file
 
@@ -60,7 +61,7 @@ class SheetParser(object):
             return "Unknown"
 
 
-    def _parse_unknown(self) -> None:
+    def parse_unknown(self) -> None:
         """
         Dummy function to handle unknown excel structures
         """    
@@ -68,7 +69,7 @@ class SheetParser(object):
         self.sub = None
     
 
-    def _parse_generic(self, sheet_name:str) -> pd.DataFrame:
+    def parse_generic(self, sheet_name:str) -> pd.DataFrame:
         """
         Pulls information common to all submission types and passes on dataframe
 
@@ -89,12 +90,12 @@ class SheetParser(object):
         return submission_info
 
 
-    def _parse_bacterial_culture(self) -> None:
+    def parse_bacterial_culture(self) -> None:
         """
         pulls info specific to bacterial culture sample type
         """
 
-        def _parse_reagents(df:pd.DataFrame) -> None:
+        def parse_reagents(df:pd.DataFrame) -> None:
             """
             Pulls reagents from the bacterial sub-dataframe
 
@@ -126,7 +127,7 @@ class SheetParser(object):
                     else:
                         expiry = date.today()
                     self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
-        submission_info = self._parse_generic("Sample List")
+        submission_info = self.parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2
         tech = str(submission_info.iloc[11][1])
         if tech == "nan":
@@ -139,7 +140,7 @@ class SheetParser(object):
         # must be prefixed with 'lot_' to be recognized by gui
         # Todo: find a more adaptable way to read reagents.
         reagent_range = submission_info.iloc[1:13, 4:8]
-        _parse_reagents(reagent_range)
+        parse_reagents(reagent_range)
         # get individual sample info
         sample_parser = SampleParser(submission_info.iloc[15:111])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
@@ -147,12 +148,12 @@ class SheetParser(object):
         self.sub['samples'] = sample_parse()
 
 
-    def _parse_wastewater(self) -> None:
+    def parse_wastewater(self) -> None:
         """
         pulls info specific to wastewater sample type
         """        
 
-        def _parse_reagents(df:pd.DataFrame) -> None:
+        def parse_reagents(df:pd.DataFrame) -> None:
             """
             Pulls reagents from the bacterial sub-dataframe
 
@@ -180,7 +181,7 @@ class SheetParser(object):
                         expiry = date.today()
                     self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
         # parse submission sheet
-        submission_info = self._parse_generic("WW Submissions (ENTER HERE)")
+        submission_info = self.parse_generic("WW Submissions (ENTER HERE)")
         # parse enrichment sheet
         enrichment_info = self.xl.parse("Enrichment Worksheet", dtype=object)
         # set enrichment reagent range
@@ -195,9 +196,9 @@ class SheetParser(object):
         pcr_reagent_range = qprc_info.iloc[0:5, 9:20]
         # compile technician info
         self.sub['technician'] = f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}"
-        _parse_reagents(enr_reagent_range)
-        _parse_reagents(ext_reagent_range)
-        _parse_reagents(pcr_reagent_range)
+        parse_reagents(enr_reagent_range)
+        parse_reagents(ext_reagent_range)
+        parse_reagents(pcr_reagent_range)
         # parse samples
         sample_parser = SampleParser(submission_info.iloc[16:40])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")

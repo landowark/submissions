@@ -1,3 +1,6 @@
+'''
+contains operations used by multiple widgets.
+'''
 from backend.db.models import *
 import logging
 from PyQt6.QtWidgets import (
@@ -43,9 +46,7 @@ def extract_form_info(object) -> dict:
                 dicto[item.objectName()] = item.value()
             case ReagentTypeForm():
                 reagent = extract_form_info(item) 
-                # reagent = {item[0]:item[1] for item in zip(re_labels, re_values)}
-                logger.debug(reagent)
-                # reagent = {reagent['name:']:{'eol':reagent['extension_of_life_(months):']}}
+                logger.debug(f"Reagent found: {reagent}")
                 reagents[reagent["name"].strip()] = {'eol_ext':int(reagent['eol'])}
         # value for ad hoc check above
     if reagents != {}:

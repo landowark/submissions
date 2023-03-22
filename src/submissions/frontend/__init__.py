@@ -3,6 +3,7 @@ Operations for all user interactions.
 '''
 import json
 import re
+import sys
 from PyQt6.QtWidgets import (
     QMainWindow, QLabel, QToolBar, 
     QTabWidget, QWidget, QVBoxLayout,
@@ -32,7 +33,7 @@ from backend.db import (construct_submission_info, lookup_reagent,
 )
 from backend.db import lookup_kittype_by_name
 from .functions import extract_form_info
-from tools import check_not_nan, check_kit_integrity
+from tools import check_not_nan, check_kit_integrity, check_if_app
 # from backend.excel.reports import 
 from frontend.custom_widgets import SubmissionsSheet, AlertPop, QuestionAsker, AddReagentForm, ReportDatePicker, KitAdder, ControlsDatePicker, ImportReagent
 import logging
@@ -40,6 +41,7 @@ import difflib
 from getpass import getuser
 from datetime import date
 from frontend.visualizations import create_charts
+import webbrowser
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -49,6 +51,7 @@ class App(QMainWindow):
     def __init__(self, ctx: dict = {}):
         super().__init__()
         self.ctx = ctx
+        # indicate version and database connected in title bar
         try:
             self.title = f"Submissions App (v{ctx['package'].__version__}) - {ctx['database']}"
         except AttributeError:
@@ -84,6 +87,7 @@ class App(QMainWindow):
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
+        helpMenu.addAction(self.docsAction)
         fileMenu.addAction(self.importAction)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinControlsAction)
@@ -111,6 +115,7 @@ class App(QMainWindow):
         self.joinControlsAction = QAction("Link Controls")
         self.joinExtractionAction = QAction("Link Ext Logs")
         self.helpAction = QAction("&About", self)
+        self.docsAction = QAction("&Docs", self)
 
 
     def _connectActions(self):
@@ -129,12 +134,20 @@ class App(QMainWindow):
         self.joinControlsAction.triggered.connect(self.linkControls)
         self.joinExtractionAction.triggered.connect(self.linkExtractions)
         self.helpAction.triggered.connect(self.showAbout)
+        self.docsAction.triggered.connect(self.openDocs)
 
     def showAbout(self):
         output = f"Version: {self.ctx['package'].__version__}\n\nAuthor: {self.ctx['package'].__author__['name']} - {self.ctx['package'].__author__['email']}\n\nCopyright: {self.ctx['package'].__copyright__}"
         about = AlertPop(message=output, status="information")
         about.exec()
 
+    def openDocs(self):
+        if check_if_app():
+            url = Path(sys._MEIPASS).joinpath("files", "docs", "index.html")
+        else:
+            url = Path("docs\\build\\index.html").absolute()
+        logger.debug(f"Attempting to open {url}")
+        webbrowser.get('windows-default').open(f"file://{url.__str__()}")
 
 
     def importSubmission(self):
@@ -365,24 +378,19 @@ class App(QMainWindow):
         # Custom two date picker for start & end dates
         dlg = ReportDatePicker()
         if dlg.exec():
-            # labels, values = extract_form_info(dlg)
-            # info = {item[0]:item[1] for item in zip(labels, values)}
             info = extract_form_info(dlg)
             logger.debug(f"Report info: {info}")
             # find submissions based on date range
             subs = lookup_submissions_by_date_range(ctx=self.ctx, start_date=info['start_date'], end_date=info['end_date'])
             # convert each object to dict
             records = [item.report_dict() for item in subs]
+            # make dataframe from record dictionaries
             df = make_report_xlsx(records=records)
             html = make_report_html(df=df, start_date=info['start_date'], end_date=info['end_date'])
-            # make dataframe from record dictionaries
-            # df = make_report_xlsx(records=records)
             # setup filedialog to handle save location of report
             home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf").resolve().__str__()
-            # fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".xlsx")[0])
             fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
             # logger.debug(f"report output name: {fname}")
-            # df.to_excel(fname, engine='openpyxl')
             with open(fname, "w+b") as f:
                 pisa.CreatePDF(html, dest=f)
             writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
@@ -398,14 +406,7 @@ class App(QMainWindow):
                     worksheet.column_dimensions[get_column_letter(idx)].width = max_len 
                 except ValueError:
                     pass
-                # set_column(idx, idx, max_len)  # set column width
-            # colu = worksheet.column_dimensions["C"]
-            # style = NamedStyle(name="custom_currency", number_format='Currency')
             for cell in worksheet['D']:
-                # try:
-                #     check = int(cell.row)
-                # except TypeError:
-                #     continue
                 if cell.row > 1:
                     cell.style = 'Currency'
             writer.close()
@@ -431,19 +432,11 @@ class App(QMainWindow):
             return
         # send to kit creator function
         result = create_kit_from_yaml(ctx=self.ctx, exp=exp)
-        # msg = QMessageBox()
-        # msg.setIcon(QMessageBox.critical)
         match result['code']:
             case 0:
                 msg = AlertPop(message=result['message'], status='info')
-                # msg.setText("Kit added")
-                # msg.setInformativeText(result['message'])
-                # msg.setWindowTitle("Kit added")
             case 1:
                 msg = AlertPop(message=result['message'], status='critical')
-                # msg.setText("Permission Error")
-                # msg.setInformativeText(result['message'])
-                # msg.setWindowTitle("Permission Error")
         msg.exec()
 
 
@@ -467,19 +460,11 @@ class App(QMainWindow):
             return
         # send to kit creator function
         result = create_org_from_yaml(ctx=self.ctx, org=org)
-        # msg = QMessageBox()
-        # msg.setIcon(QMessageBox.critical)
         match result['code']:
             case 0:
                 msg = AlertPop(message=result['message'], status='information')
-                # msg.setText("Organization added")
-                # msg.setInformativeText(result['message'])
-                # msg.setWindowTitle("Kit added")
             case 1:
                 msg = AlertPop(message=result['message'], status='critical')
-                # msg.setText("Permission Error")
-                # msg.setInformativeText(result['message'])
-                # msg.setWindowTitle("Permission Error")
         msg.exec()
 
 
@@ -537,20 +522,12 @@ class App(QMainWindow):
         controls = get_all_controls_by_type(ctx=self.ctx, con_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
         # if no data found from query set fig to none for reporting in webview
         if controls == None:
-            # return
             fig = None
         else:
-            # data = []
-            # for control in controls:
-            #     # change each control to list of dicts
-            #     # dicts = convert_control_by_mode(ctx=self.ctx, control=control, mode=self.mode)
-            #     dicts = control.convert_by_mode(mode=self.mode)
-            #     data.append(dicts)
             # change each control to list of dicts
             data = [control.convert_by_mode(mode=self.mode) for control in controls]
             # flatten data to one dimensional list
             data = [item for sublist in data for item in sublist]
-            # logger.debug(data)
             # send to dataframe creator
             df = convert_data_list_to_df(ctx=self.ctx, input=data, subtype=self.subtype)
             if self.subtype == None:
@@ -567,16 +544,12 @@ class App(QMainWindow):
         else:
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'
-        # with open("C:\\Users\\lwark\\Desktop\\test.html", "w") as f:
-        #     f.write(html)
-        # add html to webview and update.
         self.table_widget.webengineview.setHtml(html)
         self.table_widget.webengineview.update()
         logger.debug("Figure updated... I hope.")
 
 
     def linkControls(self):
-        # all_bcs = self.ctx['database_session'].query(models.BacterialCulture).all()
         all_bcs = lookup_all_submissions_by_type(self.ctx, "Bacterial Culture")
         logger.debug(all_bcs)
         all_controls = get_all_controls(self.ctx)
@@ -588,9 +561,6 @@ class App(QMainWindow):
             samples = [sample.sample_id for sample in bcs.samples]
             logger.debug(bcs.controls)
             for sample in samples:
-                # if "Jan" in sample and "EN" in sample:
-                #     sample = sample.replace("EN-", "EN1-")
-                #     logger.debug(f"Checking for {sample}")
                 # replace below is a stopgap method because some dingus decided to add spaces in some of the ATCC49... so it looks like "ATCC 49"...
                 if " " in sample:
                     logger.warning(f"There is not supposed to be a space in the sample name!!!")
@@ -601,10 +571,8 @@ class App(QMainWindow):
                 else:
                     for control in all_controls:
                         diff = difflib.SequenceMatcher(a=sample, b=control.name).ratio()
-                        # if diff > 0.955:
                         if control.name.startswith(sample):
                             logger.debug(f"Checking {sample} against {control.name}... {diff}")
-                        # if sample == control.name:
                             logger.debug(f"Found match:\n\tSample: {sample}\n\tControl: {control.name}\n\tDifference: {diff}")
                             if control in bcs.controls:
                                 logger.debug(f"{control.name} already in {bcs.rsl_plate_num}, skipping")
@@ -618,20 +586,15 @@ class App(QMainWindow):
                                 self.ctx["database_session"].add(control)
                                 count += 1
             self.ctx["database_session"].add(bcs)
-            # logger.debug(f"To be added: {ctx['database_session'].new}")
             logger.debug(f"Here is the new control: {[control.name for control in bcs.controls]}")
-            # p = ctx["database_session"].query(models.BacterialCulture).filter(models.BacterialCulture.rsl_plate_num==bcs.rsl_plate_num).first()
         result = f"We added {count} controls to bacterial cultures."
         logger.debug(result)
-        # logger.debug(ctx["database_session"].new)
         self.ctx['database_session'].commit()
         msg = QMessageBox()
-        # msg.setIcon(QMessageBox.critical)
         msg.setText("Controls added")
         msg.setInformativeText(result)
         msg.setWindowTitle("Controls added")
         msg.exec()
-
 
 
     def linkExtractions(self):
@@ -639,7 +602,6 @@ class App(QMainWindow):
         fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir, filter = "csv(*.csv)")[0])
         with open(fname.__str__(), 'r') as f:
             runs = [col.strip().split(",") for col in f.readlines()]
-        # check = []
         count = 0
         for run in runs:
             obj = dict(
@@ -652,21 +614,14 @@ class App(QMainWindow):
                 )
             for ii in range(6, len(run)):
                 obj[f"column{str(ii-5)}_vol"] = run[ii]
-            # check.append(json.dumps(obj))
-            # sub = self.ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num.startswith(obj["rsl_plate_num"])).first()
             sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=obj['rsl_plate_num'])
             try:
                 logger.debug(f"Found submission: {sub.rsl_plate_num}")
                 count += 1
             except AttributeError:
                 continue
-            # output = json.dumps(obj)
             if sub.extraction_info != None:
-                # try:
-                # logger.debug(f"Attempting update on ext info: {sub.extraction_info} for {sub.rsl_plate_num}")
                 existing = json.loads(sub.extraction_info)
-                # except:
-                    # existing = None
             else:
                 existing = None
             try:
@@ -677,7 +632,6 @@ class App(QMainWindow):
                 pass
             if existing != None:
                 try:
-                    # sub.extraction_info += output
                     logger.debug(f"Updating {type(existing)}: {existing} with {type(obj)}: {obj}")
                     existing.append(obj)
                     logger.debug(f"Setting: {existing}")
@@ -692,7 +646,6 @@ class App(QMainWindow):
             self.ctx["database_session"].commit()
         dlg = AlertPop(message=f"We added {count} logs to the database.", status='information')
         dlg.exec()
-
 
 
 class AddSubForm(QWidget):

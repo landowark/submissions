@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 import os
-# must be set to enable qtwebengine in network path
+# environment variable must be set to enable qtwebengine in network path
 if getattr(sys, 'frozen', False):
     os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = "1"
 else :

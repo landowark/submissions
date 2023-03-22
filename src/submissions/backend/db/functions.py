@@ -641,6 +641,16 @@ def lookup_submission_by_rsl_num(ctx:dict, rsl_num:str) -> models.BasicSubmissio
 
 
 def lookup_submissions_using_reagent(ctx:dict, reagent:models.Reagent) -> list[models.BasicSubmission]:
+    """
+    Retrieves each submission using a specified reagent.
+
+    Args:
+        ctx (dict): settings passed down from gui
+        reagent (models.Reagent): reagent object in question
+
+    Returns:
+        list[models.BasicSubmission]: list of all submissions using specified reagent.
+    """    
     return ctx['database_session'].query(models.BasicSubmission).join(reagents_submissions).filter(reagents_submissions.c.reagent_id==reagent.id).all()
 
 

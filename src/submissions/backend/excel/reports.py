@@ -8,11 +8,13 @@ from datetime import date, timedelta
 import sys
 from pathlib import Path
 import re
+from tools import check_if_app
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 # set path of templates depending on pyinstaller/raw python
-if getattr(sys, 'frozen', False):
+# if getattr(sys, 'frozen', False):
+if check_if_app():
     loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
 else:
     loader_path = Path(__file__).parents[2].joinpath('templates').absolute().__str__()
