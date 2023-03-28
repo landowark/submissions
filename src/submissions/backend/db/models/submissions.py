@@ -179,5 +179,20 @@ class Wastewater(BasicSubmission):
     derivative submission type from BasicSubmission
     """    
     samples = relationship("WWSample", back_populates="rsl_plate", uselist=True)
+    pcr_info = Column(JSON)
     # ww_sample_id = Column(String, ForeignKey("_ww_samples.id", ondelete="SET NULL", name="fk_WW_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "wastewater", "polymorphic_load": "inline"}
+
+    def to_dict(self) -> dict:
+        """
+        Extends parent class method to add controls to dict
+
+        Returns:
+            dict: dictionary used in submissions summary
+        """        
+        output = super().to_dict()
+        try:
+            output['pcr_info'] = json.loads(self.pcr_info)
+        except TypeError as e:
+            pass
+        return output

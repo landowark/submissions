@@ -1,16 +1,18 @@
 '''
 contains parser object for pulling values from client generated submission sheets.
 '''
+from getpass import getuser
 import pandas as pd
 from pathlib import Path
 from backend.db.models import WWSample, BCSample
+from backend.db import lookup_ww_sample_by_rsl_sample_number
 import logging
 from collections import OrderedDict
 import re
 import numpy as np
 from datetime import date
 import uuid
-from tools import check_not_nan
+from tools import check_not_nan, retrieve_rsl_number
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -203,6 +205,7 @@ class SheetParser(object):
         sample_parser = SampleParser(submission_info.iloc[16:40])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
+        self.sub['csv'] = self.xl.parse("Copy to import file", dtype=object)
 
 
 class SampleParser(object):
@@ -284,3 +287,112 @@ class SampleParser(object):
             new.well_number = sample['Unnamed: 1']
             new_list.append(new)
         return new_list
+
+
+class PCRParser(object):
+    """
+    Object to pull data from Design and Analysis PCR export file.
+    """    
+    def __init__(self, ctx:dict, filepath:Path|None = None) -> None:
+        """
+        Initializes object.
+
+        Args:
+            ctx (dict): settings passed down from gui.
+            filepath (Path | None, optional): file to parse. Defaults to None.
+        """        
+        self.ctx = ctx
+        logger.debug(f"Parsing {filepath.__str__()}")        
+        if filepath == None:
+            logger.error(f"No filepath given.")
+            self.xl = None
+        else:
+            try:
+                self.xl = pd.ExcelFile(filepath.__str__())
+            except ValueError as e:
+                logger.error(f"Incorrect value: {e}")
+                self.xl = None
+            except PermissionError:
+                logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
+                return
+        # self.pcr = OrderedDict()
+        self.pcr = {}
+        self.plate_num, self.submission_type = retrieve_rsl_number(filepath.__str__())
+        logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
+        self.samples = []
+        parser = getattr(self, f"parse_{self.submission_type}")
+        parser()
+        
+
+    def parse_general(self, sheet_name:str):
+        """
+        Parse general info rows for all types of PCR results
+
+        Args:
+            sheet_name (str): Name of sheet in excel workbook that holds info.
+        """        
+        df = self.xl.parse(sheet_name=sheet_name, dtype=object).fillna("")
+        # self.pcr['file'] = df.iloc[1][1]
+        self.pcr['comment'] = df.iloc[0][1]
+        self.pcr['operator'] = df.iloc[1][1]
+        self.pcr['barcode'] = df.iloc[2][1]
+        self.pcr['instrument'] = df.iloc[3][1]
+        self.pcr['block_type'] = df.iloc[4][1]
+        self.pcr['instrument_name'] = df.iloc[5][1]
+        self.pcr['instrument_serial'] = df.iloc[6][1]
+        self.pcr['heated_cover_serial'] = df.iloc[7][1]
+        self.pcr['block_serial'] = df.iloc[8][1]
+        self.pcr['run-start'] = df.iloc[9][1]
+        self.pcr['run_end'] = df.iloc[10][1]
+        self.pcr['run_duration'] = df.iloc[11][1]
+        self.pcr['sample_volume'] = df.iloc[12][1]
+        self.pcr['cover_temp'] = df.iloc[13][1]
+        self.pcr['passive_ref'] = df.iloc[14][1]
+        self.pcr['pcr_step'] = df.iloc[15][1]
+        self.pcr['quant_cycle_method'] = df.iloc[16][1]
+        self.pcr['analysis_time'] = df.iloc[17][1]
+        self.pcr['software'] = df.iloc[18][1]
+        self.pcr['plugin'] = df.iloc[19][1]
+        self.pcr['exported_on'] = df.iloc[20][1]
+        self.pcr['imported_by'] = getuser()
+        return df
+
+    def parse_wastewater(self):
+        """
+        Parse specific to wastewater samples.
+        """        
+        df = self.parse_general(sheet_name="Results")
+        self.samples_df = df.iloc[23:][0:]
+        # iloc is [row][column]
+        for ii, row in self.samples_df.iterrows():
+            try:
+                sample_obj = [sample for sample in self.samples if sample['sample'] == row[3]][0]    
+            except IndexError:
+                sample_obj = dict(
+                    sample = row[3],
+                )
+            logger.debug(f"Got sample obj: {sample_obj}") 
+            # logger.debug(f"row: {row}")
+            # rsl_num = row[3]
+            # # logger.debug(f"Looking up: {rsl_num}")
+            # ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=self.ctx, rsl_number=rsl_num)
+            # logger.debug(f"Got: {ww_samp}")
+            match row[4]:
+                case "N1":
+                    if isinstance(row[12], float):
+                        sample_obj['ct_n1'] = row[12]
+                    else:
+                        sample_obj['ct_n1'] = 0.0
+                case "N2":
+                    if isinstance(row[12], float):
+                        sample_obj['ct_n2'] = row[12]
+                    else:
+                        sample_obj['ct_n2'] = 0.0
+                case _:
+                    logger.warning(f"Unexpected input for row[4]: {row[4]}")
+            self.samples.append(sample_obj)
+                
+
+
+            
+            

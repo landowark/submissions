@@ -2,7 +2,7 @@
 All models for individual samples.
 '''
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, BOOLEAN
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, BOOLEAN, JSON
 from sqlalchemy.orm import relationship
 
 
@@ -25,11 +25,12 @@ class WWSample(Base):
     testing_type = Column(String(64)) 
     site_status = Column(String(64))
     notes = Column(String(2000))
-    ct_n1 = Column(FLOAT(2))
-    ct_n2 = Column(FLOAT(2))
+    ct_n1 = Column(FLOAT(2)) #: AKA ct for N1
+    ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
     seq_submitted = Column(BOOLEAN())
     ww_seq_run_id = Column(String(64))
     sample_type = Column(String(8))
+    pcr_results = Column(JSON)
     
 
     def to_string(self) -> str:
@@ -48,9 +49,13 @@ class WWSample(Base):
         Returns:
             dict: well location and id NOTE: keys must sync with BCSample to_sub_dict below
         """
+        if self.ct_n1 != None and self.ct_n2 != None:
+            name = f"{self.ww_sample_full_id}\n\t- ct N1: {'{:.2f}'.format(self.ct_n1)}, ct N2: {'{:.2f}'.format(self.ct_n1)}"
+        else:
+            name = self.ww_sample_full_id
         return {
             "well": self.well_number,
-            "name": self.ww_sample_full_id,
+            "name": name,
         }
 
 

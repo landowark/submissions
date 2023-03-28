@@ -5,6 +5,7 @@ Convenience functions for interacting with the database.
 from . import models
 from .models.kits import reagenttypes_kittypes
 from .models.submissions import reagents_submissions
+from .models.samples import WWSample
 import pandas as pd
 import sqlalchemy.exc
 import sqlite3
@@ -392,7 +393,11 @@ def submissions_to_df(ctx:dict, sub_type:str|None=None) -> pd.DataFrame:
     try:
         df = df.drop("ext_info", axis=1)
     except:
-        logger.warning(f"Couldn't drop 'controls' column from submissionsheet df.")
+        logger.warning(f"Couldn't drop 'ext_info' column from submissionsheet df.")
+    try:
+        df = df.drop("pcr_info", axis=1)
+    except:
+        logger.warning(f"Couldn't drop 'pcr_info' column from submissionsheet df.")
     return df
      
     
@@ -676,4 +681,39 @@ def delete_submission_by_id(ctx:dict, id:int) -> None:
     for sample in sub.samples:
         ctx['database_session'].delete(sample)
     ctx["database_session"].delete(sub)
+    ctx["database_session"].commit()
+
+
+def lookup_ww_sample_by_rsl_sample_number(ctx:dict, rsl_number:str) -> models.WWSample:
+    """
+    Retrieves wastewater sampel from database by rsl sample number
+
+    Args:
+        ctx (dict): settings passed dwon from gui
+        rsl_number (str): sample number assigned by robotics lab
+
+    Returns:
+        models.WWSample: instance of wastewater sample
+    """    
+    return ctx['database_session'].query(models.WWSample).filter(models.WWSample.rsl_number==rsl_number).first()
+
+
+def update_ww_sample(ctx:dict, sample_obj:dict):
+    """
+    Retrieves wastewater sample by rsl number (sample_obj['sample']) and updates values from constructed dictionary
+
+    Args:
+        ctx (dict): settings passed down from gui
+        sample_obj (dict): dictionary representing new values for database object
+    """    
+    ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=ctx, rsl_number=sample_obj['sample'])
+    if ww_samp != None:
+        for key, value in sample_obj.items():
+            logger.debug(f"Setting {key} to {value}")
+            # set attribute 'key' to 'value'
+            setattr(ww_samp, key, value)
+    else:
+        logger.error(f"Unable to find sample {sample_obj['sample']}")
+        return
+    ctx['database_session'].add(ww_samp)
     ctx["database_session"].commit()

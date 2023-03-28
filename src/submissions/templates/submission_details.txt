@@ -1,6 +1,7 @@
 {# template for constructing submission details #}
-
-{% for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' and key != 'ext_info' %}
+{% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info'] %}
+{# for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' and key != 'ext_info' #}
+{% for key, value in sub.items() if key not in excluded %}
 {% if key=='Cost' %} {{ key }}: {{ "${:,.2f}".format(value) }} {% else %} {{ key }}: {{ value }} {% endif %}
 {% endfor %}
 Reagents:
@@ -9,7 +10,7 @@ Reagents:
 {% if sub['samples']%}
 Samples:
 {% for item in sub['samples'] %}
-    {{ item['well'] }}: {{ item['name'] }}{% endfor %}{% endif %}
+    {{ item['well'] }}: {{ item['name'] }}{% endfor %}{% endif %} 
 {% if sub['controls'] %}
 Attached Controls:
 {% for item in sub['controls'] %}
@@ -22,6 +23,10 @@ Attached Controls:
 {% if sub['ext_info'] %}{% for entry in sub['ext_info'] %}
 Extraction Status:
 {% for key, value in entry.items() %}
-    {{ key|replace('_', ' ')|title() }}: {{ value }}{% endfor %}
-{% endfor %}
+    {{ key|replace('_', ' ')|title() }}: {{ value }}{% endfor %}{% endfor %}{% endif %}
+{% if sub['pcr_info'] %}{% for entry in sub['pcr_info'] %}
+{% if 'comment' not in entry.keys() %}qPCR Momentum Status:{% else %}
+qPCR Status{% endif %}
+{% for key, value in entry.items() if key != 'imported_by' %}
+    {{ key|replace('_', ' ')|title() }}: {{ value }}{% endfor %}{% endfor %}
 {% endif %}

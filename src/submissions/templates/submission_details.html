@@ -3,9 +3,10 @@
     <head>
         <title>Submission Details for {{ sub['Plate Number'] }}</title>
     </head>
+    {% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info'] %}
     <body>
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>
-        <p>{% for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' and key != 'ext_info' %}
+        <p>{% for key, value in sub.items() if key not in excluded %}
             {% if loop.index == 1 %}
                 &nbsp;&nbsp;&nbsp;{% if key=='Cost' %}{{ key }}: {{ "${:,.2f}".format(value) }}{% else %}{{ key }}: {{ value }}{% endif %}<br>
             {% else %}
@@ -50,6 +51,26 @@
         {% for entry in sub['ext_info'] %}
         <h3><u>Extraction Status:</u></h3>
         <p>{% for key, value in entry.items() %}
+            {% if loop.index == 1%}
+                &nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+            {% else %}
+                {% if "column" in key %}
+                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}uL<br>
+                {% else %}
+                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+                {% endif %}
+            {% endif %}
+        {% endfor %}</p>
+        {% endfor %}
+        {% endif %}
+        {% if sub['pcr_info'] %}
+        {% for entry in sub['pcr_info'] %}
+        {% if 'comment' not in entry.keys() %}
+            <h3><u>qPCR Momentum Status:</u></h3>
+        {% else %}
+            <h3><u>qPCR Status:</u></h3>
+        {% endif %}
+        <p>{% for key, value in entry.items() if key != 'imported_by'%}
             {% if loop.index == 1%}
                 &nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
             {% else %}

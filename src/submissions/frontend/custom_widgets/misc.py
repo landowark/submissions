@@ -2,6 +2,7 @@
 Contains miscellaneous widgets for frontend functions
 '''
 from datetime import date
+import typing
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog, 
@@ -10,10 +11,11 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
 )
 from PyQt6.QtCore import Qt, QDate, QSize
+# from submissions.backend.db.functions import lookup_kittype_by_use
 # from submissions.backend.db import lookup_regent_by_type_name_and_kit_name
 from tools import check_not_nan
 from ..functions import extract_form_info
-from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, lookup_regent_by_type_name#, lookup_regent_by_type_name_and_kit_name
+from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, lookup_regent_by_type_name, lookup_kittype_by_use#, lookup_regent_by_type_name_and_kit_name
 from backend.excel.parser import SheetParser
 from jinja2 import Environment, FileSystemLoader
 import sys
@@ -329,9 +331,13 @@ class ImportReagent(QComboBox):
             else:
                 if len(relevant_reagents) > 1:
                     logger.debug(f"Found {prsr.sub[item]['lot']} in relevant reagents: {relevant_reagents}. Moving to front of list.")
-                    relevant_reagents.insert(0, relevant_reagents.pop(relevant_reagents.index(prsr.sub[item]['lot'])))
+                    idx = relevant_reagents.index(str(prsr.sub[item]['lot']))
+                    logger.debug(f"The index we got for {prsr.sub[item]['lot']} in {relevant_reagents} was {idx}")
+                    moved_reag = relevant_reagents.pop(idx)
+                    relevant_reagents.insert(0, moved_reag)
                 else:
                     logger.debug(f"Found {prsr.sub[item]['lot']} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
         logger.debug(f"New relevant reagents: {relevant_reagents}")
+        self.setObjectName(f"lot_{item}")
         self.addItems(relevant_reagents)
         

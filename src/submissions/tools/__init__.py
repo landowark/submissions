@@ -1,11 +1,13 @@
 '''
 Contains miscellaenous functions used by both frontend and backend.
 '''
+import re
 import sys
 import numpy as np
 import logging
 import getpass
 from backend.db.models import BasicSubmission, KitType
+from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -116,3 +118,14 @@ def check_if_app(ctx:dict=None) -> bool:
         return True
     else:
         return False
+    
+
+def retrieve_rsl_number(in_str:str) -> Tuple[str, str]:
+    in_str = in_str.split("\\")[-1]
+    logger.debug(f"Attempting match of {in_str}")
+    regex = re.compile(r"""
+        (?P<wastewater>RSL-WW-20\d{6})|(?P<bacterial_culture>RSL-\d{2}-\d{4})
+        """, re.VERBOSE)
+    m = regex.search(in_str)
+    return (m.group(), m.lastgroup)
+    
