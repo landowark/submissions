@@ -31,6 +31,8 @@
 	a. Both an excel sheet and a pdf should be generated containing summary information for submissions made by each client lab.
 
 ## Importing PCR results:
+
+This is meant to import .xslx files created from the Design & Analysis Software
 1. Click on 'File' -> 'Import PCR Results'.
 2. Use the file dialog to locate the .xlsx file you want to import.
 3. Click 'Okay'.

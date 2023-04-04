@@ -1,7 +1,4 @@
-'''
-contains operations used by multiple widgets.
-'''
-from backend.db.models import *
+from pathlib import Path
 import logging
 from PyQt6.QtWidgets import (
     QMainWindow, QLabel, QToolBar, 
@@ -11,8 +8,17 @@ from PyQt6.QtWidgets import (
     QSpinBox, QScrollArea
 )
 
-
 logger = logging.getLogger(f"submissions.{__name__}")
+
+def select_open_file(obj:QMainWindow, extension:str) -> Path:
+    home_dir = str(Path(obj.ctx["directory_path"]))
+    fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = f"{extension}(*.{extension})")[0])
+    return fname
+
+def select_save_file(obj:QMainWindow, default_name:str, extension:str) -> Path:
+    home_dir = Path(obj.ctx["directory_path"]).joinpath(default_name).resolve().__str__()
+    fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter = f"{extension}(*.{extension})")[0])
+    return fname
 
 def extract_form_info(object) -> dict:
     """
@@ -24,6 +30,7 @@ def extract_form_info(object) -> dict:
     Returns:
         dict: dictionary of objectName:text items
     """        
+    
     from frontend.custom_widgets import ReagentTypeForm
     dicto = {}
     reagents = {}

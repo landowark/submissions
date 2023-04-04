@@ -14,7 +14,7 @@ from PyQt6.QtCore import Qt, QDate, QSize
 # from submissions.backend.db.functions import lookup_kittype_by_use
 # from submissions.backend.db import lookup_regent_by_type_name_and_kit_name
 from tools import check_not_nan
-from ..functions import extract_form_info
+from ..all_window_functions import extract_form_info
 from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, lookup_regent_by_type_name, lookup_kittype_by_use#, lookup_regent_by_type_name_and_kit_name
 from backend.excel.parser import SheetParser
 from jinja2 import Environment, FileSystemLoader

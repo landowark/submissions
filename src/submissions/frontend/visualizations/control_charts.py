@@ -1,6 +1,7 @@
 '''
 Functions for constructing controls graphs using plotly.
 '''
+import plotly
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
@@ -276,3 +277,13 @@ def divide_chunks(input_list:list, chunk_count:int):
     """    
     k, m = divmod(len(input_list), chunk_count)
     return (input_list[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(chunk_count))
+
+
+def construct_html(figure:Figure) -> str:
+    html = '<html><body>'
+    if figure != None:
+        html += plotly.offline.plot(figure, output_type='div', include_plotlyjs='cdn')#, image = 'png', auto_open=True, image_filename='plot_image')
+    else:
+        html += "<h1>No data was retrieved for the given parameters.</h1>"
+    html += '</body></html>'
+    return html

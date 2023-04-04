@@ -121,11 +121,115 @@ def check_if_app(ctx:dict=None) -> bool:
     
 
 def retrieve_rsl_number(in_str:str) -> Tuple[str, str]:
+    """
+    Uses regex to retrieve the plate number and submission type from an input string
+
+    Args:
+        in_str (str): string to be parsed
+
+    Returns:
+        Tuple[str, str]: tuple of (output rsl number, submission_type)
+    """    
     in_str = in_str.split("\\")[-1]
     logger.debug(f"Attempting match of {in_str}")
     regex = re.compile(r"""
-        (?P<wastewater>RSL-WW-20\d{6})|(?P<bacterial_culture>RSL-\d{2}-\d{4})
+        (?P<wastewater>RSL-?WW(?:-|_)20\d{6}(?:(?:_|-)\d(?!\d))?)|(?P<bacterial_culture>RSL-\d{2}-\d{4})
         """, re.VERBOSE)
     m = regex.search(in_str)
-    return (m.group(), m.lastgroup)
+    parsed = m.group().replace("_", "-")
+    return (parsed, m.lastgroup)
+
+
+def format_rsl_number(instr:str) -> str:
+    """
+    Enforces proper formatting on a plate number
+    Depreciated, replaced by RSLNamer class
+
+    Args:
+        instr (str): input plate number
+
+    Returns:
+        str: _description_
+    """    
+    output = instr.upper()
+    output = output.replace("_", "-")
+    return output
     
+
+def check_regex_match(pattern:str, check:str) -> bool:
+    try:
+        return bool(re.match(fr"{pattern}", check))
+    except TypeError:
+        return False
+    
+
+class RSLNamer(object):
+    """
+    Object that will enforce proper formatting on RSL plate names.
+    """
+    def __init__(self, instr:str):
+        # self.parsed_name, self.submission_type = self.retrieve_rsl_number(instr)
+        self.retrieve_rsl_number(in_str=instr)
+        if self.submission_type != None:
+            parser = getattr(self, f"enforce_{self.submission_type}")
+            parser()
+            self.parsed_name = self.parsed_name.replace("_", "-")
+        
+
+    def retrieve_rsl_number(self, in_str:str) -> Tuple[str, str]:
+        """
+        Uses regex to retrieve the plate number and submission type from an input string
+
+        Args:
+            in_str (str): string to be parsed
+
+        Returns:
+            Tuple[str, str]: tuple of (output rsl number, submission_type)
+        """    
+        logger.debug(f"Attempting split of {in_str}")
+        try:
+            in_str = in_str.split("\\")[-1]
+        except AttributeError:
+            self.parsed_name = None
+            self.submission_type = None
+            return
+        logger.debug(f"Attempting match of {in_str}")
+        regex = re.compile(r"""
+            (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d(?!\d))?)|
+            (?P<bacterial_culture>RSL-?\d{2}-?\d{4})
+            """, flags = re.IGNORECASE | re.VERBOSE)
+        m = regex.search(in_str)
+        try:
+            self.parsed_name = m.group().upper()
+            self.submission_type = m.lastgroup
+        except AttributeError as e:
+            logger.critical("No RSL plate number found or submission type found!")
+            logger.debug(f"The cause of the above error was: {e}")
+
+    def enforce_wastewater(self):
+        """
+        Uses regex to enforce proper formatting of wastewater samples
+        """        
+        # self.parsed_name = re.sub(r"(\d)-(\d)", "\1\2", self.parsed_name)
+        # year = str(date.today().year)[:2]
+        self.parsed_name = re.sub(r"PCR(-|_)", "", self.parsed_name)
+        self.parsed_name = self.parsed_name.replace("RSLWW", "RSL-WW")
+            # .replace(f"WW{year}", f"WW-{year}")
+        self.parsed_name = re.sub(r"WW(\d{4})", r"WW-\1", self.parsed_name, flags=re.IGNORECASE)
+        self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", self.parsed_name)
+
+    def enforce_bacterial_culture(self):
+        """
+        Uses regex to enforce proper formatting of bacterial culture samples
+        """        
+        # year = str(date.today().year)[2:]
+        # self.parsed_name = self.parsed_name.replace(f"RSL{year}", f"RSL-{year}")
+        # reg_year = re.compile(fr"{year}(?P<rsl>\d\d\d\d)")
+        self.parsed_name = re.sub(r"RSL(\d{2})", r"RSL-\1", self.parsed_name, flags=re.IGNORECASE)
+        self.parsed_name = re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", self.parsed_name, flags=re.IGNORECASE)
+        # year = regex.group('year')
+        # rsl = regex.group('rsl')
+        # self.parsed_name = re.sub(fr"{year}(\d\d\d\d)", fr"{year}-\1", self.parsed_name)
+        # plate_search = reg_year.search(self.parsed_name)
+        # if plate_search != None:
+        #     self.parsed_name = re.sub(reg_year, f"{year}-{plate_search.group('rsl')}", self.parsed_name)

@@ -1,5 +1,11 @@
+## 202304.01
+
+- Improved function results output to ui.
+- Added Well Call Assessment to PCR scraping.
+
 ## 202303.05
 
+- Increased robustness of RSL plate number enforcement.
 - Added in ability to scrape and include PCR results for wastewater.
 
 ## 202303.04

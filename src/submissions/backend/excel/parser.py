@@ -2,17 +2,18 @@
 contains parser object for pulling values from client generated submission sheets.
 '''
 from getpass import getuser
+from typing import Tuple
 import pandas as pd
 from pathlib import Path
 from backend.db.models import WWSample, BCSample
-from backend.db import lookup_ww_sample_by_rsl_sample_number
+# from backend.db import lookup_ww_sample_by_rsl_sample_number
 import logging
 from collections import OrderedDict
 import re
 import numpy as np
 from datetime import date
 import uuid
-from tools import check_not_nan, retrieve_rsl_number
+from tools import check_not_nan, RSLNamer
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -84,7 +85,7 @@ class SheetParser(object):
         # self.xl is a pd.ExcelFile so we need to parse it into a df  
         submission_info = self.xl.parse(sheet_name=sheet_name, dtype=object)
         self.sub['submitter_plate_num'] = submission_info.iloc[0][1]
-        self.sub['rsl_plate_num'] =  submission_info.iloc[10][1]
+        self.sub['rsl_plate_num'] =  RSLNamer(submission_info.iloc[10][1]).parsed_name
         self.sub['submitted_date'] = submission_info.iloc[1][1]
         self.sub['submitting_lab'] = submission_info.iloc[0][3]
         self.sub['sample_count'] = submission_info.iloc[2][3]
@@ -202,7 +203,7 @@ class SheetParser(object):
         parse_reagents(ext_reagent_range)
         parse_reagents(pcr_reagent_range)
         # parse samples
-        sample_parser = SampleParser(submission_info.iloc[16:40])
+        sample_parser = SampleParser(submission_info.iloc[16:])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
         self.sub['csv'] = self.xl.parse("Copy to import file", dtype=object)
@@ -260,24 +261,20 @@ class SampleParser(object):
         new_list = []
         for sample in self.samples:
             new = WWSample()
+            if check_not_nan(sample["Unnamed: 9"]):
+                new.rsl_number = sample['Unnamed: 9']
+            else:
+                logger.error(f"No RSL sample number found for this sample.")
+                continue
             new.ww_processing_num = sample['Unnamed: 2']
             # need to ensure we have a sample id for database integrity
-            try:
-                not_a_nan = not np.isnan(sample['Unnamed: 3'])
-            except TypeError:
-                not_a_nan = True
             # if we don't have a sample full id, make one up
-            if not_a_nan:
+            if check_not_nan(sample['Unnamed: 3']):
                 new.ww_sample_full_id = sample['Unnamed: 3']
             else:
                 new.ww_sample_full_id = uuid.uuid4().hex.upper()
-            new.rsl_number = sample['Unnamed: 9']
             # need to ensure we get a collection date
-            try:
-                not_a_nan = not np.isnan(sample['Unnamed: 5'])
-            except TypeError:
-                not_a_nan = True
-            if not_a_nan:
+            if check_not_nan(sample['Unnamed: 5']):
                 new.collection_date = sample['Unnamed: 5']
             else:
                 new.collection_date = date.today()
@@ -317,7 +314,9 @@ class PCRParser(object):
                 return
         # self.pcr = OrderedDict()
         self.pcr = {}
-        self.plate_num, self.submission_type = retrieve_rsl_number(filepath.__str__())
+        namer = RSLNamer(filepath.__str__())
+        self.plate_num = namer.parsed_name
+        self.submission_type = namer.submission_type
         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
         self.samples = []
         parser = getattr(self, f"parse_{self.submission_type}")
@@ -362,14 +361,25 @@ class PCRParser(object):
         Parse specific to wastewater samples.
         """        
         df = self.parse_general(sheet_name="Results")
+        column_names = ["Well", "Well Position", "Omit","Sample","Target","Task"," Reporter","Quencher","Amp Status","Amp Score","Curve Quality","Result Quality Issues","Cq","Cq Confidence","Cq Mean","Cq SD","Auto Threshold","Threshold", "Auto Baseline", "Baseline Start", "Baseline End"]
         self.samples_df = df.iloc[23:][0:]
+        self.samples_df.columns = column_names
+        logger.debug(f"Samples columns: {self.samples_df.columns}")
+        well_call_df = self.xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:,-1:]
+        try:
+            self.samples_df['Assessment'] = well_call_df.values
+        except ValueError:
+            logger.error("Well call number doesn't match sample number")
+        logger.debug(f"Well call dr: {well_call_df}")
         # iloc is [row][column]
         for ii, row in self.samples_df.iterrows():
             try:
                 sample_obj = [sample for sample in self.samples if sample['sample'] == row[3]][0]    
             except IndexError:
                 sample_obj = dict(
-                    sample = row[3],
+                    sample = row['Sample'],
+                    plate_rsl = self.plate_num,
+                    well_num = row['Well Position']
                 )
             logger.debug(f"Got sample obj: {sample_obj}") 
             # logger.debug(f"row: {row}")
@@ -377,22 +387,30 @@ class PCRParser(object):
             # # logger.debug(f"Looking up: {rsl_num}")
             # ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=self.ctx, rsl_number=rsl_num)
             # logger.debug(f"Got: {ww_samp}")
-            match row[4]:
-                case "N1":
-                    if isinstance(row[12], float):
-                        sample_obj['ct_n1'] = row[12]
-                    else:
-                        sample_obj['ct_n1'] = 0.0
-                case "N2":
-                    if isinstance(row[12], float):
-                        sample_obj['ct_n2'] = row[12]
-                    else:
-                        sample_obj['ct_n2'] = 0.0
-                case _:
-                    logger.warning(f"Unexpected input for row[4]: {row[4]}")
+            if isinstance(row['Cq'], float):
+                sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
+            else:
+                sample_obj[f"ct_{row['Target'].lower()}"] = 0.0
+            try:
+                sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
+            except KeyError:
+                logger.error(f"No assessment for {sample_obj['sample']}")
+            # match row["Target"]:
+            #     case "N1":
+            #         if isinstance(row['Cq'], float):
+            #             sample_obj['ct_n1'] = row["Cq"]
+            #         else:
+            #             sample_obj['ct_n1'] = 0.0
+            #         sample_obj['n1_status'] = row['Assessment']
+            #     case "N2":
+            #         if isinstance(row['Cq'], float):
+            #             sample_obj['ct_n2'] = row['Assessment']
+            #         else:
+            #             sample_obj['ct_n2'] = 0.0
+            #     case _:
+            #         logger.warning(f"Unexpected input for row[4]: {row["Target"]}")
             self.samples.append(sample_obj)
-                
-
+        
 
             
             

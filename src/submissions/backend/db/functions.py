@@ -5,7 +5,7 @@ Convenience functions for interacting with the database.
 from . import models
 from .models.kits import reagenttypes_kittypes
 from .models.submissions import reagents_submissions
-from .models.samples import WWSample
+# from .models.samples import WWSample
 import pandas as pd
 import sqlalchemy.exc
 import sqlite3
@@ -18,7 +18,6 @@ from sqlalchemy.engine import Engine
 import json
 from getpass import getuser
 import numpy as np
-
 import yaml
 from pathlib import Path
 
@@ -42,8 +41,10 @@ def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None|d
     Returns:
         None|dict : object that indicates issue raised for reporting in gui
     """    
+    from tools import format_rsl_number
     logger.debug(f"Hello from store_submission")
     # Add all samples to sample table
+    base_submission.rsl_plate_num = format_rsl_number(base_submission.rsl_plate_num)
     for sample in base_submission.samples:
         sample.rsl_plate = base_submission
         logger.debug(f"Attempting to add sample: {sample.to_string()}")
@@ -60,13 +61,12 @@ def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None|d
     except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
         logger.debug(f"Hit an integrity error : {e}")
         ctx['database_session'].rollback()
-        return {"message":"This plate number already exists, so we can't add it."}
+        return {"message":"This plate number already exists, so we can't add it.", "status":"Critical"}
     except (sqlite3.OperationalError, sqlalchemy.exc.IntegrityError) as e:
         logger.debug(f"Hit an operational error: {e}")
         ctx['database_session'].rollback()
-        return {"message":"The database is locked for editing."}
+        return {"message":"The database is locked for editing.", "status":"Critical"}
     return None
-
 
 def store_reagent(ctx:dict, reagent:models.Reagent) -> None|dict:
     """
@@ -87,7 +87,6 @@ def store_reagent(ctx:dict, reagent:models.Reagent) -> None|dict:
         return {"message":"The database is locked for editing."}
     return None
 
-
 def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmission:
     """
     Construct submission object from dictionary
@@ -99,14 +98,17 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     Returns:
         models.BasicSubmission: Constructed submission object
     """
-    from tools import check_not_nan
+    from tools import check_regex_match, RSLNamer
     # convert submission type into model name
     query = info_dict['submission_type'].replace(" ", "")
     # Ensure an rsl plate number exists for the plate
-    if info_dict["rsl_plate_num"] == 'nan' or info_dict["rsl_plate_num"] == None or not check_not_nan(info_dict["rsl_plate_num"]):
+    # if info_dict["rsl_plate_num"] == 'nan' or info_dict["rsl_plate_num"] == None or not check_not_nan(info_dict["rsl_plate_num"]):
+    if not check_regex_match("^RSL", info_dict["rsl_plate_num"]):
         instance = None
         msg = "A proper RSL plate number is required."
         return instance, {'code': 2, 'message': "A proper RSL plate number is required."}
+    else:
+        info_dict['rsl_plate_num'] = RSLNamer(info_dict["rsl_plate_num"]).parsed_name
     # check database for existing object
     instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
     # get model based on submission type converted above
@@ -171,7 +173,6 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     logger.debug(f"Constructed submissions message: {msg}")
     return instance, {'code':code, 'message':msg}
     
-
 def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
     """
     Construct reagent object from dictionary
@@ -204,7 +205,6 @@ def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
     #     pass
     return reagent
 
-
 def lookup_reagent(ctx:dict, reagent_lot:str) -> models.Reagent:
     """
     Query db for reagent based on lot number
@@ -219,7 +219,6 @@ def lookup_reagent(ctx:dict, reagent_lot:str) -> models.Reagent:
     lookedup = ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
     return lookedup
 
-
 def get_all_reagenttype_names(ctx:dict) -> list[str]:
     """
     Lookup all reagent types and get names
@@ -232,7 +231,6 @@ def get_all_reagenttype_names(ctx:dict) -> list[str]:
     """    
     lookedup = [item.__str__() for item in ctx['database_session'].query(models.ReagentType).all()]
     return lookedup
-
 
 def lookup_reagenttype_by_name(ctx:dict, rt_name:str) -> models.ReagentType:
     """
@@ -250,7 +248,6 @@ def lookup_reagenttype_by_name(ctx:dict, rt_name:str) -> models.ReagentType:
     logger.debug(f"Found ReagentType: {lookedup}")
     return lookedup
 
-
 def lookup_kittype_by_use(ctx:dict, used_by:str) -> list[models.KitType]:
     """
     Lookup kits by a sample type its used for
@@ -263,7 +260,6 @@ def lookup_kittype_by_use(ctx:dict, used_by:str) -> list[models.KitType]:
         list[models.KitType]: list of kittypes that have that sample type in their uses
     """    
     return ctx['database_session'].query(models.KitType).filter(models.KitType.used_for.contains(used_by)).all()
-
 
 def lookup_kittype_by_name(ctx:dict, name:str) -> models.KitType:
     """
@@ -279,7 +275,6 @@ def lookup_kittype_by_name(ctx:dict, name:str) -> models.KitType:
     logger.debug(f"Querying kittype: {name}")
     return ctx['database_session'].query(models.KitType).filter(models.KitType.name==name).first()
     
-
 def lookup_regent_by_type_name(ctx:dict, type_name:str) -> list[models.Reagent]:
     """
     Lookup reagents by their type name
@@ -292,7 +287,6 @@ def lookup_regent_by_type_name(ctx:dict, type_name:str) -> list[models.Reagent]:
         list[models.Reagent]: list of retrieved reagents
     """    
     return ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name==type_name).all()
-
 
 def lookup_regent_by_type_name_and_kit_name(ctx:dict, type_name:str, kit_name:str) -> list[models.Reagent]:
     """
@@ -324,7 +318,6 @@ def lookup_regent_by_type_name_and_kit_name(ctx:dict, type_name:str, kit_name:st
         rt_types = rt_types.first()
     output = rt_types.instances
     return output
-
 
 def lookup_all_submissions_by_type(ctx:dict, sub_type:str|None=None) -> list[models.BasicSubmission]:
     """
@@ -399,7 +392,6 @@ def submissions_to_df(ctx:dict, sub_type:str|None=None) -> pd.DataFrame:
     except:
         logger.warning(f"Couldn't drop 'pcr_info' column from submissionsheet df.")
     return df
-     
     
 def lookup_submission_by_id(ctx:dict, id:int) -> models.BasicSubmission:
     """
@@ -413,7 +405,6 @@ def lookup_submission_by_id(ctx:dict, id:int) -> models.BasicSubmission:
         models.BasicSubmission: retrieved submission
     """    
     return ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.id==id).first()
-
 
 def lookup_submissions_by_date_range(ctx:dict, start_date:datetime.date, end_date:datetime.date) -> list[models.BasicSubmission]:
     """
@@ -432,7 +423,6 @@ def lookup_submissions_by_date_range(ctx:dict, start_date:datetime.date, end_dat
     end_date = end_date.strftime("%Y-%m-%d")
     return ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.submitted_date.between(start_date, end_date)).all()
 
-
 def get_all_Control_Types_names(ctx:dict) -> list[str]:
     """
     Grabs all control type names from db.
@@ -447,7 +437,6 @@ def get_all_Control_Types_names(ctx:dict) -> list[str]:
     conTypes = [conType.name for conType in conTypes]
     logger.debug(f"Control Types: {conTypes}")
     return conTypes
-
 
 def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
     """
@@ -491,7 +480,6 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
     ctx['database_session'].commit()
     return {'code':0, 'message':'Kit has been added', 'status': 'information'}
 
-
 def create_org_from_yaml(ctx:dict, org:dict) -> dict:
     """
     Create and store a new organization based on a .yml file
@@ -528,7 +516,6 @@ def create_org_from_yaml(ctx:dict, org:dict) -> dict:
     ctx["database_session"].commit()
     return {"code":0, "message":"Organization has been added."}
 
-
 def lookup_all_sample_types(ctx:dict) -> list[str]:
     """
     Lookup all sample types and get names
@@ -543,7 +530,6 @@ def lookup_all_sample_types(ctx:dict) -> list[str]:
     # flattened list of lists
     uses = list(set([item for sublist in uses for item in sublist]))
     return uses
-
 
 def get_all_available_modes(ctx:dict) -> list[str]:
     """
@@ -563,7 +549,6 @@ def get_all_available_modes(ctx:dict) -> list[str]:
         logger.debug(f"Failed to get available modes from db: {e}")
         cols = []
     return cols
-
 
 def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, end_date:date|None=None) -> list[models.Control]:
     """
@@ -588,7 +573,6 @@ def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, 
         output = ctx['database_session'].query(models.Control).join(models.ControlType).filter_by(name=con_type).all()
     logger.debug(f"Returned controls between dates: {output}")
     return output
-
 
 def get_control_subtypes(ctx:dict, type:str, mode:str) -> list[str]:
     """
@@ -617,7 +601,6 @@ def get_control_subtypes(ctx:dict, type:str, mode:str) -> list[str]:
     subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
     return subtypes
 
-
 def get_all_controls(ctx:dict) -> list[models.Control]:
     """
     Retrieve a list of all controls from the database
@@ -629,7 +612,6 @@ def get_all_controls(ctx:dict) -> list[models.Control]:
         list[models.Control]: list of all control objects
     """    
     return ctx['database_session'].query(models.Control).all()
-
 
 def lookup_submission_by_rsl_num(ctx:dict, rsl_num:str) -> models.BasicSubmission:
     """
@@ -644,7 +626,6 @@ def lookup_submission_by_rsl_num(ctx:dict, rsl_num:str) -> models.BasicSubmissio
     """
     return ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num.startswith(rsl_num)).first()
 
-
 def lookup_submissions_using_reagent(ctx:dict, reagent:models.Reagent) -> list[models.BasicSubmission]:
     """
     Retrieves each submission using a specified reagent.
@@ -657,7 +638,6 @@ def lookup_submissions_using_reagent(ctx:dict, reagent:models.Reagent) -> list[m
         list[models.BasicSubmission]: list of all submissions using specified reagent.
     """    
     return ctx['database_session'].query(models.BasicSubmission).join(reagents_submissions).filter(reagents_submissions.c.reagent_id==reagent.id).all()
-
 
 def delete_submission_by_id(ctx:dict, id:int) -> None:
     """
@@ -683,13 +663,12 @@ def delete_submission_by_id(ctx:dict, id:int) -> None:
     ctx["database_session"].delete(sub)
     ctx["database_session"].commit()
 
-
 def lookup_ww_sample_by_rsl_sample_number(ctx:dict, rsl_number:str) -> models.WWSample:
     """
-    Retrieves wastewater sampel from database by rsl sample number
+    Retrieves wastewater sample from database by rsl sample number
 
     Args:
-        ctx (dict): settings passed dwon from gui
+        ctx (dict): settings passed down from gui
         rsl_number (str): sample number assigned by robotics lab
 
     Returns:
@@ -697,6 +676,39 @@ def lookup_ww_sample_by_rsl_sample_number(ctx:dict, rsl_number:str) -> models.WW
     """    
     return ctx['database_session'].query(models.WWSample).filter(models.WWSample.rsl_number==rsl_number).first()
 
+def lookup_ww_sample_by_sub_sample_rsl(ctx:dict, sample_rsl:str, plate_rsl:str) -> models.WWSample:
+    """
+    Retrieves a wastewater sample from the database by its rsl sample number and parent rsl plate number.
+    This will likely replace simply looking up by the sample rsl above cine I need to control for repeats.
+
+    Args:
+        ctx (dict): settings passed down from the gui
+        sample_rsl (str): rsl number of the relevant sample
+        plate_rsl (str): rsl number of the parent plate
+
+    Returns:
+        models.WWSample: Relevant wastewater object
+    """    
+    return ctx['database_session'].query(models.WWSample).join(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==plate_rsl).filter(models.WWSample.rsl_number==sample_rsl).first()
+
+def lookup_ww_sample_by_sub_sample_well(ctx:dict, sample_rsl:str, well_num:str, plate_rsl:str) -> models.WWSample:
+    """
+    Retrieves a wastewater sample from the database by its rsl sample number and parent rsl plate number.
+    This will likely replace simply looking up by the sample rsl above cine I need to control for repeats.
+
+    Args:
+        ctx (dict): settings passed down from the gui
+        sample_rsl (str): rsl number of the relevant sample
+        well_num (str): well number of the relevant sample
+        plate_rsl (str): rsl number of the parent plate
+
+    Returns:
+        models.WWSample: Relevant wastewater object
+    """    
+    return ctx['database_session'].query(models.WWSample).join(models.BasicSubmission) \
+        .filter(models.BasicSubmission.rsl_plate_num==plate_rsl) \
+        .filter(models.WWSample.rsl_number==sample_rsl) \
+        .filter(models.WWSample.well_number==well_num).first()
 
 def update_ww_sample(ctx:dict, sample_obj:dict):
     """
@@ -706,7 +718,10 @@ def update_ww_sample(ctx:dict, sample_obj:dict):
         ctx (dict): settings passed down from gui
         sample_obj (dict): dictionary representing new values for database object
     """    
-    ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=ctx, rsl_number=sample_obj['sample'])
+    # ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=ctx, rsl_number=sample_obj['sample'])
+    logger.debug(f"Looking up {sample_obj['sample']} in plate {sample_obj['plate_rsl']}")
+    ww_samp = lookup_ww_sample_by_sub_sample_rsl(ctx=ctx, sample_rsl=sample_obj['sample'], plate_rsl=sample_obj['plate_rsl'])
+    # ww_samp = lookup_ww_sample_by_sub_sample_well(ctx=ctx, sample_rsl=sample_obj['sample'], well_num=sample_obj['well_num'], plate_rsl=sample_obj['plate_rsl'])
     if ww_samp != None:
         for key, value in sample_obj.items():
             logger.debug(f"Setting {key} to {value}")

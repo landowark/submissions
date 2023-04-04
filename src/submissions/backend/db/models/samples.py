@@ -27,6 +27,8 @@ class WWSample(Base):
     notes = Column(String(2000))
     ct_n1 = Column(FLOAT(2)) #: AKA ct for N1
     ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
+    n1_status = Column(String(32))
+    n2_status = Column(String(32))
     seq_submitted = Column(BOOLEAN())
     ww_seq_run_id = Column(String(64))
     sample_type = Column(String(8))
@@ -50,7 +52,7 @@ class WWSample(Base):
             dict: well location and id NOTE: keys must sync with BCSample to_sub_dict below
         """
         if self.ct_n1 != None and self.ct_n2 != None:
-            name = f"{self.ww_sample_full_id}\n\t- ct N1: {'{:.2f}'.format(self.ct_n1)}, ct N2: {'{:.2f}'.format(self.ct_n1)}"
+            name = f"{self.ww_sample_full_id}\n\t- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})\n\t- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
         else:
             name = self.ww_sample_full_id
         return {

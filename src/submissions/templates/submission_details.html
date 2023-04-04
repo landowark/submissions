@@ -8,26 +8,26 @@
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>
         <p>{% for key, value in sub.items() if key not in excluded %}
             {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;{% if key=='Cost' %}{{ key }}: {{ "${:,.2f}".format(value) }}{% else %}{{ key }}: {{ value }}{% endif %}<br>
+                &nbsp;&nbsp;&nbsp;<b>{{ key }}:</b> {% if key=='Cost' %}{{ "${:,.2f}".format(value) }}{% else %}{{ value }}{% endif %}<br>
             {% else %}
-                &nbsp;&nbsp;&nbsp;&nbsp;{% if key=='Cost' %}{{ key }}: {{ "${:,.2f}".format(value) }}{% else %}{{ key }}: {{ value }}{% endif %}<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key }}: </b>{% if key=='Cost' %} {{ "${:,.2f}".format(value) }}{% else %}{{ value }}{% endif %}<br>
             {% endif %}
         {% endfor %}</p>
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
             {% if loop.index == 1%}
-                &nbsp;&nbsp;&nbsp;{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
+                &nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}:</b> {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
             {% else %}
-                &nbsp;&nbsp;&nbsp;&nbsp;{{ item['type'] }}: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}</b>: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
             {% endif %}
         {% endfor %}</p>
         {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}
             {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;{{ item['well'] }}: {{ item['name'] }}<br>
+                &nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
             {% else %}
-                &nbsp;&nbsp;&nbsp;&nbsp;{{ item['well'] }}: {{ item['name'] }}<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
             {% endif %}
         {% endfor %}</p>
         {% endif %}
@@ -52,12 +52,12 @@
         <h3><u>Extraction Status:</u></h3>
         <p>{% for key, value in entry.items() %}
             {% if loop.index == 1%}
-                &nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+                &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
             {% else %}
                 {% if "column" in key %}
-                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}uL<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
                 {% else %}
-                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
                 {% endif %}
             {% endif %}
         {% endfor %}</p>
@@ -72,12 +72,12 @@
         {% endif %}
         <p>{% for key, value in entry.items() if key != 'imported_by'%}
             {% if loop.index == 1%}
-                &nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+                &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
             {% else %}
                 {% if "column" in key %}
-                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}uL<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
                 {% else %}
-                    &nbsp;&nbsp;&nbsp;&nbsp;{{ key|replace('_', ' ')|title() }}: {{ value }}<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
                 {% endif %}
             {% endif %}
         {% endfor %}</p>
