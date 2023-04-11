@@ -99,7 +99,7 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
     """    
     
     df = DataFrame.from_records(input)
-    df.to_excel("test.xlsx", engine="openpyxl")
+    # df.to_excel("test.xlsx", engine="openpyxl")
     safe = ['name', 'submitted_date', 'genus', 'target']
     for column in df.columns:
         if "percent" in column:
@@ -139,6 +139,7 @@ def df_column_renamer(df:DataFrame) -> DataFrame:
 def displace_date(df:DataFrame) -> DataFrame:
     """
     This function serves to split samples that were submitted on the same date by incrementing dates.
+    It will shift the date forward by one day if it is the same day as an existing date in a list.
 
     Args:
         df (DataFrame): input dataframe composed of control records
@@ -149,17 +150,23 @@ def displace_date(df:DataFrame) -> DataFrame:
     logger.debug(f"Unique items: {df['name'].unique()}")
     # get submitted dates for each control
     dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
+    previous_dates = []
     for ii, item in enumerate(dict_list):
         try:
-            check = item['date'] == dict_list[ii-1]['date']
+            # check = item['date'] == dict_list[ii-1]['date']
+            check = item['date'] in previous_dates
         except IndexError:
             check = False
         if check:
+            # occurences = previous_dates.count(item['date'])
             logger.debug(f"We found one! Increment date!\n\t{item['date'] - timedelta(days=1)}")
             # get df locations where name == item name
             mask = df['name'] == item['name']
             # increment date in dataframe
             df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
+            previous_dates.append(item['date'] + timedelta(days=1))
+        else:
+            previous_dates.append(item['date'])
     return df
                 
 
@@ -188,8 +195,8 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
     Returns:
         DataFrame: dataframe with originals removed in favour of repeats.
     """    
-    sample_names = get_unique_values_in_df_column(df, column_name="name")
     if 'rerun_regex' in ctx:
+        sample_names = get_unique_values_in_df_column(df, column_name="name")
         # logger.debug(f"Compiling regex from: {settings['rerun_regex']}")
         rerun_regex = re.compile(fr"{ctx['rerun_regex']}")
         for sample in sample_names:
@@ -199,6 +206,6 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
                 first_run = re.sub(rerun_regex, "", sample)
                 # logger.debug(f"First run: {first_run}")
                 df = df.drop(df[df.name == first_run].index)
-        return df
-    else:
-        return None
+    return df
+    # else:
+    #     return df

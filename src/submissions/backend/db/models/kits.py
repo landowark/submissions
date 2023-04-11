@@ -4,6 +4,7 @@ All kit and reagent related models
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
 from sqlalchemy.orm import relationship
+from datetime import date
 import logging
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -100,9 +101,11 @@ class Reagent(Base):
             place_holder = self.expiry + self.type.eol_ext
             # logger.debug(f"EOL_ext for {self.lot} -- {self.expiry} + {self.type.eol_ext} = {place_holder}")
         except TypeError as e:
-            logger.debug(f"We got a type error setting {self.lot} expiry: {e}.")
+            place_holder = date.today()
+            logger.debug(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
         except AttributeError as e:
-            logger.debug(f"We got an attribute error setting {self.lot} expiry: {e}.")
+            place_holder = date.today()
+            logger.debug(f"We got an attribute error setting {self.lot} expiry: {e}. Setting to today for testing")
         return {
             "type": type,
             "lot": self.lot,

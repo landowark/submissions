@@ -37,7 +37,7 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
                 genera.append("")
         except IndexError:
             genera.append("")
-    df['genus'] = df['genus'].replace({'\*':''}, regex=True)
+    df['genus'] = df['genus'].replace({'\*':''}, regex=True).replace({"NaN":"Unknown"})
     df['genera'] = genera
     df = df.dropna()
     # remove original runs, using reruns if applicable
