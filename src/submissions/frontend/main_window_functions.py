@@ -265,6 +265,7 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     # reset form
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
+    print(dir(obj))
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
