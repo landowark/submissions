@@ -1,3 +1,8 @@
+## 202304.04
+
+- Kraken controls graph now only pulls top 20 results to prevent crashing.
+- Improved cost calculations per column in a 96 well plate.
+
 ## 202304.01
 
 - Improved function results output to ui.

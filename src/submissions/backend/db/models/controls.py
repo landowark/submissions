@@ -105,6 +105,9 @@ class Control(Base):
             for key in data[genus]:
                 _dict[key] = data[genus][key]
             output.append(_dict)
+        # Have to triage kraken data to keep program from getting overwhelmed
+        if "kraken" in mode:
+            output = sorted(output, key=lambda d: d[f"{mode}_count"], reverse=True)[:49]
         return output
     
     def create_dummy_data(self, mode:str) -> dict:

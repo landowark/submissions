@@ -107,8 +107,8 @@ class SheetParser(object):
             """            
             for ii, row in df.iterrows():
                 # skip positive control
-                if ii == 11:
-                    continue
+                # if ii == 12:
+                #     continue
                 logger.debug(f"Running reagent parse for {row[1]} with type {type(row[1])} and value: {row[2]} with type {type(row[2])}")
                 if not isinstance(row[2], float) and check_not_nan(row[1]):
                     # must be prefixed with 'lot_' to be recognized by gui
@@ -117,7 +117,10 @@ class SheetParser(object):
                     except AttributeError:
                         pass
                     if reagent_type == "//":
-                        reagent_type = row[0].replace(' ', '_').lower().strip()
+                        if check_not_nan(row[2]):
+                            reagent_type = row[0].replace(' ', '_').lower().strip()
+                        else:
+                            continue
                     try:
                         output_var = row[2].upper()
                     except AttributeError:
@@ -142,10 +145,11 @@ class SheetParser(object):
         # reagents
         # must be prefixed with 'lot_' to be recognized by gui
         # Todo: find a more adaptable way to read reagents.
-        reagent_range = submission_info.iloc[1:13, 4:8]
+        reagent_range = submission_info.iloc[1:14, 4:8]
+        logger.debug(reagent_range)
         parse_reagents(reagent_range)
         # get individual sample info
-        sample_parser = SampleParser(submission_info.iloc[15:111])
+        sample_parser = SampleParser(submission_info.iloc[16:112])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
         self.sub['samples'] = sample_parse()

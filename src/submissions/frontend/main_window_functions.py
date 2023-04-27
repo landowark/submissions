@@ -35,6 +35,7 @@ from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker, ReagentTypeForm
 from .custom_widgets.misc import ImportReagent
 from .visualizations.control_charts import create_charts, construct_html
+import asyncio
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -111,11 +112,14 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 add_widget = QComboBox()
                 # lookup existing kits by 'submission_type' decided on by sheetparser
                 uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=prsr.sub['submission_type'])]
-                add_widget.addItems(uses)
                 if check_not_nan(prsr.sub[item]):
+                    logger.debug(f"The extraction kit in parser was: {prsr.sub[item]}")
+                    uses.insert(0, uses.pop(uses.index(prsr.sub[item])))
                     obj.ext_kit = prsr.sub[item]
                 else:
-                    obj.ext_kit = add_widget.currentText()
+                    logger.error(f"Couldn't find prsr.sub[extraction_kit]")
+                    obj.ext_kit = uses[0]
+                add_widget.addItems(uses)
             case 'submitted_date':
                 # create label
                 obj.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
@@ -265,7 +269,7 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     # reset form
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
-    print(dir(obj))
+    # print(dir(obj))
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
@@ -426,6 +430,8 @@ def chart_maker_function(obj:QMainWindow) -> QMainWindow:
         # flatten data to one dimensional list
         data = [item for sublist in data for item in sublist]
         logger.debug(f"Control objects going into df conversion: {data}")
+        if data == []:
+            return obj, dict(status="Critical", message="No data found for controls in given date range.")
         # send to dataframe creator
         df = convert_data_list_to_df(ctx=obj.ctx, input=data, subtype=obj.subtype)
         if obj.subtype == None:

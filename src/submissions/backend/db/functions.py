@@ -20,6 +20,7 @@ from getpass import getuser
 import numpy as np
 import yaml
 from pathlib import Path
+from math import ceil
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -161,9 +162,13 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     # calculate cost of the run: immutable cost + mutable times number of columns
     # This is now attached to submission upon creation to preserve at-run costs incase of cost increase in the future.
     try:
-        instance.run_cost = instance.extraction_kit.immutable_cost + (instance.extraction_kit.mutable_cost * ((instance.sample_count / 8)/12))
-    except (TypeError, AttributeError):
-        logger.debug(f"Looks like that kit doesn't have cost breakdown yet, using full plate cost.")
+        # ceil(instance.sample_count / 8) will get number of columns
+        # the cost of a full run multiplied by (that number / 12) is x twelfths the cost of a full run
+        logger.debug(f"Instance extraction kit details: {instance.extraction_kit.__dict__}")
+        cols_count = ceil(int(instance.sample_count) / 8)
+        instance.run_cost = instance.extraction_kit.constant_cost + (instance.extraction_kit.mutable_cost * (cols_count / 12))
+    except (TypeError, AttributeError) as e:
+        logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
         instance.run_cost = instance.extraction_kit.cost_per_run
     # We need to make sure there's a proper rsl plate number
     try:

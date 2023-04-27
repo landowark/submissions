@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 import re
 from tools import check_if_app
+import asyncio
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -109,9 +110,10 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
         if column not in safe:
             if subtype != None and column != subtype:
                 del df[column]
+    # logger.debug(df)
     # move date of sample submitted on same date as previous ahead one.
     df = displace_date(df)
-    df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
+    # df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
     # ad hoc method to make data labels more accurate.
     df = df_column_renamer(df=df)
     return df
@@ -131,8 +133,8 @@ def df_column_renamer(df:DataFrame) -> DataFrame:
     return df.rename(columns = {
         "contains_ratio":"contains_shared_hashes_ratio",
         "matches_ratio":"matches_shared_hashes_ratio",
-        "kraken_count":"kraken2_read_count",
-        "kraken_percent":"kraken2_read_percent"
+        "kraken_count":"kraken2_read_count_(top_20)",
+        "kraken_percent":"kraken2_read_percent_(top_20)"
     })
 
 

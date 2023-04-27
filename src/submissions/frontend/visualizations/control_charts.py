@@ -39,7 +39,7 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
             genera.append("")
     df['genus'] = df['genus'].replace({'\*':''}, regex=True).replace({"NaN":"Unknown"})
     df['genera'] = genera
-    df = df.dropna()
+    # df = df.dropna()
     # remove original runs, using reruns if applicable
     df = drop_reruns_from_df(ctx=ctx, df=df)
     # sort by and exclude from
@@ -49,6 +49,7 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     # Set descending for any columns that have "{mode}" in the header.
     ascending = [False if item == "target" else True for item in sorts]
     df = df.sort_values(by=sorts, ascending=ascending)
+    logger.debug(df[df.isna().any(axis=1)])
     # actual chart construction is done by
     fig = construct_chart(ctx=ctx, df=df, modes=modes, ytitle=ytitle)
     return fig
@@ -245,6 +246,8 @@ def construct_kraken_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:
         Figure: initial figure with traces for modes
     """    
     df[f'{mode}_count'] = pd.to_numeric(df[f'{mode}_count'],errors='coerce')
+    df = df.groupby('submitted_date')[f'{mode}_count'].nlargest(2)
+    
     # The actual percentage from kraken was off due to exclusion of NaN, recalculating.
     df[f'{mode}_percent'] = 100 * df[f'{mode}_count'] / df.groupby('submitted_date')[f'{mode}_count'].transform('sum')
     modes = settings['modes'][mode]
