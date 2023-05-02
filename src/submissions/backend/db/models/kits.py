@@ -25,7 +25,9 @@ class KitType(Base):
     submissions = relationship("BasicSubmission", back_populates="extraction_kit") #: submissions this kit was used for
     used_for = Column(JSON) #: list of names of sample types this kit can process
     cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit NOTE: depreciated, use the constant and mutable costs instead
-    mutable_cost = Column(FLOAT(2)) #: dollar amount per plate that can change with number of columns (reagents, tips, etc)
+    # TODO: Change below to 'mutable_cost_column' and 'mutable_cost_sample' before moving to production.
+    mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
+    mutable_cost_sample = Column(FLOAT(2)) #: dollar amount that can change with number of samples (reagents, tips, etc)
     constant_cost = Column(FLOAT(2)) #: dollar amount per plate that will remain constant (plates, man hours, etc)
     reagent_types = relationship("ReagentType", back_populates="kits", uselist=True, secondary=reagenttypes_kittypes) #: reagent types this kit contains
     reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', use_alter=True, name="fk_KT_reagentstype_id")) #: joined reagent type id
@@ -113,13 +115,16 @@ class Reagent(Base):
         }
     
 
-# class Discounts(Base):
-#     """
-#     Relationship table for client labs for certain kits.
-#     """
-#     __tablename__ = "_discounts"
+class Discount(Base):
+    """
+    Relationship table for client labs for certain kits.
+    """
+    __tablename__ = "_discounts"
 
-#     id = Column(INTEGER, primary_key=True) #: primary key
-#     kit = relationship("KitType") #: joined parent reagent type
-#     kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete='SET NULL', name="fk_kit_type_id"))
-#     client = relationship("Organization")
+    id = Column(INTEGER, primary_key=True) #: primary key
+    kit = relationship("KitType") #: joined parent reagent type
+    kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete='SET NULL', name="fk_kit_type_id"))
+    client = relationship("Organization") #: joined client lab
+    client_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete='SET NULL', name="fk_org_id"))
+    name = Column(String(128))
+    amount = Column(FLOAT(2))

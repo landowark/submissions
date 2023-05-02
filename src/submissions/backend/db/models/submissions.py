@@ -8,6 +8,7 @@ from datetime import datetime as dt
 import logging
 import json
 from json.decoder import JSONDecodeError
+from math import ceil
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -151,6 +152,8 @@ class BasicSubmission(Base):
             "Cost": self.run_cost
         }
         return output
+    
+    
 
 # Below are the custom submission types
 
@@ -172,6 +175,18 @@ class  BacterialCulture(BasicSubmission):
         output = super().to_dict()
         output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
+    
+
+    def calculate_base_cost(self):
+        try:
+            cols_count_96 = ceil(int(self.sample_count) / 8)
+        except Exception as e:
+            logger.error(f"Column count error: {e}")
+        # cols_count_24 = ceil(int(self.sample_count) / 3)
+        try:
+            self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+        except Exception as e:
+            logger.error(f"Calculation error: {e}")
     
 
 class Wastewater(BasicSubmission):
@@ -196,3 +211,15 @@ class Wastewater(BasicSubmission):
         except TypeError as e:
             pass
         return output
+    
+    def calculate_base_cost(self):
+        try:
+            cols_count_96 = ceil(int(self.sample_count) / 8) + 1 #: Adding in one column to account for 24 samples + ext negatives
+        except Exception as e:
+            logger.error(f"Column count error: {e}")
+        # cols_count_24 = ceil(int(self.sample_count) / 3)
+        try:
+            self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+        except Exception as e:
+            logger.error(f"Calculation error: {e}")
+    

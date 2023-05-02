@@ -164,13 +164,24 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     try:
         # ceil(instance.sample_count / 8) will get number of columns
         # the cost of a full run multiplied by (that number / 12) is x twelfths the cost of a full run
-        logger.debug(f"Instance extraction kit details: {instance.extraction_kit.__dict__}")
-        cols_count = ceil(int(instance.sample_count) / 8)
-        instance.run_cost = instance.extraction_kit.constant_cost + (instance.extraction_kit.mutable_cost * (cols_count / 12))
+        logger.debug(f"Calculating costs for procedure...")
+        # cols_count = ceil(int(instance.sample_count) / 8)
+        # instance.run_cost = instance.extraction_kit.constant_cost + (instance.extraction_kit.mutable_cost * (cols_count / 12))
+        instance.calculate_base_cost()
     except (TypeError, AttributeError) as e:
         logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
         instance.run_cost = instance.extraction_kit.cost_per_run
+    logger.debug(f"Calculated base run cost of: {instance.run_cost}")
+    try:
+        logger.debug("Checking and applying discounts...")
+        discounts = [item.amount for item in lookup_discounts_by_org_and_kit(ctx=ctx, kit_id=instance.extraction_kit.id, lab_id=instance.submitting_lab.id)]
+        logger.debug(f"We got discounts: {discounts}")
+        discounts = sum(discounts)
+        instance.run_cost = instance.run_cost - discounts
+    except Exception as e:
+        logger.error(f"An unknown exception occurred: {e}")
     # We need to make sure there's a proper rsl plate number
+    logger.debug(f"We've got a total cost of {instance.run_cost}")
     try:
         logger.debug(f"Constructed instance: {instance.to_string()}")
     except AttributeError as e:
@@ -466,7 +477,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
             continue
         # A submission type may use multiple kits.
         for kt in exp[type]['kits']:
-            kit = models.KitType(name=kt, used_for=[type.replace("_", " ").title()], constant_cost=exp[type]["kits"][kt]["constant_cost"], mutable_cost=exp[type]["kits"][kt]["mutable_cost"])
+            kit = models.KitType(name=kt, used_for=[type.replace("_", " ").title()], constant_cost=exp[type]["kits"][kt]["constant_cost"], mutable_cost_column=exp[type]["kits"][kt]["mutable_cost_column"])
             # A kit contains multiple reagent types.
             for r in exp[type]['kits'][kt]['reagenttypes']:
                 # check if reagent type already exists.
@@ -737,3 +748,9 @@ def update_ww_sample(ctx:dict, sample_obj:dict):
         return
     ctx['database_session'].add(ww_samp)
     ctx["database_session"].commit()
+
+def lookup_discounts_by_org_and_kit(ctx:dict, kit_id:int, lab_id:int):
+    return ctx['database_session'].query(models.Discount).join(models.KitType).join(models.Organization).filter(and_(
+        models.KitType.id==kit_id, 
+        models.Organization.id==lab_id
+        )).all()

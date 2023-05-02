@@ -1,5 +1,10 @@
+## 202305.01
+
+- Improved kit cost calculation.
+
 ## 202304.04
 
+- Added in discounts for kits based on kit used and submitting client.
 - Kraken controls graph now only pulls top 20 results to prevent crashing.
 - Improved cost calculations per column in a 96 well plate.
 

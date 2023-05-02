@@ -1,1 +1,1 @@
-- [ ] Move bulk of functions from frontend.__init__ to frontend.functions as __init__ is getting bloated.
+- [x] Move bulk of functions from frontend.__init__ to frontend.functions as __init__ is getting bloated.

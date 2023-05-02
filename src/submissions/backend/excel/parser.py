@@ -11,7 +11,7 @@ import logging
 from collections import OrderedDict
 import re
 import numpy as np
-from datetime import date
+from datetime import date, datetime
 import uuid
 from tools import check_not_nan, RSLNamer
 
@@ -129,8 +129,12 @@ class SheetParser(object):
                     logger.debug(f"Output variable is {output_var}")
                     logger.debug(f"Expiry date for imported reagent: {row[3]}")
                     if check_not_nan(row[3]):
-                        expiry = row[3].date()
+                        try:
+                            expiry = row[3].date()
+                        except AttributeError as e:
+                            expiry = datetime.strptime(row[3], "%Y-%m-%d")
                     else:
+                        logger.debug(f"Date: {row[3]}")
                         expiry = date.today()
                     self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
         submission_info = self.parse_generic("Sample List")
@@ -265,8 +269,8 @@ class SampleParser(object):
         new_list = []
         for sample in self.samples:
             new = WWSample()
-            if check_not_nan(sample["Unnamed: 9"]):
-                new.rsl_number = sample['Unnamed: 9']
+            if check_not_nan(sample["Unnamed: 7"]):
+                new.rsl_number = sample['Unnamed: 7'] # previously Unnamed: 9
             else:
                 logger.error(f"No RSL sample number found for this sample.")
                 continue
@@ -282,9 +286,9 @@ class SampleParser(object):
                 new.collection_date = sample['Unnamed: 5']
             else:
                 new.collection_date = date.today()
-            new.testing_type = sample['Unnamed: 6']
-            new.site_status = sample['Unnamed: 7']
-            new.notes = str(sample['Unnamed: 8'])
+            # new.testing_type = sample['Unnamed: 6']
+            # new.site_status = sample['Unnamed: 7']
+            new.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
             new.well_number = sample['Unnamed: 1']
             new_list.append(new)
         return new_list
