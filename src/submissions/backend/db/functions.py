@@ -477,7 +477,12 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
             continue
         # A submission type may use multiple kits.
         for kt in exp[type]['kits']:
-            kit = models.KitType(name=kt, used_for=[type.replace("_", " ").title()], constant_cost=exp[type]["kits"][kt]["constant_cost"], mutable_cost_column=exp[type]["kits"][kt]["mutable_cost_column"])
+            kit = models.KitType(name=kt, 
+                                 used_for=[type.replace("_", " ").title()], 
+                                 constant_cost=exp[type]["kits"][kt]["constant_cost"], 
+                                 mutable_cost_column=exp[type]["kits"][kt]["mutable_cost_column"],
+                                 mutable_cost_sample=exp[type]["kits"][kt]["mutable_cost_sample"]
+                                 )
             # A kit contains multiple reagent types.
             for r in exp[type]['kits'][kt]['reagenttypes']:
                 # check if reagent type already exists.
@@ -488,7 +493,11 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
                     rt = look_up
                     rt.kits.append(kit)
                     # add this because I think it's necessary to get proper back population
-                    kit.reagent_types_id.append(rt.id)
+                    try:
+                        kit.reagent_types_id.append(rt.id)
+                    except AttributeError as e:
+                        logger.error(f"Error appending reagent id to kit.reagent_types_id: {e}, creating new.")
+                        # kit.reagent_types_id = [rt.id]
                 ctx['database_session'].add(rt)
                 logger.debug(f"Kit construction reagent type: {rt.__dict__}")
             logger.debug(f"Kit construction kit: {kit.__dict__}")

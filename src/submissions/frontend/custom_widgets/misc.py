@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog, 
     QDialogButtonBox, QDateEdit, QSizePolicy, QWidget,
-    QGridLayout, QPushButton, QSpinBox,
+    QGridLayout, QPushButton, QSpinBox, QDoubleSpinBox,
     QHBoxLayout,
 )
 from PyQt6.QtCore import Qt, QDate, QSize
@@ -145,18 +145,25 @@ class KitAdder(QWidget):
         # set cost per run
         self.grid.addWidget(QLabel("Constant cost per full plate (plates, work hours, etc.):"),4,0)
         # widget to get constant cost
-        const_cost = QSpinBox()
+        const_cost = QDoubleSpinBox() #QSpinBox()
         const_cost.setObjectName("const_cost")
         const_cost.setMinimum(0)
         const_cost.setMaximum(9999)
         self.grid.addWidget(const_cost,4,1)
-        self.grid.addWidget(QLabel("Mutable cost per full plate (tips, reagents, etc.):"),5,0)
-        # widget to get mutable costs
-        mut_cost = QSpinBox()
-        mut_cost.setObjectName("mut_cost")
-        mut_cost.setMinimum(0)
-        mut_cost.setMaximum(9999)
-        self.grid.addWidget(mut_cost,5,1)
+        self.grid.addWidget(QLabel("Cost per column (multidrop reagents, etc.):"),5,0)
+        # widget to get mutable costs per column
+        mut_cost_col = QDoubleSpinBox() #QSpinBox()
+        mut_cost_col.setObjectName("mut_cost_col")
+        mut_cost_col.setMinimum(0)
+        mut_cost_col.setMaximum(9999)
+        self.grid.addWidget(mut_cost_col,5,1)
+        self.grid.addWidget(QLabel("Cost per sample (tips, reagents, etc.):"),6,0)
+        # widget to get mutable costs per column
+        mut_cost_samp = QDoubleSpinBox() #QSpinBox()
+        mut_cost_samp.setObjectName("mut_cost_samp")
+        mut_cost_samp.setMinimum(0)
+        mut_cost_samp.setMaximum(9999)
+        self.grid.addWidget(mut_cost_samp,6,1)
         # button to add additional reagent types
         self.add_RT_btn = QPushButton("Add Reagent Type")
         self.grid.addWidget(self.add_RT_btn)
@@ -191,7 +198,8 @@ class KitAdder(QWidget):
         yml_type[used]['kits'] = {}
         yml_type[used]['kits'][info['kit_name']] = {}
         yml_type[used]['kits'][info['kit_name']]['constant_cost'] = info["const_cost"]
-        yml_type[used]['kits'][info['kit_name']]['mutable_cost'] = info["mut_cost"]
+        yml_type[used]['kits'][info['kit_name']]['mutable_cost_column'] = info["mut_cost_col"]
+        yml_type[used]['kits'][info['kit_name']]['mutable_cost_sample'] = info["mut_cost_samp"]
         yml_type[used]['kits'][info['kit_name']]['reagenttypes'] = reagents
         logger.debug(yml_type)
         # send to kit constructor

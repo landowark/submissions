@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QPushButton, QFileDialog,
     QLineEdit, QMessageBox, QComboBox, QDateEdit, QHBoxLayout,
-    QSpinBox, QScrollArea
+    QSpinBox, QDoubleSpinBox, QScrollArea
 )
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -49,7 +49,7 @@ def extract_form_info(object) -> dict:
                 dicto[item.objectName()] = item.currentText()
             case QDateEdit():
                 dicto[item.objectName()] = item.date().toPyDate()
-            case QSpinBox():
+            case QSpinBox() | QDoubleSpinBox():
                 dicto[item.objectName()] = item.value()
             case ReagentTypeForm():
                 reagent = extract_form_info(item) 
