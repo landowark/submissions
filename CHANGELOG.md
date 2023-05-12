@@ -1,5 +1,7 @@
 ## 202305.02
 
+- Added rudimentary barcode printing.
+- Added ability to comment on submissions.
 - Updated kit creation methods to keep pace with new cost calculations.
 
 ## 202305.01

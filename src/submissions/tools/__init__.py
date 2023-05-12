@@ -195,7 +195,7 @@ class RSLNamer(object):
             return
         logger.debug(f"Attempting match of {in_str}")
         regex = re.compile(r"""
-            (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d(?!\d))?)|
+            (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)R?\d(?!\d))?)|
             (?P<bacterial_culture>RSL-?\d{2}-?\d{4})
             """, flags = re.IGNORECASE | re.VERBOSE)
         m = regex.search(in_str)

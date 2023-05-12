@@ -1,20 +1,25 @@
 '''
 Contains widgets specific to the submission summary and submission details.
 '''
+from datetime import datetime
+from PyQt6 import QtPrintSupport
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
     QTextEdit, QPushButton, QScrollArea, 
-    QMessageBox, QFileDialog, QMenu
+    QMessageBox, QFileDialog, QMenu, QLabel,
+    QDialogButtonBox, QToolBar, QMainWindow
 )
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
-from PyQt6.QtGui import QFontMetrics, QAction, QCursor
-from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id
+from PyQt6.QtGui import QFontMetrics, QAction, QCursor, QPixmap, QPainter
+from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num
 from jinja2 import Environment, FileSystemLoader
 from xhtml2pdf import pisa
 import sys
 from pathlib import Path
 import logging
 from .pop_ups import QuestionAsker
+from ..visualizations import make_plate_barcode
+from getpass import getuser
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -120,6 +125,22 @@ class SubmissionsSheet(QTableView):
         if dlg.exec():
             pass
 
+    def create_barcode(self) -> None:
+        index = (self.selectionModel().currentIndex())
+        value = index.sibling(index.row(),1).data()
+        logger.debug(f"Selected value: {value}")
+        dlg = BarcodeWindow(value)
+        if dlg.exec():
+            dlg.print_barcode()
+
+    def add_comment(self) -> None:
+        index = (self.selectionModel().currentIndex())
+        value = index.sibling(index.row(),1).data()
+        logger.debug(f"Selected value: {value}")
+        dlg = SubmissionComment(ctx=self.ctx, rsl=value)
+        if dlg.exec():
+            dlg.add_comment()
+
 
     def contextMenuEvent(self, event):
         """
@@ -131,10 +152,16 @@ class SubmissionsSheet(QTableView):
         self.menu = QMenu(self)
         renameAction = QAction('Delete', self)
         detailsAction = QAction('Details', self)
+        barcodeAction = QAction("Print Barcode", self)
+        commentAction = QAction("Add Comment", self)
         renameAction.triggered.connect(lambda: self.delete_item(event))
         detailsAction.triggered.connect(lambda: self.show_details())
+        barcodeAction.triggered.connect(lambda: self.create_barcode())
+        commentAction.triggered.connect(lambda: self.add_comment())
         self.menu.addAction(detailsAction)
         self.menu.addAction(renameAction)
+        self.menu.addAction(barcodeAction)
+        self.menu.addAction(commentAction)
         # add other required actions
         self.menu.popup(QCursor.pos())
 
@@ -227,3 +254,122 @@ class SubmissionDetails(QDialog):
             msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
             msg.setWindowTitle("Permission Error")
             msg.exec()
+
+class BarcodeWindow(QDialog):
+
+    def __init__(self, rsl_num:str):
+        super().__init__()
+        # set the title
+        self.setWindowTitle("Image")
+        self.layout = QVBoxLayout()
+        # setting  the geometry of window
+        self.setGeometry(0, 0, 400, 300)
+        # creating label
+        self.label = QLabel()
+        self.img = make_plate_barcode(rsl_num)
+        # logger.debug(dir(img), img.contents[0])
+        # fp = BytesIO().read()
+        # img.save(formats=['png'], fnRoot=fp)
+        # pixmap = QPixmap("C:\\Users\\lwark\\Documents\\python\\submissions\\src\\Drawing000.png")
+        self.pixmap = QPixmap()
+        # self.pixmap.loadFromData(self.img.asString("bmp"))
+        self.pixmap.loadFromData(self.img)
+        # adding image to label
+        self.label.setPixmap(self.pixmap)
+        # Optional, resize label to image size
+        # self.label.resize(self.pixmap.width(), self.pixmap.height())
+        # self.label.resize(200, 200)
+        # show all the widgets]
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.layout.addWidget(self.label)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+        self._createActions()
+        self._createToolBar()
+        self._connectActions()
+        
+
+
+    def _createToolBar(self):
+        """
+        adds items to menu bar
+        """    
+        toolbar = QToolBar("My main toolbar")
+        # self.addToolBar(toolbar)  
+        # self.layout.setToolBar(toolbar)  
+        toolbar.addAction(self.printAction)
+        
+
+    def _createActions(self):
+        """
+        creates actions
+        """        
+        self.printAction = QAction("&Print", self)
+
+
+    def _connectActions(self):
+        """
+        connect menu and tool bar item to functions
+        """
+        self.printAction.triggered.connect(self.print_barcode)
+
+
+    def print_barcode(self):
+        printer = QtPrintSupport.QPrinter()
+        
+        dialog = QtPrintSupport.QPrintDialog(printer)
+        if dialog.exec():
+            self.handle_paint_request(printer, self.pixmap.toImage())
+
+
+    def handle_paint_request(self, printer:QtPrintSupport.QPrinter, im):
+        logger.debug(f"Hello from print handler.")
+        painter = QPainter(printer)
+        image = QPixmap.fromImage(im)
+        painter.drawPixmap(120, -20, image)
+        painter.end()
+        
+
+class SubmissionComment(QDialog):
+    """
+    a window showing text details of submission
+    """    
+    def __init__(self, ctx:dict, rsl:str) -> None:
+
+        super().__init__()
+        self.ctx = ctx
+        self.rsl = rsl
+        self.setWindowTitle(f"{self.rsl} Submission Comment")
+        # create text field
+        self.txt_editor = QTextEdit(self)
+        self.txt_editor.setReadOnly(False)
+        self.txt_editor.setText("Add Comment")
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.layout = QVBoxLayout()
+        self.setFixedSize(400, 300)
+        self.layout.addWidget(self.txt_editor)
+        self.layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignBottom)
+        self.setLayout(self.layout)
+        
+    def add_comment(self):
+        commenter = getuser()
+        comment = self.txt_editor.toPlainText()
+        dt = datetime.strftime(datetime.now(), "%Y-%m-d %H:%M:%S")
+        full_comment = {"name":commenter, "time": dt, "text": comment}
+        logger.debug(f"Full comment: {full_comment}")
+        sub = lookup_submission_by_rsl_num(ctx = self.ctx, rsl_num=self.rsl)
+        try:
+            sub.comment.append(full_comment)
+        except AttributeError:
+            sub.comment = [full_comment]
+        logger.debug(sub.__dict__)
+        self.ctx['database_session'].add(sub)
+        self.ctx['database_session'].commit()
+
+        

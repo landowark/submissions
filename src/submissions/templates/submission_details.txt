@@ -1,5 +1,5 @@
 {# template for constructing submission details #}
-{% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info'] %}
+{% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info', 'comments'] %}
 {# for key, value in sub.items() if key != 'reagents' and key != 'samples' and key != 'controls' and key != 'ext_info' #}
 {% for key, value in sub.items() if key not in excluded %}
 {% if key=='Cost' %} {{ key }}: {{ "${:,.2f}".format(value) }} {% else %} {{ key }}: {{ value }} {% endif %}
@@ -29,4 +29,12 @@ Extraction Status:
 qPCR Status{% endif %}
 {% for key, value in entry.items() if key != 'imported_by' %}
     {{ key|replace('_', ' ')|title() }}: {{ value }}{% endfor %}{% endfor %}
+{% endif %}
+{% if sub['comments'] %}
+Comments:
+{% for item in sub['comments'] %}
+    {{ item['name'] }}: 
+    {{ item['text'] }}
+    - {{ item['time'] }}
+{% endfor %}
 {% endif %}

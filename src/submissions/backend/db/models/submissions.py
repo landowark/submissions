@@ -38,6 +38,7 @@ class BasicSubmission(Base):
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
+    comment = Column(JSON)
 
     # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
@@ -93,6 +94,11 @@ class BasicSubmission(Base):
             samples = [item.to_sub_dict() for item in self.samples]
         except:
             samples = None
+        try:
+            comments = self.comment
+        except:
+            logger.error(self.comment)
+            comments = None
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -106,9 +112,11 @@ class BasicSubmission(Base):
             "Cost": self.run_cost,
             "reagents": reagents,
             "samples": samples,
-            "ext_info": ext_info
+            "ext_info": ext_info,
+            "comments": comments
         }
         # logger.debug(f"{self.rsl_plate_num} extraction: {output['Extraction Status']}")
+        # logger.debug(f"Output dict: {output}")
         return output
 
 

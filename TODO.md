@@ -1,1 +1,3 @@
+- [ ] Create a method for commenting submissions.
+- [ ] Create barcode generator, because of reasons that may or may not exist.
 - [x] Move bulk of functions from frontend.__init__ to frontend.functions as __init__ is getting bloated.

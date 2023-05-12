@@ -3,7 +3,7 @@
     <head>
         <title>Submission Details for {{ sub['Plate Number'] }}</title>
     </head>
-    {% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info'] %}
+    {% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info', 'comments'] %}
     <body>
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>
         <p>{% for key, value in sub.items() if key not in excluded %}
@@ -51,7 +51,7 @@
         {% for entry in sub['ext_info'] %}
         <h3><u>Extraction Status:</u></h3>
         <p>{% for key, value in entry.items() %}
-            {% if loop.index == 1%}
+            {% if loop.index == 1 %}
                 &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
             {% else %}
                 {% if "column" in key %}
@@ -71,7 +71,7 @@
             <h3><u>qPCR Status:</u></h3>
         {% endif %}
         <p>{% for key, value in entry.items() if key != 'imported_by'%}
-            {% if loop.index == 1%}
+            {% if loop.index == 1 %}
                 &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
             {% else %}
                 {% if "column" in key %}
@@ -82,6 +82,16 @@
             {% endif %}
         {% endfor %}</p>
         {% endfor %}
+        {% endif %}
+        {% if sub['comments'] %}
+        <h3><u>Comments:</u></h3>
+        <p>{% for entry in sub['comments'] %}
+            {% if loop.index == 1 %}
+                &nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
+            {% else %}
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
+            {% endif %}
+        {% endfor %}</p>
         {% endif %}
     </body>
 </html>
