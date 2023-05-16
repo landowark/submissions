@@ -1,6 +1,7 @@
 '''
 Contains widgets specific to the submission summary and submission details.
 '''
+import base64
 from datetime import datetime
 from PyQt6 import QtPrintSupport
 from PyQt6.QtWidgets import (
@@ -238,6 +239,7 @@ class SubmissionDetails(QDialog):
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """        
         template = env.get_template("submission_details.html")
+        self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
         html = template.render(sub=self.base_dict)
         home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])

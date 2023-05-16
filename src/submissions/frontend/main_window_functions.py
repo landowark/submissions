@@ -35,7 +35,6 @@ from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker, ReagentTypeForm
 from .custom_widgets.misc import ImportReagent
 from .visualizations.control_charts import create_charts, construct_html
-import asyncio
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
