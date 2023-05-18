@@ -39,9 +39,11 @@ def make_report_xlsx(records:list[dict]) -> DataFrame:
     df = df.sort_values("Submitting Lab")
     # aggregate cost and sample count columns
     df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Extraction Kit':'count', 'Cost': 'sum', 'Sample Count':'sum'})
-    df2 = df2.rename(columns={"Extraction Kit": 'Kit Count'})
+    df2 = df2.rename(columns={"Extraction Kit": 'Plate Count'})
     logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
-    return df2
+    df = df.drop('id', axis=1)
+    df = df.sort_values(['Submitting Lab', "Submitted Date"])
+    return df, df2
 
 
 def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:

@@ -293,8 +293,8 @@ def generate_report_function(obj:QMainWindow) -> QMainWindow:
         # convert each object to dict
         records = [item.report_dict() for item in subs]
         # make dataframe from record dictionaries
-        df = make_report_xlsx(records=records)
-        html = make_report_html(df=df, start_date=info['start_date'], end_date=info['end_date'])
+        detailed_df, summary_df = make_report_xlsx(records=records)
+        html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
         # setup filedialog to handle save location of report
         home_dir = Path(obj.ctx["directory_path"]).joinpath(f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf").resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=".pdf")[0])
@@ -302,10 +302,11 @@ def generate_report_function(obj:QMainWindow) -> QMainWindow:
         with open(fname, "w+b") as f:
             pisa.CreatePDF(html, dest=f)
         writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
-        df.to_excel(writer, sheet_name="Report") 
+        summary_df.to_excel(writer, sheet_name="Report")
+        detailed_df.to_excel(writer, sheet_name="Details", index=False)
         worksheet = writer.sheets['Report']
-        for idx, col in enumerate(df):  # loop through all columns
-            series = df[col]
+        for idx, col in enumerate(summary_df):  # loop through all columns
+            series = summary_df[col]
             max_len = max((
                 series.astype(str).map(len).max(),  # len of largest item
                 len(str(series.name))  # len of column name/header

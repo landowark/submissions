@@ -1,3 +1,7 @@
+## 202305.03
+
+- Added a detailed tab to the cost report.
+
 ## 202305.02
 
 - Added rudimentary barcode printing.
