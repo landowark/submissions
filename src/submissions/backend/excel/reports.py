@@ -135,8 +135,8 @@ def df_column_renamer(df:DataFrame) -> DataFrame:
     return df.rename(columns = {
         "contains_ratio":"contains_shared_hashes_ratio",
         "matches_ratio":"matches_shared_hashes_ratio",
-        "kraken_count":"kraken2_read_count_(top_20)",
-        "kraken_percent":"kraken2_read_percent_(top_20)"
+        "kraken_count":"kraken2_read_count_(top_50)",
+        "kraken_percent":"kraken2_read_percent_(top_50)"
     })
 
 
