@@ -41,15 +41,11 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]:
     result = None
-    # from .custom_widgets.misc import ImportReagent
-    # from .custom_widgets.pop_ups import AlertPop
     logger.debug(obj.ctx)
     # initialize samples
     obj.samples = []
     obj.reagents = {}
     # set file dialog
-    # home_dir = str(Path(obj.ctx["directory_path"]))
-    # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir)[0])
     fname = select_open_file(obj, extension="xlsx")
     logger.debug(f"Attempting to parse file: {fname}")
     if not fname.exists():
@@ -69,7 +65,6 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
         item.setParent(None)
     # regex to parser out different variable types for decision making
     variable_parser = re.compile(r"""
-        # (?x)
         (?P<extraction_kit>^extraction_kit$) |
         (?P<submitted_date>^submitted_date$) |
         (?P<submitting_lab>)^submitting_lab$ |
@@ -161,13 +156,11 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     if hasattr(obj, 'ext_kit'):
         obj.kit_integrity_completion()
     logger.debug(f"Imported reagents: {obj.reagents}")
-    
     return obj, result
 
 def kit_reload_function(obj:QMainWindow) -> QMainWindow:
     result = None
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
-        # item.setParent(None)
         if isinstance(item, QLabel):
             if item.text().startswith("Lot"):
                 item.setParent(None)
@@ -180,20 +173,22 @@ def kit_reload_function(obj:QMainWindow) -> QMainWindow:
 
 def kit_integrity_completion_function(obj:QMainWindow) -> QMainWindow:
     result = None
-    # from .custom_widgets.misc import ImportReagent
-    # from .custom_widgets.pop_ups import AlertPop
     logger.debug(inspect.currentframe().f_back.f_code.co_name)
+    # find the widget that contains lit info
     kit_widget = obj.table_widget.formlayout.parentWidget().findChild(QComboBox, 'extraction_kit')
     logger.debug(f"Kit selector: {kit_widget}")
+    # get current kit info
     obj.ext_kit = kit_widget.currentText()
     logger.debug(f"Checking integrity of {obj.ext_kit}")
+    # get the kit from database using current kit info
     kit = lookup_kittype_by_name(ctx=obj.ctx, name=obj.ext_kit)
+    # get all reagents stored in the QWindow object
     reagents_to_lookup = [item.replace("lot_", "") for item in obj.reagents]
     logger.debug(f"Reagents for lookup for {kit.name}: {reagents_to_lookup}")
+    # make sure kit contains all necessary info
     kit_integrity = check_kit_integrity(kit, reagents_to_lookup)
+    # if kit integrity comes back with an error, make widgets with missing reagents using default info
     if kit_integrity != None:
-        # msg = AlertPop(message=kit_integrity['message'], status="critical")
-        # msg.exec()
         result = dict(message=kit_integrity['message'], status="Warning")
         for item in kit_integrity['missing']:
             obj.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
@@ -207,9 +202,9 @@ def kit_integrity_completion_function(obj:QMainWindow) -> QMainWindow:
 
 def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     result = None
-    # from .custom_widgets.misc import ImportReagent
-    # from .custom_widgets.pop_ups import AlertPop, QuestionAsker
+    # extract info from the form widgets
     info = extract_form_info(obj.table_widget.tab1)
+    # seperate out reagents
     reagents = {k:v for k,v in info.items() if k.startswith("lot_")}
     info = {k:v for k,v in info.items() if not k.startswith("lot_")}
     logger.debug(f"Info: {info}")
@@ -268,12 +263,9 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     # reset form
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
-    # print(dir(obj))
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
-            # home_dir = Path(obj.ctx["directory_path"]).joinpath(f"{base_submission.rsl_plate_num}.csv").resolve().__str__()
-            # fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=".csv")[0])
             fname = select_save_file(obj, f"{base_submission.rsl_plate_num}.csv", extension="csv")
             try:
                 obj.csv.to_csv(fname.__str__(), index=False)
@@ -282,8 +274,8 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     return obj, result
 
 def generate_report_function(obj:QMainWindow) -> QMainWindow:
-    # from .custom_widgets import ReportDatePicker
     result = None
+    # ask for date ranges
     dlg = ReportDatePicker()
     if dlg.exec():
         info = extract_form_info(dlg)
@@ -324,8 +316,6 @@ def generate_report_function(obj:QMainWindow) -> QMainWindow:
 def add_kit_function(obj:QMainWindow) -> QMainWindow:
     result = None
     # setup file dialog to find yaml flie
-    # home_dir = str(Path(obj.ctx["directory_path"]))
-    # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = "yml(*.yml)")[0])
     fname = select_open_file(obj, extension="yml")
     assert fname.exists()
     # read yaml file
@@ -340,19 +330,11 @@ def add_kit_function(obj:QMainWindow) -> QMainWindow:
         return
     # send to kit creator function
     result = create_kit_from_yaml(ctx=obj.ctx, exp=exp)
-    # match result['code']:
-    #     case 0:
-    #         msg = AlertPop(message=result['message'], status='info')
-    #     case 1:
-    #         msg = AlertPop(message=result['message'], status='critical')
-    # msg.exec()
     return obj, result
 
 def add_org_function(obj:QMainWindow) -> QMainWindow:
     result = None
     # setup file dialog to find yaml flie
-    # home_dir = str(Path(obj.ctx["directory_path"]))
-    # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = "yml(*.yml)")[0])
     fname = select_open_file(obj, extension="yml")
     assert fname.exists()
     # read yaml file
@@ -367,12 +349,6 @@ def add_org_function(obj:QMainWindow) -> QMainWindow:
         return obj, result
     # send to kit creator function
     result = create_org_from_yaml(ctx=obj.ctx, org=org)
-    # match result['code']:
-    #     case 0:
-    #         msg = AlertPop(message=result['message'], status='information')
-    #     case 1:
-    #         msg = AlertPop(message=result['message'], status='critical')
-    # msg.exec()
     return obj, result
 
 def controls_getter_function(obj:QMainWindow) -> QMainWindow:
@@ -391,7 +367,7 @@ def controls_getter_function(obj:QMainWindow) -> QMainWindow:
             obj.table_widget.datepicker.start_date.setDate(threemonthsago)
         obj._controls_getter()
         return obj, result
-        # convert to python useable date object
+    # convert to python useable date object
     obj.start_date = obj.table_widget.datepicker.start_date.date().toPyDate()
     obj.end_date = obj.table_widget.datepicker.end_date.date().toPyDate()
     obj.con_type = obj.table_widget.control_typer.currentText()
@@ -412,8 +388,18 @@ def controls_getter_function(obj:QMainWindow) -> QMainWindow:
     return obj, result
 
 def chart_maker_function(obj:QMainWindow) -> QMainWindow:
+    """
+    create html chart for controls reporting
+
+    Args:
+        obj (QMainWindow): original MainWindow
+
+    Returns:
+        QMainWindow: MainWindow with control display updates
+    """    
     result = None
     logger.debug(f"Control getter context: \n\tControl type: {obj.con_type}\n\tMode: {obj.mode}\n\tStart Date: {obj.start_date}\n\tEnd Date: {obj.end_date}")
+    # set the subtype for kraken
     if obj.table_widget.sub_typer.currentText() == "":
         obj.subtype = None
     else:
@@ -425,7 +411,7 @@ def chart_maker_function(obj:QMainWindow) -> QMainWindow:
     if controls == None:
         fig = None
     else:
-        # change each control to list of dicts
+        # change each control to list of dictionaries
         data = [control.convert_by_mode(mode=obj.mode) for control in controls]
         # flatten data to one dimensional list
         data = [item for sublist in data for item in sublist]
@@ -646,7 +632,8 @@ def import_pcr_results_function(obj:QMainWindow) -> QMainWindow:
     logger.debug(f"Existing {type(sub.pcr_info)}: {sub.pcr_info}")
     logger.debug(f"Inserting {type(json.dumps(parser.pcr))}: {json.dumps(parser.pcr)}")
     obj.ctx["database_session"].commit()
-    logger.debug(f"Got {len(parser.samples)} to update!")
+    logger.debug(f"Got {len(parser.samples)} samples to update!")
+    logger.debug(f"Parser samples: {parser.samples}")
     for sample in parser.samples:
         logger.debug(f"Running update on: {sample['sample']}")
         sample['plate_rsl'] = sub.rsl_plate_num
@@ -654,12 +641,4 @@ def import_pcr_results_function(obj:QMainWindow) -> QMainWindow:
     result = dict(message=f"We added PCR info to {sub.rsl_plate_num}.", status='information')
     return obj, result
     # dlg.exec()    
-
-
-
-
-
-
-
-
 

@@ -213,3 +213,7 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
     return df
     # else:
     #     return df
+
+
+def make_hitpicks(input:list) -> DataFrame:
+    return DataFrame.from_records(input)

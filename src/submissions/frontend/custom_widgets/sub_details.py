@@ -3,6 +3,8 @@ Contains widgets specific to the submission summary and submission details.
 '''
 import base64
 from datetime import datetime
+from io import BytesIO
+import math
 from PyQt6 import QtPrintSupport
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
@@ -10,16 +12,18 @@ from PyQt6.QtWidgets import (
     QMessageBox, QFileDialog, QMenu, QLabel,
     QDialogButtonBox, QToolBar, QMainWindow
 )
-from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
+from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, QItemSelectionModel
 from PyQt6.QtGui import QFontMetrics, QAction, QCursor, QPixmap, QPainter
-from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num
+from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
+# from backend.misc import hitpick_plate
+from backend.excel import make_hitpicks
 from jinja2 import Environment, FileSystemLoader
 from xhtml2pdf import pisa
 import sys
 from pathlib import Path
 import logging
-from .pop_ups import QuestionAsker
-from ..visualizations import make_plate_barcode
+from .pop_ups import QuestionAsker, AlertPop
+from ..visualizations import make_plate_barcode, make_plate_map
 from getpass import getuser
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -92,6 +96,7 @@ class SubmissionsSheet(QTableView):
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
+        
         self.doubleClicked.connect(self.show_details)
  
     def setData(self) -> None: 
@@ -111,10 +116,8 @@ class SubmissionsSheet(QTableView):
             pass
         proxyModel = QSortFilterProxyModel()
         proxyModel.setSourceModel(pandasModel(self.data))
-        # self.model = pandasModel(self.data)
-        # self.setModel(self.model)
         self.setModel(proxyModel)
-        # self.resize(800,600)
+        
 
     def show_details(self) -> None:
         """
@@ -124,7 +127,7 @@ class SubmissionsSheet(QTableView):
         value = index.sibling(index.row(),0).data()
         dlg = SubmissionDetails(ctx=self.ctx, id=value)
         if dlg.exec():
-            pass
+            pass  
 
     def create_barcode(self) -> None:
         index = (self.selectionModel().currentIndex())
@@ -155,14 +158,17 @@ class SubmissionsSheet(QTableView):
         detailsAction = QAction('Details', self)
         barcodeAction = QAction("Print Barcode", self)
         commentAction = QAction("Add Comment", self)
+        hitpickAction = QAction("Hitpicks", self)
         renameAction.triggered.connect(lambda: self.delete_item(event))
         detailsAction.triggered.connect(lambda: self.show_details())
         barcodeAction.triggered.connect(lambda: self.create_barcode())
         commentAction.triggered.connect(lambda: self.add_comment())
+        hitpickAction.triggered.connect(lambda: self.hit_pick())
         self.menu.addAction(detailsAction)
         self.menu.addAction(renameAction)
         self.menu.addAction(barcodeAction)
         self.menu.addAction(commentAction)
+        self.menu.addAction(hitpickAction)
         # add other required actions
         self.menu.popup(QCursor.pos())
 
@@ -185,7 +191,63 @@ class SubmissionsSheet(QTableView):
         self.setData()
 
 
-
+    def hit_pick(self):
+        """
+        Extract positive samples from submissions with PCR results and export to csv.
+        NOTE: For this to work for arbitrary samples, positive samples must have 'positive' in their name
+        """        
+        # Get all selected rows
+        indices = self.selectionModel().selectedIndexes()
+        # convert to id numbers
+        indices = [index.sibling(index.row(), 0).data() for index in indices]
+        # biomek can handle 4 plates maximum
+        if len(indices) > 4:
+            logger.error(f"Error: Had to truncate number of plates to 4.")
+            indices = indices[:4]
+        # lookup ids in the database
+        subs = [lookup_submission_by_id(self.ctx, id) for id in indices]
+        # full list of samples
+        dicto = []
+        # list to contain plate images
+        images = []
+        for iii, sub in enumerate(subs):
+            # second check to make sure there aren't too many plates
+            if iii > 3: 
+                logger.error(f"Error: Had to truncate number of plates to 4.")
+                continue
+            plate_dicto = hitpick_plate(submission=sub, plate_number=iii+1)
+            if plate_dicto == None:
+                continue
+            image = make_plate_map(plate_dicto)
+            images.append(image)
+            for item in plate_dicto:
+                if len(dicto) < 94:
+                    dicto.append(item)
+                else:
+                    logger.error(f"We had to truncate the number of samples to 94.")
+        logger.debug(f"We found {len(dicto)} to hitpick")
+        msg = AlertPop(message=f"We found {len(dicto)} samples to hitpick", status="INFORMATION")
+        msg.exec()
+        # convert all samples to dataframe
+        df = make_hitpicks(dicto)
+        logger.debug(f"Size of the dataframe: {df.size}")
+        if df.size == 0:
+            return
+        date = datetime.strftime(datetime.today(), "%Y-%m-%d")
+        # ask for filename and save as csv.
+        home_dir = Path(self.ctx["directory_path"]).joinpath(f"Hitpicks_{date}.csv").resolve().__str__()
+        fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".csv")[0])
+        if fname.__str__() == ".":
+            logger.debug("Saving csv was cancelled.")
+            return
+        df.to_csv(fname.__str__(), index=False)
+        # show plate maps
+        for image in images:
+            try:
+                image.show()
+            except Exception as e:
+                logger.error(f"Could not show image: {e}.")
+        
     
 class SubmissionDetails(QDialog):
     """
@@ -239,7 +301,17 @@ class SubmissionDetails(QDialog):
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """        
         template = env.get_template("submission_details.html")
+        # make barcode because, reasons
         self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
+        sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
+        plate_dicto = hitpick_plate(sub)
+        platemap = make_plate_map(plate_dicto)
+        logger.debug(f"platemap: {platemap}")
+        image_io = BytesIO()
+        platemap.save(image_io, 'JPEG')
+        platemap.save("test.jpg", 'JPEG')
+        self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
+        logger.debug(self.base_dict)
         html = template.render(sub=self.base_dict)
         home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
@@ -269,18 +341,10 @@ class BarcodeWindow(QDialog):
         # creating label
         self.label = QLabel()
         self.img = make_plate_barcode(rsl_num)
-        # logger.debug(dir(img), img.contents[0])
-        # fp = BytesIO().read()
-        # img.save(formats=['png'], fnRoot=fp)
-        # pixmap = QPixmap("C:\\Users\\lwark\\Documents\\python\\submissions\\src\\Drawing000.png")
         self.pixmap = QPixmap()
-        # self.pixmap.loadFromData(self.img.asString("bmp"))
         self.pixmap.loadFromData(self.img)
         # adding image to label
         self.label.setPixmap(self.pixmap)
-        # Optional, resize label to image size
-        # self.label.resize(self.pixmap.width(), self.pixmap.height())
-        # self.label.resize(200, 200)
         # show all the widgets]
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -300,8 +364,6 @@ class BarcodeWindow(QDialog):
         adds items to menu bar
         """    
         toolbar = QToolBar("My main toolbar")
-        # self.addToolBar(toolbar)  
-        # self.layout.setToolBar(toolbar)  
         toolbar.addAction(self.printAction)
         
 
@@ -321,7 +383,6 @@ class BarcodeWindow(QDialog):
 
     def print_barcode(self):
         printer = QtPrintSupport.QPrinter()
-        
         dialog = QtPrintSupport.QPrintDialog(printer)
         if dialog.exec():
             self.handle_paint_request(printer, self.pixmap.toImage())

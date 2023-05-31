@@ -135,6 +135,7 @@ class App(QMainWindow):
         logger.debug(f"Attempting to open {url}")
         webbrowser.get('windows-default').open(f"file://{url.__str__()}")
 
+    # All main window functions return a result which is reported here, unless it is None
     def result_reporter(self, result:dict|None=None):
         if result != None:
             msg = AlertPop(message=result['message'], status=result['status'])
@@ -147,128 +148,6 @@ class App(QMainWindow):
         self, result = import_submission_function(self)
         logger.debug(f"Import result: {result}")
         self.result_reporter(result)
-        # logger.debug(self.ctx)
-        # # initialize samples
-        # self.samples = []
-        # self.reagents = {}
-        # # set file dialog
-        # home_dir = str(Path(self.ctx["directory_path"]))
-        # fname = Path(QFileDialog.getOpenFileName(self, 'Open file', home_dir)[0])
-        # logger.debug(f"Attempting to parse file: {fname}")
-        # assert fname.exists()
-        # # create sheetparser using excel sheet and context from gui
-        # try:
-        #     prsr = SheetParser(fname, **self.ctx)
-        # except PermissionError:
-        #     logger.error(f"Couldn't get permission to access file: {fname}")
-        #     return
-        # if prsr.sub['rsl_plate_num'] == None:
-        #     prsr.sub['rsl_plate_num'] = RSLNamer(fname.__str__()).parsed_name
-        # logger.debug(f"prsr.sub = {prsr.sub}")
-        # # destroy any widgets from previous imports
-        # for item in self.table_widget.formlayout.parentWidget().findChildren(QWidget):
-        #     item.setParent(None)
-        # # regex to parser out different variable types for decision making
-        # variable_parser = re.compile(r"""
-        #     # (?x)
-        #     (?P<extraction_kit>^extraction_kit$) |
-        #     (?P<submitted_date>^submitted_date$) |
-        #     (?P<submitting_lab>)^submitting_lab$ |
-        #     (?P<samples>)^samples$ |
-        #     (?P<reagent>^lot_.*$) |
-        #     (?P<csv>^csv$)
-        # """, re.VERBOSE)
-        # for item in prsr.sub:
-        #     logger.debug(f"Item: {item}")
-        #     # attempt to match variable name to regex group
-        #     try:
-        #         mo = variable_parser.fullmatch(item).lastgroup
-        #     except AttributeError:
-        #         mo = "other"
-        #     logger.debug(f"Mo: {mo}")
-        #     match mo:
-        #         case 'submitting_lab':
-        #             # create label
-        #             self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-        #             logger.debug(f"{item}: {prsr.sub[item]}")
-        #             # create combobox to hold looked up submitting labs
-        #             add_widget = QComboBox()
-        #             labs = [item.__str__() for item in lookup_all_orgs(ctx=self.ctx)]
-        #             # try to set closest match to top of list
-        #             try:
-        #                 labs = difflib.get_close_matches(prsr.sub[item], labs, len(labs), 0)
-        #             except (TypeError, ValueError):
-        #                 pass
-        #             # set combobox values to lookedup values
-        #             add_widget.addItems(labs)
-        #         case 'extraction_kit':
-        #             # create label
-        #             self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-        #             # if extraction kit not available, all other values fail
-        #             if not check_not_nan(prsr.sub[item]):
-        #                 msg = AlertPop(message="Make sure to check your extraction kit in the excel sheet!", status="warning")
-        #                 msg.exec()
-        #             # create combobox to hold looked up kits
-        #             # add_widget = KitSelector(ctx=self.ctx, submission_type=prsr.sub['submission_type'], parent=self)
-        #             add_widget = QComboBox()
-        #             # add_widget.currentTextChanged.connect(self.kit_reload)
-        #             # lookup existing kits by 'submission_type' decided on by sheetparser
-        #             uses = [item.__str__() for item in lookup_kittype_by_use(ctx=self.ctx, used_by=prsr.sub['submission_type'])]
-        #             # if len(uses) > 0:
-        #             add_widget.addItems(uses)
-        #             # else:
-        #                 # add_widget.addItems(['bacterial_culture'])
-        #             if check_not_nan(prsr.sub[item]):
-        #                 self.ext_kit = prsr.sub[item]
-        #             else:
-        #                 self.ext_kit = add_widget.currentText()
-        #         case 'submitted_date':
-        #             # create label
-        #             self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-        #             # uses base calendar
-        #             add_widget = QDateEdit(calendarPopup=True)
-        #             # sets submitted date based on date found in excel sheet
-        #             try:
-        #                 add_widget.setDate(prsr.sub[item])
-        #             # if not found, use today
-        #             except:
-        #                 add_widget.setDate(date.today())
-        #         case 'reagent':
-        #             # create label
-        #             reg_label = QLabel(item.replace("_", " ").title())
-        #             reg_label.setObjectName(f"lot_{item}_label")
-        #             self.table_widget.formlayout.addWidget(reg_label)
-        #             # create reagent choice widget
-        #             add_widget = ImportReagent(ctx=self.ctx, item=item, prsr=prsr)
-        #             self.reagents[item] = prsr.sub[item]
-        #         case 'samples':
-        #             # hold samples in 'self' until form submitted
-        #             logger.debug(f"{item}: {prsr.sub[item]}")
-        #             self.samples = prsr.sub[item]
-        #             add_widget = None
-        #         case 'csv':
-        #             self.csv = prsr.sub[item]
-        #         case _:
-        #             # anything else gets added in as a line edit
-        #             self.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-        #             add_widget = QLineEdit()
-        #             logger.debug(f"Setting widget text to {str(prsr.sub[item]).replace('_', ' ')}")
-        #             add_widget.setText(str(prsr.sub[item]).replace("_", " "))
-        #     try:
-        #         add_widget.setObjectName(item)
-        #         logger.debug(f"Widget name set to: {add_widget.objectName()}")
-        #         self.table_widget.formlayout.addWidget(add_widget)
-        #     except AttributeError as e:
-        #         logger.error(e)
-        # # compare self.reagents with expected reagents in kit
-        # if hasattr(self, 'ext_kit'):
-        #     self.kit_integrity_completion()
-        # # create submission button
-        # # submit_btn = QPushButton("Submit")
-        # # submit_btn.setObjectName("submit_btn")
-        # # self.table_widget.formlayout.addWidget(submit_btn)
-        # # submit_btn.clicked.connect(self.submit_new_sample)
-        # logger.debug(f"Imported reagents: {self.reagents}")
 
 
     def kit_reload(self):
@@ -277,17 +156,7 @@ class App(QMainWindow):
         """        
         self, result = kit_reload_function(self)
         self.result_reporter(result)
-        # for item in self.table_widget.formlayout.parentWidget().findChildren(QWidget):
-        #     # item.setParent(None)
-        #     if isinstance(item, QLabel):
-        #         if item.text().startswith("Lot"):
-        #             item.setParent(None)
-        #     else:
-        #         logger.debug(f"Type of {item.objectName()} is {type(item)}")
-        #         if item.objectName().startswith("lot_"):
-        #             item.setParent(None)
-        # self.kit_integrity_completion()
-    
+            
 
     def kit_integrity_completion(self):
         """
@@ -297,26 +166,6 @@ class App(QMainWindow):
         """        
         self, result = kit_integrity_completion_function(self)
         self.result_reporter(result)
-        # logger.debug(inspect.currentframe().f_back.f_code.co_name)
-        # kit_widget = self.table_widget.formlayout.parentWidget().findChild(QComboBox, 'extraction_kit')
-        # logger.debug(f"Kit selector: {kit_widget}")
-        # self.ext_kit = kit_widget.currentText()
-        # logger.debug(f"Checking integrity of {self.ext_kit}")
-        # kit = lookup_kittype_by_name(ctx=self.ctx, name=self.ext_kit)
-        # reagents_to_lookup = [item.replace("lot_", "") for item in self.reagents]
-        # logger.debug(f"Reagents for lookup for {kit.name}: {reagents_to_lookup}")
-        # kit_integrity = check_kit_integrity(kit, reagents_to_lookup)
-        # if kit_integrity != None:
-        #     msg = AlertPop(message=kit_integrity['message'], status="critical")
-        #     msg.exec()
-        #     for item in kit_integrity['missing']:
-        #         self.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
-        #         add_widget = ImportReagent(ctx=self.ctx, item=item)
-        #         self.table_widget.formlayout.addWidget(add_widget)
-        # submit_btn = QPushButton("Submit")
-        # submit_btn.setObjectName("lot_submit_btn")
-        # self.table_widget.formlayout.addWidget(submit_btn)
-        # submit_btn.clicked.connect(self.submit_new_sample)
         
 
     def submit_new_sample(self):

@@ -4,6 +4,9 @@ All models for individual samples.
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, BOOLEAN, JSON
 from sqlalchemy.orm import relationship
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class WWSample(Base):
@@ -19,7 +22,7 @@ class WWSample(Base):
     rsl_plate = relationship("Wastewater", back_populates="samples") #: relationship to parent plate
     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWS_submission_id"))
     collection_date = Column(TIMESTAMP) #: Date submission received
-    well_number = Column(String(8)) #: location on plate
+    well_number = Column(String(8)) #: location on 24 well plate
     # The following are fields from the sample tracking excel sheet Ruth put together.
     # I have no idea when they will be implemented or how.
     testing_type = Column(String(64)) 
@@ -33,6 +36,7 @@ class WWSample(Base):
     ww_seq_run_id = Column(String(64))
     sample_type = Column(String(8))
     pcr_results = Column(JSON)
+    elution_well = Column(String(8)) #: location on 96 well plate
     
 
     def to_string(self) -> str:
@@ -51,6 +55,10 @@ class WWSample(Base):
         Returns:
             dict: well location and id NOTE: keys must sync with BCSample to_sub_dict below
         """
+        # well_col = self.well_number[1:]
+        # well_row = self.well_number[0]
+        # if well_col > 4:
+        #     well
         if self.ct_n1 != None and self.ct_n2 != None:
             name = f"{self.ww_sample_full_id}\n\t- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})\n\t- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
         else:
@@ -59,6 +67,34 @@ class WWSample(Base):
             "well": self.well_number,
             "name": name,
         }
+    
+    def to_hitpick(self) -> dict|None:
+        """
+        Outputs a dictionary of locations if sample is positive
+
+        Returns:
+            dict: dictionary of sample id, row and column in elution plate
+        """        
+        # dictionary to translate row letters into numbers
+        row_dict = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
+        # if either n1 or n2 is positive, include this sample
+        try:
+            positive = any(["positive" in item for item in [self.n1_status, self.n2_status]])
+        except TypeError as e:
+            logger.error(f"Couldn't check positives for {self.rsl_number}. Looks like there isn't PCR data.")
+            return None
+        if positive:
+            try:
+                # The first character of the elution well is the row
+                well_row = row_dict[self.elution_well[0]]
+                # The remaining charagers are the columns
+                well_col = self.elution_well[1:]
+            except TypeError as e:
+                logger.error(f"This sample doesn't have elution plate info.")
+                return None
+            return dict(name=self.ww_sample_full_id, row=well_row, col=well_col)
+        else:
+            return None
 
 
 class BCSample(Base):

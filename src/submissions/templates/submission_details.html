@@ -3,7 +3,7 @@
     <head>
         <title>Submission Details for {{ sub['Plate Number'] }}</title>
     </head>
-    {% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info', 'comments', 'barcode'] %}
+    {% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info', 'comments', 'barcode', 'platemap'] %}
     <body>
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">
         <p>{% for key, value in sub.items() if key not in excluded %}
@@ -92,6 +92,10 @@
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
             {% endif %}
         {% endfor %}</p>
+        {% endif %}
+        {% if sub['platemap'] %}
+        <h3><u>>Plate map:</u></h3>
+        <img height="300px" width="650px" src="data:image/jpeg;base64,{{ sub['platemap'] | safe }}">
         {% endif %}
     </body>
 </html>

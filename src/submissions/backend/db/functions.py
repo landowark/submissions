@@ -20,7 +20,6 @@ from getpass import getuser
 import numpy as np
 import yaml
 from pathlib import Path
-from math import ceil
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -136,7 +135,13 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
                 try:
                     field_value = lookup_kittype_by_name(ctx=ctx, name=q_str)
                 except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
-                    logger.error(f"Hit an integrity error: {e}")
+                    logger.error(f"Hit an integrity error looking up kit type: {e}")
+                    logger.error(f"Details: {e.__dict__}")
+                    if "submitter_plate_num" in e.__dict__['statement']:
+                        msg = "SQL integrity error. Submitter plate id is a duplicate or invalid."
+                    else:
+                        msg = "SQL integrity error of unknown origin."
+                    return instance, dict(code=2, message=msg)
                 logger.debug(f"Got {field_value} for kit {q_str}")
             case "submitting_lab":
                 q_str = info_dict[item].replace(" ", "_").lower()
@@ -179,7 +184,7 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         discounts = sum(discounts)
         instance.run_cost = instance.run_cost - discounts
     except Exception as e:
-        logger.error(f"An unknown exception occurred: {e}")
+        logger.error(f"An unknown exception occurred when calculating discounts: {e}")
     # We need to make sure there's a proper rsl plate number
     logger.debug(f"We've got a total cost of {instance.run_cost}")
     try:
@@ -748,10 +753,16 @@ def update_ww_sample(ctx:dict, sample_obj:dict):
     ww_samp = lookup_ww_sample_by_sub_sample_rsl(ctx=ctx, sample_rsl=sample_obj['sample'], plate_rsl=sample_obj['plate_rsl'])
     # ww_samp = lookup_ww_sample_by_sub_sample_well(ctx=ctx, sample_rsl=sample_obj['sample'], well_num=sample_obj['well_num'], plate_rsl=sample_obj['plate_rsl'])
     if ww_samp != None:
+        # del sample_obj['well_number']
         for key, value in sample_obj.items():
-            logger.debug(f"Setting {key} to {value}")
             # set attribute 'key' to 'value'
-            setattr(ww_samp, key, value)
+            try:
+                check = getattr(ww_samp, key)
+            except AttributeError:
+                continue
+            if check == None:
+                logger.debug(f"Setting {key} to {value}")
+                setattr(ww_samp, key, value)
     else:
         logger.error(f"Unable to find sample {sample_obj['sample']}")
         return
@@ -763,3 +774,28 @@ def lookup_discounts_by_org_and_kit(ctx:dict, kit_id:int, lab_id:int):
         models.KitType.id==kit_id, 
         models.Organization.id==lab_id
         )).all()
+
+
+def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list:
+    plate_dicto = []
+    for sample in submission.samples:
+        # have sample report back its info if it's positive, otherwise, None
+        samp = sample.to_hitpick()
+        if samp == None:
+            continue
+        else:
+            logger.debug(f"Item name: {samp['name']}")
+            # plate can handle 88 samples to leave column for controls
+            # if len(dicto) < 88:
+            this_sample = dict(
+                plate_number = plate_number,
+                sample_name = samp['name'],
+                column = samp['col'],
+                row = samp['row'],
+                plate_name = submission.rsl_plate_num
+            )
+            # append to plate samples
+            plate_dicto.append(this_sample)
+            # append to all samples
+    # image = make_plate_map(plate_dicto)
+    return plate_dicto

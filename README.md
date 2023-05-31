@@ -62,3 +62,8 @@ This is meant to import .xslx files created from the Design & Analysis Software
 ## Linking PCR Logs:
 1. Click "Monthly" -> "Link PCR Logs".
 2. Chose the .csv file taken from the PCR table runlogs folder.
+
+## Hitpicking:
+1. Select all submissions you wish to hitpick using "Ctrl + click". All must have PCR results.
+2. Right click on the last sample and select "Hitpick" from the contex menu.
+3. Select location to save csv file.

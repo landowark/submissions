@@ -132,7 +132,10 @@ class SheetParser(object):
                         try:
                             expiry = row[3].date()
                         except AttributeError as e:
-                            expiry = datetime.strptime(row[3], "%Y-%m-%d")
+                            try:
+                                expiry = datetime.strptime(row[3], "%Y-%m-%d")
+                            except TypeError as e:
+                                expiry = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + row[3] - 2)
                     else:
                         logger.debug(f"Date: {row[3]}")
                         expiry = date.today()
@@ -378,7 +381,7 @@ class PCRParser(object):
             self.samples_df['Assessment'] = well_call_df.values
         except ValueError:
             logger.error("Well call number doesn't match sample number")
-        logger.debug(f"Well call dr: {well_call_df}")
+        logger.debug(f"Well call df: {well_call_df}")
         # iloc is [row][column]
         for ii, row in self.samples_df.iterrows():
             try:
@@ -387,7 +390,7 @@ class PCRParser(object):
                 sample_obj = dict(
                     sample = row['Sample'],
                     plate_rsl = self.plate_num,
-                    well_num = row['Well Position']
+                    elution_well = row['Well Position']
                 )
             logger.debug(f"Got sample obj: {sample_obj}") 
             # logger.debug(f"row: {row}")

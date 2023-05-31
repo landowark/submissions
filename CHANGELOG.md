@@ -1,3 +1,13 @@
+## 202305.05
+
+- Hitpicking now creates source plate map image.
+- Hitpick plate map is now included in exported plate results.
+
+## 202305.04
+
+- Added in hitpicking for plates with PCR results
+- Fixed error when expiry date stored as int in excel sheet.
+
 ## 202305.03
 
 - Added a detailed tab to the cost report.
