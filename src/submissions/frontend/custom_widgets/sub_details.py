@@ -423,7 +423,7 @@ class SubmissionComment(QDialog):
     def add_comment(self):
         commenter = getuser()
         comment = self.txt_editor.toPlainText()
-        dt = datetime.strftime(datetime.now(), "%Y-%m-d %H:%M:%S")
+        dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
         full_comment = {"name":commenter, "time": dt, "text": comment}
         logger.debug(f"Full comment: {full_comment}")
         sub = lookup_submission_by_rsl_num(ctx = self.ctx, rsl_num=self.rsl)

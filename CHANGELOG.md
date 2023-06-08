@@ -1,3 +1,8 @@
+## 202306.01
+
+- Large scale shake up of import and scraper functions.
+- Addition of Artic scrapers.
+
 ## 202305.05
 
 - Hitpicking now creates source plate map image.

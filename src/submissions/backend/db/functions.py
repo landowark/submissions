@@ -21,6 +21,7 @@ import numpy as np
 import yaml
 from pathlib import Path
 
+
 logger = logging.getLogger(f"submissions.{__name__}")
 
 # The below _should_ allow automatic creation of foreign keys in the database
@@ -41,12 +42,19 @@ def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None|d
     Returns:
         None|dict : object that indicates issue raised for reporting in gui
     """    
-    from tools import format_rsl_number
+    from tools import RSLNamer
     logger.debug(f"Hello from store_submission")
     # Add all samples to sample table
-    base_submission.rsl_plate_num = format_rsl_number(base_submission.rsl_plate_num)
+    typer = RSLNamer(base_submission.rsl_plate_num)
+    base_submission.rsl_plate_num = typer.parsed_name
     for sample in base_submission.samples:
-        sample.rsl_plate = base_submission
+        logger.debug(f"Typer: {typer.submission_type}")
+        # Suuuuuper hacky way to be sure that the artic doesn't overwrite the ww plate in a ww sample
+        # need something more elegant
+        if "_artic" not in typer.submission_type:
+            sample.rsl_plate = base_submission
+        else:
+            sample.artic_rsl_plate = base_submission
         logger.debug(f"Attempting to add sample: {sample.to_string()}")
         try:
             ctx['database_session'].add(sample)
@@ -152,7 +160,7 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
                 # Because of unique constraint, there will be problems with 
                 # multiple submissions named 'None', so...
                 logger.debug(f"Submitter plate id: {info_dict[item]}")
-                if info_dict[item] == None or info_dict[item] == "None":
+                if info_dict[item] == None or info_dict[item] == "None" or info_dict[item] == "":
                     logger.debug(f"Got None as a submitter plate number, inserting random string to preserve database unique constraint.")
                     info_dict[item] = uuid.uuid4().hex.upper()
                 field_value = info_dict[item]
@@ -170,8 +178,6 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         # ceil(instance.sample_count / 8) will get number of columns
         # the cost of a full run multiplied by (that number / 12) is x twelfths the cost of a full run
         logger.debug(f"Calculating costs for procedure...")
-        # cols_count = ceil(int(instance.sample_count) / 8)
-        # instance.run_cost = instance.extraction_kit.constant_cost + (instance.extraction_kit.mutable_cost * (cols_count / 12))
         instance.calculate_base_cost()
     except (TypeError, AttributeError) as e:
         logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
@@ -471,7 +477,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
     Returns:
         dict: a dictionary containing results of db addition
     """    
-    from tools import check_is_power_user
+    from tools import check_is_power_user, massage_common_reagents
     # Don't want just anyone adding kits
     if not check_is_power_user(ctx=ctx):
         logger.debug(f"{getuser()} does not have permission to add kits.")
@@ -491,6 +497,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
             # A kit contains multiple reagent types.
             for r in exp[type]['kits'][kt]['reagenttypes']:
                 # check if reagent type already exists.
+                r = massage_common_reagents(r)
                 look_up = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 if look_up == None:
                     rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit])
@@ -689,7 +696,10 @@ def delete_submission_by_id(ctx:dict, id:int) -> None:
         pass
     sub.reagents = []
     for sample in sub.samples:
-        ctx['database_session'].delete(sample)
+        if sample.rsl_plate == sub:
+            ctx['database_session'].delete(sample)
+        else:
+            logger.warning(f"Not deleting sample {sample.ww_sample_full_id} because it belongs to another plate.")
     ctx["database_session"].delete(sub)
     ctx["database_session"].commit()
 
@@ -705,6 +715,19 @@ def lookup_ww_sample_by_rsl_sample_number(ctx:dict, rsl_number:str) -> models.WW
         models.WWSample: instance of wastewater sample
     """    
     return ctx['database_session'].query(models.WWSample).filter(models.WWSample.rsl_number==rsl_number).first()
+
+def lookup_ww_sample_by_ww_sample_num(ctx:dict, sample_number:str) -> models.WWSample:
+    """
+    Retrieves wastewater sample from database by ww sample number
+
+    Args:
+        ctx (dict): settings passed down from gui
+        sample_number (str): sample number assigned by wastewater
+
+    Returns:
+        models.WWSample: instance of wastewater sample
+    """    
+    return ctx['database_session'].query(models.WWSample).filter(models.WWSample.ww_sample_full_id==sample_number).first()
 
 def lookup_ww_sample_by_sub_sample_rsl(ctx:dict, sample_rsl:str, plate_rsl:str) -> models.WWSample:
     """
@@ -774,7 +797,6 @@ def lookup_discounts_by_org_and_kit(ctx:dict, kit_id:int, lab_id:int):
         models.KitType.id==kit_id, 
         models.Organization.id==lab_id
         )).all()
-
 
 def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list:
     plate_dicto = []

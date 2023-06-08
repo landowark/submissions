@@ -161,7 +161,16 @@ class BasicSubmission(Base):
         }
         return output
     
-    
+    def calculate_base_cost(self):
+        try:
+            cols_count_96 = ceil(int(self.sample_count) / 8)
+        except Exception as e:
+            logger.error(f"Column count error: {e}")
+        # cols_count_24 = ceil(int(self.sample_count) / 3)
+        try:
+            self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+        except Exception as e:
+            logger.error(f"Calculation error: {e}")
 
 # Below are the custom submission types
 
@@ -185,16 +194,16 @@ class  BacterialCulture(BasicSubmission):
         return output
     
 
-    def calculate_base_cost(self):
-        try:
-            cols_count_96 = ceil(int(self.sample_count) / 8)
-        except Exception as e:
-            logger.error(f"Column count error: {e}")
-        # cols_count_24 = ceil(int(self.sample_count) / 3)
-        try:
-            self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
-        except Exception as e:
-            logger.error(f"Calculation error: {e}")
+    # def calculate_base_cost(self):
+    #     try:
+    #         cols_count_96 = ceil(int(self.sample_count) / 8)
+    #     except Exception as e:
+    #         logger.error(f"Column count error: {e}")
+    #     # cols_count_24 = ceil(int(self.sample_count) / 3)
+    #     try:
+    #         self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+    #     except Exception as e:
+    #         logger.error(f"Calculation error: {e}")
     
 
 class Wastewater(BasicSubmission):
@@ -220,14 +229,22 @@ class Wastewater(BasicSubmission):
             pass
         return output
     
-    def calculate_base_cost(self):
-        try:
-            cols_count_96 = ceil(int(self.sample_count) / 8) + 1 #: Adding in one column to account for 24 samples + ext negatives
-        except Exception as e:
-            logger.error(f"Column count error: {e}")
-        # cols_count_24 = ceil(int(self.sample_count) / 3)
-        try:
-            self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
-        except Exception as e:
-            logger.error(f"Calculation error: {e}")
-    
+    # def calculate_base_cost(self):
+    #     try:
+    #         cols_count_96 = ceil(int(self.sample_count) / 8) + 1 #: Adding in one column to account for 24 samples + ext negatives
+    #     except Exception as e:
+    #         logger.error(f"Column count error: {e}")
+    #     # cols_count_24 = ceil(int(self.sample_count) / 3)
+    #     try:
+    #         self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+    #     except Exception as e:
+    #         logger.error(f"Calculation error: {e}")
+
+
+class WastewaterArtic(BasicSubmission):
+    """
+    derivative submission type for artic wastewater
+    """    
+    samples = relationship("WWSample", back_populates="artic_rsl_plate", uselist=True)
+    # Can in use the pcr_info from the wastewater? Cause I can't define pcr_info here due to conflicts with that
+    __mapper_args__ = {"polymorphic_identity": "wastewater_artic", "polymorphic_load": "inline"}

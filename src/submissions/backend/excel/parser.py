@@ -2,18 +2,19 @@
 contains parser object for pulling values from client generated submission sheets.
 '''
 from getpass import getuser
+import math
 from typing import Tuple
 import pandas as pd
 from pathlib import Path
 from backend.db.models import WWSample, BCSample
-# from backend.db import lookup_ww_sample_by_rsl_sample_number
+from backend.db import lookup_ww_sample_by_ww_sample_num
 import logging
 from collections import OrderedDict
 import re
 import numpy as np
 from datetime import date, datetime
 import uuid
-from tools import check_not_nan, RSLNamer
+from tools import check_not_nan, RSLNamer, massage_common_reagents
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -21,20 +22,22 @@ class SheetParser(object):
     """
     object to pull and contain data from excel file
     """
-    def __init__(self, filepath:Path|None = None, **kwargs):
+    def __init__(self, ctx:dict, filepath:Path|None = None):
         """
         Args:
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
         """
+        self.ctx = ctx
         logger.debug(f"Parsing {filepath.__str__()}")
         # set attributes based on kwargs from gui ctx
-        for kwarg in kwargs:
-            setattr(self, f"_{kwarg}", kwargs[kwarg])
+        # for kwarg in kwargs:
+        #     setattr(self, f"_{kwarg}", kwargs[kwarg])
         # self.__dict__.update(kwargs)
         if filepath == None:
             logger.error(f"No filepath given.")
             self.xl = None
         else:
+            self.filepath = filepath
             try:
                 self.xl = pd.ExcelFile(filepath.__str__())
             except ValueError as e:
@@ -55,8 +58,8 @@ class SheetParser(object):
             str: submission type name
         """        
         try:
-            for type in self._submission_types:
-                if self.xl.sheet_names == self._submission_types[type]['excel_map']:
+            for type in self.ctx['submission_types']:
+                if self.xl.sheet_names == self.ctx['submission_types'][type]['excel_map']:
                     return type.title()
             return "Unknown"
         except Exception as e:
@@ -74,7 +77,7 @@ class SheetParser(object):
 
     def parse_generic(self, sheet_name:str) -> pd.DataFrame:
         """
-        Pulls information common to all submission types and passes on dataframe
+        Pulls information common to all wasterwater/bacterial culture types and passes on dataframe
 
         Args:
             sheet_name (str): name of excel worksheet to pull from
@@ -107,8 +110,6 @@ class SheetParser(object):
             """            
             for ii, row in df.iterrows():
                 # skip positive control
-                # if ii == 12:
-                #     continue
                 logger.debug(f"Running reagent parse for {row[1]} with type {type(row[1])} and value: {row[2]} with type {type(row[2])}")
                 if not isinstance(row[2], float) and check_not_nan(row[1]):
                     # must be prefixed with 'lot_' to be recognized by gui
@@ -156,7 +157,7 @@ class SheetParser(object):
         logger.debug(reagent_range)
         parse_reagents(reagent_range)
         # get individual sample info
-        sample_parser = SampleParser(submission_info.iloc[16:112])
+        sample_parser = SampleParser(self.ctx, submission_info.iloc[16:112])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
         self.sub['samples'] = sample_parse()
@@ -181,6 +182,7 @@ class SheetParser(object):
                     # regex below will remove 80% from 80% ethanol in the Wastewater kit.
                     output_key = re.sub(r"^\d{1,3}%\s?", "", row[0].lower().strip().replace(' ', '_'))
                     output_key = output_key.strip("_")
+                    # output_var is the lot number
                     try:
                         output_var = row[5].upper()
                     except AttributeError:
@@ -214,10 +216,82 @@ class SheetParser(object):
         parse_reagents(ext_reagent_range)
         parse_reagents(pcr_reagent_range)
         # parse samples
-        sample_parser = SampleParser(submission_info.iloc[16:])
+        sample_parser = SampleParser(self.ctx, submission_info.iloc[16:])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sub['samples'] = sample_parse()
         self.sub['csv'] = self.xl.parse("Copy to import file", dtype=object)
+
+
+    def parse_wastewater_artic(self) -> None:
+        """
+        pulls info specific to wastewater_arctic submission type
+        """
+        def parse_reagents(df:pd.DataFrame):
+            logger.debug(df)
+            for ii, row in df.iterrows():
+                if check_not_nan(row[0]):
+                    try:
+                        output_key = re.sub(r"\(.+?\)", "", row[0].lower().strip().replace(' ', '_'))
+                    except AttributeError:
+                        continue
+                    output_key = output_key.strip("_")
+                    output_key = massage_common_reagents(output_key)
+                    try:
+                        output_var = row[1].upper()
+                    except AttributeError:
+                        logger.debug(f"Couldn't upperize {row[1]}, must be a number")
+                        output_var = row[1]
+                    logger.debug(f"Output variable is {output_var}")
+                    logger.debug(f"Expiry date for imported reagent: {row[2]}")
+                    if check_not_nan(row[2]):
+                        try:
+                            expiry = row[2].date()
+                        except AttributeError as e:
+                            try:
+                                expiry = datetime.strptime(row[2], "%Y-%m-%d")
+                            except TypeError as e:
+                                expiry = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + row[2] - 2)
+                            except ValueError as e:
+                                continue
+                    else:
+                        logger.debug(f"Date: {row[2]}")
+                        expiry = date.today()
+                    self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
+                else:
+                    continue
+        def massage_samples(df:pd.DataFrame) -> pd.DataFrame:
+            df.set_index(df.columns[0], inplace=True)
+            df.columns = df.iloc[0]
+            logger.debug(f"df to massage\n: {df}")
+            return_list = []
+            for _, ii in df.iloc[1:,1:].iterrows():
+                for c in df.columns.to_list():
+                    logger.debug(f"Checking {ii.name}{c}")
+                    if check_not_nan(df.loc[ii.name, int(c)]) and df.loc[ii.name, int(c)] != "EMPTY":
+                        
+                        return_list.append(dict(sample_name=re.sub(r"\s?\(.*\)", "", df.loc[ii.name, int(c)]), \
+                                                well=f"{ii.name}{c}",
+                                                artic_plate=self.sub['rsl_plate_num']))
+            logger.debug(f"massaged sample list for {self.sub['rsl_plate_num']}: {return_list}")
+            return return_list
+        submission_info = self.xl.parse("First Strand", dtype=object)
+        biomek_info = self.xl.parse("ArticV4 Biomek", dtype=object)
+        sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
+        biomek_reagent_range = biomek_info.iloc[60:, 0:3].dropna(how='all')
+        self.sub['submitter_plate_num'] = ""
+        self.sub['rsl_plate_num'] =  RSLNamer(self.filepath.__str__()).parsed_name
+        self.sub['submitted_date'] = submission_info.iloc[0][2]
+        self.sub['submitting_lab'] = "Enterics Wastewater Genomics"
+        self.sub['sample_count'] = submission_info.iloc[4][6]
+        self.sub['extraction_kit'] = "ArticV4.1"
+        self.sub['technician'] = f"MM: {biomek_info.iloc[2][1]}, Bio: {biomek_info.iloc[3][1]}"
+        parse_reagents(sub_reagent_range)
+        parse_reagents(biomek_reagent_range)
+        samples = massage_samples(biomek_info.iloc[22:31, 0:])
+        sample_parser = SampleParser(self.ctx, pd.DataFrame.from_records(samples))
+        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        self.sub['samples'] = sample_parse()
+        
 
 
 class SampleParser(object):
@@ -225,13 +299,14 @@ class SampleParser(object):
     object to pull data for samples in excel sheet and construct individual sample objects
     """
 
-    def __init__(self, df:pd.DataFrame) -> None:
+    def __init__(self, ctx:dict, df:pd.DataFrame) -> None:
         """
         convert sample sub-dataframe to dictionary of records
 
         Args:
             df (pd.DataFrame): input sample dataframe
         """        
+        self.ctx = ctx
         self.samples = df.to_dict("records")
 
 
@@ -295,6 +370,29 @@ class SampleParser(object):
             new.well_number = sample['Unnamed: 1']
             new_list.append(new)
         return new_list
+    
+    def parse_wastewater_artic_samples(self) -> list[WWSample]:
+        """
+        The artic samples are the wastewater samples that are to be sequenced
+        So we will need to lookup existing ww samples and append Artic well # and plate relation
+
+        Returns:
+            list[WWSample]: list of wastewater samples to be updated
+        """        
+        new_list = []
+        for sample in self.samples:
+            with self.ctx['database_session'].no_autoflush:
+                instance = lookup_ww_sample_by_ww_sample_num(ctx=self.ctx, sample_number=sample['sample_name'])
+            logger.debug(f"Checking: {sample['sample_name']}")
+            if instance == None:
+                logger.error(f"Unable to find match for: {sample['sample_name']}")
+                continue
+            logger.debug(f"Got instance: {instance.ww_sample_full_id}")
+            instance.artic_well_number = sample['well']
+            new_list.append(instance)
+        return new_list
+            
+
 
 
 class PCRParser(object):

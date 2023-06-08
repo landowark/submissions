@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Version of the realpython-reader package
 __project__ = "submissions"
-__version__ = "202305.4b"
+__version__ = "202306.1b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = "2022-2023, Government of Canada"
 
@@ -28,3 +28,7 @@ class bcolors:
 # Second, you will have to update the model in backend.db.models.submissions and provide a new polymorph to the BasicSubmission object.
 # The BSO should hold the majority of the general info.
 # You can also update any of the parsers to pull out any custom info you need, like enforcing RSL plate numbers, scraping PCR results, etc.
+
+# Landon, this is your slightly less past self here. For the most part, Past Landon has not screwed us. I've been able to add in the
+# Wastewater Artic with minimal difficulties, except that the parser of the non-standard, user-generated excel sheets required slightly
+# more work.

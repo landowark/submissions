@@ -83,7 +83,10 @@ def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None
         case BasicSubmission():
             ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types]
             # Overwrite function parameter reagenttypes
-            reagenttypes = [reagent.type.name for reagent in sub.reagents]
+            try:
+                reagenttypes = [reagent.type.name for reagent in sub.reagents]
+            except AttributeError as e:
+                logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
         case KitType():
             ext_kit_rtypes = [reagenttype.name for reagenttype in sub.reagent_types]
     logger.debug(f"Kit reagents: {ext_kit_rtypes}")
@@ -191,9 +194,12 @@ class RSLNamer(object):
             self.submission_type = None
             return
         logger.debug(f"Attempting match of {in_str}")
+        print(f"The initial plate name is: {in_str}")
         regex = re.compile(r"""
-            (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?(?!\d)R?\d(?!\d))?)|
-            (?P<bacterial_culture>RSL-?\d{2}-?\d{4})
+            # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
+            (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
+            (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
+            (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}_(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
             """, flags = re.IGNORECASE | re.VERBOSE)
         m = regex.search(in_str)
         try:
@@ -212,6 +218,25 @@ class RSLNamer(object):
         self.parsed_name = self.parsed_name.replace("RSLWW", "RSL-WW")
         self.parsed_name = re.sub(r"WW(\d{4})", r"WW-\1", self.parsed_name, flags=re.IGNORECASE)
         self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", self.parsed_name)
+        print(f"Coming out of the preliminary parsing, the plate name is {self.parsed_name}")
+        try:
+            plate_number = re.search(r"(?:(-|_)\d)(?!\d)", self.parsed_name).group().strip("_").strip("-")
+            print(f"Plate number is: {plate_number}")
+        except AttributeError as e:
+            plate_number = "1"
+        # self.parsed_name = re.sub(r"(\d{8})(-|_\d)?(R\d)?", fr"\1-{plate_number}\3", self.parsed_name)
+        self.parsed_name = re.sub(r"(\d{8})(-|_)?\d?(R\d?)?", rf"\1-{plate_number}\3", self.parsed_name)
+        print(f"After addition of plate number the plate name is: {self.parsed_name}")
+        try:
+            repeat = re.search(r"-\dR(?P<repeat>\d)?", self.parsed_name).groupdict()['repeat']
+            if repeat == None:
+                repeat = "1"
+        except AttributeError as e:
+            repeat = ""
+        self.parsed_name = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", self.parsed_name).replace(" ", "")
+        
+
+        
 
     def enforce_bacterial_culture(self):
         """
@@ -219,4 +244,20 @@ class RSLNamer(object):
         """        
         self.parsed_name = re.sub(r"RSL(\d{2})", r"RSL-\1", self.parsed_name, flags=re.IGNORECASE)
         self.parsed_name = re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", self.parsed_name, flags=re.IGNORECASE)
+
+    def enforce_wastewater_artic(self):
+        self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"RSL-AR-\1\2\3", self.parsed_name, flags=re.IGNORECASE)
+        try:
+            plate_number = int(re.search(r"_\d?_", self.parsed_name).group().strip("_"))
+        except AttributeError as e:
+            plate_number = 1
+        self.parsed_name = re.sub(r"(_\d)?_ARTIC", f"-{plate_number}", self.parsed_name)
+
+
+def massage_common_reagents(reagent_name:str):
+    logger.debug(f"Attempting to massage {reagent_name}")
+    if reagent_name.endswith("water") or "H2O" in reagent_name:
+        reagent_name = "molecular_grade_water"
+    reagent_name = reagent_name.replace("µ", "u")
+    return reagent_name
         

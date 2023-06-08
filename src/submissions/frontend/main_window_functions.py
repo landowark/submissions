@@ -53,7 +53,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
         return obj, result
     # create sheetparser using excel sheet and context from gui
     try:
-        prsr = SheetParser(fname, **obj.ctx)
+        prsr = SheetParser(ctx=obj.ctx, filepath=fname)
     except PermissionError:
         logger.error(f"Couldn't get permission to access file: {fname}")
         return
