@@ -31,6 +31,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
+
 def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None|dict:
     """
     Upserts submissions into database
@@ -799,9 +800,21 @@ def lookup_discounts_by_org_and_kit(ctx:dict, kit_id:int, lab_id:int):
         )).all()
 
 def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list:
+    """
+    Creates a list of sample positions and statuses to be used by plate mapping and csv output to biomek software.
+
+    Args:
+        submission (models.BasicSubmission): Input submission
+        plate_number (int, optional): plate position in the series of selected plates. Defaults to 0.
+
+    Returns:
+        list: list of sample dictionaries.
+    """    
     plate_dicto = []
     for sample in submission.samples:
         # have sample report back its info if it's positive, otherwise, None
+        method_list = [func for func in dir(sample) if callable(getattr(sample, func))]
+        logger.debug(f"Method list of sample: {method_list}")
         samp = sample.to_hitpick()
         if samp == None:
             continue
@@ -811,6 +824,43 @@ def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list
             # if len(dicto) < 88:
             this_sample = dict(
                 plate_number = plate_number,
+                sample_name = samp['name'],
+                column = samp['col'],
+                row = samp['row'],
+                positive = samp['positive'],
+                plate_name = submission.rsl_plate_num
+            )
+            # append to plate samples
+            plate_dicto.append(this_sample)
+            # append to all samples
+    # image = make_plate_map(plate_dicto)
+    return plate_dicto
+
+def platemap_plate(submission:models.BasicSubmission) -> list:
+    """
+    Depreciated. Replaced by new functionality in hitpick_plate
+
+    Args:
+        submission (models.BasicSubmission): Input submission
+
+    Returns:
+        list: list of sample dictionaries
+    """    
+    plate_dicto = []
+    for sample in submission.samples:
+        # have sample report back its info if it's positive, otherwise, None
+        
+        try:
+            samp = sample.to_platemap()
+        except AttributeError:
+            continue
+        if samp == None:
+            continue
+        else:
+            logger.debug(f"Item name: {samp['name']}")
+            # plate can handle 88 samples to leave column for controls
+            # if len(dicto) < 88:
+            this_sample = dict(
                 sample_name = samp['name'],
                 column = samp['col'],
                 row = samp['row'],

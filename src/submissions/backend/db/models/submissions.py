@@ -1,6 +1,7 @@
 '''
 Models for the main submission types.
 '''
+import math
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT
 from sqlalchemy.orm import relationship
@@ -246,5 +247,24 @@ class WastewaterArtic(BasicSubmission):
     derivative submission type for artic wastewater
     """    
     samples = relationship("WWSample", back_populates="artic_rsl_plate", uselist=True)
-    # Can in use the pcr_info from the wastewater? Cause I can't define pcr_info here due to conflicts with that
+    # Can it use the pcr_info from the wastewater? Cause I can't define pcr_info here due to conflicts with that
+    # Not necessary because we don't get any results for this procedure.
     __mapper_args__ = {"polymorphic_identity": "wastewater_artic", "polymorphic_load": "inline"}
+
+    def calculate_base_cost(self):
+        """
+        This method overrides parent method due to multiple output plates from a single submission
+        """        
+        logger.debug(f"Hello from calculate base cost in WWArtic")
+        try:
+            cols_count_96 = ceil(int(self.sample_count) / 8)
+        except Exception as e:
+            logger.error(f"Column count error: {e}")
+        # Since we have multiple output plates per submission form, the constant cost will have to reflect this.
+        output_plate_count = math.ceil(int(self.sample_count) / 16)
+        logger.debug(f"Looks like we have {output_plate_count} output plates.")
+        const_cost = self.extraction_kit.constant_cost * output_plate_count
+        try:
+            self.run_cost = const_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+        except Exception as e:
+            logger.error(f"Calculation error: {e}")

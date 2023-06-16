@@ -114,6 +114,10 @@ class SubmissionsSheet(QTableView):
             del self.data['reagents']
         except KeyError:
             pass
+        try:
+            del self.data['comments']
+        except KeyError:
+            pass
         proxyModel = QSortFilterProxyModel()
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
@@ -226,11 +230,12 @@ class SubmissionsSheet(QTableView):
                 else:
                     logger.error(f"We had to truncate the number of samples to 94.")
         logger.debug(f"We found {len(dicto)} to hitpick")
-        msg = AlertPop(message=f"We found {len(dicto)} samples to hitpick", status="INFORMATION")
-        msg.exec()
         # convert all samples to dataframe
         df = make_hitpicks(dicto)
-        logger.debug(f"Size of the dataframe: {df.size}")
+        df = df[df.positive != False]
+        logger.debug(f"Size of the dataframe: {df.shape[0]}")
+        msg = AlertPop(message=f"We found {df.shape[0]} samples to hitpick", status="INFORMATION")
+        msg.exec()
         if df.size == 0:
             return
         date = datetime.strftime(datetime.today(), "%Y-%m-%d")
@@ -264,6 +269,7 @@ class SubmissionDetails(QDialog):
         interior.setParent(self)
         # get submision from db
         data = lookup_submission_by_id(ctx=ctx, id=id)
+        logger.debug(f"Submission details data:\n{data.to_dict()}")
         self.base_dict = data.to_dict()
         # don't want id
         del self.base_dict['id']
@@ -308,8 +314,11 @@ class SubmissionDetails(QDialog):
         platemap = make_plate_map(plate_dicto)
         logger.debug(f"platemap: {platemap}")
         image_io = BytesIO()
-        platemap.save(image_io, 'JPEG')
-        platemap.save("test.jpg", 'JPEG')
+        try:
+            platemap.save(image_io, 'JPEG')
+        except AttributeError:
+            logger.error(f"No plate map found for {sub.rsl_plate_num}")
+        # platemap.save("test.jpg", 'JPEG')
         self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
         logger.debug(self.base_dict)
         html = template.render(sub=self.base_dict)

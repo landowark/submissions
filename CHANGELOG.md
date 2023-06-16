@@ -1,3 +1,8 @@
+## 202306.02
+
+- Addition of bacterial plate maps to details export.
+- Change in Artic cost calculation to reflect multiple output plates per submission.
+
 ## 202306.01
 
 - Large scale shake up of import and scraper functions.

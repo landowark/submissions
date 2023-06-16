@@ -26,7 +26,7 @@ from backend.db.functions import (
     lookup_all_orgs, lookup_kittype_by_use, lookup_kittype_by_name, 
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
-    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample
+    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample, hitpick_plate
 )
 from backend.excel.parser import SheetParser, PCRParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
@@ -35,6 +35,7 @@ from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker, ReagentTypeForm
 from .custom_widgets.misc import ImportReagent
 from .visualizations.control_charts import create_charts, construct_html
+from .visualizations import make_plate_map
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -60,6 +61,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     if prsr.sub['rsl_plate_num'] == None:
         prsr.sub['rsl_plate_num'] = RSLNamer(fname.__str__()).parsed_name
     logger.debug(f"prsr.sub = {prsr.sub}")
+    obj.current_submission_type = prsr.sub['submission_type']
     # destroy any widgets from previous imports
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
@@ -111,7 +113,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                     uses.insert(0, uses.pop(uses.index(prsr.sub[item])))
                     obj.ext_kit = prsr.sub[item]
                 else:
-                    logger.error(f"Couldn't find prsr.sub[extraction_kit]")
+                    logger.error(f"Couldn't find {prsr.sub['extraction_kit']}")
                     obj.ext_kit = uses[0]
                 add_widget.addItems(uses)
             case 'submitted_date':
@@ -156,6 +158,9 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     if hasattr(obj, 'ext_kit'):
         obj.kit_integrity_completion()
     logger.debug(f"Imported reagents: {obj.reagents}")
+    if prsr.sample_result != None:
+        msg = AlertPop(message=prsr.sample_result, status="WARNING")
+        msg.exec()
     return obj, result
 
 def kit_reload_function(obj:QMainWindow) -> QMainWindow:
@@ -263,6 +268,7 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     # reset form
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
+    logger.debug(f"All attributes of obj: {pprint.pprint(obj.__dict__)}")
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
@@ -271,6 +277,14 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
                 obj.csv.to_csv(fname.__str__(), index=False)
             except PermissionError:
                 logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
+    try:
+        delattr(obj, "csv")
+    except AttributeError:
+        pass
+    # if obj.current_submission_type == "Bacterial_Culture":
+    #     hitpick = hitpick_plate(base_submission)
+    #     image = make_plate_map(hitpick)
+    #     image.show()
     return obj, result
 
 def generate_report_function(obj:QMainWindow) -> QMainWindow:

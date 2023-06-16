@@ -3,6 +3,7 @@ contains parser object for pulling values from client generated submission sheet
 '''
 from getpass import getuser
 import math
+import pprint
 from typing import Tuple
 import pandas as pd
 from pathlib import Path
@@ -160,14 +161,19 @@ class SheetParser(object):
         sample_parser = SampleParser(self.ctx, submission_info.iloc[16:112])
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
-        self.sub['samples'] = sample_parse()
+        self.sample_result, self.sub['samples'] = sample_parse()
 
 
     def parse_wastewater(self) -> None:
         """
         pulls info specific to wastewater sample type
         """        
-
+        def retrieve_elution_map():
+            full = self.xl.parse("Extraction Worksheet")
+            elu_map = full.iloc[9:18, 5:]
+            elu_map.set_index(elu_map.columns[0], inplace=True)
+            elu_map.columns = elu_map.iloc[0]
+            return elu_map
         def parse_reagents(df:pd.DataFrame) -> None:
             """
             Pulls reagents from the bacterial sub-dataframe
@@ -216,9 +222,9 @@ class SheetParser(object):
         parse_reagents(ext_reagent_range)
         parse_reagents(pcr_reagent_range)
         # parse samples
-        sample_parser = SampleParser(self.ctx, submission_info.iloc[16:])
+        sample_parser = SampleParser(self.ctx, submission_info.iloc[16:], elution_map=retrieve_elution_map())
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
-        self.sub['samples'] = sample_parse()
+        self.sample_result, self.sub['samples'] = sample_parse()
         self.sub['csv'] = self.xl.parse("Copy to import file", dtype=object)
 
 
@@ -272,7 +278,7 @@ class SheetParser(object):
                         return_list.append(dict(sample_name=re.sub(r"\s?\(.*\)", "", df.loc[ii.name, int(c)]), \
                                                 well=f"{ii.name}{c}",
                                                 artic_plate=self.sub['rsl_plate_num']))
-            logger.debug(f"massaged sample list for {self.sub['rsl_plate_num']}: {return_list}")
+            logger.debug(f"massaged sample list for {self.sub['rsl_plate_num']}: {pprint.pprint(return_list)}")
             return return_list
         submission_info = self.xl.parse("First Strand", dtype=object)
         biomek_info = self.xl.parse("ArticV4 Biomek", dtype=object)
@@ -280,7 +286,7 @@ class SheetParser(object):
         biomek_reagent_range = biomek_info.iloc[60:, 0:3].dropna(how='all')
         self.sub['submitter_plate_num'] = ""
         self.sub['rsl_plate_num'] =  RSLNamer(self.filepath.__str__()).parsed_name
-        self.sub['submitted_date'] = submission_info.iloc[0][2]
+        self.sub['submitted_date'] = biomek_info.iloc[1][1]
         self.sub['submitting_lab'] = "Enterics Wastewater Genomics"
         self.sub['sample_count'] = submission_info.iloc[4][6]
         self.sub['extraction_kit'] = "ArticV4.1"
@@ -290,7 +296,7 @@ class SheetParser(object):
         samples = massage_samples(biomek_info.iloc[22:31, 0:])
         sample_parser = SampleParser(self.ctx, pd.DataFrame.from_records(samples))
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
-        self.sub['samples'] = sample_parse()
+        self.sample_result, self.sub['samples'] = sample_parse()
         
 
 
@@ -299,18 +305,21 @@ class SampleParser(object):
     object to pull data for samples in excel sheet and construct individual sample objects
     """
 
-    def __init__(self, ctx:dict, df:pd.DataFrame) -> None:
+    def __init__(self, ctx:dict, df:pd.DataFrame, elution_map:pd.DataFrame|None=None) -> None:
         """
         convert sample sub-dataframe to dictionary of records
 
         Args:
+            ctx (dict): setting passed down from gui
             df (pd.DataFrame): input sample dataframe
+            elution_map (pd.DataFrame | None, optional): optional map of elution plate. Defaults to None.
         """        
         self.ctx = ctx
         self.samples = df.to_dict("records")
+        self.elution_map = elution_map
 
 
-    def parse_bacterial_culture_samples(self) -> list[BCSample]:
+    def parse_bacterial_culture_samples(self) -> Tuple[str|None, list[BCSample]]:
         """
         construct bacterial culture specific sample objects
 
@@ -334,16 +343,28 @@ class SampleParser(object):
                 not_a_nan = True
             if not_a_nan:
                 new_list.append(new)
-        return new_list
+        return None, new_list
 
 
-    def parse_wastewater_samples(self) -> list[WWSample]:
+    def parse_wastewater_samples(self) -> Tuple[str|None, list[WWSample]]:
         """
         construct wastewater specific sample objects
 
         Returns:
             list[WWSample]: list of sample objects
         """        
+        def search_df_for_sample(sample_rsl:str):
+            logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
+            print(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
+            well = self.elution_map.where(self.elution_map==sample_rsl).dropna(how='all').dropna(axis=1)
+            self.elution_map.at[well.index[0], well.columns[0]] = np.nan
+            try:
+                col = str(int(well.columns[0]))
+            except ValueError:
+                col = str(well.columns[0])
+            except TypeError as e:
+                logger.error(f"Problem parsing out column number for {well}:\n {e}")
+            return f"{well.index[0]}{col}"
         new_list = []
         for sample in self.samples:
             new = WWSample()
@@ -368,10 +389,11 @@ class SampleParser(object):
             # new.site_status = sample['Unnamed: 7']
             new.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
             new.well_number = sample['Unnamed: 1']
+            new.elution_well = search_df_for_sample(new.rsl_number)
             new_list.append(new)
-        return new_list
+        return None, new_list
     
-    def parse_wastewater_artic_samples(self) -> list[WWSample]:
+    def parse_wastewater_artic_samples(self) -> Tuple[str|None, list[WWSample]]:
         """
         The artic samples are the wastewater samples that are to be sequenced
         So we will need to lookup existing ww samples and append Artic well # and plate relation
@@ -380,17 +402,20 @@ class SampleParser(object):
             list[WWSample]: list of wastewater samples to be updated
         """        
         new_list = []
+        missed_samples = []
         for sample in self.samples:
             with self.ctx['database_session'].no_autoflush:
                 instance = lookup_ww_sample_by_ww_sample_num(ctx=self.ctx, sample_number=sample['sample_name'])
             logger.debug(f"Checking: {sample['sample_name']}")
             if instance == None:
                 logger.error(f"Unable to find match for: {sample['sample_name']}")
+                missed_samples.append(sample['sample_name'])
                 continue
             logger.debug(f"Got instance: {instance.ww_sample_full_id}")
             instance.artic_well_number = sample['well']
             new_list.append(instance)
-        return new_list
+        missed_str = "\n\t".join(missed_samples)
+        return f"Could not find matches for the following samples:\n\t {missed_str}", new_list
             
 
 
@@ -472,6 +497,7 @@ class PCRParser(object):
         df = self.parse_general(sheet_name="Results")
         column_names = ["Well", "Well Position", "Omit","Sample","Target","Task"," Reporter","Quencher","Amp Status","Amp Score","Curve Quality","Result Quality Issues","Cq","Cq Confidence","Cq Mean","Cq SD","Auto Threshold","Threshold", "Auto Baseline", "Baseline Start", "Baseline End"]
         self.samples_df = df.iloc[23:][0:]
+        logger.debug(f"Dataframe of PCR results:\n\t{self.samples_df}")
         self.samples_df.columns = column_names
         logger.debug(f"Samples columns: {self.samples_df.columns}")
         well_call_df = self.xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:,-1:]
@@ -488,7 +514,7 @@ class PCRParser(object):
                 sample_obj = dict(
                     sample = row['Sample'],
                     plate_rsl = self.plate_num,
-                    elution_well = row['Well Position']
+                    # elution_well = row['Well Position']
                 )
             logger.debug(f"Got sample obj: {sample_obj}") 
             # logger.debug(f"row: {row}")

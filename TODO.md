@@ -1,4 +1,5 @@
-- [ ] Create a method for creation of hitpicking .csvs because of reasons that may or may not exist.
+- [ ] Improve plate mapping by using layout in submission forms rather than PCR.
+- [x] Create a method for creation of hitpicking .csvs because of reasons that may or may not exist.
 - [x] Create a method for commenting submissions.
 - [x] Create barcode generator, because of reasons that may or may not exist.
 - [x] Move bulk of functions from frontend.__init__ to frontend.functions as __init__ is getting bloated.

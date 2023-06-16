@@ -12,7 +12,7 @@ def make_plate_map(sample_list:list) -> Image:
     Makes a pillow image of a plate from hitpicks 
 
     Args:
-        sample_list (list): list of positive sample dictionaries from the hitpicks
+        sample_list (list): list of sample dictionaries from the hitpicks
 
     Returns:
         Image: Image of the 96 well plate with positive samples in red.
@@ -26,12 +26,17 @@ def make_plate_map(sample_list:list) -> Image:
     except TypeError as e:
         logger.error(f"No samples for this plate. Nothing to do.")
         return None
-    # Make a 8 row, 12 column, 3 color ints array, filled with white by default
+    # Make an 8 row, 12 column, 3 color ints array, filled with white by default
     grid = np.full((8,12,3),255, dtype=np.uint8)
-    # Go through samples and change its row/column to red
+    # Go through samples and change its row/column to red if positive, else blue
     for sample in sample_list:
-        grid[int(sample['row'])-1][int(sample['column'])-1] = [255,0,0]
-    # Create image from the grid
+        logger.debug(f"sample keys: {list(sample.keys())}")
+        if sample['positive']:
+            colour = [255,0,0]
+        else:
+            colour = [0,0,255]
+        grid[int(sample['row'])-1][int(sample['column'])-1] = colour
+    # Create pixel image from the grid and enlarge
     img = Image.fromarray(grid).resize((1200, 800), resample=Image.NEAREST)
     # create a drawer over the image
     draw = ImageDraw.Draw(img)
@@ -58,7 +63,6 @@ def make_plate_map(sample_list:list) -> Image:
     new_img.paste(img, box)
     # create drawer over the new image
     draw = ImageDraw.Draw(new_img)
-    # font = ImageFont.truetype("sans-serif.ttf", 16)
     if check_if_app():
         font_path = Path(sys._MEIPASS).joinpath("files", "resources")
     else:

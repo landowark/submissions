@@ -62,8 +62,10 @@ class WWSample(Base):
         # if well_col > 4:
         #     well
         if self.ct_n1 != None and self.ct_n2 != None:
+            # logger.debug(f"Using well info in name.")
             name = f"{self.ww_sample_full_id}\n\t- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})\n\t- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
         else:
+            # logger.debug(f"NOT using well info in name for: {self.ww_sample_full_id}")
             name = self.ww_sample_full_id
         return {
             "well": self.well_number,
@@ -85,18 +87,23 @@ class WWSample(Base):
         except TypeError as e:
             logger.error(f"Couldn't check positives for {self.rsl_number}. Looks like there isn't PCR data.")
             return None
-        if positive:
-            try:
-                # The first character of the elution well is the row
-                well_row = row_dict[self.elution_well[0]]
-                # The remaining charagers are the columns
-                well_col = self.elution_well[1:]
-            except TypeError as e:
-                logger.error(f"This sample doesn't have elution plate info.")
-                return None
-            return dict(name=self.ww_sample_full_id, row=well_row, col=well_col)
-        else:
-            return None
+        well_row = row_dict[self.elution_well[0]]
+        well_col = self.elution_well[1:]
+        # if positive:
+        #     try:
+        #         # The first character of the elution well is the row
+        #         well_row = row_dict[self.elution_well[0]]
+        #         # The remaining charagers are the columns
+        #         well_col = self.elution_well[1:]
+        #     except TypeError as e:
+        #         logger.error(f"This sample doesn't have elution plate info.")
+        #         return None
+        return dict(name=self.ww_sample_full_id, 
+                    row=well_row, 
+                    col=well_col, 
+                    positive=positive)
+        # else:
+        #     return None
 
 
 class BCSample(Base):
@@ -134,7 +141,24 @@ class BCSample(Base):
             "name": f"{self.sample_id} - ({self.organism})",
         }
 
+    def to_hitpick(self) -> dict|None:
+        """
+        Outputs a dictionary of locations
 
+        Returns:
+            dict: dictionary of sample id, row and column in elution plate
+        """        
+        # dictionary to translate row letters into numbers
+        row_dict = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
+        # if either n1 or n2 is positive, include this sample
+        well_row = row_dict[self.well_number[0]]
+        # The remaining charagers are the columns
+        well_col = self.well_number[1:]
+        return dict(name=self.sample_id, 
+                    row=well_row, 
+                    col=well_col, 
+                    positive=False)
+        
 # class ArticSample(Base):
 #     """
 #     base of artic sample
