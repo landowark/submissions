@@ -1,3 +1,7 @@
+## 202306.03
+
+- Improve WW plate mapping by using layout in submission forms rather than PCR.
+
 ## 202306.02
 
 - Addition of bacterial plate maps to details export.

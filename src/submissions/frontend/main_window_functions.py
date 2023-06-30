@@ -61,6 +61,9 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     if prsr.sub['rsl_plate_num'] == None:
         prsr.sub['rsl_plate_num'] = RSLNamer(fname.__str__()).parsed_name
     logger.debug(f"prsr.sub = {prsr.sub}")
+    for sample in prsr.sub['samples']:
+        if hasattr(sample, "elution_well"):
+            logger.debug(f"Sample from import: {sample.elution_well}")
     obj.current_submission_type = prsr.sub['submission_type']
     # destroy any widgets from previous imports
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):

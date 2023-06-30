@@ -173,6 +173,7 @@ class SheetParser(object):
             elu_map = full.iloc[9:18, 5:]
             elu_map.set_index(elu_map.columns[0], inplace=True)
             elu_map.columns = elu_map.iloc[0]
+            elu_map = elu_map.tail(-1)
             return elu_map
         def parse_reagents(df:pd.DataFrame) -> None:
             """
@@ -274,10 +275,13 @@ class SheetParser(object):
                 for c in df.columns.to_list():
                     logger.debug(f"Checking {ii.name}{c}")
                     if check_not_nan(df.loc[ii.name, int(c)]) and df.loc[ii.name, int(c)] != "EMPTY":
-                        
-                        return_list.append(dict(sample_name=re.sub(r"\s?\(.*\)", "", df.loc[ii.name, int(c)]), \
+                        try:
+                            return_list.append(dict(sample_name=re.sub(r"\s?\(.*\)", "", df.loc[ii.name, int(c)]), \
                                                 well=f"{ii.name}{c}",
                                                 artic_plate=self.sub['rsl_plate_num']))
+                        except TypeError as e:
+                            logger.error(f"Got an int for {c}, skipping.")
+                            continue
             logger.debug(f"massaged sample list for {self.sub['rsl_plate_num']}: {pprint.pprint(return_list)}")
             return return_list
         submission_info = self.xl.parse("First Strand", dtype=object)
@@ -355,8 +359,12 @@ class SampleParser(object):
         """        
         def search_df_for_sample(sample_rsl:str):
             logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
-            print(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
-            well = self.elution_map.where(self.elution_map==sample_rsl).dropna(how='all').dropna(axis=1)
+            well = self.elution_map.where(self.elution_map==sample_rsl)
+            # logger.debug(f"Well: {well}")
+            well = well.dropna(how='all').dropna(axis=1, how="all")
+            if well.size > 1:
+                well = well.iloc[0].to_frame().dropna().T
+            logger.debug(f"well {sample_rsl} post processing: {well.size}: {type(well)}, {well.index[0]}, {well.columns[0]}")
             self.elution_map.at[well.index[0], well.columns[0]] = np.nan
             try:
                 col = str(int(well.columns[0]))
@@ -366,6 +374,7 @@ class SampleParser(object):
                 logger.error(f"Problem parsing out column number for {well}:\n {e}")
             return f"{well.index[0]}{col}"
         new_list = []
+        return_val = None
         for sample in self.samples:
             new = WWSample()
             if check_not_nan(sample["Unnamed: 7"]):
@@ -389,9 +398,16 @@ class SampleParser(object):
             # new.site_status = sample['Unnamed: 7']
             new.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
             new.well_number = sample['Unnamed: 1']
-            new.elution_well = search_df_for_sample(new.rsl_number)
+            elu_well = search_df_for_sample(new.rsl_number)
+            if elu_well != None:
+                new.elution_well = elu_well
+            else:
+                # try:
+                return_val += f"{new.rsl_number}\n"
+                # except TypeError:
+                    # return_val = f"{new.rsl_number}\n"
             new_list.append(new)
-        return None, new_list
+        return return_val, new_list
     
     def parse_wastewater_artic_samples(self) -> Tuple[str|None, list[WWSample]]:
         """
