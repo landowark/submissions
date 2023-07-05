@@ -18,7 +18,7 @@ from backend.db.models import *
 import logging
 from PyQt6.QtWidgets import (
     QMainWindow, QLabel, QWidget, QPushButton, QFileDialog,
-    QLineEdit, QMessageBox, QComboBox, QDateEdit
+    QLineEdit, QComboBox, QDateEdit
 )
 from .all_window_functions import extract_form_info, select_open_file, select_save_file
 from PyQt6.QtCore import QSignalBlocker
@@ -26,16 +26,15 @@ from backend.db.functions import (
     lookup_all_orgs, lookup_kittype_by_use, lookup_kittype_by_name, 
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
-    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample, hitpick_plate
+    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample
 )
 from backend.excel.parser import SheetParser, PCRParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
 from tools import RSLNamer, check_not_nan, check_kit_integrity
 from .custom_widgets.pop_ups import AlertPop, QuestionAsker
-from .custom_widgets import ReportDatePicker, ReagentTypeForm
+from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent
 from .visualizations.control_charts import create_charts, construct_html
-from .visualizations import make_plate_map
 
 
 logger = logging.getLogger(f"submissions.{__name__}")

@@ -1,4 +1,5 @@
-- [ ] Move submission types from config.yml into database.
+- [ ] Migrate the parser.sub dictionary to pydantic models.
+- [x] Move type_decider to metadata based method rather than excel map.
 - [x] Solve bug for plate mapping when two samples of same name are in different rows.
     - Try importing "L:\Robotics Laboratory Support\Submissions\Wastewater\2023\2023-06-21\RSL-WW-20230621-1.xlsx" for example.
 - [x] Improve plate mapping by using layout in submission forms rather than PCR.

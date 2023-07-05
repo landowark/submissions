@@ -2,7 +2,6 @@
 contains parser object for pulling values from client generated submission sheets.
 '''
 from getpass import getuser
-import math
 import pprint
 from typing import Tuple
 import pandas as pd
@@ -44,6 +43,7 @@ class SheetParser(object):
             except ValueError as e:
                 logger.error(f"Incorrect value: {e}")
                 self.xl = None
+        # TODO: replace OrderedDict with pydantic BaseModel
         self.sub = OrderedDict()
         # make decision about type of sample we have
         self.sub['submission_type'] = self.type_decider()
@@ -58,14 +58,22 @@ class SheetParser(object):
         Returns:
             str: submission type name
         """        
-        try:
-            for type in self.ctx['submission_types']:
-                if self.xl.sheet_names == self.ctx['submission_types'][type]['excel_map']:
-                    return type.title()
-            return "Unknown"
-        except Exception as e:
-            logger.warning(f"We were unable to parse the submission type due to: {e}")
-            return "Unknown"
+        # Check metadata for category, return first category
+        if self.xl.book.properties.category != None:
+            categories = [item.strip().title() for item in self.xl.book.properties.category.split(";")]
+            return categories[0].replace(" ", "_")
+        else:
+            # This code is going to be depreciated once there is full adoption of the client sheets
+            # with updated metadata
+            try:
+                for type in self.ctx['submission_types']:
+                    # This gets the *first* submission type that matches the sheet names in the workbook 
+                    if self.xl.sheet_names == self.ctx['submission_types'][type]['excel_map']:
+                        return type.title()
+                return "Unknown"
+            except Exception as e:
+                logger.warning(f"We were unable to parse the submission type due to: {e}")
+                return "Unknown"
 
 
     def parse_unknown(self) -> None:

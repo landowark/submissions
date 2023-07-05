@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 import re
 from tools import check_if_app
-import asyncio
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Version of the realpython-reader package
 __project__ = "submissions"
-__version__ = "202306.3b"
+__version__ = "202307.1b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = "2022-2023, Government of Canada"
 
@@ -25,6 +25,7 @@ class bcolors:
 # set out the workflow I've imagined for creating new submission types.
 # First of all, you will need to write new parsing methods in backend.excel.parser to pull information out of the submission form
 # for the submission itself as well as for any samples you can pull out of that same workbook.
+# The workbooks no longer need a sheet map, but they do need their submission type put in the categories metadata of the client excel template.
 # Second, you will have to update the model in backend.db.models.submissions and provide a new polymorph to the BasicSubmission object.
 # The BSO should hold the majority of the general info.
 # You can also update any of the parsers to pull out any custom info you need, like enforcing RSL plate numbers, scraping PCR results, etc.

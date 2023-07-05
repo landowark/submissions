@@ -1,3 +1,7 @@
+## 202307.01
+
+- Moved parser to metadata based recognition of submission type.
+
 ## 202306.03
 
 - Improve WW plate mapping by using layout in submission forms rather than PCR.
