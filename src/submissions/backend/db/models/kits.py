@@ -2,8 +2,8 @@
 All kit and reagent related models
 '''
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, CheckConstraint
+from sqlalchemy.orm import relationship, validates
 from datetime import date
 import logging
 
@@ -54,6 +54,17 @@ class ReagentType(Base):
     kits = relationship("KitType", back_populates="reagent_types", uselist=True, foreign_keys=[kit_id]) #: kits this reagent is used in
     instances = relationship("Reagent", back_populates="type") #: concrete instances of this reagent type
     eol_ext = Column(Interval()) #: extension of life interval
+    required = Column(INTEGER, server_default="1") #: sqlite boolean to determine if reagent type is essential for the kit
+    # __table_args__ = (
+    #     CheckConstraint(required >= 0, name='check_required_positive'),
+    #     CheckConstraint(required < 2, name='check_required_less_2'),
+    #     {})
+    
+    @validates('required')
+    def validate_age(self, key, value):
+        if not 0 <= value < 2:
+            raise ValueError(f'Invalid required value {value}')
+        return value
 
     def __str__(self) -> str:
         """

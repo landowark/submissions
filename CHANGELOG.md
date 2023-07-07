@@ -1,5 +1,8 @@
 ## 202307.01
 
+- Fixed bug where date increment of controls not working for multiple same dates.
+- Fixed bug by having lookup of reagents by lot *and* reagenttype instead of just lot.
+- Added in pydantic to validate submission info.
 - Moved parser to metadata based recognition of submission type.
 
 ## 202306.03

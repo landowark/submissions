@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 import re
 from tools import check_if_app
+from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -154,23 +155,61 @@ def displace_date(df:DataFrame) -> DataFrame:
     # get submitted dates for each control
     dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
     previous_dates = []
-    for ii, item in enumerate(dict_list):
-        try:
-            # check = item['date'] == dict_list[ii-1]['date']
-            check = item['date'] in previous_dates
-        except IndexError:
-            check = False
-        if check:
-            # occurences = previous_dates.count(item['date'])
-            logger.debug(f"We found one! Increment date!\n\t{item['date'] - timedelta(days=1)}")
-            # get df locations where name == item name
-            mask = df['name'] == item['name']
-            # increment date in dataframe
-            df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
-            previous_dates.append(item['date'] + timedelta(days=1))
-        else:
-            previous_dates.append(item['date'])
+    for _, item in enumerate(dict_list):
+        # try:
+        #     # check = item['date'] == dict_list[ii-1]['date']
+        #     check = item['date'] in previous_dates
+        # except IndexError:
+        #     check = False
+        # if check:
+        #     # occurences = previous_dates.count(item['date'])
+        #     logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
+        #     # get df locations where name == item name
+        #     mask = df['name'] == item['name']
+        #     # increment date in dataframe
+        #     df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
+        #     outdate = item['date'] + timedelta(days=1)
+        #     # previous_dates.append(item['date'] + timedelta(days=1))
+        # else:
+        #     outdate = item['date']
+        # previous_dates.append(outdate)
+        # logger.debug(f"\n\tCurrent date: {outdate}\n\tPrevious dates:{previous_dates}")
+        # logger.debug(type(item))
+        df, previous_dates = check_date(df=df, item=item, previous_dates=previous_dates)
     return df
+
+def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame, list]:
+    
+    try:
+        # check = item['date'] == dict_list[ii-1]['date']
+        check = item['date'] in previous_dates
+    except IndexError:
+        check = False
+    previous_dates.append(item['date'])
+    if check:
+        # occurences = previous_dates.count(item['date'])
+        logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
+        # get df locations where name == item name
+        mask = df['name'] == item['name']
+        # increment date in dataframe
+        df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
+        
+        item['date'] += timedelta(days=1)
+        # previous_dates.append(item['date'] + timedelta(days=1))
+        passed = False
+    else:
+        passed = True
+    logger.debug(f"\n\tCurrent date: {item['date']}\n\tPrevious dates:{previous_dates}")
+    logger.debug(f"DF: {type(df)}, previous_dates: {type(previous_dates)}")
+    # if run didn't lead to changed date, return values
+    if passed:
+        logger.debug(f"Date check passed, returning.")
+        return df, previous_dates
+    # if date was changed, rerun with new date
+    else:
+        logger.warning(f"Date check failed, running recursion")
+        df, previous_dates = check_date(df, item, previous_dates)
+        return df, previous_dates
                 
 
 def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:

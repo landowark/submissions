@@ -8,6 +8,7 @@ import pandas as pd
 from pathlib import Path
 from backend.db.models import WWSample, BCSample
 from backend.db import lookup_ww_sample_by_ww_sample_num
+from backend.pydant import PydSubmission
 import logging
 from collections import OrderedDict
 import re
@@ -149,19 +150,22 @@ class SheetParser(object):
                     else:
                         logger.debug(f"Date: {row[3]}")
                         expiry = date.today()
-                    self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
+                    # self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
+                    self.sub['reagents'].append(dict(type=reagent_type, lot=output_var, exp=expiry))
         submission_info = self.parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2
         tech = str(submission_info.iloc[11][1])
-        if tech == "nan":
-            tech = "Unknown"
-        elif len(tech.split(",")) > 1:
-            tech_reg = re.compile(r"[A-Z]{2}")
-            tech = ", ".join(tech_reg.findall(tech))
+        # moved to pydantic model
+        # if tech == "nan":
+        #     tech = "Unknown"
+        # elif len(tech.split(",")) > 1:
+        #     tech_reg = re.compile(r"[A-Z]{2}")
+        #     tech = ", ".join(tech_reg.findall(tech))
         self.sub['technician'] = tech
         # reagents
         # must be prefixed with 'lot_' to be recognized by gui
-        # Todo: find a more adaptable way to read reagents.
+        # TODO: find a more adaptable way to read reagents.
+        self.sub['reagents'] = []
         reagent_range = submission_info.iloc[1:14, 4:8]
         logger.debug(reagent_range)
         parse_reagents(reagent_range)
@@ -210,7 +214,8 @@ class SheetParser(object):
                             expiry = date.today()
                     else:
                         expiry = date.today()
-                    self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
+                    # self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
+                    self.sub['reagents'].append(dict(type=output_key, lot=output_var, exp=expiry))
         # parse submission sheet
         submission_info = self.parse_generic("WW Submissions (ENTER HERE)")
         # parse enrichment sheet
@@ -227,6 +232,7 @@ class SheetParser(object):
         pcr_reagent_range = qprc_info.iloc[0:5, 9:20]
         # compile technician info
         self.sub['technician'] = f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}"
+        self.sub['reagents'] = []
         parse_reagents(enr_reagent_range)
         parse_reagents(ext_reagent_range)
         parse_reagents(pcr_reagent_range)
@@ -271,7 +277,7 @@ class SheetParser(object):
                     else:
                         logger.debug(f"Date: {row[2]}")
                         expiry = date.today()
-                    self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
+                    self.sub['reagents'].append(dict(type=output_key, lot=output_var, exp=expiry))
                 else:
                     continue
         def massage_samples(df:pd.DataFrame) -> pd.DataFrame:
@@ -303,6 +309,7 @@ class SheetParser(object):
         self.sub['sample_count'] = submission_info.iloc[4][6]
         self.sub['extraction_kit'] = "ArticV4.1"
         self.sub['technician'] = f"MM: {biomek_info.iloc[2][1]}, Bio: {biomek_info.iloc[3][1]}"
+        self.sub['reagents'] = []
         parse_reagents(sub_reagent_range)
         parse_reagents(biomek_reagent_range)
         samples = massage_samples(biomek_info.iloc[22:31, 0:])
@@ -310,6 +317,18 @@ class SheetParser(object):
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
         
+
+    def to_pydantic(self) -> PydSubmission:
+        """
+        Generates a pydantic model of scraped data for validation
+
+        Returns:
+            PydSubmission: output pydantic model
+        """        
+        psm = PydSubmission(filepath=self.filepath, **self.sub)
+        delattr(psm, "filepath")
+        return psm
+
 
 
 class SampleParser(object):
@@ -366,7 +385,7 @@ class SampleParser(object):
             list[WWSample]: list of sample objects
         """        
         def search_df_for_sample(sample_rsl:str):
-            logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
+            # logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
             well = self.elution_map.where(self.elution_map==sample_rsl)
             # logger.debug(f"Well: {well}")
             well = well.dropna(how='all').dropna(axis=1, how="all")

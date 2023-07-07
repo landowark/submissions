@@ -233,19 +233,19 @@ def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
     #     pass
     return reagent
 
-def lookup_reagent(ctx:dict, reagent_lot:str) -> models.Reagent:
-    """
-    Query db for reagent based on lot number
+# def lookup_reagent(ctx:dict, reagent_lot:str) -> models.Reagent:
+#     """
+#     Query db for reagent based on lot number
 
-    Args:
-        ctx (dict): settings passed down from gui
-        reagent_lot (str): lot number to query
+#     Args:
+#         ctx (dict): settings passed down from gui
+#         reagent_lot (str): lot number to query
 
-    Returns:
-        models.Reagent: looked up reagent
-    """    
-    lookedup = ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
-    return lookedup
+#     Returns:
+#         models.Reagent: looked up reagent
+#     """    
+#     lookedup = ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
+#     return lookedup
 
 def get_all_reagenttype_names(ctx:dict) -> list[str]:
     """
@@ -501,7 +501,7 @@ def create_kit_from_yaml(ctx:dict, exp:dict) -> dict:
                 r = massage_common_reagents(r)
                 look_up = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 if look_up == None:
-                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit])
+                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit], required=1)
                 else:
                     rt = look_up
                     rt.kits.append(kit)
@@ -609,7 +609,7 @@ def get_all_controls_by_type(ctx:dict, con_type:str, start_date:date|None=None, 
         output = ctx['database_session'].query(models.Control).join(models.ControlType).filter_by(name=con_type).filter(models.Control.submitted_date.between(start_date, end_date)).all()
     else:
         output = ctx['database_session'].query(models.Control).join(models.ControlType).filter_by(name=con_type).all()
-    logger.debug(f"Returned controls between dates: {output}")
+    logger.debug(f"Returned controls between dates: {[item.submitted_date for item in output]}")
     return output
 
 def get_control_subtypes(ctx:dict, type:str, mode:str) -> list[str]:
@@ -871,3 +871,20 @@ def platemap_plate(submission:models.BasicSubmission) -> list:
             # append to all samples
     # image = make_plate_map(plate_dicto)
     return plate_dicto
+
+
+def lookup_reagent(ctx:dict, reagent_lot:str|None=None, type_name:str|None=None) -> models.Reagent:
+    """
+    Query db for reagent based on lot number
+
+    Args:
+        ctx (dict): settings passed down from gui
+        reagent_lot (str): lot number to query
+
+    Returns:
+        models.Reagent: looked up reagent
+    """    
+    if reagent_lot != None and type_name != None:
+        return ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name==type_name).filter(models.Reagent.lot==reagent_lot).all()
+    elif type_name == None:
+        return ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()

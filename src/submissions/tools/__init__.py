@@ -24,6 +24,8 @@ def check_not_nan(cell_contents) -> bool:
     # check for nan as a string first
     if cell_contents == 'nan':
         cell_contents = np.nan
+    if cell_contents == None:
+        cell_contents = np.nan
     try:
         return not np.isnan(cell_contents)
     except TypeError:
@@ -81,14 +83,15 @@ def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None
     # What type is sub?
     match sub:
         case BasicSubmission():
-            ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types]
+            # very hacky method to ensure interchangeable plates are not 
+            ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types if reagenttype.required == 1]
             # Overwrite function parameter reagenttypes
             try:
                 reagenttypes = [reagent.type.name for reagent in sub.reagents]
             except AttributeError as e:
                 logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
         case KitType():
-            ext_kit_rtypes = [reagenttype.name for reagenttype in sub.reagent_types]
+            ext_kit_rtypes = [reagenttype.name for reagenttype in sub.reagent_types if reagenttype.required == 1]
     logger.debug(f"Kit reagents: {ext_kit_rtypes}")
     logger.debug(f"Submission reagents: {reagenttypes}")
     # check if lists are equal
@@ -256,7 +259,7 @@ class RSLNamer(object):
 
 def massage_common_reagents(reagent_name:str):
     logger.debug(f"Attempting to massage {reagent_name}")
-    if reagent_name.endswith("water") or "H2O" in reagent_name:
+    if reagent_name.endswith("water") or "H2O" in reagent_name.upper():
         reagent_name = "molecular_grade_water"
     reagent_name = reagent_name.replace("µ", "u")
     return reagent_name
