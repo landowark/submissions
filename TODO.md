@@ -1,9 +1,8 @@
-- [ ] Think about trying to migrate required column in reagenttypes to reagenttypes_kittypes
-    - In case reagent type is required for one kit, but not another. Possible?
+- [x] Code clean-up and refactor (2023-07).
+- [ ] Migrate context settings to pydantic-settings model.
 - [x] Insert column into reagent type to indicate if reagent is required for kit.
     - Needed to keep interchangeable bead plates from being forced into forms.
-- [ ] Migrate context settings to pydantic-settings model.
-- [ ] Migrate the parser.sub dictionary to pydantic models.
+- [x] Migrate the parser.sub dictionary to pydantic models.
 - [x] Move type_decider to metadata based method rather than excel map.
 - [x] Solve bug for plate mapping when two samples of same name are in different rows.
     - Try importing "L:\Robotics Laboratory Support\Submissions\Wastewater\2023\2023-06-21\RSL-WW-20230621-1.xlsx" for example.

@@ -8,14 +8,14 @@ import pandas as pd
 from pathlib import Path
 from backend.db.models import WWSample, BCSample
 from backend.db import lookup_ww_sample_by_ww_sample_num
-from backend.pydant import PydSubmission
+from backend.pydant import PydSubmission, PydReagent
 import logging
 from collections import OrderedDict
 import re
 import numpy as np
 from datetime import date, datetime
 import uuid
-from tools import check_not_nan, RSLNamer, massage_common_reagents
+from tools import check_not_nan, RSLNamer, massage_common_reagents, convert_nans_to_nones
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -26,31 +26,29 @@ class SheetParser(object):
     def __init__(self, ctx:dict, filepath:Path|None = None):
         """
         Args:
+            ctx (dict): Settings passed down from gui
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
-        """
+        """        
         self.ctx = ctx
         logger.debug(f"Parsing {filepath.__str__()}")
-        # set attributes based on kwargs from gui ctx
-        # for kwarg in kwargs:
-        #     setattr(self, f"_{kwarg}", kwargs[kwarg])
-        # self.__dict__.update(kwargs)
         if filepath == None:
             logger.error(f"No filepath given.")
             self.xl = None
         else:
             self.filepath = filepath
+            # Open excel file
             try:
                 self.xl = pd.ExcelFile(filepath.__str__())
             except ValueError as e:
                 logger.error(f"Incorrect value: {e}")
                 self.xl = None
-        # TODO: replace OrderedDict with pydantic BaseModel
         self.sub = OrderedDict()
         # make decision about type of sample we have
         self.sub['submission_type'] = self.type_decider()
         # select proper parser based on sample type
         parse_sub = getattr(self, f"parse_{self.sub['submission_type'].lower()}")
         parse_sub()
+        # self.calculate_column_count()
 
     def type_decider(self) -> str:
         """
@@ -65,7 +63,7 @@ class SheetParser(object):
             return categories[0].replace(" ", "_")
         else:
             # This code is going to be depreciated once there is full adoption of the client sheets
-            # with updated metadata
+            # with updated metadata... but how will it work for Artic?
             try:
                 for type in self.ctx['submission_types']:
                     # This gets the *first* submission type that matches the sheet names in the workbook 
@@ -76,7 +74,6 @@ class SheetParser(object):
                 logger.warning(f"We were unable to parse the submission type due to: {e}")
                 return "Unknown"
 
-
     def parse_unknown(self) -> None:
         """
         Dummy function to handle unknown excel structures
@@ -84,7 +81,6 @@ class SheetParser(object):
         logger.error(f"Unknown excel workbook structure. Cannot parse.")    
         self.sub = None
     
-
     def parse_generic(self, sheet_name:str) -> pd.DataFrame:
         """
         Pulls information common to all wasterwater/bacterial culture types and passes on dataframe
@@ -98,13 +94,16 @@ class SheetParser(object):
         # self.xl is a pd.ExcelFile so we need to parse it into a df  
         submission_info = self.xl.parse(sheet_name=sheet_name, dtype=object)
         self.sub['submitter_plate_num'] = submission_info.iloc[0][1]
-        self.sub['rsl_plate_num'] =  RSLNamer(submission_info.iloc[10][1]).parsed_name
+        if check_not_nan(submission_info.iloc[10][1]):
+            self.sub['rsl_plate_num'] =  RSLNamer(submission_info.iloc[10][1]).parsed_name
+        else:
+            # self.sub['rsl_plate_num'] =  RSLNamer(self.filepath).parsed_name
+            self.sub['rsl_plate_num'] = None
         self.sub['submitted_date'] = submission_info.iloc[1][1]
         self.sub['submitting_lab'] = submission_info.iloc[0][3]
         self.sub['sample_count'] = submission_info.iloc[2][3]
         self.sub['extraction_kit'] = submission_info.iloc[3][3]
         return submission_info
-
 
     def parse_bacterial_culture(self) -> None:
         """
@@ -121,22 +120,27 @@ class SheetParser(object):
             for ii, row in df.iterrows():
                 # skip positive control
                 logger.debug(f"Running reagent parse for {row[1]} with type {type(row[1])} and value: {row[2]} with type {type(row[2])}")
-                if not isinstance(row[2], float) and check_not_nan(row[1]):
+                # if the lot number isn't a float and the reagent type isn't blank
+                # if not isinstance(row[2], float) and check_not_nan(row[1]):
+                if check_not_nan(row[1]):
                     # must be prefixed with 'lot_' to be recognized by gui
+                    # This is no longer true since reagents are loaded into their own key in dictionary
                     try:
                         reagent_type = row[1].replace(' ', '_').lower().strip()
                     except AttributeError:
                         pass
+                    # If there is a double slash in the type field, such as ethanol/iso
+                    # Use the cell to the left for reagent type.
                     if reagent_type == "//":
                         if check_not_nan(row[2]):
                             reagent_type = row[0].replace(' ', '_').lower().strip()
                         else:
                             continue
                     try:
-                        output_var = row[2].upper()
+                        output_var = convert_nans_to_nones(str(row[2]).upper())
                     except AttributeError:
                         logger.debug(f"Couldn't upperize {row[2]}, must be a number")
-                        output_var = row[2]
+                        output_var = convert_nans_to_nones(str(row[2]))
                     logger.debug(f"Output variable is {output_var}")
                     logger.debug(f"Expiry date for imported reagent: {row[3]}")
                     if check_not_nan(row[3]):
@@ -149,22 +153,17 @@ class SheetParser(object):
                                 expiry = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + row[3] - 2)
                     else:
                         logger.debug(f"Date: {row[3]}")
-                        expiry = date.today()
+                        # expiry = date.today()
+                        expiry = date(year=1970, month=1, day=1)
                     # self.sub[f"lot_{reagent_type}"] = {'lot':output_var, 'exp':expiry}
-                    self.sub['reagents'].append(dict(type=reagent_type, lot=output_var, exp=expiry))
+                    # self.sub['reagents'].append(dict(type=reagent_type, lot=output_var, exp=expiry))
+                    self.sub['reagents'].append(PydReagent(type=reagent_type, lot=output_var, exp=expiry))
         submission_info = self.parse_generic("Sample List")
         # iloc is [row][column] and the first row is set as header row so -2
-        tech = str(submission_info.iloc[11][1])
-        # moved to pydantic model
-        # if tech == "nan":
-        #     tech = "Unknown"
-        # elif len(tech.split(",")) > 1:
-        #     tech_reg = re.compile(r"[A-Z]{2}")
-        #     tech = ", ".join(tech_reg.findall(tech))
-        self.sub['technician'] = tech
+        self.sub['technician'] = str(submission_info.iloc[11][1])
         # reagents
         # must be prefixed with 'lot_' to be recognized by gui
-        # TODO: find a more adaptable way to read reagents.
+        # This is no longer true wince the creation of self.sub['reagents']
         self.sub['reagents'] = []
         reagent_range = submission_info.iloc[1:14, 4:8]
         logger.debug(reagent_range)
@@ -174,7 +173,6 @@ class SheetParser(object):
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
         self.sample_result, self.sub['samples'] = sample_parse()
-
 
     def parse_wastewater(self) -> None:
         """
@@ -196,17 +194,18 @@ class SheetParser(object):
             """
             # iterate through sub-df rows
             for ii, row in df.iterrows():
-                if not isinstance(row[5], float) and check_not_nan(row[5]):
+                logger.debug(f"Parsing this row for reagents: {row}")
+                if check_not_nan(row[5]):
                     # must be prefixed with 'lot_' to be recognized by gui
                     # regex below will remove 80% from 80% ethanol in the Wastewater kit.
                     output_key = re.sub(r"^\d{1,3}%\s?", "", row[0].lower().strip().replace(' ', '_'))
                     output_key = output_key.strip("_")
                     # output_var is the lot number
                     try:
-                        output_var = row[5].upper()
+                        output_var = convert_nans_to_nones(str(row[5].upper()))
                     except AttributeError:
                         logger.debug(f"Couldn't upperize {row[5]}, must be a number")
-                        output_var = row[5]
+                        output_var = convert_nans_to_nones(str(row[5]))
                     if check_not_nan(row[7]):
                         try:
                             expiry = row[7].date()
@@ -214,8 +213,12 @@ class SheetParser(object):
                             expiry = date.today()
                     else:
                         expiry = date.today()
+                    logger.debug(f"Expiry date for {output_key}: {expiry} of type {type(expiry)}")
                     # self.sub[f"lot_{output_key}"] = {'lot':output_var, 'exp':expiry}
-                    self.sub['reagents'].append(dict(type=output_key, lot=output_var, exp=expiry))
+                    # self.sub['reagents'].append(dict(type=output_key, lot=output_var, exp=expiry))
+                    reagent = PydReagent(type=output_key, lot=output_var, exp=expiry)
+                    logger.debug(f"Here is the created reagent: {reagent}")
+                    self.sub['reagents'].append(reagent)
         # parse submission sheet
         submission_info = self.parse_generic("WW Submissions (ENTER HERE)")
         # parse enrichment sheet
@@ -230,7 +233,7 @@ class SheetParser(object):
         qprc_info = self.xl.parse("qPCR Worksheet", dtype=object)
         # set qpcr reagent range
         pcr_reagent_range = qprc_info.iloc[0:5, 9:20]
-        # compile technician info
+        # compile technician info from all sheets
         self.sub['technician'] = f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}"
         self.sub['reagents'] = []
         parse_reagents(enr_reagent_range)
@@ -241,7 +244,6 @@ class SheetParser(object):
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
         self.sub['csv'] = self.xl.parse("Copy to import file", dtype=object)
-
 
     def parse_wastewater_artic(self) -> None:
         """
@@ -258,10 +260,10 @@ class SheetParser(object):
                     output_key = output_key.strip("_")
                     output_key = massage_common_reagents(output_key)
                     try:
-                        output_var = row[1].upper()
+                        output_var = convert_nans_to_nones(str(row[1].upper()))
                     except AttributeError:
                         logger.debug(f"Couldn't upperize {row[1]}, must be a number")
-                        output_var = row[1]
+                        output_var = convert_nans_to_nones(str(row[1]))
                     logger.debug(f"Output variable is {output_var}")
                     logger.debug(f"Expiry date for imported reagent: {row[2]}")
                     if check_not_nan(row[2]):
@@ -277,7 +279,8 @@ class SheetParser(object):
                     else:
                         logger.debug(f"Date: {row[2]}")
                         expiry = date.today()
-                    self.sub['reagents'].append(dict(type=output_key, lot=output_var, exp=expiry))
+                    # self.sub['reagents'].append(dict(type=output_key, lot=output_var, exp=expiry))
+                    self.sub['reagents'].append(PydReagent(type=output_key, lot=output_var, exp=expiry))
                 else:
                     continue
         def massage_samples(df:pd.DataFrame) -> pd.DataFrame:
@@ -317,20 +320,19 @@ class SheetParser(object):
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
         
-
     def to_pydantic(self) -> PydSubmission:
         """
         Generates a pydantic model of scraped data for validation
 
         Returns:
             PydSubmission: output pydantic model
-        """        
-        psm = PydSubmission(filepath=self.filepath, **self.sub)
+        """       
+        logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pprint.pformat(self.sub)}")
+        psm = PydSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
         delattr(psm, "filepath")
         return psm
 
-
-
+    
 class SampleParser(object):
     """
     object to pull data for samples in excel sheet and construct individual sample objects
@@ -385,7 +387,7 @@ class SampleParser(object):
             list[WWSample]: list of sample objects
         """        
         def search_df_for_sample(sample_rsl:str):
-            # logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
+            logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
             well = self.elution_map.where(self.elution_map==sample_rsl)
             # logger.debug(f"Well: {well}")
             well = well.dropna(how='all').dropna(axis=1, how="all")
@@ -394,9 +396,9 @@ class SampleParser(object):
             logger.debug(f"well {sample_rsl} post processing: {well.size}: {type(well)}, {well.index[0]}, {well.columns[0]}")
             self.elution_map.at[well.index[0], well.columns[0]] = np.nan
             try:
-                col = str(int(well.columns[0]))
+                col = str(int(well.columns[0])).zfill(2)
             except ValueError:
-                col = str(well.columns[0])
+                col = str(well.columns[0]).zfill(2)
             except TypeError as e:
                 logger.error(f"Problem parsing out column number for {well}:\n {e}")
             return f"{well.index[0]}{col}"
@@ -424,10 +426,12 @@ class SampleParser(object):
             # new.testing_type = sample['Unnamed: 6']
             # new.site_status = sample['Unnamed: 7']
             new.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
-            new.well_number = sample['Unnamed: 1']
+            new.well_24 = sample['Unnamed: 1']
             elu_well = search_df_for_sample(new.rsl_number)
             if elu_well != None:
-                new.elution_well = elu_well
+                row = elu_well[0]
+                col = elu_well[1:].zfill(2)
+                new.well_number = f"{row}{col}"
             else:
                 # try:
                 return_val += f"{new.rsl_number}\n"
@@ -455,12 +459,14 @@ class SampleParser(object):
                 missed_samples.append(sample['sample_name'])
                 continue
             logger.debug(f"Got instance: {instance.ww_sample_full_id}")
+            if sample['well'] != None:
+                row = sample['well'][0]
+                col = sample['well'][1:].zfill(2)
+                sample['well'] = f"{row}{col}"
             instance.artic_well_number = sample['well']
             new_list.append(instance)
         missed_str = "\n\t".join(missed_samples)
         return f"Could not find matches for the following samples:\n\t {missed_str}", new_list
-            
-
 
 
 class PCRParser(object):
@@ -590,5 +596,5 @@ class PCRParser(object):
             self.samples.append(sample_obj)
         
 
-            
+
             

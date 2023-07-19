@@ -1,3 +1,8 @@
+## 202307.02
+
+- Better column counting for cost recovery purposes.
+- Improvements to pydantic validations.
+
 ## 202307.01
 
 - Fixed bug where date increment of controls not working for multiple same dates.

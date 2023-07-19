@@ -5,14 +5,12 @@ Convenience functions for interacting with the database.
 from . import models
 from .models.kits import reagenttypes_kittypes
 from .models.submissions import reagents_submissions
-# from .models.samples import WWSample
 import pandas as pd
 import sqlalchemy.exc
 import sqlite3
 import logging
 from datetime import date, datetime, timedelta
 from sqlalchemy import and_
-import uuid
 from sqlalchemy import JSON, event
 from sqlalchemy.engine import Engine
 import json
@@ -20,6 +18,7 @@ from getpass import getuser
 import numpy as np
 import yaml
 from pathlib import Path
+
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -111,12 +110,12 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
     # convert submission type into model name
     query = info_dict['submission_type'].replace(" ", "")
     # Ensure an rsl plate number exists for the plate
-    # if info_dict["rsl_plate_num"] == 'nan' or info_dict["rsl_plate_num"] == None or not check_not_nan(info_dict["rsl_plate_num"]):
     if not check_regex_match("^RSL", info_dict["rsl_plate_num"]):
         instance = None
         msg = "A proper RSL plate number is required."
         return instance, {'code': 2, 'message': "A proper RSL plate number is required."}
     else:
+        # enforce conventions on the rsl plate number from the form
         info_dict['rsl_plate_num'] = RSLNamer(info_dict["rsl_plate_num"]).parsed_name
     # check database for existing object
     instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
@@ -160,10 +159,11 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
             case "submitter_plate_num":
                 # Because of unique constraint, there will be problems with 
                 # multiple submissions named 'None', so...
+                # Should be depreciated with use of pydantic validator
                 logger.debug(f"Submitter plate id: {info_dict[item]}")
-                if info_dict[item] == None or info_dict[item] == "None" or info_dict[item] == "":
-                    logger.debug(f"Got None as a submitter plate number, inserting random string to preserve database unique constraint.")
-                    info_dict[item] = uuid.uuid4().hex.upper()
+                # if info_dict[item] == None or info_dict[item] == "None" or info_dict[item] == "":
+                #     logger.debug(f"Got None as a submitter plate number, inserting random string to preserve database unique constraint.")
+                #     info_dict[item] = uuid.uuid4().hex.upper()
                 field_value = info_dict[item]
             case _:
                 field_value = info_dict[item]
@@ -233,20 +233,6 @@ def construct_reagent(ctx:dict, info_dict:dict) -> models.Reagent:
     #     pass
     return reagent
 
-# def lookup_reagent(ctx:dict, reagent_lot:str) -> models.Reagent:
-#     """
-#     Query db for reagent based on lot number
-
-#     Args:
-#         ctx (dict): settings passed down from gui
-#         reagent_lot (str): lot number to query
-
-#     Returns:
-#         models.Reagent: looked up reagent
-#     """    
-#     lookedup = ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
-#     return lookedup
-
 def get_all_reagenttype_names(ctx:dict) -> list[str]:
     """
     Lookup all reagent types and get names
@@ -276,7 +262,7 @@ def lookup_reagenttype_by_name(ctx:dict, rt_name:str) -> models.ReagentType:
     logger.debug(f"Found ReagentType: {lookedup}")
     return lookedup
 
-def lookup_kittype_by_use(ctx:dict, used_by:str) -> list[models.KitType]:
+def lookup_kittype_by_use(ctx:dict, used_by:str|None=None) -> list[models.KitType]:
     """
     Lookup kits by a sample type its used for
 
@@ -287,7 +273,10 @@ def lookup_kittype_by_use(ctx:dict, used_by:str) -> list[models.KitType]:
     Returns:
         list[models.KitType]: list of kittypes that have that sample type in their uses
     """    
-    return ctx['database_session'].query(models.KitType).filter(models.KitType.used_for.contains(used_by)).all()
+    if used_by != None:
+        return ctx['database_session'].query(models.KitType).filter(models.KitType.used_for.contains(used_by)).all()
+    else:
+        return ctx['database_session'].query(models.KitType).all()
 
 def lookup_kittype_by_name(ctx:dict, name:str) -> models.KitType:
     """
@@ -872,19 +861,34 @@ def platemap_plate(submission:models.BasicSubmission) -> list:
     # image = make_plate_map(plate_dicto)
     return plate_dicto
 
-
-def lookup_reagent(ctx:dict, reagent_lot:str|None=None, type_name:str|None=None) -> models.Reagent:
+def lookup_reagent(ctx:dict, reagent_lot:str, type_name:str|None=None) -> models.Reagent:
     """
-    Query db for reagent based on lot number
+    Query db for reagent based on lot number, with optional reagent type to enforce
 
     Args:
         ctx (dict): settings passed down from gui
         reagent_lot (str): lot number to query
+        type_name (str | None, optional): name of reagent type. Defaults to None.
 
     Returns:
         models.Reagent: looked up reagent
     """    
     if reagent_lot != None and type_name != None:
-        return ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name==type_name).filter(models.Reagent.lot==reagent_lot).all()
+        return ctx['database_session'].query(models.Reagent).join(models.Reagent.type, aliased=True).filter(models.ReagentType.name==type_name).filter(models.Reagent.lot==reagent_lot).first()
     elif type_name == None:
         return ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
+    
+def lookup_last_used_reagenttype_lot(ctx:dict, type_name:str) -> models.Reagent:
+    """
+    Look up the last used reagent of the reagent type
+
+    Args:
+        ctx (dict): Settings passed down from gui
+        type_name (str): Name of reagent type
+
+    Returns:
+        models.Reagent: Reagent object with last used lot.
+    """    
+    rt = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==type_name).first()
+    logger.debug(f"Reagent type looked up for {type_name}: {rt.__str__()}")
+    return lookup_reagent(ctx=ctx, reagent_lot=rt.last_used, type_name=type_name)

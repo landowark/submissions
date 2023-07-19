@@ -283,6 +283,15 @@ def divide_chunks(input_list:list, chunk_count:int):
 
 
 def construct_html(figure:Figure) -> str:
+    """
+    Creates final html code from plotly
+
+    Args:
+        figure (Figure): input figure
+
+    Returns:
+        str: html string
+    """    
     html = '<html><body>'
     if figure != None:
         html += plotly.offline.plot(figure, output_type='div', include_plotlyjs='cdn')#, image = 'png', auto_open=True, image_filename='plot_image')

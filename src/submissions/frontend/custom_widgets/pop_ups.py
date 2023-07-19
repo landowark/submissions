@@ -3,22 +3,15 @@ Contains dialogs for notification and prompting.
 '''
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog, 
-    QDialogButtonBox, QMessageBox
+    QDialogButtonBox, QMessageBox, QComboBox
 )
-from jinja2 import Environment, FileSystemLoader
-import sys
-from pathlib import Path
+from configure import jinja_template_loading
 import logging
+from backend.db.functions import lookup_kittype_by_use
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# determine if pyinstaller launcher is being used
-if getattr(sys, 'frozen', False):
-    loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
-else:
-    loader_path = Path(__file__).parents[2].joinpath('templates').absolute().__str__()
-loader = FileSystemLoader(loader_path)
-env = Environment(loader=loader)
+env = jinja_template_loading()
 
 
 class QuestionAsker(QDialog):
@@ -52,3 +45,37 @@ class AlertPop(QMessageBox):
         self.setInformativeText(message)
         self.setWindowTitle(status.title())
 
+class KitSelector(QDialog):
+    """
+    dialog to ask yes/no questions
+    """    
+    def __init__(self, ctx:dict, title:str, message:str) -> QDialog:
+        super().__init__()
+        self.setWindowTitle(title)
+        self.widget = QComboBox()
+        kits = [item.__str__() for item in lookup_kittype_by_use(ctx=ctx)]
+        self.widget.addItems(kits)
+        self.widget.setEditable(False)
+        # set yes/no buttons
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.layout = QVBoxLayout()
+        # Text for the yes/no question
+        message = QLabel(message)
+        self.layout.addWidget(message)
+        self.layout.addWidget(self.widget)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+    def getValues(self):
+        return self.widget.currentText()
+
+    # @staticmethod
+    # def launch(parent):
+    #     dlg = KitSelector(parent)
+    #     r = dlg.exec_()
+    #     if r:
+    #         return dlg.getValues()
+    #     return None

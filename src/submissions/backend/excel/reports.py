@@ -3,24 +3,14 @@ Contains functions for generating summary reports
 '''
 from pandas import DataFrame
 import logging
-from jinja2 import Environment, FileSystemLoader
 from datetime import date, timedelta
-import sys
-from pathlib import Path
 import re
-from tools import check_if_app
 from typing import Tuple
+from configure import jinja_template_loading
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# set path of templates depending on pyinstaller/raw python
-# if getattr(sys, 'frozen', False):
-if check_if_app():
-    loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
-else:
-    loader_path = Path(__file__).parents[2].joinpath('templates').absolute().__str__()
-loader = FileSystemLoader(loader_path)
-env = Environment(loader=loader)
+env = jinja_template_loading()
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -115,7 +105,6 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
     # logger.debug(df)
     # move date of sample submitted on same date as previous ahead one.
     df = displace_date(df)
-    # df.sort_values('submitted_date').to_excel("controls.xlsx", engine="openpyxl")
     # ad hoc method to make data labels more accurate.
     df = df_column_renamer(df=df)
     return df
@@ -156,46 +145,33 @@ def displace_date(df:DataFrame) -> DataFrame:
     dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
     previous_dates = []
     for _, item in enumerate(dict_list):
-        # try:
-        #     # check = item['date'] == dict_list[ii-1]['date']
-        #     check = item['date'] in previous_dates
-        # except IndexError:
-        #     check = False
-        # if check:
-        #     # occurences = previous_dates.count(item['date'])
-        #     logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
-        #     # get df locations where name == item name
-        #     mask = df['name'] == item['name']
-        #     # increment date in dataframe
-        #     df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
-        #     outdate = item['date'] + timedelta(days=1)
-        #     # previous_dates.append(item['date'] + timedelta(days=1))
-        # else:
-        #     outdate = item['date']
-        # previous_dates.append(outdate)
-        # logger.debug(f"\n\tCurrent date: {outdate}\n\tPrevious dates:{previous_dates}")
-        # logger.debug(type(item))
         df, previous_dates = check_date(df=df, item=item, previous_dates=previous_dates)
     return df
 
 def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame, list]:
-    
+    """
+    Checks if an items date is already present in df and adjusts df accordingly
+
+    Args:
+        df (DataFrame): input dataframe
+        item (dict): control for checking
+        previous_dates (list): list of dates found in previous controls
+
+    Returns:
+        Tuple[DataFrame, list]: Output dataframe and appended list of previous dates
+    """    
     try:
-        # check = item['date'] == dict_list[ii-1]['date']
         check = item['date'] in previous_dates
     except IndexError:
         check = False
     previous_dates.append(item['date'])
     if check:
-        # occurences = previous_dates.count(item['date'])
         logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
         # get df locations where name == item name
         mask = df['name'] == item['name']
         # increment date in dataframe
         df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
-        
         item['date'] += timedelta(days=1)
-        # previous_dates.append(item['date'] + timedelta(days=1))
         passed = False
     else:
         passed = True
@@ -249,8 +225,7 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
                 # logger.debug(f"First run: {first_run}")
                 df = df.drop(df[df.name == first_run].index)
     return df
-    # else:
-    #     return df
+    
 
 
 def make_hitpicks(input:list) -> DataFrame:

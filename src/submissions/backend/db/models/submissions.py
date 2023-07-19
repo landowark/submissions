@@ -5,7 +5,6 @@ import math
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT
 from sqlalchemy.orm import relationship
-from datetime import datetime as dt
 import logging
 import json
 from json.decoder import JSONDecodeError
@@ -164,7 +163,8 @@ class BasicSubmission(Base):
     
     def calculate_base_cost(self):
         try:
-            cols_count_96 = ceil(int(self.sample_count) / 8)
+            # cols_count_96 = ceil(int(self.sample_count) / 8)
+            cols_count_96 = self.calculate_column_count()
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # cols_count_24 = ceil(int(self.sample_count) / 3)
@@ -172,6 +172,11 @@ class BasicSubmission(Base):
             self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
         except Exception as e:
             logger.error(f"Calculation error: {e}")
+
+    def calculate_column_count(self):
+            columns = [int(sample.well_number[-2:]) for sample in self.samples]
+            logger.debug(f"Here are the columns for {self.rsl_plate_num}: {columns}")
+            return max(columns)
 
 # Below are the custom submission types
 

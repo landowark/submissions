@@ -29,24 +29,27 @@ from backend.db.functions import (
 )
 from backend.excel.parser import SheetParser, PCRParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
+from backend.pydant import PydReagent
 from tools import check_not_nan, check_kit_integrity
 from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent
 from .visualizations.control_charts import create_charts, construct_html
+from typing import List
+from openpyxl import load_workbook
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]:
     """
-    _summary_
+    Import a new submission to the app window
 
     Args:
-        obj (QMainWindow): _description_
+        obj (QMainWindow): original app window
 
     Returns:
-        Tuple[QMainWindow, dict|None]: _description_
+        Tuple[QMainWindow, dict|None]: Collection of new main app window and result dict
     """    
     logger.debug(f"\n\nStarting Import...\n\n")
     result = None
@@ -54,8 +57,10 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     # initialize samples
     obj.samples = []
     obj.reagents = {}
+    obj.missing_reagents = []
+    
     # set file dialog
-    fname = select_open_file(obj, extension="xlsx")
+    fname = select_open_file(obj, file_extension="xlsx")
     logger.debug(f"Attempting to parse file: {fname}")
     if not fname.exists():
         result = dict(message=f"File {fname.__str__()} not found.", status="critical")
@@ -65,116 +70,37 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
         prsr = SheetParser(ctx=obj.ctx, filepath=fname)
     except PermissionError:
         logger.error(f"Couldn't get permission to access file: {fname}")
-        return
+        return obj, result
+    # obj.column_count = prsr.column_count
     try:
+        logger.debug(f"Submission dictionary: {prsr.sub}")
         pyd = prsr.to_pydantic()
-        logger.debug(f"Pydantic result: \n\n{pyd}\n\n")
-        # with open("pickled.pkl", "wb") as f:
-        #     pickle.dump(pyd, f)
+        logger.debug(f"Pydantic result: \n\n{pprint.pformat(pyd)}\n\n")
     except Exception as e:
         return obj, dict(message= f"Problem creating pydantic model:\n\n{e}", status="critical")
-    # moved to pydantic model
-    # if prsr.sub['rsl_plate_num'] == None:
-    #     prsr.sub['rsl_plate_num'] = RSLNamer(fname.__str__()).parsed_name
-    # logger.debug(f"prsr.sub = {prsr.sub}")
-    for sample in pyd.samples:
-        if hasattr(sample, "elution_well"):
-            logger.debug(f"Sample from import: {sample.elution_well}")
-    # obj.current_submission_type = prsr.sub['submission_type']
+    try:
+        obj.xl = prsr.filepath
+    except Exception as e:
+        logger.error(f"Unable to make obj xl.")
+    # for sample in pyd.samples:
+    #     if hasattr(sample, "elution_well"):
+    #         logger.debug(f"Sample from import: {sample.elution_well}")
+    # I don't remember why this is here.
+    missing_info = [k for k,v in pyd if v == None]
     obj.current_submission_type = pyd.submission_type
     # destroy any widgets from previous imports
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
-    # # regex to parser out different variable types for decision making
-    # variable_parser = re.compile(r"""
-    #     (?P<extraction_kit>^extraction_kit$) |
-    #     (?P<submitted_date>^submitted_date$) |
-    #     (?P<submitting_lab>)^submitting_lab$ |
-    #     (?P<samples>)^samples$ |
-    #     (?P<reagent>^lot_.*$) |
-    #     (?P<csv>^csv$)
-    # """, re.VERBOSE)
-    # for item in prsr.sub:
-    #     logger.debug(f"Item: {item}")
-    #     # attempt to match variable name to regex group
-    #     try:
-    #         mo = variable_parser.fullmatch(item).lastgroup
-    #     except AttributeError:
-    #         mo = "other"
-    #     logger.debug(f"Mo: {mo}")
-    #     match mo:
-    #         case 'submitting_lab':
-    #             # create label
-    #             obj.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-    #             logger.debug(f"{item}: {prsr.sub[item]}")
-    #             # create combobox to hold looked up submitting labs
-    #             add_widget = QComboBox()
-    #             labs = [item.__str__() for item in lookup_all_orgs(ctx=obj.ctx)]
-    #             # try to set closest match to top of list
-    #             try:
-    #                 labs = difflib.get_close_matches(prsr.sub[item], labs, len(labs), 0)
-    #             except (TypeError, ValueError):
-    #                 pass
-    #             # set combobox values to lookedup values
-    #             add_widget.addItems(labs)
-    #         case 'extraction_kit':
-    #             # create label
-    #             obj.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-    #             # if extraction kit not available, all other values fail
-    #             if not check_not_nan(prsr.sub[item]):
-    #                 msg = AlertPop(message="Make sure to check your extraction kit in the excel sheet!", status="warning")
-    #                 msg.exec()
-    #             # create combobox to hold looked up kits
-    #             add_widget = QComboBox()
-    #             # lookup existing kits by 'submission_type' decided on by sheetparser
-    #             uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=prsr.sub['submission_type'])]
-    #             if check_not_nan(prsr.sub[item]):
-    #                 logger.debug(f"The extraction kit in parser was: {prsr.sub[item]}")
-    #                 uses.insert(0, uses.pop(uses.index(prsr.sub[item])))
-    #                 obj.ext_kit = prsr.sub[item]
-    #             else:
-    #                 logger.error(f"Couldn't find {prsr.sub['extraction_kit']}")
-    #                 obj.ext_kit = uses[0]
-    #             add_widget.addItems(uses)
-    #         case 'submitted_date':
-    #             # create label
-    #             obj.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-    #             # uses base calendar
-    #             add_widget = QDateEdit(calendarPopup=True)
-    #             # sets submitted date based on date found in excel sheet
-    #             try:
-    #                 add_widget.setDate(prsr.sub[item])
-    #             # if not found, use today
-    #             except:
-    #                 add_widget.setDate(date.today())
-    #         case 'reagent':
-    #             # create label
-    #             reg_label = QLabel(item.replace("_", " ").title())
-    #             reg_label.setObjectName(f"lot_{item}_label")
-    #             obj.table_widget.formlayout.addWidget(reg_label)
-    #             # create reagent choice widget
-    #             add_widget = ImportReagent(ctx=obj.ctx, item=item, prsr=prsr)
-    #             obj.reagents[item] = prsr.sub[item]
-    #         case 'samples':
-    #             # hold samples in 'obj' until form submitted
-    #             logger.debug(f"{item}: {prsr.sub[item]}")
-    #             obj.samples = prsr.sub[item]
-    #             add_widget = None
-    #         case 'csv':
-    #             obj.csv = prsr.sub[item]
-    #         case _:
-    #             # anything else gets added in as a line edit
-    #             obj.table_widget.formlayout.addWidget(QLabel(item.replace("_", " ").title()))
-    #             add_widget = QLineEdit()
-    #             logger.debug(f"Setting widget text to {str(prsr.sub[item]).replace('_', ' ')}")
-    #             add_widget.setText(str(prsr.sub[item]).replace("_", " "))
+    # Get list of fields from pydantic model.
     fields = list(pyd.model_fields.keys())
     fields.remove('filepath')
     logger.debug(f"pydantic fields: {fields}")
     for field in fields:
         value = getattr(pyd, field)
-        if not check_not_nan(value):
-            continue
+        logger.debug(f"Checking: {field}: {value}")
+        # No longer necessary with addition of pydantic validations
+        # if not check_not_nan(value):
+            # continue
         match field:
             case 'submitting_lab':
                 # create label
@@ -194,17 +120,19 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 # create label
                 label = QLabel(field.replace("_", " ").title())
                 # if extraction kit not available, all other values fail
-                if not check_not_nan(value):
+                if not check_not_nan(value['value']):
                     msg = AlertPop(message="Make sure to check your extraction kit in the excel sheet!", status="warning")
                     msg.exec()
+                if not value['parsed']:
+                    missing_info.append(field)
                 # create combobox to hold looked up kits
                 add_widget = QComboBox()
                 # lookup existing kits by 'submission_type' decided on by sheetparser
                 uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type)]
                 if check_not_nan(value):
-                    logger.debug(f"The extraction kit in parser was: {value}")
-                    uses.insert(0, uses.pop(uses.index(value)))
-                    obj.ext_kit = value
+                    logger.debug(f"The extraction kit in parser was: {value['value']}")
+                    uses.insert(0, uses.pop(uses.index(value['value'])))
+                    obj.ext_kit = value['value']
                 else:
                     logger.error(f"Couldn't find {prsr.sub['extraction_kit']}")
                     obj.ext_kit = uses[0]
@@ -225,23 +153,33 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 logger.debug(f"{field}:\n\t{value}")
                 obj.samples = value
                 continue
-            case 'csv':
-                obj.csv = value
+            case "ctx":
                 continue
             case 'reagents':
                 for reagent in value:
                     # create label
-                    reg_label = QLabel(reagent['type'].replace("_", " ").title())
-                    reg_label.setObjectName(f"lot_{reagent['type']}_label")
-                    # obj.table_widget.formlayout.addWidget(reg_label)
+                    # reg_label = QLabel(reagent['type'].replace("_", " ").title())
+                    try:
+                        reg_label = QLabel(reagent.type.replace("_", " ").title())
+                    except AttributeError:
+                        continue
+                    # reg_label.setObjectName(f"lot_{reagent['type']}_label")
+                    reg_label.setObjectName(f"lot_{reagent.type}_label")
                     # create reagent choice widget
                     add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent)
-                    add_widget.setObjectName(f"lot_{reagent['type']}")
+                    add_widget.setObjectName(f"lot_{reagent.type}")
                     logger.debug(f"Widget name set to: {add_widget.objectName()}")
                     obj.table_widget.formlayout.addWidget(reg_label)
                     obj.table_widget.formlayout.addWidget(add_widget)
-                    obj.reagents[reagent['type']] = reagent['lot']
+                    obj.reagents[reagent.type] = reagent
                 continue
+            case "rsl_plate_num":
+                if not value['parsed']:
+                    missing_info.append(field)
+                label = QLabel(field.replace("_", " ").title())
+                add_widget = QLineEdit()
+                logger.debug(f"Setting widget text to {str(value['value']).replace('_', ' ')}")
+                add_widget.setText(str(value['value']).replace("_", " "))
             case _:
                 # anything else gets added in as a line edit
                 label = QLabel(field.replace("_", " ").title())
@@ -258,13 +196,27 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     # compare obj.reagents with expected reagents in kit
     if hasattr(obj, 'ext_kit'):
         obj.kit_integrity_completion()
+        obj.missing_reagents = obj.missing_reagents + missing_info
     logger.debug(f"Imported reagents: {obj.reagents}")
     if prsr.sample_result != None:
         msg = AlertPop(message=prsr.sample_result, status="WARNING")
         msg.exec()
+    logger.debug(f"Pydantic extra fields: {pyd.model_extra}")
+    if "csv" in pyd.model_extra:
+        obj.csv = pyd.model_extra['csv']
+    logger.debug(f"All attributes of obj:\n{pprint.pformat(obj.__dict__)}")
     return obj, result
 
-def kit_reload_function(obj:QMainWindow) -> QMainWindow:
+def kit_reload_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Reload the fields in the form
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         if isinstance(item, QLabel):
@@ -277,7 +229,16 @@ def kit_reload_function(obj:QMainWindow) -> QMainWindow:
     obj.kit_integrity_completion_function()
     return obj, result
 
-def kit_integrity_completion_function(obj:QMainWindow) -> QMainWindow:
+def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Compare kit contents to parsed contents
+
+    Args:
+        obj (QMainWindow): The original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     logger.debug(inspect.currentframe().f_back.f_code.co_name)
     # find the widget that contains lit info
@@ -296,9 +257,11 @@ def kit_integrity_completion_function(obj:QMainWindow) -> QMainWindow:
     # if kit integrity comes back with an error, make widgets with missing reagents using default info
     if kit_integrity != None:
         result = dict(message=kit_integrity['message'], status="Warning")
+        obj.missing_reagents = kit_integrity['missing']
         for item in kit_integrity['missing']:
             obj.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
-            add_widget = ImportReagent(ctx=obj.ctx, reagent=dict(type=item, lot=None, exp=None))#item=item)
+            reagent = dict(type=item, lot=None, exp=None)
+            add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent))#item=item)
             obj.table_widget.formlayout.addWidget(add_widget)
     submit_btn = QPushButton("Submit")
     submit_btn.setObjectName("lot_submit_btn")
@@ -306,38 +269,50 @@ def kit_integrity_completion_function(obj:QMainWindow) -> QMainWindow:
     submit_btn.clicked.connect(obj.submit_new_sample)
     return obj, result
 
-def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
+def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Parse forms and add sample to the database.
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     logger.debug(f"\n\nBeginning Submission\n\n")
     result = None
     # extract info from the form widgets
     info = extract_form_info(obj.table_widget.tab1)
     # seperate out reagents
-    reagents = {k:v for k,v in info.items() if k.startswith("lot_")}
+    reagents = {k.replace("lot_", ""):v for k,v in info.items() if k.startswith("lot_")}
     info = {k:v for k,v in info.items() if not k.startswith("lot_")}
     logger.debug(f"Info: {info}")
     logger.debug(f"Reagents: {reagents}")
     parsed_reagents = []
     # compare reagents in form to reagent database
     for reagent in reagents:
-        # TODO: have this lookup by type and lot
+        # Lookup any existing reagent of this type with this lot number
         wanted_reagent = lookup_reagent(ctx=obj.ctx, reagent_lot=reagents[reagent], type_name=reagent)
         logger.debug(f"Looked up reagent: {wanted_reagent}")
+        # logger.debug(f"\n\nLooking for {reagent} in {obj.reagents}\n\n")
         # if reagent not found offer to add to database
         if wanted_reagent == None:
             r_lot = reagents[reagent]
             dlg = QuestionAsker(title=f"Add {r_lot}?", message=f"Couldn't find reagent type {reagent.replace('_', ' ').title().strip('Lot')}: {r_lot} in the database.\n\nWould you like to add it?")
             if dlg.exec():
                 logger.debug(f"checking reagent: {reagent} in obj.reagents. Result: {obj.reagents[reagent]}")
-                expiry_date = obj.reagents[reagent]['exp']
+                expiry_date = obj.reagents[reagent].exp
                 wanted_reagent = obj.add_reagent(reagent_lot=r_lot, reagent_type=reagent.replace("lot_", ""), expiry=expiry_date)
             else:
                 # In this case we will have an empty reagent and the submission will fail kit integrity check
                 logger.debug("Will not add reagent.")
         if wanted_reagent != None:
             parsed_reagents.append(wanted_reagent)
+            wanted_reagent.type.last_used = reagents[reagent]
     # move samples into preliminary submission dict
     info['samples'] = obj.samples
     info['uploaded_by'] = getuser()
+    # info['columns'] = obj.column_count
     # construct submission object
     logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
     base_submission, result = construct_submission_info(ctx=obj.ctx, info_dict=info)
@@ -359,6 +334,7 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     # add reagents to submission object
     for reagent in parsed_reagents:
         base_submission.reagents.append(reagent)
+    logger.debug(f"Parsed reagents: {pprint.pformat(parsed_reagents)}")
     logger.debug("Checking kit integrity...")
     kit_integrity = check_kit_integrity(base_submission)
     if kit_integrity != None:
@@ -371,7 +347,15 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
     # reset form
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
-    logger.debug(f"All attributes of obj: {pprint.pprint(obj.__dict__)}")
+    logger.debug(f"All attributes of obj: {pprint.pformat(obj.__dict__)}")
+    if len(obj.missing_reagents) > 0:
+        logger.debug(f"We have blank reagents in the excel sheet.\n\tLet's try to fill them in.") 
+        extraction_kit = lookup_kittype_by_name(obj.ctx, name=obj.ext_kit)
+        logger.debug(f"We have the extraction kit: {extraction_kit.name}")
+        logger.debug(f"Extraction kit map:\n\n{extraction_kit.used_for[obj.current_submission_type]}")
+        excel_map = extraction_kit.used_for[obj.current_submission_type]
+        input_reagents = [item.to_reagent_dict() for item in parsed_reagents]
+        autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info)
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
@@ -384,13 +368,18 @@ def submit_new_sample_function(obj:QMainWindow) -> QMainWindow:
         delattr(obj, "csv")
     except AttributeError:
         pass
-    # if obj.current_submission_type == "Bacterial_Culture":
-    #     hitpick = hitpick_plate(base_submission)
-    #     image = make_plate_map(hitpick)
-    #     image.show()
     return obj, result
 
-def generate_report_function(obj:QMainWindow) -> QMainWindow:
+def generate_report_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Generate a summary of activities for a time period
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     # ask for date ranges
     dlg = ReportDatePicker()
@@ -430,7 +419,16 @@ def generate_report_function(obj:QMainWindow) -> QMainWindow:
         writer.close()
     return obj, result
 
-def add_kit_function(obj:QMainWindow) -> QMainWindow:
+def add_kit_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Add a new kit to the database.
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     # setup file dialog to find yaml flie
     fname = select_open_file(obj, extension="yml")
@@ -449,7 +447,16 @@ def add_kit_function(obj:QMainWindow) -> QMainWindow:
     result = create_kit_from_yaml(ctx=obj.ctx, exp=exp)
     return obj, result
 
-def add_org_function(obj:QMainWindow) -> QMainWindow:
+def add_org_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Add a new organization to the database.
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     # setup file dialog to find yaml flie
     fname = select_open_file(obj, extension="yml")
@@ -468,7 +475,16 @@ def add_org_function(obj:QMainWindow) -> QMainWindow:
     result = create_org_from_yaml(ctx=obj.ctx, org=org)
     return obj, result
 
-def controls_getter_function(obj:QMainWindow) -> QMainWindow:
+def controls_getter_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Get controls based on start/end dates
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     # subtype defaults to disabled  
     try:
@@ -480,11 +496,12 @@ def controls_getter_function(obj:QMainWindow) -> QMainWindow:
         logger.warning("Start date after end date is not allowed!")
         threemonthsago = obj.table_widget.datepicker.end_date.date().addDays(-60)
         # block signal that will rerun controls getter and set start date
+        # Without triggering this function again
         with QSignalBlocker(obj.table_widget.datepicker.start_date) as blocker:
             obj.table_widget.datepicker.start_date.setDate(threemonthsago)
         obj._controls_getter()
         return obj, result
-    # convert to python useable date object
+    # convert to python useable date objects
     obj.start_date = obj.table_widget.datepicker.start_date.date().toPyDate()
     obj.end_date = obj.table_widget.datepicker.end_date.date().toPyDate()
     obj.con_type = obj.table_widget.control_typer.currentText()
@@ -504,15 +521,15 @@ def controls_getter_function(obj:QMainWindow) -> QMainWindow:
     obj._chart_maker()
     return obj, result
 
-def chart_maker_function(obj:QMainWindow) -> QMainWindow:
+def chart_maker_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     """
-    create html chart for controls reporting
+    Create html chart for controls reporting
 
     Args:
-        obj (QMainWindow): original MainWindow
+        obj (QMainWindow): original app window
 
     Returns:
-        QMainWindow: MainWindow with control display updates
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
     """    
     result = None
     logger.debug(f"Control getter context: \n\tControl type: {obj.con_type}\n\tMode: {obj.mode}\n\tStart Date: {obj.start_date}\n\tEnd Date: {obj.end_date}")
@@ -552,7 +569,16 @@ def chart_maker_function(obj:QMainWindow) -> QMainWindow:
     logger.debug("Figure updated... I hope.")
     return obj, result
 
-def link_controls_function(obj:QMainWindow) -> QMainWindow:
+def link_controls_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Link scraped controls to imported submissions.
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
     all_bcs = lookup_all_submissions_by_type(obj.ctx, "Bacterial Culture")
     logger.debug(all_bcs)
@@ -601,12 +627,20 @@ def link_controls_function(obj:QMainWindow) -> QMainWindow:
     # msg.exec()
     return obj, result
 
-def link_extractions_function(obj:QMainWindow) -> QMainWindow:
+def link_extractions_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Link extractions from runlogs to imported submissions
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
-    # home_dir = str(Path(obj.ctx["directory_path"]))
-    # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = "csv(*.csv)")[0])
-    fname = select_open_file(obj, extension="csv")
+    fname = select_open_file(obj, file_extension="csv")
     with open(fname.__str__(), 'r') as f:
+        # split csv on commas
         runs = [col.strip().split(",") for col in f.readlines()]
     count = 0
     for run in runs:
@@ -618,9 +652,12 @@ def link_extractions_function(obj:QMainWindow) -> QMainWindow:
                 experiment_name=run[4].strip(),
                 end_time=run[5].strip()
             )
+        # elution columns are item 6 in the comma split list to the end
         for ii in range(6, len(run)):
             new_run[f"column{str(ii-5)}_vol"] = run[ii]
+        # Lookup imported submissions
         sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=new_run['rsl_plate_num'])
+        # If no such submission exists, move onto the next run
         try:
             logger.debug(f"Found submission: {sub.rsl_plate_num}")
             count += 1
@@ -630,12 +667,14 @@ def link_extractions_function(obj:QMainWindow) -> QMainWindow:
             existing = json.loads(sub.extraction_info)
         else:
             existing = None
+        # Check if the new info already exists in the imported submission
         try:
             if json.dumps(new_run) in sub.extraction_info:
                 logger.debug(f"Looks like we already have that info.")
                 continue
         except TypeError:
             pass
+        # Update or create the extraction info
         if existing != None:
             try:
                 logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
@@ -653,12 +692,20 @@ def link_extractions_function(obj:QMainWindow) -> QMainWindow:
     result = dict(message=f"We added {count} logs to the database.", status='information') 
     return obj, result
 
-def link_pcr_function(obj:QMainWindow) -> QMainWindow:
+def link_pcr_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Link PCR data from run logs to an imported submission
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
-    # home_dir = str(Path(obj.ctx["directory_path"]))
-    # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = "csv(*.csv)")[0])
-    fname = select_open_file(obj, extension="csv")
+    fname = select_open_file(obj, file_extension="csv")
     with open(fname.__str__(), 'r') as f:
+        # split csv rows on comma
         runs = [col.strip().split(",") for col in f.readlines()]
     count = 0
     for run in runs:
@@ -670,17 +717,19 @@ def link_pcr_function(obj:QMainWindow) -> QMainWindow:
                 experiment_name=run[4].strip(),
                 end_time=run[5].strip()
             )
-        # for ii in range(6, len(run)):
-        #     obj[f"column{str(ii-5)}_vol"] = run[ii]
+        # lookup imported submission
         sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=new_run['rsl_plate_num'])
+        # if imported submission doesn't exist move on to next run
         try:
             logger.debug(f"Found submission: {sub.rsl_plate_num}")
         except AttributeError:
             continue
+        # check if pcr_info already exists
         if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
             existing = json.loads(sub.pcr_info)
         else:
             existing = None
+        # check if this entry already exists in imported submission
         try:
             if json.dumps(new_run) in sub.pcr_info:
                 logger.debug(f"Looks like we already have that info.")
@@ -706,17 +755,25 @@ def link_pcr_function(obj:QMainWindow) -> QMainWindow:
     result = dict(message=f"We added {count} logs to the database.", status='information')
     return obj, result
 
-def import_pcr_results_function(obj:QMainWindow) -> QMainWindow:
+def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+    """
+    Import Quant-studio PCR data to an imported submission
+
+    Args:
+        obj (QMainWindow): original app window
+
+    Returns:
+        Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    """    
     result = None
-    # home_dir = str(Path(obj.ctx["directory_path"]))
-    # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = "xlsx(*.xlsx)")[0])
-    fname = select_open_file(obj, extension="xlsx")
+    fname = select_open_file(obj, file_extension="xlsx")
     parser = PCRParser(ctx=obj.ctx, filepath=fname)
     logger.debug(f"Attempting lookup for {parser.plate_num}")
     sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=parser.plate_num)
     try:
         logger.debug(f"Found submission: {sub.rsl_plate_num}")
     except AttributeError:
+        # If no plate is found, may be because this is a repeat. Lop off the '-1' or '-2' and repeat
         logger.error(f"Submission of number {parser.plate_num} not found. Attempting rescue of plate repeat.")
         parser.plate_num = "-".join(parser.plate_num.split("-")[:-1])
         sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=parser.plate_num)
@@ -725,14 +782,13 @@ def import_pcr_results_function(obj:QMainWindow) -> QMainWindow:
         except AttributeError:
             logger.error(f"Rescue of {parser.plate_num} failed.")
             return obj, dict(message="Couldn't find a submission with that RSL number.", status="warning")
-    # jout = json.dumps(parser.pcr)
-    count = 0
+    # Check if PCR info already exists
     if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
         existing = json.loads(sub.pcr_info)
     else:
-        # jout = None
         existing = None
     if existing != None:
+        # update pcr_info
         try:
             logger.debug(f"Updating {type(existing)}: {existing} with {type(parser.pcr)}: {parser.pcr}")
             if json.dumps(parser.pcr) not in sub.pcr_info:
@@ -757,5 +813,59 @@ def import_pcr_results_function(obj:QMainWindow) -> QMainWindow:
         update_ww_sample(ctx=obj.ctx, sample_obj=sample)
     result = dict(message=f"We added PCR info to {sub.rsl_plate_num}.", status='information')
     return obj, result
-    # dlg.exec()    
 
+def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_reagents:List[str], info:dict):
+    """
+    Automatically fills in excel cells with reagent info.
+
+    Args:
+        obj (QMainWindow): Original main app window
+        xl_map (dict): Map of where each reagent goes in the excel workbook.
+        reagents (List[dict]): All reagents used in the kit.
+        missing_reagents (List[str]): Reagents that are required for the kit that were not present.
+    """    
+    # logger.debug(reagents)
+
+    logger.debug(f"Here is the info dict coming in:\n{pprint.pformat(info)}")
+    logger.debug(f"Here are the missing reagents:\n{missing_reagents}")
+    relevant_map = {k:v for k,v in xl_map.items() if k in missing_reagents}
+    # logger.debug(relevant_map)
+    relevant_reagents = [item for item in reagents if item['type'] in missing_reagents]
+    relevant_info = {k:v for k,v in info.items() if k in missing_reagents}
+    logger.debug(f"Here is the relevant info: {pprint.pformat(relevant_info)}")
+    # logger.debug(f"Relevant reagents:\n{relevant_reagents}")
+    # construct new objects to put into excel sheets:
+    new_reagents = []
+    for reagent in relevant_reagents:
+        new_reagent = {}
+        new_reagent['type'] = reagent['type']
+        new_reagent['lot'] = relevant_map[new_reagent['type']]['lot']
+        new_reagent['lot']['value'] = reagent['lot']
+        new_reagent['expiry'] = relevant_map[new_reagent['type']]['expiry']
+        new_reagent['expiry']['value'] = reagent['expiry']
+        new_reagent['sheet'] = relevant_map[new_reagent['type']]['sheet']
+        new_reagents.append(new_reagent)
+    new_info = []
+    for item in relevant_info:
+        new_item = {}
+        new_item['type'] = item
+        new_item['location'] = relevant_map[item]
+        new_item['value'] = relevant_info[item]
+        new_info.append(new_item)
+    logger.debug(f"New reagents: {new_reagents}")
+    workbook = load_workbook(obj.xl)
+    sheets = workbook.sheetnames
+    logger.debug(workbook.sheetnames)
+    for sheet in sheets:
+        worksheet=workbook[sheet]
+        sheet_reagents = [item for item in new_reagents if item['sheet'] == sheet]
+        for reagent in sheet_reagents:
+            logger.debug(f"Attempting: {reagent['type']}:")
+            worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'], value=reagent['lot']['value'])
+            worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'], value=reagent['expiry']['value'])
+        sheet_info = [item for item in new_info if item['location']['sheet'] == sheet]
+        for item in sheet_info:
+            logger.debug(f"Attempting: {item['type']}")
+            worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
+    fname = select_save_file(obj=obj, default_name=Path(obj.xl).stem, extension="xlsx")
+    workbook.save(filename=fname.__str__())

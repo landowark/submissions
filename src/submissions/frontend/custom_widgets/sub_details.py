@@ -4,22 +4,19 @@ Contains widgets specific to the submission summary and submission details.
 import base64
 from datetime import datetime
 from io import BytesIO
-import math
 from PyQt6 import QtPrintSupport
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
     QTextEdit, QPushButton, QScrollArea, 
     QMessageBox, QFileDialog, QMenu, QLabel,
-    QDialogButtonBox, QToolBar, QMainWindow
+    QDialogButtonBox, QToolBar
 )
-from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, QItemSelectionModel
+from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QFontMetrics, QAction, QCursor, QPixmap, QPainter
 from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
-# from backend.misc import hitpick_plate
 from backend.excel import make_hitpicks
-from jinja2 import Environment, FileSystemLoader
+from configure import jinja_template_loading
 from xhtml2pdf import pisa
-import sys
 from pathlib import Path
 import logging
 from .pop_ups import QuestionAsker, AlertPop
@@ -28,12 +25,7 @@ from getpass import getuser
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-if getattr(sys, 'frozen', False):
-    loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
-else:
-    loader_path = Path(__file__).parents[2].joinpath('templates').absolute().__str__()
-loader = FileSystemLoader(loader_path)
-env = Environment(loader=loader)
+env = jinja_template_loading()
 
 class pandasModel(QAbstractTableModel):
     """
@@ -407,7 +399,7 @@ class BarcodeWindow(QDialog):
 
 class SubmissionComment(QDialog):
     """
-    a window showing text details of submission
+    a window for adding comment text to a submission
     """    
     def __init__(self, ctx:dict, rsl:str) -> None:
 

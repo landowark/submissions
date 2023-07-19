@@ -1,12 +1,14 @@
 '''
 Contains miscellaenous functions used by both frontend and backend.
 '''
+from pathlib import Path
 import re
 import sys
 import numpy as np
 import logging
 import getpass
 from backend.db.models import BasicSubmission, KitType
+import pandas as pd
 from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -22,17 +24,41 @@ def check_not_nan(cell_contents) -> bool:
         bool: True if cell has value, else, false.
     """    
     # check for nan as a string first
+    try:
+        cell_contents = cell_contents.lower()
+    except AttributeError:
+        pass
     if cell_contents == 'nan':
         cell_contents = np.nan
     if cell_contents == None:
         cell_contents = np.nan
     try:
+        if pd.isnull(cell_contents):
+            cell_contents = np.nan
+    except ValueError:
+        pass
+    try:
         return not np.isnan(cell_contents)
     except TypeError:
         return True
     except Exception as e:
-        logger.debug(f"Check encounteded unknown error: {type(e).__name__} - {e}")
+        logger.debug(f"Check encountered unknown error: {type(e).__name__} - {e}")
         return False
+
+
+def convert_nans_to_nones(input_str) -> str|None:
+    """
+    Get rid of various "nan", "NAN", "NaN", etc/
+
+    Args:
+        input_str (str): input string
+
+    Returns:
+        str: _description_
+    """    
+    if not check_not_nan(input_str):
+        return None
+    return input_str
 
 
 def check_is_power_user(ctx:dict) -> bool:
@@ -83,7 +109,7 @@ def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None
     # What type is sub?
     match sub:
         case BasicSubmission():
-            # very hacky method to ensure interchangeable plates are not 
+            # Get all required reagent types for this kit.
             ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types if reagenttype.required == 1]
             # Overwrite function parameter reagenttypes
             try:
@@ -179,7 +205,7 @@ class RSLNamer(object):
             self.parsed_name = self.parsed_name.replace("_", "-")
         
 
-    def retrieve_rsl_number(self, in_str:str) -> Tuple[str, str]:
+    def retrieve_rsl_number(self, in_str:str|Path) -> Tuple[str, str]:
         """
         Uses regex to retrieve the plate number and submission type from an input string
 
@@ -189,6 +215,8 @@ class RSLNamer(object):
         Returns:
             Tuple[str, str]: tuple of (output rsl number, submission_type)
         """    
+        if isinstance(in_str, Path):
+            in_str = in_str.stem
         logger.debug(f"Attempting split of {in_str}")
         try:
             in_str = in_str.split("\\")[-1]
@@ -197,7 +225,7 @@ class RSLNamer(object):
             self.submission_type = None
             return
         logger.debug(f"Attempting match of {in_str}")
-        print(f"The initial plate name is: {in_str}")
+        logger.debug(f"The initial plate name is: {in_str}")
         regex = re.compile(r"""
             # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
             (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
@@ -206,7 +234,7 @@ class RSLNamer(object):
             """, flags = re.IGNORECASE | re.VERBOSE)
         m = regex.search(in_str)
         try:
-            self.parsed_name = m.group().upper()
+            self.parsed_name = m.group().upper().strip(".")
             logger.debug(f"Got parsed submission name: {self.parsed_name}")
             self.submission_type = m.lastgroup
         except AttributeError as e:
@@ -221,15 +249,15 @@ class RSLNamer(object):
         self.parsed_name = self.parsed_name.replace("RSLWW", "RSL-WW")
         self.parsed_name = re.sub(r"WW(\d{4})", r"WW-\1", self.parsed_name, flags=re.IGNORECASE)
         self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", self.parsed_name)
-        print(f"Coming out of the preliminary parsing, the plate name is {self.parsed_name}")
+        logger.debug(f"Coming out of the preliminary parsing, the plate name is {self.parsed_name}")
         try:
             plate_number = re.search(r"(?:(-|_)\d)(?!\d)", self.parsed_name).group().strip("_").strip("-")
-            print(f"Plate number is: {plate_number}")
+            logger.debug(f"Plate number is: {plate_number}")
         except AttributeError as e:
             plate_number = "1"
         # self.parsed_name = re.sub(r"(\d{8})(-|_\d)?(R\d)?", fr"\1-{plate_number}\3", self.parsed_name)
         self.parsed_name = re.sub(r"(\d{8})(-|_)?\d?(R\d?)?", rf"\1-{plate_number}\3", self.parsed_name)
-        print(f"After addition of plate number the plate name is: {self.parsed_name}")
+        logger.debug(f"After addition of plate number the plate name is: {self.parsed_name}")
         try:
             repeat = re.search(r"-\dR(?P<repeat>\d)?", self.parsed_name).groupdict()['repeat']
             if repeat == None:
@@ -237,8 +265,6 @@ class RSLNamer(object):
         except AttributeError as e:
             repeat = ""
         self.parsed_name = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", self.parsed_name).replace(" ", "")
-        
-
         
 
     def enforce_bacterial_culture(self):
@@ -249,6 +275,9 @@ class RSLNamer(object):
         self.parsed_name = re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", self.parsed_name, flags=re.IGNORECASE)
 
     def enforce_wastewater_artic(self):
+        """
+        Uses regex to enforce proper formatting of wastewater samples
+        """        
         self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"RSL-AR-\1\2\3", self.parsed_name, flags=re.IGNORECASE)
         try:
             plate_number = int(re.search(r"_\d?_", self.parsed_name).group().strip("_"))

@@ -55,11 +55,8 @@ class ReagentType(Base):
     instances = relationship("Reagent", back_populates="type") #: concrete instances of this reagent type
     eol_ext = Column(Interval()) #: extension of life interval
     required = Column(INTEGER, server_default="1") #: sqlite boolean to determine if reagent type is essential for the kit
-    # __table_args__ = (
-    #     CheckConstraint(required >= 0, name='check_required_positive'),
-    #     CheckConstraint(required < 2, name='check_required_less_2'),
-    #     {})
-    
+    last_used = Column(String(32)) #: last used lot number of this type of reagent
+
     @validates('required')
     def validate_age(self, key, value):
         if not 0 <= value < 2:
@@ -123,6 +120,13 @@ class Reagent(Base):
             "type": type,
             "lot": self.lot,
             "expiry": place_holder.strftime("%Y-%m-%d")
+        }
+    
+    def to_reagent_dict(self) -> dict:
+        return {
+            "type": self.type.name,
+            "lot": self.lot,
+            "expiry": self.expiry.strftime("%Y-%m-%d")
         }
     
 

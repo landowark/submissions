@@ -2,40 +2,27 @@
 Contains miscellaneous widgets for frontend functions
 '''
 from datetime import date
-import difflib
-from typing import Tuple
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog, 
     QDialogButtonBox, QDateEdit, QSizePolicy, QWidget,
     QGridLayout, QPushButton, QSpinBox, QDoubleSpinBox,
-    QHBoxLayout, QMainWindow
+    QHBoxLayout
 )
 from PyQt6.QtCore import Qt, QDate, QSize
-# from submissions.backend.db.functions import lookup_kittype_by_use
-# from submissions.backend.db import lookup_regent_by_type_name_and_kit_name
 from tools import check_not_nan
 from ..all_window_functions import extract_form_info
 from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, \
-    lookup_regent_by_type_name, lookup_kittype_by_use, lookup_all_orgs
-    #, lookup_regent_by_type_name_and_kit_name
-from backend.excel.parser import SheetParser
-from jinja2 import Environment, FileSystemLoader
-import sys
-from pathlib import Path
+    lookup_regent_by_type_name, lookup_last_used_reagenttype_lot
+from configure import jinja_template_loading
 import logging
 import numpy as np
 from .pop_ups import AlertPop
+from backend.pydant import PydReagent
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-if getattr(sys, 'frozen', False):
-    loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
-else:
-    loader_path = Path(__file__).parents[2].joinpath('templates').absolute().__str__()
-loader = FileSystemLoader(loader_path)
-env = Environment(loader=loader)
-
+env = jinja_template_loading()
 
 class AddReagentForm(QDialog):
     """
@@ -210,45 +197,6 @@ class KitAdder(QWidget):
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
 
-    # def extract_form_info(self, object):
-    #     """
-    #     retrieves arbitrary number of labels, values from form
-
-    #     Args:
-    #         object (_type_): the object to extract info from
-
-    #     Returns:
-    #         _type_: _description_
-    #     """
-    #     labels = []
-    #     values = []
-    #     reagents = {}
-    #     for item in object.findChildren(QWidget):
-    #         logger.debug(item.parentWidget())
-    #         # if not isinstance(item.parentWidget(), ReagentTypeForm):
-    #         match item:
-    #             case QLabel():
-    #                 labels.append(item.text().replace(" ", "_").strip(":").lower())
-    #             case QLineEdit():
-    #                 # ad hoc check to prevent double reporting of qdatedit under lineedit for some reason
-    #                 if not isinstance(prev_item, QDateEdit) and not isinstance(prev_item, QComboBox) and not isinstance(prev_item, QSpinBox) and not isinstance(prev_item, QScrollBar):
-    #                     logger.debug(f"Previous: {prev_item}")
-    #                     logger.debug(f"Item: {item}, {item.text()}")
-    #                     values.append(item.text().strip())
-    #             case QComboBox():
-    #                 values.append(item.currentText().strip())
-    #             case QDateEdit():
-    #                 values.append(item.date().toPyDate())
-    #             case QSpinBox():
-    #                 values.append(item.value())
-    #             case ReagentTypeForm():
-    #                 re_labels, re_values, _ = self.extract_form_info(item) 
-    #                 reagent = {item[0]:item[1] for item in zip(re_labels, re_values)}
-    #                 logger.debug(reagent)
-    #                 # reagent = {reagent['name:']:{'eol':reagent['extension_of_life_(months):']}}
-    #                 reagents[reagent["name_(*exactly*_as_it_appears_in_the_excel_submission_form)"].strip()] = {'eol_ext':int(reagent['extension_of_life_(months)'])}
-    #         prev_item = item
-    #     return labels, values, reagents
 
 class ReagentTypeForm(QWidget):
     """
@@ -300,79 +248,24 @@ class ControlsDatePicker(QWidget):
         return QSize(80,20)  
 
 
-# class ImportReagent(QComboBox):
-
-#     def __init__(self, ctx:dict, item:str, prsr:SheetParser|None=None):
-#         super().__init__()
-#         self.setEditable(True)
-#         # Ensure that all reagenttypes have a name that matches the items in the excel parser
-#         query_var = item.replace("lot_", "")
-#         if prsr != None:
-#             logger.debug(f"Import Reagent is looking at: {prsr.sub[item]} for {item}")
-#         else:
-#             logger.debug(f"Import Reagent is going to retrieve all reagents for {item}")
-#         logger.debug(f"Query for: {query_var}")
-#         if prsr != None:
-#             if isinstance(prsr.sub[item], np.float64):
-#                 logger.debug(f"{prsr.sub[item]['lot']} is a numpy float!")
-#                 try:
-#                     prsr.sub[item] = int(prsr.sub[item]['lot'])
-#                 except ValueError:
-#                     pass
-#         # query for reagents using type name from sheet and kit from sheet
-#         logger.debug(f"Attempting lookup of reagents by type: {query_var}")
-#         # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-#         relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
-#         # relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name_and_kit_name(ctx=ctx, type_name=query_var, kit_name=prsr.sub['extraction_kit'])]
-#         output_reg = []
-#         for reagent in relevant_reagents:
-#             # extract strings from any sets.
-#             if isinstance(reagent, set):
-#                 for thing in reagent:
-#                     output_reg.append(thing)
-#             elif isinstance(reagent, str):
-#                 output_reg.append(reagent)
-#         relevant_reagents = output_reg
-#         # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
-#         if prsr != None:
-#             logger.debug(f"Relevant reagents for {prsr.sub[item]}: {relevant_reagents}")
-#             if str(prsr.sub[item]['lot']) not in relevant_reagents:
-#                 if check_not_nan(prsr.sub[item]['lot']):
-#                     relevant_reagents.insert(0, str(prsr.sub[item]['lot']))
-#             else:
-#                 if len(relevant_reagents) > 1:
-#                     logger.debug(f"Found {prsr.sub[item]['lot']} in relevant reagents: {relevant_reagents}. Moving to front of list.")
-#                     idx = relevant_reagents.index(str(prsr.sub[item]['lot']))
-#                     logger.debug(f"The index we got for {prsr.sub[item]['lot']} in {relevant_reagents} was {idx}")
-#                     moved_reag = relevant_reagents.pop(idx)
-#                     relevant_reagents.insert(0, moved_reag)
-#                 else:
-#                     logger.debug(f"Found {prsr.sub[item]['lot']} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
-#         logger.debug(f"New relevant reagents: {relevant_reagents}")
-#         self.setObjectName(f"lot_{item}")
-#         self.addItems(relevant_reagents)
-        
-
 class ImportReagent(QComboBox):
 
-    def __init__(self, ctx:dict, reagent:dict):
+    def __init__(self, ctx:dict, reagent:PydReagent):
         super().__init__()
         self.setEditable(True)
         # Ensure that all reagenttypes have a name that matches the items in the excel parser
-        query_var = reagent['type']
-        logger.debug(f"Import Reagent is looking at: {reagent['lot']} for {reagent['type']}")
-        
-        if isinstance(reagent['lot'], np.float64):
-            logger.debug(f"{reagent['lot']} is a numpy float!")
+        query_var = reagent.type
+        logger.debug(f"Import Reagent is looking at: {reagent.lot} for {reagent.type}")
+        if isinstance(reagent.lot, np.float64):
+            logger.debug(f"{reagent.lot} is a numpy float!")
             try:
-                reagent['lot'] = int(reagent['lot'])
+                reagent.lot = int(reagent.lot)
             except ValueError:
                 pass
         # query for reagents using type name from sheet and kit from sheet
         logger.debug(f"Attempting lookup of reagents by type: {query_var}")
         # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-        relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]#, kit_name=prsr.sub['extraction_kit'])]
-        # relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name_and_kit_name(ctx=ctx, type_name=query_var, kit_name=prsr.sub['extraction_kit'])]
+        relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]
         output_reg = []
         for rel_reagent in relevant_reagents:
             # extract strings from any sets.
@@ -383,20 +276,79 @@ class ImportReagent(QComboBox):
                 output_reg.append(rel_reagent)
         relevant_reagents = output_reg
         # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
-        # if prsr != None:
-        logger.debug(f"Relevant reagents for {reagent['lot']}: {relevant_reagents}")
-        if str(reagent['lot']) not in relevant_reagents:
-            if check_not_nan(reagent['lot']):
-                relevant_reagents.insert(0, str(reagent['lot']))
+        logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
+        if str(reagent.lot) not in relevant_reagents:
+            if check_not_nan(reagent.lot):
+                relevant_reagents.insert(0, str(reagent.lot))
+            else:
+                # TODO: look up the last used reagent of this type in the database
+                looked_up_reg = lookup_last_used_reagenttype_lot(ctx=ctx, type_name=reagent.type)
+                logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
+                if looked_up_reg != None:
+                    relevant_reagents.remove(str(looked_up_reg.lot))
+                    relevant_reagents.insert(0, str(looked_up_reg.lot))
         else:
             if len(relevant_reagents) > 1:
-                logger.debug(f"Found {reagent['lot']} in relevant reagents: {relevant_reagents}. Moving to front of list.")
-                idx = relevant_reagents.index(str(reagent['lot']))
-                logger.debug(f"The index we got for {reagent['lot']} in {relevant_reagents} was {idx}")
+                logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
+                idx = relevant_reagents.index(str(reagent.lot))
+                logger.debug(f"The index we got for {reagent.lot} in {relevant_reagents} was {idx}")
                 moved_reag = relevant_reagents.pop(idx)
                 relevant_reagents.insert(0, moved_reag)
             else:
-                logger.debug(f"Found {reagent['lot']} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
+                logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
         logger.debug(f"New relevant reagents: {relevant_reagents}")
-        self.setObjectName(f"lot_{reagent['type']}")
+        self.setObjectName(f"lot_{reagent.type}")
         self.addItems(relevant_reagents)
+
+
+# class ImportReagent(QComboBox):
+
+#     def __init__(self, ctx:dict, reagent:dict):
+#         super().__init__()
+#         self.setEditable(True)
+#         # Ensure that all reagenttypes have a name that matches the items in the excel parser
+#         query_var = reagent['type']
+#         logger.debug(f"Import Reagent is looking at: {reagent['lot']} for {reagent['type']}")
+#         if isinstance(reagent['lot'], np.float64):
+#             logger.debug(f"{reagent['lot']} is a numpy float!")
+#             try:
+#                 reagent['lot'] = int(reagent['lot'])
+#             except ValueError:
+#                 pass
+#         # query for reagents using type name from sheet and kit from sheet
+#         logger.debug(f"Attempting lookup of reagents by type: {query_var}")
+#         # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+#         relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]
+#         output_reg = []
+#         for rel_reagent in relevant_reagents:
+#             # extract strings from any sets.
+#             if isinstance(rel_reagent, set):
+#                 for thing in rel_reagent:
+#                     output_reg.append(thing)
+#             elif isinstance(rel_reagent, str):
+#                 output_reg.append(rel_reagent)
+#         relevant_reagents = output_reg
+#         # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
+#         logger.debug(f"Relevant reagents for {reagent['lot']}: {relevant_reagents}")
+#         if str(reagent['lot']) not in relevant_reagents:
+#             if check_not_nan(reagent['lot']):
+#                 relevant_reagents.insert(0, str(reagent['lot']))
+#             else:
+#                 # TODO: look up the last used reagent of this type in the database
+#                 looked_up_reg = lookup_last_used_reagenttype_lot(ctx=ctx, type_name=reagent['type'])
+#                 logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
+#                 if looked_up_reg != None:
+#                     relevant_reagents.remove(str(looked_up_reg.lot))
+#                     relevant_reagents.insert(0, str(looked_up_reg.lot))
+#         else:
+#             if len(relevant_reagents) > 1:
+#                 logger.debug(f"Found {reagent['lot']} in relevant reagents: {relevant_reagents}. Moving to front of list.")
+#                 idx = relevant_reagents.index(str(reagent['lot']))
+#                 logger.debug(f"The index we got for {reagent['lot']} in {relevant_reagents} was {idx}")
+#                 moved_reag = relevant_reagents.pop(idx)
+#                 relevant_reagents.insert(0, moved_reag)
+#             else:
+#                 logger.debug(f"Found {reagent['lot']} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
+#         logger.debug(f"New relevant reagents: {relevant_reagents}")
+#         self.setObjectName(f"lot_{reagent['type']}")
+#         self.addItems(relevant_reagents)

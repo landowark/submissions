@@ -6,6 +6,7 @@ from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, FLOAT, BO
 from sqlalchemy.orm import relationship
 import logging
 
+
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -22,7 +23,7 @@ class WWSample(Base):
     rsl_plate = relationship("Wastewater", back_populates="samples") #: relationship to parent plate
     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWS_submission_id"))
     collection_date = Column(TIMESTAMP) #: Date submission received
-    well_number = Column(String(8)) #: location on 24 well plate
+    well_number = Column(String(8)) #: location on 96 well plate
     # The following are fields from the sample tracking excel sheet Ruth put together.
     # I have no idea when they will be implemented or how.
     testing_type = Column(String(64)) 
@@ -36,7 +37,7 @@ class WWSample(Base):
     ww_seq_run_id = Column(String(64))
     sample_type = Column(String(8))
     pcr_results = Column(JSON)
-    elution_well = Column(String(8)) #: location on 96 well plate
+    well_24 = Column(String(8)) #: location on 24 well plate
     artic_rsl_plate = relationship("WastewaterArtic", back_populates="samples")
     artic_well_number = Column(String(8))
     
@@ -57,10 +58,6 @@ class WWSample(Base):
         Returns:
             dict: well location and id NOTE: keys must sync with BCSample to_sub_dict below
         """
-        # well_col = self.well_number[1:]
-        # well_row = self.well_number[0]
-        # if well_col > 4:
-        #     well
         if self.ct_n1 != None and self.ct_n2 != None:
             # logger.debug(f"Using well info in name.")
             name = f"{self.ww_sample_full_id}\n\t- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})\n\t- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
@@ -87,8 +84,8 @@ class WWSample(Base):
         except TypeError as e:
             logger.error(f"Couldn't check positives for {self.rsl_number}. Looks like there isn't PCR data.")
             return None
-        well_row = row_dict[self.elution_well[0]]
-        well_col = self.elution_well[1:]
+        well_row = row_dict[self.well_number[0]]
+        well_col = self.well_number[1:]
         # if positive:
         #     try:
         #         # The first character of the elution well is the row

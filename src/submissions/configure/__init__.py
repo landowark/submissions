@@ -1,6 +1,7 @@
 '''
 Contains functions for setting up program from config.yml and database.
 '''
+from jinja2 import Environment, FileSystemLoader
 import yaml
 import sys, os, stat, platform, getpass
 import logging
@@ -238,3 +239,22 @@ def copy_settings(settings_path:Path, settings:dict) -> dict:
     with open(settings_path, 'w') as f:
         yaml.dump(settings, f)
     return settings
+
+
+def jinja_template_loading():
+    """
+    Returns jinja2 template environment.
+
+    Returns:
+        _type_: _description_
+    """    
+    # determine if pyinstaller launcher is being used
+    if getattr(sys, 'frozen', False):
+        loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
+    else:
+        loader_path = Path(__file__).parents[1].joinpath('templates').absolute().__str__()
+
+    # jinja template loading
+    loader = FileSystemLoader(loader_path)
+    env = Environment(loader=loader)
+    return env
