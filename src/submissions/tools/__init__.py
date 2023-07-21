@@ -10,6 +10,7 @@ import getpass
 from backend.db.models import BasicSubmission, KitType
 import pandas as pd
 from typing import Tuple
+from datetime import datetime
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -25,13 +26,16 @@ def check_not_nan(cell_contents) -> bool:
     """    
     # check for nan as a string first
     try:
+        if "Unnamed:" in cell_contents:
+            cell_contents = np.nan
         cell_contents = cell_contents.lower()
-    except AttributeError:
+    except (TypeError, AttributeError):
         pass
     if cell_contents == 'nan':
         cell_contents = np.nan
     if cell_contents == None:
         cell_contents = np.nan
+    
     try:
         if pd.isnull(cell_contents):
             cell_contents = np.nan
@@ -197,7 +201,8 @@ class RSLNamer(object):
     """
     Object that will enforce proper formatting on RSL plate names.
     """
-    def __init__(self, instr:str):
+    def __init__(self, ctx:dict, instr:str):
+        self.ctx = ctx
         self.retrieve_rsl_number(in_str=instr)
         if self.submission_type != None:
             parser = getattr(self, f"enforce_{self.submission_type}")
@@ -205,7 +210,7 @@ class RSLNamer(object):
             self.parsed_name = self.parsed_name.replace("_", "-")
         
 
-    def retrieve_rsl_number(self, in_str:str|Path) -> Tuple[str, str]:
+    def retrieve_rsl_number(self, in_str:str|Path):
         """
         Uses regex to retrieve the plate number and submission type from an input string
 
@@ -215,37 +220,57 @@ class RSLNamer(object):
         Returns:
             Tuple[str, str]: tuple of (output rsl number, submission_type)
         """    
-        if isinstance(in_str, Path):
-            in_str = in_str.stem
-        logger.debug(f"Attempting split of {in_str}")
-        try:
-            in_str = in_str.split("\\")[-1]
-        except AttributeError:
-            self.parsed_name = None
-            self.submission_type = None
-            return
-        logger.debug(f"Attempting match of {in_str}")
-        logger.debug(f"The initial plate name is: {in_str}")
+        if not isinstance(in_str, Path):
+            in_str = Path(in_str)
+        out_str = in_str.stem
+        # else:
+        #     in_str = Path(in_str)
+        #     logger.debug(f"Attempting split of {in_str}")
+        #     try:
+        #         out_str = in_str.split("\\")[-1]
+        #     except AttributeError:
+        #         self.parsed_name = None
+        #         self.submission_type = None
+        #         return
+        logger.debug(f"Attempting match of {out_str}")
+        logger.debug(f"The initial plate name is: {out_str}")
         regex = re.compile(r"""
             # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
             (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
             (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
             (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}_(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
             """, flags = re.IGNORECASE | re.VERBOSE)
-        m = regex.search(in_str)
-        try:
-            self.parsed_name = m.group().upper().strip(".")
-            logger.debug(f"Got parsed submission name: {self.parsed_name}")
-            self.submission_type = m.lastgroup
-        except AttributeError as e:
-            logger.critical("No RSL plate number found or submission type found!")
-            logger.debug(f"The cause of the above error was: {e}")
+        m = regex.search(out_str)
+        if m != None:
+            try:
+                self.parsed_name = m.group().upper().strip(".")
+                logger.debug(f"Got parsed submission name: {self.parsed_name}")
+                self.submission_type = m.lastgroup
+            except AttributeError as e:
+                logger.critical("No RSL plate number found or submission type found!")
+                logger.debug(f"The cause of the above error was: {e}")
+        else:
+            logger.warning(f"We're going to have to create the submission type from the excel sheet properties...")
+            if in_str.exists():
+                my_xl = pd.ExcelFile(in_str)
+                if my_xl.book.properties.category != None:
+                    categories = [item.strip().title() for item in my_xl.book.properties.category.split(";")]
+                    self.submission_type = categories[0].replace(" ", "_").lower()
+                else:
+                    raise AttributeError(f"File {in_str.__str__()} has no categories.")
+            else:
+                raise FileNotFoundError()
+                
+
 
     def enforce_wastewater(self):
         """
         Uses regex to enforce proper formatting of wastewater samples
         """        
-        self.parsed_name = re.sub(r"PCR(-|_)", "", self.parsed_name)
+        try:
+            self.parsed_name = re.sub(r"PCR(-|_)", "", self.parsed_name)
+        except AttributeError as e:
+            self.parsed_name = self.construct_wastewater()
         self.parsed_name = self.parsed_name.replace("RSLWW", "RSL-WW")
         self.parsed_name = re.sub(r"WW(\d{4})", r"WW-\1", self.parsed_name, flags=re.IGNORECASE)
         self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", self.parsed_name)
@@ -267,12 +292,54 @@ class RSLNamer(object):
         self.parsed_name = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", self.parsed_name).replace(" ", "")
         
 
+    def construct_wastewater(self):
+        today = datetime.now()
+        return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+
+
     def enforce_bacterial_culture(self):
         """
         Uses regex to enforce proper formatting of bacterial culture samples
         """        
-        self.parsed_name = re.sub(r"RSL(\d{2})", r"RSL-\1", self.parsed_name, flags=re.IGNORECASE)
+        try:
+            self.parsed_name = re.sub(r"RSL(\d{2})", r"RSL-\1", self.parsed_name, flags=re.IGNORECASE)
+        except AttributeError as e:
+            self.parsed_name = self.construct_bacterial_culture_rsl()
+            # year = datetime.now().year
+            # self.parsed_name = f"RSL-{str(year)[-2:]}-0000"
         self.parsed_name = re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", self.parsed_name, flags=re.IGNORECASE)
+
+
+    def construct_bacterial_culture_rsl(self) -> str:
+        """
+        DEPRECIATED due to slowness. Search for the largest rsl number and increment by 1
+
+        Returns:
+            str: new RSL number
+        """        
+        logger.debug(f"Attempting to construct RSL number from scratch...")
+        directory = Path(self.ctx['directory_path']).joinpath("Bacteria")
+        year = str(datetime.now().year)[-2:]
+        if directory.exists():
+            logger.debug(f"Year: {year}")
+            relevant_rsls = []
+            all_xlsx = [item.stem for item in directory.rglob("*.xlsx") if bool(re.search(r"RSL-\d{2}-\d{4}", item.stem)) and year in item.stem[4:6]]
+            logger.debug(f"All rsls: {all_xlsx}")
+            for item in all_xlsx:
+                try:
+                    relevant_rsls.append(re.match(r"RSL-\d{2}-\d{4}", item).group(0))
+                except Exception as e:
+                    logger.error(f"Regex error: {e}")
+                    continue
+            logger.debug(f"Initial xlsx: {relevant_rsls}")
+            max_number = max([int(item[-4:]) for item in relevant_rsls])
+            logger.debug(f"The largest sample number is: {max_number}")
+            return f"RSL-{year}-{str(max_number+1).zfill(4)}"
+        else:
+            # raise FileNotFoundError(f"Unable to locate the directory: {directory.__str__()}")
+            return f"RSL-{year}-0000"
+
+
 
     def enforce_wastewater_artic(self):
         """

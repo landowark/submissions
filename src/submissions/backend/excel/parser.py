@@ -38,7 +38,7 @@ class SheetParser(object):
             self.filepath = filepath
             # Open excel file
             try:
-                self.xl = pd.ExcelFile(filepath.__str__())
+                self.xl = pd.ExcelFile(filepath)
             except ValueError as e:
                 logger.error(f"Incorrect value: {e}")
                 self.xl = None
@@ -95,7 +95,7 @@ class SheetParser(object):
         submission_info = self.xl.parse(sheet_name=sheet_name, dtype=object)
         self.sub['submitter_plate_num'] = submission_info.iloc[0][1]
         if check_not_nan(submission_info.iloc[10][1]):
-            self.sub['rsl_plate_num'] =  RSLNamer(submission_info.iloc[10][1]).parsed_name
+            self.sub['rsl_plate_num'] =  RSLNamer(ctx=self.ctx, instr=submission_info.iloc[10][1]).parsed_name
         else:
             # self.sub['rsl_plate_num'] =  RSLNamer(self.filepath).parsed_name
             self.sub['rsl_plate_num'] = None
@@ -103,6 +103,10 @@ class SheetParser(object):
         self.sub['submitting_lab'] = submission_info.iloc[0][3]
         self.sub['sample_count'] = submission_info.iloc[2][3]
         self.sub['extraction_kit'] = submission_info.iloc[3][3]
+        if check_not_nan(submission_info.iloc[1][3]):
+            self.sub['submission_type'] = dict(value=submission_info.iloc[1][3], parsed=True)
+        else:
+            self.sub['submission_type'] = dict(value=self.sub['submission_type'], parsed=False)
         return submission_info
 
     def parse_bacterial_culture(self) -> None:
@@ -170,7 +174,7 @@ class SheetParser(object):
         parse_reagents(reagent_range)
         # get individual sample info
         sample_parser = SampleParser(self.ctx, submission_info.iloc[16:112])
-        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].replace(' ', '_').lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
         self.sample_result, self.sub['samples'] = sample_parse()
 
@@ -234,14 +238,18 @@ class SheetParser(object):
         # set qpcr reagent range
         pcr_reagent_range = qprc_info.iloc[0:5, 9:20]
         # compile technician info from all sheets
-        self.sub['technician'] = f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}"
+        if all(map(check_not_nan, [enrichment_info.columns[2], extraction_info.columns[2], qprc_info.columns[2]])):
+            parsed = True
+        else:
+            parsed = False
+        self.sub['technician'] = dict(value=f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}", parsed=parsed)
         self.sub['reagents'] = []
         parse_reagents(enr_reagent_range)
         parse_reagents(ext_reagent_range)
         parse_reagents(pcr_reagent_range)
         # parse samples
         sample_parser = SampleParser(self.ctx, submission_info.iloc[16:], elution_map=retrieve_elution_map())
-        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
         self.sub['csv'] = self.xl.parse("Copy to import file", dtype=object)
 
@@ -249,6 +257,7 @@ class SheetParser(object):
         """
         pulls info specific to wastewater_arctic submission type
         """
+        self.sub['submission_type'] = dict(value=self.sub['submission_type'], parsed=True)
         def parse_reagents(df:pd.DataFrame):
             logger.debug(df)
             for ii, row in df.iterrows():
@@ -306,7 +315,7 @@ class SheetParser(object):
         sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
         biomek_reagent_range = biomek_info.iloc[60:, 0:3].dropna(how='all')
         self.sub['submitter_plate_num'] = ""
-        self.sub['rsl_plate_num'] =  RSLNamer(self.filepath.__str__()).parsed_name
+        self.sub['rsl_plate_num'] =  RSLNamer(ctx=self.ctx, instr=self.filepath.__str__()).parsed_name
         self.sub['submitted_date'] = biomek_info.iloc[1][1]
         self.sub['submitting_lab'] = "Enterics Wastewater Genomics"
         self.sub['sample_count'] = submission_info.iloc[4][6]
@@ -317,7 +326,7 @@ class SheetParser(object):
         parse_reagents(biomek_reagent_range)
         samples = massage_samples(biomek_info.iloc[22:31, 0:])
         sample_parser = SampleParser(self.ctx, pd.DataFrame.from_records(samples))
-        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type'].lower()}_samples")
+        sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
         
     def to_pydantic(self) -> PydSubmission:
@@ -497,7 +506,7 @@ class PCRParser(object):
                 return
         # self.pcr = OrderedDict()
         self.pcr = {}
-        namer = RSLNamer(filepath.__str__())
+        namer = RSLNamer(ctx=self.ctx, instr=filepath.__str__())
         self.plate_num = namer.parsed_name
         self.submission_type = namer.submission_type
         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")

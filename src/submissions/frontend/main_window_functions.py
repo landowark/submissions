@@ -87,7 +87,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     #         logger.debug(f"Sample from import: {sample.elution_well}")
     # I don't remember why this is here.
     missing_info = [k for k,v in pyd if v == None]
-    obj.current_submission_type = pyd.submission_type
+    obj.current_submission_type = pyd.submission_type['value']
     # destroy any widgets from previous imports
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
@@ -98,9 +98,12 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     for field in fields:
         value = getattr(pyd, field)
         logger.debug(f"Checking: {field}: {value}")
-        # No longer necessary with addition of pydantic validations
-        # if not check_not_nan(value):
-            # continue
+        # Get from pydantic model whether field was completed in the form
+        if isinstance(value, dict) and field != 'ctx':
+            logger.debug(f"The field {field} is a dictionary: {value}")
+            if not value['parsed']:
+                missing_info.append(field)
+            value = value['value']
         match field:
             case 'submitting_lab':
                 # create label
@@ -120,19 +123,18 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 # create label
                 label = QLabel(field.replace("_", " ").title())
                 # if extraction kit not available, all other values fail
-                if not check_not_nan(value['value']):
+                if not check_not_nan(value):
                     msg = AlertPop(message="Make sure to check your extraction kit in the excel sheet!", status="warning")
                     msg.exec()
-                if not value['parsed']:
-                    missing_info.append(field)
                 # create combobox to hold looked up kits
                 add_widget = QComboBox()
                 # lookup existing kits by 'submission_type' decided on by sheetparser
-                uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type)]
+                uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type['value'].lower())]
+                logger.debug(f"Kits received for {pyd.submission_type}: {uses}")
                 if check_not_nan(value):
-                    logger.debug(f"The extraction kit in parser was: {value['value']}")
-                    uses.insert(0, uses.pop(uses.index(value['value'])))
-                    obj.ext_kit = value['value']
+                    logger.debug(f"The extraction kit in parser was: {value}")
+                    uses.insert(0, uses.pop(uses.index(value)))
+                    obj.ext_kit = value
                 else:
                     logger.error(f"Couldn't find {prsr.sub['extraction_kit']}")
                     obj.ext_kit = uses[0]
@@ -173,13 +175,11 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                     obj.table_widget.formlayout.addWidget(add_widget)
                     obj.reagents[reagent.type] = reagent
                 continue
-            case "rsl_plate_num":
-                if not value['parsed']:
-                    missing_info.append(field)
-                label = QLabel(field.replace("_", " ").title())
-                add_widget = QLineEdit()
-                logger.debug(f"Setting widget text to {str(value['value']).replace('_', ' ')}")
-                add_widget.setText(str(value['value']).replace("_", " "))
+            # case "rsl_plate_num":
+            #     label = QLabel(field.replace("_", " ").title())
+            #     add_widget = QLineEdit()
+            #     logger.debug(f"Setting widget text to {str(value['value']).replace('_', ' ')}")
+            #     add_widget.setText(str(value['value']).replace("_", " "))
             case _:
                 # anything else gets added in as a line edit
                 label = QLabel(field.replace("_", " ").title())
@@ -352,8 +352,8 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         logger.debug(f"We have blank reagents in the excel sheet.\n\tLet's try to fill them in.") 
         extraction_kit = lookup_kittype_by_name(obj.ctx, name=obj.ext_kit)
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
-        logger.debug(f"Extraction kit map:\n\n{extraction_kit.used_for[obj.current_submission_type]}")
-        excel_map = extraction_kit.used_for[obj.current_submission_type]
+        logger.debug(f"Extraction kit map:\n\n{extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]}")
+        excel_map = extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]
         input_reagents = [item.to_reagent_dict() for item in parsed_reagents]
         autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info)
     if hasattr(obj, 'csv'):
@@ -823,6 +823,7 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
         xl_map (dict): Map of where each reagent goes in the excel workbook.
         reagents (List[dict]): All reagents used in the kit.
         missing_reagents (List[str]): Reagents that are required for the kit that were not present.
+        info (dict): Dictionary of misc info from submission
     """    
     # logger.debug(reagents)
 
@@ -831,6 +832,7 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
     relevant_map = {k:v for k,v in xl_map.items() if k in missing_reagents}
     # logger.debug(relevant_map)
     relevant_reagents = [item for item in reagents if item['type'] in missing_reagents]
+    info['submission_type'] = info['submission_type'].replace("_", " ").title()
     relevant_info = {k:v for k,v in info.items() if k in missing_reagents}
     logger.debug(f"Here is the relevant info: {pprint.pformat(relevant_info)}")
     # logger.debug(f"Relevant reagents:\n{relevant_reagents}")
@@ -844,6 +846,11 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
         new_reagent['expiry'] = relevant_map[new_reagent['type']]['expiry']
         new_reagent['expiry']['value'] = reagent['expiry']
         new_reagent['sheet'] = relevant_map[new_reagent['type']]['sheet']
+        try:
+            new_reagent['name'] = relevant_map[new_reagent['type']]['name']
+            new_reagent['name']['value'] = reagent['type']
+        except:
+            pass
         new_reagents.append(new_reagent)
     new_info = []
     for item in relevant_info:
@@ -858,14 +865,20 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
     logger.debug(workbook.sheetnames)
     for sheet in sheets:
         worksheet=workbook[sheet]
-        sheet_reagents = [item for item in new_reagents if item['sheet'] == sheet]
+        sheet_reagents = [item for item in new_reagents if sheet in item['sheet']]
         for reagent in sheet_reagents:
             logger.debug(f"Attempting: {reagent['type']}:")
             worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'], value=reagent['lot']['value'])
             worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'], value=reagent['expiry']['value'])
-        sheet_info = [item for item in new_info if item['location']['sheet'] == sheet]
+            try:
+                worksheet.cell(row=reagent['name']['row'], column=reagent['name']['column'], value=reagent['name']['value'].replace("_", " ").upper())
+            except:
+                pass
+        sheet_info = [item for item in new_info if sheet in item['location']['sheets']]
         for item in sheet_info:
             logger.debug(f"Attempting: {item['type']}")
             worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
-    fname = select_save_file(obj=obj, default_name=Path(obj.xl).stem, extension="xlsx")
+        if info['submission_type'] == "Bacterial Culture":
+            workbook["Sample List"].cell(row=14, column=2, value=getuser())
+    fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
     workbook.save(filename=fname.__str__())

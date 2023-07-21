@@ -45,7 +45,7 @@ def store_submission(ctx:dict, base_submission:models.BasicSubmission) -> None|d
     from tools import RSLNamer
     logger.debug(f"Hello from store_submission")
     # Add all samples to sample table
-    typer = RSLNamer(base_submission.rsl_plate_num)
+    typer = RSLNamer(ctx=ctx, instr=base_submission.rsl_plate_num)
     base_submission.rsl_plate_num = typer.parsed_name
     for sample in base_submission.samples:
         logger.debug(f"Typer: {typer.submission_type}")
@@ -116,7 +116,7 @@ def construct_submission_info(ctx:dict, info_dict:dict) -> models.BasicSubmissio
         return instance, {'code': 2, 'message': "A proper RSL plate number is required."}
     else:
         # enforce conventions on the rsl plate number from the form
-        info_dict['rsl_plate_num'] = RSLNamer(info_dict["rsl_plate_num"]).parsed_name
+        info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"]).parsed_name
     # check database for existing object
     instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
     # get model based on submission type converted above

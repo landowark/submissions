@@ -1,3 +1,8 @@
+## 202307.03
+
+- Auto-filling of some empty cells in excel file.
+- Better pydantic validations of missing data.
+
 ## 202307.02
 
 - Better column counting for cost recovery purposes.

@@ -1,3 +1,4 @@
+- [x] Put in SN controls I guess.
 - [x] Code clean-up and refactor (2023-07).
 - [ ] Migrate context settings to pydantic-settings model.
 - [x] Insert column into reagent type to indicate if reagent is required for kit.

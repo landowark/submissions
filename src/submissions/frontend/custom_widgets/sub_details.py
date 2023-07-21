@@ -314,7 +314,12 @@ class SubmissionDetails(QDialog):
         self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
         logger.debug(self.base_dict)
         html = template.render(sub=self.base_dict)
-        home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
+        with open("test.html", "w") as f:
+            f.write(html)
+        try:
+            home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
+        except FileNotFoundError:
+            home_dir = Path.home().resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
         if fname.__str__() == ".":
             logger.debug("Saving pdf was cancelled.")

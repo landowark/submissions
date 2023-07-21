@@ -47,14 +47,14 @@ class PydReagent(BaseModel):
 class PydSubmission(BaseModel, extra=Extra.allow):
     ctx: dict
     filepath: Path
-    submission_type: str
+    submission_type: str|dict|None
     submitter_plate_num: str|None
     rsl_plate_num: str|dict|None
     submitted_date: date
     submitting_lab: str|None
     sample_count: int
     extraction_kit: str|dict|None
-    technician: str|None
+    technician: str|dict|None
     reagents: List[PydReagent] = []
     samples: List[Any]
     # missing_fields: List[str] = []
@@ -91,14 +91,20 @@ class PydSubmission(BaseModel, extra=Extra.allow):
             else:
                 return value
         else:
-            logger.debug(f"Pydant values:{type(values)}\n{values}")
-            return dict(value=RSLNamer(values.data['filepath'].__str__()).parsed_name, parsed=False)
+            # logger.debug(f"Pydant values:{type(values)}\n{values}")
+            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).parsed_name, parsed=False)
 
-    @field_validator("technician")
+    @field_validator("technician", mode="before")
     @classmethod
     def enforce_tech(cls, value):
-        if value == "nan" or value == "None":
-            value = "Unknown"
+        if check_not_nan(value):
+            if isinstance(value, dict):
+                value['value'] = re.sub(r"\: \d", "", value['value'])
+                return value
+            else:
+                return dict(value=re.sub(r"\: \d", "", value), parsed=True)
+        else:
+            return dict(value="Unnamed", parsed=False)
         return value
     
     @field_validator("reagents")
@@ -140,6 +146,19 @@ class PydSubmission(BaseModel, extra=Extra.allow):
                 return dict(value=dlg.getValues(), parsed=False)
             else:
                 raise ValueError("Extraction kit needed.") 
+            
+    
+    @field_validator("submission_type", mode='before')
+    @classmethod
+    def make_submission_type(cls, value, values):
+        if check_not_nan(value):
+            if isinstance(value, dict):
+                value['value'] = value['value'].title()
+                return value
+            elif isinstance(value, str):
+                return dict(value=value.title(), parsed=False)
+        else:
+            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
 
     # @model_validator(mode="after")
     # def ensure_kit(cls, values):
