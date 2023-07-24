@@ -1,3 +1,6 @@
+- [ ] Check robotics' use of Artic submission forms (i.e. will we be able to make our own forms?)
+- [ ] Streamline addition of new kits by moving as much into DB as possible.
+- [x] Make plate details from html, same as export.
 - [x] Put in SN controls I guess.
 - [x] Code clean-up and refactor (2023-07).
 - [ ] Migrate context settings to pydantic-settings model.

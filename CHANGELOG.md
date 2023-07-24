@@ -1,3 +1,7 @@
+## 202307.04
+
+- Individual plate details now in html format.
+
 ## 202307.03
 
 - Auto-filling of some empty cells in excel file.

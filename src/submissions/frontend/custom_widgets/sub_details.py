@@ -11,8 +11,9 @@ from PyQt6.QtWidgets import (
     QMessageBox, QFileDialog, QMenu, QLabel,
     QDialogButtonBox, QToolBar
 )
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
-from PyQt6.QtGui import QFontMetrics, QAction, QCursor, QPixmap, QPainter
+from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
 from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
 from backend.excel import make_hitpicks
 from configure import jinja_template_loading
@@ -266,40 +267,25 @@ class SubmissionDetails(QDialog):
         # don't want id
         del self.base_dict['id']
         # retrieve jinja template
-        template = env.get_template("submission_details.txt")
+        # template = env.get_template("submission_details.txt")
         # render using object dict
-        text = template.render(sub=self.base_dict)
+        # text = template.render(sub=self.base_dict)
         # create text field
-        txt_editor = QTextEdit(self)
-        txt_editor.setReadOnly(True)
-        txt_editor.document().setPlainText(text)
+        # txt_editor = QTextEdit(self)
+        # txt_editor.setReadOnly(True)
+        # txt_editor.document().setPlainText(text)
         # resize
-        font = txt_editor.document().defaultFont()
-        fontMetrics = QFontMetrics(font)
-        textSize = fontMetrics.size(0, txt_editor.toPlainText())
-        w = textSize.width() + 10
-        h = textSize.height() + 10
-        txt_editor.setMinimumSize(w, h)
-        txt_editor.setMaximumSize(w, h)
-        txt_editor.resize(w, h)
-        interior.resize(w,900)
-        txt_editor.setText(text)
-        interior.setWidget(txt_editor)
-        self.layout = QVBoxLayout()
-        self.setFixedSize(w, 900)
-        # button to export a pdf version
-        btn = QPushButton("Export PDF")
-        btn.setParent(self)
-        btn.setFixedWidth(w)
-        btn.clicked.connect(self.export)
-        
-
-    def export(self):
-        """
-        Renders submission to html, then creates and saves .pdf file to user selected file.
-        """        
-        template = env.get_template("submission_details.html")
-        # make barcode because, reasons
+        # font = txt_editor.document().defaultFont()
+        # fontMetrics = QFontMetrics(font)
+        # textSize = fontMetrics.size(0, txt_editor.toPlainText())
+        # w = textSize.width() + 10
+        # h = textSize.height() + 10
+        # txt_editor.setMinimumSize(w, h)
+        # txt_editor.setMaximumSize(w, h)
+        # txt_editor.resize(w, h)
+        # interior.resize(w,900)
+        # txt_editor.setText(text)
+        # interior.setWidget(txt_editor)
         self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
         sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
         plate_dicto = hitpick_plate(sub)
@@ -312,10 +298,45 @@ class SubmissionDetails(QDialog):
             logger.error(f"No plate map found for {sub.rsl_plate_num}")
         # platemap.save("test.jpg", 'JPEG')
         self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
-        logger.debug(self.base_dict)
-        html = template.render(sub=self.base_dict)
-        with open("test.html", "w") as f:
-            f.write(html)
+        template = env.get_template("submission_details.html")
+        self.html = template.render(sub=self.base_dict)
+        webview = QWebEngineView()
+        webview.setMinimumSize(900, 500)
+        webview.setMaximumSize(900, 500)
+        webview.setHtml(self.html)
+        self.layout = QVBoxLayout()
+        interior.resize(900, 500)
+        interior.setWidget(webview)
+        self.setFixedSize(900, 500)
+        # button to export a pdf version
+        btn = QPushButton("Export PDF")
+        btn.setParent(self)
+        btn.setFixedWidth(900)
+        btn.clicked.connect(self.export)
+        
+
+    def export(self):
+        """
+        Renders submission to html, then creates and saves .pdf file to user selected file.
+        """        
+        # template = env.get_template("submission_details.html")
+        # # make barcode because, reasons
+        # self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
+        # sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
+        # plate_dicto = hitpick_plate(sub)
+        # platemap = make_plate_map(plate_dicto)
+        # logger.debug(f"platemap: {platemap}")
+        # image_io = BytesIO()
+        # try:
+        #     platemap.save(image_io, 'JPEG')
+        # except AttributeError:
+        #     logger.error(f"No plate map found for {sub.rsl_plate_num}")
+        # # platemap.save("test.jpg", 'JPEG')
+        # self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
+        # logger.debug(self.base_dict)
+        # html = template.render(sub=self.base_dict)
+        # with open("test.html", "w") as f:
+        #     f.write(html)
         try:
             home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
         except FileNotFoundError:
@@ -326,7 +347,7 @@ class SubmissionDetails(QDialog):
             return
         try:
             with open(fname, "w+b") as f:
-                pisa.CreatePDF(html, dest=f)
+                pisa.CreatePDF(self.html, dest=f)
         except PermissionError as e:
             logger.error(f"Error saving pdf: {e}")
             msg = QMessageBox()

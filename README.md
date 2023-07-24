@@ -6,15 +6,16 @@
 ## Logging in New Run:
 *should fit 90% of usage cases*
 
-1. Ensure a properly formatted Submission Excel form has been filled out. (It will save you a few headaches)
-    a. All fields should be filled in to ensure proper lookups of reagents.
-2. Click on 'File' in the menu bar, followed by 'Import Submission' and use the file dialog to locate the form you definitely made sure was properly filled out in step 1.
+1. Ensure a properly formatted Submission Excel form has been filled out. 
+    a. The program can fill in reagent fields and some other information automatically, but should be checked for accuracy afterwards.
+2. Click on 'File' in the menu bar, followed by 'Import Submission' and use the file dialog to locate the form.
 3. Click 'Ok'.
 4. Most of the fields in the form should be automatically filled in from the form area to the left of the screen.
 5. You may need to maximize the app to ensure you can see all the info.
 6. Any fields that are not automatically filled in can be filled in manually from the drop down menus.
+	a. Any reagent lots not found in the drop downs can be typed in manually.
 7. Once you are certain all the information is correct, click 'Submit' at the bottom of the form.
-8. Add in any reagents the app doesn't recognize.
+8. Add in any new reagents the app doesn't have in the database.
 9. Once the new run shows up at the bottom of the Submissions, everything is fine.
 10. In case of any mistakes, the run can be overwritten by a reimport.
 

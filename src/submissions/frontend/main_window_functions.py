@@ -816,7 +816,7 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
 
 def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_reagents:List[str], info:dict):
     """
-    Automatically fills in excel cells with reagent info.
+    Automatically fills in excel cells with submission info.
 
     Args:
         obj (QMainWindow): Original main app window
@@ -829,13 +829,15 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
 
     logger.debug(f"Here is the info dict coming in:\n{pprint.pformat(info)}")
     logger.debug(f"Here are the missing reagents:\n{missing_reagents}")
+    # pare down the xl map to only the missing data.
     relevant_map = {k:v for k,v in xl_map.items() if k in missing_reagents}
-    # logger.debug(relevant_map)
+    # pare down reagents to only what's missing
     relevant_reagents = [item for item in reagents if item['type'] in missing_reagents]
+    # hacky manipulation of submission type so it looks better.
     info['submission_type'] = info['submission_type'].replace("_", " ").title()
+    # pare down info to just what's missing
     relevant_info = {k:v for k,v in info.items() if k in missing_reagents}
     logger.debug(f"Here is the relevant info: {pprint.pformat(relevant_info)}")
-    # logger.debug(f"Relevant reagents:\n{relevant_reagents}")
     # construct new objects to put into excel sheets:
     new_reagents = []
     for reagent in relevant_reagents:
@@ -846,12 +848,14 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
         new_reagent['expiry'] = relevant_map[new_reagent['type']]['expiry']
         new_reagent['expiry']['value'] = reagent['expiry']
         new_reagent['sheet'] = relevant_map[new_reagent['type']]['sheet']
+        # name is only present for Bacterial Culture
         try:
             new_reagent['name'] = relevant_map[new_reagent['type']]['name']
             new_reagent['name']['value'] = reagent['type']
         except:
             pass
         new_reagents.append(new_reagent)
+    # construct new info objects to put into excel sheets
     new_info = []
     for item in relevant_info:
         new_item = {}
@@ -860,11 +864,15 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
         new_item['value'] = relevant_info[item]
         new_info.append(new_item)
     logger.debug(f"New reagents: {new_reagents}")
+    # open the workbook using openpyxl
     workbook = load_workbook(obj.xl)
+    # get list of sheet names
     sheets = workbook.sheetnames
-    logger.debug(workbook.sheetnames)
+    # logger.debug(workbook.sheetnames)
     for sheet in sheets:
+        # open sheet
         worksheet=workbook[sheet]
+        # Get relevant reagents for that sheet
         sheet_reagents = [item for item in new_reagents if sheet in item['sheet']]
         for reagent in sheet_reagents:
             logger.debug(f"Attempting: {reagent['type']}:")
@@ -874,10 +882,12 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
                 worksheet.cell(row=reagent['name']['row'], column=reagent['name']['column'], value=reagent['name']['value'].replace("_", " ").upper())
             except:
                 pass
+        # Get relevant info for that sheet
         sheet_info = [item for item in new_info if sheet in item['location']['sheets']]
         for item in sheet_info:
             logger.debug(f"Attempting: {item['type']}")
             worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
+        # Hacky way to 
         if info['submission_type'] == "Bacterial Culture":
             workbook["Sample List"].cell(row=14, column=2, value=getuser())
     fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
