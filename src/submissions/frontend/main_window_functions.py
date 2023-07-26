@@ -5,7 +5,6 @@ from datetime import date
 import difflib
 from getpass import getuser
 import inspect
-from pathlib import Path
 import pprint
 import yaml
 import json
@@ -16,7 +15,7 @@ import pandas as pd
 from backend.db.models import *
 import logging
 from PyQt6.QtWidgets import (
-    QMainWindow, QLabel, QWidget, QPushButton, QFileDialog,
+    QMainWindow, QLabel, QWidget, QPushButton, 
     QLineEdit, QComboBox, QDateEdit
 )
 from .all_window_functions import extract_form_info, select_open_file, select_save_file
@@ -25,12 +24,13 @@ from backend.db.functions import (
     lookup_all_orgs, lookup_kittype_by_use, lookup_kittype_by_name, 
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
-    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample
+    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample,
+    check_kit_integrity
 )
 from backend.excel.parser import SheetParser, PCRParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
 from backend.pydant import PydReagent
-from tools import check_not_nan, check_kit_integrity
+from tools import check_not_nan
 from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent
@@ -393,9 +393,8 @@ def generate_report_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         # make dataframe from record dictionaries
         detailed_df, summary_df = make_report_xlsx(records=records)
         html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
-        # setup filedialog to handle save location of report
-        home_dir = Path(obj.ctx["directory_path"]).joinpath(f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf").resolve().__str__()
-        fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=".pdf")[0])
+        # get save location of report
+        fname = select_save_file(obj=obj, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf", extension="pdf")
         # logger.debug(f"report output name: {fname}")
         with open(fname, "w+b") as f:
             pisa.CreatePDF(html, dest=f)
@@ -613,13 +612,16 @@ def link_controls_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
                             # bcs.control_id.append(control.id)
                             control.submission = bcs
                             control.submission_id = bcs.id
-                            obj.ctx["database_session"].add(control)
+                            # obj.ctx["database_session"].add(control)
+                            obj.ctx.database_session.add(control)
                             count += 1
-        obj.ctx["database_session"].add(bcs)
+        # obj.ctx["database_session"].add(bcs)
+        obj.ctx.database_session.add(bcs)
         logger.debug(f"Here is the new control: {[control.name for control in bcs.controls]}")
     result = dict(message=f"We added {count} controls to bacterial cultures.", status="information")
     logger.debug(result)
-    obj.ctx['database_session'].commit()
+    # obj.ctx['database_session'].commit()
+    obj.ctx.database_session.commit()
     # msg = QMessageBox()
     # msg.setText("Controls added")
     # msg.setInformativeText(result)
@@ -687,8 +689,10 @@ def link_extractions_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.extraction_info}")
         else:
             sub.extraction_info = json.dumps([new_run])        
-        obj.ctx['database_session'].add(sub)
-        obj.ctx["database_session"].commit()
+        # obj.ctx['database_session'].add(sub)
+        # obj.ctx["database_session"].commit()
+        obj.ctx.database_session.add(sub)
+        obj.ctx.database_session.commit()
     result = dict(message=f"We added {count} logs to the database.", status='information') 
     return obj, result
 
@@ -750,8 +754,10 @@ def link_pcr_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.pcr_info}")
         else:
             sub.pcr_info = json.dumps([new_run])        
-        obj.ctx['database_session'].add(sub)
-        obj.ctx["database_session"].commit()
+        # obj.ctx['database_session'].add(sub)
+        # obj.ctx["database_session"].commit()
+        obj.ctx.database_session.add(sub)
+        obj.ctx.database_session.commit()
     result = dict(message=f"We added {count} logs to the database.", status='information')
     return obj, result
 
@@ -801,10 +807,12 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         logger.debug(f"Final pcr info for {sub.rsl_plate_num}: {sub.pcr_info}")
     else:
         sub.pcr_info = json.dumps([parser.pcr])
-    obj.ctx['database_session'].add(sub)
+    # obj.ctx['database_session'].add(sub)
+    obj.ctx.database_session.add(sub)
     logger.debug(f"Existing {type(sub.pcr_info)}: {sub.pcr_info}")
     logger.debug(f"Inserting {type(json.dumps(parser.pcr))}: {json.dumps(parser.pcr)}")
-    obj.ctx["database_session"].commit()
+    # obj.ctx["database_session"].commit()
+    obj.ctx.database_session.commit()
     logger.debug(f"Got {len(parser.samples)} samples to update!")
     logger.debug(f"Parser samples: {parser.samples}")
     for sample in parser.samples:

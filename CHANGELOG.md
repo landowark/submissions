@@ -1,5 +1,7 @@
 ## 202307.04
 
+- Large scale refactor to clean up code.
+- Settings now in the form of a pydantic object.
 - Individual plate details now in html format.
 
 ## 202307.03

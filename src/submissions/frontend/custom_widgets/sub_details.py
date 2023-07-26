@@ -16,7 +16,7 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
 from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
 from backend.excel import make_hitpicks
-from configure import jinja_template_loading
+from tools import jinja_template_loading
 from xhtml2pdf import pisa
 from pathlib import Path
 import logging

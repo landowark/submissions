@@ -31,7 +31,8 @@ class App(QMainWindow):
         self.ctx = ctx
         # indicate version and connected database in title bar
         try:
-            self.title = f"Submissions App (v{ctx['package'].__version__}) - {ctx['database']}"
+            # self.title = f"Submissions App (v{ctx['package'].__version__}) - {ctx['database']}"
+            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
         # set initial app position and size

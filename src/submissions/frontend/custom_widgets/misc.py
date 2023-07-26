@@ -14,7 +14,7 @@ from tools import check_not_nan
 from ..all_window_functions import extract_form_info
 from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, \
     lookup_regent_by_type_name, lookup_last_used_reagenttype_lot
-from configure import jinja_template_loading
+from tools import jinja_template_loading
 import logging
 import numpy as np
 from .pop_ups import AlertPop
@@ -300,55 +300,3 @@ class ImportReagent(QComboBox):
         self.setObjectName(f"lot_{reagent.type}")
         self.addItems(relevant_reagents)
 
-
-# class ImportReagent(QComboBox):
-
-#     def __init__(self, ctx:dict, reagent:dict):
-#         super().__init__()
-#         self.setEditable(True)
-#         # Ensure that all reagenttypes have a name that matches the items in the excel parser
-#         query_var = reagent['type']
-#         logger.debug(f"Import Reagent is looking at: {reagent['lot']} for {reagent['type']}")
-#         if isinstance(reagent['lot'], np.float64):
-#             logger.debug(f"{reagent['lot']} is a numpy float!")
-#             try:
-#                 reagent['lot'] = int(reagent['lot'])
-#             except ValueError:
-#                 pass
-#         # query for reagents using type name from sheet and kit from sheet
-#         logger.debug(f"Attempting lookup of reagents by type: {query_var}")
-#         # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-#         relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]
-#         output_reg = []
-#         for rel_reagent in relevant_reagents:
-#             # extract strings from any sets.
-#             if isinstance(rel_reagent, set):
-#                 for thing in rel_reagent:
-#                     output_reg.append(thing)
-#             elif isinstance(rel_reagent, str):
-#                 output_reg.append(rel_reagent)
-#         relevant_reagents = output_reg
-#         # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
-#         logger.debug(f"Relevant reagents for {reagent['lot']}: {relevant_reagents}")
-#         if str(reagent['lot']) not in relevant_reagents:
-#             if check_not_nan(reagent['lot']):
-#                 relevant_reagents.insert(0, str(reagent['lot']))
-#             else:
-#                 # TODO: look up the last used reagent of this type in the database
-#                 looked_up_reg = lookup_last_used_reagenttype_lot(ctx=ctx, type_name=reagent['type'])
-#                 logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
-#                 if looked_up_reg != None:
-#                     relevant_reagents.remove(str(looked_up_reg.lot))
-#                     relevant_reagents.insert(0, str(looked_up_reg.lot))
-#         else:
-#             if len(relevant_reagents) > 1:
-#                 logger.debug(f"Found {reagent['lot']} in relevant reagents: {relevant_reagents}. Moving to front of list.")
-#                 idx = relevant_reagents.index(str(reagent['lot']))
-#                 logger.debug(f"The index we got for {reagent['lot']} in {relevant_reagents} was {idx}")
-#                 moved_reag = relevant_reagents.pop(idx)
-#                 relevant_reagents.insert(0, moved_reag)
-#             else:
-#                 logger.debug(f"Found {reagent['lot']} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
-#         logger.debug(f"New relevant reagents: {relevant_reagents}")
-#         self.setObjectName(f"lot_{reagent['type']}")
-#         self.addItems(relevant_reagents)

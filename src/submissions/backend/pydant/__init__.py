@@ -6,7 +6,7 @@ from tools import RSLNamer
 from pathlib import Path
 import re
 import logging
-from tools import check_not_nan, convert_nans_to_nones
+from tools import check_not_nan, convert_nans_to_nones, Settings
 import numpy as np
 
 
@@ -45,7 +45,7 @@ class PydReagent(BaseModel):
     
 
 class PydSubmission(BaseModel, extra=Extra.allow):
-    ctx: dict
+    ctx: Settings
     filepath: Path
     submission_type: str|dict|None
     submitter_plate_num: str|None
@@ -62,6 +62,8 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     @field_validator("submitted_date", mode="before")
     @classmethod
     def strip_datetime_string(cls, value):
+        if not check_not_nan(value):
+            value = date.today()
         if isinstance(value, datetime):
             return value
         if isinstance(value, date):

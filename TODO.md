@@ -1,9 +1,11 @@
-- [ ] Check robotics' use of Artic submission forms (i.e. will we be able to make our own forms?)
+- [ ] Fix tests.
+- [ ] Reorganize wastewater artic parser.
 - [ ] Streamline addition of new kits by moving as much into DB as possible.
+- [X] Large scale refactor (2023-07-24).
 - [x] Make plate details from html, same as export.
 - [x] Put in SN controls I guess.
 - [x] Code clean-up and refactor (2023-07).
-- [ ] Migrate context settings to pydantic-settings model.
+- [X] Migrate context settings to pydantic-settings model.
 - [x] Insert column into reagent type to indicate if reagent is required for kit.
     - Needed to keep interchangeable bead plates from being forced into forms.
 - [x] Migrate the parser.sub dictionary to pydantic models.

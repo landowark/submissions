@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog, 
     QDialogButtonBox, QMessageBox, QComboBox
 )
-from configure import jinja_template_loading
+from tools import jinja_template_loading
 import logging
 from backend.db.functions import lookup_kittype_by_use
 

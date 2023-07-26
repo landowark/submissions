@@ -15,7 +15,7 @@ import re
 import numpy as np
 from datetime import date, datetime
 import uuid
-from tools import check_not_nan, RSLNamer, massage_common_reagents, convert_nans_to_nones
+from tools import check_not_nan, RSLNamer, massage_common_reagents, convert_nans_to_nones, Settings
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -23,10 +23,10 @@ class SheetParser(object):
     """
     object to pull and contain data from excel file
     """
-    def __init__(self, ctx:dict, filepath:Path|None = None):
+    def __init__(self, ctx:Settings, filepath:Path|None = None):
         """
         Args:
-            ctx (dict): Settings passed down from gui
+            ctx (Settings): Settings object passed down from gui
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
         """        
         self.ctx = ctx
@@ -59,15 +59,17 @@ class SheetParser(object):
         """        
         # Check metadata for category, return first category
         if self.xl.book.properties.category != None:
+            logger.debug("Using file properties to find type...")
             categories = [item.strip().title() for item in self.xl.book.properties.category.split(";")]
             return categories[0].replace(" ", "_")
         else:
             # This code is going to be depreciated once there is full adoption of the client sheets
             # with updated metadata... but how will it work for Artic?
+            logger.debug("Using excel map to find type...")
             try:
-                for type in self.ctx['submission_types']:
+                for type in self.ctx.submission_types:
                     # This gets the *first* submission type that matches the sheet names in the workbook 
-                    if self.xl.sheet_names == self.ctx['submission_types'][type]['excel_map']:
+                    if self.xl.sheet_names == self.ctx.submission_types[type]['excel_map']:
                         return type.title()
                 return "Unknown"
             except Exception as e:
@@ -299,6 +301,8 @@ class SheetParser(object):
             return_list = []
             for _, ii in df.iloc[1:,1:].iterrows():
                 for c in df.columns.to_list():
+                    if not check_not_nan(c):
+                        continue
                     logger.debug(f"Checking {ii.name}{c}")
                     if check_not_nan(df.loc[ii.name, int(c)]) and df.loc[ii.name, int(c)] != "EMPTY":
                         try:
@@ -310,21 +314,23 @@ class SheetParser(object):
                             continue
             logger.debug(f"massaged sample list for {self.sub['rsl_plate_num']}: {pprint.pprint(return_list)}")
             return return_list
-        submission_info = self.xl.parse("First Strand", dtype=object)
-        biomek_info = self.xl.parse("ArticV4 Biomek", dtype=object)
-        sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
-        biomek_reagent_range = biomek_info.iloc[60:, 0:3].dropna(how='all')
+        submission_info = self.xl.parse("cDNA", dtype=object)
+        biomek_info = self.xl.parse("ArticV4_1 Biomek", dtype=object)
+        # Reminder that the iloc uses row, column ordering
+        # sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
+        sub_reagent_range = submission_info.iloc[7:15, 5:9].dropna(how='all')
+        biomek_reagent_range = biomek_info.iloc[62:, 0:3].dropna(how='all')
         self.sub['submitter_plate_num'] = ""
         self.sub['rsl_plate_num'] =  RSLNamer(ctx=self.ctx, instr=self.filepath.__str__()).parsed_name
         self.sub['submitted_date'] = biomek_info.iloc[1][1]
         self.sub['submitting_lab'] = "Enterics Wastewater Genomics"
-        self.sub['sample_count'] = submission_info.iloc[4][6]
+        self.sub['sample_count'] = submission_info.iloc[34][6]
         self.sub['extraction_kit'] = "ArticV4.1"
         self.sub['technician'] = f"MM: {biomek_info.iloc[2][1]}, Bio: {biomek_info.iloc[3][1]}"
         self.sub['reagents'] = []
         parse_reagents(sub_reagent_range)
         parse_reagents(biomek_reagent_range)
-        samples = massage_samples(biomek_info.iloc[22:31, 0:])
+        samples = massage_samples(biomek_info.iloc[25:33, 0:])
         sample_parser = SampleParser(self.ctx, pd.DataFrame.from_records(samples))
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
@@ -347,12 +353,12 @@ class SampleParser(object):
     object to pull data for samples in excel sheet and construct individual sample objects
     """
 
-    def __init__(self, ctx:dict, df:pd.DataFrame, elution_map:pd.DataFrame|None=None) -> None:
+    def __init__(self, ctx:Settings, df:pd.DataFrame, elution_map:pd.DataFrame|None=None) -> None:
         """
         convert sample sub-dataframe to dictionary of records
 
         Args:
-            ctx (dict): setting passed down from gui
+            ctx (Settings): settings object passed down from gui
             df (pd.DataFrame): input sample dataframe
             elution_map (pd.DataFrame | None, optional): optional map of elution plate. Defaults to None.
         """        
@@ -460,7 +466,7 @@ class SampleParser(object):
         new_list = []
         missed_samples = []
         for sample in self.samples:
-            with self.ctx['database_session'].no_autoflush:
+            with self.ctx.database_session.no_autoflush:
                 instance = lookup_ww_sample_by_ww_sample_num(ctx=self.ctx, sample_number=sample['sample_name'])
             logger.debug(f"Checking: {sample['sample_name']}")
             if instance == None:

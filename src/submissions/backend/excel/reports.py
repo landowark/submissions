@@ -6,7 +6,7 @@ import logging
 from datetime import date, timedelta
 import re
 from typing import Tuple
-from configure import jinja_template_loading
+from tools import jinja_template_loading
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
