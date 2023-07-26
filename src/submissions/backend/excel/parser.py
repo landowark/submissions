@@ -314,23 +314,29 @@ class SheetParser(object):
                             continue
             logger.debug(f"massaged sample list for {self.sub['rsl_plate_num']}: {pprint.pprint(return_list)}")
             return return_list
-        submission_info = self.xl.parse("cDNA", dtype=object)
-        biomek_info = self.xl.parse("ArticV4_1 Biomek", dtype=object)
-        # Reminder that the iloc uses row, column ordering
-        # sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
-        sub_reagent_range = submission_info.iloc[7:15, 5:9].dropna(how='all')
-        biomek_reagent_range = biomek_info.iloc[62:, 0:3].dropna(how='all')
+        submission_info = self.xl.parse("First Strand", dtype=object)
+        biomek_info = self.xl.parse("ArticV4 Biomek", dtype=object)
+        sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
+        biomek_reagent_range = biomek_info.iloc[60:, 0:3].dropna(how='all')
+        # submission_info = self.xl.parse("cDNA", dtype=object)
+        # biomek_info = self.xl.parse("ArticV4_1 Biomek", dtype=object)
+        # # Reminder that the iloc uses row, column ordering
+        # # sub_reagent_range = submission_info.iloc[56:, 1:4].dropna(how='all')
+        # sub_reagent_range = submission_info.iloc[7:15, 5:9].dropna(how='all')
+        # biomek_reagent_range = biomek_info.iloc[62:, 0:3].dropna(how='all')
         self.sub['submitter_plate_num'] = ""
         self.sub['rsl_plate_num'] =  RSLNamer(ctx=self.ctx, instr=self.filepath.__str__()).parsed_name
         self.sub['submitted_date'] = biomek_info.iloc[1][1]
         self.sub['submitting_lab'] = "Enterics Wastewater Genomics"
-        self.sub['sample_count'] = submission_info.iloc[34][6]
+        self.sub['sample_count'] = submission_info.iloc[4][6]
+        # self.sub['sample_count'] = submission_info.iloc[34][6]
         self.sub['extraction_kit'] = "ArticV4.1"
         self.sub['technician'] = f"MM: {biomek_info.iloc[2][1]}, Bio: {biomek_info.iloc[3][1]}"
         self.sub['reagents'] = []
         parse_reagents(sub_reagent_range)
         parse_reagents(biomek_reagent_range)
-        samples = massage_samples(biomek_info.iloc[25:33, 0:])
+        samples = massage_samples(biomek_info.iloc[22:31, 0:])
+        # samples = massage_samples(biomek_info.iloc[25:33, 0:])
         sample_parser = SampleParser(self.ctx, pd.DataFrame.from_records(samples))
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()

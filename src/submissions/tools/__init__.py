@@ -136,7 +136,8 @@ def check_if_app(ctx:dict=None) -> bool:
 def retrieve_rsl_number(in_str:str) -> Tuple[str, str]:
     """
     Uses regex to retrieve the plate number and submission type from an input string
-
+    DEPRECIATED. REPLACED BY RSLNamer.parsed_name
+    
     Args:
         in_str (str): string to be parsed
 
@@ -354,7 +355,7 @@ class Settings(BaseSettings):
     super_users: list
     power_users: list
     rerun_regex: str
-    submission_types: dict
+    submission_types: dict|None = None
     database_session: Session|None = None
     package: Any|None = None
 

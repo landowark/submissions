@@ -23,7 +23,10 @@ def select_open_file(obj:QMainWindow, file_extension:str) -> Path:
         Path: Path of file to be opened
     """    
     # home_dir = str(Path(obj.ctx["directory_path"]))
-    home_dir = str(Path(obj.ctx.directory_path))
+    try:
+        home_dir = Path(obj.ctx.directory_path).resolve().__str__()
+    except FileNotFoundError:
+        home_dir = Path.home().resolve().__str__()
     fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = f"{file_extension}(*.{file_extension})")[0])
     return fname
 
@@ -43,7 +46,7 @@ def select_save_file(obj:QMainWindow, default_name:str, extension:str) -> Path:
         # home_dir = Path(obj.ctx["directory_path"]).joinpath(default_name).resolve().__str__()
         home_dir = Path(obj.ctx.directory_path).joinpath(default_name).resolve().__str__()
     except FileNotFoundError:
-        home_dir = Path.home().resolve().__str__()
+        home_dir = Path.home().joinpath(default_name).resolve().__str__()
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter = f"{extension}(*.{extension})")[0])
     return fname
 

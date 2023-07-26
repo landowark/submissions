@@ -93,7 +93,6 @@ class PydSubmission(BaseModel, extra=Extra.allow):
             else:
                 return value
         else:
-            # logger.debug(f"Pydant values:{type(values)}\n{values}")
             return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).parsed_name, parsed=False)
 
     @field_validator("technician", mode="before")
@@ -115,11 +114,6 @@ class PydSubmission(BaseModel, extra=Extra.allow):
         return_val = []
         for reagent in value:
             logger.debug(f"Pydantic reagent: {reagent}")
-            # match reagent.type.lower():
-            #     case 'atcc':
-            #         continue
-            #     case _:
-            #         return_val.append(reagent)
             if reagent.type == None:
                 continue
             else:
@@ -132,7 +126,6 @@ class PydSubmission(BaseModel, extra=Extra.allow):
         if check_not_nan(value):
             return int(value)
         else:
-            # raise ValueError(f"{value} could not be used to create an integer.")
             return convert_nans_to_nones(value)
         
     @field_validator("extraction_kit", mode='before')
@@ -142,13 +135,11 @@ class PydSubmission(BaseModel, extra=Extra.allow):
         if check_not_nan(value):
             return dict(value=value, parsed=True)
         else:
-            # logger.debug(values.data)
             dlg = KitSelector(ctx=values.data['ctx'], title="Kit Needed", message="At minimum a kit is needed. Please select one.")
             if dlg.exec():
                 return dict(value=dlg.getValues(), parsed=False)
             else:
                 raise ValueError("Extraction kit needed.") 
-            
     
     @field_validator("submission_type", mode='before')
     @classmethod
@@ -161,14 +152,3 @@ class PydSubmission(BaseModel, extra=Extra.allow):
                 return dict(value=value.title(), parsed=False)
         else:
             return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
-
-    # @model_validator(mode="after")
-    # def ensure_kit(cls, values):
-    #     logger.debug(f"Model values: {values}")
-    #     missing_fields = [k for k,v in values if v == None]
-    #     if len(missing_fields) > 0:
-    #         logger.debug(f"Missing fields: {missing_fields}")
-    #         values['missing_fields'] = missing_fields
-    #     return values
-
-

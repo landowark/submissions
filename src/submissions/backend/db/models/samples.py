@@ -18,7 +18,7 @@ class WWSample(Base):
 
     id = Column(INTEGER, primary_key=True) #: primary key
     ww_processing_num = Column(String(64)) #: wastewater processing number 
-    ww_sample_full_id = Column(String(64), nullable=False)
+    ww_sample_full_id = Column(String(64), nullable=False, unique=True)
     rsl_number = Column(String(64)) #: rsl plate identification number
     rsl_plate = relationship("Wastewater", back_populates="samples") #: relationship to parent plate
     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWS_submission_id"))
@@ -111,7 +111,7 @@ class BCSample(Base):
 
     id = Column(INTEGER, primary_key=True) #: primary key
     well_number = Column(String(8)) #: location on parent plate
-    sample_id = Column(String(64), nullable=False) #: identification from submitter
+    sample_id = Column(String(64), nullable=False, unique=True) #: identification from submitter
     organism = Column(String(64)) #: bacterial specimen
     concentration = Column(String(16)) #:
     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_BCS_sample_id")) #: id of parent plate

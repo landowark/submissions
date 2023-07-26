@@ -338,7 +338,8 @@ class SubmissionDetails(QDialog):
         # with open("test.html", "w") as f:
         #     f.write(html)
         try:
-            home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
+            # home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
+            home_dir = Path(self.ctx.directory_path).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
         except FileNotFoundError:
             home_dir = Path.home().resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])

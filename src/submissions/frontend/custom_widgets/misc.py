@@ -230,10 +230,9 @@ class ControlsDatePicker(QWidget):
         super().__init__()
 
         self.start_date = QDateEdit(calendarPopup=True)
-        # start date is three month prior to end date by default
-        # NOTE: 2 month, but the variable name is the same cause I'm lazy
-        threemonthsago = QDate.currentDate().addDays(-60)
-        self.start_date.setDate(threemonthsago)
+        # start date is two months prior to end date by default
+        twomonthsago = QDate.currentDate().addDays(-60)
+        self.start_date.setDate(twomonthsago)
         self.end_date = QDateEdit(calendarPopup=True)
         self.end_date.setDate(QDate.currentDate())
         self.layout = QHBoxLayout()
@@ -299,4 +298,3 @@ class ImportReagent(QComboBox):
         logger.debug(f"New relevant reagents: {relevant_reagents}")
         self.setObjectName(f"lot_{reagent.type}")
         self.addItems(relevant_reagents)
-

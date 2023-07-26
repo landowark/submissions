@@ -18,7 +18,7 @@ from getpass import getuser
 import numpy as np
 import yaml
 from pathlib import Path
-from tools import Settings
+from tools import Settings, check_regex_match, RSLNamer
 
 
 
@@ -43,7 +43,6 @@ def store_submission(ctx:Settings, base_submission:models.BasicSubmission) -> No
     Returns:
         None|dict : object that indicates issue raised for reporting in gui
     """    
-    from tools import RSLNamer
     logger.debug(f"Hello from store_submission")
     # Add all samples to sample table
     typer = RSLNamer(ctx=ctx, instr=base_submission.rsl_plate_num)
@@ -52,7 +51,7 @@ def store_submission(ctx:Settings, base_submission:models.BasicSubmission) -> No
         logger.debug(f"Typer: {typer.submission_type}")
         # Suuuuuper hacky way to be sure that the artic doesn't overwrite the ww plate in a ww sample
         # need something more elegant
-        if "_artic" not in typer.submission_type:
+        if "_artic" not in typer.submission_type.lower():
             sample.rsl_plate = base_submission
         else:
             sample.artic_rsl_plate = base_submission
@@ -114,7 +113,7 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
     Returns:
         models.BasicSubmission: Constructed submission object
     """
-    from tools import check_regex_match, RSLNamer
+    # from tools import check_regex_match, RSLNamer
     # convert submission type into model name
     query = info_dict['submission_type'].replace(" ", "")
     # Ensure an rsl plate number exists for the plate
@@ -127,7 +126,8 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
         info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"]).parsed_name
     # check database for existing object
     # instance = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
-    instance = ctx.database_session.query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
+    # instance = ctx.database_session.query(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==info_dict['rsl_plate_num']).first()
+    instance = lookup_submission_by_rsl_num(ctx=ctx, rsl_num=info_dict['rsl_plate_num'])
     # get model based on submission type converted above
     logger.debug(f"Looking at models for submission type: {query}")
     model = getattr(models, query)
@@ -866,8 +866,6 @@ def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list
     plate_dicto = []
     for sample in submission.samples:
         # have sample report back its info if it's positive, otherwise, None
-        method_list = [func for func in dir(sample) if callable(getattr(sample, func))]
-        logger.debug(f"Method list of sample: {method_list}")
         samp = sample.to_hitpick()
         if samp == None:
             continue
@@ -962,7 +960,6 @@ def lookup_last_used_reagenttype_lot(ctx:Settings, type_name:str) -> models.Reag
         return lookup_reagent(ctx=ctx, reagent_lot=rt.last_used, type_name=type_name)
     except AttributeError:
         return None
-
 
 def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None) -> dict|None:
     """
