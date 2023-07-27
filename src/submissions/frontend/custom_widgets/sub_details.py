@@ -97,8 +97,11 @@ class SubmissionsSheet(QTableView):
         sets data in model
         """        
         self.data = submissions_to_df(ctx=self.ctx)
-        self.data['id'] = self.data['id'].apply(str)
-        self.data['id'] = self.data['id'].str.zfill(3)
+        try:
+            self.data['id'] = self.data['id'].apply(str)
+            self.data['id'] = self.data['id'].str.zfill(3)
+        except KeyError:
+            pass
         try:
             del self.data['samples']
         except KeyError:

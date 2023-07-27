@@ -1,8 +1,8 @@
-"""initial commit
+"""database_rebuild
 
-Revision ID: 8753ed70f148
+Revision ID: 06e2c8dc4889
 Revises: 
-Create Date: 2023-01-26 12:48:42.340619
+Create Date: 2023-07-26 14:08:18.809998
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '8753ed70f148'
+revision = '06e2c8dc4889'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -23,6 +23,8 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=64), nullable=True),
     sa.Column('email', sa.String(length=64), nullable=True),
     sa.Column('phone', sa.String(length=32), nullable=True),
+    sa.Column('organization_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['organization_id'], ['_organizations.id'], name='fk_contact_org_id', ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_control_types',
@@ -37,18 +39,13 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=64), nullable=True),
     sa.Column('used_for', sa.JSON(), nullable=True),
     sa.Column('cost_per_run', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('mutable_cost_column', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('mutable_cost_sample', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('constant_cost', sa.FLOAT(precision=2), nullable=True),
     sa.Column('reagent_types_id', sa.INTEGER(), nullable=True),
     sa.ForeignKeyConstraint(['reagent_types_id'], ['_reagent_types.id'], name='fk_KT_reagentstype_id', ondelete='SET NULL', use_alter=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
-    )
-    op.create_table('_reagent_types',
-    sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
-    sa.Column('kit_id', sa.INTEGER(), nullable=True),
-    sa.Column('eol_ext', sa.Interval(), nullable=True),
-    sa.ForeignKeyConstraint(['kit_id'], ['_kits.id'], name='fk_RT_kits_id', ondelete='SET NULL', use_alter=True),
-    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_organizations',
     sa.Column('id', sa.INTEGER(), nullable=False),
@@ -57,6 +54,32 @@ def upgrade() -> None:
     sa.Column('contact_ids', sa.INTEGER(), nullable=True),
     sa.ForeignKeyConstraint(['contact_ids'], ['_contacts.id'], name='fk_org_contact_id', ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('_reagent_types',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('kit_id', sa.INTEGER(), nullable=True),
+    sa.Column('eol_ext', sa.Interval(), nullable=True),
+    sa.Column('required', sa.INTEGER(), server_default='1', nullable=True),
+    sa.Column('last_used', sa.String(length=32), nullable=True),
+    sa.ForeignKeyConstraint(['kit_id'], ['_kits.id'], name='fk_RT_kits_id', ondelete='SET NULL', use_alter=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('_discounts',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('kit_id', sa.INTEGER(), nullable=True),
+    sa.Column('client_id', sa.INTEGER(), nullable=True),
+    sa.Column('name', sa.String(length=128), nullable=True),
+    sa.Column('amount', sa.FLOAT(precision=2), nullable=True),
+    sa.ForeignKeyConstraint(['client_id'], ['_organizations.id'], name='fk_org_id', ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['kit_id'], ['_kits.id'], name='fk_kit_type_id', ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('_orgs_contacts',
+    sa.Column('org_id', sa.INTEGER(), nullable=True),
+    sa.Column('contact_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['contact_id'], ['_contacts.id'], ),
+    sa.ForeignKeyConstraint(['org_id'], ['_organizations.id'], )
     )
     op.create_table('_reagents',
     sa.Column('id', sa.INTEGER(), nullable=False),
@@ -73,15 +96,9 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['kits_id'], ['_kits.id'], ),
     sa.ForeignKeyConstraint(['reagent_types_id'], ['_reagent_types.id'], )
     )
-    op.create_table('_orgs_contacts',
-    sa.Column('org_id', sa.INTEGER(), nullable=True),
-    sa.Column('contact_id', sa.INTEGER(), nullable=True),
-    sa.ForeignKeyConstraint(['contact_id'], ['_contacts.id'], ),
-    sa.ForeignKeyConstraint(['org_id'], ['_organizations.id'], )
-    )
     op.create_table('_submissions',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('rsl_plate_num', sa.String(length=32), nullable=True),
+    sa.Column('rsl_plate_num', sa.String(length=32), nullable=False),
     sa.Column('submitter_plate_num', sa.String(length=127), nullable=True),
     sa.Column('submitted_date', sa.TIMESTAMP(), nullable=True),
     sa.Column('submitting_lab_id', sa.INTEGER(), nullable=True),
@@ -90,6 +107,11 @@ def upgrade() -> None:
     sa.Column('submission_type', sa.String(length=32), nullable=True),
     sa.Column('technician', sa.String(length=64), nullable=True),
     sa.Column('reagents_id', sa.String(), nullable=True),
+    sa.Column('extraction_info', sa.JSON(), nullable=True),
+    sa.Column('run_cost', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('uploaded_by', sa.String(length=32), nullable=True),
+    sa.Column('comment', sa.JSON(), nullable=True),
+    sa.Column('pcr_info', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['extraction_kit_id'], ['_kits.id'], name='fk_BS_extkit_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['reagents_id'], ['_reagents.id'], name='fk_BS_reagents_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['submitting_lab_id'], ['_organizations.id'], name='fk_BS_sublab_id', ondelete='SET NULL'),
@@ -105,7 +127,8 @@ def upgrade() -> None:
     sa.Column('concentration', sa.String(length=16), nullable=True),
     sa.Column('rsl_plate_id', sa.INTEGER(), nullable=True),
     sa.ForeignKeyConstraint(['rsl_plate_id'], ['_submissions.id'], name='fk_BCS_sample_id', ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('sample_id')
     )
     op.create_table('_control_samples',
     sa.Column('id', sa.INTEGER(), nullable=False),
@@ -116,6 +139,9 @@ def upgrade() -> None:
     sa.Column('matches', sa.JSON(), nullable=True),
     sa.Column('kraken', sa.JSON(), nullable=True),
     sa.Column('submission_id', sa.INTEGER(), nullable=True),
+    sa.Column('refseq_version', sa.String(length=16), nullable=True),
+    sa.Column('kraken2_version', sa.String(length=16), nullable=True),
+    sa.Column('kraken2_db_version', sa.String(length=32), nullable=True),
     sa.ForeignKeyConstraint(['parent_id'], ['_control_types.id'], name='fk_control_parent_id'),
     sa.ForeignKeyConstraint(['submission_id'], ['_submissions.id'], ),
     sa.PrimaryKeyConstraint('id'),
@@ -134,17 +160,23 @@ def upgrade() -> None:
     sa.Column('rsl_number', sa.String(length=64), nullable=True),
     sa.Column('rsl_plate_id', sa.INTEGER(), nullable=True),
     sa.Column('collection_date', sa.TIMESTAMP(), nullable=True),
+    sa.Column('well_number', sa.String(length=8), nullable=True),
     sa.Column('testing_type', sa.String(length=64), nullable=True),
     sa.Column('site_status', sa.String(length=64), nullable=True),
     sa.Column('notes', sa.String(length=2000), nullable=True),
     sa.Column('ct_n1', sa.FLOAT(precision=2), nullable=True),
     sa.Column('ct_n2', sa.FLOAT(precision=2), nullable=True),
+    sa.Column('n1_status', sa.String(length=32), nullable=True),
+    sa.Column('n2_status', sa.String(length=32), nullable=True),
     sa.Column('seq_submitted', sa.BOOLEAN(), nullable=True),
     sa.Column('ww_seq_run_id', sa.String(length=64), nullable=True),
     sa.Column('sample_type', sa.String(length=8), nullable=True),
-    sa.Column('well_number', sa.String(length=8), nullable=True),
-    sa.ForeignKeyConstraint(['rsl_plate_id'], ['_submissions.id'], name='fk_WWS_sample_id', ondelete='SET NULL'),
-    sa.PrimaryKeyConstraint('id')
+    sa.Column('pcr_results', sa.JSON(), nullable=True),
+    sa.Column('well_24', sa.String(length=8), nullable=True),
+    sa.Column('artic_well_number', sa.String(length=8), nullable=True),
+    sa.ForeignKeyConstraint(['rsl_plate_id'], ['_submissions.id'], name='fk_WWS_submission_id', ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('ww_sample_full_id')
     )
     # ### end Alembic commands ###
 
@@ -156,11 +188,12 @@ def downgrade() -> None:
     op.drop_table('_control_samples')
     op.drop_table('_bc_samples')
     op.drop_table('_submissions')
-    op.drop_table('_orgs_contacts')
     op.drop_table('_reagentstypes_kittypes')
     op.drop_table('_reagents')
-    op.drop_table('_organizations')
+    op.drop_table('_orgs_contacts')
+    op.drop_table('_discounts')
     op.drop_table('_reagent_types')
+    op.drop_table('_organizations')
     op.drop_table('_kits')
     op.drop_table('_control_types')
     op.drop_table('_contacts')

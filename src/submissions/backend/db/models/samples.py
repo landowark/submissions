@@ -156,39 +156,3 @@ class BCSample(Base):
                     col=well_col, 
                     positive=False)
         
-# class ArticSample(Base):
-#     """
-#     base of artic sample
-#     """    
-#     __tablename__ = "_artic_samples"
-
-#     id = Column(INTEGER, primary_key=True) #: primary key
-#     well_number = Column(String(8)) #: location on parent plate
-#     rsl_plate = relationship("WastewaterArtic", back_populates="samples") #: relationship to parent plate
-#     rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWA_submission_id"))
-#     ww_sample_full_id = Column(String(64), nullable=False)
-#     lims_sample_id = Column(String(64), nullable=False)
-#     ct_1 = Column(FLOAT(2)) #: first ct value in column
-#     ct_2 = Column(FLOAT(2)) #: second ct value in column
-
-#     def to_string(self) -> str:
-#         """
-#         string representing sample object
-
-#         Returns:
-#             str: string representing location and sample id
-#         """        
-#         return f"{self.well_number}: {self.ww_sample_full_id}"
-    
-#     def to_sub_dict(self) -> dict:
-#         """
-#         gui friendly dictionary
-
-#         Returns:
-#             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
-#         """
-#         return {
-#             "well": self.well_number,
-#             "name": self.ww_sample_full_id,
-#         }
-    

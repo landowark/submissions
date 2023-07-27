@@ -1,5 +1,7 @@
-- [ ] Fix tests.
-- [ ] Reorganize wastewater artic parser.
+- [ ] Rebuild database
+- [ ] Fix Wastewater/Artic double submission problem
+- [X] Fix tests.
+- [X] Reorganize wastewater artic parser.
 - [ ] Streamline addition of new kits by moving as much into DB as possible.
 - [X] Large scale refactor (2023-07-24).
 - [x] Make plate details from html, same as export.

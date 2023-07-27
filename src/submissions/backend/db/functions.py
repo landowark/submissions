@@ -49,12 +49,16 @@ def store_submission(ctx:Settings, base_submission:models.BasicSubmission) -> No
     base_submission.rsl_plate_num = typer.parsed_name
     for sample in base_submission.samples:
         logger.debug(f"Typer: {typer.submission_type}")
+        logger.debug(f"sample going in: {type(sample)}\n{sample.__dict__}")
         # Suuuuuper hacky way to be sure that the artic doesn't overwrite the ww plate in a ww sample
         # need something more elegant
-        if "_artic" not in typer.submission_type.lower():
+        if "_artic" not in typer.submission_type:
             sample.rsl_plate = base_submission
         else:
-            sample.artic_rsl_plate = base_submission
+            logger.debug(f"{sample.ww_sample_full_id} is an ARTIC sample.")
+            # base_submission.samples.remove(sample)
+            # sample.rsl_plate = sample.rsl_plate
+            # sample.artic_rsl_plate = base_submission
         logger.debug(f"Attempting to add sample: {sample.to_string()}")
         try:
             # ctx['database_session'].add(sample)
@@ -62,6 +66,7 @@ def store_submission(ctx:Settings, base_submission:models.BasicSubmission) -> No
         except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
             logger.debug(f"Hit an integrity error : {e}")
             continue
+        logger.debug(f"Here is the sample to be stored in the DB: {sample.__dict__}")
     # Add submission to submission table
     # ctx['database_session'].add(base_submission)
     ctx.database_session.add(base_submission)
@@ -650,7 +655,7 @@ def get_control_subtypes(ctx:Settings, type:str, mode:str) -> list[str]:
     # Only the first control of type is necessary since they all share subtypes
     try:
         outs = get_all_controls_by_type(ctx=ctx, con_type=type)[0]
-    except TypeError:
+    except (TypeError, IndexError):
         return []
     # Get analysis mode data as dict
     jsoner = json.loads(getattr(outs, mode))
