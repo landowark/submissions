@@ -4,6 +4,7 @@ Contains widgets specific to the submission summary and submission details.
 import base64
 from datetime import datetime
 from io import BytesIO
+import pprint
 from PyQt6 import QtPrintSupport
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
@@ -215,7 +216,8 @@ class SubmissionsSheet(QTableView):
             if iii > 3: 
                 logger.error(f"Error: Had to truncate number of plates to 4.")
                 continue
-            plate_dicto = hitpick_plate(submission=sub, plate_number=iii+1)
+            # plate_dicto = hitpick_plate(submission=sub, plate_number=iii+1)
+            plate_dicto = sub.hitpick_plate(plate_number=iii+1)
             if plate_dicto == None:
                 continue
             image = make_plate_map(plate_dicto)
@@ -236,7 +238,7 @@ class SubmissionsSheet(QTableView):
             return
         date = datetime.strftime(datetime.today(), "%Y-%m-%d")
         # ask for filename and save as csv.
-        home_dir = Path(self.ctx["directory_path"]).joinpath(f"Hitpicks_{date}.csv").resolve().__str__()
+        home_dir = Path(self.ctx.directory_path).joinpath(f"Hitpicks_{date}.csv").resolve().__str__()
         fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".csv")[0])
         if fname.__str__() == ".":
             logger.debug("Saving csv was cancelled.")
@@ -265,7 +267,7 @@ class SubmissionDetails(QDialog):
         interior.setParent(self)
         # get submision from db
         data = lookup_submission_by_id(ctx=ctx, id=id)
-        logger.debug(f"Submission details data:\n{data.to_dict()}")
+        logger.debug(f"Submission details data:\n{pprint.pformat(data.to_dict())}")
         self.base_dict = data.to_dict()
         # don't want id
         del self.base_dict['id']
@@ -291,7 +293,8 @@ class SubmissionDetails(QDialog):
         # interior.setWidget(txt_editor)
         self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
         sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
-        plate_dicto = hitpick_plate(sub)
+        # plate_dicto = hitpick_plate(sub)
+        plate_dicto = sub.hitpick_plate()
         platemap = make_plate_map(plate_dicto)
         logger.debug(f"platemap: {platemap}")
         image_io = BytesIO()

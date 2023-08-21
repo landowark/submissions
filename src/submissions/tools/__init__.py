@@ -18,8 +18,6 @@ from sqlalchemy import create_engine
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple
-import __init__ as package
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -50,7 +48,7 @@ def check_not_nan(cell_contents) -> bool:
     """    
     # check for nan as a string first
     try:
-        if "Unnamed:" in cell_contents:
+        if "Unnamed:" in cell_contents or "blank" in cell_contents.lower():
             cell_contents = np.nan
         cell_contents = cell_contents.lower()
     except (TypeError, AttributeError):
@@ -59,7 +57,6 @@ def check_not_nan(cell_contents) -> bool:
         cell_contents = np.nan
     if cell_contents == None:
         cell_contents = np.nan
-    
     try:
         if pd.isnull(cell_contents):
             cell_contents = np.nan
@@ -170,11 +167,12 @@ class RSLNamer(object):
     """
     Object that will enforce proper formatting on RSL plate names.
     """
-    def __init__(self, ctx, instr:str):
+    def __init__(self, ctx, instr:str, sub_type:str|None=None):
         self.ctx = ctx
+        self.submission_type = sub_type
         self.retrieve_rsl_number(in_str=instr)
         if self.submission_type != None:
-            parser = getattr(self, f"enforce_{self.submission_type}")
+            parser = getattr(self, f"enforce_{self.submission_type.lower()}")
             parser()
             self.parsed_name = self.parsed_name.replace("_", "-")
         
@@ -187,35 +185,37 @@ class RSLNamer(object):
         """    
         if not isinstance(in_str, Path):
             in_str = Path(in_str)
-        out_str = in_str.stem
-        logger.debug(f"Attempting match of {out_str}")
-        logger.debug(f"The initial plate name is: {out_str}")
+        self.out_str = in_str.stem
+        logger.debug(f"Attempting match of {self.out_str}")
+        logger.debug(f"The initial plate name is: {self.out_str}")
         regex = re.compile(r"""
-            # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
-            (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
-            (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
-            (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}_(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
-            """, flags = re.IGNORECASE | re.VERBOSE)
-        m = regex.search(out_str)
+                # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
+                (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
+                (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
+                (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}_(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
+                """, flags = re.IGNORECASE | re.VERBOSE)
+        m = regex.search(self.out_str)
         if m != None:
-            try:
-                self.parsed_name = m.group().upper().strip(".")
-                logger.debug(f"Got parsed submission name: {self.parsed_name}")
-                self.submission_type = m.lastgroup
-            except AttributeError as e:
-                logger.critical("No RSL plate number found or submission type found!")
-                logger.debug(f"The cause of the above error was: {e}")
-        else:
-            logger.warning(f"We're going to have to create the submission type from the excel sheet properties...")
-            if in_str.exists():
-                my_xl = pd.ExcelFile(in_str)
-                if my_xl.book.properties.category != None:
-                    categories = [item.strip().title() for item in my_xl.book.properties.category.split(";")]
-                    self.submission_type = categories[0].replace(" ", "_").lower()
-                else:
-                    raise AttributeError(f"File {in_str.__str__()} has no categories.")
-            else:
-                raise FileNotFoundError()
+            self.parsed_name = m.group().upper().strip(".")
+            logger.debug(f"Got parsed submission name: {self.parsed_name}")
+            if self.submission_type == None:
+                try:
+                    self.submission_type = m.lastgroup
+                except AttributeError as e:
+                    logger.critical("No RSL plate number found or submission type found!")
+                    logger.debug(f"The cause of the above error was: {e}")
+                    logger.warning(f"We're going to have to create the submission type from the excel sheet properties...")
+                    if in_str.exists():
+                        my_xl = pd.ExcelFile(in_str)
+                        if my_xl.book.properties.category != None:
+                            categories = [item.strip().title() for item in my_xl.book.properties.category.split(";")]
+                            self.submission_type = categories[0].replace(" ", "_").lower()
+                        else:
+                            raise AttributeError(f"File {in_str.__str__()} has no categories.")
+                    else:
+                        raise FileNotFoundError()
+        # else:
+        #     raise ValueError(f"No parsed name could be created for {self.out_str}.")
 
     def enforce_wastewater(self):
         """
@@ -223,10 +223,11 @@ class RSLNamer(object):
         """      
         def construct():
             today = datetime.now()
-            return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"   
+            return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
         try:
             self.parsed_name = re.sub(r"PCR(-|_)", "", self.parsed_name)
         except AttributeError as e:
+            logger.error(f"Problem using regex: {e}")
             self.parsed_name = construct()
         self.parsed_name = self.parsed_name.replace("RSLWW", "RSL-WW")
         self.parsed_name = re.sub(r"WW(\d{4})", r"WW-\1", self.parsed_name, flags=re.IGNORECASE)
@@ -413,6 +414,7 @@ class Settings(BaseSettings):
     @field_validator('package', mode="before")
     @classmethod
     def import_package(cls, value):
+        import __init__ as package
         if value == None:
             return package
 

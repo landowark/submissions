@@ -8,7 +8,8 @@ import inspect
 import pprint
 import yaml
 import json
-from typing import Tuple
+from typing import Tuple, List
+from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from xhtml2pdf import pisa
 import pandas as pd
@@ -25,19 +26,16 @@ from backend.db.functions import (
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
     lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample,
-    check_kit_integrity
+    check_kit_integrity, get_reagents_in_extkit
 )
 from backend.excel.parser import SheetParser, PCRParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
 from backend.pydant import PydReagent
 from tools import check_not_nan
-from .custom_widgets.pop_ups import AlertPop, QuestionAsker
+from .custom_widgets.pop_ups import AlertPop, KitSelector, QuestionAsker
 from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent
 from .visualizations.control_charts import create_charts, construct_html
-from typing import List
-from openpyxl import load_workbook
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -71,6 +69,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     except PermissionError:
         logger.error(f"Couldn't get permission to access file: {fname}")
         return obj, result
+    # prsr.sub = import_validation_check(ctx=obj.ctx, parser_sub=prsr.sub)
     # obj.column_count = prsr.column_count
     try:
         logger.debug(f"Submission dictionary: {prsr.sub}")
@@ -260,7 +259,7 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
         obj.missing_reagents = kit_integrity['missing']
         for item in kit_integrity['missing']:
             obj.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
-            reagent = dict(type=item, lot=None, exp=None)
+            reagent = dict(type=item, lot=None, exp=None, name=None)
             add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent))#item=item)
             obj.table_widget.formlayout.addWidget(add_widget)
     submit_btn = QPushButton("Submit")
@@ -306,9 +305,11 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             else:
                 # In this case we will have an empty reagent and the submission will fail kit integrity check
                 logger.debug("Will not add reagent.")
-        if wanted_reagent != None:
-            parsed_reagents.append(wanted_reagent)
-            wanted_reagent.type.last_used = reagents[reagent]
+                # obj.ctx.database_session.rollback()
+                return obj, dict(message="Failed integrity check", status="critical")
+        # if wanted_reagent != None:
+        parsed_reagents.append(wanted_reagent)
+        wanted_reagent.type.last_used = reagents[reagent]
     # move samples into preliminary submission dict
     info['samples'] = obj.samples
     info['uploaded_by'] = getuser()
@@ -325,6 +326,7 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
                 # Do not add duplicate reagents.
                 base_submission.reagents = []
             else:
+                obj.ctx.database_session.rollback()
                 return obj, dict(message="Overwrite cancelled", status="Information")
         # code 2: No RSL plate number given
         case 2:
@@ -340,7 +342,7 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     if kit_integrity != None:
         return obj, dict(message=kit_integrity['message'], status="critical")
     logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
-    result = store_submission(ctx=obj.ctx, base_submission=base_submission)
+    result = store_submission(ctx=obj.ctx, base_submission=base_submission, samples=obj.samples)
     # check result of storing for issues
     # update summary sheet
     obj.table_widget.sub_wid.setData()
@@ -353,7 +355,10 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         extraction_kit = lookup_kittype_by_name(obj.ctx, name=obj.ext_kit)
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
         logger.debug(f"Extraction kit map:\n\n{extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]}")
-        excel_map = extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]
+        # TODO replace below with function in KitType object. Update Kittype associations.
+        # excel_map = extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]
+        excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type.replace('_', ' ').title())
+        excel_map.update(extraction_kit.used_for[obj.current_submission_type.replace('_', ' ').title()])
         input_reagents = [item.to_reagent_dict() for item in parsed_reagents]
         autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info)
     if hasattr(obj, 'csv'):
@@ -430,7 +435,7 @@ def add_kit_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     """    
     result = None
     # setup file dialog to find yaml flie
-    fname = select_open_file(obj, extension="yml")
+    fname = select_open_file(obj, file_extension="yml")
     assert fname.exists()
     # read yaml file
     try:
@@ -587,7 +592,7 @@ def link_controls_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     for bcs in all_bcs:
         logger.debug(f"Running for {bcs.rsl_plate_num}")
         logger.debug(f"Here is the current control: {[control.name for control in bcs.controls]}")
-        samples = [sample.sample_id for sample in bcs.samples]
+        samples = [sample.submitter_id for sample in bcs.samples]
         logger.debug(bcs.controls)
         for sample in samples:
             # replace below is a stopgap method because some dingus decided to add spaces in some of the ATCC49... so it looks like "ATCC 49"...
@@ -897,6 +902,7 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
             worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
         # Hacky way to 
         if info['submission_type'] == "Bacterial Culture":
-            workbook["Sample List"].cell(row=14, column=2, value=getuser())
+            workbook["Sample List"].cell(row=14, column=2, value=getuser()[0:2].upper())
     fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
     workbook.save(filename=fname.__str__())
+

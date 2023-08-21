@@ -4,14 +4,23 @@ All kit and reagent related models
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, CheckConstraint
 from sqlalchemy.orm import relationship, validates
+from sqlalchemy.ext.associationproxy import association_proxy
+
 from datetime import date
 import logging
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
 
-# Table containing reagenttype-kittype relationships
-reagenttypes_kittypes = Table("_reagentstypes_kittypes", Base.metadata, Column("reagent_types_id", INTEGER, ForeignKey("_reagent_types.id")), Column("kits_id", INTEGER, ForeignKey("_kits.id")))
+# # Table containing reagenttype-kittype relationships
+# reagenttypes_kittypes = Table("_reagentstypes_kittypes", Base.metadata, 
+#                               Column("reagent_types_id", INTEGER, ForeignKey("_reagent_types.id")), 
+#                               Column("kits_id", INTEGER, ForeignKey("_kits.id")),
+#                             #   The entry will look like ["Bacteria Culture":{"row":1, "column":4}]
+#                               Column("uses", JSON),
+#                             #   is the reagent required for that kit?
+#                               Column("required", INTEGER)
+#                               )
 
 
 class KitType(Base):
@@ -25,12 +34,24 @@ class KitType(Base):
     submissions = relationship("BasicSubmission", back_populates="extraction_kit") #: submissions this kit was used for
     used_for = Column(JSON) #: list of names of sample types this kit can process
     cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit NOTE: depreciated, use the constant and mutable costs instead
-    # TODO: Change below to 'mutable_cost_column' and 'mutable_cost_sample' before moving to production.
     mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
     mutable_cost_sample = Column(FLOAT(2)) #: dollar amount that can change with number of samples (reagents, tips, etc)
     constant_cost = Column(FLOAT(2)) #: dollar amount per plate that will remain constant (plates, man hours, etc)
-    reagent_types = relationship("ReagentType", back_populates="kits", uselist=True, secondary=reagenttypes_kittypes) #: reagent types this kit contains
-    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', use_alter=True, name="fk_KT_reagentstype_id")) #: joined reagent type id
+    # reagent_types = relationship("ReagentType", back_populates="kits", uselist=True, secondary=reagenttypes_kittypes) #: reagent types this kit contains
+    # reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', use_alter=True, name="fk_KT_reagentstype_id")) #: joined reagent type id
+    # kit_reagenttype_association = 
+
+    kit_reagenttype_associations = relationship(
+        "KitTypeReagentTypeAssociation",
+        back_populates="kit_type",
+        cascade="all, delete-orphan",
+    )
+    # association proxy of "user_keyword_associations" collection
+    # to "keyword" attribute
+    reagent_types = association_proxy("kit_reagenttype_associations", "reagenttype")
+
+    def __repr__(self) -> str:
+        return f"KitType({self.name})"
     
     def __str__(self) -> str:
         """
@@ -41,6 +62,61 @@ class KitType(Base):
         """        
         return self.name
     
+    def get_reagents(self, required:bool=False) -> list:
+        if required:
+            return [item.reagenttype for item in self.kit_reagenttype_associations if item.required == 1]
+        else:
+            return [item.reagenttype for item in self.kit_reagenttype_associations]
+    
+
+    def construct_xl_map_for_use(self, use:str) -> dict:
+        # map = self.used_for[use]
+        map = {}
+        assocs = [item for item in self.kit_reagenttype_associations if use in item.uses]
+        for assoc in assocs:
+            try:
+                map[assoc.reagenttype.name] = assoc.uses[use]
+            except TypeError:
+                continue
+        return map
+    
+
+class KitTypeReagentTypeAssociation(Base):
+    """
+    table containing reagenttype/kittype associations
+    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    """    
+    __tablename__ = "_reagenttypes_kittypes"
+    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True)
+    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
+    uses = Column(JSON)
+    required = Column(INTEGER)
+    # reagent_type_name = Column(INTEGER, ForeignKey("_reagent_types.name"))
+
+    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations")
+
+    # reference to the "ReagentType" object
+    reagenttype = relationship("ReagentType")
+
+    def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+        self.kit = kit_type
+        self.reagenttype = reagent_type
+        self.uses = uses
+        self.required = required
+
+    @validates('required')
+    def validate_age(self, key, value):
+        if not 0 <= value < 2:
+            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+        return value
+    
+    @validates('reagenttype')
+    def validate_reagenttype(self, key, value):
+        if not isinstance(value, ReagentType):
+            raise ValueError(f'{value} is not a reagenttype')
+        return value
+
+    
 
 class ReagentType(Base):
     """
@@ -50,17 +126,17 @@ class ReagentType(Base):
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: name of reagent type
-    kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", use_alter=True, name="fk_RT_kits_id")) #: id of joined kit type
-    kits = relationship("KitType", back_populates="reagent_types", uselist=True, foreign_keys=[kit_id]) #: kits this reagent is used in
+    # kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", use_alter=True, name="fk_RT_kits_id")) #: id of joined kit type
+    # kits = relationship("KitType", back_populates="reagent_types", uselist=True, foreign_keys=[kit_id]) #: kits this reagent is used in
     instances = relationship("Reagent", back_populates="type") #: concrete instances of this reagent type
     eol_ext = Column(Interval()) #: extension of life interval
-    required = Column(INTEGER, server_default="1") #: sqlite boolean to determine if reagent type is essential for the kit
+    # required = Column(INTEGER, server_default="1") #: sqlite boolean to determine if reagent type is essential for the kit
     last_used = Column(String(32)) #: last used lot number of this type of reagent
 
     @validates('required')
     def validate_age(self, key, value):
         if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}')
+            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
         return value
 
     def __str__(self) -> str:
@@ -71,6 +147,9 @@ class ReagentType(Base):
             str: string representing this object's name
         """        
         return self.name
+    
+    def __repr__(self):
+        return f"ReagentType({self.name})"
 
 
 class Reagent(Base):
@@ -86,6 +165,13 @@ class Reagent(Base):
     lot = Column(String(64)) #: lot number of reagent
     expiry = Column(TIMESTAMP) #: expiry date - extended by eol_ext of parent programmatically
     submissions = relationship("BasicSubmission", back_populates="reagents", uselist=True) #: submissions this reagent is used in
+
+    def __repr__(self):
+        if self.name != None:
+            return f"Reagent({self.name}-{self.lot})"
+        else:
+            return f"Reagent({self.type.name}-{self.lot})"
+        
 
     def __str__(self) -> str:
         """
@@ -143,3 +229,5 @@ class Discount(Base):
     client_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete='SET NULL', name="fk_org_id"))
     name = Column(String(128))
     amount = Column(FLOAT(2))
+
+    

@@ -1,3 +1,7 @@
+## 202308.03
+
+- Large restructure of database to allow better relationships between kits/reagenttypes & submissions/samples.
+
 ## 202307.04
 
 - Large scale refactor to clean up code.

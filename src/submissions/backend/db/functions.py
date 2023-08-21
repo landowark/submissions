@@ -3,15 +3,16 @@ Convenience functions for interacting with the database.
 '''
 
 from . import models
-from .models.kits import reagenttypes_kittypes, KitType
-from .models.submissions import reagents_submissions, BasicSubmission
+# from .models.kits import KitType
+# from .models.submissions import BasicSample, reagents_submissions, BasicSubmission, SubmissionSampleAssociation
+# from .models import submissions
 import pandas as pd
 import sqlalchemy.exc
 import sqlite3
 import logging
 from datetime import date, datetime, timedelta
-from sqlalchemy import and_
-from sqlalchemy import JSON, event
+from sqlalchemy import and_, JSON, event
+from sqlalchemy.exc import IntegrityError, OperationalError, SAWarning
 from sqlalchemy.engine import Engine
 import json
 from getpass import getuser
@@ -19,6 +20,7 @@ import numpy as np
 import yaml
 from pathlib import Path
 from tools import Settings, check_regex_match, RSLNamer
+from typing import List
 
 
 
@@ -32,7 +34,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
-def store_submission(ctx:Settings, base_submission:models.BasicSubmission) -> None|dict:
+def store_submission(ctx:Settings, base_submission:models.BasicSubmission, samples:List[dict]=[]) -> None|dict:
     """
     Upserts submissions into database
 
@@ -47,26 +49,37 @@ def store_submission(ctx:Settings, base_submission:models.BasicSubmission) -> No
     # Add all samples to sample table
     typer = RSLNamer(ctx=ctx, instr=base_submission.rsl_plate_num)
     base_submission.rsl_plate_num = typer.parsed_name
-    for sample in base_submission.samples:
-        logger.debug(f"Typer: {typer.submission_type}")
-        logger.debug(f"sample going in: {type(sample)}\n{sample.__dict__}")
-        # Suuuuuper hacky way to be sure that the artic doesn't overwrite the ww plate in a ww sample
-        # need something more elegant
-        if "_artic" not in typer.submission_type:
-            sample.rsl_plate = base_submission
-        else:
-            logger.debug(f"{sample.ww_sample_full_id} is an ARTIC sample.")
-            # base_submission.samples.remove(sample)
-            # sample.rsl_plate = sample.rsl_plate
-            # sample.artic_rsl_plate = base_submission
-        logger.debug(f"Attempting to add sample: {sample.to_string()}")
-        try:
-            # ctx['database_session'].add(sample)
-            ctx.database_session.add(sample)
-        except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
-            logger.debug(f"Hit an integrity error : {e}")
-            continue
-        logger.debug(f"Here is the sample to be stored in the DB: {sample.__dict__}")
+    # for sample in samples:
+    #     instance = sample['sample']
+    #     logger.debug(f"Typer: {typer.submission_type}")
+    #     logger.debug(f"sample going in: {type(sample['sample'])}\n{sample['sample'].__dict__}")
+    #     # Suuuuuper hacky way to be sure that the artic doesn't overwrite the ww plate in a ww sample
+    #     # need something more elegant
+    #     # if "_artic" not in typer.submission_type:
+    #     #     sample.rsl_plate = base_submission
+    #     # else:
+    #     #     logger.debug(f"{sample.ww_sample_full_id} is an ARTIC sample.")
+    #     #     # base_submission.samples.remove(sample)
+    #     #     # sample.rsl_plate = sample.rsl_plate
+    #     #     # sample.artic_rsl_plate = base_submission
+    #     # logger.debug(f"Attempting to add sample: {sample.to_string()}")
+    #     # try:
+    #         # ctx['database_session'].add(sample)
+    #     # ctx.database_session.add(instance)
+    #     # ctx.database_session.commit()
+    #     # logger.debug(f"Submitter id: {sample['sample'].submitter_id} and table id: {sample['sample'].id}")
+    #     logger.debug(f"Submitter id: {instance.submitter_id} and table id: {instance.id}")
+    #     assoc = SubmissionSampleAssociation(submission=base_submission, sample=instance, row=sample['row'], column=sample['column'])
+        
+    #     # except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
+    #     #     logger.debug(f"Hit an integrity error : {e}")
+    #     #     continue
+    #     try:
+    #         base_submission.submission_sample_associations.append(assoc)
+    #     except IntegrityError as e:
+    #         logger.critical(e)
+    #         continue
+        # logger.debug(f"Here is the sample to be stored in the DB: {sample.__dict__}")
     # Add submission to submission table
     # ctx['database_session'].add(base_submission)
     ctx.database_session.add(base_submission)
@@ -148,14 +161,15 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
         code = 1
         msg = "This submission already exists.\nWould you like to overwrite?"
     for item in info_dict:
-        logger.debug(f"Setting {item} to {info_dict[item]}")
+        value = info_dict[item]
+        logger.debug(f"Setting {item} to {value}")
         # set fields based on keys in dictionary
         match item:
             case "extraction_kit":
-                q_str = info_dict[item]
-                logger.debug(f"Looking up kit {q_str}")
+                # q_str = info_dict[item]
+                logger.debug(f"Looking up kit {value}")
                 try:
-                    field_value = lookup_kittype_by_name(ctx=ctx, name=q_str)
+                    field_value = lookup_kittype_by_name(ctx=ctx, name=value)
                 except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
                     logger.error(f"Hit an integrity error looking up kit type: {e}")
                     logger.error(f"Details: {e.__dict__}")
@@ -164,28 +178,61 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
                     else:
                         msg = "SQL integrity error of unknown origin."
                     return instance, dict(code=2, message=msg)
-                logger.debug(f"Got {field_value} for kit {q_str}")
+                logger.debug(f"Got {field_value} for kit {value}")
             case "submitting_lab":
-                q_str = info_dict[item].replace(" ", "_").lower()
-                logger.debug(f"Looking up organization: {q_str}")
-                field_value = lookup_org_by_name(ctx=ctx, name=q_str)
-                logger.debug(f"Got {field_value} for organization {q_str}")
+                value = value.replace(" ", "_").lower()
+                logger.debug(f"Looking up organization: {value}")
+                field_value = lookup_org_by_name(ctx=ctx, name=value)
+                logger.debug(f"Got {field_value} for organization {value}")
             case "submitter_plate_num":
                 # Because of unique constraint, there will be problems with 
                 # multiple submissions named 'None', so...
                 # Should be depreciated with use of pydantic validator
-                logger.debug(f"Submitter plate id: {info_dict[item]}")
+                logger.debug(f"Submitter plate id: {value}")
                 # if info_dict[item] == None or info_dict[item] == "None" or info_dict[item] == "":
                 #     logger.debug(f"Got None as a submitter plate number, inserting random string to preserve database unique constraint.")
                 #     info_dict[item] = uuid.uuid4().hex.upper()
-                field_value = info_dict[item]
+                field_value = value
+            case "samples":
+                for sample in value:
+                    sample_instance = lookup_sample_by_submitter_id(ctx=ctx, submitter_id=sample['sample'].submitter_id)
+                    if sample_instance == None:
+                        sample_instance = sample['sample']
+                    else:
+                        logger.warning(f"Sample {sample} already exists, creating association.")
+                    if sample_instance in instance.samples:
+                        logger.error(f"Looks like there's a duplicate sample on this plate: {sample_instance.submitter_id}!")
+                        continue
+                    try:
+                        with ctx.database_session.no_autoflush:
+                            try:
+                                logger.debug(f"Here is the sample instance type: {sample_instance.sample_type}")
+                                try:
+                                    assoc = getattr(models, f"{sample_instance.sample_type.replace('_sample', '').replace('_', ' ').title().replace(' ', '')}Association")
+                                except AttributeError as e:
+                                    assoc = models.SubmissionSampleAssociation
+                                # assoc = models.SubmissionSampleAssociation(submission=instance, sample=sample_instance, row=sample['row'], column=sample['column'])
+                                assoc = assoc(submission=instance, sample=sample_instance, row=sample['row'], column=sample['column'])
+                                instance.submission_sample_associations.append(assoc)
+                            except IntegrityError:
+                                logger.error(f"Hit integrity error for: {sample}")
+                                continue
+                            except SAWarning:
+                                logger.error(f"Looks like the association already exists for submission: {instance} and sample: {sample_instance}")
+                                continue
+                    except IntegrityError as e:
+                        logger.critical(e)
+                        continue
+                continue
             case _:
-                field_value = info_dict[item]
+                field_value = value
         # insert into field
         try:
             setattr(instance, item, field_value)
         except AttributeError:
             logger.debug(f"Could not set attribute: {item} to {info_dict[item]}")
+            continue
+        except KeyError:
             continue
     # calculate cost of the run: immutable cost + mutable times number of columns
     # This is now attached to submission upon creation to preserve at-run costs incase of cost increase in the future.
@@ -202,8 +249,9 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
         logger.debug("Checking and applying discounts...")
         discounts = [item.amount for item in lookup_discounts_by_org_and_kit(ctx=ctx, kit_id=instance.extraction_kit.id, lab_id=instance.submitting_lab.id)]
         logger.debug(f"We got discounts: {discounts}")
-        discounts = sum(discounts)
-        instance.run_cost = instance.run_cost - discounts
+        if len(discounts) > 0:
+            discounts = sum(discounts)
+            instance.run_cost = instance.run_cost - discounts
     except Exception as e:
         logger.error(f"An unknown exception occurred when calculating discounts: {e}")
     # We need to make sure there's a proper rsl plate number
@@ -307,10 +355,15 @@ def lookup_kittype_by_name(ctx:Settings, name:str) -> models.KitType:
     Returns:
         models.KitType: retrieved kittype
     """    
+    if isinstance(name, dict):
+        name = name['value']
     logger.debug(f"Querying kittype: {name}")
     # return ctx['database_session'].query(models.KitType).filter(models.KitType.name==name).first()
     return ctx.database_session.query(models.KitType).filter(models.KitType.name==name).first()
     
+def lookup_kittype_by_id(ctx:Settings, id:int) -> models.KitType:
+    return ctx.database_session.query(models.KitType).filter(models.KitType.id==id).first()
+
 def lookup_regent_by_type_name(ctx:Settings, type_name:str) -> list[models.Reagent]:
     """
     Lookup reagents by their type name
@@ -519,18 +572,21 @@ def create_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
                 # look_up = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 look_up = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 if look_up == None:
-                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit], required=1)
+                    # rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit], required=1)
+                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), last_used="")
                 else:
                     rt = look_up
-                    rt.kits.append(kit)
+                    # rt.kits.append(kit)
                     # add this because I think it's necessary to get proper back population
-                    try:
-                        kit.reagent_types_id.append(rt.id)
-                    except AttributeError as e:
-                        logger.error(f"Error appending reagent id to kit.reagent_types_id: {e}, creating new.")
+                    # try:
+                        # kit.reagent_types_id.append(rt.id)
+                    # except AttributeError as e:
+                        # logger.error(f"Error appending reagent id to kit.reagent_types_id: {e}, creating new.")
                         # kit.reagent_types_id = [rt.id]
+                assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses=kit.used_for)
                 # ctx['database_session'].add(rt)
                 ctx.database_session.add(rt)
+                kit.kit_reagenttype_associations.append(assoc)
                 logger.debug(f"Kit construction reagent type: {rt.__dict__}")
             logger.debug(f"Kit construction kit: {kit.__dict__}")
         # ctx['database_session'].add(kit)
@@ -727,19 +783,25 @@ def delete_submission_by_id(ctx:Settings, id:int) -> None:
             yaml.dump(backup, f)
     except KeyError:
         pass
-    sub.reagents = []
-    for sample in sub.samples:
-        if sample.rsl_plate == sub:
-            # ctx['database_session'].delete(sample)
-            ctx.database_session.delete(sample)
-        else:
-            logger.warning(f"Not deleting sample {sample.ww_sample_full_id} because it belongs to another plate.")
+    # sub.reagents = []
+    # for assoc in sub.submission_sample_associations:
+    #     # if sample.rsl_plate == sub:
+    #     if sub in sample.submissions:
+    #         # ctx['database_session'].delete(sample)
+        # ctx.database_session.delete(assoc)
+    #     else:
+    #         logger.warning(f"Not deleting sample {sample.ww_sample_full_id} because it belongs to another plate.")
     # ctx["database_session"].delete(sub)
     # ctx["database_session"].commit()
+    
     ctx.database_session.delete(sub)
-    ctx.database_session.commit()
+    try:
+        ctx.database_session.commit()
+    except (IntegrityError, OperationalError) as e:
+        ctx.database_session.rollback()
+        raise e
 
-def lookup_ww_sample_by_rsl_sample_number(ctx:Settings, rsl_number:str) -> models.WWSample:
+def lookup_ww_sample_by_rsl_sample_number(ctx:Settings, rsl_number:str) -> models.WastewaterSample:
     """
     Retrieves wastewater sample from database by rsl sample number
 
@@ -751,9 +813,9 @@ def lookup_ww_sample_by_rsl_sample_number(ctx:Settings, rsl_number:str) -> model
         models.WWSample: instance of wastewater sample
     """    
     # return ctx['database_session'].query(models.WWSample).filter(models.WWSample.rsl_number==rsl_number).first()
-    return ctx.database_session.query(models.WWSample).filter(models.WWSample.rsl_number==rsl_number).first()
+    return ctx.database_session.query(models.WastewaterSample).filter(models.WastewaterSample.rsl_number==rsl_number).first()
 
-def lookup_ww_sample_by_ww_sample_num(ctx:Settings, sample_number:str) -> models.WWSample:
+def lookup_ww_sample_by_ww_sample_num(ctx:Settings, sample_number:str) -> models.WastewaterSample:
     """
     Retrieves wastewater sample from database by ww sample number
 
@@ -764,9 +826,9 @@ def lookup_ww_sample_by_ww_sample_num(ctx:Settings, sample_number:str) -> models
     Returns:
         models.WWSample: instance of wastewater sample
     """    
-    return ctx.database_session.query(models.WWSample).filter(models.WWSample.ww_sample_full_id==sample_number).first()
+    return ctx.database_session.query(models.WastewaterSample).filter(models.WastewaterSample.submitter_id==sample_number).first()
 
-def lookup_ww_sample_by_sub_sample_rsl(ctx:Settings, sample_rsl:str, plate_rsl:str) -> models.WWSample:
+def lookup_ww_sample_by_sub_sample_rsl(ctx:Settings, sample_rsl:str, plate_rsl:str) -> models.WastewaterSample:
     """
     Retrieves a wastewater sample from the database by its rsl sample number and parent rsl plate number.
     This will likely replace simply looking up by the sample rsl above cine I need to control for repeats.
@@ -780,9 +842,10 @@ def lookup_ww_sample_by_sub_sample_rsl(ctx:Settings, sample_rsl:str, plate_rsl:s
         models.WWSample: Relevant wastewater object
     """    
     # return ctx['database_session'].query(models.WWSample).join(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==plate_rsl).filter(models.WWSample.rsl_number==sample_rsl).first()
-    return ctx.database_session.query(models.WWSample).join(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==plate_rsl).filter(models.WWSample.rsl_number==sample_rsl).first()
+    # return ctx.database_session.query(models.BasicSample).join(models.BasicSubmission).filter(models.BasicSubmission.rsl_plate_num==plate_rsl).filter(models.BasicSample.submitter_id==sample_rsl).first()
+    return ctx.database_session.query(models.BasicSample).filter(models.BasicSample.submissions.any(models.BasicSubmission.rsl_plate_num==plate_rsl)).filter(models.WastewaterSample.rsl_number==sample_rsl).first()
 
-def lookup_ww_sample_by_sub_sample_well(ctx:Settings, sample_rsl:str, well_num:str, plate_rsl:str) -> models.WWSample:
+def lookup_ww_sample_by_sub_sample_well(ctx:Settings, sample_rsl:str, well_num:str, plate_rsl:str) -> models.WastewaterSample:
     """
     Retrieves a wastewater sample from the database by its rsl sample number and parent rsl plate number.
     This will likely replace simply looking up by the sample rsl above cine I need to control for repeats.
@@ -800,10 +863,10 @@ def lookup_ww_sample_by_sub_sample_well(ctx:Settings, sample_rsl:str, well_num:s
     #     .filter(models.BasicSubmission.rsl_plate_num==plate_rsl) \
     #     .filter(models.WWSample.rsl_number==sample_rsl) \
     #     .filter(models.WWSample.well_number==well_num).first()
-    return ctx.database_session.query(models.WWSample).join(models.BasicSubmission) \
+    return ctx.database_session.query(models.WastewaterSample).join(models.BasicSubmission) \
         .filter(models.BasicSubmission.rsl_plate_num==plate_rsl) \
-        .filter(models.WWSample.rsl_number==sample_rsl) \
-        .filter(models.WWSample.well_number==well_num).first()
+        .filter(models.WastewaterSample.rsl_number==sample_rsl) \
+        .filter(models.WastewaterSample.well_number==well_num).first()
 
 def update_ww_sample(ctx:Settings, sample_obj:dict):
     """
@@ -815,25 +878,26 @@ def update_ww_sample(ctx:Settings, sample_obj:dict):
     """    
     # ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=ctx, rsl_number=sample_obj['sample'])
     logger.debug(f"Looking up {sample_obj['sample']} in plate {sample_obj['plate_rsl']}")
-    ww_samp = lookup_ww_sample_by_sub_sample_rsl(ctx=ctx, sample_rsl=sample_obj['sample'], plate_rsl=sample_obj['plate_rsl'])
+    # ww_samp = lookup_ww_sample_by_sub_sample_rsl(ctx=ctx, sample_rsl=sample_obj['sample'], plate_rsl=sample_obj['plate_rsl'])
+    assoc = lookup_ww_association_by_plate_sample(ctx=ctx, rsl_plate_num=sample_obj['plate_rsl'], rsl_sample_num=sample_obj['sample'])
     # ww_samp = lookup_ww_sample_by_sub_sample_well(ctx=ctx, sample_rsl=sample_obj['sample'], well_num=sample_obj['well_num'], plate_rsl=sample_obj['plate_rsl'])
-    if ww_samp != None:
+    if assoc != None:
         # del sample_obj['well_number']
         for key, value in sample_obj.items():
             # set attribute 'key' to 'value'
             try:
-                check = getattr(ww_samp, key)
+                check = getattr(assoc, key)
             except AttributeError:
                 continue
             if check == None:
                 logger.debug(f"Setting {key} to {value}")
-                setattr(ww_samp, key, value)
+                setattr(assoc, key, value)
     else:
         logger.error(f"Unable to find sample {sample_obj['sample']}")
         return
     # ctx['database_session'].add(ww_samp)
     # ctx["database_session"].commit()
-    ctx.database_session.add(ww_samp)
+    ctx.database_session.add(assoc)
     ctx.database_session.commit()
 
 def lookup_discounts_by_org_and_kit(ctx:Settings, kit_id:int, lab_id:int) -> list:
@@ -860,7 +924,7 @@ def lookup_discounts_by_org_and_kit(ctx:Settings, kit_id:int, lab_id:int) -> lis
 def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list:
     """
     Creates a list of sample positions and statuses to be used by plate mapping and csv output to biomek software.
-
+    DEPRECIATED: replaced by Submission.hitpick
     Args:
         submission (models.BasicSubmission): Input submission
         plate_number (int, optional): plate position in the series of selected plates. Defaults to 0.
@@ -881,7 +945,7 @@ def hitpick_plate(submission:models.BasicSubmission, plate_number:int=0) -> list
             this_sample = dict(
                 plate_number = plate_number,
                 sample_name = samp['name'],
-                column = samp['col'],
+                column = samp['column'],
                 row = samp['row'],
                 positive = samp['positive'],
                 plate_name = submission.rsl_plate_num
@@ -966,7 +1030,7 @@ def lookup_last_used_reagenttype_lot(ctx:Settings, type_name:str) -> models.Reag
     except AttributeError:
         return None
 
-def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None) -> dict|None:
+def check_kit_integrity(sub:models.BasicSubmission|models.KitType, reagenttypes:list|None=None) -> dict|None:
     """
     Ensures all reagents expected in kit are listed in Submission
 
@@ -980,16 +1044,20 @@ def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None
     logger.debug(type(sub))
     # What type is sub?
     match sub:
-        case BasicSubmission():
+        case models.BasicSubmission():
             # Get all required reagent types for this kit.
-            ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types if reagenttype.required == 1]
+            # ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types if reagenttype.required == 1]
+            ext_kit_rtypes = [item.name for item in sub.extraction_kit.get_reagents(required=True)]
             # Overwrite function parameter reagenttypes
             try:
                 reagenttypes = [reagent.type.name for reagent in sub.reagents]
             except AttributeError as e:
                 logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
-        case KitType():
-            ext_kit_rtypes = [reagenttype.name for reagenttype in sub.reagent_types if reagenttype.required == 1]
+        case models.KitType():
+            # ext_kit_rtypes = [reagenttype.name for reagenttype in sub.reagent_types if reagenttype.required == 1]
+            ext_kit_rtypes = [item.name for item in sub.get_reagents(required=True)]
+        case _:
+            raise ValueError(f"There was no match for the integrity object.\n\nCheck to make sure they are imported from the same place because it matters.")
     logger.debug(f"Kit reagents: {ext_kit_rtypes}")
     logger.debug(f"Submission reagents: {reagenttypes}")
     # check if lists are equal
@@ -1004,3 +1072,82 @@ def check_kit_integrity(sub:BasicSubmission|KitType, reagenttypes:list|None=None
     else:
         result = {'message' : f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", 'missing': missing}
     return result
+
+def lookup_sample_by_submitter_id(ctx:Settings, submitter_id:str) -> models.BasicSample:
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+        submitter_id (str): _description_
+
+    Returns:
+        BasicSample: _description_
+    """    
+    return ctx.database_session.query(models.BasicSample).filter(models.BasicSample.submitter_id==submitter_id).first()
+
+def get_all_submission_types(ctx:Settings) -> List[str]:
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+
+    Returns:
+        List[str]: _description_
+    """    
+    kits = ctx.database_session.query(KitType).all()
+    uses = [list(item.used_for.keys()) for item in kits]
+    flat_list = [item for sublist in uses for item in sublist]
+    return list(set(flat_list)).sort()
+
+def get_reagents_in_extkit(ctx:Settings, kit_name:str) -> List[str]:
+    """
+    _summary_
+    DEPRECIATED, use kit.get_reagents() instead
+
+    Args:
+        ctx (Settings): _description_
+        kit_name (str): _description_
+
+    Returns:
+        List[str]: _description_
+    """    
+    kit = lookup_kittype_by_name(ctx=ctx, name=kit_name)
+    return kit.get_reagents(required=False)
+
+def lookup_ww_association_by_plate_sample(ctx:Settings, rsl_plate_num:str, rsl_sample_num:str) -> models.SubmissionSampleAssociation:
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+        rsl_plate_num (str): _description_
+        sample_submitter_id (_type_): _description_
+
+    Returns:
+        models.SubmissionSampleAssociation: _description_
+    """    
+    return ctx.database_session.query(models.SubmissionSampleAssociation)\
+                .join(models.BasicSubmission)\
+                .join(models.WastewaterSample)\
+                .filter(models.BasicSubmission.rsl_plate_num==rsl_plate_num)\
+                .filter(models.WastewaterSample.rsl_number==rsl_sample_num)\
+                .first()
+
+def lookup_all_reagent_names_by_role(ctx:Settings, role_name:str) -> List[str]:
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+        role_name (str): _description_
+
+    Returns:
+        List[str]: _description_
+    """    
+    role = lookup_reagenttype_by_name(ctx=ctx, rt_name=role_name)
+    try:
+        return [reagent.name for reagent in role.instances]
+    except AttributeError:
+        return []

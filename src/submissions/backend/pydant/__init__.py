@@ -1,6 +1,8 @@
 import uuid
 from pydantic import BaseModel, field_validator, model_validator, Extra
 from datetime import date, datetime
+from dateutil.parser import parse
+from dateutil.parser._parser import ParserError
 from typing import List, Any
 from tools import RSLNamer
 from pathlib import Path
@@ -8,6 +10,7 @@ import re
 import logging
 from tools import check_not_nan, convert_nans_to_nones, Settings
 import numpy as np
+from backend.db.functions import lookup_submission_by_rsl_num
 
 
 
@@ -17,6 +20,7 @@ class PydReagent(BaseModel):
     type: str|None
     lot: str|None
     exp: date|None
+    name: str|None
 
     @field_validator("type", mode='before')
     @classmethod
@@ -37,10 +41,13 @@ class PydReagent(BaseModel):
     @field_validator("exp", mode="before")
     @classmethod
     def enforce_date(cls, value):
-        if isinstance(value, float) or value == np.nan:
-            raise ValueError(f"Date cannot be a float: {value}")
-        else:
-            return value
+        # if isinstance(value, float) or value == np.nan:
+        #     raise ValueError(f"Date cannot be a float: {value}")
+        # else:
+        #     return value
+        if value != None:
+            return convert_nans_to_nones(str(value))
+        return value
 
     
 
@@ -50,7 +57,7 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     submission_type: str|dict|None
     submitter_plate_num: str|None
     rsl_plate_num: str|dict|None
-    submitted_date: date
+    submitted_date: date|dict
     submitting_lab: str|None
     sample_count: int
     extraction_kit: str|dict|None
@@ -65,10 +72,19 @@ class PydSubmission(BaseModel, extra=Extra.allow):
         if not check_not_nan(value):
             value = date.today()
         if isinstance(value, datetime):
-            return value
+            return dict(value=value, parsed=True)
         if isinstance(value, date):
             return value
-        return re.sub(r"_\d$", "", value)
+        string = re.sub(r"(_|-)\d$", "", value)
+        try:
+            output = dict(value=parse(string).date(), parsed=False)
+        except ParserError as e:
+            logger.error(f"Problem parsing date: {e}")
+            try:
+                output = dict(value=parse(string.replace("-","")).date(), parsed=False)
+            except Exception as e:
+                logger.error(f"Problem with parse fallback: {e}")
+        return output
 
     @field_validator("submitter_plate_num")
     @classmethod
@@ -87,13 +103,20 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     @classmethod
     def rsl_from_file(cls, value, values):
         logger.debug(f"RSL-plate initial value: {value}")
+        if isinstance(values.data['submission_type'], dict):
+            sub_type = values.data['submission_type']['value']
+        elif isinstance(values.data['submission_type'], str):
+            sub_type = values.data['submission_type']
         if check_not_nan(value):
-            if isinstance(value, str):
+            if lookup_submission_by_rsl_num(ctx=values.data['ctx'], rsl_num=value) == None:
                 return dict(value=value, parsed=True)
             else:
-                return value
+                logger.warning(f"Submission number {value} already exists in DB, attempting salvage with filepath")
+                output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+                return dict(value=output, parsed=False)
         else:
-            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).parsed_name, parsed=False)
+            output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+            return dict(value=output, parsed=False)
 
     @field_validator("technician", mode="before")
     @classmethod
@@ -130,16 +153,16 @@ class PydSubmission(BaseModel, extra=Extra.allow):
         
     @field_validator("extraction_kit", mode='before')
     @classmethod
-    def get_kit_if_none(cls, value, values):
-        from frontend.custom_widgets.pop_ups import KitSelector
+    def get_kit_if_none(cls, value):
+        # from frontend.custom_widgets.pop_ups import KitSelector
         if check_not_nan(value):
-            return dict(value=value, parsed=True)
+            if isinstance(value, str):
+                return dict(value=value, parsed=True)
+            elif isinstance(value, dict):
+                return value
         else:
-            dlg = KitSelector(ctx=values.data['ctx'], title="Kit Needed", message="At minimum a kit is needed. Please select one.")
-            if dlg.exec():
-                return dict(value=dlg.getValues(), parsed=False)
-            else:
-                raise ValueError("Extraction kit needed.") 
+            raise ValueError(f"No extraction kit found.")
+            
     
     @field_validator("submission_type", mode='before')
     @classmethod

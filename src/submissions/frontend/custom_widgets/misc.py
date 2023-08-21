@@ -10,11 +10,10 @@ from PyQt6.QtWidgets import (
     QHBoxLayout
 )
 from PyQt6.QtCore import Qt, QDate, QSize
-from tools import check_not_nan
+from tools import check_not_nan, jinja_template_loading, Settings
 from ..all_window_functions import extract_form_info
 from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, \
-    lookup_regent_by_type_name, lookup_last_used_reagenttype_lot
-from tools import jinja_template_loading
+    lookup_regent_by_type_name, lookup_last_used_reagenttype_lot, lookup_all_reagent_names_by_role
 import logging
 import numpy as np
 from .pop_ups import AlertPop
@@ -28,9 +27,9 @@ class AddReagentForm(QDialog):
     """
     dialog to add gather info about new reagent
     """    
-    def __init__(self, ctx:dict, reagent_lot:str|None, reagent_type:str|None, expiry:date|None=None) -> None:
+    def __init__(self, ctx:dict, reagent_lot:str|None, reagent_type:str|None, expiry:date|None=None, reagent_name:str|None=None) -> None:
         super().__init__()
-
+        self.ctx = ctx
         if reagent_lot == None:
             reagent_lot = ""
 
@@ -42,21 +41,26 @@ class AddReagentForm(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         # widget to get lot info
-        lot_input = QLineEdit()
-        lot_input.setObjectName("lot")
-        lot_input.setText(reagent_lot)
+        self.name_input = QComboBox()
+        self.name_input.setObjectName("name")
+        self.name_input.setEditable(True)
+        self.name_input.setCurrentText(reagent_name)
+        # self.name_input.setText(reagent_name)
+        self.lot_input = QLineEdit()
+        self.lot_input.setObjectName("lot")
+        self.lot_input.setText(reagent_lot)
         # widget to get expiry info
-        exp_input = QDateEdit(calendarPopup=True)
-        exp_input.setObjectName('expiry')
+        self.exp_input = QDateEdit(calendarPopup=True)
+        self.exp_input.setObjectName('expiry')
         # if expiry is not passed in from gui, use today
         if expiry == None:
-            exp_input.setDate(QDate.currentDate())
+            self.exp_input.setDate(QDate.currentDate())
         else:
-            exp_input.setDate(expiry)
+            self.exp_input.setDate(expiry)
         # widget to get reagent type info
-        type_input = QComboBox()
-        type_input.setObjectName('type')
-        type_input.addItems([item.replace("_", " ").title() for item in get_all_reagenttype_names(ctx=ctx)])
+        self.type_input = QComboBox()
+        self.type_input.setObjectName('type')
+        self.type_input.addItems([item.replace("_", " ").title() for item in get_all_reagenttype_names(ctx=ctx)])
         logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
         try:
@@ -64,18 +68,26 @@ class AddReagentForm(QDialog):
         except AttributeError:
             reagent_type = None
         # set parsed reagent type to top of list
-        index = type_input.findText(reagent_type, Qt.MatchFlag.MatchEndsWith)
+        index = self.type_input.findText(reagent_type, Qt.MatchFlag.MatchEndsWith)
         if index >= 0:
-            type_input.setCurrentIndex(index)
+            self.type_input.setCurrentIndex(index)
         self.layout = QVBoxLayout()
+        self.layout.addWidget(QLabel("Name:"))
+        self.layout.addWidget(self.name_input)
         self.layout.addWidget(QLabel("Lot:"))
-        self.layout.addWidget(lot_input)
+        self.layout.addWidget(self.lot_input)
         self.layout.addWidget(QLabel("Expiry:\n(use exact date on reagent.\nEOL will be calculated from kit automatically)"))
-        self.layout.addWidget(exp_input)
+        self.layout.addWidget(self.exp_input)
         self.layout.addWidget(QLabel("Type:"))
-        self.layout.addWidget(type_input)
+        self.layout.addWidget(self.type_input)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
+        self.type_input.currentTextChanged.connect(self.update_names)
+
+    def update_names(self):
+        logger.debug(self.type_input.currentText())
+        self.name_input.clear()
+        self.name_input.addItems(item for item in lookup_all_reagent_names_by_role(ctx=self.ctx, role_name=self.type_input.currentText().replace(" ", "_").lower()))
 
 
 class ReportDatePicker(QDialog):
@@ -111,7 +123,7 @@ class KitAdder(QWidget):
     """
     dialog to get information to add kit
     """    
-    def __init__(self, parent_ctx:dict) -> None:
+    def __init__(self, parent_ctx:Settings) -> None:
         super().__init__()
         self.ctx = parent_ctx
         self.grid = QGridLayout()
@@ -196,6 +208,7 @@ class KitAdder(QWidget):
         result = create_kit_from_yaml(ctx=self.ctx, exp=yml_type)
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
+        self.__init__(self.ctx)
 
 
 class ReagentTypeForm(QWidget):

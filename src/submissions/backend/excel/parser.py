@@ -6,8 +6,8 @@ import pprint
 from typing import Tuple
 import pandas as pd
 from pathlib import Path
-from backend.db.models import WWSample, BCSample
-from backend.db import lookup_ww_sample_by_ww_sample_num
+from backend.db.models import WastewaterSample, BacterialCultureSample
+from backend.db import lookup_ww_sample_by_ww_sample_num, lookup_sample_by_submitter_id, get_reagents_in_extkit, lookup_kittype_by_name, lookup_kittype_by_use
 from backend.pydant import PydSubmission, PydReagent
 import logging
 from collections import OrderedDict
@@ -15,9 +15,13 @@ import re
 import numpy as np
 from datetime import date, datetime
 import uuid
+# from submissions.backend.db.functions import 
 from tools import check_not_nan, RSLNamer, massage_common_reagents, convert_nans_to_nones, Settings
+from frontend.custom_widgets.pop_ups import SubmissionTypeSelector, KitSelector
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
+row_keys = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
 
 class SheetParser(object):
     """
@@ -46,9 +50,13 @@ class SheetParser(object):
         # make decision about type of sample we have
         self.sub['submission_type'] = self.type_decider()
         # select proper parser based on sample type
-        parse_sub = getattr(self, f"parse_{self.sub['submission_type'].lower()}")
+        parse_sub = getattr(self, f"parse_{self.sub['submission_type'].replace(' ', '_').lower()}")
         parse_sub()
         # self.calculate_column_count()
+        self.import_kit_validation_check()
+        self.parse_reagents()
+        self.import_reagent_validation_check()
+        
 
     def type_decider(self) -> str:
         """
@@ -74,7 +82,13 @@ class SheetParser(object):
                 return "Unknown"
             except Exception as e:
                 logger.warning(f"We were unable to parse the submission type due to: {e}")
-                return "Unknown"
+                # return "Unknown"
+                dlg = SubmissionTypeSelector(ctx=self.ctx, title="Select Submission Type", message="We were unable to find the submission type from the excel metadata. Please select from below.")
+                if dlg.exec():
+                    return dlg.getValues()
+                else:
+                    logger.warning(f"Last attempt at getting submission was rejected.")
+                    raise ValueError("Submission Type needed.")
 
     def parse_unknown(self) -> None:
         """
@@ -173,9 +187,10 @@ class SheetParser(object):
         self.sub['reagents'] = []
         reagent_range = submission_info.iloc[1:14, 4:8]
         logger.debug(reagent_range)
-        parse_reagents(reagent_range)
+        # parse_reagents(reagent_range)
         # get individual sample info
         sample_parser = SampleParser(self.ctx, submission_info.iloc[16:112])
+        logger.debug(f"Sample type: {self.sub['submission_type']}")
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].replace(' ', '_').lower()}_samples")
         logger.debug(f"Parser result: {self.sub}")
         self.sample_result, self.sub['samples'] = sample_parse()
@@ -200,7 +215,7 @@ class SheetParser(object):
             """
             # iterate through sub-df rows
             for ii, row in df.iterrows():
-                logger.debug(f"Parsing this row for reagents: {row}")
+                # logger.debug(f"Parsing this row for reagents: {row}")
                 if check_not_nan(row[5]):
                     # must be prefixed with 'lot_' to be recognized by gui
                     # regex below will remove 80% from 80% ethanol in the Wastewater kit.
@@ -246,9 +261,9 @@ class SheetParser(object):
             parsed = False
         self.sub['technician'] = dict(value=f"Enr: {enrichment_info.columns[2]}, Ext: {extraction_info.columns[2]}, PCR: {qprc_info.columns[2]}", parsed=parsed)
         self.sub['reagents'] = []
-        parse_reagents(enr_reagent_range)
-        parse_reagents(ext_reagent_range)
-        parse_reagents(pcr_reagent_range)
+        # parse_reagents(enr_reagent_range)
+        # parse_reagents(ext_reagent_range)
+        # parse_reagents(pcr_reagent_range)
         # parse samples
         sample_parser = SampleParser(self.ctx, submission_info.iloc[16:], elution_map=retrieve_elution_map())
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].lower()}_samples")
@@ -263,7 +278,7 @@ class SheetParser(object):
         def parse_reagents(df:pd.DataFrame):
             logger.debug(df)
             for ii, row in df.iterrows():
-                if check_not_nan(row[0]):
+                if check_not_nan(row[1]):
                     try:
                         output_key = re.sub(r"\(.+?\)", "", row[0].lower().strip().replace(' ', '_'))
                     except AttributeError:
@@ -294,7 +309,20 @@ class SheetParser(object):
                     self.sub['reagents'].append(PydReagent(type=output_key, lot=output_var, exp=expiry))
                 else:
                     continue
-        def massage_samples(df:pd.DataFrame) -> pd.DataFrame:
+        def massage_samples(df:pd.DataFrame, lookup_table:pd.DataFrame) -> pd.DataFrame:
+            """
+            Takes sample info from Artic sheet format and converts to regular formate
+
+            Args:
+                df (pd.DataFrame): Elution plate map
+                lookup_table (pd.DataFrame): Sample submission form map.
+
+            Returns:
+                pd.DataFrame: _description_
+            """            
+            lookup_table.set_index(lookup_table.columns[0], inplace=True)
+            lookup_table.columns = lookup_table.iloc[0]
+            logger.debug(f"Massaging samples from {lookup_table}")
             df.set_index(df.columns[0], inplace=True)
             df.columns = df.iloc[0]
             logger.debug(f"df to massage\n: {df}")
@@ -305,10 +333,17 @@ class SheetParser(object):
                         continue
                     logger.debug(f"Checking {ii.name}{c}")
                     if check_not_nan(df.loc[ii.name, int(c)]) and df.loc[ii.name, int(c)] != "EMPTY":
+                        sample_name = df.loc[ii.name, int(c)]
+                        row = lookup_table.loc[lookup_table['Sample Name (WW)'] == sample_name]
+                        logger.debug(f"Looking up {row['Sample Name (LIMS)'][-1]}")
                         try:
-                            return_list.append(dict(sample_name=re.sub(r"\s?\(.*\)", "", df.loc[ii.name, int(c)]), \
-                                                well=f"{ii.name}{c}",
-                                                artic_plate=self.sub['rsl_plate_num']))
+                            return_list.append(dict(submitter_id=re.sub(r"\s?\(.*\)", "", df.loc[ii.name, int(c)]), \
+                                                # well=f"{ii.name}{c}",
+                                                row = row_keys[ii.name],
+                                                column = c,
+                                                artic_plate=self.sub['rsl_plate_num'],
+                                                sample_name=row['Sample Name (LIMS)'][-1]
+                                                ))
                         except TypeError as e:
                             logger.error(f"Got an int for {c}, skipping.")
                             continue
@@ -333,13 +368,69 @@ class SheetParser(object):
         self.sub['extraction_kit'] = "ArticV4.1"
         self.sub['technician'] = f"MM: {biomek_info.iloc[2][1]}, Bio: {biomek_info.iloc[3][1]}"
         self.sub['reagents'] = []
-        parse_reagents(sub_reagent_range)
-        parse_reagents(biomek_reagent_range)
-        samples = massage_samples(biomek_info.iloc[22:31, 0:])
+        # parse_reagents(sub_reagent_range)
+        # parse_reagents(biomek_reagent_range)
+        samples = massage_samples(biomek_info.iloc[22:31, 0:], submission_info.iloc[4:37, 1:5])
         # samples = massage_samples(biomek_info.iloc[25:33, 0:])
         sample_parser = SampleParser(self.ctx, pd.DataFrame.from_records(samples))
         sample_parse = getattr(sample_parser, f"parse_{self.sub['submission_type']['value'].lower()}_samples")
         self.sample_result, self.sub['samples'] = sample_parse()
+
+    def parse_reagents(self):
+        ext_kit = lookup_kittype_by_name(ctx=self.ctx, name=self.sub['extraction_kit'])
+        if ext_kit != None:
+            logger.debug(f"Querying extraction kit: {self.sub['submission_type']}")
+            reagent_map = ext_kit.construct_xl_map_for_use(use=self.sub['submission_type']['value'])
+            logger.debug(f"Reagent map: {pprint.pformat(reagent_map)}")
+        else:
+            raise AttributeError("No extraction kit found, unable to parse reagents")
+        for sheet in self.xl.sheet_names:
+            df = self.xl.parse(sheet)
+            relevant = {k:v for k,v in reagent_map.items() if sheet in reagent_map[k]['sheet']}
+            logger.debug(f"relevant map for {sheet}: {pprint.pformat(relevant)}")
+            if relevant == {}:
+                continue
+            for item in reagent_map:
+                try:
+                # role = item
+                    name = df.iat[relevant[item]['name']['row']-2, relevant[item]['name']['column']-1]
+                    lot = df.iat[relevant[item]['lot']['row']-2, relevant[item]['lot']['column']-1]
+                    expiry = df.iat[relevant[item]['expiry']['row']-2, relevant[item]['expiry']['column']-1]
+                except (KeyError, IndexError):
+                    continue
+                # self.sub['reagents'].append(dict(name=name, lot=lot, expiry=expiry, role=role))
+                self.sub['reagents'].append(PydReagent(type=item, lot=lot, exp=expiry, name=name))
+
+
+    def import_kit_validation_check(self):
+        """
+        Enforce that the parser has an extraction kit
+
+        Args:
+            ctx (Settings): Settings obj passed down from gui
+            parser_sub (dict): The parser dictionary before going to pydantic
+
+        Returns:
+            List[PydReagent]: List of reagents
+        """    
+        if not check_not_nan(self.sub['extraction_kit']):
+            dlg = KitSelector(ctx=self.ctx, title="Kit Needed", message="At minimum a kit is needed. Please select one.")
+            if dlg.exec():
+                self.sub['extraction_kit'] = dict(value=dlg.getValues(), parsed=False)
+            else:
+                raise ValueError("Extraction kit needed.")
+        else:
+            self.sub['extraction_kit'] = dict(value=self.sub['extraction_kit'], parsed=False)
+        
+        # logger.debug(f"Here is the validated parser dictionary:\n\n{pprint.pformat(self.sub)}\n\n")
+        # return parser_sub
+
+    def import_reagent_validation_check(self):
+        """
+        Enforce that only allowed reagents get into the Pydantic Model
+        """          
+        allowed_reagents = [item.name for item in get_reagents_in_extkit(ctx=self.ctx, kit_name=self.sub['extraction_kit']['value'])]
+        self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent.type in allowed_reagents]
         
     def to_pydantic(self) -> PydSubmission:
         """
@@ -352,8 +443,9 @@ class SheetParser(object):
         psm = PydSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
         delattr(psm, "filepath")
         return psm
-
     
+
+
 class SampleParser(object):
     """
     object to pull data for samples in excel sheet and construct individual sample objects
@@ -373,34 +465,36 @@ class SampleParser(object):
         self.elution_map = elution_map
 
 
-    def parse_bacterial_culture_samples(self) -> Tuple[str|None, list[BCSample]]:
+    def parse_bacterial_culture_samples(self) -> Tuple[str|None, list[dict]]:
         """
         construct bacterial culture specific sample objects
 
         Returns:
             list[BCSample]: list of sample objects
         """       
-        # logger.debug(f"Samples: {self.samples}") 
+        # logger.debug(f"Samples: {self.samples}")
+        
         new_list = []
         for sample in self.samples:
-            new = BCSample()
-            new.well_number = sample['This section to be filled in completely by submittor']
-            new.sample_id = sample['Unnamed: 1']
-            new.organism = sample['Unnamed: 2']
-            new.concentration = sample['Unnamed: 3']
+            logger.debug(f"Well info: {sample['This section to be filled in completely by submittor']}")
+            instance = lookup_sample_by_submitter_id(ctx=self.ctx, submitter_id=sample['Unnamed: 1'])
+            if instance == None:
+                instance = BacterialCultureSample()
+            well_number = sample['This section to be filled in completely by submittor']
+            row = row_keys[well_number[0]]
+            column = int(well_number[1:])
+            instance.submitter_id = sample['Unnamed: 1']
+            instance.organism = sample['Unnamed: 2']
+            instance.concentration = sample['Unnamed: 3']
             # logger.debug(f"Sample object: {new.sample_id} = {type(new.sample_id)}")
-            logger.debug(f"Got sample_id: {new.sample_id}")
+            logger.debug(f"Got sample_id: {instance.submitter_id}")
             # need to exclude empties and blanks
-            try:
-                not_a_nan = not np.isnan(new.sample_id) and str(new.sample_id).lower() != 'blank'
-            except TypeError:
-                not_a_nan = True
-            if not_a_nan:
-                new_list.append(new)
+            if check_not_nan(instance.submitter_id):
+                new_list.append(dict(sample=instance, row=row, column=column))
         return None, new_list
 
 
-    def parse_wastewater_samples(self) -> Tuple[str|None, list[WWSample]]:
+    def parse_wastewater_samples(self) -> Tuple[str|None, list[dict]]:
         """
         construct wastewater specific sample objects
 
@@ -408,60 +502,95 @@ class SampleParser(object):
             list[WWSample]: list of sample objects
         """        
         def search_df_for_sample(sample_rsl:str):
-            logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
+            # logger.debug(f"Attempting to find sample {sample_rsl} in \n {self.elution_map}")
             well = self.elution_map.where(self.elution_map==sample_rsl)
             # logger.debug(f"Well: {well}")
             well = well.dropna(how='all').dropna(axis=1, how="all")
             if well.size > 1:
                 well = well.iloc[0].to_frame().dropna().T
-            logger.debug(f"well {sample_rsl} post processing: {well.size}: {type(well)}, {well.index[0]}, {well.columns[0]}")
-            self.elution_map.at[well.index[0], well.columns[0]] = np.nan
+            logger.debug(f"well {sample_rsl} post processing: {well.size}: {type(well)}")#, {well.index[0]}, {well.columns[0]}")
             try:
-                col = str(int(well.columns[0])).zfill(2)
-            except ValueError:
-                col = str(well.columns[0]).zfill(2)
+                self.elution_map.at[well.index[0], well.columns[0]] = np.nan
+            except IndexError as e:
+                logger.error(f"Couldn't find the well for {sample_rsl}")
+                return 0, 0
+            try:
+                column = int(well.columns[0])
             except TypeError as e:
                 logger.error(f"Problem parsing out column number for {well}:\n {e}")
-            return f"{well.index[0]}{col}"
+            row = row_keys[well.index[0]]
+            return row, column
         new_list = []
         return_val = None
         for sample in self.samples:
-            new = WWSample()
-            if check_not_nan(sample["Unnamed: 7"]):
-                new.rsl_number = sample['Unnamed: 7'] # previously Unnamed: 9
+            logger.debug(f"Sample: {sample}")
+            instance = lookup_ww_sample_by_ww_sample_num(ctx=self.ctx, sample_number=sample['Unnamed: 3'])
+            if instance == None:
+                instance = WastewaterSample()
+                if check_not_nan(sample["Unnamed: 7"]):
+                    if sample["Unnamed: 7"] != "Fixed" and sample['Unnamed: 7'] != "Flex":
+                        instance.rsl_number = sample['Unnamed: 7'] # previously Unnamed: 9
+                    elif check_not_nan(sample['Unnamed: 9']):
+                        instance.rsl_number = sample['Unnamed: 9'] # previously Unnamed: 9
+                    else:
+                        logger.error(f"No RSL sample number found for this sample.")
+                        continue
+                else:
+                    logger.error(f"No RSL sample number found for this sample.")
+                    continue
+                instance.ww_processing_num = sample['Unnamed: 2']
+                # need to ensure we have a sample id for database integrity
+                # if we don't have a sample full id, make one up
+                if check_not_nan(sample['Unnamed: 3']):
+                    logger.debug(f"Sample name: {sample['Unnamed: 3']}")
+                    instance.submitter_id = sample['Unnamed: 3']
+                else:
+                    instance.submitter_id = uuid.uuid4().hex.upper()
+                # logger.debug(f"The Submitter sample id is: {instance.submitter_id}")
+                # need to ensure we get a collection date
+                if check_not_nan(sample['Unnamed: 5']):
+                    instance.collection_date = sample['Unnamed: 5']
+                else:
+                    instance.collection_date = date.today()
+                # new.testing_type = sample['Unnamed: 6']
+                # new.site_status = sample['Unnamed: 7']
+                instance.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
+                instance.well_24 = sample['Unnamed: 1']
             else:
-                logger.error(f"No RSL sample number found for this sample.")
-                continue
-            new.ww_processing_num = sample['Unnamed: 2']
-            # need to ensure we have a sample id for database integrity
-            # if we don't have a sample full id, make one up
-            if check_not_nan(sample['Unnamed: 3']):
-                new.ww_sample_full_id = sample['Unnamed: 3']
-            else:
-                new.ww_sample_full_id = uuid.uuid4().hex.upper()
-            # need to ensure we get a collection date
-            if check_not_nan(sample['Unnamed: 5']):
-                new.collection_date = sample['Unnamed: 5']
-            else:
-                new.collection_date = date.today()
-            # new.testing_type = sample['Unnamed: 6']
-            # new.site_status = sample['Unnamed: 7']
-            new.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
-            new.well_24 = sample['Unnamed: 1']
-            elu_well = search_df_for_sample(new.rsl_number)
-            if elu_well != None:
-                row = elu_well[0]
-                col = elu_well[1:].zfill(2)
-                new.well_number = f"{row}{col}"
-            else:
-                # try:
-                return_val += f"{new.rsl_number}\n"
-                # except TypeError:
-                    # return_val = f"{new.rsl_number}\n"
-            new_list.append(new)
+                # What to do if the sample already exists 
+                assert isinstance(instance, WastewaterSample)
+                if instance.rsl_number == None:
+                    if check_not_nan(sample["Unnamed: 7"]):
+                        if sample["Unnamed: 7"] != "Fixed" and sample['Unnamed: 7'] != "Flex":
+                            instance.rsl_number = sample['Unnamed: 7'] # previously Unnamed: 9
+                        elif check_not_nan(sample['Unnamed: 9']):
+                            instance.rsl_number = sample['Unnamed: 9'] # previously Unnamed: 9
+                    else:
+                        logger.error(f"No RSL sample number found for this sample.")
+                if instance.collection_date == None:
+                    if check_not_nan(sample['Unnamed: 5']):
+                        instance.collection_date = sample['Unnamed: 5']
+                    else:
+                        instance.collection_date = date.today()
+                if instance.notes == None:
+                    instance.notes = str(sample['Unnamed: 6']) # previously Unnamed: 8
+                if instance.well_24 == None:
+                    instance.well_24 = sample['Unnamed: 1']
+                logger.debug(f"Already have that sample, going to add association to this plate.")
+            row, column = search_df_for_sample(instance.rsl_number)
+            # if elu_well != None:
+            #     row = elu_well[0]
+            #     col = elu_well[1:].zfill(2)
+            #     # new.well_number = f"{row}{col}"
+            # else:
+            #     # try:
+            #     return_val += f"{new.rsl_number}\n"
+            #     # except TypeError:
+            #         # return_val = f"{new.rsl_number}\n"
+            new_list.append(dict(sample=instance, row=row, column=column))
         return return_val, new_list
     
-    def parse_wastewater_artic_samples(self) -> Tuple[str|None, list[WWSample]]:
+    def parse_wastewater_artic_samples(self) -> Tuple[str|None, list[WastewaterSample]]:
         """
         The artic samples are the wastewater samples that are to be sequenced
         So we will need to lookup existing ww samples and append Artic well # and plate relation
@@ -469,26 +598,31 @@ class SampleParser(object):
         Returns:
             list[WWSample]: list of wastewater samples to be updated
         """        
+        
         new_list = []
         missed_samples = []
         for sample in self.samples:
             with self.ctx.database_session.no_autoflush:
                 instance = lookup_ww_sample_by_ww_sample_num(ctx=self.ctx, sample_number=sample['sample_name'])
-            logger.debug(f"Checking: {sample['sample_name']}")
+            logger.debug(f"Checking: {sample}")
             if instance == None:
-                logger.error(f"Unable to find match for: {sample['sample_name']}")
+                logger.error(f"Unable to find match for: {sample['sample_name']}. Making new instance using {sample['submitter_id']}.")
+                instance = WastewaterSample()
+                instance.ww_processing_num = sample['sample_name']
+                instance.submitter_id = sample['submitter_id']
                 missed_samples.append(sample['sample_name'])
-                continue
-            logger.debug(f"Got instance: {instance.ww_sample_full_id}")
-            if sample['well'] != None:
-                row = sample['well'][0]
-                col = sample['well'][1:].zfill(2)
-                sample['well'] = f"{row}{col}"
-            instance.artic_well_number = sample['well']
-            new_list.append(instance)
+                # continue
+            logger.debug(f"Got instance: {instance.submitter_id}")
+            # if sample['row'] != None:
+            #     row = int(row_keys[sample['well'][0]])
+            # if sample['column'] != None:                
+            #     column = int(sample['well'][1:])
+                # sample['well'] = f"{row}{col}"
+            # instance.artic_well_number = sample['well']
+            if instance.submitter_id != "NTC1" and instance.submitter_id != "NTC2":
+                new_list.append(dict(sample=instance, row=sample['row'], column=sample['column']))
         missed_str = "\n\t".join(missed_samples)
         return f"Could not find matches for the following samples:\n\t {missed_str}", new_list
-
 
 class PCRParser(object):
     """

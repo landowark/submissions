@@ -7,28 +7,28 @@
     <body>
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">
         <p>{% for key, value in sub.items() if key not in excluded %}
-            {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;<b>{{ key }}:</b> {% if key=='Cost' %}{{ "${:,.2f}".format(value) }}{% else %}{{ value }}{% endif %}<br>
-            {% else %}
+            <!-- {% if loop.index == 1 %} -->
+                <!-- &nbsp;&nbsp;&nbsp;<b>{{ key }}:</b> {% if key=='Cost' %}{{ "${:,.2f}".format(value) }}{% else %}{{ value }}{% endif %}<br> -->
+            <!-- {% else %} -->
                 &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key }}: </b>{% if key=='Cost' %} {{ "${:,.2f}".format(value) }}{% else %}{{ value }}{% endif %}<br>
-            {% endif %}
+            <!-- {% endif %} -->
         {% endfor %}</p>
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
-            {% if loop.index == 1%}
-                &nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}:</b> {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
-            {% else %}
+            <!-- {% if loop.index == 1%} -->
+                <!-- &nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}:</b> {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br> -->
+            <!-- {% else %} -->
                 &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}</b>: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
-            {% endif %}
+            <!-- {% endif %} -->
         {% endfor %}</p>
         {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}
-            {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
-            {% else %}
+            <!-- {% if loop.index == 1 %} -->
+                <!-- &nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br> -->
+            <!-- {% else %} -->
                 &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
-            {% endif %}
+            <!-- {% endif %} -->
         {% endfor %}</p>
         {% endif %}
         {% if sub['controls'] %}
@@ -38,11 +38,11 @@
             {% if item['kraken'] %}
             <p>&nbsp;&nbsp;&nbsp;{{ item['name'] }} Top 5 Kraken Results:</p>
             <p>{% for genera in item['kraken'] %}
-                {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br>
-                {% else %}
+                <!-- {% if loop.index == 1 %} -->
+                <!-- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br> -->
+                <!-- {% else %} -->
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br>
-                {% endif %}
+                <!-- {% endif %} -->
             {% endfor %}</p>
             {% endif %}
         {% endfor %}
@@ -51,15 +51,15 @@
         {% for entry in sub['ext_info'] %}
         <h3><u>Extraction Status:</u></h3>
         <p>{% for key, value in entry.items() %}
-            {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
-            {% else %}
+            <!-- {% if loop.index == 1 %} -->
+                <!-- &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br> -->
+            <!-- {% else %} -->
                 {% if "column" in key %}
                     &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
                 {% else %}
                     &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
                 {% endif %}
-            {% endif %}
+            <!-- {% endif %} -->
         {% endfor %}</p>
         {% endfor %}
         {% endif %}
@@ -71,26 +71,26 @@
             <h3><u>qPCR Status:</u></h3>
         {% endif %}
         <p>{% for key, value in entry.items() if key != 'imported_by'%}
-            {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
-            {% else %}
+            <!-- {% if loop.index == 1 %} -->
+                <!-- &nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br> -->
+            <!-- {% else %} -->
                 {% if "column" in key %}
                     &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
                 {% else %}
                     &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
                 {% endif %}
-            {% endif %}
+            <!-- {% endif %} -->
         {% endfor %}</p>
         {% endfor %}
         {% endif %}
         {% if sub['comments'] %}
         <h3><u>Comments:</u></h3>
         <p>{% for entry in sub['comments'] %}
-            {% if loop.index == 1 %}
-                &nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
-            {% else %}
+            <!-- {% if loop.index == 1 %} -->
+                <!-- &nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br> -->
+            <!-- {% else %} -->
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
-            {% endif %}
+            <!-- {% endif %} -->
         {% endfor %}</p>
         {% endif %}
         {% if sub['platemap'] %}
