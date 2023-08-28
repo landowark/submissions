@@ -34,7 +34,7 @@ from backend.pydant import PydReagent
 from tools import check_not_nan
 from .custom_widgets.pop_ups import AlertPop, KitSelector, QuestionAsker
 from .custom_widgets import ReportDatePicker
-from .custom_widgets.misc import ImportReagent
+from .custom_widgets.misc import ImportReagent, ParsedQLabel
 from .visualizations.control_charts import create_charts, construct_html
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -54,8 +54,9 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     logger.debug(obj.ctx)
     # initialize samples
     obj.samples = []
-    obj.reagents = {}
+    obj.reagents = []
     obj.missing_reagents = []
+    obj.missing_info = []
     
     # set file dialog
     fname = select_open_file(obj, file_extension="xlsx")
@@ -72,7 +73,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     # prsr.sub = import_validation_check(ctx=obj.ctx, parser_sub=prsr.sub)
     # obj.column_count = prsr.column_count
     try:
-        logger.debug(f"Submission dictionary: {prsr.sub}")
+        logger.debug(f"Submission dictionary:\n{pprint.pformat(prsr.sub)}")
         pyd = prsr.to_pydantic()
         logger.debug(f"Pydantic result: \n\n{pprint.pformat(pyd)}\n\n")
     except Exception as e:
@@ -85,7 +86,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     #     if hasattr(sample, "elution_well"):
     #         logger.debug(f"Sample from import: {sample.elution_well}")
     # I don't remember why this is here.
-    missing_info = [k for k,v in pyd if v == None]
+    
     obj.current_submission_type = pyd.submission_type['value']
     # destroy any widgets from previous imports
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
@@ -101,51 +102,55 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
         if isinstance(value, dict) and field != 'ctx':
             logger.debug(f"The field {field} is a dictionary: {value}")
             if not value['parsed']:
-                missing_info.append(field)
-            value = value['value']
+                obj.missing_info.append(field)
+        label = ParsedQLabel(value, field)
         match field:
             case 'submitting_lab':
                 # create label
-                label = QLabel(field.replace("_", " ").title())
-                logger.debug(f"{field}: {value}")
+                # label = QLabel(field.replace("_", " ").title())
+                # label = ParsedQLabel(value, field)
+                logger.debug(f"{field}: {value['value']}")
                 # create combobox to hold looked up submitting labs
                 add_widget = QComboBox()
                 labs = [item.__str__() for item in lookup_all_orgs(ctx=obj.ctx)]
                 # try to set closest match to top of list
                 try:
-                    labs = difflib.get_close_matches(value, labs, len(labs), 0)
+                    labs = difflib.get_close_matches(value['value'], labs, len(labs), 0)
                 except (TypeError, ValueError):
                     pass
                 # set combobox values to lookedup values
                 add_widget.addItems(labs)
             case 'extraction_kit':
                 # create label
-                label = QLabel(field.replace("_", " ").title())
+                # label = QLabel(field.replace("_", " ").title())
+                
                 # if extraction kit not available, all other values fail
-                if not check_not_nan(value):
+                if not check_not_nan(value['value']):
                     msg = AlertPop(message="Make sure to check your extraction kit in the excel sheet!", status="warning")
                     msg.exec()
                 # create combobox to hold looked up kits
                 add_widget = QComboBox()
                 # lookup existing kits by 'submission_type' decided on by sheetparser
-                uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type['value'].lower())]
-                logger.debug(f"Kits received for {pyd.submission_type}: {uses}")
-                if check_not_nan(value):
-                    logger.debug(f"The extraction kit in parser was: {value}")
-                    uses.insert(0, uses.pop(uses.index(value)))
-                    obj.ext_kit = value
+                # uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type['value'].lower())]
+                logger.debug(f"Looking up kits used for {pyd.submission_type['value']}")
+                uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type['value'])]
+                logger.debug(f"Kits received for {pyd.submission_type['value']}: {uses}")
+                if check_not_nan(value['value']):
+                    logger.debug(f"The extraction kit in parser was: {value['value']}")
+                    uses.insert(0, uses.pop(uses.index(value['value'])))
+                    obj.ext_kit = value['value']
                 else:
                     logger.error(f"Couldn't find {prsr.sub['extraction_kit']}")
                     obj.ext_kit = uses[0]
                 add_widget.addItems(uses)
             case 'submitted_date':
                 # create label
-                label = QLabel(field.replace("_", " ").title())
+                # label = QLabel(field.replace("_", " ").title())
                 # uses base calendar
                 add_widget = QDateEdit(calendarPopup=True)
                 # sets submitted date based on date found in excel sheet
                 try:
-                    add_widget.setDate(value)
+                    add_widget.setDate(value['value'])
                 # if not found, use today
                 except:
                     add_widget.setDate(date.today())
@@ -160,19 +165,28 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 for reagent in value:
                     # create label
                     # reg_label = QLabel(reagent['type'].replace("_", " ").title())
-                    try:
-                        reg_label = QLabel(reagent.type.replace("_", " ").title())
-                    except AttributeError:
+                    reg_label = ParsedQLabel(reagent, reagent['value'].type, title=False)
+                    if reagent['parsed']:
+                        # try:
+                        #     reg_label = QLabel(f"Parsed Lot: {reagent['value'].type}")
+                        obj.reagents.append(reagent['value'])
+                        # except AttributeError:
+                            # continue
+                    else:
+                        # try:
+                        #     reg_label = QLabel(f"MISSING Lot: {reagent['value'].type}")
+                        obj.missing_reagents.append(reagent['value'].type)
                         continue
+                        # except AttributeError:
+                        #     continue
                     # reg_label.setObjectName(f"lot_{reagent['type']}_label")
-                    reg_label.setObjectName(f"lot_{reagent.type}_label")
+                    reg_label.setObjectName(f"lot_{reagent['value'].type}_label")
                     # create reagent choice widget
-                    add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent)
-                    add_widget.setObjectName(f"lot_{reagent.type}")
+                    add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent['value'])
+                    add_widget.setObjectName(f"lot_{reagent['value'].type}")
                     logger.debug(f"Widget name set to: {add_widget.objectName()}")
                     obj.table_widget.formlayout.addWidget(reg_label)
                     obj.table_widget.formlayout.addWidget(add_widget)
-                    obj.reagents[reagent.type] = reagent
                 continue
             # case "rsl_plate_num":
             #     label = QLabel(field.replace("_", " ").title())
@@ -181,10 +195,10 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
             #     add_widget.setText(str(value['value']).replace("_", " "))
             case _:
                 # anything else gets added in as a line edit
-                label = QLabel(field.replace("_", " ").title())
+                # label = QLabel(field.replace("_", " ").title())
                 add_widget = QLineEdit()
-                logger.debug(f"Setting widget text to {str(value).replace('_', ' ')}")
-                add_widget.setText(str(value).replace("_", " "))
+                logger.debug(f"Setting widget text to {str(value['value']).replace('_', ' ')}")
+                add_widget.setText(str(value['value']).replace("_", " "))
         try:
             add_widget.setObjectName(field)
             logger.debug(f"Widget name set to: {add_widget.objectName()}")
@@ -195,7 +209,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     # compare obj.reagents with expected reagents in kit
     if hasattr(obj, 'ext_kit'):
         obj.kit_integrity_completion()
-        obj.missing_reagents = obj.missing_reagents + missing_info
+        # obj.missing_reagents = obj.missing_reagents + missing_info
     logger.debug(f"Imported reagents: {obj.reagents}")
     if prsr.sample_result != None:
         msg = AlertPop(message=prsr.sample_result, status="WARNING")
@@ -247,21 +261,24 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
     obj.ext_kit = kit_widget.currentText()
     logger.debug(f"Checking integrity of {obj.ext_kit}")
     # get the kit from database using current kit info
-    kit = lookup_kittype_by_name(ctx=obj.ctx, name=obj.ext_kit)
+    # kit = lookup_kittype_by_name(ctx=obj.ctx, name=obj.ext_kit)
     # get all reagents stored in the QWindow object
-    reagents_to_lookup = [item.replace("lot_", "") for item in obj.reagents]
-    logger.debug(f"Reagents for lookup for {kit.name}: {reagents_to_lookup}")
+    # reagents_to_lookup = [item.name for item in obj.missing_reagents]
+    # logger.debug(f"Reagents for lookup for {kit.name}: {reagents_to_lookup}")
     # make sure kit contains all necessary info
-    kit_integrity = check_kit_integrity(kit, reagents_to_lookup)
+    # kit_integrity = check_kit_integrity(kit, reagents_to_lookup)
     # if kit integrity comes back with an error, make widgets with missing reagents using default info
-    if kit_integrity != None:
-        result = dict(message=kit_integrity['message'], status="Warning")
-        obj.missing_reagents = kit_integrity['missing']
-        for item in kit_integrity['missing']:
-            obj.table_widget.formlayout.addWidget(QLabel(f"Lot {item.replace('_', ' ').title()}"))
-            reagent = dict(type=item, lot=None, exp=None, name=None)
-            add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent))#item=item)
-            obj.table_widget.formlayout.addWidget(add_widget)
+    # if kit_integrity != None:
+    # result = dict(message=kit_integrity['message'], status="Warning")
+        # obj.missing_reagents = kit_integrity['missing']
+    # for item in kit_integrity['missing']:
+    if len(obj.missing_reagents) > 0:
+        result = dict(message=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in obj.missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
+    for item in obj.missing_reagents:
+        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item, title=False))
+        reagent = dict(type=item, lot=None, exp=None, name=None)
+        add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent))#item=item)
+        obj.table_widget.formlayout.addWidget(add_widget)
     submit_btn = QPushButton("Submit")
     submit_btn.setObjectName("lot_submit_btn")
     obj.table_widget.formlayout.addWidget(submit_btn)
@@ -297,11 +314,13 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         # if reagent not found offer to add to database
         if wanted_reagent == None:
             r_lot = reagents[reagent]
-            dlg = QuestionAsker(title=f"Add {r_lot}?", message=f"Couldn't find reagent type {reagent.replace('_', ' ').title().strip('Lot')}: {r_lot} in the database.\n\nWould you like to add it?")
+            dlg = QuestionAsker(title=f"Add {r_lot}?", message=f"Couldn't find reagent type {reagent.strip('Lot')}: {r_lot} in the database.\n\nWould you like to add it?")
             if dlg.exec():
-                logger.debug(f"checking reagent: {reagent} in obj.reagents. Result: {obj.reagents[reagent]}")
-                expiry_date = obj.reagents[reagent].exp
-                wanted_reagent = obj.add_reagent(reagent_lot=r_lot, reagent_type=reagent.replace("lot_", ""), expiry=expiry_date)
+                logger.debug(f"Looking through {obj.reagents} for reagent {reagent}")
+                picked_reagent = [item for item in obj.reagents if item.type == reagent][0]
+                logger.debug(f"checking reagent: {reagent} in obj.reagents. Result: {picked_reagent}")
+                expiry_date = picked_reagent.exp
+                wanted_reagent = obj.add_reagent(reagent_lot=r_lot, reagent_type=reagent.replace("lot_", ""), expiry=expiry_date, name=picked_reagent.name)
             else:
                 # In this case we will have an empty reagent and the submission will fail kit integrity check
                 logger.debug("Will not add reagent.")
@@ -357,10 +376,10 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         logger.debug(f"Extraction kit map:\n\n{extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]}")
         # TODO replace below with function in KitType object. Update Kittype associations.
         # excel_map = extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]
-        excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type.replace('_', ' ').title())
-        excel_map.update(extraction_kit.used_for[obj.current_submission_type.replace('_', ' ').title()])
+        excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type)
+        # excel_map.update(extraction_kit.used_for[obj.current_submission_type.replace('_', ' ').title()])
         input_reagents = [item.to_reagent_dict() for item in parsed_reagents]
-        autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info)
+        autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info, missing_info=obj.missing_info)
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
@@ -827,29 +846,31 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     result = dict(message=f"We added PCR info to {sub.rsl_plate_num}.", status='information')
     return obj, result
 
-def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_reagents:List[str], info:dict):
+def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_reagents:List[str], info:dict, missing_info:List[str]):
     """
     Automatically fills in excel cells with submission info.
 
     Args:
         obj (QMainWindow): Original main app window
-        xl_map (dict): Map of where each reagent goes in the excel workbook.
-        reagents (List[dict]): All reagents used in the kit.
+        xl_map (dict): Map of where each item goes in the excel workbook.
+        reagents (List[dict]): All reagents placed in the submission form.
         missing_reagents (List[str]): Reagents that are required for the kit that were not present.
         info (dict): Dictionary of misc info from submission
+        missing_info (List[str]): Plate info missing from the excel sheet.
     """    
     # logger.debug(reagents)
 
     logger.debug(f"Here is the info dict coming in:\n{pprint.pformat(info)}")
     logger.debug(f"Here are the missing reagents:\n{missing_reagents}")
+    logger.debug(f"Here are the missing info:\n{missing_info}")
     # pare down the xl map to only the missing data.
     relevant_map = {k:v for k,v in xl_map.items() if k in missing_reagents}
     # pare down reagents to only what's missing
     relevant_reagents = [item for item in reagents if item['type'] in missing_reagents]
     # hacky manipulation of submission type so it looks better.
-    info['submission_type'] = info['submission_type'].replace("_", " ").title()
+    # info['submission_type'] = info['submission_type'].replace("_", " ").title()
     # pare down info to just what's missing
-    relevant_info = {k:v for k,v in info.items() if k in missing_reagents}
+    relevant_info = {k:v for k,v in info.items() if k in missing_info}
     logger.debug(f"Here is the relevant info: {pprint.pformat(relevant_info)}")
     # construct new objects to put into excel sheets:
     new_reagents = []

@@ -31,6 +31,9 @@ class Organization(Base):
             str: string representing organization name
         """        
         return self.name.replace("_", " ").title()
+    
+    def __repr__(self) -> str:
+        return f"<Organization({self.name})>"
 
 
 class Contact(Base):

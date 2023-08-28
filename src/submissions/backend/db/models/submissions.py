@@ -12,6 +12,9 @@ from math import ceil
 from sqlalchemy.ext.associationproxy import association_proxy
 import uuid
 from . import Base
+from pandas import Timestamp
+from dateutil.parser import parse
+import pprint
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -33,7 +36,8 @@ class BasicSubmission(Base):
     sample_count = Column(INTEGER) #: Number of samples in the submission
     extraction_kit = relationship("KitType", back_populates="submissions") #: The extraction kit used
     extraction_kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", name="fk_BS_extkit_id"))
-    submission_type = Column(String(32)) #: submission type (should be string in D3 of excel sheet)
+    # submission_type = Column(String(32)) #: submission type (should be string in D3 of excel sheet)
+    submission_type_name = Column(String, ForeignKey("_submission_types.name", ondelete="SET NULL", name="fk_BS_subtype_name"))
     technician = Column(String(64)) #: initials of processing tech(s)
     # Move this into custom types?
     reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
@@ -55,7 +59,7 @@ class BasicSubmission(Base):
     # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
         "polymorphic_identity": "basic_submission",
-        "polymorphic_on": submission_type,
+        "polymorphic_on": submission_type_name,
         "with_polymorphic": "*",
     }
 
@@ -128,7 +132,7 @@ class BasicSubmission(Base):
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
-            "Submission Type": self.submission_type.replace("_", " ").title(),
+            "Submission Type": self.submission_type_name,
             "Submitter Plate Number": self.submitter_plate_num,
             "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
             "Submitting Lab": sub_lab,
@@ -184,14 +188,18 @@ class BasicSubmission(Base):
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # cols_count_24 = ceil(int(self.sample_count) / 3)
-        if all(item == 0.0 for item in [self.extraction_kit.constant_cost, self.extraction_kit.mutable_cost_column, self.extraction_kit.mutable_cost_sample]):
+        logger.debug(f"Pre-association check. {pprint.pformat(self.__dict__)}")
+        assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if item.submission_type == self.submission_type][0]
+        logger.debug(f"Came up with association: {assoc}")
+        # if all(item == 0.0 for item in [self.extraction_kit.constant_cost, self.extraction_kit.mutable_cost_column, self.extraction_kit.mutable_cost_sample]):
+        if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
             try:
                 self.run_cost = self.extraction_kit.cost_per_run
             except Exception as e:
                 logger.error(f"Calculation error: {e}")
         else:
             try:
-                self.run_cost = self.extraction_kit.constant_cost + (self.extraction_kit.mutable_cost_column * cols_count_96) + (self.extraction_kit.mutable_cost_sample * int(self.sample_count))
+                self.run_cost = assoc.constant_cost + (assoc.mutable_cost_column * cols_count_96) + (assoc.mutable_cost_sample * int(self.sample_count))
             except Exception as e:
                 logger.error(f"Calculation error: {e}")
 
@@ -225,7 +233,7 @@ class BacterialCulture(BasicSubmission):
     """    
     controls = relationship("Control", back_populates="submission", uselist=True) #: A control sample added to submission
     # samples = relationship("BCSample", back_populates="rsl_plate", uselist=True)
-    __mapper_args__ = {"polymorphic_identity": "bacterial_culture", "polymorphic_load": "inline"}
+    __mapper_args__ = {"polymorphic_identity": "Bacterial Culture", "polymorphic_load": "inline"}
 
     def to_dict(self) -> dict:
         """
@@ -245,7 +253,7 @@ class Wastewater(BasicSubmission):
     # samples = relationship("WWSample", back_populates="rsl_plate", uselist=True)
     pcr_info = Column(JSON)
     # ww_sample_id = Column(String, ForeignKey("_ww_samples.id", ondelete="SET NULL", name="fk_WW_sample_id"))
-    __mapper_args__ = {"polymorphic_identity": "wastewater", "polymorphic_load": "inline"}
+    __mapper_args__ = {"polymorphic_identity": "Wastewater", "polymorphic_load": "inline"}
 
     def to_dict(self) -> dict:
         """
@@ -315,14 +323,14 @@ class BasicSample(Base):
 
     @validates('submitter_id')
     def create_id(self, key, value):
-        logger.debug(f"validating sample_id of: {value}")
+        # logger.debug(f"validating sample_id of: {value}")
         if value == None:
             return uuid.uuid4().hex.upper()
         else:
             return value
         
     def __repr__(self) -> str:
-        return f"{self.sample_type}Sample({self.submitter_id})"
+        return f"<{self.sample_type.replace('_', ' ').title(). replace(' ', '')}({self.submitter_id})>"
     
     def to_sub_dict(self, submission_rsl:str) -> dict:
         row_map = {1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H"}
@@ -363,30 +371,31 @@ class WastewaterSample(BasicSample):
 
     # id = Column(INTEGER, primary_key=True) #: primary key
     ww_processing_num = Column(String(64)) #: wastewater processing number 
-    # ww_sample_full_id = Column(String(64), nullable=False, unique=True)
+    ww_sample_full_id = Column(String(64))
     rsl_number = Column(String(64)) #: rsl plate identification number
     # rsl_plate = relationship("Wastewater", back_populates="samples") #: relationship to parent plate
     # rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_WWS_submission_id"))
-    collection_date = Column(TIMESTAMP) #: Date submission received
+    collection_date = Column(TIMESTAMP) #: Date sample collected
+    received_date = Column(TIMESTAMP) #: Date sample received
     # well_number = Column(String(8)) #: location on 96 well plate
     # The following are fields from the sample tracking excel sheet Ruth put together.
     # I have no idea when they will be implemented or how.
-    testing_type = Column(String(64)) 
-    site_status = Column(String(64))
+    # testing_type = Column(String(64)) 
+    # site_status = Column(String(64))
     notes = Column(String(2000))
     # ct_n1 = Column(FLOAT(2)) #: AKA ct for N1
     # ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
     # n1_status = Column(String(32))
     # n2_status = Column(String(32))
-    seq_submitted = Column(BOOLEAN())
-    ww_seq_run_id = Column(String(64))
+    # seq_submitted = Column(BOOLEAN())
+    # ww_seq_run_id = Column(String(64))
     # sample_type = Column(String(16))
     # pcr_results = Column(JSON)
-    well_24 = Column(String(8)) #: location on 24 well plate
+    sample_location = Column(String(8)) #: location on 24 well plate
     # artic_rsl_plate = relationship("WastewaterArtic", back_populates="samples")
     # artic_well_number = Column(String(8))
     
-    __mapper_args__ = {"polymorphic_identity": "wastewater_sample", "polymorphic_load": "inline"}
+    __mapper_args__ = {"polymorphic_identity": "Wastewater Sample", "polymorphic_load": "inline"}
 
     # def to_string(self) -> str:
     #     """
@@ -396,6 +405,42 @@ class WastewaterSample(BasicSample):
     #         str: string representing location and sample id
     #     """        
     #     return f"{self.well_number}: {self.ww_sample_full_id}"
+
+    # @validates("received-date")
+    # def convert_rdate_time(self, key, value):
+    #     if isinstance(value, Timestamp):
+    #         return value.date()
+    #     return value
+        
+    @validates("collected-date")
+    def convert_cdate_time(self, key, value):
+        logger.debug(f"Validating {key}: {value}")
+        if isinstance(value, Timestamp):
+            return value.date()
+        if isinstance(value, str):
+            return parse(value)
+        return value
+
+    # @collection_date.setter
+    # def collection_date(self, value):
+    #     match value:
+    #         case Timestamp():
+    #             self.collection_date = value.date()
+    #         case str():
+    #             self.collection_date = parse(value)
+    #         case _:
+    #             self.collection_date = value
+        
+
+    def __init__(self, **kwargs):
+        if 'collection_date' in kwargs.keys():
+            logger.debug(f"Got collection_date: {kwargs['collection_date']}. Attempting parse.")
+            if isinstance(kwargs['collection_date'], str):
+                logger.debug(f"collection_date is a string...")
+                kwargs['collection_date'] = parse(kwargs['collection_date'])
+                logger.debug(f"output is {kwargs['collection_date']}")
+        super().__init__(**kwargs)
+
 
     def to_sub_dict(self, submission_rsl:str) -> dict:
         """
@@ -451,7 +496,6 @@ class WastewaterSample(BasicSample):
         #         return None
         return sample
         
-
 class BacterialCultureSample(BasicSample):
     """
     base of bacterial culture sample
@@ -492,8 +536,6 @@ class BacterialCultureSample(BasicSample):
         #     "name": f"{self.submitter_id} - ({self.organism})",
         # }
         return sample
-
-    
 
 class SubmissionSampleAssociation(Base):
     """

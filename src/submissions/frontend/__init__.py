@@ -14,7 +14,8 @@ from pathlib import Path
 from backend.db import (
     construct_reagent, get_all_Control_Types_names, get_all_available_modes, store_reagent 
 )
-from .main_window_functions import *
+# from .main_window_functions import *
+from .all_window_functions import extract_form_info
 from tools import check_if_app
 from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker
 import logging
@@ -27,6 +28,7 @@ logger.info("Hello, I am a logger")
 class App(QMainWindow):
 
     def __init__(self, ctx: dict = {}):
+        
         super().__init__()
         self.ctx = ctx
         # indicate version and connected database in title bar
@@ -154,6 +156,7 @@ class App(QMainWindow):
         """
         import submission from excel sheet into form
         """        
+        from .main_window_functions import import_submission_function
         self, result = import_submission_function(self)
         logger.debug(f"Import result: {result}")
         self.result_reporter(result)
@@ -162,6 +165,7 @@ class App(QMainWindow):
         """
         Removes all reagents from form before running kit integrity completion.
         """        
+        from .main_window_functions import kit_reload_function
         self, result = kit_reload_function(self)
         self.result_reporter(result)
 
@@ -171,6 +175,7 @@ class App(QMainWindow):
         NOTE: this will not change self.reagents which should be fine
         since it's only used when looking up 
         """        
+        from .main_window_functions import kit_integrity_completion_function
         self, result = kit_integrity_completion_function(self)
         self.result_reporter(result)
 
@@ -178,10 +183,11 @@ class App(QMainWindow):
         """
         Attempt to add sample to database when 'submit' button clicked
         """        
+        from .main_window_functions import submit_new_sample_function
         self, result = submit_new_sample_function(self)
         self.result_reporter(result)
 
-    def add_reagent(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None):
+    def add_reagent(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, name:str|None=None):
         """
         Action to create new reagent in DB.
 
@@ -195,7 +201,7 @@ class App(QMainWindow):
         if isinstance(reagent_lot, bool):
             reagent_lot = ""
         # create form
-        dlg = AddReagentForm(ctx=self.ctx, reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry)
+        dlg = AddReagentForm(ctx=self.ctx, reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry, reagent_name=name)
         if dlg.exec():
             # extract form info
             info = extract_form_info(dlg)
@@ -212,6 +218,7 @@ class App(QMainWindow):
         """
         Action to create a summary of sheet data per client
         """
+        from .main_window_functions import generate_report_function
         self, result = generate_report_function(self)
         self.result_reporter(result)
 
@@ -219,6 +226,7 @@ class App(QMainWindow):
         """
         Constructs new kit from yaml and adds to DB.
         """
+        from .main_window_functions import add_kit_function
         self, result = add_kit_function(self)
         self.result_reporter(result)
 
@@ -226,6 +234,7 @@ class App(QMainWindow):
         """
         Constructs new kit from yaml and adds to DB.
         """
+        from .main_window_functions import add_org_function
         self, result = add_org_function(self)
         self.result_reporter(result)
 
@@ -233,6 +242,7 @@ class App(QMainWindow):
         """
         Lookup controls from database and send to chartmaker
         """    
+        from .main_window_functions import controls_getter_function
         self, result = controls_getter_function(self)
         self.result_reporter(result)    
         
@@ -240,6 +250,7 @@ class App(QMainWindow):
         """
         Creates plotly charts for webview
         """   
+        from .main_window_functions import chart_maker_function
         self, result = chart_maker_function(self)     
         self.result_reporter(result)
 
@@ -247,6 +258,7 @@ class App(QMainWindow):
         """
         Adds controls pulled from irida to relevant submissions
         """    
+        from .main_window_functions import link_controls_function
         self, result = link_controls_function(self)
         self.result_reporter(result)  
 
@@ -254,6 +266,7 @@ class App(QMainWindow):
         """
         Links extraction logs from .csv files to relevant submissions.
         """     
+        from .main_window_functions import link_extractions_function
         self, result = link_extractions_function(self)
         self.result_reporter(result)
 
@@ -261,6 +274,7 @@ class App(QMainWindow):
         """
         Links PCR logs from .csv files to relevant submissions.
         """        
+        from .main_window_functions import link_pcr_function
         self, result = link_pcr_function(self)
         self.result_reporter(result)
 
@@ -268,6 +282,7 @@ class App(QMainWindow):
         """
         Imports results exported from Design and Analysis .eds files
         """        
+        from .main_window_functions import import_pcr_results_function
         self, result = import_pcr_results_function(self)
         self.result_reporter(result)
 

@@ -60,7 +60,7 @@ class AddReagentForm(QDialog):
         # widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
-        self.type_input.addItems([item.replace("_", " ").title() for item in get_all_reagenttype_names(ctx=ctx)])
+        self.type_input.addItems([item for item in get_all_reagenttype_names(ctx=ctx)])
         logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
         try:
@@ -311,3 +311,20 @@ class ImportReagent(QComboBox):
         logger.debug(f"New relevant reagents: {relevant_reagents}")
         self.setObjectName(f"lot_{reagent.type}")
         self.addItems(relevant_reagents)
+
+class ParsedQLabel(QLabel):
+
+    def __init__(self, input_object, field_name, title:bool=True):
+        super().__init__()
+        try:
+            check = input_object['parsed']
+        except:
+            return
+        if title:
+            output = field_name.replace('_', ' ').title()
+        else:
+            output = field_name.replace('_', ' ')
+        if check:
+            self.setText(f"Parsed {output}")
+        else:
+            self.setText(f"MISSING {output}")

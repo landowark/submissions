@@ -32,11 +32,9 @@ class KitType(Base):
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64), unique=True) #: name of kit
     submissions = relationship("BasicSubmission", back_populates="extraction_kit") #: submissions this kit was used for
-    used_for = Column(JSON) #: list of names of sample types this kit can process
-    cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit NOTE: depreciated, use the constant and mutable costs instead
-    mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
-    mutable_cost_sample = Column(FLOAT(2)) #: dollar amount that can change with number of samples (reagents, tips, etc)
-    constant_cost = Column(FLOAT(2)) #: dollar amount per plate that will remain constant (plates, man hours, etc)
+    # used_for = Column(JSON) #: list of names of sample types this kit can process
+    # used_for = relationship("SubmissionType", back_populates="extraction_kits", uselist=True, secondary=submissiontype_kittypes)
+    # cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit NOTE: depreciated, use the constant and mutable costs instead
     # reagent_types = relationship("ReagentType", back_populates="kits", uselist=True, secondary=reagenttypes_kittypes) #: reagent types this kit contains
     # reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', use_alter=True, name="fk_KT_reagentstype_id")) #: joined reagent type id
     # kit_reagenttype_association = 
@@ -46,12 +44,23 @@ class KitType(Base):
         back_populates="kit_type",
         cascade="all, delete-orphan",
     )
+
     # association proxy of "user_keyword_associations" collection
     # to "keyword" attribute
     reagent_types = association_proxy("kit_reagenttype_associations", "reagenttype")
 
+
+    kit_submissiontype_associations = relationship(
+        "SubmissionTypeKitTypeAssociation",
+        back_populates="kit_type",
+        cascade="all, delete-orphan",
+    )
+
+    used_for = association_proxy("kit_submissiontype_associations", "submission_type")
+
+
     def __repr__(self) -> str:
-        return f"KitType({self.name})"
+        return f"<KitType({self.name})>"
     
     def __str__(self) -> str:
         """
@@ -64,9 +73,9 @@ class KitType(Base):
     
     def get_reagents(self, required:bool=False) -> list:
         if required:
-            return [item.reagenttype for item in self.kit_reagenttype_associations if item.required == 1]
+            return [item.reagent_type for item in self.kit_reagenttype_associations if item.required == 1]
         else:
-            return [item.reagenttype for item in self.kit_reagenttype_associations]
+            return [item.reagent_type for item in self.kit_reagenttype_associations]
     
 
     def construct_xl_map_for_use(self, use:str) -> dict:
@@ -75,12 +84,16 @@ class KitType(Base):
         assocs = [item for item in self.kit_reagenttype_associations if use in item.uses]
         for assoc in assocs:
             try:
-                map[assoc.reagenttype.name] = assoc.uses[use]
+                map[assoc.reagent_type.name] = assoc.uses[use]
             except TypeError:
                 continue
+        try:
+            st_assoc = [item for item in self.used_for if use == item.name][0]
+            map['info'] = st_assoc.info_map
+        except IndexError as e:
+            map['info'] = {}
         return map
     
-
 class KitTypeReagentTypeAssociation(Base):
     """
     table containing reagenttype/kittype associations
@@ -96,11 +109,11 @@ class KitTypeReagentTypeAssociation(Base):
     kit_type = relationship(KitType, back_populates="kit_reagenttype_associations")
 
     # reference to the "ReagentType" object
-    reagenttype = relationship("ReagentType")
+    reagent_type = relationship("ReagentType")
 
     def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
-        self.kit = kit_type
-        self.reagenttype = reagent_type
+        self.kit_type = kit_type
+        self.reagent_type = reagent_type
         self.uses = uses
         self.required = required
 
@@ -115,8 +128,6 @@ class KitTypeReagentTypeAssociation(Base):
         if not isinstance(value, ReagentType):
             raise ValueError(f'{value} is not a reagenttype')
         return value
-
-    
 
 class ReagentType(Base):
     """
@@ -150,7 +161,6 @@ class ReagentType(Base):
     
     def __repr__(self):
         return f"ReagentType({self.name})"
-
 
 class Reagent(Base):
     """
@@ -215,7 +225,6 @@ class Reagent(Base):
             "expiry": self.expiry.strftime("%Y-%m-%d")
         }
     
-
 class Discount(Base):
     """
     Relationship table for client labs for certain kits.
@@ -230,4 +239,44 @@ class Discount(Base):
     name = Column(String(128))
     amount = Column(FLOAT(2))
 
+class SubmissionType(Base):
+
+    __tablename__ = "_submission_types"
+
+    id = Column(INTEGER, primary_key=True) #: primary key
+    name = Column(String(128), unique=True) #: name of submission type
+    info_map = Column(JSON)
+    instances = relationship("BasicSubmission", backref="submission_type")
     
+    submissiontype_kit_associations = relationship(
+        "SubmissionTypeKitTypeAssociation",
+        back_populates="submission_type",
+        cascade="all, delete-orphan",
+    )
+
+    kit_types = association_proxy("kit_submissiontype_associations", "kit_type")
+
+    def __repr__(self) -> str:
+        return f"<SubmissionType({self.name})>"
+    
+class SubmissionTypeKitTypeAssociation(Base):
+
+    __tablename__ = "_submissiontypes_kittypes"
+    submission_types_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True)
+    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
+    mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
+    mutable_cost_sample = Column(FLOAT(2)) #: dollar amount that can change with number of samples (reagents, tips, etc)
+    constant_cost = Column(FLOAT(2)) #: dollar amount per plate that will remain constant (plates, man hours, etc)
+    # reagent_type_name = Column(INTEGER, ForeignKey("_reagent_types.name"))
+
+    kit_type = relationship(KitType, back_populates="kit_submissiontype_associations")
+
+    # reference to the "ReagentType" object
+    submission_type = relationship(SubmissionType, back_populates="submissiontype_kit_associations")
+
+    def __init__(self, kit_type=None, submission_type=None):
+        self.kit_type = kit_type
+        self.submission_type = submission_type
+        self.mutable_cost_column = 0.00
+        self.mutable_cost_sample = 0.00
+        self.constant_cost = 0.00

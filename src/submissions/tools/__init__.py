@@ -80,9 +80,9 @@ def convert_nans_to_nones(input_str) -> str|None:
     Returns:
         str: _description_
     """    
-    if not check_not_nan(input_str):
-        return None
-    return input_str
+    if check_not_nan(input_str):
+        return input_str
+    return None
 
 def check_is_power_user(ctx:dict) -> bool:
     """
@@ -172,7 +172,7 @@ class RSLNamer(object):
         self.submission_type = sub_type
         self.retrieve_rsl_number(in_str=instr)
         if self.submission_type != None:
-            parser = getattr(self, f"enforce_{self.submission_type.lower()}")
+            parser = getattr(self, f"enforce_{self.submission_type.replace(' ', '_').lower()}")
             parser()
             self.parsed_name = self.parsed_name.replace("_", "-")
         

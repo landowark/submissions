@@ -150,7 +150,7 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
     logger.debug(f"Looking at models for submission type: {query}")
     model = getattr(models, query)
     logger.debug(f"We've got the model: {type(model)}")
-    info_dict['submission_type'] = info_dict['submission_type'].replace(" ", "_").lower()
+    # info_dict['submission_type'] = info_dict['submission_type'].replace(" ", "_").lower()
     # if query return nothing, ie doesn't already exist in db
     if instance == None:
         instance = model()
@@ -224,6 +224,9 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
                         logger.critical(e)
                         continue
                 continue
+            case "submission_type":
+                # item = "submission_type"
+                field_value = lookup_submissiontype_by_name(ctx=ctx, type_name=value)            
             case _:
                 field_value = value
         # insert into field
@@ -276,7 +279,7 @@ def construct_reagent(ctx:Settings, info_dict:dict) -> models.Reagent:
     """    
     reagent = models.Reagent()
     for item in info_dict:
-        logger.debug(f"Reagent info item: {item}")
+        logger.debug(f"Reagent info item for {item}: {info_dict[item]}")
         # set fields based on keys in dictionary
         match item:
             case "lot":
@@ -284,7 +287,12 @@ def construct_reagent(ctx:Settings, info_dict:dict) -> models.Reagent:
             case "expiry":
                 reagent.expiry = info_dict[item]
             case "type":
-                reagent.type = lookup_reagenttype_by_name(ctx=ctx, rt_name=info_dict[item].replace(" ", "_").lower())
+                reagent.type = lookup_reagenttype_by_name(ctx=ctx, rt_name=info_dict[item])
+            case "name":
+                if item == None:
+                    reagent.name = reagent.type.name
+                else:
+                    reagent.name = info_dict[item]
     # add end-of-life extension from reagent type to expiry date
     # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
     # try:
@@ -320,7 +328,7 @@ def lookup_reagenttype_by_name(ctx:Settings, rt_name:str) -> models.ReagentType:
     Returns:
         models.ReagentType: looked up reagent type
     """    
-    logger.debug(f"Looking up ReagentType by name: {rt_name}")
+    logger.debug(f"Looking up ReagentType by name: {rt_name.title()}")
     # lookedup = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==rt_name).first()
     lookedup = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==rt_name).first()
     logger.debug(f"Found ReagentType: {lookedup}")
@@ -339,12 +347,13 @@ def lookup_kittype_by_use(ctx:Settings, used_by:str|None=None) -> list[models.Ki
     """    
     if used_by != None:
         # return ctx['database_session'].query(models.KitType).filter(models.KitType.used_for.contains(used_by)).all()
-        return ctx.database_session.query(models.KitType).filter(models.KitType.used_for.contains(used_by)).all()
+        # return ctx.database_session.query(models.KitType).filter(models.KitType.used_for.contains(used_by)).all()
+        return ctx.database_session.query(models.KitType).filter(models.KitType.used_for.any(name=used_by)).all()
     else:
         # return ctx['database_session'].query(models.KitType).all()
         return ctx.database_session.query(models.KitType).all()
 
-def lookup_kittype_by_name(ctx:Settings, name:str) -> models.KitType:
+def lookup_kittype_by_name(ctx:Settings, name:str|dict) -> models.KitType:
     """
     Lookup a kit type by name
 
@@ -359,7 +368,8 @@ def lookup_kittype_by_name(ctx:Settings, name:str) -> models.KitType:
         name = name['value']
     logger.debug(f"Querying kittype: {name}")
     # return ctx['database_session'].query(models.KitType).filter(models.KitType.name==name).first()
-    return ctx.database_session.query(models.KitType).filter(models.KitType.name==name).first()
+    with ctx.database_session.no_autoflush:
+        return ctx.database_session.query(models.KitType).filter(models.KitType.name==name).first()
     
 def lookup_kittype_by_id(ctx:Settings, id:int) -> models.KitType:
     return ctx.database_session.query(models.KitType).filter(models.KitType.id==id).first()
@@ -559,12 +569,17 @@ def create_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
         #     continue
         # A submission type may use multiple kits.
         for kt in exp[type]['kits']:
+            submission_type = lookup_submissiontype_by_name(ctx=ctx, type_name=type)
             kit = models.KitType(name=kt, 
-                                 used_for=[type.replace("_", " ").title()], 
-                                 constant_cost=exp[type]["kits"][kt]["constant_cost"], 
-                                 mutable_cost_column=exp[type]["kits"][kt]["mutable_cost_column"],
-                                 mutable_cost_sample=exp[type]["kits"][kt]["mutable_cost_sample"]
+                                #  constant_cost=exp[type]["kits"][kt]["constant_cost"], 
+                                #  mutable_cost_column=exp[type]["kits"][kt]["mutable_cost_column"],
+                                #  mutable_cost_sample=exp[type]["kits"][kt]["mutable_cost_sample"]
                                  )
+            kt_st_assoc = models.SubmissionTypeKitTypeAssociation(kit_type=kit, submission_type=submission_type)
+            kt_st_assoc.constant_cost = exp[type]["kits"][kt]["constant_cost"]
+            kt_st_assoc.mutable_cost_column = exp[type]["kits"][kt]["mutable_cost_column"]
+            kt_st_assoc.mutable_cost_sample = exp[type]["kits"][kt]["mutable_cost_sample"]
+            kit.kit_submissiontype_associations.append(kt_st_assoc)
             # A kit contains multiple reagent types.
             for r in exp[type]['kits'][kt]['reagenttypes']:
                 # check if reagent type already exists.
@@ -573,7 +588,7 @@ def create_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
                 look_up = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 if look_up == None:
                     # rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit], required=1)
-                    rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), last_used="")
+                    rt = models.ReagentType(name=r.replace(" ", "_").lower().strip(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), last_used="")
                 else:
                     rt = look_up
                     # rt.kits.append(kit)
@@ -583,7 +598,7 @@ def create_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
                     # except AttributeError as e:
                         # logger.error(f"Error appending reagent id to kit.reagent_types_id: {e}, creating new.")
                         # kit.reagent_types_id = [rt.id]
-                assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses=kit.used_for)
+                assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses={})
                 # ctx['database_session'].add(rt)
                 ctx.database_session.add(rt)
                 kit.kit_reagenttype_associations.append(assoc)
@@ -646,10 +661,11 @@ def lookup_all_sample_types(ctx:Settings) -> list[str]:
         list[str]: list of sample type names
     """    
     # uses = [item.used_for for item in ctx['database_session'].query(models.KitType).all()]
-    uses = [item.used_for for item in ctx.database_session.query(models.KitType).all()]
+    # uses = [item.used_for for item in ctx.database_session.query(models.KitType).all()]
     # flattened list of lists
-    uses = list(set([item for sublist in uses for item in sublist]))
-    return uses
+    # uses = list(set([item for sublist in uses for item in sublist]))
+    
+    return [item.name for item in ctx.database_session.query(models.SubmissionType).all()]
 
 def get_all_available_modes(ctx:Settings) -> list[str]:
     """
@@ -1084,7 +1100,8 @@ def lookup_sample_by_submitter_id(ctx:Settings, submitter_id:str) -> models.Basi
     Returns:
         BasicSample: _description_
     """    
-    return ctx.database_session.query(models.BasicSample).filter(models.BasicSample.submitter_id==submitter_id).first()
+    with ctx.database_session.no_autoflush:
+        return ctx.database_session.query(models.BasicSample).filter(models.BasicSample.submitter_id==submitter_id).first()
 
 def get_all_submission_types(ctx:Settings) -> List[str]:
     """
@@ -1151,3 +1168,17 @@ def lookup_all_reagent_names_by_role(ctx:Settings, role_name:str) -> List[str]:
         return [reagent.name for reagent in role.instances]
     except AttributeError:
         return []
+    
+def lookup_submissiontype_by_name(ctx:Settings, type_name:str) -> models.SubmissionType:
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+        type_name (str): _description_
+
+    Returns:
+        models.SubmissionType: _description_
+    """    
+
+    return ctx.database_session.query(models.SubmissionType).filter(models.SubmissionType.name==type_name).first()
