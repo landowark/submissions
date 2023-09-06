@@ -3,7 +3,7 @@ Models for the main submission types.
 '''
 import math
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT, BOOLEAN
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT
 from sqlalchemy.orm import relationship, validates
 import logging
 import json
@@ -106,7 +106,7 @@ class BasicSubmission(Base):
             ext_info = None
             logger.debug(f"Json error in {self.rsl_plate_num}: {e}")
         try:
-            reagents = [item.to_sub_dict() for item in self.reagents]
+            reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in self.reagents]
         except Exception as e:
             logger.error(f"We got an error retrieving reagents: {e}")
             reagents = None
@@ -252,6 +252,8 @@ class Wastewater(BasicSubmission):
     """    
     # samples = relationship("WWSample", back_populates="rsl_plate", uselist=True)
     pcr_info = Column(JSON)
+    ext_technician = Column(String(64))
+    pcr_technician = Column(String(64))
     # ww_sample_id = Column(String, ForeignKey("_ww_samples.id", ondelete="SET NULL", name="fk_WW_sample_id"))
     __mapper_args__ = {"polymorphic_identity": "Wastewater", "polymorphic_load": "inline"}
 
@@ -267,6 +269,7 @@ class Wastewater(BasicSubmission):
             output['pcr_info'] = json.loads(self.pcr_info)
         except TypeError as e:
             pass
+        output['Technician'] = f"Enr: {self.technician}, Ext: {self.ext_technician}, PCR: {self.pcr_technician}"
         return output
     
 class WastewaterArtic(BasicSubmission):
@@ -460,10 +463,10 @@ class WastewaterSample(BasicSample):
         except AttributeError as e:
             check = False
         if check:
-            logger.debug(f"Using well info in name.")
+            # logger.debug(f"Using well info in name.")
             sample['name'] = f"{self.submitter_id}\n\t- ct N1: {'{:.2f}'.format(self.assoc.ct_n1)} ({self.assoc.n1_status})\n\t- ct N2: {'{:.2f}'.format(self.assoc.ct_n2)} ({self.assoc.n2_status})"
-        else:
-            logger.error(f"Couldn't get the pcr info")
+        # else:
+            # logger.error(f"Couldn't get the pcr info")
         return sample
     
     def to_hitpick(self, submission_rsl:str) -> dict|None:
@@ -511,7 +514,7 @@ class BacterialCultureSample(BasicSample):
     # rsl_plate_id = Column(INTEGER, ForeignKey("_submissions.id", ondelete="SET NULL", name="fk_BCS_sample_id")) #: id of parent plate
     # rsl_plate = relationship("BacterialCulture", back_populates="samples") #: relationship to parent plate
 
-    __mapper_args__ = {"polymorphic_identity": "bacterial_culture_sample", "polymorphic_load": "inline"}
+    __mapper_args__ = {"polymorphic_identity": "Bacterial Culture Sample", "polymorphic_load": "inline"}
 
     # def to_string(self) -> str:
     #     """
@@ -543,10 +546,10 @@ class SubmissionSampleAssociation(Base):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """    
     __tablename__ = "_submission_sample"
-    sample_id = Column(INTEGER, ForeignKey("_samples.id"), primary_key=True)
+    sample_id = Column(INTEGER, ForeignKey("_samples.id"), nullable=False)
     submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True)
-    row = Column(INTEGER)
-    column = Column(INTEGER)
+    row = Column(INTEGER, primary_key=True)
+    column = Column(INTEGER, primary_key=True)
 
     submission = relationship(BasicSubmission, back_populates="submission_sample_associations")
 
@@ -568,6 +571,9 @@ class SubmissionSampleAssociation(Base):
         self.sample = sample
         self.row = row
         self.column = column
+
+    def __repr__(self) -> str:
+        return f"<SubmissionSampleAssociation({self.submission.rsl_plate_num} & {self.sample.submitter_id})"
 
 class WastewaterAssociation(SubmissionSampleAssociation):
 

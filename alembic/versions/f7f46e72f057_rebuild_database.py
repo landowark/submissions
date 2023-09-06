@@ -1,8 +1,8 @@
 """rebuild database
 
-Revision ID: cac89ced412b
+Revision ID: f7f46e72f057
 Revises: 
-Create Date: 2023-08-25 14:03:48.883090
+Create Date: 2023-08-30 09:47:18.071070
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'cac89ced412b'
+revision = 'f7f46e72f057'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -168,8 +168,8 @@ def upgrade() -> None:
     op.create_table('_submission_sample',
     sa.Column('sample_id', sa.INTEGER(), nullable=False),
     sa.Column('submission_id', sa.INTEGER(), nullable=False),
-    sa.Column('row', sa.INTEGER(), nullable=True),
-    sa.Column('column', sa.INTEGER(), nullable=True),
+    sa.Column('row', sa.INTEGER(), nullable=False),
+    sa.Column('column', sa.INTEGER(), nullable=False),
     sa.Column('base_sub_type', sa.String(), nullable=True),
     sa.Column('ct_n1', sa.FLOAT(precision=2), nullable=True),
     sa.Column('ct_n2', sa.FLOAT(precision=2), nullable=True),
@@ -178,7 +178,7 @@ def upgrade() -> None:
     sa.Column('pcr_results', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['sample_id'], ['_samples.id'], ),
     sa.ForeignKeyConstraint(['submission_id'], ['_submissions.id'], ),
-    sa.PrimaryKeyConstraint('sample_id', 'submission_id')
+    sa.PrimaryKeyConstraint('submission_id', 'row', 'column')
     )
     # ### end Alembic commands ###
 

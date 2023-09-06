@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, field_validator, model_validator, Extra
+from pydantic import BaseModel, field_validator, Extra
 from datetime import date, datetime
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
@@ -9,7 +9,6 @@ from pathlib import Path
 import re
 import logging
 from tools import check_not_nan, convert_nans_to_nones, Settings
-import numpy as np
 from backend.db.functions import lookup_submission_by_rsl_num
 
 
@@ -46,7 +45,11 @@ class PydReagent(BaseModel):
         # else:
         #     return value
         if value != None:
+            if isinstance(value, int):
+                return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2).date()
             return convert_nans_to_nones(str(value))
+        if value == None:
+            value = date.today()
         return value
     
     @field_validator("name", mode="before")
@@ -85,7 +88,7 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     @classmethod
     def enforce_with_uuid(cls, value):
         logger.debug(f"submitter plate id: {value}")
-        if value['value'] == None:
+        if value['value'] == None or value['value'] == "None":
             return dict(value=uuid.uuid4().hex.upper(), parsed=False)
         else:
             return value

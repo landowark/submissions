@@ -2,7 +2,7 @@
 All kit and reagent related models
 '''
 from . import Base
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, CheckConstraint
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
 from sqlalchemy.orm import relationship, validates
 from sqlalchemy.ext.associationproxy import association_proxy
 
@@ -21,6 +21,8 @@ logger = logging.getLogger(f'submissions.{__name__}')
 #                             #   is the reagent required for that kit?
 #                               Column("required", INTEGER)
 #                               )
+
+reagenttypes_reagents = Table("_reagenttypes_reagents", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("reagenttype_id", INTEGER, ForeignKey("_reagent_types.id")))
 
 
 class KitType(Base):
@@ -47,7 +49,7 @@ class KitType(Base):
 
     # association proxy of "user_keyword_associations" collection
     # to "keyword" attribute
-    reagent_types = association_proxy("kit_reagenttype_associations", "reagenttype")
+    reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type")
 
 
     kit_submissiontype_associations = relationship(
@@ -139,7 +141,7 @@ class ReagentType(Base):
     name = Column(String(64)) #: name of reagent type
     # kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", use_alter=True, name="fk_RT_kits_id")) #: id of joined kit type
     # kits = relationship("KitType", back_populates="reagent_types", uselist=True, foreign_keys=[kit_id]) #: kits this reagent is used in
-    instances = relationship("Reagent", back_populates="type") #: concrete instances of this reagent type
+    instances = relationship("Reagent", back_populates="type", secondary=reagenttypes_reagents) #: concrete instances of this reagent type
     eol_ext = Column(Interval()) #: extension of life interval
     # required = Column(INTEGER, server_default="1") #: sqlite boolean to determine if reagent type is essential for the kit
     last_used = Column(String(32)) #: last used lot number of this type of reagent
@@ -169,7 +171,7 @@ class Reagent(Base):
     __tablename__ = "_reagents"
 
     id = Column(INTEGER, primary_key=True) #: primary key
-    type = relationship("ReagentType", back_populates="instances") #: joined parent reagent type
+    type = relationship("ReagentType", back_populates="instances", secondary=reagenttypes_reagents) #: joined parent reagent type
     type_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', name="fk_reagent_type_id")) #: id of parent reagent type
     name = Column(String(64)) #: reagent name
     lot = Column(String(64)) #: lot number of reagent
@@ -192,19 +194,26 @@ class Reagent(Base):
         """    
         return str(self.lot)
 
-    def to_sub_dict(self) -> dict:
+    def to_sub_dict(self, extraction_kit:KitType=None) -> dict:
         """
         dictionary containing values necessary for gui
 
         Returns:
             dict: gui friendly dictionary
         """        
+        if extraction_kit != None:
+            try:
+                reagent_role = list(set(self.type).intersection(extraction_kit.reagent_types))[0]
+            except:
+                reagent_role = self.type[0]
+        else:
+            reagent_role = self.type[0]
         try:
-            type = self.type.name.replace("_", " ").title()
+            rtype = reagent_role.name.replace("_", " ").title()
         except AttributeError:
-            type = "Unknown"
+            rtype = "Unknown"
         try:
-            place_holder = self.expiry + self.type.eol_ext
+            place_holder = self.expiry + reagent_role.eol_ext
             # logger.debug(f"EOL_ext for {self.lot} -- {self.expiry} + {self.type.eol_ext} = {place_holder}")
         except TypeError as e:
             place_holder = date.today()
@@ -213,14 +222,14 @@ class Reagent(Base):
             place_holder = date.today()
             logger.debug(f"We got an attribute error setting {self.lot} expiry: {e}. Setting to today for testing")
         return {
-            "type": type,
+            "type": rtype,
             "lot": self.lot,
             "expiry": place_holder.strftime("%Y-%m-%d")
         }
     
     def to_reagent_dict(self) -> dict:
         return {
-            "type": self.type.name,
+            "type": type,
             "lot": self.lot,
             "expiry": self.expiry.strftime("%Y-%m-%d")
         }
@@ -280,3 +289,6 @@ class SubmissionTypeKitTypeAssociation(Base):
         self.mutable_cost_column = 0.00
         self.mutable_cost_sample = 0.00
         self.constant_cost = 0.00
+
+    def __repr__(self) -> str:
+        return f"<SubmissionTypeKitTypeAssociation({self.submission_type.name})"

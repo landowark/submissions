@@ -89,7 +89,6 @@ class AddReagentForm(QDialog):
         self.name_input.clear()
         self.name_input.addItems(item for item in lookup_all_reagent_names_by_role(ctx=self.ctx, role_name=self.type_input.currentText().replace(" ", "_").lower()))
 
-
 class ReportDatePicker(QDialog):
     """
     custom dialog to ask for report start/stop dates
@@ -117,7 +116,6 @@ class ReportDatePicker(QDialog):
         self.layout.addWidget(end_date)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
-
 
 class KitAdder(QWidget):
     """
@@ -195,7 +193,7 @@ class KitAdder(QWidget):
             yml_type['password'] = info['password']
         except KeyError:
             pass
-        used = info['used_for'].replace(" ", "_").lower()
+        used = info['used_for']
         yml_type[used] = {}
         yml_type[used]['kits'] = {}
         yml_type[used]['kits'][info['kit_name']] = {}
@@ -209,7 +207,6 @@ class KitAdder(QWidget):
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
         self.__init__(self.ctx)
-
 
 class ReagentTypeForm(QWidget):
     """
@@ -234,7 +231,6 @@ class ReagentTypeForm(QWidget):
         eol.setMinimum(0)
         grid.addWidget(eol, 0,3)
 
-
 class ControlsDatePicker(QWidget):
     """
     custom widget to pick start and end dates for controls graphs
@@ -258,7 +254,6 @@ class ControlsDatePicker(QWidget):
 
     def sizeHint(self) -> QSize:
         return QSize(80,20)  
-
 
 class ImportReagent(QComboBox):
 

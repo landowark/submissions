@@ -26,13 +26,13 @@ from backend.db.functions import (
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
     lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample,
-    check_kit_integrity, get_reagents_in_extkit
+    check_kit_integrity
 )
 from backend.excel.parser import SheetParser, PCRParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
 from backend.pydant import PydReagent
 from tools import check_not_nan
-from .custom_widgets.pop_ups import AlertPop, KitSelector, QuestionAsker
+from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent, ParsedQLabel
 from .visualizations.control_charts import create_charts, construct_html
@@ -92,7 +92,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
     # Get list of fields from pydantic model.
-    fields = list(pyd.model_fields.keys())
+    fields = list(pyd.model_fields.keys()) + list(pyd.model_extra.keys())
     fields.remove('filepath')
     logger.debug(f"pydantic fields: {fields}")
     for field in fields:
@@ -175,7 +175,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                     else:
                         # try:
                         #     reg_label = QLabel(f"MISSING Lot: {reagent['value'].type}")
-                        obj.missing_reagents.append(reagent['value'].type)
+                        obj.missing_reagents.append(reagent['value'])
                         continue
                         # except AttributeError:
                         #     continue
@@ -273,10 +273,10 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
         # obj.missing_reagents = kit_integrity['missing']
     # for item in kit_integrity['missing']:
     if len(obj.missing_reagents) > 0:
-        result = dict(message=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in obj.missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
+        result = dict(message=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in obj.missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
     for item in obj.missing_reagents:
-        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item, title=False))
-        reagent = dict(type=item, lot=None, exp=None, name=None)
+        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item.type, title=False))
+        reagent = dict(type=item.type, lot=None, exp=date.today(), name=None)
         add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent))#item=item)
         obj.table_widget.formlayout.addWidget(add_widget)
     submit_btn = QPushButton("Submit")
@@ -316,8 +316,12 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             r_lot = reagents[reagent]
             dlg = QuestionAsker(title=f"Add {r_lot}?", message=f"Couldn't find reagent type {reagent.strip('Lot')}: {r_lot} in the database.\n\nWould you like to add it?")
             if dlg.exec():
-                logger.debug(f"Looking through {obj.reagents} for reagent {reagent}")
-                picked_reagent = [item for item in obj.reagents if item.type == reagent][0]
+                logger.debug(f"Looking through {pprint.pformat(obj.reagents)} for reagent {reagent}")
+                try:
+                    picked_reagent = [item for item in obj.reagents if item.type == reagent][0]
+                except IndexError:
+                    logger.error(f"Couldn't find {reagent} in obj.reagents. Checking missing reagents {pprint.pformat(obj.missing_reagents)}")
+                    picked_reagent = [item for item in obj.missing_reagents if item.type == reagent][0]
                 logger.debug(f"checking reagent: {reagent} in obj.reagents. Result: {picked_reagent}")
                 expiry_date = picked_reagent.exp
                 wanted_reagent = obj.add_reagent(reagent_lot=r_lot, reagent_type=reagent.replace("lot_", ""), expiry=expiry_date, name=picked_reagent.name)
@@ -369,14 +373,15 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
     logger.debug(f"All attributes of obj: {pprint.pformat(obj.__dict__)}")
-    if len(obj.missing_reagents) > 0:
+    if len(obj.missing_reagents + obj.missing_info) > 0:
         logger.debug(f"We have blank reagents in the excel sheet.\n\tLet's try to fill them in.") 
         extraction_kit = lookup_kittype_by_name(obj.ctx, name=obj.ext_kit)
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
-        logger.debug(f"Extraction kit map:\n\n{extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]}")
+        
         # TODO replace below with function in KitType object. Update Kittype associations.
         # excel_map = extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]
         excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type)
+        logger.debug(f"Extraction kit map:\n\n{pprint.pformat(excel_map)}")
         # excel_map.update(extraction_kit.used_for[obj.current_submission_type.replace('_', ' ').title()])
         input_reagents = [item.to_reagent_dict() for item in parsed_reagents]
         autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info, missing_info=obj.missing_info)
@@ -863,41 +868,47 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
     logger.debug(f"Here is the info dict coming in:\n{pprint.pformat(info)}")
     logger.debug(f"Here are the missing reagents:\n{missing_reagents}")
     logger.debug(f"Here are the missing info:\n{missing_info}")
+    logger.debug(f"Here is the xl map: {pprint.pformat(xl_map)}")
     # pare down the xl map to only the missing data.
-    relevant_map = {k:v for k,v in xl_map.items() if k in missing_reagents}
+    relevant_reagent_map = {k:v for k,v in xl_map.items() if k in [reagent.type for reagent in missing_reagents]}
     # pare down reagents to only what's missing
-    relevant_reagents = [item for item in reagents if item['type'] in missing_reagents]
+    relevant_reagents = [item for item in reagents if item['type'] in [reagent.type for reagent in missing_reagents]]
+    logger.debug(f"Here are the relevant reagents: {pprint.pformat(relevant_reagents)}")
     # hacky manipulation of submission type so it looks better.
     # info['submission_type'] = info['submission_type'].replace("_", " ").title()
     # pare down info to just what's missing
+    relevant_info_map = {k:v for k,v in xl_map['info'].items() if k in missing_info and k != 'samples'}
     relevant_info = {k:v for k,v in info.items() if k in missing_info}
     logger.debug(f"Here is the relevant info: {pprint.pformat(relevant_info)}")
     # construct new objects to put into excel sheets:
     new_reagents = []
+    logger.debug(f"Parsing from relevant reagent map: {pprint.pformat(relevant_reagent_map)}")
     for reagent in relevant_reagents:
         new_reagent = {}
         new_reagent['type'] = reagent['type']
-        new_reagent['lot'] = relevant_map[new_reagent['type']]['lot']
+        new_reagent['lot'] = relevant_reagent_map[new_reagent['type']]['lot']
         new_reagent['lot']['value'] = reagent['lot']
-        new_reagent['expiry'] = relevant_map[new_reagent['type']]['expiry']
+        new_reagent['expiry'] = relevant_reagent_map[new_reagent['type']]['expiry']
         new_reagent['expiry']['value'] = reagent['expiry']
-        new_reagent['sheet'] = relevant_map[new_reagent['type']]['sheet']
+        new_reagent['sheet'] = relevant_reagent_map[new_reagent['type']]['sheet']
         # name is only present for Bacterial Culture
         try:
-            new_reagent['name'] = relevant_map[new_reagent['type']]['name']
+            new_reagent['name'] = relevant_reagent_map[new_reagent['type']]['name']
             new_reagent['name']['value'] = reagent['type']
         except:
             pass
         new_reagents.append(new_reagent)
     # construct new info objects to put into excel sheets
     new_info = []
+    logger.debug(f"Parsing from relevant info map: {pprint.pformat(relevant_info_map)}")
     for item in relevant_info:
         new_item = {}
         new_item['type'] = item
-        new_item['location'] = relevant_map[item]
+        new_item['location'] = relevant_info_map[item]
         new_item['value'] = relevant_info[item]
         new_info.append(new_item)
     logger.debug(f"New reagents: {new_reagents}")
+    logger.debug(f"New info: {new_info}")
     # open the workbook using openpyxl
     workbook = load_workbook(obj.xl)
     # get list of sheet names

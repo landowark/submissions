@@ -53,6 +53,8 @@ def check_not_nan(cell_contents) -> bool:
         cell_contents = cell_contents.lower()
     except (TypeError, AttributeError):
         pass
+    if cell_contents == "nat":
+        cell_contents = np.nan
     if cell_contents == 'nan':
         cell_contents = np.nan
     if cell_contents == None:
@@ -80,6 +82,7 @@ def convert_nans_to_nones(input_str) -> str|None:
     Returns:
         str: _description_
     """    
+    # logger.debug(f"Input value of: {input_str}")
     if check_not_nan(input_str):
         return input_str
     return None

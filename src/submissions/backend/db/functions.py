@@ -2,6 +2,7 @@
 Convenience functions for interacting with the database.
 '''
 
+import pprint
 from . import models
 # from .models.kits import KitType
 # from .models.submissions import BasicSample, reagents_submissions, BasicSubmission, SubmissionSampleAssociation
@@ -32,7 +33,6 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
-
 
 def store_submission(ctx:Settings, base_submission:models.BasicSubmission, samples:List[dict]=[]) -> None|dict:
     """
@@ -206,10 +206,12 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmi
                     try:
                         with ctx.database_session.no_autoflush:
                             try:
-                                logger.debug(f"Here is the sample instance type: {sample_instance.sample_type}")
+                                sample_query = sample_instance.sample_type.replace('Sample', '').strip()
+                                logger.debug(f"Here is the sample instance type: {sample_query}")
                                 try:
-                                    assoc = getattr(models, f"{sample_instance.sample_type.replace('_sample', '').replace('_', ' ').title().replace(' ', '')}Association")
+                                    assoc = getattr(models, f"{sample_query}Association")
                                 except AttributeError as e:
+                                    logger.error(f"Couldn't get type specific association. Getting generic.")
                                     assoc = models.SubmissionSampleAssociation
                                 # assoc = models.SubmissionSampleAssociation(submission=instance, sample=sample_instance, row=sample['row'], column=sample['column'])
                                 assoc = assoc(submission=instance, sample=sample_instance, row=sample['row'], column=sample['column'])
@@ -287,7 +289,9 @@ def construct_reagent(ctx:Settings, info_dict:dict) -> models.Reagent:
             case "expiry":
                 reagent.expiry = info_dict[item]
             case "type":
-                reagent.type = lookup_reagenttype_by_name(ctx=ctx, rt_name=info_dict[item])
+                reagent_type = lookup_reagenttype_by_name(ctx=ctx, rt_name=info_dict[item])
+                if reagent_type != None:
+                    reagent.type.append(reagent_type)
             case "name":
                 if item == None:
                     reagent.name = reagent.type.name
@@ -420,7 +424,7 @@ def lookup_regent_by_type_name_and_kit_name(ctx:Settings, type_name:str, kit_nam
     output = rt_types.instances
     return output
 
-def lookup_all_submissions_by_type(ctx:Settings, sub_type:str|None=None) -> list[models.BasicSubmission]:
+def lookup_all_submissions_by_type(ctx:Settings, sub_type:str|None=None, chronologic:bool=False) -> list[models.BasicSubmission]:
     """
     Get all submissions, filtering by type if given
 
@@ -433,11 +437,13 @@ def lookup_all_submissions_by_type(ctx:Settings, sub_type:str|None=None) -> list
     """
     if sub_type == None:
         # subs = ctx['database_session'].query(models.BasicSubmission).all()
-        subs = ctx.database_session.query(models.BasicSubmission).all()
+        subs = ctx.database_session.query(models.BasicSubmission)
     else:
         # subs = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.submission_type==sub_type.lower().replace(" ", "_")).all()
-        subs = ctx.database_session.query(models.BasicSubmission).filter(models.BasicSubmission.submission_type==sub_type.lower().replace(" ", "_")).all()
-    return subs
+        subs = ctx.database_session.query(models.BasicSubmission).filter(models.BasicSubmission.submission_type==sub_type.lower().replace(" ", "_"))
+    if chronologic:
+        subs.order_by(models.BasicSubmission.submitted_date)
+    return subs.all()
 
 def lookup_all_orgs(ctx:Settings) -> list[models.Organization]:
     """
@@ -480,7 +486,7 @@ def submissions_to_df(ctx:Settings, sub_type:str|None=None) -> pd.DataFrame:
     """    
     logger.debug(f"Type: {sub_type}")
     # use lookup function to create list of dicts
-    subs = [item.to_dict() for item in lookup_all_submissions_by_type(ctx=ctx, sub_type=sub_type)]
+    subs = [item.to_dict() for item in lookup_all_submissions_by_type(ctx=ctx, sub_type=sub_type, chronologic=True)]
     # make df from dicts (records) in list
     df = pd.DataFrame.from_records(subs)
     # Exclude sub information
@@ -569,7 +575,9 @@ def create_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
         #     continue
         # A submission type may use multiple kits.
         for kt in exp[type]['kits']:
+            logger.debug(f"Looking up submission type: {type}")
             submission_type = lookup_submissiontype_by_name(ctx=ctx, type_name=type)
+            logger.debug(f"Looked up submission type: {submission_type}")
             kit = models.KitType(name=kt, 
                                 #  constant_cost=exp[type]["kits"][kt]["constant_cost"], 
                                 #  mutable_cost_column=exp[type]["kits"][kt]["mutable_cost_column"],
@@ -588,7 +596,7 @@ def create_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
                 look_up = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==r).first()
                 if look_up == None:
                     # rt = models.ReagentType(name=r.replace(" ", "_").lower(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), kits=[kit], required=1)
-                    rt = models.ReagentType(name=r.replace(" ", "_").lower().strip(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), last_used="")
+                    rt = models.ReagentType(name=r.strip(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), last_used="")
                 else:
                     rt = look_up
                     # rt.kits.append(kit)
@@ -893,9 +901,10 @@ def update_ww_sample(ctx:Settings, sample_obj:dict):
         sample_obj (dict): dictionary representing new values for database object
     """    
     # ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=ctx, rsl_number=sample_obj['sample'])
+    logger.debug(f"dictionary to use for update: {pprint.pformat(sample_obj)}")
     logger.debug(f"Looking up {sample_obj['sample']} in plate {sample_obj['plate_rsl']}")
     # ww_samp = lookup_ww_sample_by_sub_sample_rsl(ctx=ctx, sample_rsl=sample_obj['sample'], plate_rsl=sample_obj['plate_rsl'])
-    assoc = lookup_ww_association_by_plate_sample(ctx=ctx, rsl_plate_num=sample_obj['plate_rsl'], rsl_sample_num=sample_obj['sample'])
+    assoc = lookup_subsamp_association_by_plate_sample(ctx=ctx, rsl_plate_num=sample_obj['plate_rsl'], rsl_sample_num=sample_obj['sample'])
     # ww_samp = lookup_ww_sample_by_sub_sample_well(ctx=ctx, sample_rsl=sample_obj['sample'], well_num=sample_obj['well_num'], plate_rsl=sample_obj['plate_rsl'])
     if assoc != None:
         # del sample_obj['well_number']
@@ -903,11 +912,16 @@ def update_ww_sample(ctx:Settings, sample_obj:dict):
             # set attribute 'key' to 'value'
             try:
                 check = getattr(assoc, key)
-            except AttributeError:
+            except AttributeError as e:
+                logger.error(f"Item doesn't have field {key} due to {e}")
                 continue
-            if check == None:
-                logger.debug(f"Setting {key} to {value}")
-                setattr(assoc, key, value)
+            if check != value:
+                logger.debug(f"Setting association key: {key} to {value}")
+                try:
+                    setattr(assoc, key, value)
+                except AttributeError as e:
+                    logger.error(f"Can't set field {key} to {value} due to {e}")
+                    continue
     else:
         logger.error(f"Unable to find sample {sample_obj['sample']}")
         return
@@ -1059,16 +1073,22 @@ def check_kit_integrity(sub:models.BasicSubmission|models.KitType, reagenttypes:
     """    
     logger.debug(type(sub))
     # What type is sub?
+    reagenttypes = []
     match sub:
         case models.BasicSubmission():
             # Get all required reagent types for this kit.
             # ext_kit_rtypes = [reagenttype.name for reagenttype in sub.extraction_kit.reagent_types if reagenttype.required == 1]
             ext_kit_rtypes = [item.name for item in sub.extraction_kit.get_reagents(required=True)]
             # Overwrite function parameter reagenttypes
-            try:
-                reagenttypes = [reagent.type.name for reagent in sub.reagents]
-            except AttributeError as e:
-                logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
+            for reagent in sub.reagents:
+                try:
+                    # reagenttypes = [reagent.type.name for reagent in sub.reagents]
+                    rt = list(set(reagent.type).intersection(sub.extraction_kit.reagent_types))[0].name
+                    logger.debug(f"Got reagent type: {rt}")
+                    reagenttypes.append(rt)
+                except AttributeError as e:
+                    logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
+                    reagenttypes.append(reagent.type[0].name)
         case models.KitType():
             # ext_kit_rtypes = [reagenttype.name for reagenttype in sub.reagent_types if reagenttype.required == 1]
             ext_kit_rtypes = [item.name for item in sub.get_reagents(required=True)]
@@ -1133,7 +1153,7 @@ def get_reagents_in_extkit(ctx:Settings, kit_name:str) -> List[str]:
     kit = lookup_kittype_by_name(ctx=ctx, name=kit_name)
     return kit.get_reagents(required=False)
 
-def lookup_ww_association_by_plate_sample(ctx:Settings, rsl_plate_num:str, rsl_sample_num:str) -> models.SubmissionSampleAssociation:
+def lookup_subsamp_association_by_plate_sample(ctx:Settings, rsl_plate_num:str, rsl_sample_num:str) -> models.SubmissionSampleAssociation:
     """
     _summary_
 
@@ -1147,9 +1167,9 @@ def lookup_ww_association_by_plate_sample(ctx:Settings, rsl_plate_num:str, rsl_s
     """    
     return ctx.database_session.query(models.SubmissionSampleAssociation)\
                 .join(models.BasicSubmission)\
-                .join(models.WastewaterSample)\
+                .join(models.BasicSample)\
                 .filter(models.BasicSubmission.rsl_plate_num==rsl_plate_num)\
-                .filter(models.WastewaterSample.rsl_number==rsl_sample_num)\
+                .filter(models.BasicSample.submitter_id==rsl_sample_num)\
                 .first()
 
 def lookup_all_reagent_names_by_role(ctx:Settings, role_name:str) -> List[str]:
@@ -1182,3 +1202,24 @@ def lookup_submissiontype_by_name(ctx:Settings, type_name:str) -> models.Submiss
     """    
 
     return ctx.database_session.query(models.SubmissionType).filter(models.SubmissionType.name==type_name).first()
+
+def add_reagenttype_to_kit(ctx:Settings, rt_name:str, kit_name:str, eol:int=0):
+    """
+    Mostly commandline procedure to add missing reagenttypes to kits
+
+    Args:
+        ctx (Settings): _description_
+        rt_name (str): _description_
+        kit_name (str): _description_
+        eol (int, optional): _description_. Defaults to 0.
+    """    
+    kit = lookup_kittype_by_name(ctx=ctx, name=kit_name)
+    rt = lookup_reagenttype_by_name(ctx=ctx, rt_name=rt_name)
+    if rt == None:
+        rt = models.ReagentType(name=rt_name.strip(), eol_ext=timedelta(30*eol), last_used="")
+        ctx.database_session.add(rt)
+    assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses={})
+    kit.kit_reagenttype_associations.append(assoc)
+    ctx.database_session.add(kit)
+    ctx.database_session.commit()
+    

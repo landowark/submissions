@@ -3,7 +3,7 @@ contains parser object for pulling values from client generated submission sheet
 '''
 from getpass import getuser
 import pprint
-from typing import List, Tuple
+from typing import List
 import pandas as pd
 from pathlib import Path
 from backend.db import lookup_ww_sample_by_ww_sample_num, lookup_sample_by_submitter_id, get_reagents_in_extkit, lookup_kittype_by_name, lookup_submissiontype_by_name, models
@@ -12,11 +12,11 @@ import logging
 from collections import OrderedDict
 import re
 import numpy as np
-from datetime import date, datetime
+from datetime import date
 from dateutil.parser import parse, ParserError
 import uuid
 # from submissions.backend.db.functions import 
-from tools import check_not_nan, RSLNamer, massage_common_reagents, convert_nans_to_nones, Settings
+from tools import check_not_nan, RSLNamer, convert_nans_to_nones, Settings
 from frontend.custom_widgets.pop_ups import SubmissionTypeSelector, KitSelector
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -56,6 +56,7 @@ class SheetParser(object):
         self.parse_reagents()
         self.import_reagent_validation_check()
         self.parse_samples()
+        # self.sub['sample_count'] = len(self.sub['samples'])
         
 
     def type_decider(self) -> str:
@@ -448,10 +449,10 @@ class InfoParser(object):
         logger.debug(f"Looking up submission type: {submission_type['value']}")
         submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type['value'])
         info_map = submission_type.info_map
-        try:
-            del info_map['samples']
-        except KeyError:
-            pass
+        # try:
+        #     del info_map['samples']
+        # except KeyError:
+        #     pass
         return info_map
 
     def parse_info(self) -> dict:
@@ -472,14 +473,20 @@ class InfoParser(object):
                 value = df.iat[relevant[item]['row']-1, relevant[item]['column']-1]
                 logger.debug(f"Setting {item} on {sheet} to {value}")
                 if check_not_nan(value):
-                    try:
-                        dicto[item] = dict(value=value, parsed=True)
-                    except (KeyError, IndexError):
-                        continue
+                    if value != "None":
+                        try:
+                            dicto[item] = dict(value=value, parsed=True)
+                        except (KeyError, IndexError):
+                            continue
+                    else:
+                        try:
+                            dicto[item] = dict(value=value, parsed=False)
+                        except (KeyError, IndexError):
+                            continue
                 else:
                     dicto[item] = dict(value=convert_nans_to_nones(value), parsed=False)
-        if "submitter_plate_num" not in dicto.keys():
-            dicto['submitter_plate_num'] = dict(value=None, parsed=False)
+        # if "submitter_plate_num" not in dicto.keys():
+        #     dicto['submitter_plate_num'] = dict(value=None, parsed=False)
         return dicto
                 
 class ReagentParser(object):
@@ -554,6 +561,7 @@ class SampleParser(object):
     def fetch_sample_info_map(self, submission_type:dict) -> dict:
         logger.debug(f"Looking up submission type: {submission_type}")
         submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type)
+        logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
         return sample_info_map
 
@@ -620,7 +628,13 @@ class SampleParser(object):
     def parse_samples(self) -> List[dict]:
         result = None
         new_samples = []
-        for sample in self.samples:
+        for ii, sample in enumerate(self.samples):
+            # logger.debug(f"\n\n{new_samples}\n\n")
+            try:
+                if sample['submitter_id'] in [check_sample['sample'].submitter_id for check_sample in new_samples]:
+                    sample['submitter_id'] = f"{sample['submitter_id']}-{ii}"
+            except KeyError as e:
+                logger.error(f"Sample obj: {sample}, error: {e}")
             translated_dict = {}
             for k, v in sample.items():
                 match v:
@@ -647,11 +661,13 @@ class SampleParser(object):
         instance = lookup_sample_by_submitter_id(ctx=self.ctx, submitter_id=input_dict['submitter_id'])
         if instance == None:
             instance = database_obj()
-        for k,v in input_dict.items():
-            try:
-                setattr(instance, k, v)
-            except Exception as e:
-                logger.error(f"Failed to set {k} due to {type(e).__name__}: {e}")
+            for k,v in input_dict.items():
+                try:
+                    setattr(instance, k, v)
+                except Exception as e:
+                    logger.error(f"Failed to set {k} due to {type(e).__name__}: {e}")
+        else:
+            logger.debug(f"Sample already exists, will run update.")
         return dict(sample=instance, row=input_dict['row'], column=input_dict['column'])
 
 
