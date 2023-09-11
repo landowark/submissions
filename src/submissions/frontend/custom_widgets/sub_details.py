@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
 from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
 from backend.excel import make_hitpicks
+from tools import check_if_app
 from tools import jinja_template_loading
 from xhtml2pdf import pisa
 from pathlib import Path
@@ -291,10 +292,14 @@ class SubmissionDetails(QDialog):
         # interior.resize(w,900)
         # txt_editor.setText(text)
         # interior.setWidget(txt_editor)
-        self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
+        logger.debug(f"Creating barcode.")
+        if not check_if_app():
+            self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
         sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
         # plate_dicto = hitpick_plate(sub)
+        logger.debug(f"Hitpicking plate...")
         plate_dicto = sub.hitpick_plate()
+        logger.debug(f"Making platemap...")
         platemap = make_plate_map(plate_dicto)
         logger.debug(f"platemap: {platemap}")
         image_io = BytesIO()

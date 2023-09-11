@@ -1,8 +1,8 @@
 - [ ] Clean up & document code... again.
     - Including paring down the logging.debugs
 - [ ] Fix Tests... again.
-- [ ] Rebuild database
-- [ ] Provide more generic names for reagenttypes in kits and move specific names to reagents.
+- [x] Rebuild database
+- [x] Provide more generic names for reagenttypes in kits and move specific names to reagents.
     - ex. Instead of "omega_e-z_96_disruptor_plate_c_plus" in reagent types, have "omega_plate" and have "omega_e-z_96_disruptor_plate_c_plus" in reagent name.
     - Maybe rename to "ReagentRoles"?
     - If I'm doing this, since the forms have a different layout for each submission type I should rewrite the parser to use the locations given in database... Which I should do anyway

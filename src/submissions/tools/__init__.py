@@ -195,7 +195,7 @@ class RSLNamer(object):
                 # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
                 (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
                 (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
-                (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}_(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
+                (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}(?:-|_)(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
                 """, flags = re.IGNORECASE | re.VERBOSE)
         m = regex.search(self.out_str)
         if m != None:
@@ -308,10 +308,10 @@ class RSLNamer(object):
         except AttributeError:
             self.parsed_name = construct()
         try:
-            plate_number = int(re.search(r"_\d?_", self.parsed_name).group().strip("_"))
-        except AttributeError as e:
+            plate_number = int(re.search(r"_|-\d?_", self.parsed_name).group().strip("_").strip("-"))
+        except (AttributeError, ValueError) as e:
             plate_number = 1
-        self.parsed_name = re.sub(r"(_\d)?_ARTIC", f"-{plate_number}", self.parsed_name)
+        self.parsed_name = re.sub(r"(_|-\d)?_ARTIC", f"-{plate_number}", self.parsed_name)
 
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
@@ -611,7 +611,6 @@ def jinja_template_loading():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
     else:
         loader_path = Path(__file__).parents[1].joinpath('templates').absolute().__str__()
-
     # jinja template loading
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)

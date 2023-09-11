@@ -5,7 +5,7 @@
     </head>
     {% set excluded = ['reagents', 'samples', 'controls', 'ext_info', 'pcr_info', 'comments', 'barcode', 'platemap'] %}
     <body>
-        <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">
+        <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;{% if sub['barcode'] %}<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">{% endif %}
         <p>{% for key, value in sub.items() if key not in excluded %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key }}: </b>{% if key=='Cost' %} {{ "${:,.2f}".format(value) }}{% else %}{{ value }}{% endif %}<br>
         {% endfor %}</p>

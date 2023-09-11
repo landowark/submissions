@@ -21,7 +21,6 @@ class Organization(Base):
     submissions = relationship("BasicSubmission", back_populates="submitting_lab") #: submissions this organization has submitted
     cost_centre = Column(String()) #: cost centre used by org for payment
     contacts = relationship("Contact", back_populates="organization", secondary=orgs_contacts) #: contacts involved with this org
-    # contact_ids = Column(INTEGER, ForeignKey("_contacts.id", ondelete="SET NULL", name="fk_org_contact_id")) #: contact ids of this organization
 
     def __str__(self) -> str:
         """
@@ -47,5 +46,4 @@ class Contact(Base):
     email = Column(String(64)) #: contact email
     phone = Column(String(32)) #: contact phone number
     organization = relationship("Organization", back_populates="contacts", uselist=True, secondary=orgs_contacts) #: relationship to joined organization
-    # organization_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete="SET NULL", name="fk_contact_org_id")) #: joined organization ids
 

@@ -12,16 +12,6 @@ import logging
 logger = logging.getLogger(f'submissions.{__name__}')
 
 
-# # Table containing reagenttype-kittype relationships
-# reagenttypes_kittypes = Table("_reagentstypes_kittypes", Base.metadata, 
-#                               Column("reagent_types_id", INTEGER, ForeignKey("_reagent_types.id")), 
-#                               Column("kits_id", INTEGER, ForeignKey("_kits.id")),
-#                             #   The entry will look like ["Bacteria Culture":{"row":1, "column":4}]
-#                               Column("uses", JSON),
-#                             #   is the reagent required for that kit?
-#                               Column("required", INTEGER)
-#                               )
-
 reagenttypes_reagents = Table("_reagenttypes_reagents", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("reagenttype_id", INTEGER, ForeignKey("_reagent_types.id")))
 
 
@@ -34,13 +24,7 @@ class KitType(Base):
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64), unique=True) #: name of kit
     submissions = relationship("BasicSubmission", back_populates="extraction_kit") #: submissions this kit was used for
-    # used_for = Column(JSON) #: list of names of sample types this kit can process
-    # used_for = relationship("SubmissionType", back_populates="extraction_kits", uselist=True, secondary=submissiontype_kittypes)
-    # cost_per_run = Column(FLOAT(2)) #: dollar amount for each full run of this kit NOTE: depreciated, use the constant and mutable costs instead
-    # reagent_types = relationship("ReagentType", back_populates="kits", uselist=True, secondary=reagenttypes_kittypes) #: reagent types this kit contains
-    # reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', use_alter=True, name="fk_KT_reagentstype_id")) #: joined reagent type id
-    # kit_reagenttype_association = 
-
+    
     kit_reagenttype_associations = relationship(
         "KitTypeReagentTypeAssociation",
         back_populates="kit_type",
@@ -51,7 +35,6 @@ class KitType(Base):
     # to "keyword" attribute
     reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type")
 
-
     kit_submissiontype_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
         back_populates="kit_type",
@@ -59,7 +42,6 @@ class KitType(Base):
     )
 
     used_for = association_proxy("kit_submissiontype_associations", "submission_type")
-
 
     def __repr__(self) -> str:
         return f"<KitType({self.name})>"
@@ -74,6 +56,15 @@ class KitType(Base):
         return self.name
     
     def get_reagents(self, required:bool=False) -> list:
+        """
+        Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
+
+        Args:
+            required (bool, optional): If true only return required types. Defaults to False.
+
+        Returns:
+            list: List of ReagentTypes
+        """        
         if required:
             return [item.reagent_type for item in self.kit_reagenttype_associations if item.required == 1]
         else:
@@ -81,14 +72,24 @@ class KitType(Base):
     
 
     def construct_xl_map_for_use(self, use:str) -> dict:
-        # map = self.used_for[use]
+        """
+        Creates map of locations in excel workbook for a SubmissionType
+
+        Args:
+            use (str): Submissiontype.name
+
+        Returns:
+            dict: Dictionary containing information locations.
+        """        
         map = {}
+        # Get all KitTypeReagentTypeAssociation for SubmissionType
         assocs = [item for item in self.kit_reagenttype_associations if use in item.uses]
         for assoc in assocs:
             try:
                 map[assoc.reagent_type.name] = assoc.uses[use]
             except TypeError:
                 continue
+        # Get SubmissionType info map
         try:
             st_assoc = [item for item in self.used_for if use == item.name][0]
             map['info'] = st_assoc.info_map
@@ -106,7 +107,6 @@ class KitTypeReagentTypeAssociation(Base):
     kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
     uses = Column(JSON)
     required = Column(INTEGER)
-    # reagent_type_name = Column(INTEGER, ForeignKey("_reagent_types.name"))
 
     kit_type = relationship(KitType, back_populates="kit_reagenttype_associations")
 
@@ -139,11 +139,8 @@ class ReagentType(Base):
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: name of reagent type
-    # kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", use_alter=True, name="fk_RT_kits_id")) #: id of joined kit type
-    # kits = relationship("KitType", back_populates="reagent_types", uselist=True, foreign_keys=[kit_id]) #: kits this reagent is used in
     instances = relationship("Reagent", back_populates="type", secondary=reagenttypes_reagents) #: concrete instances of this reagent type
     eol_ext = Column(Interval()) #: extension of life interval
-    # required = Column(INTEGER, server_default="1") #: sqlite boolean to determine if reagent type is essential for the kit
     last_used = Column(String(32)) #: last used lot number of this type of reagent
 
     @validates('required')
@@ -202,8 +199,10 @@ class Reagent(Base):
             dict: gui friendly dictionary
         """        
         if extraction_kit != None:
+            # Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
             try:
                 reagent_role = list(set(self.type).intersection(extraction_kit.reagent_types))[0]
+            # Most will be able to fall back to first ReagentType in itself because most will only have 1.
             except:
                 reagent_role = self.type[0]
         else:
@@ -212,9 +211,9 @@ class Reagent(Base):
             rtype = reagent_role.name.replace("_", " ").title()
         except AttributeError:
             rtype = "Unknown"
+        # Calculate expiry with EOL from ReagentType
         try:
             place_holder = self.expiry + reagent_role.eol_ext
-            # logger.debug(f"EOL_ext for {self.lot} -- {self.expiry} + {self.type.eol_ext} = {place_holder}")
         except TypeError as e:
             place_holder = date.today()
             logger.debug(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
@@ -227,9 +226,28 @@ class Reagent(Base):
             "expiry": place_holder.strftime("%Y-%m-%d")
         }
     
-    def to_reagent_dict(self) -> dict:
+    def to_reagent_dict(self, extraction_kit:KitType=None) -> dict:
+        """
+        Returns basic reagent dictionary.
+
+        Returns:
+            dict: Basic reagent dictionary of 'type', 'lot', 'expiry' 
+        """        
+        if extraction_kit != None:
+            # Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
+            try:
+                reagent_role = list(set(self.type).intersection(extraction_kit.reagent_types))[0]
+            # Most will be able to fall back to first ReagentType in itself because most will only have 1.
+            except:
+                reagent_role = self.type[0]
+        else:
+            reagent_role = self.type[0]
+        try:
+            rtype = reagent_role.name
+        except AttributeError:
+            rtype = "Unknown"
         return {
-            "type": type,
+            "type": rtype,
             "lot": self.lot,
             "expiry": self.expiry.strftime("%Y-%m-%d")
         }
@@ -249,12 +267,14 @@ class Discount(Base):
     amount = Column(FLOAT(2))
 
 class SubmissionType(Base):
-
+    """
+    Abstract of types of submissions.
+    """    
     __tablename__ = "_submission_types"
 
     id = Column(INTEGER, primary_key=True) #: primary key
     name = Column(String(128), unique=True) #: name of submission type
-    info_map = Column(JSON)
+    info_map = Column(JSON) #: Where basic information is found in the excel workbook corresponding to this type.
     instances = relationship("BasicSubmission", backref="submission_type")
     
     submissiontype_kit_associations = relationship(
@@ -269,14 +289,15 @@ class SubmissionType(Base):
         return f"<SubmissionType({self.name})>"
     
 class SubmissionTypeKitTypeAssociation(Base):
-
+    """
+    Abstract of relationship between kits and their submission type.
+    """    
     __tablename__ = "_submissiontypes_kittypes"
     submission_types_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True)
     kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
     mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
     mutable_cost_sample = Column(FLOAT(2)) #: dollar amount that can change with number of samples (reagents, tips, etc)
     constant_cost = Column(FLOAT(2)) #: dollar amount per plate that will remain constant (plates, man hours, etc)
-    # reagent_type_name = Column(INTEGER, ForeignKey("_reagent_types.name"))
 
     kit_type = relationship(KitType, back_populates="kit_submissiontype_associations")
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Version of the realpython-reader package
 __project__ = "submissions"
-__version__ = "202308.1b"
+__version__ = "202309.2b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = "2022-2023, Government of Canada"
 
@@ -33,3 +33,7 @@ class bcolors:
 # Landon, this is your slightly less past self here. For the most part, Past Landon has not screwed us. I've been able to add in the
 # Wastewater Artic with minimal difficulties, except that the parser of the non-standard, user-generated excel sheets required slightly
 # more work.
+
+# Landon, this is your even more slightly less past self here. I've overhauled a lot of stuff to make things more flexible, so you should
+# hopefully be even less screwed than before... at least with regards to parsers. The addition of kits and such is another story. Putting that
+# On the todo list.

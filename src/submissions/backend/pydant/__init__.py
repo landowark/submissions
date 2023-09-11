@@ -1,5 +1,5 @@
 import uuid
-from pydantic import BaseModel, field_validator, Extra
+from pydantic import BaseModel, field_validator, Extra, Field
 from datetime import date, datetime
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
@@ -32,9 +32,16 @@ class PydReagent(BaseModel):
 
     @field_validator("lot", mode='before')
     @classmethod
-    def enforce_lot_string(cls, value):
+    def rescue_lot_string(cls, value):
         if value != None:
             return convert_nans_to_nones(str(value))
+        return value
+    
+    @field_validator("lot")
+    @classmethod
+    def enforce_lot_string(cls, value):
+        if value != None:
+            return value.upper()
         return value
             
     @field_validator("exp", mode="before")
@@ -66,8 +73,9 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     ctx: Settings
     filepath: Path
     submission_type: dict|None
-    submitter_plate_num: dict|None
-    rsl_plate_num: dict|None
+    # For defaults
+    submitter_plate_num: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
+    rsl_plate_num: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
     submitted_date: dict|None
     submitting_lab: dict|None
     sample_count: dict|None
@@ -77,12 +85,12 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     samples: List[Any]
     # missing_fields: List[str] = []
     
-    @field_validator("submitter_plate_num")
-    @classmethod
-    def rescue_submitter_id(cls, value):
-        if value == None:
-            return dict(value=None, parsed=False)
-        return value
+    # @field_validator("submitter_plate_num", mode="before")
+    # @classmethod
+    # def rescue_submitter_id(cls, value):
+    #     if value == None:
+    #         return dict(value=None, parsed=False)
+    #     return value
 
     @field_validator("submitter_plate_num")
     @classmethod

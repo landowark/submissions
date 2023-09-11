@@ -25,7 +25,7 @@ from backend.db.functions import (
     lookup_all_orgs, lookup_kittype_by_use, lookup_kittype_by_name, 
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
-    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_ww_sample,
+    lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_subsampassoc_with_pcr,
     check_kit_integrity
 )
 from backend.excel.parser import SheetParser, PCRParser
@@ -133,7 +133,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 # lookup existing kits by 'submission_type' decided on by sheetparser
                 # uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type['value'].lower())]
                 logger.debug(f"Looking up kits used for {pyd.submission_type['value']}")
-                uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_by=pyd.submission_type['value'])]
+                uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_for=pyd.submission_type['value'])]
                 logger.debug(f"Kits received for {pyd.submission_type['value']}: {uses}")
                 if check_not_nan(value['value']):
                     logger.debug(f"The extraction kit in parser was: {value['value']}")
@@ -365,7 +365,7 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     if kit_integrity != None:
         return obj, dict(message=kit_integrity['message'], status="critical")
     logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
-    result = store_submission(ctx=obj.ctx, base_submission=base_submission, samples=obj.samples)
+    result = store_submission(ctx=obj.ctx, base_submission=base_submission)
     # check result of storing for issues
     # update summary sheet
     obj.table_widget.sub_wid.setData()
@@ -383,7 +383,8 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type)
         logger.debug(f"Extraction kit map:\n\n{pprint.pformat(excel_map)}")
         # excel_map.update(extraction_kit.used_for[obj.current_submission_type.replace('_', ' ').title()])
-        input_reagents = [item.to_reagent_dict() for item in parsed_reagents]
+        input_reagents = [item.to_reagent_dict(extraction_kit=base_submission.extraction_kit) for item in parsed_reagents]
+        logger.debug(f"Parsed reagents going into autofile: {pprint.pformat(input_reagents)}")
         autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info, missing_info=obj.missing_info)
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
@@ -844,10 +845,16 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     obj.ctx.database_session.commit()
     logger.debug(f"Got {len(parser.samples)} samples to update!")
     logger.debug(f"Parser samples: {parser.samples}")
-    for sample in parser.samples:
-        logger.debug(f"Running update on: {sample['sample']}")
-        sample['plate_rsl'] = sub.rsl_plate_num
-        update_ww_sample(ctx=obj.ctx, sample_obj=sample)
+    for sample in sub.samples:
+        logger.debug(f"Running update on: {sample}")
+        try:
+            sample_dict = [item for item in parser.samples if item['sample']==sample.rsl_number][0]
+        except IndexError:
+            continue
+        # sample['plate_rsl'] = sub.rsl_plate_num
+        # update_ww_sample(ctx=obj.ctx, sample_obj=sample)
+        update_subsampassoc_with_pcr(ctx=obj.ctx, submission=sub, sample=sample, input_dict=sample_dict)
+
     result = dict(message=f"We added PCR info to {sub.rsl_plate_num}.", status='information')
     return obj, result
 
@@ -872,7 +879,16 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
     # pare down the xl map to only the missing data.
     relevant_reagent_map = {k:v for k,v in xl_map.items() if k in [reagent.type for reagent in missing_reagents]}
     # pare down reagents to only what's missing
+    logger.debug(f"Checking {[item['type'] for item in reagents]} against {[reagent.type for reagent in missing_reagents]}")
     relevant_reagents = [item for item in reagents if item['type'] in [reagent.type for reagent in missing_reagents]]
+    # relevant_reagents = []
+    # for item in reagents:
+    #     logger.debug(f"Checking {item['type']} in {[reagent.type for reagent in missing_reagents]}")
+    #     if item['type'] in [reagent.type for reagent in missing_reagents]:
+    #         logger.debug("Hit!")
+    #         relevant_reagents.append(item)
+    #     else:
+    #         logger.debug('Miss.')
     logger.debug(f"Here are the relevant reagents: {pprint.pformat(relevant_reagents)}")
     # hacky manipulation of submission type so it looks better.
     # info['submission_type'] = info['submission_type'].replace("_", " ").title()
