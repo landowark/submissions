@@ -87,25 +87,6 @@ def convert_nans_to_nones(input_str) -> str|None:
         return input_str
     return None
 
-def check_is_power_user(ctx:dict) -> bool:
-    """
-    Check to ensure current user is in power users list.
-
-    Args:
-        ctx (dict): settings passed down from gui.
-
-    Returns:
-        bool: True if user is in power users, else false.
-    """    
-    try:
-        check = getpass.getuser() in ctx.power_users
-    except KeyError as e:
-        check = False
-    except Exception as e:
-        logger.debug(f"Check encountered unknown error: {type(e).__name__} - {e}")
-        check = False
-    return check
-
 def create_reagent_list(in_dict:dict) -> list[str]:
     """
     Makes list of reagent types without "lot\_" prefix for each key in a dictionary
@@ -118,21 +99,6 @@ def create_reagent_list(in_dict:dict) -> list[str]:
     """    
     return [item.strip("lot_") for item in in_dict.keys()]
 
-def check_if_app(ctx:dict=None) -> bool:
-    """
-    Checks if the program is running from pyinstaller compiled
-
-    Args:
-        ctx (dict, optional): Settings passed down from gui. Defaults to None.
-
-    Returns:
-        bool: True if running from pyinstaller. Else False.
-    """    
-    if getattr(sys, 'frozen', False):
-        return True
-    else:
-        return False
-    
 def retrieve_rsl_number(in_str:str) -> Tuple[str, str]:
     """
     Uses regex to retrieve the plate number and submission type from an input string
@@ -356,8 +322,8 @@ class Settings(BaseSettings):
     directory_path: Path
     database_path: Path|None = None
     backup_path: Path
-    super_users: list
-    power_users: list
+    super_users: list|None = None
+    power_users: list|None = None
     rerun_regex: str
     submission_types: dict|None = None
     database_session: Session|None = None
@@ -431,6 +397,7 @@ def get_config(settings_path: Path|str|None=None) -> dict:
     Returns:
         Settings: Pydantic settings object
     """    
+    logger.debug(f"Creating settings...")
     if isinstance(settings_path, str):
         settings_path = Path(settings_path)
     # custom pyyaml constructor to join fields
@@ -450,8 +417,8 @@ def get_config(settings_path: Path|str|None=None) -> dict:
         LOGDIR.mkdir(parents=True)
     except FileExistsError:
         pass
+    
     # if user hasn't defined config path in cli args
-    copy_settings_trigger = False
     if settings_path == None:
         # Check user .config/submissions directory
         if CONFIGDIR.joinpath("config.yml").exists():
@@ -466,10 +433,12 @@ def get_config(settings_path: Path|str|None=None) -> dict:
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
                 settings_path = package_dir.joinpath('config.yml')
+            with open(settings_path, "r") as dset:
+                default_settings = yaml.load(dset, Loader=yaml.Loader)
             # Tell program we need to copy the config.yml to the user directory
             # copy_settings_trigger = True
             # copy settings to config directory
-            return Settings(**copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=settings))
+            return Settings(**copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=default_settings))
     else:
         # check if user defined path is directory
         if settings_path.is_dir():
@@ -478,9 +447,11 @@ def get_config(settings_path: Path|str|None=None) -> dict:
         elif settings_path.is_file():
             settings_path = settings_path
         else:
-            logger.error("No config.yml file found. Cannot continue.")
-            raise FileNotFoundError("No config.yml file found. Cannot continue.")
-            return {}
+            logger.error("No config.yml file found. Writing to directory.")
+            # raise FileNotFoundError("No config.yml file found. Cannot continue.")
+            with open(settings_path, "r") as dset:
+                default_settings = yaml.load(dset, Loader=yaml.Loader)
+            return Settings(**copy_settings(settings_path=settings_path, settings=default_settings))
     logger.debug(f"Using {settings_path} for config file.")
     with open(settings_path, "r") as stream:
         # try:
@@ -595,8 +566,9 @@ def copy_settings(settings_path:Path, settings:dict) -> dict:
         del settings['super_users']
     if not getpass.getuser() in settings['power_users']:
         del settings['power_users']
-    with open(settings_path, 'w') as f:
-        yaml.dump(settings, f)
+    if not settings_path.exists():
+        with open(settings_path, 'w') as f:
+            yaml.dump(settings, f)
     return settings
 
 def jinja_template_loading():
@@ -615,3 +587,38 @@ def jinja_template_loading():
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)
     return env
+
+def check_is_power_user(ctx:Settings) -> bool:
+    """
+    Check to ensure current user is in power users list.
+
+    Args:
+        ctx (dict): settings passed down from gui.
+
+    Returns:
+        bool: True if user is in power users, else false.
+    """    
+    try:
+        check = getpass.getuser() in ctx.power_users
+    except KeyError as e:
+        check = False
+    except Exception as e:
+        logger.debug(f"Check encountered unknown error: {type(e).__name__} - {e}")
+        check = False
+    return check
+
+def check_if_app(ctx:Settings=None) -> bool:
+    """
+    Checks if the program is running from pyinstaller compiled
+
+    Args:
+        ctx (dict, optional): Settings passed down from gui. Defaults to None.
+
+    Returns:
+        bool: True if running from pyinstaller. Else False.
+    """    
+    if getattr(sys, 'frozen', False):
+        return True
+    else:
+        return False
+    

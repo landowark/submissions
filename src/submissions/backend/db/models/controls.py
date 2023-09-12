@@ -55,7 +55,10 @@ class Control(Base):
             dict: output dictionary containing: Name, Type, Targets, Top Kraken results
         """        
         # load json string into dict
-        kraken = json.loads(self.kraken)
+        try:
+            kraken = json.loads(self.kraken)
+        except TypeError:
+            kraken = {}
         # calculate kraken count total to use in percentage
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
         new_kraken = []
@@ -91,7 +94,10 @@ class Control(Base):
         """    
         output = []
         # load json string for mode (i.e. contains, matches, kraken2)
-        data = json.loads(getattr(self, mode))
+        try:
+            data = json.loads(getattr(self, mode))
+        except TypeError:
+            data = {}
         logger.debug(f"Length of data: {len(data)}")
         # dict keys are genera of bacteria, e.g. 'Streptococcus'
         for genus in data:

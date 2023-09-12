@@ -369,7 +369,7 @@ def lookup_regent_by_type_name_and_kit_name(ctx:Settings, type_name:str, kit_nam
     output = rt_types.instances
     return output
 
-def lookup_all_submissions_by_type(ctx:Settings, sub_type:str|None=None, chronologic:bool=False) -> list[models.BasicSubmission]:
+def lookup_all_submissions_by_type(ctx:Settings, sub_type:str|None=None, chronologic:bool=False, limit:int=None) -> list[models.BasicSubmission]:
     """
     Get all submissions, filtering by type if given
 
@@ -386,6 +386,8 @@ def lookup_all_submissions_by_type(ctx:Settings, sub_type:str|None=None, chronol
     else:
         # subs = ctx['database_session'].query(models.BasicSubmission).filter(models.BasicSubmission.submission_type==sub_type.lower().replace(" ", "_")).all()
         subs = ctx.database_session.query(models.BasicSubmission).filter(models.BasicSubmission.submission_type_name==sub_type)
+    if limit != None:
+        subs.limit(limit)
     if chronologic:
         subs.order_by(models.BasicSubmission.submitted_date)
     return subs.all()
@@ -418,7 +420,7 @@ def lookup_org_by_name(ctx:Settings, name:str|None) -> models.Organization:
     # return ctx['database_session'].query(models.Organization).filter(models.Organization.name.startswith(name)).first()
     return ctx.database_session.query(models.Organization).filter(models.Organization.name.startswith(name)).first()
 
-def submissions_to_df(ctx:Settings, sub_type:str|None=None) -> pd.DataFrame:
+def submissions_to_df(ctx:Settings, sub_type:str|None=None, limit:int=None) -> pd.DataFrame:
     """
     Convert submissions looked up by type to dataframe
 
@@ -429,9 +431,10 @@ def submissions_to_df(ctx:Settings, sub_type:str|None=None) -> pd.DataFrame:
     Returns:
         pd.DataFrame: dataframe constructed from retrieved submissions
     """    
-    logger.debug(f"Type: {sub_type}")
+    logger.debug(f"Querying Type: {sub_type}")
     # use lookup function to create list of dicts
-    subs = [item.to_dict() for item in lookup_all_submissions_by_type(ctx=ctx, sub_type=sub_type, chronologic=True)]
+    subs = [item.to_dict() for item in lookup_all_submissions_by_type(ctx=ctx, sub_type=sub_type, chronologic=True, limit=100)]
+    logger.debug(f"Got {len(subs)} results.")
     # make df from dicts (records) in list
     df = pd.DataFrame.from_records(subs)
     # Exclude sub information

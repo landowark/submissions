@@ -16,7 +16,7 @@ from backend.db import (
 )
 # from .main_window_functions import *
 from .all_window_functions import extract_form_info
-from tools import check_if_app
+from tools import check_if_app, Settings
 from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker
 import logging
 from datetime import date
@@ -27,8 +27,8 @@ logger.info("Hello, I am a logger")
 
 class App(QMainWindow):
 
-    def __init__(self, ctx: dict = {}):
-        
+    def __init__(self, ctx: Settings = {}):
+        logger.debug(f"Initializing main window...")
         super().__init__()
         self.ctx = ctx
         # indicate version and connected database in title bar
@@ -59,6 +59,7 @@ class App(QMainWindow):
         """
         adds items to menu bar
         """        
+        logger.debug(f"Creating menu bar...")
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
@@ -79,6 +80,7 @@ class App(QMainWindow):
         """
         adds items to toolbar
         """        
+        logger.debug(f"Creating toolbar...")
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
         toolbar.addAction(self.addReagentAction)
@@ -89,6 +91,7 @@ class App(QMainWindow):
         """
         creates actions
         """        
+        logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
         self.importPCRAction = QAction("&Import PCR Results", self)
         self.addReagentAction = QAction("Add Reagent", self)
@@ -106,6 +109,7 @@ class App(QMainWindow):
         """
         connect menu and tool bar item to functions
         """
+        logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.importSubmission)
         self.importPCRAction.triggered.connect(self.importPCRResults)
         self.addReagentAction.triggered.connect(self.add_reagent)
@@ -126,7 +130,7 @@ class App(QMainWindow):
         """
         Show the 'about' message
         """        
-        output = f"Version: {self.ctx['package'].__version__}\n\nAuthor: {self.ctx['package'].__author__['name']} - {self.ctx['package'].__author__['email']}\n\nCopyright: {self.ctx['package'].__copyright__}"
+        output = f"Version: {self.ctx.package.__version__}\n\nAuthor: {self.ctx.package.__author__['name']} - {self.ctx.package.__author__['email']}\n\nCopyright: {self.ctx.package.__copyright__}"
         about = AlertPop(message=output, status="information")
         about.exec()
 
@@ -289,6 +293,7 @@ class App(QMainWindow):
 class AddSubForm(QWidget):
     
     def __init__(self, parent):
+        logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
         

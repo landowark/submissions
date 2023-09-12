@@ -74,7 +74,7 @@ class BasicSubmission(Base):
         """        
         return f"{self.rsl_plate_num} - {self.submitter_plate_num}"
 
-    def to_dict(self) -> dict:
+    def to_dict(self, full_data:bool=False) -> dict:
         """
         dictionary used in submissions summary
 
@@ -82,6 +82,7 @@ class BasicSubmission(Base):
             dict: dictionary used in submissions summary
         """        
         # get lab from nested organization object
+        logger.debug(f"Converting {self.rsl_plate_num} to dict...")
         try:
             sub_lab = self.submitting_lab.name
         except AttributeError:
@@ -104,16 +105,20 @@ class BasicSubmission(Base):
             ext_info = None
             logger.debug(f"Json error in {self.rsl_plate_num}: {e}")
         # Updated 2023-09 to use the extraction kit to pull reagents.
-        try:
-            reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in self.reagents]
-        except Exception as e:
-            logger.error(f"We got an error retrieving reagents: {e}")
+        if full_data:
+            try:
+                reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in self.reagents]
+            except Exception as e:
+                logger.error(f"We got an error retrieving reagents: {e}")
+                reagents = None
+            samples = [item.sample.to_sub_dict(submission_rsl=self.rsl_plate_num) for item in self.submission_sample_associations]
+        else:
             reagents = None
-        samples = []
+            samples = None
         # Updated 2023-09 to get sample association with plate number
-        for item in self.submission_sample_associations:
-            sample = item.sample.to_sub_dict(submission_rsl=self.rsl_plate_num)
-            samples.append(sample)
+        # for item in self.submission_sample_associations:
+        #     sample = item.sample.to_sub_dict(submission_rsl=self.rsl_plate_num)
+        #     samples.append(sample)
         try:
             comments = self.comment
         except:
@@ -240,15 +245,16 @@ class BacterialCulture(BasicSubmission):
     controls = relationship("Control", back_populates="submission", uselist=True) #: A control sample added to submission
     __mapper_args__ = {"polymorphic_identity": "Bacterial Culture", "polymorphic_load": "inline"}
 
-    def to_dict(self) -> dict:
+    def to_dict(self, full_data:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
         Returns:
             dict: dictionary used in submissions summary
         """        
-        output = super().to_dict()
-        output['controls'] = [item.to_sub_dict() for item in self.controls]
+        output = super().to_dict(full_data=full_data)
+        if full_data:
+            output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output   
 
 class Wastewater(BasicSubmission):
@@ -260,14 +266,14 @@ class Wastewater(BasicSubmission):
     pcr_technician = Column(String(64))
     __mapper_args__ = {"polymorphic_identity": "Wastewater", "polymorphic_load": "inline"}
 
-    def to_dict(self) -> dict:
+    def to_dict(self, full_data:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
         Returns:
             dict: dictionary used in submissions summary
         """        
-        output = super().to_dict()
+        output = super().to_dict(full_data=full_data)
         try:
             output['pcr_info'] = json.loads(self.pcr_info)
         except TypeError as e:

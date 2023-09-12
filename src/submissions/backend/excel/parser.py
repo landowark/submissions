@@ -335,7 +335,7 @@ class SampleParser(object):
         return df
     
     def create_basic_dictionaries_from_plate_map(self):
-        invalids = [0, "0"]
+        invalids = [0, "0", "EMPTY"]
         new_df = self.plate_map.dropna(axis=1, how='all')
         columns = new_df.columns.tolist()
         for _, iii in new_df.iterrows():

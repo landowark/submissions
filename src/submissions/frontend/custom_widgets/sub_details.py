@@ -17,7 +17,7 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
 from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
 from backend.excel import make_hitpicks
-from tools import check_if_app
+from tools import check_if_app, Settings
 from tools import jinja_template_loading
 from xhtml2pdf import pisa
 from pathlib import Path
@@ -78,7 +78,7 @@ class SubmissionsSheet(QTableView):
     """
     presents submission summary to user in tab1
     """    
-    def __init__(self, ctx:dict) -> None:
+    def __init__(self, ctx:Settings) -> None:
         """
         initialize
 
@@ -98,7 +98,7 @@ class SubmissionsSheet(QTableView):
         """
         sets data in model
         """        
-        self.data = submissions_to_df(ctx=self.ctx)
+        self.data = submissions_to_df(ctx=self.ctx, limit=100)
         try:
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)
@@ -269,7 +269,7 @@ class SubmissionDetails(QDialog):
         # get submision from db
         data = lookup_submission_by_id(ctx=ctx, id=id)
         logger.debug(f"Submission details data:\n{pprint.pformat(data.to_dict())}")
-        self.base_dict = data.to_dict()
+        self.base_dict = data.to_dict(full_data=True)
         # don't want id
         del self.base_dict['id']
         # retrieve jinja template
