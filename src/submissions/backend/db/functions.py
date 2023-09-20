@@ -18,7 +18,7 @@ import numpy as np
 import yaml
 from pathlib import Path
 from tools import Settings, check_regex_match, RSLNamer
-from typing import List
+from typing import List, Tuple
 
 
 
@@ -27,6 +27,14 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # The below _should_ allow automatic creation of foreign keys in the database
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
+    """
+    *should* allow automatic creation of foreign keys in the database
+    I have no idea how it actually works.
+
+    Args:
+        dbapi_connection (_type_): _description_
+        connection_record (_type_): _description_
+    """    
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
@@ -79,7 +87,7 @@ def store_reagent(ctx:Settings, reagent:models.Reagent) -> None|dict:
         return {"message":"The database is locked for editing."}
     return None
 
-def construct_submission_info(ctx:Settings, info_dict:dict) -> models.BasicSubmission:
+def construct_submission_info(ctx:Settings, info_dict:dict) -> Tuple[models.BasicSubmission, dict]:
     """
     Construct submission object from dictionary
 
@@ -273,7 +281,7 @@ def lookup_reagenttype_by_name(ctx:Settings, rt_name:str) -> models.ReagentType:
     Returns:
         models.ReagentType: looked up reagent type
     """    
-    logger.debug(f"Looking up ReagentType by name: {rt_name.title()}")
+    logger.debug(f"Looking up ReagentType by name: {rt_name}")
     lookedup = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==rt_name).first()
     logger.debug(f"Found ReagentType: {lookedup}")
     return lookedup
@@ -302,7 +310,7 @@ def lookup_kittype_by_name(ctx:Settings, name:str|dict) -> models.KitType:
 
     Args:
         ctx (Settings): settings object passed from bui
-        name (str): name of kit to query
+        name (str|dict): name of kit to query, or parsed object containing value=name
 
     Returns:
         models.KitType: retrieved kittype
@@ -989,25 +997,6 @@ def lookup_reagent(ctx:Settings, reagent_lot:str, type_name:str|None=None) -> mo
         # return ctx['database_session'].query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
         return ctx.database_session.query(models.Reagent).filter(models.Reagent.lot==reagent_lot).first()
     
-def lookup_last_used_reagenttype_lot(ctx:Settings, type_name:str) -> models.Reagent:
-    """
-    Look up the last used reagent of the reagent type
-
-    Args:
-        ctx (Settings): Settings object passed down from gui
-        type_name (str): Name of reagent type
-
-    Returns:
-        models.Reagent: Reagent object with last used lot.
-    """    
-    # rt = ctx['database_session'].query(models.ReagentType).filter(models.ReagentType.name==type_name).first()
-    rt = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==type_name).first()
-    logger.debug(f"Reagent type looked up for {type_name}: {rt.__str__()}")
-    try:
-        return lookup_reagent(ctx=ctx, reagent_lot=rt.last_used, type_name=type_name)
-    except AttributeError:
-        return None
-
 def check_kit_integrity(sub:models.BasicSubmission|models.KitType, reagenttypes:list|None=None) -> dict|None:
     """
     Ensures all reagents expected in kit are listed in Submission
@@ -1120,7 +1109,7 @@ def lookup_subsamp_association_by_plate_sample(ctx:Settings, rsl_plate_num:str, 
                 .filter(models.BasicSample.submitter_id==rsl_sample_num)\
                 .first()
 
-def lookup_sub_wwsamp_association_by_plate_sample(ctx:Settings, rsl_plate_num:str, rsl_sample_num:str) -> models.WastewaterAssociation:
+def lookup_sub_samp_association_by_plate_sample(ctx:Settings, rsl_plate_num:str|models.BasicSample, rsl_sample_num:str|models.BasicSubmission) -> models.WastewaterAssociation:
     """
     _summary_
 
@@ -1132,12 +1121,36 @@ def lookup_sub_wwsamp_association_by_plate_sample(ctx:Settings, rsl_plate_num:st
     Returns:
         models.SubmissionSampleAssociation: _description_
     """    
-    return ctx.database_session.query(models.WastewaterAssociation)\
-                .join(models.Wastewater)\
-                .join(models.WastewaterSample)\
-                .filter(models.BasicSubmission.rsl_plate_num==rsl_plate_num)\
-                .filter(models.BasicSample.submitter_id==rsl_sample_num)\
-                .first()
+    # logger.debug(f"{type(rsl_plate_num)}, {type(rsl_sample_num)}")
+    match rsl_plate_num:
+        case models.BasicSubmission()|models.Wastewater():
+            # logger.debug(f"Model for rsl_plate_num: {rsl_plate_num}")
+            first_query = ctx.database_session.query(models.SubmissionSampleAssociation)\
+                .filter(models.SubmissionSampleAssociation.submission==rsl_plate_num)
+        case str():
+            # logger.debug(f"String for rsl_plate_num: {rsl_plate_num}")
+            first_query = ctx.database_session.query(models.SubmissionSampleAssociation)\
+                .join(models.BasicSubmission)\
+                .filter(models.BasicSubmission.rsl_plate_num==rsl_plate_num)
+        case _:
+            logger.error(f"Unknown case for rsl_plate_num {rsl_plate_num}")
+    match rsl_sample_num:
+        case models.BasicSample()|models.WastewaterSample():
+            # logger.debug(f"Model for rsl_sample_num: {rsl_sample_num}")
+            second_query = first_query.filter(models.SubmissionSampleAssociation.sample==rsl_sample_num)
+        # case models.WastewaterSample:
+        #     second_query = first_query.filter(models.SubmissionSampleAssociation.sample==rsl_sample_num)
+        case str():
+            # logger.debug(f"String for rsl_sample_num: {rsl_sample_num}")
+            second_query = first_query.join(models.BasicSample)\
+                .filter(models.BasicSample.submitter_id==rsl_sample_num)
+        case _:
+            logger.error(f"Unknown case for rsl_sample_num {rsl_sample_num}")
+    try:
+        return second_query.first()
+    except UnboundLocalError:
+        logger.error(f"Couldn't construct second query")
+        return None
 
 def lookup_all_reagent_names_by_role(ctx:Settings, role_name:str) -> List[str]:
     """
@@ -1183,7 +1196,7 @@ def add_reagenttype_to_kit(ctx:Settings, rt_name:str, kit_name:str, eol:int=0):
     kit = lookup_kittype_by_name(ctx=ctx, name=kit_name)
     rt = lookup_reagenttype_by_name(ctx=ctx, rt_name=rt_name)
     if rt == None:
-        rt = models.ReagentType(name=rt_name.strip(), eol_ext=timedelta(30*eol), last_used="")
+        rt = models.ReagentType(name=rt_name.strip(), eol_ext=timedelta(30*eol))
         ctx.database_session.add(rt)
     assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses={})
     kit.kit_reagenttype_associations.append(assoc)
@@ -1204,3 +1217,68 @@ def update_subsampassoc_with_pcr(ctx:Settings, submission:models.BasicSubmission
             logger.error(f"Can't set {k} to {v}")
     ctx.database_session.add(assoc)
     ctx.database_session.commit()
+
+def lookup_ww_sample_by_processing_number(ctx:Settings, processing_number:str):
+    return ctx.database_session.query(models.WastewaterSample).filter(models.WastewaterSample.ww_processing_num==processing_number).first()
+
+def lookup_kitreagentassoc_by_kit_and_reagent(ctx:Settings, kit:models.KitType|str, reagent_type:models.ReagentType|str) -> models.KitTypeReagentTypeAssociation:
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+        kit (models.KitType | str): _description_
+        reagent_type (models.ReagentType | str): _description_
+
+    Returns:
+        models.KitTypeReagentTypeAssociation: _description_
+    """    
+    base_query = ctx.database_session.query(models.KitTypeReagentTypeAssociation)
+    match kit:
+        case models.KitType():
+            query1 = base_query.filter(models.KitTypeReagentTypeAssociation.kit_type==kit)
+        case str():
+            query1 = base_query.join(models.KitType).filter(models.KitType.name==kit)
+        case _:
+            query1 = base_query
+    match reagent_type:
+        case models.ReagentType():
+            query2 = query1.filter(models.KitTypeReagentTypeAssociation.reagent_type==reagent_type)
+        case str():
+            query2 = query1.join(models.ReagentType).filter(models.ReagentType.name==reagent_type)
+        case _:
+            query2 = query1
+    return query2.first()
+
+def lookup_last_used_reagenttype_lot(ctx:Settings, type_name:str, extraction_kit:str|None=None) -> models.Reagent:
+    """
+    Look up the last used reagent of the reagent type
+
+    Args:
+        ctx (Settings): Settings object passed down from gui
+        type_name (str): Name of reagent type
+
+    Returns:
+        models.Reagent: Reagent object with last used lot.
+    """    
+    assoc = lookup_kitreagentassoc_by_kit_and_reagent(ctx=ctx, kit=extraction_kit, reagent_type=type_name)
+    return lookup_reagent(ctx=ctx, reagent_lot=assoc.last_used)
+    
+def update_last_used(ctx:Settings, reagent:models.Reagent, kit:models.KitType):
+    """
+    _summary_
+
+    Args:
+        ctx (Settings): _description_
+        reagent (models.ReagentType): _description_
+        reagent_lot (str): _description_
+    """    
+    rt = list(set(reagent.type).intersection(kit.reagent_types))[0]
+    if rt != None:
+        assoc = lookup_kitreagentassoc_by_kit_and_reagent(ctx=ctx, kit=kit, reagent_type=rt)
+        if assoc != None:
+            if assoc.last_used != reagent.lot:
+                logger.debug(f"Updating {assoc} last used to {reagent.lot}")
+                assoc.last_used = reagent.lot
+                ctx.database_session.merge(assoc)
+                ctx.database_session.commit()

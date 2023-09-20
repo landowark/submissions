@@ -14,7 +14,7 @@ import re
 import numpy as np
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, RSLNamer, convert_nans_to_nones, Settings
+from tools import check_not_nan, RSLNamer, convert_nans_to_nones, Settings, convert_well_to_row_column
 from frontend.custom_widgets.pop_ups import SubmissionTypeSelector, KitSelector
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -48,14 +48,12 @@ class SheetParser(object):
         # make decision about type of sample we have
         self.sub['submission_type'] = self.type_decider()
         # # grab the info map from the submission type in database
-        # self.info_map = self.fetch_kit_info_map()
         self.parse_info()
         self.import_kit_validation_check()
         self.parse_reagents()
         self.import_reagent_validation_check()
         self.parse_samples()
-        # self.sub['sample_count'] = len(self.sub['samples'])
-        
+       
 
     def type_decider(self) -> str:
         """
@@ -91,7 +89,7 @@ class SheetParser(object):
                 
     def parse_info(self):
         """
-        _summary_
+        Pulls basic information from the excel sheet
         """        
         info = InfoParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_info()
         parser_query = f"parse_{self.sub['submission_type']['value'].replace(' ', '_').lower()}"
@@ -101,14 +99,23 @@ class SheetParser(object):
         except AttributeError:
             logger.error(f"Couldn't find submission parser: {parser_query}")
         for k,v in info.items():
-            if k != "sample":
-                self.sub[k] = v
+            match k:
+                case "sample":
+                    pass
+                case _:
+                    self.sub[k] = v
         logger.debug(f"Parser.sub after info scrape: {pprint.pformat(self.sub)}")
 
     def parse_reagents(self):
+        """
+        Pulls reagent info from the excel sheet
+        """        
         self.sub['reagents'] = ReagentParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type'], extraction_kit=self.sub['extraction_kit']).parse_reagents()
 
     def parse_samples(self):
+        """
+        Pulls sample info from the excel sheet
+        """        
         self.sample_result, self.sub['samples'] = SampleParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_samples()
 
     def parse_bacterial_culture(self, input_dict) -> dict:
@@ -159,7 +166,7 @@ class SheetParser(object):
         Returns:
             List[PydReagent]: List of reagents
         """    
-        if not check_not_nan(self.sub['extraction_kit']):
+        if not check_not_nan(self.sub['extraction_kit']['value']):
             dlg = KitSelector(ctx=self.ctx, title="Kit Needed", message="At minimum a kit is needed. Please select one.")
             if dlg.exec():
                 self.sub['extraction_kit'] = dict(value=dlg.getValues(), parsed=False)
@@ -197,7 +204,16 @@ class InfoParser(object):
         self.xl = xl
         logger.debug(f"Info map for InfoParser: {pprint.pformat(self.map)}")
 
-    def fetch_submission_info_map(self, submission_type:dict) -> dict:
+    def fetch_submission_info_map(self, submission_type:str|dict) -> dict:
+        """
+        Gets location of basic info from the submission_type object in the database.
+
+        Args:
+            submission_type (str|dict): name of the submission type or parsed object with value=submission_type
+
+        Returns:
+            dict: Location map of all info for this submission type
+        """        
         if isinstance(submission_type, str):
             submission_type = dict(value=submission_type, parsed=False)
         logger.debug(f"Looking up submission type: {submission_type['value']}")
@@ -206,6 +222,12 @@ class InfoParser(object):
         return info_map
 
     def parse_info(self) -> dict:
+        """
+        Pulls basic info from the excel sheet.
+
+        Returns:
+            dict: key:value of basic info
+        """        
         dicto = {}
         for sheet in self.xl.sheet_names:
             df = self.xl.parse(sheet, header=None)
@@ -302,6 +324,8 @@ class SampleParser(object):
         sample_info_map = self.fetch_sample_info_map(submission_type=submission_type)
         self.plate_map = self.construct_plate_map(plate_map_location=sample_info_map['plate_map'])
         self.lookup_table = self.construct_lookup_table(lookup_table_location=sample_info_map['lookup_table'])
+        if "plates" in sample_info_map:
+            self.plates = sample_info_map['plates']
         self.excel_to_db_map = sample_info_map['xl_db_translation']
         self.create_basic_dictionaries_from_plate_map()
         if isinstance(self.lookup_table, pd.DataFrame):
@@ -383,7 +407,7 @@ class SampleParser(object):
                                 sample[k] = v
             logger.debug(f"Output sample dict: {sample}")
 
-    def parse_samples(self) -> List[dict]:
+    def parse_samples(self, generate:bool=True) -> List[dict]:
         result = None
         new_samples = []
         for ii, sample in enumerate(self.samples):
@@ -414,7 +438,10 @@ class SampleParser(object):
                 translated_dict = custom_parser(translated_dict)
             except AttributeError:
                 logger.error(f"Couldn't get custom parser: {parser_query}")
-            new_samples.append(self.generate_sample_object(translated_dict))
+            if generate:
+                new_samples.append(self.generate_sample_object(translated_dict))
+            else:
+                new_samples.append(translated_dict)
         return result, new_samples
 
     def generate_sample_object(self, input_dict) -> models.BasicSample:
@@ -464,6 +491,7 @@ class SampleParser(object):
             dict: Updated sample dictionary
         """        
         logger.debug(f"Called wastewater sample parser")
+        return input_dict
     
     def parse_wastewater_artic_sample(self, input_dict:dict) -> dict:
         """
@@ -481,6 +509,24 @@ class SampleParser(object):
         # at the end, this has to be done here. No moving to sqlalchemy object :(
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
         return input_dict
+    
+    def parse_first_strand_sample(self, input_dict:dict) -> dict:
+        logger.debug("Called first strand sample parser")
+        input_dict['well'] = re.search(r"\s\((.*)\)$", input_dict['submitter_id']).groups()[0]
+        input_dict['submitter_id'] = re.sub(r"\s\(.*\)$", "", str(input_dict['submitter_id'])).strip()
+        return input_dict
+    
+    def grab_plates(self):
+        plates = []
+        for plate in self.plates:
+            df = self.xl.parse(plate['sheet'], header=None)
+            if isinstance(df.iat[plate['row']-1, plate['column']-1], str):
+                output = RSLNamer(ctx=self.ctx, instr=df.iat[plate['row']-1, plate['column']-1]).parsed_name
+            else:
+                continue
+            plates.append(output)
+        return plates
+
         
 class PCRParser(object):
     """

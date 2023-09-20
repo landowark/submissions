@@ -31,7 +31,7 @@ class AddReagentForm(QDialog):
         super().__init__()
         self.ctx = ctx
         if reagent_lot == None:
-            reagent_lot = ""
+            reagent_lot = reagent_type
 
         self.setWindowTitle("Add Reagent")
 
@@ -257,7 +257,7 @@ class ControlsDatePicker(QWidget):
 
 class ImportReagent(QComboBox):
 
-    def __init__(self, ctx:dict, reagent:PydReagent):
+    def __init__(self, ctx:dict, reagent:PydReagent, extraction_kit:str):
         super().__init__()
         self.setEditable(True)
         # Ensure that all reagenttypes have a name that matches the items in the excel parser
@@ -289,7 +289,7 @@ class ImportReagent(QComboBox):
                 relevant_reagents.insert(0, str(reagent.lot))
             else:
                 # TODO: look up the last used reagent of this type in the database
-                looked_up_reg = lookup_last_used_reagenttype_lot(ctx=ctx, type_name=reagent.type)
+                looked_up_reg = lookup_last_used_reagenttype_lot(ctx=ctx, type_name=reagent.type, extraction_kit=extraction_kit)
                 logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
                 if looked_up_reg != None:
                     relevant_reagents.remove(str(looked_up_reg.lot))

@@ -64,6 +64,7 @@ class App(QMainWindow):
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
         editMenu = menuBar.addMenu("&Edit")
+        methodsMenu = menuBar.addMenu("&Methods")
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
@@ -71,6 +72,7 @@ class App(QMainWindow):
         helpMenu.addAction(self.docsAction)
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.importPCRAction)
+        methodsMenu.addAction(self.constructFS)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinControlsAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
@@ -103,6 +105,7 @@ class App(QMainWindow):
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
         self.docsAction = QAction("&Docs", self)
+        self.constructFS = QAction("Make First Strand", self)
 
 
     def _connectActions(self):
@@ -125,6 +128,7 @@ class App(QMainWindow):
         self.joinPCRAction.triggered.connect(self.linkPCR)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
+        self.constructFS.triggered.connect(self.construct_first_strand)
 
     def showAbout(self):
         """
@@ -288,6 +292,14 @@ class App(QMainWindow):
         """        
         from .main_window_functions import import_pcr_results_function
         self, result = import_pcr_results_function(self)
+        self.result_reporter(result)
+
+    def construct_first_strand(self):
+        """
+        Converts first strand excel sheet to Biomek CSV
+        """        
+        from .main_window_functions import construct_first_strand_function
+        self, result = construct_first_strand_function(self)
         self.result_reporter(result)
 
 class AddSubForm(QWidget):

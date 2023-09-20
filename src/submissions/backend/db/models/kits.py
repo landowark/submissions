@@ -97,39 +97,7 @@ class KitType(Base):
             map['info'] = {}
         return map
     
-class KitTypeReagentTypeAssociation(Base):
-    """
-    table containing reagenttype/kittype associations
-    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
-    """    
-    __tablename__ = "_reagenttypes_kittypes"
-    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True)
-    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
-    uses = Column(JSON)
-    required = Column(INTEGER)
 
-    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations")
-
-    # reference to the "ReagentType" object
-    reagent_type = relationship("ReagentType")
-
-    def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
-        self.kit_type = kit_type
-        self.reagent_type = reagent_type
-        self.uses = uses
-        self.required = required
-
-    @validates('required')
-    def validate_age(self, key, value):
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
-    
-    @validates('reagenttype')
-    def validate_reagenttype(self, key, value):
-        if not isinstance(value, ReagentType):
-            raise ValueError(f'{value} is not a reagenttype')
-        return value
 
 class ReagentType(Base):
     """
@@ -141,7 +109,16 @@ class ReagentType(Base):
     name = Column(String(64)) #: name of reagent type
     instances = relationship("Reagent", back_populates="type", secondary=reagenttypes_reagents) #: concrete instances of this reagent type
     eol_ext = Column(Interval()) #: extension of life interval
-    last_used = Column(String(32)) #: last used lot number of this type of reagent
+    
+    reagenttype_kit_associations = relationship(
+        "KitTypeReagentTypeAssociation",
+        back_populates="reagent_type",
+        cascade="all, delete-orphan",
+    )
+
+    # association proxy of "user_keyword_associations" collection
+    # to "keyword" attribute
+    kit_types = association_proxy("kit_reagenttype_associations", "kit_type")
 
     @validates('required')
     def validate_age(self, key, value):
@@ -160,6 +137,44 @@ class ReagentType(Base):
     
     def __repr__(self):
         return f"ReagentType({self.name})"
+    
+class KitTypeReagentTypeAssociation(Base):
+    """
+    table containing reagenttype/kittype associations
+    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    """    
+    __tablename__ = "_reagenttypes_kittypes"
+    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True)
+    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
+    uses = Column(JSON)
+    required = Column(INTEGER)
+    last_used = Column(String(32)) #: last used lot number of this type of reagent
+
+    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations")
+
+    # reference to the "ReagentType" object
+    reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations")
+
+    def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+        self.kit_type = kit_type
+        self.reagent_type = reagent_type
+        self.uses = uses
+        self.required = required
+
+    def __repr__(self) -> str:
+        return f"<KitTypeReagentTypeAssociation({self.kit_type} & {self.reagent_type})>"
+
+    @validates('required')
+    def validate_age(self, key, value):
+        if not 0 <= value < 2:
+            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+        return value
+    
+    @validates('reagenttype')
+    def validate_reagenttype(self, key, value):
+        if not isinstance(value, ReagentType):
+            raise ValueError(f'{value} is not a reagenttype')
+        return value
 
 class Reagent(Base):
     """
@@ -247,10 +262,12 @@ class Reagent(Base):
         except AttributeError:
             rtype = "Unknown"
         return {
+            "name":self.name,
             "type": rtype,
             "lot": self.lot,
             "expiry": self.expiry.strftime("%Y-%m-%d")
         }
+
     
 class Discount(Base):
     """
@@ -265,6 +282,9 @@ class Discount(Base):
     client_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete='SET NULL', name="fk_org_id"))
     name = Column(String(128))
     amount = Column(FLOAT(2))
+
+    def __repr__(self) -> str:
+        return f"<Discount({self.name})>"
 
 class SubmissionType(Base):
     """

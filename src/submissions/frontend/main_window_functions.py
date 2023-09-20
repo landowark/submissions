@@ -26,12 +26,13 @@ from backend.db.functions import (
     construct_submission_info, lookup_reagent, store_submission, lookup_submissions_by_date_range, 
     create_kit_from_yaml, create_org_from_yaml, get_control_subtypes, get_all_controls_by_type,
     lookup_all_submissions_by_type, get_all_controls, lookup_submission_by_rsl_num, update_subsampassoc_with_pcr,
-    check_kit_integrity
+    check_kit_integrity, lookup_sub_samp_association_by_plate_sample, lookup_ww_sample_by_processing_number,
+    lookup_sample_by_submitter_id, update_last_used
 )
-from backend.excel.parser import SheetParser, PCRParser
+from backend.excel.parser import SheetParser, PCRParser, SampleParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
 from backend.pydant import PydReagent
-from tools import check_not_nan
+from tools import check_not_nan, convert_well_to_row_column
 from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent, ParsedQLabel
@@ -182,7 +183,7 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                     # reg_label.setObjectName(f"lot_{reagent['type']}_label")
                     reg_label.setObjectName(f"lot_{reagent['value'].type}_label")
                     # create reagent choice widget
-                    add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent['value'])
+                    add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent['value'], extraction_kit=pyd.extraction_kit['value'])
                     add_widget.setObjectName(f"lot_{reagent['value'].type}")
                     logger.debug(f"Widget name set to: {add_widget.objectName()}")
                     obj.table_widget.formlayout.addWidget(reg_label)
@@ -277,7 +278,7 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
     for item in obj.missing_reagents:
         obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item.type, title=False))
         reagent = dict(type=item.type, lot=None, exp=date.today(), name=None)
-        add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent))#item=item)
+        add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent), extraction_kit=obj.ext_kit)#item=item)
         obj.table_widget.formlayout.addWidget(add_widget)
     submit_btn = QPushButton("Submit")
     submit_btn.setObjectName("lot_submit_btn")
@@ -310,7 +311,6 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         # Lookup any existing reagent of this type with this lot number
         wanted_reagent = lookup_reagent(ctx=obj.ctx, reagent_lot=reagents[reagent], type_name=reagent)
         logger.debug(f"Looked up reagent: {wanted_reagent}")
-        # logger.debug(f"\n\nLooking for {reagent} in {obj.reagents}\n\n")
         # if reagent not found offer to add to database
         if wanted_reagent == None:
             r_lot = reagents[reagent]
@@ -328,15 +328,11 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             else:
                 # In this case we will have an empty reagent and the submission will fail kit integrity check
                 logger.debug("Will not add reagent.")
-                # obj.ctx.database_session.rollback()
                 return obj, dict(message="Failed integrity check", status="critical")
-        # if wanted_reagent != None:
         parsed_reagents.append(wanted_reagent)
-        wanted_reagent.type.last_used = reagents[reagent]
     # move samples into preliminary submission dict
     info['samples'] = obj.samples
     info['uploaded_by'] = getuser()
-    # info['columns'] = obj.column_count
     # construct submission object
     logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
     base_submission, result = construct_submission_info(ctx=obj.ctx, info_dict=info)
@@ -359,6 +355,7 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     # add reagents to submission object
     for reagent in parsed_reagents:
         base_submission.reagents.append(reagent)
+        update_last_used(ctx=obj.ctx, reagent=reagent, kit=base_submission.extraction_kit)
     logger.debug(f"Parsed reagents: {pprint.pformat(parsed_reagents)}")
     logger.debug("Checking kit integrity...")
     kit_integrity = check_kit_integrity(base_submission)
@@ -377,12 +374,8 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         logger.debug(f"We have blank reagents in the excel sheet.\n\tLet's try to fill them in.") 
         extraction_kit = lookup_kittype_by_name(obj.ctx, name=obj.ext_kit)
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
-        
-        # TODO replace below with function in KitType object. Update Kittype associations.
-        # excel_map = extraction_kit.used_for[obj.current_submission_type.replace('_', ' ')]
         excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type)
         logger.debug(f"Extraction kit map:\n\n{pprint.pformat(excel_map)}")
-        # excel_map.update(extraction_kit.used_for[obj.current_submission_type.replace('_', ' ').title()])
         input_reagents = [item.to_reagent_dict(extraction_kit=base_submission.extraction_kit) for item in parsed_reagents]
         logger.debug(f"Parsed reagents going into autofile: {pprint.pformat(input_reagents)}")
         autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info, missing_info=obj.missing_info)
@@ -881,17 +874,8 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
     # pare down reagents to only what's missing
     logger.debug(f"Checking {[item['type'] for item in reagents]} against {[reagent.type for reagent in missing_reagents]}")
     relevant_reagents = [item for item in reagents if item['type'] in [reagent.type for reagent in missing_reagents]]
-    # relevant_reagents = []
-    # for item in reagents:
-    #     logger.debug(f"Checking {item['type']} in {[reagent.type for reagent in missing_reagents]}")
-    #     if item['type'] in [reagent.type for reagent in missing_reagents]:
-    #         logger.debug("Hit!")
-    #         relevant_reagents.append(item)
-    #     else:
-    #         logger.debug('Miss.')
     logger.debug(f"Here are the relevant reagents: {pprint.pformat(relevant_reagents)}")
     # hacky manipulation of submission type so it looks better.
-    # info['submission_type'] = info['submission_type'].replace("_", " ").title()
     # pare down info to just what's missing
     relevant_info_map = {k:v for k,v in xl_map['info'].items() if k in missing_info and k != 'samples'}
     relevant_info = {k:v for k,v in info.items() if k in missing_info}
@@ -910,9 +894,9 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
         # name is only present for Bacterial Culture
         try:
             new_reagent['name'] = relevant_reagent_map[new_reagent['type']]['name']
-            new_reagent['name']['value'] = reagent['type']
-        except:
-            pass
+            new_reagent['name']['value'] = reagent['name']
+        except Exception as e:
+            logger.error(f"Couldn't get name due to {e}")
         new_reagents.append(new_reagent)
     # construct new info objects to put into excel sheets
     new_info = []
@@ -936,21 +920,98 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
         # Get relevant reagents for that sheet
         sheet_reagents = [item for item in new_reagents if sheet in item['sheet']]
         for reagent in sheet_reagents:
-            logger.debug(f"Attempting: {reagent['type']}:")
+            logger.debug(f"Attempting to write lot {reagent['lot']['value']} in: row {reagent['lot']['row']}, column {reagent['lot']['column']}")
             worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'], value=reagent['lot']['value'])
+            logger.debug(f"Attempting to write expiry {reagent['expiry']['value']} in: row {reagent['expiry']['row']}, column {reagent['expiry']['column']}")
             worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'], value=reagent['expiry']['value'])
             try:
-                worksheet.cell(row=reagent['name']['row'], column=reagent['name']['column'], value=reagent['name']['value'].replace("_", " ").upper())
-            except:
-                pass
+                logger.debug(f"Attempting to write name {reagent['name']['value']} in: row {reagent['name']['row']}, column {reagent['name']['column']}")
+                worksheet.cell(row=reagent['name']['row'], column=reagent['name']['column'], value=reagent['name']['value'])
+            except Exception as e:
+                logger.error(f"Could not write name {reagent['name']['value']} due to {e}")
         # Get relevant info for that sheet
         sheet_info = [item for item in new_info if sheet in item['location']['sheets']]
         for item in sheet_info:
             logger.debug(f"Attempting: {item['type']}")
             worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
-        # Hacky way to 
+        # Hacky way to pop in 'signed by'
         if info['submission_type'] == "Bacterial Culture":
             workbook["Sample List"].cell(row=14, column=2, value=getuser()[0:2].upper())
     fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
     workbook.save(filename=fname.__str__())
+
+def construct_first_strand_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
+
+    def get_plates(input_sample_number:str, plates:list) -> Tuple[int, str]:
+        logger.debug(f"Looking up {input_sample_number} in {plates}")
+        samp = lookup_ww_sample_by_processing_number(ctx=obj.ctx, processing_number=input_sample_number)
+        if samp ==  None:
+            samp = lookup_sample_by_submitter_id(ctx=obj.ctx, submitter_id=input_sample_number)
+        logger.debug(f"Got sample: {samp}")
+        # if samp != None:
+        new_plates = [(iii+1, lookup_sub_samp_association_by_plate_sample(ctx=obj.ctx, rsl_sample_num=samp, rsl_plate_num=lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=plate))) for iii, plate in enumerate(plates)]
+            # for iii, plate in enumerate(plates):
+            #     lplate = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=plate)
+            #     if lplate == None:
+            #         continue
+            #     else:
+            #         logger.debug(f"Got a plate: {lplate}")
+            #         new_plates.append((iii, lookup_sub_samp_association_by_plate_sample(ctx=obj.ctx, rsl_sample_num=samp, rsl_plate_num=lplate)))
+        logger.debug(f"Associations: {pprint.pformat(new_plates)}")
+        try:
+            plate_num, plate = next(assoc for assoc in new_plates if assoc[1] is not None)
+        except StopIteration:
+            plate_num, plate = None, None
+        logger.debug(f"Plate number {plate_num} is {plate}")
+        return plate_num, plate
+        
+        
+    fname = select_open_file(obj=obj, file_extension="xlsx")
+    xl = pd.ExcelFile(fname)
+    sprsr = SampleParser(ctx=obj.ctx, xl=xl, submission_type="First Strand")
+    _, samples = sprsr.parse_samples(generate=False)
+    plates = sprsr.grab_plates()
+    output_samples = []
+    logger.debug(f"Samples: {pprint.pformat(samples)}")
+    old_plate_number = 1
+    for item in samples:
+        new_dict = {}
+        new_dict['sample'] = item['submitter_id']
+        if item['submitter_id'] == "NTC1":
+            new_dict['destination_row'] = 8
+            new_dict['destination_column'] = 2
+            new_dict['plate_number'] = 'control'
+        elif item['submitter_id'] == "NTC2":
+            new_dict['destination_row'] = 8
+            new_dict['destination_column'] = 5
+            new_dict['plate_number'] = 'control'
+        else:
+            new_dict['destination_row'] = item['row']
+            new_dict['destination_column'] = item['column']
+        # assocs = [(iii, lookup_ww_sample_by_processing_number_and_plate(ctx=obj.ctx, processing_number=new_dict['sample'], plate_number=plate)) for iii, plate in enumerate(plates)]
+        plate_num, plate = get_plates(input_sample_number=new_dict['sample'], plates=plates)
+        if plate_num == None:
+            plate_num = str(old_plate_number) + "*"
+        else:
+            old_plate_number = plate_num
+        logger.debug(f"Got plate number: {plate_num}, plate: {plate}")
+        if plate == None:
+            try:
+                new_dict['source_row'], new_dict['source_column'] = convert_well_to_row_column(item['well'])
+                new_dict['plate_number'] = plate_num
+            except KeyError:
+                pass
+        else:
+            new_dict['plate_number'] = plate_num
+            new_dict['plate'] = plate.submission.rsl_plate_num
+            new_dict['source_row'] = plate.row
+            new_dict['source_column'] = plate.column
+        output_samples.append(new_dict)
+    df = pd.DataFrame.from_records(output_samples)
+    df.sort_values(by=['destination_column', 'destination_row'], ascending=True, inplace=True)
+    columnsTitles = ['sample', 'destination_column', 'destination_row', 'plate_number', 'plate', "source_column", 'source_row']
+    df = df.reindex(columns=columnsTitles)
+    ofname = select_save_file(obj=obj, default_name=f"First Strand {date.today()}", extension="csv")
+    df.to_csv(ofname, index=False)
+    return obj, None
 

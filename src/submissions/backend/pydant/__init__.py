@@ -200,17 +200,25 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     @field_validator("extraction_kit", mode='before')
     @classmethod
     def rescue_kit(cls, value):
-        # from frontend.custom_widgets.pop_ups import KitSelector
-        # if check_not_nan(value):
-        #     if isinstance(value, str):
-        #         return dict(value=value, parsed=True)
-        #     elif isinstance(value, dict):
-        #         return value
-        # else:
-        #     raise ValueError(f"No extraction kit found.")
+        
+        if check_not_nan(value):
+            if isinstance(value, str):
+                return dict(value=value, parsed=True)
+            elif isinstance(value, dict):
+                return value
+        else:
+            raise ValueError(f"No extraction kit found.")
         if value == None:
             return dict(value=None, parsed=False)
         return value
+    
+    # @field_validator("extraction_kit")
+    # @classmethod
+    # def enforce_kit(cls, value, values):
+    #     from frontend.custom_widgets.pop_ups import KitSelector
+    #     if value['value'] == None:
+    #         return dict(value=KitSelector(values.data['ctx'], title="Select Extraction Kit", message="No extraction kit was found, please select from below."))
+    #     return value
             
     @field_validator("submission_type", mode='before')
     @classmethod

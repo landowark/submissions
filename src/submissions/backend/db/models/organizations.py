@@ -47,3 +47,6 @@ class Contact(Base):
     phone = Column(String(32)) #: contact phone number
     organization = relationship("Organization", back_populates="contacts", uselist=True, secondary=orgs_contacts) #: relationship to joined organization
 
+    def __repr__(self) -> str:
+        return f"<Contact({self.name})>"
+

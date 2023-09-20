@@ -622,3 +622,20 @@ def check_if_app(ctx:Settings=None) -> bool:
     else:
         return False
     
+def convert_well_to_row_column(input_str:str) -> Tuple[int, int]:
+    """
+    Converts typical alphanumeric (i.e. "A2") to row, column
+
+    Args:
+        input_str (str): Input string. Ex. "A2"
+
+    Returns:
+        Tuple[int, int]: row, column
+    """    
+    row_keys = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
+    try:
+        row = int(row_keys[input_str[0].upper()])
+        column = int(input_str[1:]) 
+    except IndexError:
+        return None, None
+    return row, column

@@ -1,3 +1,7 @@
+## 202309.03
+
+- Autofill now adds name of reagent instead of type.
+
 ## 202309.02
 
 - Massive restructure of app and database to allow better relationships between kits/reagenttypes & submissions/samples.

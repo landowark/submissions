@@ -13,8 +13,6 @@ from sqlalchemy.ext.associationproxy import association_proxy
 import uuid
 from pandas import Timestamp
 from dateutil.parser import parse
-import pprint
-from tools import check_not_nan
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -348,7 +346,7 @@ class BasicSample(Base):
             return value
         
     def __repr__(self) -> str:
-        return f"<{self.sample_type.replace('_', ' ').title(). replace(' ', '')}({self.submitter_id})>"
+        return f"<{self.sample_type.replace('_', ' ').title().replace(' ', '')}({self.submitter_id})>"
     
     def set_attribute(self, name, value):
         # logger.debug(f"Setting {name} to {value}")
@@ -417,56 +415,36 @@ class WastewaterSample(BasicSample):
         logger.debug(f"Validating {key}: {value}")
         return value or self.submitter_id
 
-    # def __init__(self, **kwargs):
-    #     # Had a problem getting collection date from excel as text only.
-    #     if 'collection_date' in kwargs.keys():
-    #         logger.debug(f"Got collection_date: {kwargs['collection_date']}. Attempting parse.")
-    #         if isinstance(kwargs['collection_date'], str):
-    #             logger.debug(f"collection_date is a string...")
-    #             kwargs['collection_date'] = parse(kwargs['collection_date'])
-    #             logger.debug(f"output is {kwargs['collection_date']}")
-    #     # Due to the plate map being populated with RSL numbers, we have to do some shuffling.
-    #     try:
-    #         kwargs['rsl_number'] = kwargs['submitter_id']
-    #     except KeyError as e:
-    #         logger.error(f"Error using {kwargs} for submitter_id")
-    #     try:
-    #         check = check_not_nan(kwargs['ww_full_sample_id'])
-    #     except KeyError:
-    #         logger.error(f"Error using {kwargs} for ww_full_sample_id")
-    #         check = False
-    #     if check:
-    #         kwargs['submitter_id'] = kwargs["ww_full_sample_id"]
-    #     super().__init__(**kwargs)
-
     def set_attribute(self, name:str, value):
         """
         Set an attribute of this object. Extends parent.
 
         Args:
-            name (str): _description_
-            value (_type_): _description_
+            name (str): name of the attribute
+            value (_type_): value to be set
         """        
         # Due to the plate map being populated with RSL numbers, we have to do some shuffling. 
-        # logger.debug(f"Input - {name}:{value}")
         match name:
             case "submitter_id":
+                # If submitter_id already has a value, stop
                 if self.submitter_id != None:
                     return
+                # otherwise also set rsl_number to the same value
                 else:
                     super().set_attribute("rsl_number", value)
             case "ww_full_sample_id":
+                # If value present, set ww_full_sample_id and make this the submitter_id
                 if value != None:
                     super().set_attribute(name, value)
                     name = "submitter_id"
             case 'collection_date':
+                # If this is a string use dateutils to parse into date()
                 if isinstance(value, str):
                     logger.debug(f"collection_date {value} is a string. Attempting parse...")
                     value = parse(value)
             case "rsl_number":
                 if value == None:
                     value = self.submitter_id
-        # logger.debug(f"Output - {name}:{value}")
         super().set_attribute(name, value)
 
 

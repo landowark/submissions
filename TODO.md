@@ -1,5 +1,7 @@
+- [ ] Make kits easier to add.
 - [ ] Clean up & document code... again.
     - Including paring down the logging.debugs
+    - Also including reducing number of functions in db.functions
 - [ ] Fix Tests... again.
 - [x] Rebuild database
 - [x] Provide more generic names for reagenttypes in kits and move specific names to reagents.
