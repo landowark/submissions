@@ -89,13 +89,13 @@ def convert_nans_to_nones(input_str) -> str|None:
 
 def create_reagent_list(in_dict:dict) -> list[str]:
     """
-    Makes list of reagent types without "lot\_" prefix for each key in a dictionary
+    Makes list of reagent types without "lot_" prefix for each key in a dictionary
 
     Args:
         in_dict (dict): input dictionary of reagents
 
     Returns:
-        list[str]: list of reagent types with "lot\_" prefix removed.
+        list[str]: list of reagent types with "lot_" prefix removed.
     """    
     return [item.strip("lot_") for item in in_dict.keys()]
 
@@ -320,7 +320,7 @@ class Settings(BaseSettings):
 
     """    
     directory_path: Path
-    database_path: Path|None = None
+    database_path: Path|str|None = None
     backup_path: Path
     super_users: list|None = None
     power_users: list|None = None
@@ -344,6 +344,8 @@ class Settings(BaseSettings):
     @field_validator('database_path', mode="before")
     @classmethod
     def ensure_database_exists(cls, value):
+        if value == ":memory:":
+            return value
         if isinstance(value, str):
             value = Path(value)
         if value.exists():
@@ -366,17 +368,18 @@ class Settings(BaseSettings):
                 else:
                     database_path = package_dir.joinpath("submissions.db")
             else:
+                if database_path == ":memory:":
+                    pass
                 # check if user defined path is directory
-                if database_path.is_dir():
+                elif database_path.is_dir():
                     database_path = database_path.joinpath("submissions.db")
                 # check if user defined path is a file
                 elif database_path.is_file():
                     database_path = database_path
                 else:
                     raise FileNotFoundError("No database file found. Exiting program.")
-                    # sys.exit()
             logger.debug(f"Using {database_path} for database file.")
-            engine = create_engine(f"sqlite:///{database_path}")
+            engine = create_engine(f"sqlite:///{database_path}")#, echo=True, future=True)
             session = Session(engine)
             return session
 
@@ -387,7 +390,7 @@ class Settings(BaseSettings):
         if value == None:
             return package
 
-def get_config(settings_path: Path|str|None=None) -> dict:
+def get_config(settings_path: Path|str|None=None) -> Settings:
     """
     Get configuration settings from path or default if blank.
 
@@ -417,7 +420,6 @@ def get_config(settings_path: Path|str|None=None) -> dict:
         LOGDIR.mkdir(parents=True)
     except FileExistsError:
         pass
-    
     # if user hasn't defined config path in cli args
     if settings_path == None:
         # Check user .config/submissions directory
@@ -448,20 +450,12 @@ def get_config(settings_path: Path|str|None=None) -> dict:
             settings_path = settings_path
         else:
             logger.error("No config.yml file found. Writing to directory.")
-            # raise FileNotFoundError("No config.yml file found. Cannot continue.")
             with open(settings_path, "r") as dset:
                 default_settings = yaml.load(dset, Loader=yaml.Loader)
             return Settings(**copy_settings(settings_path=settings_path, settings=default_settings))
     logger.debug(f"Using {settings_path} for config file.")
     with open(settings_path, "r") as stream:
-        # try:
         settings = yaml.load(stream, Loader=yaml.Loader)
-        # except yaml.YAMLError as exc:
-            # logger.error(f'Error reading yaml file {settings_path}: {exc}'
-            # return {}
-    # copy settings to config directory
-    # if copy_settings_trigger:
-    #     settings = copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=settings)
     return Settings(**settings)
 
 def create_database_session(database_path: Path|str|None=None) -> Session:

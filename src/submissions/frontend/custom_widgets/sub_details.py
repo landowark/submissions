@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db import submissions_to_df, lookup_submission_by_id, delete_submission_by_id, lookup_submission_by_rsl_num, hitpick_plate
+from backend.db.functions import submissions_to_df, delete_submission, lookup_submissions
 from backend.excel import make_hitpicks
 from tools import check_if_app, Settings
 from tools import jinja_template_loading
@@ -33,6 +33,7 @@ env = jinja_template_loading()
 class pandasModel(QAbstractTableModel):
     """
     pandas model for inserting summary sheet into gui
+    NOTE: Copied from Stack Overflow. I have no idea how it actually works.
     """
     def __init__(self, data) -> None:
         QAbstractTableModel.__init__(self)
@@ -73,7 +74,6 @@ class pandasModel(QAbstractTableModel):
             return self._data.columns[col]
         return None
         
-
 class SubmissionsSheet(QTableView):
     """
     presents submission summary to user in tab1
@@ -98,24 +98,13 @@ class SubmissionsSheet(QTableView):
         """
         sets data in model
         """        
-        self.data = submissions_to_df(ctx=self.ctx, limit=100)
+        self.data = submissions_to_df(ctx=self.ctx)
         try:
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)
         except KeyError:
             pass
-        try:
-            del self.data['samples']
-        except KeyError:
-            pass
-        try:
-            del self.data['reagents']
-        except KeyError:
-            pass
-        try:
-            del self.data['comments']
-        except KeyError:
-            pass
+        
         proxyModel = QSortFilterProxyModel()
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
@@ -132,6 +121,9 @@ class SubmissionsSheet(QTableView):
             pass  
 
     def create_barcode(self) -> None:
+        """
+        Generates a window for displaying barcode
+        """        
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),1).data()
         logger.debug(f"Selected value: {value}")
@@ -140,13 +132,15 @@ class SubmissionsSheet(QTableView):
             dlg.print_barcode()
 
     def add_comment(self) -> None:
+        """
+        Generates a text editor window.
+        """        
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),1).data()
         logger.debug(f"Selected value: {value}")
         dlg = SubmissionComment(ctx=self.ctx, rsl=value)
         if dlg.exec():
             dlg.add_comment()
-
 
     def contextMenuEvent(self, event):
         """
@@ -174,24 +168,22 @@ class SubmissionsSheet(QTableView):
         # add other required actions
         self.menu.popup(QCursor.pos())
 
-
     def delete_item(self, event):
         """
         Confirms user deletion and sends id to backend for deletion.
 
         Args:
-            event (_type_): _description_
+            event (_type_): the item of interest
         """        
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),0).data()
         logger.debug(index)
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
         if msg.exec():
-            delete_submission_by_id(ctx=self.ctx, id=value)
+            delete_submission(ctx=self.ctx, id=value)
         else:
             return
         self.setData()
-
 
     def hit_pick(self):
         """
@@ -207,7 +199,7 @@ class SubmissionsSheet(QTableView):
             logger.error(f"Error: Had to truncate number of plates to 4.")
             indices = indices[:4]
         # lookup ids in the database
-        subs = [lookup_submission_by_id(self.ctx, id) for id in indices]
+        subs = [lookup_submissions(ctx=self.ctx, id=id) for id in indices]
         # full list of samples
         dicto = []
         # list to contain plate images
@@ -217,7 +209,6 @@ class SubmissionsSheet(QTableView):
             if iii > 3: 
                 logger.error(f"Error: Had to truncate number of plates to 4.")
                 continue
-            # plate_dicto = hitpick_plate(submission=sub, plate_number=iii+1)
             plate_dicto = sub.hitpick_plate(plate_number=iii+1)
             if plate_dicto == None:
                 continue
@@ -251,8 +242,7 @@ class SubmissionsSheet(QTableView):
                 image.show()
             except Exception as e:
                 logger.error(f"Could not show image: {e}.")
-        
-    
+          
 class SubmissionDetails(QDialog):
     """
     a window showing text details of submission
@@ -262,41 +252,18 @@ class SubmissionDetails(QDialog):
         super().__init__()
         self.ctx = ctx
         self.setWindowTitle("Submission Details")
-        
         # create scrollable interior
         interior = QScrollArea()
         interior.setParent(self)
         # get submision from db
-        data = lookup_submission_by_id(ctx=ctx, id=id)
-        logger.debug(f"Submission details data:\n{pprint.pformat(data.to_dict())}")
-        self.base_dict = data.to_dict(full_data=True)
+        sub = lookup_submissions(ctx=ctx, id=id)
+        logger.debug(f"Submission details data:\n{pprint.pformat(sub.to_dict())}")
+        self.base_dict = sub.to_dict(full_data=True)
         # don't want id
         del self.base_dict['id']
-        # retrieve jinja template
-        # template = env.get_template("submission_details.txt")
-        # render using object dict
-        # text = template.render(sub=self.base_dict)
-        # create text field
-        # txt_editor = QTextEdit(self)
-        # txt_editor.setReadOnly(True)
-        # txt_editor.document().setPlainText(text)
-        # resize
-        # font = txt_editor.document().defaultFont()
-        # fontMetrics = QFontMetrics(font)
-        # textSize = fontMetrics.size(0, txt_editor.toPlainText())
-        # w = textSize.width() + 10
-        # h = textSize.height() + 10
-        # txt_editor.setMinimumSize(w, h)
-        # txt_editor.setMaximumSize(w, h)
-        # txt_editor.resize(w, h)
-        # interior.resize(w,900)
-        # txt_editor.setText(text)
-        # interior.setWidget(txt_editor)
         logger.debug(f"Creating barcode.")
         if not check_if_app():
             self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
-        sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
-        # plate_dicto = hitpick_plate(sub)
         logger.debug(f"Hitpicking plate...")
         plate_dicto = sub.hitpick_plate()
         logger.debug(f"Making platemap...")
@@ -307,7 +274,6 @@ class SubmissionDetails(QDialog):
             platemap.save(image_io, 'JPEG')
         except AttributeError:
             logger.error(f"No plate map found for {sub.rsl_plate_num}")
-        # platemap.save("test.jpg", 'JPEG')
         self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
         template = env.get_template("submission_details.html")
         self.html = template.render(sub=self.base_dict)
@@ -325,31 +291,11 @@ class SubmissionDetails(QDialog):
         btn.setFixedWidth(900)
         btn.clicked.connect(self.export)
         
-
     def export(self):
         """
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """        
-        # template = env.get_template("submission_details.html")
-        # # make barcode because, reasons
-        # self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
-        # sub = lookup_submission_by_rsl_num(ctx=self.ctx, rsl_num=self.base_dict['Plate Number'])
-        # plate_dicto = hitpick_plate(sub)
-        # platemap = make_plate_map(plate_dicto)
-        # logger.debug(f"platemap: {platemap}")
-        # image_io = BytesIO()
-        # try:
-        #     platemap.save(image_io, 'JPEG')
-        # except AttributeError:
-        #     logger.error(f"No plate map found for {sub.rsl_plate_num}")
-        # # platemap.save("test.jpg", 'JPEG')
-        # self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
-        # logger.debug(self.base_dict)
-        # html = template.render(sub=self.base_dict)
-        # with open("test.html", "w") as f:
-        #     f.write(html)
         try:
-            # home_dir = Path(self.ctx["directory_path"]).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
             home_dir = Path(self.ctx.directory_path).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
         except FileNotFoundError:
             home_dir = Path.home().resolve().__str__()
@@ -421,6 +367,9 @@ class BarcodeWindow(QDialog):
 
 
     def print_barcode(self):
+        """
+        Sends barcode image to printer.
+        """        
         printer = QtPrintSupport.QPrinter()
         dialog = QtPrintSupport.QPrintDialog(printer)
         if dialog.exec():
@@ -439,7 +388,7 @@ class SubmissionComment(QDialog):
     """
     a window for adding comment text to a submission
     """    
-    def __init__(self, ctx:dict, rsl:str) -> None:
+    def __init__(self, ctx:Settings, rsl:str) -> None:
 
         super().__init__()
         self.ctx = ctx
@@ -460,18 +409,22 @@ class SubmissionComment(QDialog):
         self.setLayout(self.layout)
         
     def add_comment(self):
+        """
+        Adds comment to submission object.
+        """        
         commenter = getuser()
         comment = self.txt_editor.toPlainText()
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
         full_comment = {"name":commenter, "time": dt, "text": comment}
         logger.debug(f"Full comment: {full_comment}")
-        sub = lookup_submission_by_rsl_num(ctx = self.ctx, rsl_num=self.rsl)
+        # sub = lookup_submission_by_rsl_num(ctx = self.ctx, rsl_num=self.rsl)
+        sub = lookup_submissions(ctx = self.ctx, rsl_number=self.rsl)
         try:
             sub.comment.append(full_comment)
         except AttributeError:
             sub.comment = [full_comment]
         logger.debug(sub.__dict__)
-        self.ctx['database_session'].add(sub)
-        self.ctx['database_session'].commit()
+        self.ctx.database_session.add(sub)
+        self.ctx.database_session.commit()
 
         

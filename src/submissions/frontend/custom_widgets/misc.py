@@ -12,8 +12,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QDate, QSize
 from tools import check_not_nan, jinja_template_loading, Settings
 from ..all_window_functions import extract_form_info
-from backend.db import get_all_reagenttype_names, lookup_all_sample_types, create_kit_from_yaml, \
-    lookup_regent_by_type_name, lookup_last_used_reagenttype_lot, lookup_all_reagent_names_by_role
+from backend.db import construct_kit_from_yaml, \
+    lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association
 import logging
 import numpy as np
 from .pop_ups import AlertPop
@@ -27,7 +27,7 @@ class AddReagentForm(QDialog):
     """
     dialog to add gather info about new reagent
     """    
-    def __init__(self, ctx:dict, reagent_lot:str|None, reagent_type:str|None, expiry:date|None=None, reagent_name:str|None=None) -> None:
+    def __init__(self, ctx:dict, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, reagent_name:str|None=None) -> None:
         super().__init__()
         self.ctx = ctx
         if reagent_lot == None:
@@ -60,7 +60,7 @@ class AddReagentForm(QDialog):
         # widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
-        self.type_input.addItems([item for item in get_all_reagenttype_names(ctx=ctx)])
+        self.type_input.addItems([item.name for item in lookup_reagent_types(ctx=ctx)])
         logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
         try:
@@ -85,9 +85,13 @@ class AddReagentForm(QDialog):
         self.type_input.currentTextChanged.connect(self.update_names)
 
     def update_names(self):
+        """
+        Updates reagent names form field with examples from reagent type
+        """        
         logger.debug(self.type_input.currentText())
         self.name_input.clear()
-        self.name_input.addItems(item for item in lookup_all_reagent_names_by_role(ctx=self.ctx, role_name=self.type_input.currentText().replace(" ", "_").lower()))
+        lookup = lookup_reagents(ctx=self.ctx, reagent_type=self.type_input.currentText())
+        self.name_input.addItems(list(set([item.name for item in lookup])))
 
 class ReportDatePicker(QDialog):
     """
@@ -103,17 +107,17 @@ class ReportDatePicker(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         # widgets to ask for dates 
-        start_date = QDateEdit(calendarPopup=True)
-        start_date.setObjectName("start_date")
-        start_date.setDate(QDate.currentDate())
-        end_date = QDateEdit(calendarPopup=True)
-        end_date.setObjectName("end_date")
-        end_date.setDate(QDate.currentDate())
+        self.start_date = QDateEdit(calendarPopup=True)
+        self.start_date.setObjectName("start_date")
+        self.start_date.setDate(QDate.currentDate())
+        self.end_date = QDateEdit(calendarPopup=True)
+        self.end_date.setObjectName("end_date")
+        self.end_date.setDate(QDate.currentDate())
         self.layout = QVBoxLayout()
         self.layout.addWidget(QLabel("Start Date"))
-        self.layout.addWidget(start_date)
+        self.layout.addWidget(self.start_date)
         self.layout.addWidget(QLabel("End Date"))
-        self.layout.addWidget(end_date)
+        self.layout.addWidget(self.end_date)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
@@ -139,7 +143,8 @@ class KitAdder(QWidget):
         used_for = QComboBox()
         used_for.setObjectName("used_for")
         # Insert all existing sample types
-        used_for.addItems(lookup_all_sample_types(ctx=parent_ctx))
+        # used_for.addItems(lookup_all_sample_types(ctx=parent_ctx))
+        used_for.addItems([item.name for item in lookup_submission_type(ctx=parent_ctx)])
         used_for.setEditable(True)
         self.grid.addWidget(used_for,3,1)
         # set cost per run
@@ -203,7 +208,7 @@ class KitAdder(QWidget):
         yml_type[used]['kits'][info['kit_name']]['reagenttypes'] = reagents
         logger.debug(yml_type)
         # send to kit constructor
-        result = create_kit_from_yaml(ctx=self.ctx, exp=yml_type)
+        result = construct_kit_from_yaml(ctx=self.ctx, exp=yml_type)
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
         self.__init__(self.ctx)
@@ -212,20 +217,22 @@ class ReagentTypeForm(QWidget):
     """
     custom widget to add information about a new reagenttype
     """    
-    def __init__(self, parent_ctx:dict) -> None:
+    def __init__(self, ctx:dict) -> None:
         super().__init__()
         grid = QGridLayout()
         self.setLayout(grid)
         grid.addWidget(QLabel("Name (*Exactly* as it appears in the excel submission form):"),0,0)
         # Widget to get reagent info
-        reagent_getter = QComboBox()
-        reagent_getter.setObjectName("name")
+        self.reagent_getter = QComboBox()
+        self.reagent_getter.setObjectName("name")
         # lookup all reagent type names from db
-        reagent_getter.addItems(get_all_reagenttype_names(ctx=parent_ctx))
-        reagent_getter.setEditable(True)
-        grid.addWidget(reagent_getter,0,1)
+        lookup = lookup_reagent_types(ctx=ctx)
+        logger.debug(f"Looked up ReagentType names: {lookup}")
+        self.reagent_getter.addItems([item.__str__() for item in lookup])
+        self.reagent_getter.setEditable(True)
+        grid.addWidget(self.reagent_getter,0,1)
         grid.addWidget(QLabel("Extension of Life (months):"),0,2)
-        # widget toget extension of life
+        # widget to get extension of life
         eol = QSpinBox()
         eol.setObjectName('eol')
         eol.setMinimum(0)
@@ -257,12 +264,14 @@ class ControlsDatePicker(QWidget):
 
 class ImportReagent(QComboBox):
 
-    def __init__(self, ctx:dict, reagent:PydReagent, extraction_kit:str):
+    def __init__(self, ctx:Settings, reagent:dict|PydReagent, extraction_kit:str):
         super().__init__()
         self.setEditable(True)
+        if isinstance(reagent, dict):
+            reagent = PydReagent(**reagent)
         # Ensure that all reagenttypes have a name that matches the items in the excel parser
         query_var = reagent.type
-        logger.debug(f"Import Reagent is looking at: {reagent.lot} for {reagent.type}")
+        logger.debug(f"Import Reagent is looking at: {reagent.lot} for {query_var}")
         if isinstance(reagent.lot, np.float64):
             logger.debug(f"{reagent.lot} is a numpy float!")
             try:
@@ -272,7 +281,8 @@ class ImportReagent(QComboBox):
         # query for reagents using type name from sheet and kit from sheet
         logger.debug(f"Attempting lookup of reagents by type: {query_var}")
         # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-        relevant_reagents = [item.__str__() for item in lookup_regent_by_type_name(ctx=ctx, type_name=query_var)]
+        lookup = lookup_reagents(ctx=ctx, reagent_type=query_var)
+        relevant_reagents = [item.__str__() for item in lookup]
         output_reg = []
         for rel_reagent in relevant_reagents:
             # extract strings from any sets.
@@ -289,7 +299,8 @@ class ImportReagent(QComboBox):
                 relevant_reagents.insert(0, str(reagent.lot))
             else:
                 # TODO: look up the last used reagent of this type in the database
-                looked_up_reg = lookup_last_used_reagenttype_lot(ctx=ctx, type_name=reagent.type, extraction_kit=extraction_kit)
+                looked_up_rt = lookup_reagenttype_kittype_association(ctx=ctx, reagent_type=reagent.type, kit_type=extraction_kit)
+                looked_up_reg = lookup_reagents(ctx=ctx, lot_number=looked_up_rt.last_used)
                 logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
                 if looked_up_reg != None:
                     relevant_reagents.remove(str(looked_up_reg.lot))
@@ -309,12 +320,14 @@ class ImportReagent(QComboBox):
 
 class ParsedQLabel(QLabel):
 
-    def __init__(self, input_object, field_name, title:bool=True):
+    def __init__(self, input_object, field_name, title:bool=True, label_name:str|None=None):
         super().__init__()
         try:
             check = input_object['parsed']
         except:
             return
+        if label_name != None:
+            self.setObjectName(label_name)
         if title:
             output = field_name.replace('_', ' ').title()
         else:

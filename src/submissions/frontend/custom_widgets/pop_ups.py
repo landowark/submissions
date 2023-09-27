@@ -7,12 +7,11 @@ from PyQt6.QtWidgets import (
 )
 from tools import jinja_template_loading
 import logging
-from backend.db.functions import lookup_kittype_by_use, lookup_all_sample_types
+from backend.db.functions import lookup_kit_types, lookup_submission_type
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 env = jinja_template_loading()
-
 
 class QuestionAsker(QDialog):
     """
@@ -28,8 +27,8 @@ class QuestionAsker(QDialog):
         self.buttonBox.rejected.connect(self.reject)
         self.layout = QVBoxLayout()
         # Text for the yes/no question
-        message = QLabel(message)
-        self.layout.addWidget(message)
+        self.message = QLabel(message)
+        self.layout.addWidget(self.message)
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
@@ -53,7 +52,7 @@ class KitSelector(QDialog):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        kits = [item.__str__() for item in lookup_kittype_by_use(ctx=ctx)]
+        kits = [item.__str__() for item in lookup_kit_types(ctx=ctx)]
         self.widget.addItems(kits)
         self.widget.setEditable(False)
         # set yes/no buttons
@@ -72,14 +71,6 @@ class KitSelector(QDialog):
     def getValues(self):
         return self.widget.currentText()
 
-    # @staticmethod
-    # def launch(parent):
-    #     dlg = KitSelector(parent)
-    #     r = dlg.exec_()
-    #     if r:
-    #         return dlg.getValues()
-    #     return None
-
 class SubmissionTypeSelector(QDialog):
     """
     dialog to ask yes/no questions
@@ -88,7 +79,7 @@ class SubmissionTypeSelector(QDialog):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        sub_type = lookup_all_sample_types(ctx=ctx)
+        sub_type = [item.name for item in lookup_submission_type(ctx=ctx)]
         self.widget.addItems(sub_type)
         self.widget.setEditable(False)
         # set yes/no buttons

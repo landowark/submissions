@@ -1,3 +1,8 @@
+## 202309.04
+
+- Extraction kit can now be updated after import.
+- Large scale refactoring to improve efficiency of database functions.
+
 ## 202309.03
 
 - Autofill now adds name of reagent instead of type.

@@ -14,7 +14,7 @@ env = jinja_template_loading()
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-def make_report_xlsx(records:list[dict]) -> DataFrame:
+def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
     """
     create the dataframe for a report
 
@@ -92,7 +92,6 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
     """    
     
     df = DataFrame.from_records(input)
-    # df.to_excel("test.xlsx", engine="openpyxl")
     safe = ['name', 'submitted_date', 'genus', 'target']
     for column in df.columns:
         if "percent" in column:
@@ -102,7 +101,6 @@ def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -
         if column not in safe:
             if subtype != None and column != subtype:
                 del df[column]
-    # logger.debug(df)
     # move date of sample submitted on same date as previous ahead one.
     df = displace_date(df)
     # ad hoc method to make data labels more accurate.
@@ -215,14 +213,10 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
     """    
     if 'rerun_regex' in ctx:
         sample_names = get_unique_values_in_df_column(df, column_name="name")
-        # logger.debug(f"Compiling regex from: {settings['rerun_regex']}")
         rerun_regex = re.compile(fr"{ctx['rerun_regex']}")
         for sample in sample_names:
-            # logger.debug(f'Running search on {sample}')
             if rerun_regex.search(sample):
-                # logger.debug(f'Match on {sample}')
                 first_run = re.sub(rerun_regex, "", sample)
-                # logger.debug(f"First run: {first_run}")
                 df = df.drop(df[df.name == first_run].index)
     return df
     

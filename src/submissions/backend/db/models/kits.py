@@ -5,12 +5,10 @@ from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
 from sqlalchemy.orm import relationship, validates
 from sqlalchemy.ext.associationproxy import association_proxy
-
 from datetime import date
 import logging
 
 logger = logging.getLogger(f'submissions.{__name__}')
-
 
 reagenttypes_reagents = Table("_reagenttypes_reagents", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("reagenttype_id", INTEGER, ForeignKey("_reagent_types.id")))
 
@@ -55,22 +53,26 @@ class KitType(Base):
         """        
         return self.name
     
-    def get_reagents(self, required:bool=False) -> list:
+    def get_reagents(self, required:bool=False, submission_type:str|None=None) -> list:
         """
         Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
 
         Args:
             required (bool, optional): If true only return required types. Defaults to False.
+            submission_type (str | None, optional): Submission type to narrow results. Defaults to None.
 
         Returns:
-            list: List of ReagentTypes
+            list: List of reagent types
         """        
-        if required:
-            return [item.reagent_type for item in self.kit_reagenttype_associations if item.required == 1]
+        if submission_type != None:
+            relevant_associations = [item for item in self.kit_reagenttype_associations if submission_type in item.uses.keys()]
         else:
-            return [item.reagent_type for item in self.kit_reagenttype_associations]
+            relevant_associations = [item for item in self.kit_reagenttype_associations]
+        if required:
+            return [item.reagent_type for item in relevant_associations if item.required == 1]
+        else:
+            return [item.reagent_type for item in relevant_associations]
     
-
     def construct_xl_map_for_use(self, use:str) -> dict:
         """
         Creates map of locations in excel workbook for a SubmissionType
@@ -96,8 +98,6 @@ class KitType(Base):
         except IndexError as e:
             map['info'] = {}
         return map
-    
-
 
 class ReagentType(Base):
     """
@@ -118,13 +118,7 @@ class ReagentType(Base):
 
     # association proxy of "user_keyword_associations" collection
     # to "keyword" attribute
-    kit_types = association_proxy("kit_reagenttype_associations", "kit_type")
-
-    @validates('required')
-    def validate_age(self, key, value):
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
+    kit_types = association_proxy("reagenttype_kit_associations", "kit_type")
 
     def __str__(self) -> str:
         """
@@ -205,13 +199,17 @@ class Reagent(Base):
             str: string representing this object's type and lot number
         """    
         return str(self.lot)
+            
 
     def to_sub_dict(self, extraction_kit:KitType=None) -> dict:
         """
         dictionary containing values necessary for gui
 
+        Args:
+            extraction_kit (KitType, optional): KitType to use to get reagent type. Defaults to None.
+
         Returns:
-            dict: gui friendly dictionary
+            dict: _description_
         """        
         if extraction_kit != None:
             # Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
@@ -245,6 +243,9 @@ class Reagent(Base):
         """
         Returns basic reagent dictionary.
 
+        Args:
+            extraction_kit (KitType, optional): KitType to use to get reagent type. Defaults to None.
+
         Returns:
             dict: Basic reagent dictionary of 'type', 'lot', 'expiry' 
         """        
@@ -268,7 +269,6 @@ class Reagent(Base):
             "expiry": self.expiry.strftime("%Y-%m-%d")
         }
 
-    
 class Discount(Base):
     """
     Relationship table for client labs for certain kits.
@@ -303,7 +303,7 @@ class SubmissionType(Base):
         cascade="all, delete-orphan",
     )
 
-    kit_types = association_proxy("kit_submissiontype_associations", "kit_type")
+    kit_types = association_proxy("submissiontype_kit_associations", "kit_type")
 
     def __repr__(self) -> str:
         return f"<SubmissionType({self.name})>"
@@ -321,7 +321,7 @@ class SubmissionTypeKitTypeAssociation(Base):
 
     kit_type = relationship(KitType, back_populates="kit_submissiontype_associations")
 
-    # reference to the "ReagentType" object
+    # reference to the "SubmissionType" object
     submission_type = relationship(SubmissionType, back_populates="submissiontype_kit_associations")
 
     def __init__(self, kit_type=None, submission_type=None):

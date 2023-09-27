@@ -6,15 +6,14 @@ import pprint
 from typing import List
 import pandas as pd
 from pathlib import Path
-from backend.db import lookup_sample_by_submitter_id, get_reagents_in_extkit, lookup_kittype_by_name, lookup_submissiontype_by_name, models
+from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples
 from backend.pydant import PydSubmission, PydReagent
 import logging
 from collections import OrderedDict
 import re
-import numpy as np
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, RSLNamer, convert_nans_to_nones, Settings, convert_well_to_row_column
+from tools import check_not_nan, RSLNamer, convert_nans_to_nones, Settings
 from frontend.custom_widgets.pop_ups import SubmissionTypeSelector, KitSelector
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -106,11 +105,14 @@ class SheetParser(object):
                     self.sub[k] = v
         logger.debug(f"Parser.sub after info scrape: {pprint.pformat(self.sub)}")
 
-    def parse_reagents(self):
+    def parse_reagents(self, extraction_kit:str|None=None):
         """
         Pulls reagent info from the excel sheet
         """        
-        self.sub['reagents'] = ReagentParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type'], extraction_kit=self.sub['extraction_kit']).parse_reagents()
+        if extraction_kit == None:
+            extraction_kit = extraction_kit=self.sub['extraction_kit']
+        logger.debug(f"Parsing reagents for {extraction_kit}")
+        self.sub['reagents'] = ReagentParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type'], extraction_kit=extraction_kit).parse_reagents()
 
     def parse_samples(self):
         """
@@ -180,7 +182,8 @@ class SheetParser(object):
         """
         Enforce that only allowed reagents get into the Pydantic Model
         """          
-        allowed_reagents = [item.name for item in get_reagents_in_extkit(ctx=self.ctx, kit_name=self.sub['extraction_kit']['value'])]
+        kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
+        allowed_reagents = [item.name for item in kit.get_reagents()]
         logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
         self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
         
@@ -217,7 +220,8 @@ class InfoParser(object):
         if isinstance(submission_type, str):
             submission_type = dict(value=submission_type, parsed=False)
         logger.debug(f"Looking up submission type: {submission_type['value']}")
-        submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type['value'])
+        # submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type['value'])
+        submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
         info_map = submission_type.info_map
         return info_map
 
@@ -269,7 +273,9 @@ class ReagentParser(object):
         self.xl = xl
 
     def fetch_kit_info_map(self, extraction_kit:dict, submission_type:str):
-        kit = lookup_kittype_by_name(ctx=self.ctx, name=extraction_kit['value'])
+        if isinstance(extraction_kit, dict):
+            extraction_kit = extraction_kit['value']
+        kit = lookup_kit_types(ctx=self.ctx, name=extraction_kit)
         if isinstance(submission_type, dict):
             submission_type = submission_type['value']
         reagent_map = kit.construct_xl_map_for_use(submission_type.title())
@@ -300,8 +306,8 @@ class ReagentParser(object):
                 logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
                 listo.append(dict(value=PydReagent(type=item.strip(), lot=lot, exp=expiry, name=name), parsed=parsed))
+        logger.debug(f"Returning listo: {listo}")
         return listo
-
 
 class SampleParser(object):
     """
@@ -331,23 +337,48 @@ class SampleParser(object):
         if isinstance(self.lookup_table, pd.DataFrame):
             self.parse_lookup_table()
         
-    def fetch_sample_info_map(self, submission_type:dict) -> dict:
+    def fetch_sample_info_map(self, submission_type:str) -> dict:
+        """
+        Gets info locations in excel book for submission type.
+
+        Args:
+            submission_type (str): submission type
+
+        Returns:
+            dict: Info locations.
+        """        
         logger.debug(f"Looking up submission type: {submission_type}")
-        submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type)
+        submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
         logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
         return sample_info_map
 
     def construct_plate_map(self, plate_map_location:dict) -> pd.DataFrame:
+        """
+        Gets location of samples from plate map grid in excel sheet.
+
+        Args:
+            plate_map_location (dict): sheet name, start/end row/column
+
+        Returns:
+            pd.DataFrame: Plate map grid
+        """        
         df = self.xl.parse(plate_map_location['sheet'], header=None, dtype=object)
         df = df.iloc[plate_map_location['start_row']-1:plate_map_location['end_row'], plate_map_location['start_column']-1:plate_map_location['end_column']]
-        # logger.debug(f"Input dataframe for plate map: {df}")
         df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
         df = df.set_index(df.columns[0])
-        # logger.debug(f"Output dataframe for plate map: {df}")
         return df
     
-    def construct_lookup_table(self, lookup_table_location) -> pd.DataFrame:
+    def construct_lookup_table(self, lookup_table_location:dict) -> pd.DataFrame:
+        """
+        Gets table of misc information from excel book
+
+        Args:
+            lookup_table_location (dict): sheet name, start/end row
+
+        Returns:
+            pd.DataFrame: _description_
+        """        
         try:
             df = self.xl.parse(lookup_table_location['sheet'], header=None, dtype=object)
         except KeyError:
@@ -355,16 +386,17 @@ class SampleParser(object):
         df = df.iloc[lookup_table_location['start_row']-1:lookup_table_location['end_row']]
         df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
         df = df.reset_index(drop=True)
-        # logger.debug(f"Dataframe for lookup table: {df}")
         return df
     
     def create_basic_dictionaries_from_plate_map(self):
+        """
+        Parse sample location/name from plate map
+        """        
         invalids = [0, "0", "EMPTY"]
         new_df = self.plate_map.dropna(axis=1, how='all')
         columns = new_df.columns.tolist()
         for _, iii in new_df.iterrows():
             for c in columns:
-                # logger.debug(f"Checking sample {iii[c]}")
                 if check_not_nan(iii[c]):
                     if iii[c] in invalids:
                         logger.debug(f"Invalid sample name: {iii[c]}, skipping.")
@@ -378,8 +410,10 @@ class SampleParser(object):
                     self.samples.append(dict(submitter_id=id, row=row_keys[iii._name], column=c))
     
     def parse_lookup_table(self):
+        """
+        Parse misc info from lookup table.
+        """        
         def determine_if_date(input_str) -> str|date:
-            # logger.debug(f"Looks like we have a str: {input_str}")
             regex = re.compile(r"^\d{4}-?\d{2}-?\d{2}")
             if bool(regex.search(input_str)):
                 logger.warning(f"{input_str} is a date!")
@@ -407,11 +441,19 @@ class SampleParser(object):
                                 sample[k] = v
             logger.debug(f"Output sample dict: {sample}")
 
-    def parse_samples(self, generate:bool=True) -> List[dict]:
+    def parse_samples(self, generate:bool=True) -> List[dict]|List[models.BasicSample]:
+        """
+        Parse merged platemap\lookup info into dicts/samples
+
+        Args:
+            generate (bool, optional): Indicates if sample objects to be generated from dicts. Defaults to True.
+
+        Returns:
+            List[dict]|List[models.BasicSample]: List of samples
+        """        
         result = None
         new_samples = []
         for ii, sample in enumerate(self.samples):
-            # logger.debug(f"\n\n{new_samples}\n\n")
             try:
                 if sample['submitter_id'] in [check_sample['sample'].submitter_id for check_sample in new_samples]:
                     sample['submitter_id'] = f"{sample['submitter_id']}-{ii}"
@@ -432,7 +474,6 @@ class SampleParser(object):
                     translated_dict[k] = convert_nans_to_nones(v)
             translated_dict['sample_type'] = f"{self.submission_type} Sample"
             parser_query = f"parse_{translated_dict['sample_type'].replace(' ', '_').lower()}"
-            # logger.debug(f"New sample dictionary going into object creation:\n{translated_dict}")
             try:
                 custom_parser = getattr(self, parser_query)
                 translated_dict = custom_parser(translated_dict)
@@ -445,6 +486,15 @@ class SampleParser(object):
         return result, new_samples
 
     def generate_sample_object(self, input_dict) -> models.BasicSample:
+        """
+        Constructs sample object from dict
+
+        Args:
+            input_dict (dict): sample information
+
+        Returns:
+            models.BasicSample: Sample object
+        """        
         query = input_dict['sample_type'].replace(" ", "")
         try:
             database_obj = getattr(models, query)
@@ -452,13 +502,12 @@ class SampleParser(object):
             logger.error(f"Could not find the model {query}. Using generic.")
             database_obj = models.BasicSample
         logger.debug(f"Searching database for {input_dict['submitter_id']}...")
-        instance = lookup_sample_by_submitter_id(ctx=self.ctx, submitter_id=input_dict['submitter_id'])
+        instance = lookup_samples(ctx=self.ctx, submitter_id=input_dict['submitter_id'])
         if instance == None:
             logger.debug(f"Couldn't find sample {input_dict['submitter_id']}. Creating new sample.")
             instance = database_obj()
             for k,v in input_dict.items():
                 try:
-                    # setattr(instance, k, v)
                     instance.set_attribute(k, v)
                 except Exception as e:
                     logger.error(f"Failed to set {k} due to {type(e).__name__}: {e}")
@@ -511,12 +560,27 @@ class SampleParser(object):
         return input_dict
     
     def parse_first_strand_sample(self, input_dict:dict) -> dict:
+        """
+        Update sample dictionary with first strand specific information
+
+        Args:
+            input_dict (dict): Input sample dictionary
+
+        Returns:
+            dict: Updated sample dictionary
+        """        
         logger.debug("Called first strand sample parser")
         input_dict['well'] = re.search(r"\s\((.*)\)$", input_dict['submitter_id']).groups()[0]
         input_dict['submitter_id'] = re.sub(r"\s\(.*\)$", "", str(input_dict['submitter_id'])).strip()
         return input_dict
     
-    def grab_plates(self):
+    def grab_plates(self) -> List[str]:
+        """
+        Parse plate names from 
+
+        Returns:
+            List[str]: list of plate names.
+        """        
         plates = []
         for plate in self.plates:
             df = self.xl.parse(plate['sheet'], header=None)
@@ -526,8 +590,7 @@ class SampleParser(object):
                 continue
             plates.append(output)
         return plates
-
-        
+    
 class PCRParser(object):
     """
     Object to pull data from Design and Analysis PCR export file.
@@ -574,7 +637,6 @@ class PCRParser(object):
             sheet_name (str): Name of sheet in excel workbook that holds info.
         """        
         df = self.xl.parse(sheet_name=sheet_name, dtype=object).fillna("")
-        # self.pcr['file'] = df.iloc[1][1]
         self.pcr['comment'] = df.iloc[0][1]
         self.pcr['operator'] = df.iloc[1][1]
         self.pcr['barcode'] = df.iloc[2][1]
@@ -615,7 +677,6 @@ class PCRParser(object):
         except ValueError:
             logger.error("Well call number doesn't match sample number")
         logger.debug(f"Well call df: {well_call_df}")
-        # iloc is [row][column]
         for ii, row in self.samples_df.iterrows():
             try:
                 sample_obj = [sample for sample in self.samples if sample['sample'] == row[3]][0]    
@@ -623,14 +684,8 @@ class PCRParser(object):
                 sample_obj = dict(
                     sample = row['Sample'],
                     plate_rsl = self.plate_num,
-                    # elution_well = row['Well Position']
                 )
             logger.debug(f"Got sample obj: {sample_obj}") 
-            # logger.debug(f"row: {row}")
-            # rsl_num = row[3]
-            # # logger.debug(f"Looking up: {rsl_num}")
-            # ww_samp = lookup_ww_sample_by_rsl_sample_number(ctx=self.ctx, rsl_number=rsl_num)
-            # logger.debug(f"Got: {ww_samp}")
             if isinstance(row['Cq'], float):
                 sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
             else:
@@ -639,20 +694,6 @@ class PCRParser(object):
                 sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
             except KeyError:
                 logger.error(f"No assessment for {sample_obj['sample']}")
-            # match row["Target"]:
-            #     case "N1":
-            #         if isinstance(row['Cq'], float):
-            #             sample_obj['ct_n1'] = row["Cq"]
-            #         else:
-            #             sample_obj['ct_n1'] = 0.0
-            #         sample_obj['n1_status'] = row['Assessment']
-            #     case "N2":
-            #         if isinstance(row['Cq'], float):
-            #             sample_obj['ct_n2'] = row['Assessment']
-            #         else:
-            #             sample_obj['ct_n2'] = 0.0
-            #     case _:
-            #         logger.warning(f"Unexpected input for row[4]: {row["Target"]}")
             self.samples.append(sample_obj)
         
 

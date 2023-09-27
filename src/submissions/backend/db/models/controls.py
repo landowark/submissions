@@ -19,9 +19,7 @@ class ControlType(Base):
     id = Column(INTEGER, primary_key=True) #: primary key   
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
     targets = Column(JSON) #: organisms checked for
-    # instances_id = Column(INTEGER, ForeignKey("_control_samples.id", ondelete="SET NULL", name="fk_ctype_instances_id"))
     instances = relationship("Control", back_populates="controltype") #: control samples created of this type.
-    # UniqueConstraint('name', name='uq_controltype_name')
 
 
 class Control(Base):
@@ -39,13 +37,14 @@ class Control(Base):
     contains = Column(JSON) #: unstructured hashes in contains.tsv for each organism
     matches = Column(JSON) #: unstructured hashes in matches.tsv for each organism
     kraken = Column(JSON) #: unstructured output from kraken_report
-    # UniqueConstraint('name', name='uq_control_name')
     submission_id = Column(INTEGER, ForeignKey("_submissions.id")) #: parent submission id
     submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
     refseq_version = Column(String(16)) #: version of refseq used in fastq parsing
     kraken2_version = Column(String(16)) #: version of kraken2 used in fastq parsing
     kraken2_db_version = Column(String(32)) #: folder name of kraken2 db
 
+    def __repr__(self) -> str:
+        return f"<Control({self.name})>"
 
     def to_sub_dict(self) -> dict:
         """

@@ -12,9 +12,8 @@ from PyQt6.QtGui import QAction
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
 from backend.db import (
-    construct_reagent, get_all_Control_Types_names, get_all_available_modes, store_reagent 
+    construct_reagent, store_object, lookup_control_types, lookup_modes
 )
-# from .main_window_functions import *
 from .all_window_functions import extract_form_info
 from tools import check_if_app, Settings
 from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker
@@ -63,7 +62,7 @@ class App(QMainWindow):
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
-        editMenu = menuBar.addMenu("&Edit")
+        # editMenu = menuBar.addMenu("&Edit")
         methodsMenu = menuBar.addMenu("&Methods")
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
@@ -213,13 +212,12 @@ class App(QMainWindow):
         if dlg.exec():
             # extract form info
             info = extract_form_info(dlg)
-            logger.debug(f"dictionary from form: {info}")
-            # return None
             logger.debug(f"Reagent info: {info}")
             # create reagent object
             reagent = construct_reagent(ctx=self.ctx, info_dict=info)
             # send reagent to db
-            store_reagent(ctx=self.ctx, reagent=reagent)
+            # store_reagent(ctx=self.ctx, reagent=reagent)
+            result = store_object(ctx=self.ctx, object=reagent)
             return reagent
 
     def generateReport(self):
@@ -302,6 +300,14 @@ class App(QMainWindow):
         self, result = construct_first_strand_function(self)
         self.result_reporter(result)
 
+    def scrape_reagents(self, *args, **kwargs):
+        from .main_window_functions import scrape_reagents
+        logger.debug(f"Args: {args}")
+        logger.debug(F"kwargs: {kwargs}")
+        self, result = scrape_reagents(self, args[0])
+        self.kit_integrity_completion()
+        self.result_reporter(result)
+
 class AddSubForm(QWidget):
     
     def __init__(self, parent):
@@ -348,11 +354,13 @@ class AddSubForm(QWidget):
         self.tab2.layout = QVBoxLayout(self)
         self.control_typer = QComboBox()
         # fetch types of controls 
-        con_types = get_all_Control_Types_names(ctx=parent.ctx)
+        # con_types = get_all_Control_Types_names(ctx=parent.ctx)
+        con_types = [item.name for item in lookup_control_types(ctx=parent.ctx)]
         self.control_typer.addItems(con_types)
         # create custom widget to get types of analysis
         self.mode_typer = QComboBox()
-        mode_types = get_all_available_modes(ctx=parent.ctx)
+        # mode_types = get_all_available_modes(ctx=parent.ctx)
+        mode_types = lookup_modes(ctx=parent.ctx)
         self.mode_typer.addItems(mode_types)
         # create custom widget to get subtypes of analysis
         self.sub_typer = QComboBox()

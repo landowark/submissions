@@ -74,10 +74,13 @@ class BasicSubmission(Base):
 
     def to_dict(self, full_data:bool=False) -> dict:
         """
-        dictionary used in submissions summary
+        Constructs dictionary used in submissions summary
+
+        Args:
+            full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
 
         Returns:
-            dict: dictionary used in submissions summary
+            dict: dictionary used in submissions summary and details
         """        
         # get lab from nested organization object
         logger.debug(f"Converting {self.rsl_plate_num} to dict...")
@@ -113,10 +116,6 @@ class BasicSubmission(Base):
         else:
             reagents = None
             samples = None
-        # Updated 2023-09 to get sample association with plate number
-        # for item in self.submission_sample_associations:
-        #     sample = item.sample.to_sub_dict(submission_rsl=self.rsl_plate_num)
-        #     samples.append(sample)
         try:
             comments = self.comment
         except:
@@ -383,7 +382,6 @@ class BasicSample(Base):
         Returns:
             dict: dictionary of sample id, row and column in elution plate
         """        
-        # self.assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
         # Since there is no PCR, negliable result is necessary.
         return dict(name=self.submitter_id, positive=False)
 
