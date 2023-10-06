@@ -12,8 +12,6 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 env = jinja_template_loading()
 
-logger = logging.getLogger(f"submissions.{__name__}")
-
 def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
     """
     create the dataframe for a report

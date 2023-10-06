@@ -2,7 +2,7 @@ from pathlib import Path
 import sys
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
-from tools import check_if_app
+from tools import check_if_app, jinja_template_loading
 import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -82,3 +82,30 @@ def make_plate_map(sample_list:list) -> Image:
         y = (num * 100) - 10
         draw.text((10, y), letter, (0,0,0),font=font)
     return new_img
+
+def make_plate_map_html(sample_list:list, plate_rows:int=8, plate_columns=12) -> str:
+    try:
+        plate_num = sample_list[0]['plate_name']
+    except IndexError as e:
+        logger.error(f"Couldn't get a plate number. Will not make plate.")
+        return None
+    except TypeError as e:
+        logger.error(f"No samples for this plate. Nothing to do.")
+        return None
+    for sample in sample_list:
+        if sample['positive']:
+            sample['background_color'] = "#f10f07"
+        else:
+            sample['background_color'] = "#80cbc4"
+    output_samples = []
+    for column in range(1, plate_columns+1):
+        for row in range(1, plate_rows+1):
+            try:
+                well = [item for item in sample_list if item['row'] == row and item['column']==column][0]
+            except IndexError:
+                well = dict(name="", row=row, column=column, background_color="#ffffff")
+            output_samples.append(well)
+    env = jinja_template_loading()
+    template = env.get_template("plate_map.html")
+    html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
+    return html

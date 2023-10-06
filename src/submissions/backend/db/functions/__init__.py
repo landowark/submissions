@@ -76,10 +76,10 @@ def store_object(ctx:Settings, object) -> dict|None:
     dbs.merge(object)
     try:
         dbs.commit()
-    except (sqlite3.IntegrityError, sqlalchemy.exc.IntegrityError) as e:
+    except (SQLIntegrityError, AlcIntegrityError) as e:
         logger.debug(f"Hit an integrity error : {e}")
         dbs.rollback()
-        return {"message":f"This object {object} already exists, so we can't add it.", "status":"Critical"}
+        return {"message":f"This object {object} already exists, so we can't add it.\n{e}", "status":"Critical"}
     except (SQLOperationalError, AlcOperationalError):
         logger.error(f"Hit an operational error: {e}")
         dbs.rollback()

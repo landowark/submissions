@@ -54,6 +54,7 @@ def select_save_file(obj:QMainWindow, default_name:str, extension:str) -> Path:
 def extract_form_info(object) -> dict:
     """
     retrieves object names and values from form
+    DEPRECIATED. Replaced by individual form parser methods.
 
     Args:
         object (_type_): the form widget
@@ -64,7 +65,7 @@ def extract_form_info(object) -> dict:
     
     from frontend.custom_widgets import ReagentTypeForm
     dicto = {}
-    reagents = {}
+    reagents = []
     logger.debug(f"Object type: {type(object)}")
     # grab all widgets in form
     try:
@@ -85,8 +86,17 @@ def extract_form_info(object) -> dict:
             case ReagentTypeForm():
                 reagent = extract_form_info(item) 
                 logger.debug(f"Reagent found: {reagent}")
-                reagents[reagent["name"].strip()] = {'eol_ext':int(reagent['eol'])}
+                if isinstance(reagent, tuple):
+                    reagent = reagent[0]
+                # reagents[reagent["name"].strip()] = {'eol':int(reagent['eol'])}
+                reagents.append({k:v for k,v in reagent.items() if k not in ['', 'qt_spinbox_lineedit']})
         # value for ad hoc check above
+    if isinstance(dicto, tuple):
+        logger.warning(f"Got tuple for dicto for some reason.")
+        dicto = dicto[0]
+    if isinstance(reagents, tuple):
+        logger.warning(f"Got tuple for reagents for some reason.")
+        reagents = reagents[0]
     if reagents != {}:
         return dicto, reagents
     return dicto

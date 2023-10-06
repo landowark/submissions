@@ -236,3 +236,24 @@ def update_subsampassoc_with_pcr(ctx:Settings, submission:models.BasicSubmission
     result = store_object(ctx=ctx, object=assoc)
     return result
 
+def get_polymorphic_subclass(base:object, polymorphic_identity:str|None=None):
+    """
+    Retrieves any subclasses of given base class whose polymorphic identity matches the string input.
+
+    Args:
+        base (object): Base (parent) class
+        polymorphic_identity (str | None): Name of subclass of interest. (Defaults to None)
+
+    Returns:
+        _type_: Subclass, or parent class on 
+    """    
+    if polymorphic_identity == None:
+        return base
+    else:
+        try:
+            return [item for item in base.__subclasses__() if item.__mapper_args__['polymorphic_identity']==polymorphic_identity][0]
+        except Exception as e:
+            logger.error(f"Could not get polymorph {polymorphic_identity} of {base} due to {e}")
+            return base
+
+    

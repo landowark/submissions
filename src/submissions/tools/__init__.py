@@ -36,6 +36,8 @@ main_aux_dir = Path.home().joinpath(f"{os_config_dir}/submissions")
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
+row_map = {1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H"}
+
 def check_not_nan(cell_contents) -> bool:
     """
     Check to ensure excel sheet cell contents are not blank.
@@ -576,10 +578,11 @@ def jinja_template_loading():
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
     else:
-        loader_path = Path(__file__).parents[1].joinpath('templates').absolute().__str__()
+        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()#.__str__()
     # jinja template loading
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)
+    env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     return env
 
 def check_is_power_user(ctx:Settings) -> bool:
@@ -633,3 +636,4 @@ def convert_well_to_row_column(input_str:str) -> Tuple[int, int]:
     except IndexError:
         return None, None
     return row, column
+

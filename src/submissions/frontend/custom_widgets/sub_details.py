@@ -23,7 +23,7 @@ from xhtml2pdf import pisa
 from pathlib import Path
 import logging
 from .pop_ups import QuestionAsker, AlertPop
-from ..visualizations import make_plate_barcode, make_plate_map
+from ..visualizations import make_plate_barcode, make_plate_map, make_plate_map_html
 from getpass import getuser
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -265,18 +265,19 @@ class SubmissionDetails(QDialog):
         if not check_if_app():
             self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
         logger.debug(f"Hitpicking plate...")
-        plate_dicto = sub.hitpick_plate()
+        self.plate_dicto = sub.hitpick_plate()
         logger.debug(f"Making platemap...")
-        platemap = make_plate_map(plate_dicto)
-        logger.debug(f"platemap: {platemap}")
-        image_io = BytesIO()
-        try:
-            platemap.save(image_io, 'JPEG')
-        except AttributeError:
-            logger.error(f"No plate map found for {sub.rsl_plate_num}")
-        self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
-        template = env.get_template("submission_details.html")
-        self.html = template.render(sub=self.base_dict)
+        self.base_dict['platemap'] = make_plate_map_html(self.plate_dicto)
+        # logger.debug(f"Platemap: {self.base_dict['platemap']}")
+        # logger.debug(f"platemap: {platemap}")
+        # image_io = BytesIO()
+        # try:
+        #     platemap.save(image_io, 'JPEG')
+        # except AttributeError:
+        #     logger.error(f"No plate map found for {sub.rsl_plate_num}")
+        # self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
+        self.template = env.get_template("submission_details.html")
+        self.html = self.template.render(sub=self.base_dict)
         webview = QWebEngineView()
         webview.setMinimumSize(900, 500)
         webview.setMaximumSize(900, 500)
@@ -290,6 +291,8 @@ class SubmissionDetails(QDialog):
         btn.setParent(self)
         btn.setFixedWidth(900)
         btn.clicked.connect(self.export)
+        with open("test.html", "w") as f:
+            f.write(self.html)
         
     def export(self):
         """
@@ -303,9 +306,18 @@ class SubmissionDetails(QDialog):
         if fname.__str__() == ".":
             logger.debug("Saving pdf was cancelled.")
             return
+        del self.base_dict['platemap']
+        export_map = make_plate_map(self.plate_dicto)
+        image_io = BytesIO()
+        try:
+            export_map.save(image_io, 'JPEG')
+        except AttributeError:
+            logger.error(f"No plate map found")
+        self.base_dict['export_map'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
+        self.html2 = self.template.render(sub=self.base_dict)
         try:
             with open(fname, "w+b") as f:
-                pisa.CreatePDF(self.html, dest=f)
+                pisa.CreatePDF(self.html2, dest=f)
         except PermissionError as e:
             logger.error(f"Error saving pdf: {e}")
             msg = QMessageBox()

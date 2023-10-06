@@ -10,6 +10,7 @@ from datetime import date, timedelta
 from dateutil.parser import parse
 from typing import Tuple
 from sqlalchemy.exc import IntegrityError, SAWarning
+from . import store_object
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -157,7 +158,7 @@ def construct_samples(ctx:Settings, instance:models.BasicSubmission, samples:Lis
         models.BasicSubmission: Updated submission object.
     """    
     for sample in samples:
-        sample_instance = lookup_samples(ctx=ctx, submitter_id=sample['sample'].submitter_id)
+        sample_instance = lookup_samples(ctx=ctx, submitter_id=str(sample['sample'].submitter_id))
         if sample_instance == None:
             sample_instance = sample['sample']
         else:
@@ -174,7 +175,7 @@ def construct_samples(ctx:Settings, instance:models.BasicSubmission, samples:Lis
                     try:
                         assoc = getattr(models, f"{sample_query}Association")
                     except AttributeError as e:
-                        logger.error(f"Couldn't get type specific association. Getting generic.")
+                        logger.error(f"Couldn't get type specific association using {sample_instance.sample_type.replace('Sample', '').strip()}. Getting generic.")
                         assoc = models.SubmissionSampleAssociation
                     assoc = assoc(submission=instance, sample=sample_instance, row=sample['row'], column=sample['column'])
                     instance.submission_sample_associations.append(assoc)
@@ -189,7 +190,7 @@ def construct_samples(ctx:Settings, instance:models.BasicSubmission, samples:Lis
             continue
     return instance
 
-def construct_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
+def construct_kit_from_yaml(ctx:Settings, kit_dict:dict) -> dict:
     """
     Create and store a new kit in the database based on a .yml file
     TODO: split into create and store functions
@@ -206,36 +207,33 @@ def construct_kit_from_yaml(ctx:Settings, exp:dict) -> dict:
     if not check_is_power_user(ctx=ctx):
         logger.debug(f"{getuser()} does not have permission to add kits.")
         return {'code':1, 'message':"This user does not have permission to add kits.", "status":"warning"}
-    # iterate through keys in dict
-    for type in exp:
-        # A submission type may use multiple kits.
-        for kt in exp[type]['kits']:
-            logger.debug(f"Looking up submission type: {type}")
-            # submission_type = lookup_submissiontype_by_name(ctx=ctx, type_name=type)
-            submission_type = lookup_submission_type(ctx=ctx, name=type)
-            logger.debug(f"Looked up submission type: {submission_type}")
-            kit = models.KitType(name=kt)
-            kt_st_assoc = models.SubmissionTypeKitTypeAssociation(kit_type=kit, submission_type=submission_type)
-            kt_st_assoc.constant_cost = exp[type]["kits"][kt]["constant_cost"]
-            kt_st_assoc.mutable_cost_column = exp[type]["kits"][kt]["mutable_cost_column"]
-            kt_st_assoc.mutable_cost_sample = exp[type]["kits"][kt]["mutable_cost_sample"]
-            kit.kit_submissiontype_associations.append(kt_st_assoc)
-            # A kit contains multiple reagent types.
-            for r in exp[type]['kits'][kt]['reagenttypes']:
-                # check if reagent type already exists.
-                r = massage_common_reagents(r)
-                look_up = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==r).first()
-                if look_up == None:
-                    rt = models.ReagentType(name=r.strip(), eol_ext=timedelta(30*exp[type]['kits'][kt]['reagenttypes'][r]['eol_ext']), last_used="")
-                else:
-                    rt = look_up
-                assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses={})
-                ctx.database_session.add(rt)
-                kit.kit_reagenttype_associations.append(assoc)
-                logger.debug(f"Kit construction reagent type: {rt.__dict__}")
-            logger.debug(f"Kit construction kit: {kit.__dict__}")
-        ctx.database_session.add(kit)
-    ctx.database_session.commit()
+    submission_type = lookup_submission_type(ctx=ctx, name=kit_dict['used_for'])
+    logger.debug(f"Looked up submission type: {kit_dict['used_for']} and got {submission_type}")
+    kit = models.KitType(name=kit_dict["kit_name"])
+    kt_st_assoc = models.SubmissionTypeKitTypeAssociation(kit_type=kit, submission_type=submission_type)
+    for k,v in kit_dict.items():
+        if k not in ["reagent_types", "kit_name", "used_for"]:
+            kt_st_assoc.set_attrib(k, v)
+    kit.kit_submissiontype_associations.append(kt_st_assoc)
+    # A kit contains multiple reagent types.
+    for r in kit_dict['reagent_types']:
+        # check if reagent type already exists.
+        logger.debug(f"Constructing reagent type: {r}")
+        rtname = massage_common_reagents(r['rtname'])
+        # look_up = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==rtname).first()
+        look_up = lookup_reagent_types(name=rtname)
+        if look_up == None:
+            rt = models.ReagentType(name=rtname.strip(), eol_ext=timedelta(30*r['eol']))
+        else:
+            rt = look_up
+        uses = {kit_dict['used_for']:{k:v for k,v in r.items() if k not in ['eol']}}
+        assoc = models.KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=rt, uses=uses)
+        # ctx.database_session.add(rt)
+        store_object(ctx=ctx, object=rt)
+        kit.kit_reagenttype_associations.append(assoc)
+        logger.debug(f"Kit construction reagent type: {rt.__dict__}")
+    logger.debug(f"Kit construction kit: {kit.__dict__}")
+    store_object(ctx=ctx, object=kit)
     return {'code':0, 'message':'Kit has been added', 'status': 'information'}
 
 def construct_org_from_yaml(ctx:Settings, org:dict) -> dict:

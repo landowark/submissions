@@ -6,7 +6,7 @@ import pprint
 from typing import List
 import pandas as pd
 from pathlib import Path
-from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples
+from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples, get_polymorphic_subclass
 from backend.pydant import PydSubmission, PydReagent
 import logging
 from collections import OrderedDict
@@ -91,12 +91,11 @@ class SheetParser(object):
         Pulls basic information from the excel sheet
         """        
         info = InfoParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_info()
-        parser_query = f"parse_{self.sub['submission_type']['value'].replace(' ', '_').lower()}"
-        try:
-            custom_parser = getattr(self, parser_query)
-            info = custom_parser(info)
-        except AttributeError:
-            logger.error(f"Couldn't find submission parser: {parser_query}")
+        # parser_query = f"parse_{self.sub['submission_type']['value'].replace(' ', '_').lower()}"
+        # custom_parser = getattr(self, parser_query)
+        
+        # except AttributeError:
+        #     logger.error(f"Couldn't find submission parser: {parser_query}")
         for k,v in info.items():
             match k:
                 case "sample":
@@ -120,41 +119,41 @@ class SheetParser(object):
         """        
         self.sample_result, self.sub['samples'] = SampleParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_samples()
 
-    def parse_bacterial_culture(self, input_dict) -> dict:
-        """
-        Update submission dictionary with type specific information
+    # def parse_bacterial_culture(self, input_dict) -> dict:
+    #     """
+    #     Update submission dictionary with type specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     return input_dict
         
-    def parse_wastewater(self, input_dict) -> dict:
-        """
-        Update submission dictionary with type specific information
+    # def parse_wastewater(self, input_dict) -> dict:
+    #     """
+    #     Update submission dictionary with type specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     return input_dict
 
-    def parse_wastewater_artic(self, input_dict:dict) -> dict:
-        """
-        Update submission dictionary with type specific information
+    # def parse_wastewater_artic(self, input_dict:dict) -> dict:
+    #     """
+    #     Update submission dictionary with type specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     return input_dict
 
 
     def import_kit_validation_check(self):
@@ -206,6 +205,7 @@ class InfoParser(object):
         self.map = self.fetch_submission_info_map(submission_type=submission_type)
         self.xl = xl
         logger.debug(f"Info map for InfoParser: {pprint.pformat(self.map)}")
+        
 
     def fetch_submission_info_map(self, submission_type:str|dict) -> dict:
         """
@@ -223,6 +223,8 @@ class InfoParser(object):
         # submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type['value'])
         submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
         info_map = submission_type.info_map
+        # Get the parse_info method from the submission type specified
+        self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_info
         return info_map
 
     def parse_info(self) -> dict:
@@ -263,7 +265,13 @@ class InfoParser(object):
                             continue
                 else:
                     dicto[item] = dict(value=convert_nans_to_nones(value), parsed=False)
-        return dicto
+            try:
+                check = dicto['submission_category'] not in ["", None]
+            except KeyError:
+                check = False
+        return self.custom_parser(input_dict=dicto, xl=self.xl)
+    
+    
                 
 class ReagentParser(object):
 
@@ -351,6 +359,7 @@ class SampleParser(object):
         submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
         logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
+        self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
         return sample_info_map
 
     def construct_plate_map(self, plate_map_location:dict) -> pd.DataFrame:
@@ -473,12 +482,12 @@ class SampleParser(object):
                 except KeyError:
                     translated_dict[k] = convert_nans_to_nones(v)
             translated_dict['sample_type'] = f"{self.submission_type} Sample"
-            parser_query = f"parse_{translated_dict['sample_type'].replace(' ', '_').lower()}"
-            try:
-                custom_parser = getattr(self, parser_query)
-                translated_dict = custom_parser(translated_dict)
-            except AttributeError:
-                logger.error(f"Couldn't get custom parser: {parser_query}")
+            # parser_query = f"parse_{translated_dict['sample_type'].replace(' ', '_').lower()}"
+            # try:
+            #     custom_parser = getattr(self, parser_query)
+            translated_dict = self.custom_parser(translated_dict)
+            # except AttributeError:
+            #     logger.error(f"Couldn't get custom parser: {parser_query}")
             if generate:
                 new_samples.append(self.generate_sample_object(translated_dict))
             else:
@@ -502,7 +511,7 @@ class SampleParser(object):
             logger.error(f"Could not find the model {query}. Using generic.")
             database_obj = models.BasicSample
         logger.debug(f"Searching database for {input_dict['submitter_id']}...")
-        instance = lookup_samples(ctx=self.ctx, submitter_id=input_dict['submitter_id'])
+        instance = lookup_samples(ctx=self.ctx, submitter_id=str(input_dict['submitter_id']))
         if instance == None:
             logger.debug(f"Couldn't find sample {input_dict['submitter_id']}. Creating new sample.")
             instance = database_obj()
@@ -516,63 +525,63 @@ class SampleParser(object):
         return dict(sample=instance, row=input_dict['row'], column=input_dict['column'])
 
 
-    def parse_bacterial_culture_sample(self, input_dict:dict) -> dict:
-        """
-        Update sample dictionary with bacterial culture specific information
+    # def parse_bacterial_culture_sample(self, input_dict:dict) -> dict:
+    #     """
+    #     Update sample dictionary with bacterial culture specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        logger.debug("Called bacterial culture sample parser")
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     logger.debug("Called bacterial culture sample parser")
+    #     return input_dict
 
-    def parse_wastewater_sample(self, input_dict:dict) -> dict:
-        """
-        Update sample dictionary with wastewater specific information
+    # def parse_wastewater_sample(self, input_dict:dict) -> dict:
+    #     """
+    #     Update sample dictionary with wastewater specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        logger.debug(f"Called wastewater sample parser")
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     logger.debug(f"Called wastewater sample parser")
+    #     return input_dict
     
-    def parse_wastewater_artic_sample(self, input_dict:dict) -> dict:
-        """
-        Update sample dictionary with artic specific information
+    # def parse_wastewater_artic_sample(self, input_dict:dict) -> dict:
+    #     """
+    #     Update sample dictionary with artic specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        logger.debug("Called wastewater artic sample parser")
-        input_dict['sample_type'] = "Wastewater Sample"
-        # Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
-        # at the end, this has to be done here. No moving to sqlalchemy object :(
-        input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     logger.debug("Called wastewater artic sample parser")
+    #     input_dict['sample_type'] = "Wastewater Sample"
+    #     # Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
+    #     # at the end, this has to be done here. No moving to sqlalchemy object :(
+    #     input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
+    #     return input_dict
     
-    def parse_first_strand_sample(self, input_dict:dict) -> dict:
-        """
-        Update sample dictionary with first strand specific information
+    # def parse_first_strand_sample(self, input_dict:dict) -> dict:
+    #     """
+    #     Update sample dictionary with first strand specific information
 
-        Args:
-            input_dict (dict): Input sample dictionary
+    #     Args:
+    #         input_dict (dict): Input sample dictionary
 
-        Returns:
-            dict: Updated sample dictionary
-        """        
-        logger.debug("Called first strand sample parser")
-        input_dict['well'] = re.search(r"\s\((.*)\)$", input_dict['submitter_id']).groups()[0]
-        input_dict['submitter_id'] = re.sub(r"\s\(.*\)$", "", str(input_dict['submitter_id'])).strip()
-        return input_dict
+    #     Returns:
+    #         dict: Updated sample dictionary
+    #     """        
+    #     logger.debug("Called first strand sample parser")
+    #     input_dict['well'] = re.search(r"\s\((.*)\)$", input_dict['submitter_id']).groups()[0]
+    #     input_dict['submitter_id'] = re.sub(r"\s\(.*\)$", "", str(input_dict['submitter_id'])).strip()
+    #     return input_dict
     
     def grab_plates(self) -> List[str]:
         """

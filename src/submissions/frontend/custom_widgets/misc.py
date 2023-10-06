@@ -2,22 +2,25 @@
 Contains miscellaneous widgets for frontend functions
 '''
 from datetime import date
+from pprint import pformat
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog, 
     QDialogButtonBox, QDateEdit, QSizePolicy, QWidget,
     QGridLayout, QPushButton, QSpinBox, QDoubleSpinBox,
-    QHBoxLayout
+    QHBoxLayout, QScrollArea
 )
 from PyQt6.QtCore import Qt, QDate, QSize
 from tools import check_not_nan, jinja_template_loading, Settings
-from ..all_window_functions import extract_form_info
-from backend.db import construct_kit_from_yaml, \
+from backend.db.functions import construct_kit_from_yaml, \
     lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association
+from backend.db.models import SubmissionTypeKitTypeAssociation
+from sqlalchemy import FLOAT, INTEGER, String
 import logging
 import numpy as np
 from .pop_ups import AlertPop
 from backend.pydant import PydReagent
+from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -84,6 +87,12 @@ class AddReagentForm(QDialog):
         self.setLayout(self.layout)
         self.type_input.currentTextChanged.connect(self.update_names)
 
+    def parse_form(self):
+        return dict(name=self.name_input.currentText(), 
+                    lot=self.lot_input.text(), 
+                    expiry=self.exp_input.date().toPyDate(),
+                    type=self.type_input.currentText())
+
     def update_names(self):
         """
         Updates reagent names form field with examples from reagent type
@@ -121,6 +130,9 @@ class ReportDatePicker(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
+    def parse_form(self):
+        return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
+
 class KitAdder(QWidget):
     """
     dialog to get information to add kit
@@ -128,8 +140,14 @@ class KitAdder(QWidget):
     def __init__(self, parent_ctx:Settings) -> None:
         super().__init__()
         self.ctx = parent_ctx
+        main_box = QVBoxLayout(self)
+        scroll = QScrollArea(self)
+        main_box.addWidget(scroll)
+        scroll.setWidgetResizable(True)    
+        scrollContent = QWidget(scroll)
         self.grid = QGridLayout()
-        self.setLayout(self.grid)
+        # self.setLayout(self.grid)
+        scrollContent.setLayout(self.grid)
         # insert submit button at top
         self.submit_btn = QPushButton("Submit")
         self.grid.addWidget(self.submit_btn,0,0,1,1)
@@ -138,42 +156,65 @@ class KitAdder(QWidget):
         kit_name = QLineEdit()
         kit_name.setObjectName("kit_name")
         self.grid.addWidget(kit_name,2,1)
-        self.grid.addWidget(QLabel("Used For Sample Type:"),3,0)
+        self.grid.addWidget(QLabel("Used For Submission Type:"),3,0)
         # widget to get uses of kit
         used_for = QComboBox()
         used_for.setObjectName("used_for")
         # Insert all existing sample types
-        # used_for.addItems(lookup_all_sample_types(ctx=parent_ctx))
         used_for.addItems([item.name for item in lookup_submission_type(ctx=parent_ctx)])
         used_for.setEditable(True)
         self.grid.addWidget(used_for,3,1)
-        # set cost per run
-        self.grid.addWidget(QLabel("Constant cost per full plate (plates, work hours, etc.):"),4,0)
-        # widget to get constant cost
-        const_cost = QDoubleSpinBox() #QSpinBox()
-        const_cost.setObjectName("const_cost")
-        const_cost.setMinimum(0)
-        const_cost.setMaximum(9999)
-        self.grid.addWidget(const_cost,4,1)
-        self.grid.addWidget(QLabel("Cost per column (multidrop reagents, etc.):"),5,0)
-        # widget to get mutable costs per column
-        mut_cost_col = QDoubleSpinBox() #QSpinBox()
-        mut_cost_col.setObjectName("mut_cost_col")
-        mut_cost_col.setMinimum(0)
-        mut_cost_col.setMaximum(9999)
-        self.grid.addWidget(mut_cost_col,5,1)
-        self.grid.addWidget(QLabel("Cost per sample (tips, reagents, etc.):"),6,0)
-        # widget to get mutable costs per column
-        mut_cost_samp = QDoubleSpinBox() #QSpinBox()
-        mut_cost_samp.setObjectName("mut_cost_samp")
-        mut_cost_samp.setMinimum(0)
-        mut_cost_samp.setMaximum(9999)
-        self.grid.addWidget(mut_cost_samp,6,1)
+        # Get all fields in SubmissionTypeKitTypeAssociation
+        self.columns = [item for item in SubmissionTypeKitTypeAssociation.__table__.columns if len(item.foreign_keys) == 0]
+        for iii, column in enumerate(self.columns):
+            idx = iii + 4
+            # convert field name to human readable.
+            field_name = column.name.replace("_", " ").title()
+            self.grid.addWidget(QLabel(field_name),idx,0)
+            match column.type:
+                case FLOAT():
+                    add_widget = QDoubleSpinBox()
+                    add_widget.setMinimum(0)
+                    add_widget.setMaximum(9999)
+                case INTEGER():
+                    add_widget = QSpinBox()
+                    add_widget.setMinimum(0)
+                    add_widget.setMaximum(9999)
+                case _:
+                    add_widget = QLineEdit()
+            add_widget.setObjectName(column.name)
+            self.grid.addWidget(add_widget, idx,1)
+        # self.grid.addWidget(QLabel("Constant cost per full plate (plates, work hours, etc.):"),4,0)
+        # # widget to get constant cost
+        # const_cost = QDoubleSpinBox() #QSpinBox()
+        # const_cost.setObjectName("const_cost")
+        # const_cost.setMinimum(0)
+        # const_cost.setMaximum(9999)
+        # self.grid.addWidget(const_cost,4,1)
+        # self.grid.addWidget(QLabel("Cost per column (multidrop reagents, etc.):"),5,0)
+        # # widget to get mutable costs per column
+        # mut_cost_col = QDoubleSpinBox() #QSpinBox()
+        # mut_cost_col.setObjectName("mut_cost_col")
+        # mut_cost_col.setMinimum(0)
+        # mut_cost_col.setMaximum(9999)
+        # self.grid.addWidget(mut_cost_col,5,1)
+        # self.grid.addWidget(QLabel("Cost per sample (tips, reagents, etc.):"),6,0)
+        # # widget to get mutable costs per column
+        # mut_cost_samp = QDoubleSpinBox() #QSpinBox()
+        # mut_cost_samp.setObjectName("mut_cost_samp")
+        # mut_cost_samp.setMinimum(0)
+        # mut_cost_samp.setMaximum(9999)
+        # self.grid.addWidget(mut_cost_samp,6,1)
         # button to add additional reagent types
         self.add_RT_btn = QPushButton("Add Reagent Type")
         self.grid.addWidget(self.add_RT_btn)
         self.add_RT_btn.clicked.connect(self.add_RT)
         self.submit_btn.clicked.connect(self.submit)
+        scroll.setWidget(scrollContent)
+        self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
+                       "qt_scrollarea_vcontainer", "submit_btn"
+                       ]
+        
 
     def add_RT(self) -> None:
         """
@@ -181,9 +222,11 @@ class KitAdder(QWidget):
         """        
         # get bottommost row
         maxrow = self.grid.rowCount()
-        reg_form = ReagentTypeForm(parent_ctx=self.ctx)
+        reg_form = ReagentTypeForm(ctx=self.ctx)
         reg_form.setObjectName(f"ReagentForm_{maxrow}")
-        self.grid.addWidget(reg_form, maxrow + 1,0,1,2)
+        # self.grid.addWidget(reg_form, maxrow + 1,0,1,2)
+        self.grid.addWidget(reg_form, maxrow,0,1,4)
+        
 
 
     def submit(self) -> None:
@@ -191,40 +234,62 @@ class KitAdder(QWidget):
         send kit to database
         """        
         # get form info
-        info, reagents = extract_form_info(self)
-        logger.debug(f"kit info: {info}")
-        yml_type = {}
-        try:
-            yml_type['password'] = info['password']
-        except KeyError:
-            pass
-        used = info['used_for']
-        yml_type[used] = {}
-        yml_type[used]['kits'] = {}
-        yml_type[used]['kits'][info['kit_name']] = {}
-        yml_type[used]['kits'][info['kit_name']]['constant_cost'] = info["const_cost"]
-        yml_type[used]['kits'][info['kit_name']]['mutable_cost_column'] = info["mut_cost_col"]
-        yml_type[used]['kits'][info['kit_name']]['mutable_cost_sample'] = info["mut_cost_samp"]
-        yml_type[used]['kits'][info['kit_name']]['reagenttypes'] = reagents
-        logger.debug(yml_type)
+        info, reagents = self.parse_form()
+        # info, reagents = extract_form_info(self)
+        info = {k:v for k,v in info.items() if k in [column.name for column in self.columns] + ['kit_name', 'used_for']}
+        logger.debug(f"kit info: {pformat(info)}")
+        logger.debug(f"kit reagents: {pformat(reagents)}")
+        info['reagent_types'] = reagents
+        # for reagent in reagents:
+        #     new_dict = {}
+        #     for k,v in reagent.items():
+        #         if "_" in k:
+        #             key, sub_key = k.split("_")
+        #             if key not in new_dict.keys():
+        #                 new_dict[key] = {}
+        #             logger.debug(f"Adding key {key}, {sub_key} and value {v} to {new_dict}")
+        #             new_dict[key][sub_key] = v
+        #         else:
+        #             new_dict[k] = v
+        #     info['reagent_types'].append(new_dict)
+        logger.debug(pformat(info))
         # send to kit constructor
-        result = construct_kit_from_yaml(ctx=self.ctx, exp=yml_type)
+        result = construct_kit_from_yaml(ctx=self.ctx, kit_dict=info)
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
         self.__init__(self.ctx)
+
+    def parse_form(self) -> Tuple[dict, list]:
+        logger.debug(f"Hello from {self.__class__} parser!")
+        info = {}
+        reagents = []
+        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore and not isinstance(widget.parent(), ReagentTypeForm)]
+        for widget in widgets:
+            # logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)} with parent {widget.parent()}")
+            match widget:
+                case ReagentTypeForm():
+                    reagents.append(widget.parse_form())
+                case QLineEdit():
+                    info[widget.objectName()] = widget.text()
+                case QComboBox():
+                    info[widget.objectName()] = widget.currentText()
+                case QDateEdit():
+                    info[widget.objectName()] = widget.date().toPyDate()
+        return info, reagents
+        
 
 class ReagentTypeForm(QWidget):
     """
     custom widget to add information about a new reagenttype
     """    
-    def __init__(self, ctx:dict) -> None:
+    def __init__(self, ctx:Settings) -> None:
         super().__init__()
         grid = QGridLayout()
         self.setLayout(grid)
-        grid.addWidget(QLabel("Name (*Exactly* as it appears in the excel submission form):"),0,0)
+        grid.addWidget(QLabel("Reagent Type Name"),0,0)
         # Widget to get reagent info
         self.reagent_getter = QComboBox()
-        self.reagent_getter.setObjectName("name")
+        self.reagent_getter.setObjectName("rtname")
         # lookup all reagent type names from db
         lookup = lookup_reagent_types(ctx=ctx)
         logger.debug(f"Looked up ReagentType names: {lookup}")
@@ -233,10 +298,66 @@ class ReagentTypeForm(QWidget):
         grid.addWidget(self.reagent_getter,0,1)
         grid.addWidget(QLabel("Extension of Life (months):"),0,2)
         # widget to get extension of life
-        eol = QSpinBox()
-        eol.setObjectName('eol')
-        eol.setMinimum(0)
-        grid.addWidget(eol, 0,3)
+        self.eol = QSpinBox()
+        self.eol.setObjectName('eol')
+        self.eol.setMinimum(0)
+        grid.addWidget(self.eol, 0,3)
+        grid.addWidget(QLabel("Excel Location Sheet Name:"),1,0)
+        self.location_sheet_name = QLineEdit()
+        self.location_sheet_name.setObjectName("sheet")
+        self.location_sheet_name.setText("e.g. 'Reagent Info'")
+        grid.addWidget(self.location_sheet_name, 1,1)
+        for iii, item in enumerate(["Name", "Lot", "Expiry"]):
+            idx = iii + 2
+            grid.addWidget(QLabel(f"{item} Row:"), idx, 0)
+            row = QSpinBox()
+            row.setFixedWidth(50)
+            row.setObjectName(f'{item.lower()}_row')
+            row.setMinimum(0)
+            grid.addWidget(row, idx, 1)
+            grid.addWidget(QLabel(f"{item} Column:"), idx, 2)
+            col = QSpinBox()
+            col.setFixedWidth(50)
+            col.setObjectName(f'{item.lower()}_column')
+            col.setMinimum(0)
+            grid.addWidget(col, idx, 3)
+        self.setFixedHeight(175)
+        max_row = grid.rowCount()
+        self.r_button = QPushButton("Remove")
+        self.r_button.clicked.connect(self.remove)
+        grid.addWidget(self.r_button,max_row,0,1,1)
+        self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
+                       "qt_scrollarea_vcontainer", "submit_btn", "eol", "sheet", "rtname"
+                       ]
+
+    def remove(self):
+        self.setParent(None)
+        self.destroy()
+
+    def parse_form(self) -> dict:
+        logger.debug(f"Hello from {self.__class__} parser!")
+        info = {}
+        info['eol'] = self.eol.value()
+        info['sheet'] = self.location_sheet_name.text()
+        info['rtname'] = self.reagent_getter.currentText()
+        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore]
+        for widget in widgets:
+            logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)} with parent {widget.parent()}")
+            match widget:
+                case QLineEdit():
+                    info[widget.objectName()] = widget.text()
+                case QComboBox():
+                    info[widget.objectName()] = widget.currentText()
+                case QDateEdit():
+                    info[widget.objectName()] = widget.date().toPyDate()
+                case QSpinBox() | QDoubleSpinBox():
+                    if "_" in widget.objectName():
+                        key, sub_key = widget.objectName().split("_")
+                        if key not in info.keys():
+                            info[key] = {}
+                            logger.debug(f"Adding key {key}, {sub_key} and value {widget.value()} to {info}")
+                        info[key][sub_key] = widget.value()        
+        return info
 
 class ControlsDatePicker(QWidget):
     """
@@ -336,3 +457,4 @@ class ParsedQLabel(QLabel):
             self.setText(f"Parsed {output}")
         else:
             self.setText(f"MISSING {output}")
+

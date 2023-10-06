@@ -13,6 +13,9 @@ from sqlalchemy.ext.associationproxy import association_proxy
 import uuid
 from pandas import Timestamp
 from dateutil.parser import parse
+import re
+import pandas as pd
+from tools import row_map
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -43,6 +46,7 @@ class BasicSubmission(Base):
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
     comment = Column(JSON)
+    submission_category = Column(String(64))
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -83,7 +87,7 @@ class BasicSubmission(Base):
             dict: dictionary used in submissions summary and details
         """        
         # get lab from nested organization object
-        logger.debug(f"Converting {self.rsl_plate_num} to dict...")
+        # logger.debug(f"Converting {self.rsl_plate_num} to dict...")
         try:
             sub_lab = self.submitting_lab.name
         except AttributeError:
@@ -125,6 +129,7 @@ class BasicSubmission(Base):
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
             "Submission Type": self.submission_type_name,
+            "Submission Category": self.submission_category,
             "Submitter Plate Number": self.submitter_plate_num,
             "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
             "Submitting Lab": sub_lab,
@@ -232,6 +237,34 @@ class BasicSubmission(Base):
             else:
                 continue
         return output_list
+    
+    @classmethod
+    def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
+        """
+        Update submission dictionary with type specific information
+
+        Args:
+            input_dict (dict): Input sample dictionary
+
+        Returns:
+            dict: Updated sample dictionary
+        """        
+        logger.debug(f"Calling {cls.__name__} info parser.")
+        return input_dict
+    
+    @classmethod
+    def parse_samples(cls, input_dict:dict) -> dict:
+        """
+        Update sample dictionary with type specific information
+
+        Args:
+            input_dict (dict): Input sample dictionary
+
+        Returns:
+            dict: Updated sample dictionary
+        """        
+        logger.debug(f"Called {cls.__name__} sample parser")
+        return input_dict
 
 # Below are the custom submission types
 
@@ -252,7 +285,7 @@ class BacterialCulture(BasicSubmission):
         output = super().to_dict(full_data=full_data)
         if full_data:
             output['controls'] = [item.to_sub_dict() for item in self.controls]
-        return output   
+        return output
 
 class Wastewater(BasicSubmission):
     """
@@ -277,6 +310,23 @@ class Wastewater(BasicSubmission):
             pass
         output['Technician'] = f"Enr: {self.technician}, Ext: {self.ext_technician}, PCR: {self.pcr_technician}"
         return output
+    
+    @classmethod
+    def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
+        """
+        Update submission dictionary with type specific information. Extends parent
+
+        Args:
+            input_dict (dict): Input sample dictionary
+
+        Returns:
+            dict: Updated sample dictionary
+        """        
+        input_dict = super().parse_info(input_dict)
+        if xl != None:
+            input_dict['csv'] = xl.parse("Copy to import file")
+        return input_dict
+
     
 class WastewaterArtic(BasicSubmission):
     """
@@ -303,6 +353,25 @@ class WastewaterArtic(BasicSubmission):
         except Exception as e:
             logger.error(f"Calculation error: {e}")
 
+    @classmethod
+    def parse_samples(cls, input_dict: dict) -> dict:
+        """
+        Update sample dictionary with type specific information. Extends parent.
+
+        Args:
+            input_dict (dict): Input sample dictionary
+
+        Returns:
+            dict: Updated sample dictionary
+        """        
+        input_dict = super().parse_samples(input_dict)
+        input_dict['sample_type'] = "Wastewater Sample"
+        # Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
+        # at the end, this has to be done here. No moving to sqlalchemy object :(
+        input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
+        return input_dict
+
+    
 class BasicSample(Base):
     """
     Base of basic sample which polymorphs into BCSample and WWSample
@@ -364,26 +433,31 @@ class BasicSample(Base):
         Returns:
             dict: 'well' and sample submitter_id as 'name'
         """        
-        row_map = {1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H"}
-        self.assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
+        
+        assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
         sample = {}
         try:
-            sample['well'] = f"{row_map[self.assoc.row]}{self.assoc.column}"
+            sample['well'] = f"{row_map[assoc.row]}{assoc.column}"
         except KeyError as e:
-            logger.error(f"Unable to find row {self.assoc.row} in row_map.")
+            logger.error(f"Unable to find row {assoc.row} in row_map.")
             sample['well'] = None
         sample['name'] = self.submitter_id
         return sample
     
     def to_hitpick(self, submission_rsl:str|None=None) -> dict|None:
         """
-        Outputs a dictionary of locations
+        Outputs a dictionary usable for html plate maps.
 
         Returns:
             dict: dictionary of sample id, row and column in elution plate
         """        
         # Since there is no PCR, negliable result is necessary.
-        return dict(name=self.submitter_id, positive=False)
+        assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
+        tooltip_text =  f"""
+                            Sample name: {self.submitter_id}<br>
+                            Well: {row_map[assoc.row]}{assoc.column}
+                        """
+        return dict(name=self.submitter_id, positive=False, tooltip=tooltip_text)
 
 class WastewaterSample(BasicSample):
     """
@@ -445,42 +519,24 @@ class WastewaterSample(BasicSample):
                     value = self.submitter_id
         super().set_attribute(name, value)
 
-
-    def to_sub_dict(self, submission_rsl:str) -> dict:
-        """
-        Gui friendly dictionary. Extends parent method.
-        This version will include PCR status.
-
-        Args:
-            submission_rsl (str): RSL plate number (passed down from the submission.to_dict() functino)
-
-        Returns:
-            dict: Alphanumeric well id and sample name
-        """        
-        # Get the relevant submission association for this sample
-        sample = super().to_sub_dict(submission_rsl=submission_rsl)
-        # check if PCR data exists.
-        try:
-            check = self.assoc.ct_n1 != None and self.assoc.ct_n2 != None
-        except AttributeError as e:
-            check = False
-        if check:
-            sample['name'] = f"{self.submitter_id}\n\t- ct N1: {'{:.2f}'.format(self.assoc.ct_n1)} ({self.assoc.n1_status})\n\t- ct N2: {'{:.2f}'.format(self.assoc.ct_n2)} ({self.assoc.n2_status})"
-        return sample
-    
     def to_hitpick(self, submission_rsl:str) -> dict|None:
         """
-        Outputs a dictionary of locations if sample is positive
+        Outputs a dictionary usable for html plate maps. Extends parent method.
 
         Returns:
             dict: dictionary of sample id, row and column in elution plate
         """       
         sample = super().to_hitpick(submission_rsl=submission_rsl)
+        assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
         # if either n1 or n2 is positive, include this sample
         try:
-            sample['positive'] = any(["positive" in item for item in [self.assoc.n1_status, self.assoc.n2_status]])
+            sample['positive'] = any(["positive" in item for item in [assoc.n1_status, assoc.n2_status]])
         except (TypeError, AttributeError) as e:
             logger.error(f"Couldn't check positives for {self.rsl_number}. Looks like there isn't PCR data.")
+        try:
+            sample['tooltip'] += f"<br>- ct N1: {'{:.2f}'.format(assoc.ct_n1)} ({assoc.n1_status})<br>- ct N2: {'{:.2f}'.format(assoc.ct_n2)} ({assoc.n2_status})"
+        except (TypeError, AttributeError) as e:
+            logger.error(f"Couldn't set tooltip for {self.rsl_number}. Looks like there isn't PCR data.")
         return sample
         
 class BacterialCultureSample(BasicSample):

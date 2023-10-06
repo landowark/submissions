@@ -86,6 +86,7 @@ class PydSubmission(BaseModel, extra=Extra.allow):
     sample_count: dict|None
     extraction_kit: dict|None
     technician: dict|None
+    submission_category: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
     reagents: List[dict] = []
     samples: List[Any]
     
@@ -205,3 +206,11 @@ class PydSubmission(BaseModel, extra=Extra.allow):
             return dict(value=value, parsed=True)
         else:
             return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
+        
+    @field_validator("submission_category")
+    @classmethod
+    def rescue_category(cls, value, values):
+        if value['value'] not in ["Research", "Diagnostic", "Surveillance"]:
+            value['value'] = values.data['submission_type']['value']
+        return value
+

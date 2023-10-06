@@ -1,5 +1,14 @@
+## 202310.01
+
+- Controls linker is now depreciated.
+- Controls will now be directly added to their submissions instead of having to run linker.
+- Submission details now has additional html functionality in plate map.
+- Added Submission Category to fields.
+- Increased robustness of form parsers by adding custom procedures for each.
+
 ## 202309.04
 
+- Updated KitAdder to add location info as well.
 - Extraction kit can now be updated after import.
 - Large scale refactoring to improve efficiency of database functions.
 

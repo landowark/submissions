@@ -209,7 +209,11 @@ def lookup_submissions(ctx:Settings,
     match rsl_number:
         case str():
             logger.debug(f"Looking up BasicSubmission with rsl number: {rsl_number}")
-            rsl_number = RSLNamer(ctx=ctx, instr=rsl_number).parsed_name
+            try:
+                rsl_number = RSLNamer(ctx=ctx, instr=rsl_number).parsed_name
+            except AttributeError as e:
+                logger.error(f"No parsed name found, returning None.")
+                return None
             # query = query.filter(models.BasicSubmission.rsl_plate_num==rsl_number)
             query = query.filter(model.rsl_plate_num==rsl_number)
             limit = 1
@@ -306,6 +310,7 @@ def lookup_controls(ctx:Settings,
                     control_type:models.ControlType|str|None=None,
                     start_date:date|str|int|None=None,
                     end_date:date|str|int|None=None,
+                    control_name:str|None=None,
                     limit:int=0
                     ) -> models.Control|List[models.Control]:
     query = setup_lookup(ctx=ctx, locals=locals()).query(models.Control)
@@ -343,6 +348,12 @@ def lookup_controls(ctx:Settings,
                 end_date = parse(end_date).strftime("%Y-%m-%d")
         logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
         query = query.filter(models.Control.submitted_date.between(start_date, end_date))
+    match control_name:
+        case str():
+            query = query.filter(models.Control.name.startswith(control_name))
+            limit = 1
+        case _:
+            pass
     return query_return(query=query, limit=limit)
     
 def lookup_control_types(ctx:Settings, limit:int=0) -> models.ControlType|List[models.ControlType]:

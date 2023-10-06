@@ -1,22 +1,26 @@
 '''
 Constructs main application.
 '''
+from pprint import pformat
 import sys
+from typing import Tuple
 from PyQt6.QtWidgets import (
     QMainWindow, QToolBar, 
     QTabWidget, QWidget, QVBoxLayout,
     QComboBox, QHBoxLayout,
-    QScrollArea
+    QScrollArea, QLineEdit, QDateEdit,
+    QSpinBox
 )
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
 from backend.db import (
     construct_reagent, store_object, lookup_control_types, lookup_modes
 )
-from .all_window_functions import extract_form_info
+# from .all_window_functions import extract_form_info
 from tools import check_if_app, Settings
-from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker
+from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ImportReagent
 import logging
 from datetime import date
 import webbrowser
@@ -51,7 +55,9 @@ class App(QMainWindow):
         self._createToolBar()
         self._connectActions()
         self._controls_getter()
+        # self.status_bar = self.statusBar()
         self.show()
+        self.statusBar().showMessage('Ready', 5000)
         
 
     def _createMenuBar(self):
@@ -73,7 +79,7 @@ class App(QMainWindow):
         fileMenu.addAction(self.importPCRAction)
         methodsMenu.addAction(self.constructFS)
         reportMenu.addAction(self.generateReportAction)
-        maintenanceMenu.addAction(self.joinControlsAction)
+        # maintenanceMenu.addAction(self.joinControlsAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
         
@@ -99,7 +105,7 @@ class App(QMainWindow):
         self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Import Kit", self)
         self.addOrgAction = QAction("Import Org", self)
-        self.joinControlsAction = QAction("Link Controls")
+        # self.joinControlsAction = QAction("Link Controls")
         self.joinExtractionAction = QAction("Link Extraction Logs")
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
@@ -122,7 +128,7 @@ class App(QMainWindow):
         self.table_widget.mode_typer.currentIndexChanged.connect(self._controls_getter)
         self.table_widget.datepicker.start_date.dateChanged.connect(self._controls_getter)
         self.table_widget.datepicker.end_date.dateChanged.connect(self._controls_getter)
-        self.joinControlsAction.triggered.connect(self.linkControls)
+        # self.joinControlsAction.triggered.connect(self.linkControls)
         self.joinExtractionAction.triggered.connect(self.linkExtractions)
         self.joinPCRAction.triggered.connect(self.linkPCR)
         self.helpAction.triggered.connect(self.showAbout)
@@ -149,6 +155,7 @@ class App(QMainWindow):
         webbrowser.get('windows-default').open(f"file://{url.__str__()}")
 
     def result_reporter(self, result:dict|None=None):
+    # def result_reporter(self, result:TypedDict[]|None=None):
         """
         Report any anomolous results - if any - to the user
 
@@ -158,6 +165,8 @@ class App(QMainWindow):
         if result != None:
             msg = AlertPop(message=result['message'], status=result['status'])
             msg.exec()
+        else:
+            self.statusBar().showMessage("Action completed sucessfully.", 5000)
 
     def importSubmission(self):
         """
@@ -211,13 +220,15 @@ class App(QMainWindow):
         dlg = AddReagentForm(ctx=self.ctx, reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry, reagent_name=name)
         if dlg.exec():
             # extract form info
-            info = extract_form_info(dlg)
+            # info = extract_form_info(dlg)
+            info = dlg.parse_form()
             logger.debug(f"Reagent info: {info}")
             # create reagent object
             reagent = construct_reagent(ctx=self.ctx, info_dict=info)
             # send reagent to db
             # store_reagent(ctx=self.ctx, reagent=reagent)
             result = store_object(ctx=self.ctx, object=reagent)
+            self.result_reporter(result=result)
             return reagent
 
     def generateReport(self):
@@ -263,6 +274,7 @@ class App(QMainWindow):
     def linkControls(self):
         """
         Adds controls pulled from irida to relevant submissions
+        NOTE: Depreciated due to improvements in controls scraper.
         """    
         from .main_window_functions import link_controls_function
         self, result = link_controls_function(self)
@@ -327,7 +339,7 @@ class AddSubForm(QWidget):
         self.tabs.addTab(self.tab2,"Controls")
         self.tabs.addTab(self.tab3, "Add Kit")
         # Create submission adder form
-        self.formwidget = QWidget(self)
+        self.formwidget = SubmissionFormWidget(self)
         self.formlayout = QVBoxLayout(self)
         self.formwidget.setLayout(self.formlayout)
         self.formwidget.setFixedWidth(300)
@@ -380,4 +392,33 @@ class AddSubForm(QWidget):
         # add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
+
+class SubmissionFormWidget(QWidget):
+
+    def __init__(self, parent: QWidget) -> None:
+        logger.debug(f"Setting form widget...")
+        super().__init__(parent)
+        self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
+                       "qt_scrollarea_vcontainer", "submit_btn"
+                       ]
+
+    def parse_form(self) -> Tuple[dict, list]:
+        logger.debug(f"Hello from parser!")
+        info = {}
+        reagents = []
+        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore]
+        for widget in widgets:
+            logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)}")
+            match widget:
+                case ImportReagent():
+                    reagents.append(dict(name=widget.objectName().replace("lot_", ""), lot=widget.currentText()))
+                case QLineEdit():
+                    info[widget.objectName()] = widget.text()
+                case QComboBox():
+                    info[widget.objectName()] = widget.currentText()
+                case QDateEdit():
+                    info[widget.objectName()] = widget.date().toPyDate()
+        logger.debug(f"Info: {pformat(info)}")
+        logger.debug(f"Reagents: {pformat(reagents)}")
+        return info, reagents
 

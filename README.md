@@ -49,7 +49,16 @@ This is meant to import .xslx files created from the Design & Analysis Software
 
 ## Adding new Kit:
 
-1. Instructions to come.
+1. Click "Add Kit" tab in the tab bar.
+2. Select the Submission type from the drop down menu.
+3. Fill in the kit name (required) and other fields (optional).
+4. For each reagent type in the kit click the "Add Reagent Type" button.
+5. Fill in the name of the reagent type. Alternatively select from already existing types in the drop down.
+6. Fill in the reagent location in the excel submission sheet.
+	a. For example if the reagent name is in a sheet called "Reagent Info" in row 12, column 1, type "Reagent Info" in the "Excel Location Sheet Name" field. 
+	b. Set 12 in the "Name Row" and 1 in the "Name Column".
+	c. Repeat 6b for the Lot and the Expiry row and columns.
+7. Click the "Submit" button at the top.
 
 ## Linking Controls:
 

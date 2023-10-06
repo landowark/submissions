@@ -12,10 +12,10 @@
         <h3><u>{{ lab['lab'] }}:</u></h3>
             {% for kit in lab['kits'] %}
             <p><b>{{ kit['name'] }}</b></p>
-                <p>     Plates: {{ kit['plate_count'] }}, Samples: {{ kit['sample_count'] }}, Cost: {{ "${:,.2f}".format(kit['cost']) }}</p>
+                <p>     Runs: {{ kit['plate_count'] }}, Samples: {{ kit['sample_count'] }}, Cost: {{ "${:,.2f}".format(kit['cost']) }}</p>
             {% endfor %}
             <p><b>Lab total:</b></p>
-                <p>     Plates: {{ lab['total_plates'] }}, Samples: {{ lab['total_samples'] }}, Cost: {{ "${:,.2f}".format(lab['total_cost']) }}</p>
+                <p>     Runs: {{ lab['total_plates'] }}, Samples: {{ lab['total_samples'] }}, Cost: {{ "${:,.2f}".format(lab['total_cost']) }}</p>
         <br>
         {% endfor %}
     </body>

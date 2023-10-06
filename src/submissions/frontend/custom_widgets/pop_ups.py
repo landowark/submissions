@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 from tools import jinja_template_loading
 import logging
 from backend.db.functions import lookup_kit_types, lookup_submission_type
+from typing import Literal
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -36,7 +37,7 @@ class AlertPop(QMessageBox):
     """
     Dialog to show an alert.
     """    
-    def __init__(self, message:str, status:str) -> QMessageBox:
+    def __init__(self, message:str, status:Literal['information', 'question', 'warning', 'critical']) -> QMessageBox:
         super().__init__()
         # select icon by string
         icon = getattr(QMessageBox.Icon, status.title())

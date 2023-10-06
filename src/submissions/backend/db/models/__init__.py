@@ -2,11 +2,11 @@
 Contains all models for sqlalchemy
 '''
 from typing import Any
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, DeclarativeMeta
 import logging
 from pprint import pformat
 
-Base = declarative_base()
+Base: DeclarativeMeta = declarative_base()
 metadata = Base.metadata
 
 logger = logging.getLogger(f"submissions.{__name__}")

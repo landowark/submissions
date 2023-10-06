@@ -1,7 +1,12 @@
+- [ ] Get info for controls into their sample hitpicks.
+- [x] Move submission-type specific parser functions into class methods in their respective models.
+- [ ] Improve results reporting.
+    - Maybe make it a list until it gets to the reporter?
+- [x] Increase robustness of form parsers by adding custom procedures for each.
 - [x] Rerun Kit integrity if extraction kit changed in the form.
 - [x] Clean up db.functions.
-- [ ] Make kits easier to add.
-- [ ] Clean up & document code... again.
+- [x] Make kits easier to add.
+- [x] Clean up & document code... again.
     - Including paring down the logging.debugs
     - Also including reducing number of functions in db.functions
 - [x] Fix Tests... again.

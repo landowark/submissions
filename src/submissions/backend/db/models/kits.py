@@ -333,3 +333,6 @@ class SubmissionTypeKitTypeAssociation(Base):
 
     def __repr__(self) -> str:
         return f"<SubmissionTypeKitTypeAssociation({self.submission_type.name})"
+    
+    def set_attrib(self, name, value):
+        self.__setattr__(name, value)
