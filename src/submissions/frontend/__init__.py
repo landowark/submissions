@@ -8,17 +8,15 @@ from PyQt6.QtWidgets import (
     QMainWindow, QToolBar, 
     QTabWidget, QWidget, QVBoxLayout,
     QComboBox, QHBoxLayout,
-    QScrollArea, QLineEdit, QDateEdit,
-    QSpinBox
+    QScrollArea, QLineEdit, QDateEdit
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
 from backend.db import (
     construct_reagent, store_object, lookup_control_types, lookup_modes
 )
-# from .all_window_functions import extract_form_info
 from tools import check_if_app, Settings
 from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ImportReagent
 import logging
@@ -55,7 +53,6 @@ class App(QMainWindow):
         self._createToolBar()
         self._connectActions()
         self._controls_getter()
-        # self.status_bar = self.statusBar()
         self.show()
         self.statusBar().showMessage('Ready', 5000)
         
@@ -68,7 +65,6 @@ class App(QMainWindow):
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
-        # editMenu = menuBar.addMenu("&Edit")
         methodsMenu = menuBar.addMenu("&Methods")
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
@@ -79,7 +75,6 @@ class App(QMainWindow):
         fileMenu.addAction(self.importPCRAction)
         methodsMenu.addAction(self.constructFS)
         reportMenu.addAction(self.generateReportAction)
-        # maintenanceMenu.addAction(self.joinControlsAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
         
@@ -105,7 +100,6 @@ class App(QMainWindow):
         self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Import Kit", self)
         self.addOrgAction = QAction("Import Org", self)
-        # self.joinControlsAction = QAction("Link Controls")
         self.joinExtractionAction = QAction("Link Extraction Logs")
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
@@ -128,12 +122,12 @@ class App(QMainWindow):
         self.table_widget.mode_typer.currentIndexChanged.connect(self._controls_getter)
         self.table_widget.datepicker.start_date.dateChanged.connect(self._controls_getter)
         self.table_widget.datepicker.end_date.dateChanged.connect(self._controls_getter)
-        # self.joinControlsAction.triggered.connect(self.linkControls)
         self.joinExtractionAction.triggered.connect(self.linkExtractions)
         self.joinPCRAction.triggered.connect(self.linkPCR)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
         self.constructFS.triggered.connect(self.construct_first_strand)
+        self.table_widget.formwidget.import_drag.connect(self.importSubmission)
 
     def showAbout(self):
         """
@@ -168,12 +162,14 @@ class App(QMainWindow):
         else:
             self.statusBar().showMessage("Action completed sucessfully.", 5000)
 
-    def importSubmission(self):
+    def importSubmission(self, fname:Path|None=None):
         """
         import submission from excel sheet into form
         """        
         from .main_window_functions import import_submission_function
-        self, result = import_submission_function(self)
+        self.raise_()
+        self.activateWindow()
+        self, result = import_submission_function(self, fname)
         logger.debug(f"Import result: {result}")
         self.result_reporter(result)
 
@@ -395,12 +391,25 @@ class AddSubForm(QWidget):
 
 class SubmissionFormWidget(QWidget):
 
+    import_drag = pyqtSignal(Path)
+
     def __init__(self, parent: QWidget) -> None:
         logger.debug(f"Setting form widget...")
         super().__init__(parent)
         self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
                        "qt_scrollarea_vcontainer", "submit_btn"
                        ]
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        fname = Path([u.toLocalFile() for u in event.mimeData().urls()][0])
+        self.import_drag.emit(fname)
 
     def parse_form(self) -> Tuple[dict, list]:
         logger.debug(f"Hello from parser!")

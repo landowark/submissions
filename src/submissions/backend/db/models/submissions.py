@@ -1,6 +1,7 @@
 '''
 Models for the main submission types.
 '''
+from getpass import getuser
 import math
 from . import Base
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT, case
@@ -15,7 +16,8 @@ from pandas import Timestamp
 from dateutil.parser import parse
 import re
 import pandas as pd
-from tools import row_map
+from openpyxl import Workbook
+from tools import check_not_nan, row_map
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -239,6 +241,20 @@ class BasicSubmission(Base):
         return output_list
     
     @classmethod
+    def custom_platemap(cls, xl:pd.ExcelFile, plate_map:pd.DataFrame) -> pd.DataFrame:
+        """
+        Stupid stopgap solution to there being an issue with the Bacterial Culture plate map
+
+        Args:
+            xl (pd.ExcelFile): original xl workbook
+            plate_map (pd.DataFrame): original plate map
+
+        Returns:
+            pd.DataFrame: updated plate map.
+        """        
+        return plate_map
+    
+    @classmethod
     def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
         """
         Update submission dictionary with type specific information
@@ -265,6 +281,19 @@ class BasicSubmission(Base):
         """        
         logger.debug(f"Called {cls.__name__} sample parser")
         return input_dict
+    
+    @classmethod
+    def custom_autofill(cls, input_excel:Workbook) -> Workbook:
+        """
+        Adds custom autofill methods for submission
+
+        Args:
+            input_excel (Workbook): input workbook
+
+        Returns:
+            Workbook: updated workbook
+        """        
+        return input_excel
 
 # Below are the custom submission types
 
@@ -286,6 +315,49 @@ class BacterialCulture(BasicSubmission):
         if full_data:
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
+    
+    @classmethod
+    def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
+        """
+        Stupid stopgap solution to there being an issue with the Bacterial Culture plate map. Extends parent.
+
+        Args:
+            xl (pd.ExcelFile): original xl workbook
+            plate_map (pd.DataFrame): original plate map
+
+        Returns:
+            pd.DataFrame: updated plate map.
+        """        
+        plate_map = super().custom_platemap(xl, plate_map)
+        num1 = xl.parse("Sample List").iloc[40,1]
+        num2 = xl.parse("Sample List").iloc[41,1]
+        logger.debug(f"Broken: {plate_map.iloc[5,0]}, {plate_map.iloc[6,0]}")
+        logger.debug(f"Replace: {num1}, {num2}")
+        if not check_not_nan(plate_map.iloc[5,0]):
+            plate_map.iloc[5,0] = num1
+        if not check_not_nan(plate_map.iloc[6,0]):
+            plate_map.iloc[6,0] = num2
+        return plate_map
+    
+    @classmethod
+    def custom_autofill(cls, input_excel: Workbook) -> Workbook:
+        """
+        Stupid stopgap solution to there being an issue with the Bacterial Culture plate map. Extends parent.
+
+        Args:
+            input_excel (Workbook): Input openpyxl workbook
+
+        Returns:
+            Workbook: Updated openpyxl workbook
+        """        
+        input_excel = super().custom_autofill(input_excel)
+        sheet = input_excel['Plate Map']
+        if sheet.cell(12,2).value == None:
+            sheet.cell(row=12, column=2, value="=IF(ISBLANK('Sample List'!$B42),\"\",'Sample List'!$B42)")
+        if sheet.cell(13,2).value == None:
+            sheet.cell(row=13, column=2, value="=IF(ISBLANK('Sample List'!$B43),\"\",'Sample List'!$B43)")
+        input_excel["Sample List"].cell(row=15, column=2, value=getuser()[0:2].upper())
+        return input_excel
 
 class Wastewater(BasicSubmission):
     """
@@ -326,8 +398,7 @@ class Wastewater(BasicSubmission):
         if xl != None:
             input_dict['csv'] = xl.parse("Copy to import file")
         return input_dict
-
-    
+  
 class WastewaterArtic(BasicSubmission):
     """
     derivative submission type for artic wastewater
@@ -371,7 +442,6 @@ class WastewaterArtic(BasicSubmission):
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
         return input_dict
 
-    
 class BasicSample(Base):
     """
     Base of basic sample which polymorphs into BCSample and WWSample
@@ -457,7 +527,7 @@ class BasicSample(Base):
                             Sample name: {self.submitter_id}<br>
                             Well: {row_map[assoc.row]}{assoc.column}
                         """
-        return dict(name=self.submitter_id, positive=False, tooltip=tooltip_text)
+        return dict(name=self.submitter_id[:10], positive=False, tooltip=tooltip_text)
 
 class WastewaterSample(BasicSample):
     """
@@ -538,6 +608,16 @@ class WastewaterSample(BasicSample):
         except (TypeError, AttributeError) as e:
             logger.error(f"Couldn't set tooltip for {self.rsl_number}. Looks like there isn't PCR data.")
         return sample
+    
+    def get_recent_ww_submission(self):
+        results = [sub for sub in self.submissions if isinstance(sub, Wastewater)]
+        if len(results) > 1:
+            results = results.sort(key=lambda sub: sub.submitted_date)
+        try:
+            return results[0]
+        except IndexError:
+            return None
+        
         
 class BacterialCultureSample(BasicSample):
     """

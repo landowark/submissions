@@ -376,6 +376,8 @@ class SampleParser(object):
         df = df.iloc[plate_map_location['start_row']-1:plate_map_location['end_row'], plate_map_location['start_column']-1:plate_map_location['end_column']]
         df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
         df = df.set_index(df.columns[0])
+        custom_mapper = get_polymorphic_subclass(models.BasicSubmission, self.submission_type)
+        df = custom_mapper.custom_platemap(self.xl, df)
         return df
     
     def construct_lookup_table(self, lookup_table_location:dict) -> pd.DataFrame:

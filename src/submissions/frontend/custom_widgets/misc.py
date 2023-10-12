@@ -3,17 +3,19 @@ Contains miscellaneous widgets for frontend functions
 '''
 from datetime import date
 from pprint import pformat
+from PyQt6 import QtCore
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog, 
     QDialogButtonBox, QDateEdit, QSizePolicy, QWidget,
     QGridLayout, QPushButton, QSpinBox, QDoubleSpinBox,
-    QHBoxLayout, QScrollArea
+    QHBoxLayout, QScrollArea, QFormLayout
 )
 from PyQt6.QtCore import Qt, QDate, QSize
 from tools import check_not_nan, jinja_template_loading, Settings
 from backend.db.functions import construct_kit_from_yaml, \
-    lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association
+    lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association, \
+    lookup_submissions
 from backend.db.models import SubmissionTypeKitTypeAssociation
 from sqlalchemy import FLOAT, INTEGER, String
 import logging
@@ -277,7 +279,6 @@ class KitAdder(QWidget):
                     info[widget.objectName()] = widget.date().toPyDate()
         return info, reagents
         
-
 class ReagentTypeForm(QWidget):
     """
     custom widget to add information about a new reagenttype
@@ -457,4 +458,68 @@ class ParsedQLabel(QLabel):
             self.setText(f"Parsed {output}")
         else:
             self.setText(f"MISSING {output}")
+
+class FirstStrandSalvage(QDialog):
+
+    def __init__(self, ctx:Settings, submitter_id:str, rsl_plate_num:str|None=None) -> None:
+        super().__init__()
+        if rsl_plate_num == None:
+            rsl_plate_num = ""
+        self.setWindowTitle("Add Reagent")
+
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.submitter_id_input = QLineEdit()
+        self.submitter_id_input.setText(submitter_id)
+        self.rsl_plate_num = QLineEdit()
+        self.rsl_plate_num.setText(rsl_plate_num)
+        self.row_letter = QComboBox()
+        self.row_letter.addItems(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'])
+        self.row_letter.setEditable(False)
+        self.column_number = QComboBox()
+        self.column_number.addItems(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'])
+        self.column_number.setEditable(False)
+        self.layout = QFormLayout()
+        self.layout.addRow(self.tr("&Sample Number:"), self.submitter_id_input)
+        self.layout.addRow(self.tr("&Plate Number:"), self.rsl_plate_num)
+        self.layout.addRow(self.tr("&Source Row:"), self.row_letter)
+        self.layout.addRow(self.tr("&Source Column:"), self.column_number)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+    def parse_form(self):
+        return dict(plate=self.rsl_plate_num.text(), submitter_id=self.submitter_id_input.text(), well=f"{self.row_letter.currentText()}{self.column_number.currentText()}")
+
+class FirstStrandPlateList(QDialog):
+
+    def __init__(self, ctx:Settings) -> None:
+        super().__init__()
+        self.setWindowTitle("First Strand Plates")
+
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        ww = [item.rsl_plate_num for item in lookup_submissions(ctx=ctx, submission_type="Wastewater")]
+        self.plate1 = QComboBox()
+        self.plate2 = QComboBox()
+        self.plate3 = QComboBox()
+        self.layout = QFormLayout()
+        for ii, plate in enumerate([self.plate1, self.plate2, self.plate3]):
+            plate.addItems(ww)
+            self.layout.addRow(self.tr(f"&Plate {ii+1}:"), plate)
+        self.layout.addWidget(self.buttonBox)
+        self.setLayout(self.layout)
+
+    def parse_form(self):
+        output = []
+        for plate in [self.plate1, self.plate2, self.plate3]:
+            output.append(plate.currentText())
+        return output
+
+
 

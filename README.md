@@ -1,5 +1,5 @@
 ## Startup:
-1. Open the app using the shortcut in the Submissions folder. For example: 'L:\Robotics Laboratory Support\Submissions\submissions_v122b.exe - Shortcut.lnk' (Version may have changed).
+1. Open the app using the shortcut in the Submissions folder. For example: L:\\Robotics Laboratory Support\\Submissions\\submissions_v122b.exe - Shortcut.lnk (Version may have changed).
 	a. Ignore the large black window of fast scrolling text, it is there for debugging purposes.
 	b. The 'Submissions' tab should be open by default.
 
@@ -59,10 +59,6 @@ This is meant to import .xslx files created from the Design & Analysis Software
 	b. Set 12 in the "Name Row" and 1 in the "Name Column".
 	c. Repeat 6b for the Lot and the Expiry row and columns.
 7. Click the "Submit" button at the top.
-
-## Linking Controls:
-
-1. Click "Monthly" -> "Link Controls". Entire process should be handled automatically.
 
 ## Linking Extraction Logs:
 

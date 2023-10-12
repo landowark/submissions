@@ -1,3 +1,8 @@
+## 202310.02
+
+- Improvements to First strand constructor.
+- Submission forms can now be dragged and dropped into the form widget.
+
 ## 202310.01
 
 - Controls linker is now depreciated.

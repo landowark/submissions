@@ -1,6 +1,7 @@
+- [x] Drag and drop files into submission form area?
 - [ ] Get info for controls into their sample hitpicks.
 - [x] Move submission-type specific parser functions into class methods in their respective models.
-- [ ] Improve results reporting.
+- [ ] Improve function results reporting.
     - Maybe make it a list until it gets to the reporter?
 - [x] Increase robustness of form parsers by adding custom procedures for each.
 - [x] Rerun Kit integrity if extraction kit changed in the form.

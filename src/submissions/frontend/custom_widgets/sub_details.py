@@ -291,8 +291,6 @@ class SubmissionDetails(QDialog):
         btn.setParent(self)
         btn.setFixedWidth(900)
         btn.clicked.connect(self.export)
-        with open("test.html", "w") as f:
-            f.write(self.html)
         
     def export(self):
         """

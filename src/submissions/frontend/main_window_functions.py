@@ -22,10 +22,12 @@ from PyQt6.QtWidgets import (
 )
 from .all_window_functions import select_open_file, select_save_file
 from PyQt6.QtCore import QSignalBlocker
+from backend.db.models import BasicSubmission
 from backend.db.functions import (
     construct_submission_info, lookup_reagents, construct_kit_from_yaml, construct_org_from_yaml, get_control_subtypes,
     update_subsampassoc_with_pcr, check_kit_integrity, update_last_used, lookup_organizations, lookup_kit_types, 
-    lookup_submissions, lookup_controls, lookup_samples, lookup_submission_sample_association, store_object, lookup_submission_type
+    lookup_submissions, lookup_controls, lookup_samples, lookup_submission_sample_association, store_object, lookup_submission_type,
+    get_polymorphic_subclass
 )
 from backend.excel.parser import SheetParser, PCRParser, SampleParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
@@ -34,10 +36,12 @@ from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent, ParsedQLabel
 from .visualizations.control_charts import create_charts, construct_html
+from pathlib import Path
+from frontend.custom_widgets.misc import FirstStrandSalvage, FirstStrandPlateList
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]:
+def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[QMainWindow, dict|None]:
     """
     Import a new submission to the app window
 
@@ -56,7 +60,8 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
     obj.missing_info = []
     
     # set file dialog
-    fname = select_open_file(obj, file_extension="xlsx")
+    if isinstance(fname, bool) or fname == None:
+        fname = select_open_file(obj, file_extension="xlsx")
     logger.debug(f"Attempting to parse file: {fname}")
     if not fname.exists():
         result = dict(message=f"File {fname.__str__()} not found.", status="critical")
@@ -113,7 +118,6 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                 add_widget = QComboBox()
                 # lookup existing kits by 'submission_type' decided on by sheetparser
                 logger.debug(f"Looking up kits used for {pyd.submission_type['value']}")
-                # uses = [item.__str__() for item in lookup_kittype_by_use(ctx=obj.ctx, used_for=pyd.submission_type['value'])]
                 uses = [item.__str__() for item in lookup_kit_types(ctx=obj.ctx, used_for=pyd.submission_type['value'])]
                 logger.debug(f"Kits received for {pyd.submission_type['value']}: {uses}")
                 if check_not_nan(value['value']):
@@ -125,7 +129,6 @@ def import_submission_function(obj:QMainWindow) -> Tuple[QMainWindow, dict|None]
                     obj.ext_kit = uses[0]
                 # Run reagent scraper whenever extraction kit is changed.
                 add_widget.currentTextChanged.connect(obj.scrape_reagents)
-                # add_widget.addItems(uses)
             case 'submitted_date':
                 # uses base calendar
                 add_widget = QDateEdit(calendarPopup=True)
@@ -221,7 +224,7 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
     # get current kit being used
     obj.ext_kit = kit_widget.currentText()
     for item in obj.reagents:
-        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':True}, item.type, title=False))
+        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':True}, item.type, title=False, label_name=f"lot_{item.type}"))
         reagent = dict(type=item.type, lot=item.lot, exp=item.exp, name=item.name)
         add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent, extraction_kit=obj.ext_kit)
         obj.table_widget.formlayout.addWidget(add_widget)
@@ -231,7 +234,7 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
         result = dict(message=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in obj.missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
     for item in obj.missing_reagents:
         # Add label that has parsed as False to show "MISSING" label.
-        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item.type, title=False))
+        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item.type, title=False, label_name=f"missing_{item.type}"))
         # Set default parameters for the empty reagent.
         reagent = dict(type=item.type, lot=None, exp=date.today(), name=None)
         # create and add widget
@@ -896,8 +899,8 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
             logger.debug(f"Attempting: {item['type']}")
             worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
         # Hacky way to pop in 'signed by'
-        if info['submission_type'] == "Bacterial Culture":
-            workbook["Sample List"].cell(row=14, column=2, value=getuser()[0:2].upper())
+    custom_parser = get_polymorphic_subclass(BasicSubmission, info['submission_type'])
+    workbook = custom_parser.custom_autofill(workbook)
     fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
     workbook.save(filename=fname.__str__())
 
@@ -934,46 +937,63 @@ def construct_first_strand_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]
     logger.debug(f"Samples: {pformat(samples)}")
     logger.debug("Called first strand sample parser")  
     plates = sprsr.grab_plates()
+    # Fix no plates found in form.
+    if plates == []:
+        dlg = FirstStrandPlateList(ctx=obj.ctx)
+        if dlg.exec():
+            plates = dlg.parse_form()
+    plates = list(set(plates))
     logger.debug(f"Plates: {pformat(plates)}")
     output_samples = []
     logger.debug(f"Samples: {pformat(samples)}")
     old_plate_number = 1
+    old_plate = ''
     for item in samples:
         try:
             item['well'] = re.search(r"\s\((.*)\)$", item['submitter_id']).groups()[0]
         except AttributeError:
-            item['well'] = item
+            pass
         item['submitter_id'] = re.sub(r"\s\(.*\)$", "", str(item['submitter_id'])).strip()
         new_dict = {}
         new_dict['sample'] = item['submitter_id']
-        if item['submitter_id'] == "NTC1":
-            new_dict['destination_row'] = 8
-            new_dict['destination_column'] = 2
-            new_dict['plate_number'] = 'control'
-        elif item['submitter_id'] == "NTC2":
-            new_dict['destination_row'] = 8
-            new_dict['destination_column'] = 5
-            new_dict['plate_number'] = 'control'
-        else:
-            new_dict['destination_row'] = item['row']
-            new_dict['destination_column'] = item['column']
         plate_num, plate = get_plates(input_sample_number=new_dict['sample'], plates=plates)
         if plate_num == None:
             plate_num = str(old_plate_number) + "*"
         else:
             old_plate_number = plate_num
         logger.debug(f"Got plate number: {plate_num}, plate: {plate}")
+        if item['submitter_id'] == "NTC1":
+            new_dict['destination_row'] = 8
+            new_dict['destination_column'] = 2
+            new_dict['plate_number'] = 'control'
+            new_dict['plate'] = None
+            output_samples.append(new_dict)
+            continue
+        elif item['submitter_id'] == "NTC2":
+            new_dict['destination_row'] = 8
+            new_dict['destination_column'] = 5
+            new_dict['plate_number'] = 'control'
+            new_dict['plate'] = None
+            output_samples.append(new_dict)
+            continue
+        else:
+            new_dict['destination_row'] = item['row']
+            new_dict['destination_column'] = item['column']
+            new_dict['plate_number'] = plate_num
+        # Fix plate association not found
         if plate == None:
+            dlg = FirstStrandSalvage(ctx=obj.ctx, submitter_id=item['submitter_id'], rsl_plate_num=old_plate)
+            if dlg.exec():
+                item.update(dlg.parse_form())
             try:
                 new_dict['source_row'], new_dict['source_column'] = convert_well_to_row_column(item['well'])
-                new_dict['plate_number'] = plate_num
             except KeyError:
                 pass
         else:
-            new_dict['plate_number'] = plate_num
             new_dict['plate'] = plate.submission.rsl_plate_num
             new_dict['source_row'] = plate.row
             new_dict['source_column'] = plate.column
+            old_plate = plate.submission.rsl_plate_num
         output_samples.append(new_dict)
     df = pd.DataFrame.from_records(output_samples)
     df.sort_values(by=['destination_column', 'destination_row'], ascending=True, inplace=True)
@@ -1001,6 +1021,7 @@ def scrape_reagents(obj:QMainWindow, extraction_kit:str) -> Tuple[QMainWindow, d
     obj.missing_reagents = []
     # Remove previous reagent widgets
     [item.setParent(None) for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget) if item.objectName().startswith("lot_") or item.objectName().startswith("missing_")]
+    [item.setParent(None) for item in obj.table_widget.formlayout.parentWidget().findChildren(QPushButton)]
     reagents = obj.prsr.parse_reagents(extraction_kit=extraction_kit)
     logger.debug(f"Got reagents: {reagents}")
     for reagent in obj.prsr.sub['reagents']:
@@ -1013,5 +1034,3 @@ def scrape_reagents(obj:QMainWindow, extraction_kit:str) -> Tuple[QMainWindow, d
     logger.debug(f"Missing reagents: {obj.missing_reagents}")
     return obj, None
     
-
-

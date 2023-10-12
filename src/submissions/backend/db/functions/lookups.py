@@ -417,7 +417,8 @@ def lookup_reagenttype_kittype_association(ctx:Settings,
 def lookup_submission_sample_association(ctx:Settings,
                                          submission:models.BasicSubmission|str|None=None,
                                          sample:models.BasicSample|str|None=None,
-                                         limit:int=0
+                                         limit:int=0,
+                                         chronologic:bool=False
                                          ) -> models.SubmissionSampleAssociation|List[models.SubmissionSampleAssociation]:
     query = setup_lookup(ctx=ctx, locals=locals()).query(models.SubmissionSampleAssociation)
     match submission:
@@ -435,6 +436,8 @@ def lookup_submission_sample_association(ctx:Settings,
         case _:
             pass
     logger.debug(f"Query count: {query.count()}")
+    if chronologic:
+        query.join(models.BasicSubmission).order_by(models.BasicSubmission.submitted_date)
     if query.count() == 1:
         limit = 1
     return query_return(query=query, limit=limit)

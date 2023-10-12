@@ -247,6 +247,8 @@ def get_polymorphic_subclass(base:object, polymorphic_identity:str|None=None):
     Returns:
         _type_: Subclass, or parent class on 
     """    
+    if isinstance(polymorphic_identity, dict):
+        polymorphic_identity = polymorphic_identity['value']
     if polymorphic_identity == None:
         return base
     else:
