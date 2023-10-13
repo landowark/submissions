@@ -294,6 +294,19 @@ class BasicSubmission(Base):
             Workbook: updated workbook
         """        
         return input_excel
+    
+    @classmethod
+    def enforce_naming_schema(cls, input_str:str) -> str:
+        """
+        Used to ensure proper custom naming of submission.
+
+        Args:
+            input_str (str): name parsed by default parser
+
+        Returns:
+            str: custom parser output.
+        """        
+        return input_str
 
 # Below are the custom submission types
 

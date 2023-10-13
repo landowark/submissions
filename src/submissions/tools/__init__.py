@@ -6,7 +6,6 @@ import re
 import numpy as np
 import logging
 import pandas as pd
-from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 import yaml
 import sys, os, stat, platform, getpass
@@ -18,6 +17,7 @@ from sqlalchemy import create_engine
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple
+from datetime import datetime
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -133,18 +133,21 @@ def massage_common_reagents(reagent_name:str):
         reagent_name = "molecular_grade_water"
     reagent_name = reagent_name.replace("µ", "u")
     return reagent_name
-        
+
 class RSLNamer(object):
     """
     Object that will enforce proper formatting on RSL plate names.
     """
     def __init__(self, ctx, instr:str, sub_type:str|None=None):
+        from backend.db.functions import get_polymorphic_subclass
+        from backend.db.models import BasicSubmission
         self.ctx = ctx
         self.submission_type = sub_type
         self.retrieve_rsl_number(in_str=instr)
         if self.submission_type != None:
-            parser = getattr(self, f"enforce_{self.submission_type.replace(' ', '_').lower()}")
-            parser()
+            custom_enforcer = get_polymorphic_subclass(BasicSubmission, self.submission_type).enforce_naming_schema
+            # parser = getattr(self, f"enforce_{self.submission_type.replace(' ', '_').lower()}")
+            # parser()
             self.parsed_name = self.parsed_name.replace("_", "-")
         
     def retrieve_rsl_number(self, in_str:str|Path):
@@ -220,8 +223,6 @@ class RSLNamer(object):
             repeat = ""
         self.parsed_name = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", self.parsed_name).replace(" ", "")
         
-    
-
     def enforce_bacterial_culture(self):
         """
         Uses regex to enforce proper formatting of bacterial culture samples
@@ -588,6 +589,7 @@ def jinja_template_loading():
 def check_is_power_user(ctx:Settings) -> bool:
     """
     Check to ensure current user is in power users list.
+    NOTE: Depreciated in favour of 'check_authorization' below.
 
     Args:
         ctx (dict): settings passed down from gui.
@@ -603,6 +605,16 @@ def check_is_power_user(ctx:Settings) -> bool:
         logger.debug(f"Check encountered unknown error: {type(e).__name__} - {e}")
         check = False
     return check
+
+def check_authorization(func):
+    def wrapper(*args, **kwargs):
+        logger.debug(f"Checking authorization")
+        if getpass.getuser() in kwargs['ctx'].power_users:
+            return func(*args, **kwargs)
+        else:
+            logger.error(f"User {getpass.getuser()} is not authorized for this function.")
+            return dict(code=1, message="This user does not have permission for this function.", status="warning")
+    return wrapper
 
 def check_if_app(ctx:Settings=None) -> bool:
     """
@@ -636,4 +648,3 @@ def convert_well_to_row_column(input_str:str) -> Tuple[int, int]:
     except IndexError:
         return None, None
     return row, column
-

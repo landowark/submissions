@@ -258,4 +258,3 @@ def get_polymorphic_subclass(base:object, polymorphic_identity:str|None=None):
             logger.error(f"Could not get polymorph {polymorphic_identity} of {base} due to {e}")
             return base
 
-    

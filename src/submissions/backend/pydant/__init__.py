@@ -2,7 +2,7 @@
 Contains pydantic models and accompanying validators
 '''
 import uuid
-from pydantic import BaseModel, field_validator, Extra, Field
+from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
@@ -74,7 +74,7 @@ class PydReagent(BaseModel):
 
     
 
-class PydSubmission(BaseModel, extra=Extra.allow):
+class PydSubmission(BaseModel, extra='allow'):
     ctx: Settings
     filepath: Path
     submission_type: dict|None

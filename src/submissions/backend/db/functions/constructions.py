@@ -2,7 +2,7 @@
 Used to construct models from input dictionaries.
 '''
 from getpass import getuser
-from tools import Settings, RSLNamer, check_regex_match
+from tools import Settings, RSLNamer, check_regex_match, check_authorization, massage_common_reagents
 from .. import models
 from .lookups import *
 import logging
@@ -190,6 +190,7 @@ def construct_samples(ctx:Settings, instance:models.BasicSubmission, samples:Lis
             continue
     return instance
 
+@check_authorization
 def construct_kit_from_yaml(ctx:Settings, kit_dict:dict) -> dict:
     """
     Create and store a new kit in the database based on a .yml file
@@ -197,16 +198,16 @@ def construct_kit_from_yaml(ctx:Settings, kit_dict:dict) -> dict:
 
     Args:
         ctx (Settings): Context object passed down from frontend
-        exp (dict): Experiment dictionary created from yaml file
+        kit_dict (dict): Experiment dictionary created from yaml file
 
     Returns:
         dict: a dictionary containing results of db addition
     """    
-    from tools import check_is_power_user, massage_common_reagents
+    # from tools import check_is_power_user, massage_common_reagents
     # Don't want just anyone adding kits
-    if not check_is_power_user(ctx=ctx):
-        logger.debug(f"{getuser()} does not have permission to add kits.")
-        return {'code':1, 'message':"This user does not have permission to add kits.", "status":"warning"}
+    # if not check_is_power_user(ctx=ctx):
+    #     logger.debug(f"{getuser()} does not have permission to add kits.")
+    #     return {'code':1, 'message':"This user does not have permission to add kits.", "status":"warning"}
     submission_type = lookup_submission_type(ctx=ctx, name=kit_dict['used_for'])
     logger.debug(f"Looked up submission type: {kit_dict['used_for']} and got {submission_type}")
     kit = models.KitType(name=kit_dict["kit_name"])
