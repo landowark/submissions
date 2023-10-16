@@ -1,5 +1,6 @@
 from .. import models
-from tools import Settings, RSLNamer
+from tools import Settings
+# from backend.namer import RSLNamer
 from typing import List
 import logging
 from datetime import date, datetime
@@ -7,7 +8,6 @@ from dateutil.parser import parse
 from sqlalchemy.orm.query import Query
 from sqlalchemy import and_, JSON
 from sqlalchemy.orm import Session
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -155,7 +155,10 @@ def lookup_submissions(ctx:Settings,
                        chronologic:bool=False, limit:int=0, 
                        **kwargs
                        ) -> models.BasicSubmission | List[models.BasicSubmission]:
-    model = models.find_subclasses(parent=models.BasicSubmission, attrs=kwargs)
+    if rsl_number == None:
+        model = models.BasicSubmission.find_subclasses(ctx=ctx, attrs=kwargs)
+    else:
+        model = models.BasicSubmission.find_subclasses(ctx=ctx, rsl_number=rsl_number)
     query = setup_lookup(ctx=ctx, locals=locals()).query(model)
     # by submission type
     match submission_type:
@@ -208,14 +211,17 @@ def lookup_submissions(ctx:Settings,
     # by rsl number (returns only a single value)
     match rsl_number:
         case str():
+            namer = model.RSLNamer(ctx=ctx, instr=rsl_number)
             logger.debug(f"Looking up BasicSubmission with rsl number: {rsl_number}")
             try:
-                rsl_number = RSLNamer(ctx=ctx, instr=rsl_number).parsed_name
+                rsl_number = namer.parsed_name
+                logger.debug(f"Got {rsl_number} from {model}.")
             except AttributeError as e:
                 logger.error(f"No parsed name found, returning None.")
                 return None
             # query = query.filter(models.BasicSubmission.rsl_plate_num==rsl_number)
             query = query.filter(model.rsl_plate_num==rsl_number)
+            logger.debug(f"At this point the query gets: {query.all()}")
             limit = 1
         case _:
             pass
@@ -242,6 +248,7 @@ def lookup_submissions(ctx:Settings,
     if chronologic:
         # query.order_by(models.BasicSubmission.submitted_date)
         query.order_by(model.submitted_date)
+    logger.debug(f"At the end of the search, the query gets: {query.all()}")
     return query_return(query=query, limit=limit)
 
 def lookup_submission_type(ctx:Settings,
@@ -367,7 +374,8 @@ def lookup_samples(ctx:Settings,
                    **kwargs
                    ) -> models.BasicSample|models.WastewaterSample|List[models.BasicSample]:
     logger.debug(f"Length of kwargs: {len(kwargs)}")
-    model = models.find_subclasses(parent=models.BasicSample, attrs=kwargs)
+    # model = models.find_subclasses(parent=models.BasicSample, attrs=kwargs)
+    model = models.BasicSample.find_subclasses(ctx=ctx, attrs=kwargs)
     query = setup_lookup(ctx=ctx, locals=locals()).query(model)
     match submitter_id:
         case str():

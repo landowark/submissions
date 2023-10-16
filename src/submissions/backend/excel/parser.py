@@ -6,19 +6,77 @@ import pprint
 from typing import List
 import pandas as pd
 from pathlib import Path
-from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples, get_polymorphic_subclass
+from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples
 from backend.pydant import PydSubmission, PydReagent
 import logging
 from collections import OrderedDict
 import re
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, RSLNamer, convert_nans_to_nones, Settings
+from tools import check_not_nan, convert_nans_to_nones, Settings
+# from backend.namer import RSLNamer
 from frontend.custom_widgets.pop_ups import SubmissionTypeSelector, KitSelector
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 row_keys = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
+
+class RSLNamer(object):
+    """
+    Object that will enforce proper formatting on RSL plate names.
+    NOTE: Depreciated in favour of object based methods in 'submissions.py'
+    """
+    def __init__(self, ctx, instr:str, sub_type:str|None=None):
+        self.ctx = ctx
+        self.submission_type = sub_type
+        self.retrieve_rsl_number(in_str=instr)
+        if self.submission_type != None:
+            # custom_enforcer = get_polymorphic_subclass(BasicSubmission, self.submission_type).enforce_naming_schema
+            parser = getattr(self, f"enforce_{self.submission_type.replace(' ', '_').lower()}")
+            parser()
+            self.parsed_name = self.parsed_name.replace("_", "-")
+        
+    def retrieve_rsl_number(self, in_str:str|Path):
+        """
+        Uses regex to retrieve the plate number and submission type from an input string
+
+        Args:
+            in_str (str): string to be parsed
+        """    
+        if not isinstance(in_str, Path):
+            in_str = Path(in_str)
+        self.out_str = in_str.stem
+        logger.debug(f"Attempting match of {self.out_str}")
+        logger.debug(f"The initial plate name is: {self.out_str}")
+        # regex = re.compile(r"""
+        #         # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
+        #         (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
+        #         (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
+        #         (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}(?:-|_)(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
+        #         """, flags = re.IGNORECASE | re.VERBOSE)
+        regex = models.BasicSubmission.RSLNamer.construct_regex()
+        m = regex.search(self.out_str)
+        if m != None:
+            self.parsed_name = m.group().upper().strip(".")
+            logger.debug(f"Got parsed submission name: {self.parsed_name}")
+            if self.submission_type == None:
+                try:
+                    self.submission_type = m.lastgroup
+                except AttributeError as e:
+                    logger.critical("No RSL plate number found or submission type found!")
+                    logger.debug(f"The cause of the above error was: {e}")
+                    logger.warning(f"We're going to have to create the submission type from the excel sheet properties...")
+                    if in_str.exists():
+                        my_xl = pd.ExcelFile(in_str)
+                        if my_xl.book.properties.category != None:
+                            categories = [item.strip().title() for item in my_xl.book.properties.category.split(";")]
+                            self.submission_type = categories[0].replace(" ", "_").lower()
+                        else:
+                            raise AttributeError(f"File {in_str.__str__()} has no categories.")
+                    else:
+                        raise FileNotFoundError()
+        # else:
+        #     raise ValueError(f"No parsed name could be created for {self.out_str}.")
 
 class SheetParser(object):
     """
@@ -69,12 +127,20 @@ class SheetParser(object):
         else:
             # This code is going to be depreciated once there is full adoption of the client sheets
             # with updated metadata... but how will it work for Artic?
+            
+            # sub = get_polymorphic_subclass()
+            try:
+                logger.debug(f"Attempting to match file name regex")
+                namer = models.BasicSubmission.RSLNamer(ctx=self.ctx, instr=self.filepath)
+                return namer.submission_type
+            except Exception as e:
+                logger.error(f"Unable to find file name regex match")
             logger.debug("Using excel map to find type...")
             try:
                 for type in self.ctx.submission_types:
                     # This gets the *first* submission type that matches the sheet names in the workbook 
                     if self.xl.sheet_names == self.ctx.submission_types[type]['excel_map']:
-                        return dict(value=type.title(), parsed=True)
+                        return dict(value=type.title(), parsed=False)
                 return "Unknown"
             except Exception as e:
                 logger.warning(f"We were unable to parse the submission type due to: {e}")
@@ -118,43 +184,6 @@ class SheetParser(object):
         Pulls sample info from the excel sheet
         """        
         self.sample_result, self.sub['samples'] = SampleParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_samples()
-
-    # def parse_bacterial_culture(self, input_dict) -> dict:
-    #     """
-    #     Update submission dictionary with type specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     return input_dict
-        
-    # def parse_wastewater(self, input_dict) -> dict:
-    #     """
-    #     Update submission dictionary with type specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     return input_dict
-
-    # def parse_wastewater_artic(self, input_dict:dict) -> dict:
-    #     """
-    #     Update submission dictionary with type specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     return input_dict
-
 
     def import_kit_validation_check(self):
         """
@@ -224,7 +253,8 @@ class InfoParser(object):
         submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
         info_map = submission_type.info_map
         # Get the parse_info method from the submission type specified
-        self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_info
+        # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_info
+        self.custom_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_info
         return info_map
 
     def parse_info(self) -> dict:
@@ -359,7 +389,8 @@ class SampleParser(object):
         submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
         logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
-        self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
+        # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
+        self.custom_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples
         return sample_info_map
 
     def construct_plate_map(self, plate_map_location:dict) -> pd.DataFrame:
@@ -376,7 +407,8 @@ class SampleParser(object):
         df = df.iloc[plate_map_location['start_row']-1:plate_map_location['end_row'], plate_map_location['start_column']-1:plate_map_location['end_column']]
         df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
         df = df.set_index(df.columns[0])
-        custom_mapper = get_polymorphic_subclass(models.BasicSubmission, self.submission_type)
+        # custom_mapper = get_polymorphic_subclass(models.BasicSubmission, self.submission_type)
+        custom_mapper = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         df = custom_mapper.custom_platemap(self.xl, df)
         return df
     
@@ -596,7 +628,7 @@ class SampleParser(object):
         for plate in self.plates:
             df = self.xl.parse(plate['sheet'], header=None)
             if isinstance(df.iat[plate['row']-1, plate['column']-1], str):
-                output = RSLNamer(ctx=self.ctx, instr=df.iat[plate['row']-1, plate['column']-1]).parsed_name
+                output = models.BasicSubmission.RSLNamer(ctx=self.ctx, instr=df.iat[plate['row']-1, plate['column']-1]).parsed_name
             else:
                 continue
             plates.append(output)
@@ -631,7 +663,7 @@ class PCRParser(object):
                 return
         # self.pcr = OrderedDict()
         self.pcr = {}
-        namer = RSLNamer(ctx=self.ctx, instr=filepath.__str__())
+        namer = models.BasicSubmission.RSLNamer(ctx=self.ctx, instr=filepath.__str__())
         self.plate_num = namer.parsed_name
         self.submission_type = namer.submission_type
         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
@@ -672,7 +704,7 @@ class PCRParser(object):
         self.pcr['imported_by'] = getuser()
         return df
 
-    def parse_wastewater(self):
+    def parse_Wastewater(self):
         """
         Parse specific to wastewater samples.
         """        

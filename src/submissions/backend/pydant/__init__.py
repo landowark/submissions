@@ -7,12 +7,13 @@ from datetime import date, datetime
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
 from typing import List, Any
-from tools import RSLNamer
+# from backend.namer import RSLNamer
 from pathlib import Path
 import re
 import logging
 from tools import check_not_nan, convert_nans_to_nones, Settings
 from backend.db.functions import lookup_submissions
+from backend.db.models import BasicSubmission
 
 
 
@@ -151,10 +152,11 @@ class PydSubmission(BaseModel, extra='allow'):
                 return dict(value=value['value'], parsed=True)
             else:
                 logger.warning(f"Submission number {value} already exists in DB, attempting salvage with filepath")
-                output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+                # output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+                output = BasicSubmission.RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
                 return dict(value=output, parsed=False)
         else:
-            output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+            output = BasicSubmission.RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
             return dict(value=output, parsed=False)
 
     @field_validator("technician", mode="before")
@@ -205,7 +207,7 @@ class PydSubmission(BaseModel, extra='allow'):
             value = value['value'].title()
             return dict(value=value, parsed=True)
         else:
-            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
+            return dict(value=BasicSubmission.RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
         
     @field_validator("submission_category")
     @classmethod

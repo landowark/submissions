@@ -899,7 +899,8 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
             logger.debug(f"Attempting: {item['type']}")
             worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
         # Hacky way to pop in 'signed by'
-    custom_parser = get_polymorphic_subclass(BasicSubmission, info['submission_type'])
+    # custom_parser = get_polymorphic_subclass(BasicSubmission, info['submission_type'])
+    custom_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=info['submission_type'])
     workbook = custom_parser.custom_autofill(workbook)
     fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
     workbook.save(filename=fname.__str__())

@@ -1,3 +1,6 @@
+- [ ] Convert Pydantic models to Submission models?
+- [x] Move RSLNamer into Submission database object.
+    - Having second thoughts about some of this. Move into parser module?
 - [x] Change 'check_is_power_user' to decorator.
 - [x] Drag and drop files into submission form area?
 - [ ] Get info for controls into their sample hitpicks.

@@ -11,7 +11,7 @@ metadata = Base.metadata
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-def find_subclasses(parent:Any, attrs:dict) -> Any:
+def find_subclasses(parent:Any, attrs:dict|None=None, rsl_number:str|None=None) -> Any:
     """
     Finds subclasses of a parent that does contain all 
     attributes if the parent does not.
@@ -26,7 +26,7 @@ def find_subclasses(parent:Any, attrs:dict) -> Any:
     Returns:
         _type_: Parent or subclass.
     """    
-    if len(attrs) == 0:
+    if len(attrs) == 0 or attrs == None:
         return parent
     if any([not hasattr(parent, attr) for attr in attrs]):
         # looks for first model that has all included kwargs

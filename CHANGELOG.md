@@ -1,3 +1,7 @@
+## 202310.03
+
+- Replaced RSLNamer class with Submission object specific class methods.
+
 ## 202310.02
 
 - Improvements to First strand constructor.

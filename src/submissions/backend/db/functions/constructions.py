@@ -2,8 +2,11 @@
 Used to construct models from input dictionaries.
 '''
 from getpass import getuser
-from tools import Settings, RSLNamer, check_regex_match, check_authorization, massage_common_reagents
+from tools import Settings, check_regex_match, check_authorization, massage_common_reagents
 from .. import models
+# from .misc import RSLNamer
+# from backend.namer import RSLNamer
+# from .misc import get_polymorphic_subclass
 from .lookups import *
 import logging
 from datetime import date, timedelta
@@ -62,7 +65,9 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> Tuple[models.Basi
         models.BasicSubmission: Constructed submission object
     """
     # convert submission type into model name
-    query = info_dict['submission_type'].replace(" ", "")
+    # model = get_polymorphic_subclass(polymorphic_identity=info_dict['submission_type'])
+    model = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=info_dict['submission_type'])
+    logger.debug(f"We've got the model: {type(model)}")
     # Ensure an rsl plate number exists for the plate
     if not check_regex_match("^RSL", info_dict["rsl_plate_num"]):
         instance = None
@@ -70,13 +75,13 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> Tuple[models.Basi
         return instance, {'code': 2, 'message': "A proper RSL plate number is required."}
     else:
         # enforce conventions on the rsl plate number from the form
-        info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"]).parsed_name
+        # info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"]).parsed_name
+        info_dict['rsl_plate_num'] = model.RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"], sub_type=info_dict['submission_type']).parsed_name
     # check database for existing object
     instance = lookup_submissions(ctx=ctx, rsl_number=info_dict['rsl_plate_num'])
     # get model based on submission type converted above
-    logger.debug(f"Looking at models for submission type: {query}")
-    model = getattr(models, query)
-    logger.debug(f"We've got the model: {type(model)}")
+    # logger.debug(f"Looking at models for submission type: {query}")
+    
     # if query return nothing, ie doesn't already exist in db
     if instance == None:
         instance = model()
@@ -218,10 +223,8 @@ def construct_kit_from_yaml(ctx:Settings, kit_dict:dict) -> dict:
     kit.kit_submissiontype_associations.append(kt_st_assoc)
     # A kit contains multiple reagent types.
     for r in kit_dict['reagent_types']:
-        # check if reagent type already exists.
         logger.debug(f"Constructing reagent type: {r}")
         rtname = massage_common_reagents(r['rtname'])
-        # look_up = ctx.database_session.query(models.ReagentType).filter(models.ReagentType.name==rtname).first()
         look_up = lookup_reagent_types(name=rtname)
         if look_up == None:
             rt = models.ReagentType(name=rtname.strip(), eol_ext=timedelta(30*r['eol']))
@@ -237,6 +240,7 @@ def construct_kit_from_yaml(ctx:Settings, kit_dict:dict) -> dict:
     store_object(ctx=ctx, object=kit)
     return {'code':0, 'message':'Kit has been added', 'status': 'information'}
 
+@check_authorization
 def construct_org_from_yaml(ctx:Settings, org:dict) -> dict:
     """
     Create and store a new organization based on a .yml file
@@ -248,11 +252,11 @@ def construct_org_from_yaml(ctx:Settings, org:dict) -> dict:
     Returns:
         dict: dictionary containing results of db addition
     """    
-    from tools import check_is_power_user
-    # Don't want just anyone adding in clients
-    if not check_is_power_user(ctx=ctx):
-        logger.debug(f"{getuser()} does not have permission to add kits.")
-        return {'code':1, 'message':"This user does not have permission to add organizations."}
+    # from tools import check_is_power_user
+    # # Don't want just anyone adding in clients
+    # if not check_is_power_user(ctx=ctx):
+    #     logger.debug(f"{getuser()} does not have permission to add kits.")
+    #     return {'code':1, 'message':"This user does not have permission to add organizations."}
     # the yml can contain multiple clients
     for client in org:
         cli_org = models.Organization(name=client.replace(" ", "_").lower(), cost_centre=org[client]['cost centre'])
