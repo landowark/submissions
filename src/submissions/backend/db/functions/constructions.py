@@ -1,12 +1,9 @@
 '''
 Used to construct models from input dictionaries.
 '''
-from getpass import getuser
+
 from tools import Settings, check_regex_match, check_authorization, massage_common_reagents
 from .. import models
-# from .misc import RSLNamer
-# from backend.namer import RSLNamer
-# from .misc import get_polymorphic_subclass
 from .lookups import *
 import logging
 from datetime import date, timedelta
@@ -73,10 +70,10 @@ def construct_submission_info(ctx:Settings, info_dict:dict) -> Tuple[models.Basi
         instance = None
         msg = "A proper RSL plate number is required."
         return instance, {'code': 2, 'message': "A proper RSL plate number is required."}
-    else:
-        # enforce conventions on the rsl plate number from the form
-        # info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"]).parsed_name
-        info_dict['rsl_plate_num'] = model.RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"], sub_type=info_dict['submission_type']).parsed_name
+    # else:
+    #     # enforce conventions on the rsl plate number from the form
+    #     # info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"]).parsed_name
+    #     info_dict['rsl_plate_num'] = RSLNamer(ctx=ctx, instr=info_dict["rsl_plate_num"], sub_type=info_dict['submission_type']).parsed_name
     # check database for existing object
     instance = lookup_submissions(ctx=ctx, rsl_number=info_dict['rsl_plate_num'])
     # get model based on submission type converted above

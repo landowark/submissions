@@ -17,11 +17,11 @@ from backend.db.functions import construct_kit_from_yaml, \
     lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association, \
     lookup_submissions
 from backend.db.models import SubmissionTypeKitTypeAssociation
-from sqlalchemy import FLOAT, INTEGER, String
+from sqlalchemy import FLOAT, INTEGER
 import logging
 import numpy as np
 from .pop_ups import AlertPop
-from backend.pydant import PydReagent
+from backend.validators import PydSheetReagent
 from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -386,11 +386,11 @@ class ControlsDatePicker(QWidget):
 
 class ImportReagent(QComboBox):
 
-    def __init__(self, ctx:Settings, reagent:dict|PydReagent, extraction_kit:str):
+    def __init__(self, ctx:Settings, reagent:dict|PydSheetReagent, extraction_kit:str):
         super().__init__()
         self.setEditable(True)
         if isinstance(reagent, dict):
-            reagent = PydReagent(**reagent)
+            reagent = PydSheetReagent(**reagent)
         # Ensure that all reagenttypes have a name that matches the items in the excel parser
         query_var = reagent.type
         logger.debug(f"Import Reagent is looking at: {reagent.lot} for {query_var}")

@@ -7,76 +7,18 @@ from typing import List
 import pandas as pd
 from pathlib import Path
 from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples
-from backend.pydant import PydSubmission, PydReagent
+from backend.validators import PydSheetSubmission, PydSheetReagent, RSLNamer
 import logging
 from collections import OrderedDict
 import re
 from datetime import date
 from dateutil.parser import parse, ParserError
 from tools import check_not_nan, convert_nans_to_nones, Settings
-# from backend.namer import RSLNamer
-from frontend.custom_widgets.pop_ups import SubmissionTypeSelector, KitSelector
+from frontend.custom_widgets.pop_ups import KitSelector
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 row_keys = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
-
-class RSLNamer(object):
-    """
-    Object that will enforce proper formatting on RSL plate names.
-    NOTE: Depreciated in favour of object based methods in 'submissions.py'
-    """
-    def __init__(self, ctx, instr:str, sub_type:str|None=None):
-        self.ctx = ctx
-        self.submission_type = sub_type
-        self.retrieve_rsl_number(in_str=instr)
-        if self.submission_type != None:
-            # custom_enforcer = get_polymorphic_subclass(BasicSubmission, self.submission_type).enforce_naming_schema
-            parser = getattr(self, f"enforce_{self.submission_type.replace(' ', '_').lower()}")
-            parser()
-            self.parsed_name = self.parsed_name.replace("_", "-")
-        
-    def retrieve_rsl_number(self, in_str:str|Path):
-        """
-        Uses regex to retrieve the plate number and submission type from an input string
-
-        Args:
-            in_str (str): string to be parsed
-        """    
-        if not isinstance(in_str, Path):
-            in_str = Path(in_str)
-        self.out_str = in_str.stem
-        logger.debug(f"Attempting match of {self.out_str}")
-        logger.debug(f"The initial plate name is: {self.out_str}")
-        # regex = re.compile(r"""
-        #         # (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(?:_|-)\d?((?!\d)|R)?\d(?!\d))?)|
-        #         (?P<wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)|
-        #         (?P<bacterial_culture>RSL-?\d{2}-?\d{4})|
-        #         (?P<wastewater_artic>(\d{4}-\d{2}-\d{2}(?:-|_)(?:\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?))
-        #         """, flags = re.IGNORECASE | re.VERBOSE)
-        regex = models.BasicSubmission.RSLNamer.construct_regex()
-        m = regex.search(self.out_str)
-        if m != None:
-            self.parsed_name = m.group().upper().strip(".")
-            logger.debug(f"Got parsed submission name: {self.parsed_name}")
-            if self.submission_type == None:
-                try:
-                    self.submission_type = m.lastgroup
-                except AttributeError as e:
-                    logger.critical("No RSL plate number found or submission type found!")
-                    logger.debug(f"The cause of the above error was: {e}")
-                    logger.warning(f"We're going to have to create the submission type from the excel sheet properties...")
-                    if in_str.exists():
-                        my_xl = pd.ExcelFile(in_str)
-                        if my_xl.book.properties.category != None:
-                            categories = [item.strip().title() for item in my_xl.book.properties.category.split(";")]
-                            self.submission_type = categories[0].replace(" ", "_").lower()
-                        else:
-                            raise AttributeError(f"File {in_str.__str__()} has no categories.")
-                    else:
-                        raise FileNotFoundError()
-        # else:
-        #     raise ValueError(f"No parsed name could be created for {self.out_str}.")
 
 class SheetParser(object):
     """
@@ -90,78 +32,34 @@ class SheetParser(object):
         """        
         self.ctx = ctx
         logger.debug(f"Parsing {filepath.__str__()}")
-        if filepath == None:
-            logger.error(f"No filepath given.")
-            self.xl = None
-        else:
-            self.filepath = filepath
-            # Open excel file
-            try:
-                self.xl = pd.ExcelFile(filepath)
-            except ValueError as e:
-                logger.error(f"Incorrect value: {e}")
-                self.xl = None
+        match filepath:
+            case Path():
+                self.filepath = filepath
+            case str():
+                self.filepath = Path(filepath)
+            case _:
+                logger.error(f"No filepath given.")
+                raise ValueError("No filepath given.")
+        try:
+            self.xl = pd.ExcelFile(filepath)
+        except ValueError as e:
+            logger.error(f"Incorrect value: {e}")
+            raise FileNotFoundError(f"Couldn't parse file {self.filepath}")
         self.sub = OrderedDict()
         # make decision about type of sample we have
-        self.sub['submission_type'] = self.type_decider()
+        self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(ctx=self.ctx, instr=self.filepath), parsed=False)
         # # grab the info map from the submission type in database
         self.parse_info()
         self.import_kit_validation_check()
         self.parse_reagents()
         self.import_reagent_validation_check()
         self.parse_samples()
-       
-
-    def type_decider(self) -> str:
-        """
-        makes decisions about submission type based on structure of excel file
-
-        Returns:
-            str: submission type name
-        """        
-        # Check metadata for category, return first category
-        if self.xl.book.properties.category != None:
-            logger.debug("Using file properties to find type...")
-            categories = [item.strip().replace("_", " ").title() for item in self.xl.book.properties.category.split(";")]
-            return dict(value=categories[0], parsed=False)
-        else:
-            # This code is going to be depreciated once there is full adoption of the client sheets
-            # with updated metadata... but how will it work for Artic?
-            
-            # sub = get_polymorphic_subclass()
-            try:
-                logger.debug(f"Attempting to match file name regex")
-                namer = models.BasicSubmission.RSLNamer(ctx=self.ctx, instr=self.filepath)
-                return namer.submission_type
-            except Exception as e:
-                logger.error(f"Unable to find file name regex match")
-            logger.debug("Using excel map to find type...")
-            try:
-                for type in self.ctx.submission_types:
-                    # This gets the *first* submission type that matches the sheet names in the workbook 
-                    if self.xl.sheet_names == self.ctx.submission_types[type]['excel_map']:
-                        return dict(value=type.title(), parsed=False)
-                return "Unknown"
-            except Exception as e:
-                logger.warning(f"We were unable to parse the submission type due to: {e}")
-                # return "Unknown"
-                dlg = SubmissionTypeSelector(ctx=self.ctx, title="Select Submission Type", message="We were unable to find the submission type from the excel metadata. Please select from below.")
-                if dlg.exec():
-                    return dict(value=dlg.getValues(), parsed=False)
-                else:
-                    logger.warning(f"Last attempt at getting submission was rejected.")
-                    raise ValueError("Submission Type needed.")
                 
     def parse_info(self):
         """
         Pulls basic information from the excel sheet
         """        
         info = InfoParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_info()
-        # parser_query = f"parse_{self.sub['submission_type']['value'].replace(' ', '_').lower()}"
-        # custom_parser = getattr(self, parser_query)
-        
-        # except AttributeError:
-        #     logger.error(f"Couldn't find submission parser: {parser_query}")
         for k,v in info.items():
             match k:
                 case "sample":
@@ -215,7 +113,7 @@ class SheetParser(object):
         logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
         self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
         
-    def to_pydantic(self) -> PydSubmission:
+    def to_pydantic(self) -> PydSheetSubmission:
         """
         Generates a pydantic model of scraped data for validation
 
@@ -223,7 +121,7 @@ class SheetParser(object):
             PydSubmission: output pydantic model
         """       
         logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pprint.pformat(self.sub)}")
-        psm = PydSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
+        psm = PydSheetSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
         delattr(psm, "filepath")
         return psm
     
@@ -249,11 +147,9 @@ class InfoParser(object):
         if isinstance(submission_type, str):
             submission_type = dict(value=submission_type, parsed=False)
         logger.debug(f"Looking up submission type: {submission_type['value']}")
-        # submission_type = lookup_submissiontype_by_name(ctx=self.ctx, type_name=submission_type['value'])
         submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
         info_map = submission_type.info_map
         # Get the parse_info method from the submission type specified
-        # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_info
         self.custom_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_info
         return info_map
 
@@ -300,8 +196,6 @@ class InfoParser(object):
             except KeyError:
                 check = False
         return self.custom_parser(input_dict=dicto, xl=self.xl)
-    
-    
                 
 class ReagentParser(object):
 
@@ -335,7 +229,7 @@ class ReagentParser(object):
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                 except (KeyError, IndexError):
-                    listo.append(dict(value=PydReagent(type=item.strip(), lot=None, exp=None, name=None), parsed=False))
+                    listo.append(dict(value=PydSheetReagent(type=item.strip(), lot=None, exp=None, name=None), parsed=False))
                     continue
                 if check_not_nan(lot):
                     parsed = True
@@ -343,7 +237,7 @@ class ReagentParser(object):
                     parsed = False
                 logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                listo.append(dict(value=PydReagent(type=item.strip(), lot=lot, exp=expiry, name=name), parsed=parsed))
+                listo.append(dict(value=PydSheetReagent(type=item.strip(), lot=lot, exp=expiry, name=name), parsed=parsed))
         logger.debug(f"Returning listo: {listo}")
         return listo
 
@@ -516,12 +410,7 @@ class SampleParser(object):
                 except KeyError:
                     translated_dict[k] = convert_nans_to_nones(v)
             translated_dict['sample_type'] = f"{self.submission_type} Sample"
-            # parser_query = f"parse_{translated_dict['sample_type'].replace(' ', '_').lower()}"
-            # try:
-            #     custom_parser = getattr(self, parser_query)
             translated_dict = self.custom_parser(translated_dict)
-            # except AttributeError:
-            #     logger.error(f"Couldn't get custom parser: {parser_query}")
             if generate:
                 new_samples.append(self.generate_sample_object(translated_dict))
             else:
@@ -557,65 +446,6 @@ class SampleParser(object):
         else:
             logger.debug(f"Sample {instance.submitter_id} already exists, will run update.")
         return dict(sample=instance, row=input_dict['row'], column=input_dict['column'])
-
-
-    # def parse_bacterial_culture_sample(self, input_dict:dict) -> dict:
-    #     """
-    #     Update sample dictionary with bacterial culture specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     logger.debug("Called bacterial culture sample parser")
-    #     return input_dict
-
-    # def parse_wastewater_sample(self, input_dict:dict) -> dict:
-    #     """
-    #     Update sample dictionary with wastewater specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     logger.debug(f"Called wastewater sample parser")
-    #     return input_dict
-    
-    # def parse_wastewater_artic_sample(self, input_dict:dict) -> dict:
-    #     """
-    #     Update sample dictionary with artic specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     logger.debug("Called wastewater artic sample parser")
-    #     input_dict['sample_type'] = "Wastewater Sample"
-    #     # Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
-    #     # at the end, this has to be done here. No moving to sqlalchemy object :(
-    #     input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
-    #     return input_dict
-    
-    # def parse_first_strand_sample(self, input_dict:dict) -> dict:
-    #     """
-    #     Update sample dictionary with first strand specific information
-
-    #     Args:
-    #         input_dict (dict): Input sample dictionary
-
-    #     Returns:
-    #         dict: Updated sample dictionary
-    #     """        
-    #     logger.debug("Called first strand sample parser")
-    #     input_dict['well'] = re.search(r"\s\((.*)\)$", input_dict['submitter_id']).groups()[0]
-    #     input_dict['submitter_id'] = re.sub(r"\s\(.*\)$", "", str(input_dict['submitter_id'])).strip()
-    #     return input_dict
     
     def grab_plates(self) -> List[str]:
         """
@@ -628,7 +458,7 @@ class SampleParser(object):
         for plate in self.plates:
             df = self.xl.parse(plate['sheet'], header=None)
             if isinstance(df.iat[plate['row']-1, plate['column']-1], str):
-                output = models.BasicSubmission.RSLNamer(ctx=self.ctx, instr=df.iat[plate['row']-1, plate['column']-1]).parsed_name
+                output = RSLNamer.retrieve_rsl_number(ctx=self.ctx, instr=df.iat[plate['row']-1, plate['column']-1])
             else:
                 continue
             plates.append(output)
@@ -637,7 +467,6 @@ class SampleParser(object):
 class PCRParser(object):
     """
     Object to pull data from Design and Analysis PCR export file.
-    TODO: Generify this object.
     """    
     def __init__(self, ctx:dict, filepath:Path|None = None) -> None:
         """
@@ -662,16 +491,14 @@ class PCRParser(object):
                 logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
                 return
         # self.pcr = OrderedDict()
-        self.pcr = {}
-        namer = models.BasicSubmission.RSLNamer(ctx=self.ctx, instr=filepath.__str__())
+        self.parse_general(sheet_name="Results")
+        namer = RSLNamer(ctx=self.ctx, instr=filepath.__str__())
         self.plate_num = namer.parsed_name
         self.submission_type = namer.submission_type
         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
-        self.samples = []
-        parser = getattr(self, f"parse_{self.submission_type}")
-        parser()
+        parser = models.BasicSubmission.find_polymorphic_subclass(self.submission_type)
+        self.samples = parser.parse_pcr(xl=self.xl, rsl_number=self.plate_num)
         
-
     def parse_general(self, sheet_name:str):
         """
         Parse general info rows for all types of PCR results
@@ -679,6 +506,7 @@ class PCRParser(object):
         Args:
             sheet_name (str): Name of sheet in excel workbook that holds info.
         """        
+        self.pcr = {}
         df = self.xl.parse(sheet_name=sheet_name, dtype=object).fillna("")
         self.pcr['comment'] = df.iloc[0][1]
         self.pcr['operator'] = df.iloc[1][1]
@@ -702,42 +530,5 @@ class PCRParser(object):
         self.pcr['plugin'] = df.iloc[19][1]
         self.pcr['exported_on'] = df.iloc[20][1]
         self.pcr['imported_by'] = getuser()
-        return df
-
-    def parse_Wastewater(self):
-        """
-        Parse specific to wastewater samples.
-        """        
-        df = self.parse_general(sheet_name="Results")
-        column_names = ["Well", "Well Position", "Omit","Sample","Target","Task"," Reporter","Quencher","Amp Status","Amp Score","Curve Quality","Result Quality Issues","Cq","Cq Confidence","Cq Mean","Cq SD","Auto Threshold","Threshold", "Auto Baseline", "Baseline Start", "Baseline End"]
-        self.samples_df = df.iloc[23:][0:]
-        logger.debug(f"Dataframe of PCR results:\n\t{self.samples_df}")
-        self.samples_df.columns = column_names
-        logger.debug(f"Samples columns: {self.samples_df.columns}")
-        well_call_df = self.xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:,-1:]
-        try:
-            self.samples_df['Assessment'] = well_call_df.values
-        except ValueError:
-            logger.error("Well call number doesn't match sample number")
-        logger.debug(f"Well call df: {well_call_df}")
-        for ii, row in self.samples_df.iterrows():
-            try:
-                sample_obj = [sample for sample in self.samples if sample['sample'] == row[3]][0]    
-            except IndexError:
-                sample_obj = dict(
-                    sample = row['Sample'],
-                    plate_rsl = self.plate_num,
-                )
-            logger.debug(f"Got sample obj: {sample_obj}") 
-            if isinstance(row['Cq'], float):
-                sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
-            else:
-                sample_obj[f"ct_{row['Target'].lower()}"] = 0.0
-            try:
-                sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
-            except KeyError:
-                logger.error(f"No assessment for {sample_obj['sample']}")
-            self.samples.append(sample_obj)
-        
 
     

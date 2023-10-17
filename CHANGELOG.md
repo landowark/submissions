@@ -1,6 +1,6 @@
 ## 202310.03
 
-- Replaced RSLNamer class with Submission object specific class methods.
+- Better flexibility with parsers pulling methods from database objects.
 
 ## 202310.02
 

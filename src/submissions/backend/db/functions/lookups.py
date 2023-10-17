@@ -155,10 +155,13 @@ def lookup_submissions(ctx:Settings,
                        chronologic:bool=False, limit:int=0, 
                        **kwargs
                        ) -> models.BasicSubmission | List[models.BasicSubmission]:
-    if rsl_number == None:
+    if submission_type == None:
         model = models.BasicSubmission.find_subclasses(ctx=ctx, attrs=kwargs)
     else:
-        model = models.BasicSubmission.find_subclasses(ctx=ctx, rsl_number=rsl_number)
+        if isinstance(submission_type, models.SubmissionType):
+            model = models.BasicSubmission.find_subclasses(ctx=ctx, submission_type=submission_type.name)
+        else:
+            model = models.BasicSubmission.find_subclasses(ctx=ctx, submission_type=submission_type)
     query = setup_lookup(ctx=ctx, locals=locals()).query(model)
     # by submission type
     match submission_type:
@@ -211,14 +214,6 @@ def lookup_submissions(ctx:Settings,
     # by rsl number (returns only a single value)
     match rsl_number:
         case str():
-            namer = model.RSLNamer(ctx=ctx, instr=rsl_number)
-            logger.debug(f"Looking up BasicSubmission with rsl number: {rsl_number}")
-            try:
-                rsl_number = namer.parsed_name
-                logger.debug(f"Got {rsl_number} from {model}.")
-            except AttributeError as e:
-                logger.error(f"No parsed name found, returning None.")
-                return None
             # query = query.filter(models.BasicSubmission.rsl_plate_num==rsl_number)
             query = query.filter(model.rsl_plate_num==rsl_number)
             logger.debug(f"At this point the query gets: {query.all()}")

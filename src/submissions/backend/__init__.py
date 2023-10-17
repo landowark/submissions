@@ -1,3 +1,3 @@
 '''
-Contains database, pydantic and excel operations.
+Contains database, validators and excel operations.
 '''

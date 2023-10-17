@@ -298,68 +298,21 @@ class BasicSubmission(Base):
         """        
         return input_excel
     
-    class _RSLNamer(object):
-
-        alias = None
-
-        def __init__(self, ctx:Settings, instr:str|Path, sub_type:str|None=None, parent=None):
-            if parent != None:
-                logger.debug(f"Hello from {parent.__mapper_args__['polymorphic_identity']} Namer!")
-            self.ctx = ctx
-            self.submission_type = sub_type
-            self.retrieve_rsl_number(instr=instr)
-            try:
-                ncls = [item for item in self.__class__.__subclasses__() if item.alias == self.submission_type][0]
-                enforcer = ncls.enforce_name
-                enforcer(self=self, parent=parent)
-            except IndexError:
-                enforcer = self.enforce_name
-                enforcer(parent=parent)
-            
-
-        def retrieve_rsl_number(self, instr:str|Path):
-            """
-            Uses regex to retrieve the plate number and submission type from an input string
-
-            Args:
-                in_str (str): string to be parsed
-            """    
-            if not isinstance(instr, Path):
-                instr = Path(instr)
-            self.out_str = instr.stem
-            logger.debug(f"Attempting match of {self.out_str}")
-            logger.debug(f"The initial plate name is: {self.out_str}")
-            regex = self.construct_regex()
-            m = regex.search(self.out_str)
-            if m != None:
-                self.parsed_name = m.group().upper().strip(".")
-                logger.debug(f"Got parsed submission name: {self.parsed_name}")
-                if self.submission_type == None:
-                    try:
-                        self.submission_type = m.lastgroup.replace("_", " ")
-                    except AttributeError as e:
-                        self.submission_type = None
-        
-        def enforce_name(self, parent):
-            if parent != None:
-                logger.debug(f"Hello from {parent.__mapper_args__['polymorphic_identity']} Enforcer!")
-            self.parsed_name = self.parsed_name
-
-        @classmethod
-        def construct_regex(cls):
-            rstring =  rf'{"|".join([item.get_regex() for item in cls.__subclasses__()])}'
-            regex = re.compile(rstring, flags = re.IGNORECASE | re.VERBOSE)
-            return regex
+    @classmethod
+    def enforce_name(cls, ctx:Settings, instr:str) -> str:
+        logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} Enforcer!")
+        return instr
 
     @classmethod
-    def RSLNamer(cls, ctx:Settings, instr:str, sub_type:str|None=None):
-        return cls._RSLNamer(parent=cls, ctx=ctx, instr=instr, sub_type=sub_type)
-    
+    def construct_regex(cls):
+        rstring =  rf'{"|".join([item.get_regex() for item in cls.__subclasses__()])}'
+        regex = re.compile(rstring, flags = re.IGNORECASE | re.VERBOSE)
+        return regex
+ 
     @classmethod
-    def find_subclasses(cls, ctx:Settings, attrs:dict|None=None, rsl_number:str|None=None):
-        if rsl_number != None:
-            namer = cls._RSLNamer(ctx=ctx, instr=rsl_number)
-            return cls.find_polymorphic_subclass(namer.submission_type)
+    def find_subclasses(cls, ctx:Settings, attrs:dict|None=None, submission_type:str|None=None):
+        if submission_type != None:
+            return cls.find_polymorphic_subclass(submission_type)
         if len(attrs) == 0 or attrs == None:
             return cls
         if any([not hasattr(cls, attr) for attr in attrs]):
@@ -385,6 +338,11 @@ class BasicSubmission(Base):
             except Exception as e:
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
                 return cls
+
+    @classmethod
+    def parse_pcr(cls, xl:pd.DataFrame, rsl_number:str) -> list:
+        logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
+        return []
 
 # Below are the custom submission types
 
@@ -450,59 +408,50 @@ class BacterialCulture(BasicSubmission):
         input_excel["Sample List"].cell(row=15, column=2, value=getuser()[0:2].upper())
         return input_excel
 
-    class _RSLNamer(BasicSubmission._RSLNamer):
+    @classmethod
+    def enforce_name(cls, ctx:Settings, instr:str) -> str:
+        outstr = super().enforce_name(ctx=ctx, instr=instr)
+        def construct(ctx) -> str:
+            """
+            DEPRECIATED due to slowness. Search for the largest rsl number and increment by 1
 
-        alias = "Bacterial Culture"
+            Returns:
+                str: new RSL number
+            """        
+            logger.debug(f"Attempting to construct RSL number from scratch...")
+            # directory = Path(self.ctx['directory_path']).joinpath("Bacteria")
+            directory = Path(ctx.directory_path).joinpath("Bacteria")
+            year = str(datetime.now().year)[-2:]
+            if directory.exists():
+                logger.debug(f"Year: {year}")
+                relevant_rsls = []
+                all_xlsx = [item.stem for item in directory.rglob("*.xlsx") if bool(re.search(r"RSL-\d{2}-\d{4}", item.stem)) and year in item.stem[4:6]]
+                logger.debug(f"All rsls: {all_xlsx}")
+                for item in all_xlsx:
+                    try:
+                        relevant_rsls.append(re.match(r"RSL-\d{2}-\d{4}", item).group(0))
+                    except Exception as e:
+                        logger.error(f"Regex error: {e}")
+                        continue
+                logger.debug(f"Initial xlsx: {relevant_rsls}")
+                max_number = max([int(item[-4:]) for item in relevant_rsls])
+                logger.debug(f"The largest sample number is: {max_number}")
+                return f"RSL-{year}-{str(max_number+1).zfill(4)}"
+            else:
+                # raise FileNotFoundError(f"Unable to locate the directory: {directory.__str__()}")
+                return f"RSL-{year}-0000"
+        try:
+            outstr = re.sub(r"RSL(\d{2})", r"RSL-\1", outstr, flags=re.IGNORECASE)
+        except (AttributeError, TypeError) as e:
+            outstr = construct(ctx=ctx)
+            # year = datetime.now().year
+            # self.parsed_name = f"RSL-{str(year)[-2:]}-0000"
+        return re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", outstr, flags=re.IGNORECASE)
 
-        @classmethod
-        def construct_regex(cls):
-            rstring =  rf'{cls.get_regex()}'
-            regex = re.compile(rstring, flags = re.IGNORECASE | re.VERBOSE)
-            return regex
-        
-        def enforce_name(self, parent):
-            # super().enforce_name(parent)
-            def construct(ctx) -> str:
-                """
-                DEPRECIATED due to slowness. Search for the largest rsl number and increment by 1
-
-                Returns:
-                    str: new RSL number
-                """        
-                logger.debug(f"Attempting to construct RSL number from scratch...")
-                # directory = Path(self.ctx['directory_path']).joinpath("Bacteria")
-                directory = Path(ctx.directory_path).joinpath("Bacteria")
-                year = str(datetime.now().year)[-2:]
-                if directory.exists():
-                    logger.debug(f"Year: {year}")
-                    relevant_rsls = []
-                    all_xlsx = [item.stem for item in directory.rglob("*.xlsx") if bool(re.search(r"RSL-\d{2}-\d{4}", item.stem)) and year in item.stem[4:6]]
-                    logger.debug(f"All rsls: {all_xlsx}")
-                    for item in all_xlsx:
-                        try:
-                            relevant_rsls.append(re.match(r"RSL-\d{2}-\d{4}", item).group(0))
-                        except Exception as e:
-                            logger.error(f"Regex error: {e}")
-                            continue
-                    logger.debug(f"Initial xlsx: {relevant_rsls}")
-                    max_number = max([int(item[-4:]) for item in relevant_rsls])
-                    logger.debug(f"The largest sample number is: {max_number}")
-                    return f"RSL-{year}-{str(max_number+1).zfill(4)}"
-                else:
-                    # raise FileNotFoundError(f"Unable to locate the directory: {directory.__str__()}")
-                    return f"RSL-{year}-0000"
-            try:
-                self.parsed_name = re.sub(r"RSL(\d{2})", r"RSL-\1", self.parsed_name, flags=re.IGNORECASE)
-            except AttributeError as e:
-                self.parsed_name = construct(ctx=self.ctx)
-                # year = datetime.now().year
-                # self.parsed_name = f"RSL-{str(year)[-2:]}-0000"
-            self.parsed_name = re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", self.parsed_name, flags=re.IGNORECASE)
-
-        @classmethod
-        def get_regex(cls):
-            return "(?P<Bacterial_Culture>RSL-?\\d{2}-?\\d{4})"
-        
+    @classmethod
+    def get_regex(cls):
+        return "(?P<Bacterial_Culture>RSL-?\\d{2}-?\\d{4})"
+    
 class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
@@ -543,49 +492,78 @@ class Wastewater(BasicSubmission):
             input_dict['csv'] = xl.parse("Copy to import file")
         return input_dict
     
-    class _RSLNamer(BasicSubmission._RSLNamer):
-
-        alias = "Wastewater"
-
-        @classmethod
-        def construct_regex(cls):
-            rstring =  rf'{cls.get_regex()}'
-            regex = re.compile(rstring, flags = re.IGNORECASE | re.VERBOSE)
-            return regex
-
-        def enforce_name(self, parent):
-            # super().enforce_name(parent)
-            def construct():
-                today = datetime.now()
-                return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+    @classmethod
+    def parse_pcr(cls, xl: pd.ExcelFile, rsl_number:str) -> list:
+        """
+        Parse specific to wastewater samples.
+        """        
+        samples = super().parse_pcr(xl=xl, rsl_number=rsl_number)
+        df = xl.parse(sheet_name="Results", dtype=object).fillna("")
+        column_names = ["Well", "Well Position", "Omit","Sample","Target","Task"," Reporter","Quencher","Amp Status","Amp Score","Curve Quality","Result Quality Issues","Cq","Cq Confidence","Cq Mean","Cq SD","Auto Threshold","Threshold", "Auto Baseline", "Baseline Start", "Baseline End"]
+        samples_df = df.iloc[23:][0:]
+        logger.debug(f"Dataframe of PCR results:\n\t{samples_df}")
+        samples_df.columns = column_names
+        logger.debug(f"Samples columns: {samples_df.columns}")
+        well_call_df = xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:,-1:]
+        try:
+            samples_df['Assessment'] = well_call_df.values
+        except ValueError:
+            logger.error("Well call number doesn't match sample number")
+        logger.debug(f"Well call df: {well_call_df}")
+        for ii, row in samples_df.iterrows():
             try:
-                self.parsed_name = re.sub(r"PCR(-|_)", "", self.parsed_name)
-            except AttributeError as e:
-                logger.error(f"Problem using regex: {e}")
-                self.parsed_name = construct()
-            self.parsed_name = self.parsed_name.replace("RSLWW", "RSL-WW")
-            self.parsed_name = re.sub(r"WW(\d{4})", r"WW-\1", self.parsed_name, flags=re.IGNORECASE)
-            self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", self.parsed_name)
-            logger.debug(f"Coming out of the preliminary parsing, the plate name is {self.parsed_name}")
+                sample_obj = [sample for sample in samples if sample['sample'] == row[3]][0]    
+            except IndexError:
+                sample_obj = dict(
+                    sample = row['Sample'],
+                    plate_rsl = rsl_number,
+                )
+            logger.debug(f"Got sample obj: {sample_obj}") 
+            if isinstance(row['Cq'], float):
+                sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
+            else:
+                sample_obj[f"ct_{row['Target'].lower()}"] = 0.0
             try:
-                plate_number = re.search(r"(?:(-|_)\d)(?!\d)", self.parsed_name).group().strip("_").strip("-")
-                logger.debug(f"Plate number is: {plate_number}")
-            except AttributeError as e:
-                plate_number = "1"
-            # self.parsed_name = re.sub(r"(\d{8})(-|_\d)?(R\d)?", fr"\1-{plate_number}\3", self.parsed_name)
-            self.parsed_name = re.sub(r"(\d{8})(-|_)?\d?(R\d?)?", rf"\1-{plate_number}\3", self.parsed_name)
-            logger.debug(f"After addition of plate number the plate name is: {self.parsed_name}")
-            try:
-                repeat = re.search(r"-\dR(?P<repeat>\d)?", self.parsed_name).groupdict()['repeat']
-                if repeat == None:
-                    repeat = "1"
-            except AttributeError as e:
-                repeat = ""
-            self.parsed_name = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", self.parsed_name).replace(" ", "")
+                sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
+            except KeyError:
+                logger.error(f"No assessment for {sample_obj['sample']}")
+            samples.append(sample_obj)
+        return samples
+    
+    @classmethod
+    def enforce_name(cls, ctx:Settings, instr:str) -> str:
+        outstr = super().enforce_name(ctx=ctx, instr=instr)
+        def construct():
+            today = datetime.now()
+            return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+        try:
+            outstr = re.sub(r"PCR(-|_)", "", outstr)
+        except AttributeError as e:
+            logger.error(f"Problem using regex: {e}")
+            outstr = construct()
+        outstr = outstr.replace("RSLWW", "RSL-WW")
+        outstr = re.sub(r"WW(\d{4})", r"WW-\1", outstr, flags=re.IGNORECASE)
+        outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)
+        logger.debug(f"Coming out of the preliminary parsing, the plate name is {outstr}")
+        try:
+            plate_number = re.search(r"(?:(-|_)\d)(?!\d)", outstr).group().strip("_").strip("-")
+            logger.debug(f"Plate number is: {plate_number}")
+        except AttributeError as e:
+            plate_number = "1"
+        # self.parsed_name = re.sub(r"(\d{8})(-|_\d)?(R\d)?", fr"\1-{plate_number}\3", self.parsed_name)
+        outstr = re.sub(r"(\d{8})(-|_)?\d?(R\d?)?", rf"\1-{plate_number}\3", outstr)
+        logger.debug(f"After addition of plate number the plate name is: {outstr}")
+        try:
+            repeat = re.search(r"-\dR(?P<repeat>\d)?", outstr).groupdict()['repeat']
+            if repeat == None:
+                repeat = "1"
+        except AttributeError as e:
+            repeat = ""
+        return re.sub(r"(-\dR)\d?", rf"\1 {repeat}", outstr).replace(" ", "")
 
-        @classmethod
-        def get_regex(cls):
-            return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)"
+    @classmethod
+    def get_regex(cls):
+        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)"
   
 class WastewaterArtic(BasicSubmission):
     """
@@ -630,34 +608,25 @@ class WastewaterArtic(BasicSubmission):
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
         return input_dict
     
-    class _RSLNamer(BasicSubmission._RSLNamer):
+    @classmethod
+    def enforce_name(cls, ctx:Settings, instr:str) -> str:
+        outstr = super().enforce_name(ctx=ctx, instr=instr)
+        def construct():
+            today = datetime.now()
+            return f"RSL-AR-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+        try:
+            outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"RSL-AR-\1\2\3", outstr, flags=re.IGNORECASE)
+        except AttributeError:
+            outstr = construct()
+        try:
+            plate_number = int(re.search(r"_|-\d?_", outstr).group().strip("_").strip("-"))
+        except (AttributeError, ValueError) as e:
+            plate_number = 1
+        return re.sub(r"(_|-\d)?_ARTIC", f"-{plate_number}", outstr)
 
-        alias = "Wastewater Artic"
-
-        @classmethod
-        def construct_regex(cls):
-            rstring =  rf'{cls.get_regex()}'
-            regex = re.compile(rstring, flags = re.IGNORECASE | re.VERBOSE)
-            return regex
-
-        def enforce_name(self, parent):
-            # super().enforce_name(parent)
-            def construct():
-                today = datetime.now()
-                return f"RSL-AR-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
-            try:
-                self.parsed_name = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"RSL-AR-\1\2\3", self.parsed_name, flags=re.IGNORECASE)
-            except AttributeError:
-                self.parsed_name = construct()
-            try:
-                plate_number = int(re.search(r"_|-\d?_", self.parsed_name).group().strip("_").strip("-"))
-            except (AttributeError, ValueError) as e:
-                plate_number = 1
-            self.parsed_name = re.sub(r"(_|-\d)?_ARTIC", f"-{plate_number}", self.parsed_name)
-
-        @classmethod
-        def get_regex(cls):
-            return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
+    @classmethod
+    def get_regex(cls):
+        return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
 
 class BasicSample(Base):
     """
@@ -677,7 +646,7 @@ class BasicSample(Base):
     )
 
     __mapper_args__ = {
-        "polymorphic_identity": "basic_sample",
+        "polymorphic_identity": "Basic Sample",
         # "polymorphic_on": sample_type,
         "polymorphic_on": case(
             [
@@ -685,7 +654,7 @@ class BasicSample(Base):
                 (sample_type == "Wastewater Artic Sample", "Wastewater Sample"),
                 (sample_type == "Bacterial Culture Sample", "Bacterial Culture Sample"),
             ],
-            else_="basic_sample"
+            else_="Basic Sample"
          ),
         "with_polymorphic": "*",
     }
@@ -862,8 +831,7 @@ class WastewaterSample(BasicSample):
             return results[0]
         except IndexError:
             return None
-        
-        
+            
 class BacterialCultureSample(BasicSample):
     """
     base of bacterial culture sample

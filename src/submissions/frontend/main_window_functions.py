@@ -27,7 +27,6 @@ from backend.db.functions import (
     construct_submission_info, lookup_reagents, construct_kit_from_yaml, construct_org_from_yaml, get_control_subtypes,
     update_subsampassoc_with_pcr, check_kit_integrity, update_last_used, lookup_organizations, lookup_kit_types, 
     lookup_submissions, lookup_controls, lookup_samples, lookup_submission_sample_association, store_object, lookup_submission_type,
-    get_polymorphic_subclass
 )
 from backend.excel.parser import SheetParser, PCRParser, SampleParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
@@ -56,9 +55,7 @@ def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[Q
     logger.debug(obj.ctx)
     # initialize samples
     obj.samples = []
-    
     obj.missing_info = []
-    
     # set file dialog
     if isinstance(fname, bool) or fname == None:
         fname = select_open_file(obj, file_extension="xlsx")

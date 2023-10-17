@@ -96,5 +96,5 @@ class SubmissionTypeSelector(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def getValues(self):
+    def parse_form(self):
         return self.widget.currentText()

@@ -7,19 +7,16 @@ from datetime import date, datetime
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
 from typing import List, Any
-# from backend.namer import RSLNamer
+from . import RSLNamer
 from pathlib import Path
 import re
 import logging
 from tools import check_not_nan, convert_nans_to_nones, Settings
 from backend.db.functions import lookup_submissions
-from backend.db.models import BasicSubmission
-
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class PydReagent(BaseModel):
+class PydSheetReagent(BaseModel):
     type: str|None
     lot: str|None
     exp: date|None
@@ -73,9 +70,7 @@ class PydReagent(BaseModel):
         else:
             return values.data['type']
 
-    
-
-class PydSubmission(BaseModel, extra='allow'):
+class PydSheetSubmission(BaseModel, extra='allow'):
     ctx: Settings
     filepath: Path
     submission_type: dict|None
@@ -90,7 +85,6 @@ class PydSubmission(BaseModel, extra='allow'):
     submission_category: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
     reagents: List[dict] = []
     samples: List[Any]
-    
 
     @field_validator("submitter_plate_num")
     @classmethod
@@ -153,10 +147,10 @@ class PydSubmission(BaseModel, extra='allow'):
             else:
                 logger.warning(f"Submission number {value} already exists in DB, attempting salvage with filepath")
                 # output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
-                output = BasicSubmission.RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+                output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
                 return dict(value=output, parsed=False)
         else:
-            output = BasicSubmission.RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+            output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
             return dict(value=output, parsed=False)
 
     @field_validator("technician", mode="before")
@@ -206,8 +200,10 @@ class PydSubmission(BaseModel, extra='allow'):
         if check_not_nan(value['value']):
             value = value['value'].title()
             return dict(value=value, parsed=True)
+        # else:
+        #     return dict(value="RSL Name not found.")
         else:
-            return dict(value=BasicSubmission.RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
+            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
         
     @field_validator("submission_category")
     @classmethod
@@ -215,4 +211,3 @@ class PydSubmission(BaseModel, extra='allow'):
         if value['value'] not in ["Research", "Diagnostic", "Surveillance"]:
             value['value'] = values.data['submission_type']['value']
         return value
-
