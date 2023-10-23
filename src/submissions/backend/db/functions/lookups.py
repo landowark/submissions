@@ -135,7 +135,13 @@ def lookup_reagent_types(ctx:Settings,
                 reagent = lookup_reagents(ctx=ctx, lot_number=reagent)
             case _:
                 pass
-        return list(set(kit_type.reagent_types).intersection(reagent.type))[0]
+        assert reagent.type != []
+        logger.debug(f"Looking up reagent type for {type(kit_type)} {kit_type} and {type(reagent)} {reagent}")
+        logger.debug(f"Kit reagent types: {kit_type.reagent_types}")
+        logger.debug(f"Reagent reagent types: {reagent._sa_instance_state}")
+        result = list(set(kit_type.reagent_types).intersection(reagent.type))
+        logger.debug(f"Result: {result}")
+        return result[0]
     match name:
         case str():
             logger.debug(f"Looking up reagent type by name: {name}")
@@ -420,6 +426,8 @@ def lookup_reagenttype_kittype_association(ctx:Settings,
 def lookup_submission_sample_association(ctx:Settings,
                                          submission:models.BasicSubmission|str|None=None,
                                          sample:models.BasicSample|str|None=None,
+                                         row:int=0,
+                                         column:int=0,
                                          limit:int=0,
                                          chronologic:bool=False
                                          ) -> models.SubmissionSampleAssociation|List[models.SubmissionSampleAssociation]:
@@ -438,10 +446,14 @@ def lookup_submission_sample_association(ctx:Settings,
             query = query.join(models.BasicSample).filter(models.BasicSample.submitter_id==sample)
         case _:
             pass
+    if row > 0:
+        query = query.filter(models.SubmissionSampleAssociation.row==row)
+    if column > 0:
+        query = query.filter(models.SubmissionSampleAssociation.column==column)
     logger.debug(f"Query count: {query.count()}")
     if chronologic:
         query.join(models.BasicSubmission).order_by(models.BasicSubmission.submitted_date)
-    if query.count() == 1:
+    if query.count() <= 1:
         limit = 1
     return query_return(query=query, limit=limit)
 

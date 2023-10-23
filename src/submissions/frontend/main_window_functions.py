@@ -24,12 +24,14 @@ from .all_window_functions import select_open_file, select_save_file
 from PyQt6.QtCore import QSignalBlocker
 from backend.db.models import BasicSubmission
 from backend.db.functions import (
-    construct_submission_info, lookup_reagents, construct_kit_from_yaml, construct_org_from_yaml, get_control_subtypes,
+    lookup_reagents, get_control_subtypes,
     update_subsampassoc_with_pcr, check_kit_integrity, update_last_used, lookup_organizations, lookup_kit_types, 
     lookup_submissions, lookup_controls, lookup_samples, lookup_submission_sample_association, store_object, lookup_submission_type,
+    #construct_submission_info, construct_kit_from_yaml, construct_org_from_yaml
 )
 from backend.excel.parser import SheetParser, PCRParser, SampleParser
 from backend.excel.reports import make_report_html, make_report_xlsx, convert_data_list_to_df
+from backend.validators import PydSubmission, PydSample, PydReagent
 from tools import check_not_nan, convert_well_to_row_column
 from .custom_widgets.pop_ups import AlertPop, QuestionAsker
 from .custom_widgets import ReportDatePicker
@@ -79,6 +81,7 @@ def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[Q
     for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
         item.setParent(None)
     obj.current_submission_type = pyd.submission_type['value']
+    obj.current_file = pyd.filepath
     # Get list of fields from pydantic model.
     fields = list(pyd.model_fields.keys()) + list(pyd.model_extra.keys())
     fields.remove('filepath')
@@ -97,7 +100,6 @@ def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[Q
                 logger.debug(f"{field}: {value['value']}")
                 # create combobox to hold looked up submitting labs
                 add_widget = QComboBox()
-                # labs = [item.__str__() for item in lookup_all_orgs(ctx=obj.ctx)]
                 labs = [item.__str__() for item in lookup_organizations(ctx=obj.ctx)]
                 # try to set closest match to top of list
                 try:
@@ -149,12 +151,7 @@ def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[Q
                 except ValueError:
                     cats.insert(0, cats.pop(cats.index(pyd.submission_type['value'])))
                 add_widget.addItems(cats)
-            case "ctx":
-                continue
-            case 'reagents':
-                # NOTE: This is now set to run when the extraction kit is updated.
-                continue
-            case 'csv':
+            case "ctx" | 'reagents' | 'csv' | 'filepath':
                 continue
             case _:
                 # anything else gets added in as a line edit
@@ -178,7 +175,6 @@ def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[Q
     if "csv" in pyd.model_extra:
         obj.csv = pyd.model_extra['csv']
     logger.debug(f"All attributes of obj:\n{pprint.pformat(obj.__dict__)}")
-    
     return obj, result
 
 def kit_reload_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
@@ -265,41 +261,44 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     # # seperate out reagents
     # reagents = {k.replace("lot_", ""):v for k,v in info.items() if k.startswith("lot_")}
     # info = {k:v for k,v in info.items() if not k.startswith("lot_")}
-    info, reagents = obj.table_widget.formwidget.parse_form()
-    logger.debug(f"Info: {info}")
-    logger.debug(f"Reagents: {reagents}")
+    # info, reagents = obj.table_widget.formwidget.parse_form()
+    submission: PydSubmission = obj.table_widget.formwidget.parse_form()
+    logger.debug(f"Submission: {pprint.pformat(submission)}")
     parsed_reagents = []
     # compare reagents in form to reagent database
-    for reagent in reagents:
+    for reagent in submission.reagents:
         # Lookup any existing reagent of this type with this lot number
-        wanted_reagent = lookup_reagents(ctx=obj.ctx, lot_number=reagent['lot'], reagent_type=reagent['name'])
+        wanted_reagent = lookup_reagents(ctx=obj.ctx, lot_number=reagent.lot, reagent_type=reagent.name)
         logger.debug(f"Looked up reagent: {wanted_reagent}")
         # if reagent not found offer to add to database
         if wanted_reagent == None:
             # r_lot = reagent[reagent]
-            r_lot = reagent['lot']
-            dlg = QuestionAsker(title=f"Add {r_lot}?", message=f"Couldn't find reagent type {reagent['name'].strip('Lot')}: {r_lot} in the database.\n\nWould you like to add it?")
+            dlg = QuestionAsker(title=f"Add {reagent.lot}?", message=f"Couldn't find reagent type {reagent.name.strip('Lot')}: {reagent.lot} in the database.\n\nWould you like to add it?")
             if dlg.exec():
-                logger.debug(f"Looking through {pprint.pformat(obj.reagents)} for reagent {reagent['name']}")
+                logger.debug(f"Looking through {pprint.pformat(obj.reagents)} for reagent {reagent.name}")
                 try:
-                    picked_reagent = [item for item in obj.reagents if item.type == reagent['name']][0]
+                    picked_reagent = [item for item in obj.reagents if item.type == reagent.name][0]
                 except IndexError:
-                    logger.error(f"Couldn't find {reagent['name']} in obj.reagents. Checking missing reagents {pprint.pformat(obj.missing_reagents)}")
-                    picked_reagent = [item for item in obj.missing_reagents if item.type == reagent['name']][0]
-                logger.debug(f"checking reagent: {reagent['name']} in obj.reagents. Result: {picked_reagent}")
+                    logger.error(f"Couldn't find {reagent.name} in obj.reagents. Checking missing reagents {pprint.pformat(obj.missing_reagents)}")
+                    picked_reagent = [item for item in obj.missing_reagents if item.type == reagent.name][0]
+                logger.debug(f"checking reagent: {reagent.name} in obj.reagents. Result: {picked_reagent}")
                 expiry_date = picked_reagent.exp
-                wanted_reagent = obj.add_reagent(reagent_lot=r_lot, reagent_type=reagent['name'].replace("lot_", ""), expiry=expiry_date, name=picked_reagent.name)
+                wanted_reagent = obj.add_reagent(reagent_lot=reagent.lot, reagent_type=reagent.name.replace("lot_", ""), expiry=expiry_date, name=picked_reagent.name)
             else:
                 # In this case we will have an empty reagent and the submission will fail kit integrity check
                 logger.debug("Will not add reagent.")
                 return obj, dict(message="Failed integrity check", status="critical")
-        parsed_reagents.append(wanted_reagent)
+        # Append the PydReagent object o be added to the submission
+        parsed_reagents.append(reagent)
     # move samples into preliminary submission dict
-    info['samples'] = obj.samples
-    info['uploaded_by'] = getuser()
+    submission.reagents = parsed_reagents
+    # submission.uploaded_by = getuser()
     # construct submission object
-    logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
-    base_submission, result = construct_submission_info(ctx=obj.ctx, info_dict=info)
+    # logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
+    # base_submission, result = construct_submission_info(ctx=obj.ctx, info_dict=info)
+    base_submission, result = submission.toSQL()
+    # delattr(base_submission, "ctx")
+    # raise ValueError(base_submission.__dict__)
     # check output message for issues
     match result['code']:
         # code 1: ask for overwrite
@@ -307,7 +306,8 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result['message'])
             if dlg.exec():
                 # Do not add duplicate reagents.
-                base_submission.reagents = []
+                # base_submission.reagents = []
+                pass
             else:
                 obj.ctx.database_session.rollback()
                 return obj, dict(message="Overwrite cancelled", status="Information")
@@ -317,16 +317,17 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         case _:
             pass
     # add reagents to submission object
-    for reagent in parsed_reagents:
-        base_submission.reagents.append(reagent)
+    for reagent in base_submission.reagents:
         update_last_used(ctx=obj.ctx, reagent=reagent, kit=base_submission.extraction_kit)
-    logger.debug(f"Parsed reagents: {pprint.pformat(parsed_reagents)}")
+    logger.debug(f"Here is the final submission: {pprint.pformat(base_submission.__dict__)}")
+    logger.debug(f"Parsed reagents: {pprint.pformat(base_submission.reagents)}")
     logger.debug("Checking kit integrity...")
     kit_integrity = check_kit_integrity(base_submission)
     if kit_integrity != None:
         return obj, dict(message=kit_integrity['message'], status="critical")
     logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
-    result = store_object(ctx=obj.ctx, object=base_submission)
+    # result = store_object(ctx=obj.ctx, object=base_submission)
+    base_submission.save(ctx=obj.ctx)
     # update summary sheet
     obj.table_widget.sub_wid.setData()
     # reset form
@@ -339,9 +340,10 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
         excel_map = extraction_kit.construct_xl_map_for_use(obj.current_submission_type)
         logger.debug(f"Extraction kit map:\n\n{pprint.pformat(excel_map)}")
-        input_reagents = [item.to_reagent_dict(extraction_kit=base_submission.extraction_kit) for item in parsed_reagents]
+        input_reagents = [item.to_reagent_dict(extraction_kit=base_submission.extraction_kit) for item in base_submission.reagents]
         logger.debug(f"Parsed reagents going into autofile: {pprint.pformat(input_reagents)}")
-        autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info, missing_info=obj.missing_info)
+        # autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=info, missing_info=obj.missing_info)
+        autofill_excel(obj=obj, xl_map=excel_map, reagents=input_reagents, missing_reagents=obj.missing_reagents, info=base_submission.__dict__, missing_info=obj.missing_info)
     if hasattr(obj, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():

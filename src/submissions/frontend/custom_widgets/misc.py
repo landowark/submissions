@@ -13,15 +13,15 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QDate, QSize
 from tools import check_not_nan, jinja_template_loading, Settings
-from backend.db.functions import construct_kit_from_yaml, \
+from backend.db.functions import \
     lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association, \
-    lookup_submissions
+    lookup_submissions#, construct_kit_from_yaml 
 from backend.db.models import SubmissionTypeKitTypeAssociation
 from sqlalchemy import FLOAT, INTEGER
 import logging
 import numpy as np
 from .pop_ups import AlertPop
-from backend.validators import PydSheetReagent
+from backend.validators import PydReagent
 from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -92,7 +92,7 @@ class AddReagentForm(QDialog):
     def parse_form(self):
         return dict(name=self.name_input.currentText(), 
                     lot=self.lot_input.text(), 
-                    expiry=self.exp_input.date().toPyDate(),
+                    exp=self.exp_input.date().toPyDate(),
                     type=self.type_input.currentText())
 
     def update_names(self):
@@ -386,11 +386,11 @@ class ControlsDatePicker(QWidget):
 
 class ImportReagent(QComboBox):
 
-    def __init__(self, ctx:Settings, reagent:dict|PydSheetReagent, extraction_kit:str):
+    def __init__(self, ctx:Settings, reagent:dict|PydReagent, extraction_kit:str):
         super().__init__()
         self.setEditable(True)
         if isinstance(reagent, dict):
-            reagent = PydSheetReagent(**reagent)
+            reagent = PydReagent(ctx=ctx, **reagent)
         # Ensure that all reagenttypes have a name that matches the items in the excel parser
         query_var = reagent.type
         logger.debug(f"Import Reagent is looking at: {reagent.lot} for {query_var}")

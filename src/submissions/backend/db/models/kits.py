@@ -31,7 +31,8 @@ class KitType(Base):
 
     # association proxy of "user_keyword_associations" collection
     # to "keyword" attribute
-    reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type")
+    # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
+    reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type", creator=lambda RT: KitTypeReagentTypeAssociation(reagent_type=RT))
 
     kit_submissiontype_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -118,7 +119,8 @@ class ReagentType(Base):
 
     # association proxy of "user_keyword_associations" collection
     # to "keyword" attribute
-    kit_types = association_proxy("reagenttype_kit_associations", "kit_type")
+    # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
+    kit_types = association_proxy("reagenttype_kit_associations", "kit_type", creator=lambda kit: KitTypeReagentTypeAssociation(kit_type=kit))
 
     def __str__(self) -> str:
         """
@@ -150,6 +152,7 @@ class KitTypeReagentTypeAssociation(Base):
     reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations")
 
     def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+        logger.debug(f"Parameters: Kit={kit_type}, RT={reagent_type}, Uses={uses}, Required={required}")
         self.kit_type = kit_type
         self.reagent_type = reagent_type
         self.uses = uses
@@ -186,9 +189,9 @@ class Reagent(Base):
 
     def __repr__(self):
         if self.name != None:
-            return f"Reagent({self.name}-{self.lot})"
+            return f"<Reagent({self.name}-{self.lot})>"
         else:
-            return f"Reagent({self.type.name}-{self.lot})"
+            return f"<Reagent({self.type.name}-{self.lot})>"
         
 
     def __str__(self) -> str:

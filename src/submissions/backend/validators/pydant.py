@@ -3,22 +3,28 @@ Contains pydantic models and accompanying validators
 '''
 import uuid
 from pydantic import BaseModel, field_validator, Field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
-from typing import List, Any
+from typing import List, Any, Tuple
 from . import RSLNamer
 from pathlib import Path
 import re
 import logging
 from tools import check_not_nan, convert_nans_to_nones, Settings
-from backend.db.functions import lookup_submissions
+from backend.db.functions import (lookup_submissions, lookup_reagent_types, lookup_reagents, lookup_kit_types, 
+    lookup_organizations, lookup_submission_type, lookup_discounts, lookup_samples, lookup_submission_sample_association,
+    lookup_reagenttype_kittype_association
+)
+from backend.db.models import *
+from sqlalchemy.exc import InvalidRequestError, StatementError
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class PydSheetReagent(BaseModel):
-    type: str|None
+class PydReagent(BaseModel):
+    ctx: Settings
     lot: str|None
+    type: str|None
     exp: date|None
     name: str|None
 
@@ -30,6 +36,16 @@ class PydSheetReagent(BaseModel):
                 return None
             case _:
                 return value
+            
+    @field_validator("type")
+    @classmethod
+    def rescue_type_with_lookup(cls, value, values):
+        if value == None and values.data['lot'] != None:
+            try:
+                return lookup_reagents(ctx=values.data['ctx'], lot_number=values.data['lot']).name
+            except AttributeError:
+                return value
+        return value
 
     @field_validator("lot", mode='before')
     @classmethod
@@ -70,7 +86,81 @@ class PydSheetReagent(BaseModel):
         else:
             return values.data['type']
 
-class PydSheetSubmission(BaseModel, extra='allow'):
+    def toSQL(self):# -> Tuple[Reagent, dict]:
+        result = None
+        logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
+        reagent = lookup_reagents(ctx=self.ctx, lot_number=self.lot)
+        logger.debug(f"Result: {reagent}")
+        if reagent == None:
+            reagent = Reagent()
+            for key, value in self.__dict__.items():
+                if isinstance(value, dict):
+                    value = value['value']
+                logger.debug(f"Reagent info item for {key}: {value}")
+                # set fields based on keys in dictionary
+                match key:
+                    case "lot":
+                        reagent.lot = value.upper()
+                    case "expiry":
+                        reagent.expiry = value
+                    case "type":
+                        reagent_type = lookup_reagent_types(ctx=self.ctx, name=value)
+                        if reagent_type != None:
+                            reagent.type.append(reagent_type)
+                    case "name":
+                        reagent.name = value
+            # add end-of-life extension from reagent type to expiry date
+            # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
+        return reagent, result
+
+class PydSample(BaseModel, extra='allow'):
+
+    submitter_id: str
+    sample_type: str
+    row: int|List[int]|None
+    column: int|List[int]|None
+
+    @field_validator("row", "column")
+    @classmethod
+    def row_int_to_list(cls, value):
+        if isinstance(value, int):
+            return [value]
+        return value
+    
+    # @field_validator(column)
+    # @classmethod
+    # def column_int_to_list(cls, value):
+    #     if isinstance(value, int):
+    #         return [value]
+    #     return value
+
+    def toSQL(self, ctx:Settings, submission):
+        result = None
+        self.__dict__.update(self.model_extra)
+        logger.debug(f"Here is the incoming sample dict: \n{self.__dict__}")
+        instance = lookup_samples(ctx=ctx, submitter_id=self.submitter_id)
+        if instance == None:
+            logger.debug(f"Sample {self.submitter_id} doesn't exist yet. Looking up sample object with polymorphic identity: {self.sample_type}")
+            instance = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)()
+        for key, value in self.__dict__.items():
+            # logger.debug(f"Setting sample field {key} to {value}")
+            match key:
+                case "row" | "column":
+                    continue
+                case _:
+                    instance.set_attribute(name=key, value=value)
+        for row, column in zip(self.row, self.column):
+            logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
+            association = lookup_submission_sample_association(ctx=ctx, submission=submission, row=row, column=column)
+            logger.debug(f"Returned association: {association}")
+            if association == None or association == []:
+                logger.debug(f"Looked up association at row {row}, column {column} didn't exist, creating new association.")
+                association = SubmissionSampleAssociation.find_polymorphic_subclass(polymorphic_identity=f"{submission.submission_type_name} Association")
+                association = association(submission=submission, sample=instance, row=row, column=column)
+                instance.sample_submission_associations.append(association)
+        return instance, result
+
+class PydSubmission(BaseModel, extra='allow'):
     ctx: Settings
     filepath: Path
     submission_type: dict|None
@@ -83,7 +173,7 @@ class PydSheetSubmission(BaseModel, extra='allow'):
     extraction_kit: dict|None
     technician: dict|None
     submission_category: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
-    reagents: List[dict] = []
+    reagents: List[dict]|List[PydReagent] = []
     samples: List[Any]
 
     @field_validator("submitter_plate_num")
@@ -211,3 +301,165 @@ class PydSheetSubmission(BaseModel, extra='allow'):
         if value['value'] not in ["Research", "Diagnostic", "Surveillance"]:
             value['value'] = values.data['submission_type']['value']
         return value
+
+    def toSQL(self):
+        code = 0
+        msg = None
+        self.__dict__.update(self.model_extra)
+        instance = lookup_submissions(ctx=self.ctx, rsl_number=self.rsl_plate_num['value'])
+        if instance == None:
+            instance = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)()
+        else:
+            code = 1
+            msg = "This submission already exists.\nWould you like to overwrite?"
+        self.handle_duplicate_samples()
+        logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
+        for key, value in self.__dict__.items():
+            if isinstance(value, dict):
+                value = value['value']
+            logger.debug(f"Setting {key} to {value}")
+            # set fields based on keys in dictionary
+            match key:
+                case "extraction_kit":
+                    logger.debug(f"Looking up kit {value}")
+                    field_value = lookup_kit_types(ctx=self.ctx, name=value)
+                    logger.debug(f"Got {field_value} for kit {value}")
+                case "submitting_lab":
+                    logger.debug(f"Looking up organization: {value}")
+                    field_value = lookup_organizations(ctx=self.ctx, name=value)
+                    logger.debug(f"Got {field_value} for organization {value}")
+                case "submitter_plate_num":
+                    logger.debug(f"Submitter plate id: {value}")
+                    field_value = value
+                case "samples":
+                    # instance = construct_samples(ctx=ctx, instance=instance, samples=value)
+                    for sample in value:
+                        # logger.debug(f"Parsing {sample} to sql.")
+                        sample, _ = sample.toSQL(ctx=self.ctx, submission=instance)
+                        # instance.samples.append(sample)
+                    continue
+                case "reagents":
+                    field_value = [reagent['value'].toSQL()[0] if isinstance(reagent, dict) else reagent.toSQL()[0] for reagent in value]
+                case "submission_type":
+                    field_value = lookup_submission_type(ctx=self.ctx, name=value)
+                case "ctx" | "csv" | "filepath":
+                    continue
+                case _:
+                    field_value = value
+            # insert into field
+            try:
+                setattr(instance, key, field_value)
+            except AttributeError as e:
+                logger.debug(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
+                continue
+            except KeyError:
+                continue
+        try:
+            logger.debug(f"Calculating costs for procedure...")
+            instance.calculate_base_cost()
+        except (TypeError, AttributeError) as e:
+            logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
+            instance.run_cost = instance.extraction_kit.cost_per_run
+        logger.debug(f"Calculated base run cost of: {instance.run_cost}")
+        # Apply any discounts that are applicable for client and kit.
+        try:
+            logger.debug("Checking and applying discounts...")
+            discounts = [item.amount for item in lookup_discounts(ctx=self.ctx, kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
+            logger.debug(f"We got discounts: {discounts}")
+            if len(discounts) > 0:
+                discounts = sum(discounts)
+                instance.run_cost = instance.run_cost - discounts
+        except Exception as e:
+            logger.error(f"An unknown exception occurred when calculating discounts: {e}")
+        # We need to make sure there's a proper rsl plate number
+        logger.debug(f"We've got a total cost of {instance.run_cost}")
+        try:
+            logger.debug(f"Constructed instance: {instance.to_string()}")
+        except AttributeError as e:
+            logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
+        logger.debug(f"Constructed submissions message: {msg}")
+        return instance, {'code':code, 'message':msg}
+    
+    def handle_duplicate_samples(self):
+        submitter_ids = list(set([sample.submitter_id for sample in self.samples]))
+        output = []
+        for id in submitter_ids:
+            relevants = [item for item in self.samples if item.submitter_id==id]
+            if len(relevants) <= 1:
+                output += relevants
+            else:
+                rows = [item.row[0] for item in relevants]
+                columns = [item.column[0] for item in relevants]
+                dummy = relevants[0]
+                dummy.row = rows
+                dummy.column = columns
+                output.append(dummy)
+        self.samples = output
+
+class PydContact(BaseModel):
+
+    name: str
+    phone: str|None
+    email: str|None
+
+    def toSQL(self, ctx):
+        return Contact(name=self.name, phone=self.phone, email=self.email)
+
+class PydOrganization(BaseModel):
+
+    name: str
+    cost_centre: str
+    contacts: List[PydContact]|None
+
+    def toSQL(self, ctx):
+        instance = Organization()
+        for field in self.model_fields:
+            match field:
+                case "contacts":
+                    value = [item.toSQL(ctx) for item in getattr(self, field)]
+                case _:
+                    value = getattr(self, field)
+            instance.set_attribute(name=field, value=value)
+        return instance
+
+class PydReagentType(BaseModel):
+
+    name: str
+    eol_ext: timedelta|int|None
+    uses: dict|None
+    required: int|None = Field(default=1)
+
+    @field_validator("eol_ext")
+    @classmethod
+    def int_to_timedelta(cls, value):
+        if isinstance(value, int):
+            return timedelta(days=value)
+        return value
+    
+    def toSQL(self, ctx:Settings, kit:KitType):
+        instance: ReagentType = lookup_reagent_types(ctx=ctx, name=self.name)
+        if instance == None:
+            instance = ReagentType(name=self.name, eol_ext=self.eol_ext)
+        logger.debug(f"This is the reagent type instance: {instance.__dict__}")
+        try:
+            assoc = lookup_reagenttype_kittype_association(ctx=ctx, reagent_type=instance, kit_type=kit)
+        except StatementError:
+            assoc = None
+        if assoc == None:
+            assoc = KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=instance, uses=self.uses, required=self.required)
+            kit.kit_reagenttype_associations.append(assoc)
+        return instance
+    
+class PydKit(BaseModel):
+
+    name: str
+    reagent_types: List[PydReagentType]|None
+
+    def toSQL(self, ctx):
+        instance = lookup_kit_types(ctx=ctx, name=self.name)
+        if instance == None:
+            instance = KitType(name=self.name)
+            instance.reagent_types = [item.toSQL(ctx, instance) for item in self.reagent_types]
+        return instance
+
+

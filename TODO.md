@@ -1,4 +1,8 @@
-- [ ] Validate form data using pydantic.
+- [x] Create custom store methods for submission, reagent and sample.
+- [x] Make pydantic models for other things that use constructors.
+- [x] Move backend.db.functions.constructor functions into Pydantic models.
+    - This will allow for better data validation.
+    - Parser -> Pydantic(validation) -> Form(user input) -> Pydantic(validation) -> SQL
 - [x] Rebuild RSLNamer and fix circular imports
     - Should be used when coming in to parser and when leaving form. NO OTHER PLACES.
 - [x] Change 'check_is_power_user' to decorator.

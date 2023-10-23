@@ -17,7 +17,6 @@ from sqlalchemy import create_engine
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple
-from datetime import datetime
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -55,6 +54,11 @@ def check_not_nan(cell_contents) -> bool:
         cell_contents = cell_contents.lower()
     except (TypeError, AttributeError):
         pass
+    try:
+        if np.isnat(cell_contents):
+            cell_contents = np.nan
+    except TypeError as e:
+        pass
     if cell_contents == "nat":
         cell_contents = np.nan
     if cell_contents == 'nan':
@@ -88,38 +92,6 @@ def convert_nans_to_nones(input_str) -> str|None:
     if check_not_nan(input_str):
         return input_str
     return None
-
-# def create_reagent_list(in_dict:dict) -> list[str]:
-#     """
-#     Makes list of reagent types without "lot_" prefix for each key in a dictionary
-
-#     Args:
-#         in_dict (dict): input dictionary of reagents
-
-#     Returns:
-#         list[str]: list of reagent types with "lot_" prefix removed.
-#     """    
-#     return [item.strip("lot_") for item in in_dict.keys()]
-
-# def retrieve_rsl_number(in_str:str) -> Tuple[str, str]:
-#     """
-#     Uses regex to retrieve the plate number and submission type from an input string
-#     DEPRECIATED. REPLACED BY RSLNamer.parsed_name
-    
-#     Args:
-#         in_str (str): string to be parsed
-
-#     Returns:
-#         Tuple[str, str]: tuple of (output rsl number, submission_type)
-#     """    
-#     in_str = in_str.split("\\")[-1]
-#     logger.debug(f"Attempting match of {in_str}")
-#     regex = re.compile(r"""
-#         (?P<wastewater>RSL-?WW(?:-|_)20\d{6}(?:(?:_|-)\d(?!\d))?)|(?P<bacterial_culture>RSL-\d{2}-\d{4})
-#         """, re.VERBOSE)
-#     m = regex.search(in_str)
-#     parsed = m.group().replace("_", "-")
-#     return (parsed, m.lastgroup)
 
 def check_regex_match(pattern:str, check:str) -> bool:
     try:
@@ -437,26 +409,6 @@ def jinja_template_loading():
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     return env
-
-# def check_is_power_user(ctx:Settings) -> bool:
-#     """
-#     Check to ensure current user is in power users list.
-#     NOTE: Depreciated in favour of 'check_authorization' below.
-
-#     Args:
-#         ctx (dict): settings passed down from gui.
-
-#     Returns:
-#         bool: True if user is in power users, else false.
-#     """    
-#     try:
-#         check = getpass.getuser() in ctx.power_users
-#     except KeyError as e:
-#         check = False
-#     except Exception as e:
-#         logger.debug(f"Check encountered unknown error: {type(e).__name__} - {e}")
-#         check = False
-#     return check
 
 def check_authorization(func):
     def wrapper(*args, **kwargs):

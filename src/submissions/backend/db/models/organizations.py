@@ -32,6 +32,13 @@ class Organization(Base):
     
     def __repr__(self) -> str:
         return f"<Organization({self.name})>"
+    
+    def save(self, ctx):
+        ctx.database_session.add(self)
+        ctx.database_session.commit()
+
+    def set_attribute(self, name:str, value):
+        setattr(self, name, value)
 
 
 class Contact(Base):

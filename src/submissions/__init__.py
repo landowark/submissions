@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Version of the realpython-reader package
 __project__ = "submissions"
-__version__ = "202310.2b"
+__version__ = "202310.4b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = "2022-2023, Government of Canada"
 

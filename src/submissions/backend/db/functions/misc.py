@@ -100,6 +100,7 @@ def update_last_used(ctx:Settings, reagent:models.Reagent, kit:models.KitType):
         kit (models.KitType): kit to be used for lookup
     """    
     # rt = list(set(reagent.type).intersection(kit.reagent_types))[0]
+    logger.debug(f"Attempting update of reagent type at intersection of ({reagent}), ({kit})")
     rt = lookup_reagent_types(ctx=ctx, kit_type=kit, reagent=reagent)
     if rt != None:
         assoc = lookup_reagenttype_kittype_association(ctx=ctx, kit_type=kit, reagent_type=rt)

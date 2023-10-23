@@ -13,7 +13,6 @@ from json.decoder import JSONDecodeError
 from math import ceil
 from sqlalchemy.ext.associationproxy import association_proxy
 import uuid
-from pandas import Timestamp
 from dateutil.parser import parse
 import re
 import pandas as pd
@@ -301,6 +300,7 @@ class BasicSubmission(Base):
     @classmethod
     def enforce_name(cls, ctx:Settings, instr:str) -> str:
         logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} Enforcer!")
+        logger.debug(f"Attempting enforcement on {instr}")
         return instr
 
     @classmethod
@@ -343,6 +343,11 @@ class BasicSubmission(Base):
     def parse_pcr(cls, xl:pd.DataFrame, rsl_number:str) -> list:
         logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
         return []
+
+    def save(self, ctx:Settings):
+        self.uploaded_by = getuser()
+        ctx.database_session.add(self)
+        ctx.database_session.commit()
 
 # Below are the custom submission types
 
@@ -536,6 +541,8 @@ class Wastewater(BasicSubmission):
         def construct():
             today = datetime.now()
             return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+        if outstr == None:
+            outstr = construct()
         try:
             outstr = re.sub(r"PCR(-|_)", "", outstr)
         except AttributeError as e:
@@ -743,6 +750,11 @@ class BasicSample(Base):
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
                 return cls
 
+    @classmethod
+    def parse_sample(cls, input_dict:dict) -> dict:
+        logger.debug(f"Called {cls.__name__} sample parser")
+        return input_dict
+
 class WastewaterSample(BasicSample):
     """
     Derivative wastewater sample
@@ -757,51 +769,51 @@ class WastewaterSample(BasicSample):
     __mapper_args__ = {"polymorphic_identity": "Wastewater Sample", "polymorphic_load": "inline"}
 
         
-    @validates("collected-date")
-    def convert_cdate_time(self, key, value):
-        logger.debug(f"Validating {key}: {value}")
-        if isinstance(value, Timestamp):
-            return value.date()
-        if isinstance(value, str):
-            return parse(value)
-        return value
+    # @validates("collected-date")
+    # def convert_cdate_time(self, key, value):
+    #     logger.debug(f"Validating {key}: {value}")
+    #     if isinstance(value, Timestamp):
+    #         return value.date()
+    #     if isinstance(value, str):
+    #         return parse(value)
+    #     return value
     
-    @validates("rsl_number")
-    def use_submitter_id(self, key, value):
-        logger.debug(f"Validating {key}: {value}")
-        return value or self.submitter_id
+    # @validates("rsl_number")
+    # def use_submitter_id(self, key, value):
+    #     logger.debug(f"Validating {key}: {value}")
+    #     return value or self.submitter_id
 
-    def set_attribute(self, name:str, value):
-        """
-        Set an attribute of this object. Extends parent.
+    # def set_attribute(self, name:str, value):
+    #     """
+    #     Set an attribute of this object. Extends parent.
 
-        Args:
-            name (str): name of the attribute
-            value (_type_): value to be set
-        """        
-        # Due to the plate map being populated with RSL numbers, we have to do some shuffling. 
-        match name:
-            case "submitter_id":
-                # If submitter_id already has a value, stop
-                if self.submitter_id != None:
-                    return
-                # otherwise also set rsl_number to the same value
-                else:
-                    super().set_attribute("rsl_number", value)
-            case "ww_full_sample_id":
-                # If value present, set ww_full_sample_id and make this the submitter_id
-                if value != None:
-                    super().set_attribute(name, value)
-                    name = "submitter_id"
-            case 'collection_date':
-                # If this is a string use dateutils to parse into date()
-                if isinstance(value, str):
-                    logger.debug(f"collection_date {value} is a string. Attempting parse...")
-                    value = parse(value)
-            case "rsl_number":
-                if value == None:
-                    value = self.submitter_id
-        super().set_attribute(name, value)
+    #     Args:
+    #         name (str): name of the attribute
+    #         value (_type_): value to be set
+    #     """        
+    #     # Due to the plate map being populated with RSL numbers, we have to do some shuffling. 
+    #     match name:
+    #         case "submitter_id":
+    #             # If submitter_id already has a value, stop
+    #             if self.submitter_id != None:
+    #                 return
+    #             # otherwise also set rsl_number to the same value
+    #             else:
+    #                 super().set_attribute("rsl_number", value)
+    #         case "ww_full_sample_id":
+    #             # If value present, set ww_full_sample_id and make this the submitter_id
+    #             if value != None:
+    #                 super().set_attribute(name, value)
+    #                 name = "submitter_id"
+    #         case 'collection_date':
+    #             # If this is a string use dateutils to parse into date()
+    #             if isinstance(value, str):
+    #                 logger.debug(f"collection_date {value} is a string. Attempting parse...")
+    #                 value = parse(value)
+    #         case "rsl_number":
+    #             if value == None:
+    #                 value = self.submitter_id
+    #     super().set_attribute(name, value)
 
     def to_hitpick(self, submission_rsl:str) -> dict|None:
         """
@@ -832,6 +844,16 @@ class WastewaterSample(BasicSample):
         except IndexError:
             return None
             
+    @classmethod
+    def parse_sample(cls, input_dict: dict) -> dict:
+        output_dict = super().parse_sample(input_dict)
+        if output_dict['rsl_number'] == None:
+            output_dict['rsl_number'] = output_dict['submitter_id']
+        if output_dict['ww_full_sample_id'] != None:
+            output_dict["submitter_id"] = output_dict['ww_full_sample_id']
+        return output_dict
+
+
 class BacterialCultureSample(BasicSample):
     """
     base of bacterial culture sample
@@ -873,7 +895,7 @@ class SubmissionSampleAssociation(Base):
     # Refers to the type of parent.
     # Hooooooo boy, polymorphic association type, now we're getting into the weeds!
     __mapper_args__ = {
-        "polymorphic_identity": "basic_association",
+        "polymorphic_identity": "Basic Association",
         "polymorphic_on": base_sub_type,
         "with_polymorphic": "*",
     }
@@ -886,6 +908,19 @@ class SubmissionSampleAssociation(Base):
 
     def __repr__(self) -> str:
         return f"<SubmissionSampleAssociation({self.submission.rsl_plate_num} & {self.sample.submitter_id})"
+    
+    @classmethod
+    def find_polymorphic_subclass(cls, polymorphic_identity:str|None=None):   
+        if isinstance(polymorphic_identity, dict):
+            polymorphic_identity = polymorphic_identity['value']
+        if polymorphic_identity == None:
+            return cls
+        else:
+            try:
+                return [item for item in cls.__subclasses__() if item.__mapper_args__['polymorphic_identity']==polymorphic_identity][0]
+            except Exception as e:
+                logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
+                return cls
 
 class WastewaterAssociation(SubmissionSampleAssociation):
     """
@@ -897,5 +932,5 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     n2_status = Column(String(32)) #: positive or negative for N2
     pcr_results = Column(JSON) #: imported PCR status from QuantStudio
 
-    __mapper_args__ = {"polymorphic_identity": "wastewater", "polymorphic_load": "inline"}
+    __mapper_args__ = {"polymorphic_identity": "Wastewater Association", "polymorphic_load": "inline"}
 

@@ -5,9 +5,10 @@ from getpass import getuser
 import pprint
 from typing import List
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples
-from backend.validators import PydSheetSubmission, PydSheetReagent, RSLNamer
+from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample
 import logging
 from collections import OrderedDict
 import re
@@ -113,7 +114,7 @@ class SheetParser(object):
         logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
         self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
         
-    def to_pydantic(self) -> PydSheetSubmission:
+    def to_pydantic(self) -> PydSubmission:
         """
         Generates a pydantic model of scraped data for validation
 
@@ -121,8 +122,8 @@ class SheetParser(object):
             PydSubmission: output pydantic model
         """       
         logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pprint.pformat(self.sub)}")
-        psm = PydSheetSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
-        delattr(psm, "filepath")
+        psm = PydSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
+        # delattr(psm, "filepath")
         return psm
     
 class InfoParser(object):
@@ -218,6 +219,7 @@ class ReagentParser(object):
         listo = []
         for sheet in self.xl.sheet_names:
             df = self.xl.parse(sheet, header=None, dtype=object)
+            df.replace({np.nan: None}, inplace = True)
             relevant = {k.strip():v for k,v in self.map.items() if sheet in self.map[k]['sheet']}
             logger.debug(f"relevant map for {sheet}: {pprint.pformat(relevant)}")
             if relevant == {}:
@@ -229,15 +231,16 @@ class ReagentParser(object):
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                 except (KeyError, IndexError):
-                    listo.append(dict(value=PydSheetReagent(type=item.strip(), lot=None, exp=None, name=None), parsed=False))
+                    listo.append(dict(value=PydReagent(ctx=self.ctx, type=item.strip(), lot=None, exp=None, name=None), parsed=False))
                     continue
                 if check_not_nan(lot):
                     parsed = True
                 else:
                     parsed = False
-                logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
+                # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                listo.append(dict(value=PydSheetReagent(type=item.strip(), lot=lot, exp=expiry, name=name), parsed=parsed))
+                logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}")
+                listo.append(dict(value=PydReagent(ctx=self.ctx, type=item.strip(), lot=lot, exp=expiry, name=name), parsed=parsed))
         logger.debug(f"Returning listo: {listo}")
         return listo
 
@@ -284,7 +287,8 @@ class SampleParser(object):
         logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
         # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
-        self.custom_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples
+        self.custom_sub_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples
+        self.custom_sample_parser = models.BasicSample.find_polymorphic_subclass(polymorphic_identity=f"{submission_type.name} Sample").parse_sample
         return sample_info_map
 
     def construct_plate_map(self, plate_map_location:dict) -> pd.DataFrame:
@@ -361,9 +365,13 @@ class SampleParser(object):
             else:
                 return input_str
         for sample in self.samples:
-            addition = self.lookup_table[self.lookup_table.isin([sample['submitter_id']]).any(axis=1)].squeeze().to_dict()
-            logger.debug(f"Lookuptable info: {addition}")
-            for k,v in addition.items():
+            # addition = self.lookup_table[self.lookup_table.isin([sample['submitter_id']]).any(axis=1)].squeeze().to_dict()
+            addition = self.lookup_table[self.lookup_table.isin([sample['submitter_id']]).any(axis=1)].squeeze()
+            logger.debug(addition)
+            if isinstance(addition, pd.DataFrame) and not addition.empty:
+                addition = addition.iloc[0]
+            logger.debug(f"Lookuptable info: {addition.to_dict()}")
+            for k,v in addition.to_dict().items():
                 # logger.debug(f"Checking {k} in lookup table.")
                 if check_not_nan(k) and isinstance(k, str):
                     if k.lower() not in sample:
@@ -376,7 +384,13 @@ class SampleParser(object):
                                 sample[k] = determine_if_date(v)
                             case _:
                                 sample[k] = v
+            # Set row in lookup table to blank values to prevent multipe lookups.
+            try:
+                self.lookup_table.loc[self.lookup_table['Sample #']==addition['Sample #']] = np.nan
+            except ValueError:
+                pass
             logger.debug(f"Output sample dict: {sample}")
+        logger.debug(f"Final lookup_table: \n\n {self.lookup_table}")
 
     def parse_samples(self, generate:bool=True) -> List[dict]|List[models.BasicSample]:
         """
@@ -391,11 +405,11 @@ class SampleParser(object):
         result = None
         new_samples = []
         for ii, sample in enumerate(self.samples):
-            try:
-                if sample['submitter_id'] in [check_sample['sample'].submitter_id for check_sample in new_samples]:
-                    sample['submitter_id'] = f"{sample['submitter_id']}-{ii}"
-            except KeyError as e:
-                logger.error(f"Sample obj: {sample}, error: {e}")
+            # try:
+            #     if sample['submitter_id'] in [check_sample['sample'].submitter_id for check_sample in new_samples]:
+            #         sample['submitter_id'] = f"{sample['submitter_id']}-{ii}"
+            # except KeyError as e:
+            #     logger.error(f"Sample obj: {sample}, error: {e}")
             translated_dict = {}
             for k, v in sample.items():
                 match v:
@@ -410,11 +424,14 @@ class SampleParser(object):
                 except KeyError:
                     translated_dict[k] = convert_nans_to_nones(v)
             translated_dict['sample_type'] = f"{self.submission_type} Sample"
-            translated_dict = self.custom_parser(translated_dict)
-            if generate:
-                new_samples.append(self.generate_sample_object(translated_dict))
-            else:
-                new_samples.append(translated_dict)
+            translated_dict = self.custom_sub_parser(translated_dict)
+            translated_dict = self.custom_sample_parser(translated_dict)
+            logger.debug(f"Here is the output of the custom parser: \n\n{translated_dict}\n\n")
+            # if generate:
+            #     new_samples.append(self.generate_sample_object(translated_dict))
+            # else:
+            #     new_samples.append(translated_dict)
+            new_samples.append(PydSample(**translated_dict))
         return result, new_samples
 
     def generate_sample_object(self, input_dict) -> models.BasicSample:
