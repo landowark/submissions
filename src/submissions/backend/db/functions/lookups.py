@@ -138,7 +138,7 @@ def lookup_reagent_types(ctx:Settings,
         assert reagent.type != []
         logger.debug(f"Looking up reagent type for {type(kit_type)} {kit_type} and {type(reagent)} {reagent}")
         logger.debug(f"Kit reagent types: {kit_type.reagent_types}")
-        logger.debug(f"Reagent reagent types: {reagent._sa_instance_state}")
+        # logger.debug(f"Reagent reagent types: {reagent._sa_instance_state}")
         result = list(set(kit_type.reagent_types).intersection(reagent.type))
         logger.debug(f"Result: {result}")
         return result[0]

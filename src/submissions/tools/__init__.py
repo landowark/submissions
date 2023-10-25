@@ -65,6 +65,8 @@ def check_not_nan(cell_contents) -> bool:
         cell_contents = np.nan
     if cell_contents == None:
         cell_contents = np.nan
+    if str(cell_contents).lower() == "none":
+        cell_contents = np.nan
     try:
         if pd.isnull(cell_contents):
             cell_contents = np.nan

@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship, validates
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging
+from tools import Settings, check_authorization
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -99,6 +100,11 @@ class KitType(Base):
         except IndexError as e:
             map['info'] = {}
         return map
+
+    @check_authorization
+    def save(self, ctx:Settings):
+        ctx.database_session.add(self)
+        ctx.database_session.commit()
 
 class ReagentType(Base):
     """
@@ -265,12 +271,21 @@ class Reagent(Base):
             rtype = reagent_role.name
         except AttributeError:
             rtype = "Unknown"
+        try:
+            expiry = self.expiry.strftime("%Y-%m-%d")
+        except:
+            expiry = date.today()
         return {
             "name":self.name,
             "type": rtype,
             "lot": self.lot,
             "expiry": self.expiry.strftime("%Y-%m-%d")
         }
+    
+    def save(self, ctx:Settings):
+        ctx.database_session.add(self)
+        ctx.database_session.commit()
+
 
 class Discount(Base):
     """

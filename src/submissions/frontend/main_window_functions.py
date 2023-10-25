@@ -38,7 +38,7 @@ from .custom_widgets import ReportDatePicker
 from .custom_widgets.misc import ImportReagent, ParsedQLabel
 from .visualizations.control_charts import create_charts, construct_html
 from pathlib import Path
-from frontend.custom_widgets.misc import FirstStrandSalvage, FirstStrandPlateList
+from frontend.custom_widgets.misc import FirstStrandSalvage, FirstStrandPlateList, ReagentFormWidget
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -78,8 +78,7 @@ def import_submission_function(obj:QMainWindow, fname:Path|None=None) -> Tuple[Q
     except Exception as e:
         return obj, dict(message= f"Problem creating pydantic model:\n\n{e}", status="critical")
     # destroy any widgets from previous imports
-    for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
-        item.setParent(None)
+    obj.table_widget.formwidget.clear_form()
     obj.current_submission_type = pyd.submission_type['value']
     obj.current_file = pyd.filepath
     # Get list of fields from pydantic model.
@@ -216,24 +215,26 @@ def kit_integrity_completion_function(obj:QMainWindow) -> Tuple[QMainWindow, dic
     logger.debug(f"Kit selector: {kit_widget}")
     # get current kit being used
     obj.ext_kit = kit_widget.currentText()
-    for item in obj.reagents:
-        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':True}, item.type, title=False, label_name=f"lot_{item.type}"))
-        reagent = dict(type=item.type, lot=item.lot, exp=item.exp, name=item.name)
-        add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent, extraction_kit=obj.ext_kit)
+    for reagent in obj.reagents:
+        # obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':True}, item.type, title=False, label_name=f"lot_{item.type}"))
+        # reagent = dict(type=item.type, lot=item.lot, expiry=item.expiry, name=item.name)
+        # add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent, extraction_kit=obj.ext_kit)
+        # obj.table_widget.formlayout.addWidget(add_widget)
+        add_widget = ReagentFormWidget(parent=obj.table_widget.formwidget, reagent=reagent, extraction_kit=obj.ext_kit)
         obj.table_widget.formlayout.addWidget(add_widget)
     logger.debug(f"Checking integrity of {obj.ext_kit}")
     # see if there are any missing reagents
     if len(obj.missing_reagents) > 0:
         result = dict(message=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in obj.missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
-    for item in obj.missing_reagents:
-        # Add label that has parsed as False to show "MISSING" label.
-        obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item.type, title=False, label_name=f"missing_{item.type}"))
-        # Set default parameters for the empty reagent.
-        reagent = dict(type=item.type, lot=None, exp=date.today(), name=None)
-        # create and add widget
-        # add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent), extraction_kit=obj.ext_kit)
-        add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent, extraction_kit=obj.ext_kit)
-        obj.table_widget.formlayout.addWidget(add_widget)
+    # for item in obj.missing_reagents:
+    #     # Add label that has parsed as False to show "MISSING" label.
+    #     obj.table_widget.formlayout.addWidget(ParsedQLabel({'parsed':False}, item.type, title=False, label_name=f"missing_{item.type}"))
+    #     # Set default parameters for the empty reagent.
+    #     reagent = dict(type=item.type, lot=None, expiry=date.today(), name=None)
+    #     # create and add widget
+    #     # add_widget = ImportReagent(ctx=obj.ctx, reagent=PydReagent(**reagent), extraction_kit=obj.ext_kit)
+    #     add_widget = ImportReagent(ctx=obj.ctx, reagent=reagent, extraction_kit=obj.ext_kit)
+    #     obj.table_widget.formlayout.addWidget(add_widget)
     # Add submit button to the form.
     submit_btn = QPushButton("Submit")
     submit_btn.setObjectName("submit_btn")
@@ -264,34 +265,34 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     # info, reagents = obj.table_widget.formwidget.parse_form()
     submission: PydSubmission = obj.table_widget.formwidget.parse_form()
     logger.debug(f"Submission: {pprint.pformat(submission)}")
-    parsed_reagents = []
+    # parsed_reagents = []
     # compare reagents in form to reagent database
-    for reagent in submission.reagents:
-        # Lookup any existing reagent of this type with this lot number
-        wanted_reagent = lookup_reagents(ctx=obj.ctx, lot_number=reagent.lot, reagent_type=reagent.name)
-        logger.debug(f"Looked up reagent: {wanted_reagent}")
-        # if reagent not found offer to add to database
-        if wanted_reagent == None:
-            # r_lot = reagent[reagent]
-            dlg = QuestionAsker(title=f"Add {reagent.lot}?", message=f"Couldn't find reagent type {reagent.name.strip('Lot')}: {reagent.lot} in the database.\n\nWould you like to add it?")
-            if dlg.exec():
-                logger.debug(f"Looking through {pprint.pformat(obj.reagents)} for reagent {reagent.name}")
-                try:
-                    picked_reagent = [item for item in obj.reagents if item.type == reagent.name][0]
-                except IndexError:
-                    logger.error(f"Couldn't find {reagent.name} in obj.reagents. Checking missing reagents {pprint.pformat(obj.missing_reagents)}")
-                    picked_reagent = [item for item in obj.missing_reagents if item.type == reagent.name][0]
-                logger.debug(f"checking reagent: {reagent.name} in obj.reagents. Result: {picked_reagent}")
-                expiry_date = picked_reagent.exp
-                wanted_reagent = obj.add_reagent(reagent_lot=reagent.lot, reagent_type=reagent.name.replace("lot_", ""), expiry=expiry_date, name=picked_reagent.name)
-            else:
-                # In this case we will have an empty reagent and the submission will fail kit integrity check
-                logger.debug("Will not add reagent.")
-                return obj, dict(message="Failed integrity check", status="critical")
-        # Append the PydReagent object o be added to the submission
-        parsed_reagents.append(reagent)
-    # move samples into preliminary submission dict
-    submission.reagents = parsed_reagents
+    # for reagent in submission.reagents:
+    #     # Lookup any existing reagent of this type with this lot number
+    #     wanted_reagent = lookup_reagents(ctx=obj.ctx, lot_number=reagent.lot, reagent_type=reagent.name)
+    #     logger.debug(f"Looked up reagent: {wanted_reagent}")
+    #     # if reagent not found offer to add to database
+    #     if wanted_reagent == None:
+    #         # r_lot = reagent[reagent]
+    #         dlg = QuestionAsker(title=f"Add {reagent.lot}?", message=f"Couldn't find reagent type {reagent.name.strip('Lot')}: {reagent.lot} in the database.\n\nWould you like to add it?")
+    #         if dlg.exec():
+    #             logger.debug(f"Looking through {pprint.pformat(obj.reagents)} for reagent {reagent.name}")
+    #             try:
+    #                 picked_reagent = [item for item in obj.reagents if item.type == reagent.name][0]
+    #             except IndexError:
+    #                 logger.error(f"Couldn't find {reagent.name} in obj.reagents. Checking missing reagents {pprint.pformat(obj.missing_reagents)}")
+    #                 picked_reagent = [item for item in obj.missing_reagents if item.type == reagent.name][0]
+    #             logger.debug(f"checking reagent: {reagent.name} in obj.reagents. Result: {picked_reagent}")
+    #             expiry_date = picked_reagent.expiry
+    #             wanted_reagent = obj.add_reagent(reagent_lot=reagent.lot, reagent_type=reagent.name.replace("lot_", ""), expiry=expiry_date, name=picked_reagent.name)
+    #         else:
+    #             # In this case we will have an empty reagent and the submission will fail kit integrity check
+    #             logger.debug("Will not add reagent.")
+    #             return obj, dict(message="Failed integrity check", status="critical")
+    #     # Append the PydReagent object o be added to the submission
+    #     parsed_reagents.append(reagent)
+    # # move samples into preliminary submission dict
+    # submission.reagents = parsed_reagents
     # submission.uploaded_by = getuser()
     # construct submission object
     # logger.debug(f"Here is the info_dict: {pprint.pformat(info)}")
@@ -1020,16 +1021,17 @@ def scrape_reagents(obj:QMainWindow, extraction_kit:str) -> Tuple[QMainWindow, d
     obj.reagents = []
     obj.missing_reagents = []
     # Remove previous reagent widgets
-    [item.setParent(None) for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget) if item.objectName().startswith("lot_") or item.objectName().startswith("missing_")]
-    [item.setParent(None) for item in obj.table_widget.formlayout.parentWidget().findChildren(QPushButton)]
+    # [item.setParent(None) for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget) if item.objectName().startswith("lot_") or item.objectName().startswith("missing_")]
+    # [item.setParent(None) for item in obj.table_widget.formlayout.parentWidget().findChildren(QPushButton)]
     reagents = obj.prsr.parse_reagents(extraction_kit=extraction_kit)
     logger.debug(f"Got reagents: {reagents}")
-    for reagent in obj.prsr.sub['reagents']:
-        # create label
-        if reagent['parsed']:
-            obj.reagents.append(reagent['value'])
-        else:
-            obj.missing_reagents.append(reagent['value'])
+    # for reagent in obj.prsr.sub['reagents']:
+    #     # create label
+    #     if reagent.parsed:
+    #         obj.reagents.append(reagent)
+    #     else:
+    #         obj.missing_reagents.append(reagent)
+    obj.reagents = obj.prsr.sub['reagents']
     logger.debug(f"Imported reagents: {obj.reagents}")
     logger.debug(f"Missing reagents: {obj.missing_reagents}")
     return obj, None

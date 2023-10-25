@@ -2,6 +2,7 @@
 Contains pydantic models and accompanying validators
 '''
 import uuid
+from PyQt6 import QtCore
 from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
@@ -18,6 +19,7 @@ from backend.db.functions import (lookup_submissions, lookup_reagent_types, look
 )
 from backend.db.models import *
 from sqlalchemy.exc import InvalidRequestError, StatementError
+from PyQt6.QtWidgets import QComboBox, QWidget, QLabel, QVBoxLayout
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -25,8 +27,9 @@ class PydReagent(BaseModel):
     ctx: Settings
     lot: str|None
     type: str|None
-    exp: date|None
+    expiry: date|None
     name: str|None
+    parsed: bool = Field(default=False)
 
     @field_validator("type", mode='before')
     @classmethod
@@ -61,7 +64,7 @@ class PydReagent(BaseModel):
             return value.upper()
         return value
             
-    @field_validator("exp", mode="before")
+    @field_validator("expiry", mode="before")
     @classmethod
     def enforce_date(cls, value):
         if value != None:
@@ -86,7 +89,7 @@ class PydReagent(BaseModel):
         else:
             return values.data['type']
 
-    def toSQL(self):# -> Tuple[Reagent, dict]:
+    def toSQL(self) -> Tuple[Reagent, dict]:
         result = None
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
         reagent = lookup_reagents(ctx=self.ctx, lot_number=self.lot)
@@ -113,6 +116,10 @@ class PydReagent(BaseModel):
             # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
         return reagent, result
 
+    def toForm(self, parent:QWidget, extraction_kit:str) -> QComboBox:
+        from frontend.custom_widgets.misc import ReagentFormWidget
+        return ReagentFormWidget(parent=parent, reagent=self, extraction_kit=extraction_kit)
+    
 class PydSample(BaseModel, extra='allow'):
 
     submitter_id: str
@@ -127,13 +134,6 @@ class PydSample(BaseModel, extra='allow'):
             return [value]
         return value
     
-    # @field_validator(column)
-    # @classmethod
-    # def column_int_to_list(cls, value):
-    #     if isinstance(value, int):
-    #         return [value]
-    #     return value
-
     def toSQL(self, ctx:Settings, submission):
         result = None
         self.__dict__.update(self.model_extra)
@@ -302,6 +302,22 @@ class PydSubmission(BaseModel, extra='allow'):
             value['value'] = values.data['submission_type']['value']
         return value
 
+    def handle_duplicate_samples(self):
+        submitter_ids = list(set([sample.submitter_id for sample in self.samples]))
+        output = []
+        for id in submitter_ids:
+            relevants = [item for item in self.samples if item.submitter_id==id]
+            if len(relevants) <= 1:
+                output += relevants
+            else:
+                rows = [item.row[0] for item in relevants]
+                columns = [item.column[0] for item in relevants]
+                dummy = relevants[0]
+                dummy.row = rows
+                dummy.column = columns
+                output.append(dummy)
+        self.samples = output
+
     def toSQL(self):
         code = 0
         msg = None
@@ -380,21 +396,7 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"Constructed submissions message: {msg}")
         return instance, {'code':code, 'message':msg}
     
-    def handle_duplicate_samples(self):
-        submitter_ids = list(set([sample.submitter_id for sample in self.samples]))
-        output = []
-        for id in submitter_ids:
-            relevants = [item for item in self.samples if item.submitter_id==id]
-            if len(relevants) <= 1:
-                output += relevants
-            else:
-                rows = [item.row[0] for item in relevants]
-                columns = [item.column[0] for item in relevants]
-                dummy = relevants[0]
-                dummy.row = rows
-                dummy.column = columns
-                output.append(dummy)
-        self.samples = output
+    def toForm(self):
 
 class PydContact(BaseModel):
 
@@ -447,19 +449,21 @@ class PydReagentType(BaseModel):
             assoc = None
         if assoc == None:
             assoc = KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=instance, uses=self.uses, required=self.required)
-            kit.kit_reagenttype_associations.append(assoc)
+            # kit.kit_reagenttype_associations.append(assoc)
         return instance
     
 class PydKit(BaseModel):
 
     name: str
-    reagent_types: List[PydReagentType]|None
+    reagent_types: List[PydReagentType] = []
 
     def toSQL(self, ctx):
+        result = dict(message=None, status='Information')
         instance = lookup_kit_types(ctx=ctx, name=self.name)
         if instance == None:
             instance = KitType(name=self.name)
-            instance.reagent_types = [item.toSQL(ctx, instance) for item in self.reagent_types]
-        return instance
+            # instance.reagent_types = [item.toSQL(ctx, instance) for item in self.reagent_types]
+            [item.toSQL(ctx, instance) for item in self.reagent_types]
+        return instance, result
 
 

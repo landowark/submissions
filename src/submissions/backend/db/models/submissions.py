@@ -853,7 +853,6 @@ class WastewaterSample(BasicSample):
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
         return output_dict
 
-
 class BacterialCultureSample(BasicSample):
     """
     base of bacterial culture sample

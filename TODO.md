@@ -1,3 +1,5 @@
+- [ ] Make the kit verifier make more sense.
+- [ ] Slim down the Import and Submit functions in main_window_functions.
 - [x] Create custom store methods for submission, reagent and sample.
 - [x] Make pydantic models for other things that use constructors.
 - [x] Move backend.db.functions.constructor functions into Pydantic models.

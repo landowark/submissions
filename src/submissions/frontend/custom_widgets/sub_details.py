@@ -393,7 +393,6 @@ class BarcodeWindow(QDialog):
         painter.drawPixmap(120, -20, image)
         painter.end()
         
-
 class SubmissionComment(QDialog):
     """
     a window for adding comment text to a submission

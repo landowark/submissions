@@ -112,7 +112,8 @@ class SheetParser(object):
         kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
         allowed_reagents = [item.name for item in kit.get_reagents()]
         logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
-        self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
+        # self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
+        self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent.type in allowed_reagents]
         
     def to_pydantic(self) -> PydSubmission:
         """
@@ -231,8 +232,9 @@ class ReagentParser(object):
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                 except (KeyError, IndexError):
-                    listo.append(dict(value=PydReagent(ctx=self.ctx, type=item.strip(), lot=None, exp=None, name=None), parsed=False))
+                    listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=None, exp=None, name=None, parsed=False))
                     continue
+                # If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
                     parsed = True
                 else:
@@ -240,7 +242,7 @@ class ReagentParser(object):
                 # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
                 logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}")
-                listo.append(dict(value=PydReagent(ctx=self.ctx, type=item.strip(), lot=lot, exp=expiry, name=name), parsed=parsed))
+                listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=lot, expiry=expiry, name=name, parsed=parsed))
         logger.debug(f"Returning listo: {listo}")
         return listo
 
@@ -387,7 +389,11 @@ class SampleParser(object):
             # Set row in lookup table to blank values to prevent multipe lookups.
             try:
                 self.lookup_table.loc[self.lookup_table['Sample #']==addition['Sample #']] = np.nan
-            except ValueError:
+            except (ValueError, KeyError):
+                pass
+            try:
+                self.lookup_table.loc[self.lookup_table['Well']==addition['Well']] = np.nan
+            except (ValueError, KeyError):
                 pass
             logger.debug(f"Output sample dict: {sample}")
         logger.debug(f"Final lookup_table: \n\n {self.lookup_table}")

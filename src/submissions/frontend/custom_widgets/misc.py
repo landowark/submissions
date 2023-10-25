@@ -20,9 +20,10 @@ from backend.db.models import SubmissionTypeKitTypeAssociation
 from sqlalchemy import FLOAT, INTEGER
 import logging
 import numpy as np
-from .pop_ups import AlertPop
-from backend.validators import PydReagent
+from .pop_ups import AlertPop, QuestionAsker
+from backend.validators import PydReagent, PydKit, PydReagentType, PydSubmission
 from typing import Tuple
+from pprint import pformat
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -92,7 +93,7 @@ class AddReagentForm(QDialog):
     def parse_form(self):
         return dict(name=self.name_input.currentText(), 
                     lot=self.lot_input.text(), 
-                    exp=self.exp_input.date().toPyDate(),
+                    expiry=self.exp_input.date().toPyDate(),
                     type=self.type_input.currentText())
 
     def update_names(self):
@@ -242,21 +243,22 @@ class KitAdder(QWidget):
         logger.debug(f"kit info: {pformat(info)}")
         logger.debug(f"kit reagents: {pformat(reagents)}")
         info['reagent_types'] = reagents
-        # for reagent in reagents:
-        #     new_dict = {}
-        #     for k,v in reagent.items():
-        #         if "_" in k:
-        #             key, sub_key = k.split("_")
-        #             if key not in new_dict.keys():
-        #                 new_dict[key] = {}
-        #             logger.debug(f"Adding key {key}, {sub_key} and value {v} to {new_dict}")
-        #             new_dict[key][sub_key] = v
-        #         else:
-        #             new_dict[k] = v
-        #     info['reagent_types'].append(new_dict)
         logger.debug(pformat(info))
         # send to kit constructor
-        result = construct_kit_from_yaml(ctx=self.ctx, kit_dict=info)
+        kit = PydKit(name=info['kit_name'])
+        for reagent in info['reagent_types']:
+            uses = {
+                info['used_for']:
+                    {'sheet':reagent['sheet'],
+                     'name':reagent['name'],
+                     'lot':reagent['lot'],
+                     'expiry':reagent['expiry']
+                    }}
+            kit.reagent_types.append(PydReagentType(name=reagent['rtname'], eol_ext=reagent['eol'], uses=uses))
+        logger.debug(f"Output pyd object: {kit.__dict__}")
+        # result = construct_kit_from_yaml(ctx=self.ctx, kit_dict=info)
+        sqlobj, result = kit.toSQL(self.ctx)
+        sqlobj.save(ctx=self.ctx)
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
         self.__init__(self.ctx)
@@ -521,5 +523,149 @@ class FirstStrandPlateList(QDialog):
             output.append(plate.currentText())
         return output
 
+class ReagentFormWidget(QWidget):
+
+    def __init__(self, parent:QWidget, reagent:PydReagent, extraction_kit:str):
+        super().__init__()
+        self.setParent(parent)
+        logger.debug(f"Reagent form widget parent is: {self.parent()}")
+        logger.debug(f"It's great grandparent is {self.parent().parent.parent} which has a method [add_reagent]: {hasattr(self.parent().parent.parent, 'add_reagent')}")
+        self.reagent = reagent
+        self.extraction_kit = extraction_kit
+        self.ctx = reagent.ctx
+        layout = QVBoxLayout()
+        self.label = self.ReagentParsedLabel(reagent=reagent)
+        layout.addWidget(self.label)
+        self.lot = self.ReagentLot(reagent=reagent, extraction_kit=extraction_kit)
+        layout.addWidget(self.lot)
+        self.setLayout(layout)
+        self.setObjectName(reagent.name)
+        self.missing = not reagent.parsed
+
+    def parse_form(self) -> Tuple[PydReagent, dict]:
+        lot = self.lot.currentText()
+        # type = self.label.text().replace("_label")
+        wanted_reagent = lookup_reagents(ctx=self.ctx, lot_number=lot, reagent_type=self.reagent.type)
+        if wanted_reagent == None:
+            dlg = QuestionAsker(title=f"Add {lot}?", message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
+            if dlg.exec():
+                # logger.debug(f"Looking through {pformat(self.parent.reagents)} for reagent {reagent.name}")
+                # try:
+                #     picked_reagent = [item for item in obj.reagents if item.type == reagent.name][0]
+                # except IndexError:
+                #     logger.error(f"Couldn't find {reagent.name} in obj.reagents. Checking missing reagents {pprint.pformat(obj.missing_reagents)}")
+                #     picked_reagent = [item for item in obj.missing_reagents if item.type == reagent.name][0]
+                # logger.debug(f"checking reagent: {reagent.name} in obj.reagents. Result: {picked_reagent}")
+                # expiry_date = picked_reagent.expiry
+                wanted_reagent = self.parent().parent.parent.add_reagent(reagent_lot=lot, reagent_type=self.reagent.type, expiry=self.reagent.expiry, name=self.reagent.name)
+                return wanted_reagent, None
+            else:
+                # In this case we will have an empty reagent and the submission will fail kit integrity check
+                logger.debug("Will not add reagent.")
+                return None, dict(message="Failed integrity check", status="critical")
+        else:
+            rt = lookup_reagent_types(ctx=self.ctx, kit_type=self.extraction_kit, reagent=wanted_reagent)
+            return PydReagent(ctx=self.ctx, name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
 
 
+    class ReagentParsedLabel(QLabel):
+        
+        def __init__(self, reagent:PydReagent):
+            super().__init__()
+            try:
+                check = reagent.parsed
+            except:
+                return
+            self.setObjectName(f"{reagent.type}_label")
+            if check:
+                self.setText(f"Parsed {reagent.type}")
+            else:
+                self.setText(f"MISSING {reagent.type}")
+
+    class ReagentLot(QComboBox):
+
+        def __init__(self, reagent, extraction_kit:str) -> None:
+            super().__init__()
+            self.ctx = reagent.ctx
+            self.setEditable(True)
+            if reagent.parsed:
+                pass
+            logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
+            # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+            lookup = lookup_reagents(ctx=self.ctx, reagent_type=reagent.type)
+            relevant_reagents = [item.__str__() for item in lookup]
+            output_reg = []
+            for rel_reagent in relevant_reagents:
+            # extract strings from any sets.
+                if isinstance(rel_reagent, set):
+                    for thing in rel_reagent:
+                        output_reg.append(thing)
+                elif isinstance(rel_reagent, str):
+                    output_reg.append(rel_reagent)
+            relevant_reagents = output_reg
+            # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
+            logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
+            if str(reagent.lot) not in relevant_reagents:
+                if check_not_nan(reagent.lot):
+                    relevant_reagents.insert(0, str(reagent.lot))
+                else:
+                    # TODO: look up the last used reagent of this type in the database
+                    looked_up_rt = lookup_reagenttype_kittype_association(ctx=self.ctx, reagent_type=reagent.type, kit_type=extraction_kit)
+                    looked_up_reg = lookup_reagents(ctx=self.ctx, lot_number=looked_up_rt.last_used)
+                    logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
+                    if looked_up_reg != None:
+                        relevant_reagents.remove(str(looked_up_reg.lot))
+                        relevant_reagents.insert(0, str(looked_up_reg.lot))
+            else:
+                if len(relevant_reagents) > 1:
+                    logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
+                    idx = relevant_reagents.index(str(reagent.lot))
+                    logger.debug(f"The index we got for {reagent.lot} in {relevant_reagents} was {idx}")
+                    moved_reag = relevant_reagents.pop(idx)
+                    relevant_reagents.insert(0, moved_reag)
+                else:
+                    logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
+            logger.debug(f"New relevant reagents: {relevant_reagents}")
+            self.setObjectName(f"lot_{reagent.type}")
+            self.addItems(relevant_reagents)
+
+class SubmissionFormWidget(QWidget):
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
+                       "qt_scrollarea_vcontainer", "submit_btn"
+                       ]
+        
+    def clear_form(self):
+        for item in self.findChildren(QWidget):
+            item.setParent(None)
+
+    def parse_form(self) -> PydSubmission:
+        logger.debug(f"Hello from form parser!")
+        info = {}
+        reagents = []
+        samples = self.parent.parent.samples
+        logger.debug(f"Using samples: {pformat(samples)}")
+        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore]
+        # widgets = [widget for widget in self.findChildren(QWidget)]
+        for widget in widgets:
+            logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)}")
+            match widget:
+                case ReagentFormWidget():
+                    reagent, _ = widget.parse_form()
+                    reagents.append(reagent)
+                case ImportReagent():
+                    reagent = dict(name=widget.objectName().replace("lot_", ""), lot=widget.currentText(), type=None, expiry=None)
+                    reagents.append(PydReagent(ctx=self.parent.parent.ctx, **reagent))
+                case QLineEdit():
+                    info[widget.objectName()] = dict(value=widget.text())
+                case QComboBox():
+                    info[widget.objectName()] = dict(value=widget.currentText())
+                case QDateEdit():
+                    info[widget.objectName()] = dict(value=widget.date().toPyDate())
+        logger.debug(f"Info: {pformat(info)}")
+        logger.debug(f"Reagents: {pformat(reagents)}")
+        # sys.exit("Hi Landon. Check the reagents! frontend.__init__ line 442")
+        submission = PydSubmission(ctx=self.parent.parent.ctx, filepath=self.parent.parent.current_file, reagents=reagents, samples=samples, **info)
+        return submission

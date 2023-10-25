@@ -3,23 +3,22 @@ Constructs main application.
 '''
 from pprint import pformat
 import sys
-from typing import Tuple
 from PyQt6.QtWidgets import (
     QMainWindow, QToolBar, 
     QTabWidget, QWidget, QVBoxLayout,
     QComboBox, QHBoxLayout,
     QScrollArea, QLineEdit, QDateEdit
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
 from backend.db import (
-    store_object, lookup_control_types, lookup_modes, #construct_reagent
+    lookup_control_types, lookup_modes
 )
 from backend.validators import PydSubmission, PydReagent
 from tools import check_if_app, Settings
-from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ImportReagent
+from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ImportReagent, ReagentFormWidget
 import logging
 from datetime import date
 import webbrowser
@@ -225,7 +224,9 @@ class App(QMainWindow):
             reagent = PydReagent(ctx=self.ctx, **info)
             # send reagent to db
             # store_reagent(ctx=self.ctx, reagent=reagent)
-            result = store_object(ctx=self.ctx, object=reagent.toSQL()[0])
+            sqlobj, result = reagent.toSQL()
+            sqlobj.save(ctx=self.ctx)
+            # result = store_object(ctx=self.ctx, object=reagent.toSQL()[0])
             self.result_reporter(result=result)
             return reagent
 
@@ -320,7 +321,7 @@ class App(QMainWindow):
 
 class AddSubForm(QWidget):
     
-    def __init__(self, parent):
+    def __init__(self, parent:QWidget):
         logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
@@ -337,7 +338,7 @@ class AddSubForm(QWidget):
         self.tabs.addTab(self.tab2,"Controls")
         self.tabs.addTab(self.tab3, "Add Kit")
         # Create submission adder form
-        self.formwidget = SubmissionFormWidget(self)
+        self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
         self.formwidget.setLayout(self.formlayout)
         self.formwidget.setFixedWidth(300)
@@ -391,7 +392,7 @@ class AddSubForm(QWidget):
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
 
-class SubmissionFormWidget(QWidget):
+class SubmissionFormContainer(QWidget):
 
     import_drag = pyqtSignal(Path)
 
@@ -399,9 +400,7 @@ class SubmissionFormWidget(QWidget):
         logger.debug(f"Setting form widget...")
         super().__init__(parent)
         self.parent = parent
-        self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
-                       "qt_scrollarea_vcontainer", "submit_btn"
-                       ]
+        
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, event):
@@ -414,6 +413,10 @@ class SubmissionFormWidget(QWidget):
         fname = Path([u.toLocalFile() for u in event.mimeData().urls()][0])
         self.import_drag.emit(fname)
 
+    def clear_form(self):
+        for item in self.findChildren(QWidget):
+            item.setParent(None)
+
     def parse_form(self) -> PydSubmission:
         logger.debug(f"Hello from form parser!")
         info = {}
@@ -421,11 +424,15 @@ class SubmissionFormWidget(QWidget):
         samples = self.parent.parent.samples
         logger.debug(f"Using samples: {pformat(samples)}")
         widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore]
+        # widgets = [widget for widget in self.findChildren(QWidget)]
         for widget in widgets:
             logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)}")
             match widget:
+                case ReagentFormWidget():
+                    reagent, _ = widget.parse_form()
+                    reagents.append(reagent)
                 case ImportReagent():
-                    reagent = dict(name=widget.objectName().replace("lot_", ""), lot=widget.currentText(), type=None, exp=None)
+                    reagent = dict(name=widget.objectName().replace("lot_", ""), lot=widget.currentText(), type=None, expiry=None)
                     reagents.append(PydReagent(ctx=self.parent.parent.ctx, **reagent))
                 case QLineEdit():
                     info[widget.objectName()] = dict(value=widget.text())
@@ -435,5 +442,6 @@ class SubmissionFormWidget(QWidget):
                     info[widget.objectName()] = dict(value=widget.date().toPyDate())
         logger.debug(f"Info: {pformat(info)}")
         logger.debug(f"Reagents: {pformat(reagents)}")
+        # sys.exit("Hi Landon. Check the reagents! frontend.__init__ line 442")
         submission = PydSubmission(ctx=self.parent.parent.ctx, filepath=self.parent.parent.current_file, reagents=reagents, samples=samples, **info)
         return submission
