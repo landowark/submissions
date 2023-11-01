@@ -13,7 +13,7 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
-from backend.db import (
+from backend.db.functions import (
     lookup_control_types, lookup_modes
 )
 from backend.validators import PydSubmission, PydReagent
@@ -22,6 +22,7 @@ from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, 
 import logging
 from datetime import date
 import webbrowser
+from pathlib import Path
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -32,6 +33,7 @@ class App(QMainWindow):
         logger.debug(f"Initializing main window...")
         super().__init__()
         self.ctx = ctx
+        self.last_dir = ctx.directory_path
         # indicate version and connected database in title bar
         try:
             self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}"
@@ -156,6 +158,7 @@ class App(QMainWindow):
         Args:
             result (dict | None, optional): The result from a function. Defaults to None.
         """        
+        logger.info(f"We got the result: {result}")
         if result != None:
             msg = AlertPop(message=result['message'], status=result['status'])
             msg.exec()
@@ -399,7 +402,7 @@ class SubmissionFormContainer(QWidget):
     def __init__(self, parent: QWidget) -> None:
         logger.debug(f"Setting form widget...")
         super().__init__(parent)
-        self.parent = parent
+        # self.parent = parent
         
         self.setAcceptDrops(True)
 
@@ -411,37 +414,8 @@ class SubmissionFormContainer(QWidget):
 
     def dropEvent(self, event):
         fname = Path([u.toLocalFile() for u in event.mimeData().urls()][0])
+        app = self.parent().parent().parent().parent().parent().parent().parent
+        logger.debug(f"App: {app}")
+        app.last_dir = fname.parent
         self.import_drag.emit(fname)
 
-    def clear_form(self):
-        for item in self.findChildren(QWidget):
-            item.setParent(None)
-
-    def parse_form(self) -> PydSubmission:
-        logger.debug(f"Hello from form parser!")
-        info = {}
-        reagents = []
-        samples = self.parent.parent.samples
-        logger.debug(f"Using samples: {pformat(samples)}")
-        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore]
-        # widgets = [widget for widget in self.findChildren(QWidget)]
-        for widget in widgets:
-            logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)}")
-            match widget:
-                case ReagentFormWidget():
-                    reagent, _ = widget.parse_form()
-                    reagents.append(reagent)
-                case ImportReagent():
-                    reagent = dict(name=widget.objectName().replace("lot_", ""), lot=widget.currentText(), type=None, expiry=None)
-                    reagents.append(PydReagent(ctx=self.parent.parent.ctx, **reagent))
-                case QLineEdit():
-                    info[widget.objectName()] = dict(value=widget.text())
-                case QComboBox():
-                    info[widget.objectName()] = dict(value=widget.currentText())
-                case QDateEdit():
-                    info[widget.objectName()] = dict(value=widget.date().toPyDate())
-        logger.debug(f"Info: {pformat(info)}")
-        logger.debug(f"Reagents: {pformat(reagents)}")
-        # sys.exit("Hi Landon. Check the reagents! frontend.__init__ line 442")
-        submission = PydSubmission(ctx=self.parent.parent.ctx, filepath=self.parent.parent.current_file, reagents=reagents, samples=samples, **info)
-        return submission

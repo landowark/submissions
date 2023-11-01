@@ -47,6 +47,7 @@ class BasicSubmission(Base):
     reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
+    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
     comment = Column(JSON)
@@ -211,12 +212,12 @@ class BasicSubmission(Base):
         Calculate the number of columns in this submission 
 
         Returns:
-            int: largest column number
+            int: Number of unique columns.
         """           
         logger.debug(f"Here's the samples: {self.samples}")
-        columns = [assoc.column for assoc in self.submission_sample_associations]
+        columns = set([assoc.column for assoc in self.submission_sample_associations])
         logger.debug(f"Here are the columns for {self.rsl_plate_num}: {columns}")
-        return max(columns)
+        return len(columns)
     
     def hitpick_plate(self, plate_number:int|None=None) -> list:
         """
@@ -281,7 +282,7 @@ class BasicSubmission(Base):
         Returns:
             dict: Updated sample dictionary
         """        
-        logger.debug(f"Called {cls.__name__} sample parser")
+        # logger.debug(f"Called {cls.__name__} sample parser")
         return input_dict
     
     @classmethod
@@ -461,7 +462,7 @@ class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """    
-    pcr_info = Column(JSON)
+    # pcr_info = Column(JSON)
     ext_technician = Column(String(64))
     pcr_technician = Column(String(64))
     __mapper_args__ = {"polymorphic_identity": "Wastewater", "polymorphic_load": "inline"}
@@ -570,13 +571,16 @@ class Wastewater(BasicSubmission):
 
     @classmethod
     def get_regex(cls):
-        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)"
+        # return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?(\D|$)R?\d?)?)"
+        # return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)\d?([^_|\D]|$)R?\d?)?)"
+        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789]|$)R?\d?)?)"
   
 class WastewaterArtic(BasicSubmission):
     """
     derivative submission type for artic wastewater
     """    
     __mapper_args__ = {"polymorphic_identity": "Wastewater Artic", "polymorphic_load": "inline"}
+    artic_technician = Column(String(64))
 
     def calculate_base_cost(self):
         """
@@ -752,7 +756,7 @@ class BasicSample(Base):
 
     @classmethod
     def parse_sample(cls, input_dict:dict) -> dict:
-        logger.debug(f"Called {cls.__name__} sample parser")
+        # logger.debug(f"Called {cls.__name__} sample parser")
         return input_dict
 
 class WastewaterSample(BasicSample):

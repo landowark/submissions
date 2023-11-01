@@ -20,6 +20,8 @@ from backend.db.functions import (lookup_submissions, lookup_reagent_types, look
 from backend.db.models import *
 from sqlalchemy.exc import InvalidRequestError, StatementError
 from PyQt6.QtWidgets import QComboBox, QWidget, QLabel, QVBoxLayout
+from pprint import pformat
+from openpyxl import load_workbook
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -29,7 +31,7 @@ class PydReagent(BaseModel):
     type: str|None
     expiry: date|None
     name: str|None
-    parsed: bool = Field(default=False)
+    missing: bool = Field(default=True)
 
     @field_validator("type", mode='before')
     @classmethod
@@ -134,6 +136,11 @@ class PydSample(BaseModel, extra='allow'):
             return [value]
         return value
     
+    @field_validator("submitter_id", mode="before")
+    @classmethod
+    def int_to_str(cls, value):
+        return str(value)
+    
     def toSQL(self, ctx:Settings, submission):
         result = None
         self.__dict__.update(self.model_extra)
@@ -165,14 +172,14 @@ class PydSubmission(BaseModel, extra='allow'):
     filepath: Path
     submission_type: dict|None
     # For defaults
-    submitter_plate_num: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
-    rsl_plate_num: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
+    submitter_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
+    rsl_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitted_date: dict|None
     submitting_lab: dict|None
     sample_count: dict|None
     extraction_kit: dict|None
     technician: dict|None
-    submission_category: dict|None = Field(default=dict(value=None, parsed=False), validate_default=True)
+    submission_category: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
     reagents: List[dict]|List[PydReagent] = []
     samples: List[Any]
 
@@ -181,7 +188,7 @@ class PydSubmission(BaseModel, extra='allow'):
     def enforce_with_uuid(cls, value):
         logger.debug(f"submitter plate id: {value}")
         if value['value'] == None or value['value'] == "None":
-            return dict(value=uuid.uuid4().hex.upper(), parsed=False)
+            return dict(value=uuid.uuid4().hex.upper(), missing=True)
         else:
             return value
     
@@ -189,7 +196,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def rescue_date(cls, value):
         if value == None:
-            return dict(value=date.today(), parsed=False)
+            return dict(value=date.today(), missing=True)
         return value
 
     @field_validator("submitted_date")
@@ -200,14 +207,14 @@ class PydSubmission(BaseModel, extra='allow'):
         if isinstance(value['value'], date):
             return value
         if isinstance(value['value'], int):
-            return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(), parsed=False)
+            return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(), missing=True)
         string = re.sub(r"(_|-)\d$", "", value['value'])
         try:
-            output = dict(value=parse(string).date(), parsed=False)
+            output = dict(value=parse(string).date(), missing=True)
         except ParserError as e:
             logger.error(f"Problem parsing date: {e}")
             try:
-                output = dict(value=parse(string.replace("-","")).date(), parsed=False)
+                output = dict(value=parse(string.replace("-","")).date(), missing=True)
             except Exception as e:
                 logger.error(f"Problem with parse fallback: {e}")
         return output
@@ -216,14 +223,14 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def rescue_submitting_lab(cls, value):
         if value == None:
-            return dict(value=None, parsed=False)
+            return dict(value=None, missing=True)
         return value
 
     @field_validator("rsl_plate_num", mode='before')
     @classmethod
     def rescue_rsl_number(cls, value):
         if value == None:
-            return dict(value=None, parsed=False)
+            return dict(value=None, missing=True)
         return value
 
     @field_validator("rsl_plate_num")
@@ -233,21 +240,21 @@ class PydSubmission(BaseModel, extra='allow'):
         sub_type = values.data['submission_type']['value']
         if check_not_nan(value['value']):
             if lookup_submissions(ctx=values.data['ctx'], rsl_number=value['value']) == None:
-                return dict(value=value['value'], parsed=True)
+                return dict(value=value['value'], missing=False)
             else:
                 logger.warning(f"Submission number {value} already exists in DB, attempting salvage with filepath")
                 # output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
                 output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
-                return dict(value=output, parsed=False)
+                return dict(value=output, missing=True)
         else:
             output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
-            return dict(value=output, parsed=False)
+            return dict(value=output, missing=True)
 
     @field_validator("technician", mode="before")
     @classmethod
     def rescue_tech(cls, value):
         if value == None:
-            return dict(value=None, parsed=False)
+            return dict(value=None, missing=True)
         return value
 
     @field_validator("technician")
@@ -257,14 +264,14 @@ class PydSubmission(BaseModel, extra='allow'):
             value['value'] = re.sub(r"\: \d", "", value['value'])
             return value
         else:
-            return dict(value=convert_nans_to_nones(value['value']), parsed=False)
+            return dict(value=convert_nans_to_nones(value['value']), missing=True)
         return value
     
     @field_validator("sample_count", mode='before')
     @classmethod
     def rescue_sample_count(cls, value):
         if value == None:
-            return dict(value=None, parsed=False)
+            return dict(value=None, missing=True)
         return value
         
     @field_validator("extraction_kit", mode='before')
@@ -273,13 +280,13 @@ class PydSubmission(BaseModel, extra='allow'):
         
         if check_not_nan(value):
             if isinstance(value, str):
-                return dict(value=value, parsed=True)
+                return dict(value=value, missing=False)
             elif isinstance(value, dict):
                 return value
         else:
             raise ValueError(f"No extraction kit found.")
         if value == None:
-            return dict(value=None, parsed=False)
+            return dict(value=None, missing=True)
         return value
            
     @field_validator("submission_type", mode='before')
@@ -289,11 +296,11 @@ class PydSubmission(BaseModel, extra='allow'):
             value = {"value": value}
         if check_not_nan(value['value']):
             value = value['value'].title()
-            return dict(value=value, parsed=True)
+            return dict(value=value, missing=False)
         # else:
         #     return dict(value="RSL Name not found.")
         else:
-            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), parsed=False)
+            return dict(value=RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__()).submission_type.title(), missing=True)
         
     @field_validator("submission_category")
     @classmethod
@@ -318,9 +325,21 @@ class PydSubmission(BaseModel, extra='allow'):
                 output.append(dummy)
         self.samples = output
 
+    def improved_dict(self):
+        fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
+        output = {k:getattr(self, k) for k in fields}
+        return output
+
+    def find_missing(self):
+        info = {k:v for k,v in self.improved_dict().items() if isinstance(v, dict)}
+        missing_info = {k:v for k,v in info.items() if v['missing']}
+        missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
+        return missing_info, missing_reagents
+
     def toSQL(self):
         code = 0
         msg = None
+        status = None
         self.__dict__.update(self.model_extra)
         instance = lookup_submissions(ctx=self.ctx, rsl_number=self.rsl_plate_num['value'])
         if instance == None:
@@ -358,6 +377,11 @@ class PydSubmission(BaseModel, extra='allow'):
                     field_value = [reagent['value'].toSQL()[0] if isinstance(reagent, dict) else reagent.toSQL()[0] for reagent in value]
                 case "submission_type":
                     field_value = lookup_submission_type(ctx=self.ctx, name=value)
+                case "sample_count":
+                    if value == None:
+                        field_value = len(self.samples)
+                    else:
+                        field_value = value
                 case "ctx" | "csv" | "filepath":
                     continue
                 case _:
@@ -394,9 +418,85 @@ class PydSubmission(BaseModel, extra='allow'):
         except AttributeError as e:
             logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
         logger.debug(f"Constructed submissions message: {msg}")
-        return instance, {'code':code, 'message':msg}
+        return instance, {'code':code, 'message':msg, 'status':"Information"}
     
-    def toForm(self):
+    def toForm(self, parent:QWidget):
+        from frontend.custom_widgets.misc import SubmissionFormWidget
+        return SubmissionFormWidget(parent=parent, **self.improved_dict())
+
+    def autofill_excel(self, missing_only:bool=True):
+        if missing_only:
+            info, reagents = self.find_missing()
+        else:
+            info = {k:v for k,v in self.improved_dict().items() if isinstance(v, dict)}
+            reagents = self.reagents
+        if len(reagents + list(info.keys())) == 0:
+            return None
+        logger.debug(f"We have blank info and/or reagents in the excel sheet.\n\tLet's try to fill them in.")
+        extraction_kit = lookup_kit_types(ctx=self.ctx, name=self.extraction_kit['value'])
+        logger.debug(f"We have the extraction kit: {extraction_kit.name}")
+        excel_map = extraction_kit.construct_xl_map_for_use(self.submission_type['value'])
+        logger.debug(f"Extraction kit map:\n\n{pformat(excel_map)}")
+        logger.debug(f"Missing reagents going into autofile: {pformat(reagents)}")
+        logger.debug(f"Missing info going into autofile: {pformat(info)}")
+        new_reagents = []
+        for reagent in reagents:
+            new_reagent = {}
+            new_reagent['type'] = reagent.type
+            new_reagent['lot'] = excel_map[new_reagent['type']]['lot']
+            new_reagent['lot']['value'] = reagent.lot
+            new_reagent['expiry'] = excel_map[new_reagent['type']]['expiry']
+            new_reagent['expiry']['value'] = reagent.expiry
+            new_reagent['sheet'] = excel_map[new_reagent['type']]['sheet']
+            # name is only present for Bacterial Culture
+            try:
+                new_reagent['name'] = excel_map[new_reagent['type']]['name']
+                new_reagent['name']['value'] = reagent.name
+            except Exception as e:
+                logger.error(f"Couldn't get name due to {e}")
+            new_reagents.append(new_reagent)
+        new_info = []
+        for k,v in info.items():
+            try:
+                new_item = {}
+                new_item['type'] = k
+                new_item['location'] = excel_map['info'][k]
+                new_item['value'] = v['value']
+                new_info.append(new_item)
+            except KeyError:
+                logger.error(f"Unable to fill in {k}, not found in relevant info.")
+        logger.debug(f"New reagents: {new_reagents}")
+        logger.debug(f"New info: {new_info}")
+        # open a new workbook using openpyxl
+        workbook = load_workbook(self.filepath)
+        # get list of sheet names
+        sheets = workbook.sheetnames
+        # logger.debug(workbook.sheetnames)
+        for sheet in sheets:
+            # open sheet
+            worksheet=workbook[sheet]
+            # Get relevant reagents for that sheet
+            sheet_reagents = [item for item in new_reagents if sheet in item['sheet']]
+            for reagent in sheet_reagents:
+                # logger.debug(f"Attempting to write lot {reagent['lot']['value']} in: row {reagent['lot']['row']}, column {reagent['lot']['column']}")
+                worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'], value=reagent['lot']['value'])
+                # logger.debug(f"Attempting to write expiry {reagent['expiry']['value']} in: row {reagent['expiry']['row']}, column {reagent['expiry']['column']}")
+                worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'], value=reagent['expiry']['value'])
+                try:
+                    # logger.debug(f"Attempting to write name {reagent['name']['value']} in: row {reagent['name']['row']}, column {reagent['name']['column']}")
+                    worksheet.cell(row=reagent['name']['row'], column=reagent['name']['column'], value=reagent['name']['value'])
+                except Exception as e:
+                    logger.error(f"Could not write name {reagent['name']['value']} due to {e}")
+            # Get relevant info for that sheet
+            sheet_info = [item for item in new_info if sheet in item['location']['sheets']]
+            for item in sheet_info:
+                logger.debug(f"Attempting: {item['type']} in row {item['location']['row']}, column {item['location']['column']}")
+                worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
+            # Hacky way to pop in 'signed by'
+        # custom_parser = get_polymorphic_subclass(BasicSubmission, info['submission_type'])
+        custom_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type['value'])
+        workbook = custom_parser.custom_autofill(workbook)
+        return workbook
 
 class PydContact(BaseModel):
 

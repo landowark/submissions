@@ -1,6 +1,7 @@
 '''
 Contains convenience functions for using database
 '''
+import sys
 from tools import Settings
 from .lookups import *
 import pandas as pd
@@ -13,6 +14,8 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from pprint import pformat
 import logging
+from backend.validators import pydant
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -172,7 +175,7 @@ def update_ww_sample(ctx:Settings, sample_obj:dict) -> dict|None:
     result = store_object(ctx=ctx, object=assoc)
     return result
 
-def check_kit_integrity(sub:models.BasicSubmission|models.KitType, reagenttypes:list|None=None) -> dict|None:
+def check_kit_integrity(ctx:Settings, sub:models.BasicSubmission|models.KitType|pydant.PydSubmission, reagenttypes:list=[]) -> dict|None:
     """
     Ensures all reagents expected in kit are listed in Submission
 
@@ -185,20 +188,30 @@ def check_kit_integrity(sub:models.BasicSubmission|models.KitType, reagenttypes:
     """    
     logger.debug(type(sub))
     # What type is sub?
-    reagenttypes = []
+    # reagenttypes = []
     match sub:
+        case pydant.PydSubmission():
+            ext_kit = lookup_kit_types(ctx=ctx, name=sub.extraction_kit['value'])
+            ext_kit_rtypes = [item.name for item in ext_kit.get_reagents(required=True, submission_type=sub.submission_type['value'])]
+            reagenttypes = [item.type for item in sub.reagents]
         case models.BasicSubmission():
             # Get all required reagent types for this kit.
             ext_kit_rtypes = [item.name for item in sub.extraction_kit.get_reagents(required=True, submission_type=sub.submission_type_name)]
             # Overwrite function parameter reagenttypes
             for reagent in sub.reagents:
+                logger.debug(f"For kit integrity, looking up reagent: {reagent}")
                 try:
-                    rt = list(set(reagent.type).intersection(sub.extraction_kit.reagent_types))[0].name
+                    # rt = list(set(reagent.type).intersection(sub.extraction_kit.reagent_types))[0].name
+                    rt = lookup_reagent_types(ctx=ctx, kit_type=sub.extraction_kit, reagent=reagent)
                     logger.debug(f"Got reagent type: {rt}")
-                    reagenttypes.append(rt)
+                    if isinstance(rt, models.ReagentType):
+                        reagenttypes.append(rt.name)
                 except AttributeError as e:
                     logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
                     reagenttypes.append(reagent.type[0].name)
+                except IndexError:
+                    logger.error(f"No intersection of {reagent} type {reagent.type} and {sub.extraction_kit.reagent_types}")
+                    raise ValueError(f"No intersection of {reagent} type {reagent.type} and {sub.extraction_kit.reagent_types}")
         case models.KitType():
             ext_kit_rtypes = [item.name for item in sub.get_reagents(required=True)]
         case _:

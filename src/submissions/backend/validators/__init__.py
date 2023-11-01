@@ -18,7 +18,7 @@ class RSLNamer(object):
         
         if self.submission_type == None:
             self.submission_type = self.retrieve_submission_type(ctx=self.ctx, instr=instr)
-        print(self.submission_type)
+        logger.debug(f"got submission type: {self.submission_type}")
         if self.submission_type != None:
             enforcer = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(instr=instr, regex=enforcer.get_regex())
@@ -67,10 +67,12 @@ class RSLNamer(object):
         Args:
             in_str (str): string to be parsed
         """    
+        logger.debug(f"Input string to be parsed: {instr}")
         if regex == None:
             regex = BasicSubmission.construct_regex()
         else:
             regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
+        logger.debug(f"Using regex: {regex}")
         match instr:
             case Path():
                 m = regex.search(instr.stem)

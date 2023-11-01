@@ -248,7 +248,7 @@ class Reagent(Base):
             "expiry": place_holder.strftime("%Y-%m-%d")
         }
     
-    def to_reagent_dict(self, extraction_kit:KitType=None) -> dict:
+    def to_reagent_dict(self, extraction_kit:KitType|str=None) -> dict:
         """
         Returns basic reagent dictionary.
 
@@ -314,6 +314,7 @@ class SubmissionType(Base):
     name = Column(String(128), unique=True) #: name of submission type
     info_map = Column(JSON) #: Where basic information is found in the excel workbook corresponding to this type.
     instances = relationship("BasicSubmission", backref="submission_type")
+    # regex = Column(String(512))
     
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -325,6 +326,7 @@ class SubmissionType(Base):
 
     def __repr__(self) -> str:
         return f"<SubmissionType({self.name})>"
+
     
 class SubmissionTypeKitTypeAssociation(Base):
     """

@@ -7,7 +7,8 @@ from typing import List
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from backend.db import models, lookup_kit_types, lookup_submission_type, lookup_samples
+from backend.db import models
+from backend.db.functions import lookup_kit_types, lookup_submission_type, lookup_samples
 from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample
 import logging
 from collections import OrderedDict
@@ -32,7 +33,7 @@ class SheetParser(object):
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
         """        
         self.ctx = ctx
-        logger.debug(f"Parsing {filepath.__str__()}")
+        logger.debug(f"\n\nParsing {filepath.__str__()}\n\n")
         match filepath:
             case Path():
                 self.filepath = filepath
@@ -48,7 +49,7 @@ class SheetParser(object):
             raise FileNotFoundError(f"Couldn't parse file {self.filepath}")
         self.sub = OrderedDict()
         # make decision about type of sample we have
-        self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(ctx=self.ctx, instr=self.filepath), parsed=False)
+        self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(ctx=self.ctx, instr=self.filepath), missing=True)
         # # grab the info map from the submission type in database
         self.parse_info()
         self.import_kit_validation_check()
@@ -98,12 +99,12 @@ class SheetParser(object):
         if not check_not_nan(self.sub['extraction_kit']['value']):
             dlg = KitSelector(ctx=self.ctx, title="Kit Needed", message="At minimum a kit is needed. Please select one.")
             if dlg.exec():
-                self.sub['extraction_kit'] = dict(value=dlg.getValues(), parsed=False)
+                self.sub['extraction_kit'] = dict(value=dlg.getValues(), missing=True)
             else:
                 raise ValueError("Extraction kit needed.")
         else:
             if isinstance(self.sub['extraction_kit'], str):
-                self.sub['extraction_kit'] = dict(value=self.sub['extraction_kit'], parsed=False)
+                self.sub['extraction_kit'] = dict(value=self.sub['extraction_kit'], missing=True)
 
     def import_reagent_validation_check(self):
         """
@@ -130,6 +131,7 @@ class SheetParser(object):
 class InfoParser(object):
 
     def __init__(self, ctx:Settings, xl:pd.ExcelFile, submission_type:str):
+        logger.debug(f"\n\nHello from InfoParser!")
         self.ctx = ctx
         self.map = self.fetch_submission_info_map(submission_type=submission_type)
         self.xl = xl
@@ -147,7 +149,7 @@ class InfoParser(object):
             dict: Location map of all info for this submission type
         """        
         if isinstance(submission_type, str):
-            submission_type = dict(value=submission_type, parsed=False)
+            submission_type = dict(value=submission_type, missing=True)
         logger.debug(f"Looking up submission type: {submission_type['value']}")
         submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
         info_map = submission_type.info_map
@@ -168,7 +170,7 @@ class InfoParser(object):
             relevant = {}
             for k, v in self.map.items():
                 if isinstance(v, str):
-                    dicto[k] = dict(value=v, parsed=True)
+                    dicto[k] = dict(value=v, missing=False)
                     continue
                 if k == "samples":
                     continue
@@ -183,16 +185,16 @@ class InfoParser(object):
                 if check_not_nan(value):
                     if value != "None":
                         try:
-                            dicto[item] = dict(value=value, parsed=True)
+                            dicto[item] = dict(value=value, missing=False)
                         except (KeyError, IndexError):
                             continue
                     else:
                         try:
-                            dicto[item] = dict(value=value, parsed=False)
+                            dicto[item] = dict(value=value, missing=True)
                         except (KeyError, IndexError):
                             continue
                 else:
-                    dicto[item] = dict(value=convert_nans_to_nones(value), parsed=False)
+                    dicto[item] = dict(value=convert_nans_to_nones(value), missing=True)
             try:
                 check = dicto['submission_category'] not in ["", None]
             except KeyError:
@@ -202,6 +204,7 @@ class InfoParser(object):
 class ReagentParser(object):
 
     def __init__(self, ctx:Settings, xl:pd.ExcelFile, submission_type:str, extraction_kit:str):
+        logger.debug("\n\nHello from ReagentParser!\n\n")
         self.ctx = ctx
         self.map = self.fetch_kit_info_map(extraction_kit=extraction_kit, submission_type=submission_type)
         self.xl = xl
@@ -232,18 +235,18 @@ class ReagentParser(object):
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                 except (KeyError, IndexError):
-                    listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=None, exp=None, name=None, parsed=False))
+                    listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=None, expiry=None, name=None, missing=True))
                     continue
                 # If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
-                    parsed = True
+                    missing = False
                 else:
-                    parsed = False
+                    missing = True
                 # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
                 logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}")
-                listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=lot, expiry=expiry, name=name, parsed=parsed))
-        logger.debug(f"Returning listo: {listo}")
+                listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=lot, expiry=expiry, name=name, missing=missing))
+        # logger.debug(f"Returning listo: {listo}")
         return listo
 
 class SampleParser(object):
@@ -260,6 +263,7 @@ class SampleParser(object):
             df (pd.DataFrame): input sample dataframe
             elution_map (pd.DataFrame | None, optional): optional map of elution plate. Defaults to None.
         """        
+        logger.debug("\n\nHello from SampleParser!")
         self.samples = []
         self.ctx = ctx
         self.xl = xl
@@ -310,6 +314,7 @@ class SampleParser(object):
         # custom_mapper = get_polymorphic_subclass(models.BasicSubmission, self.submission_type)
         custom_mapper = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         df = custom_mapper.custom_platemap(self.xl, df)
+        logger.debug(f"Custom platemap:\n{df}")
         return df
     
     def construct_lookup_table(self, lookup_table_location:dict) -> pd.DataFrame:
@@ -369,10 +374,10 @@ class SampleParser(object):
         for sample in self.samples:
             # addition = self.lookup_table[self.lookup_table.isin([sample['submitter_id']]).any(axis=1)].squeeze().to_dict()
             addition = self.lookup_table[self.lookup_table.isin([sample['submitter_id']]).any(axis=1)].squeeze()
-            logger.debug(addition)
+            # logger.debug(addition)
             if isinstance(addition, pd.DataFrame) and not addition.empty:
                 addition = addition.iloc[0]
-            logger.debug(f"Lookuptable info: {addition.to_dict()}")
+            # logger.debug(f"Lookuptable info: {addition.to_dict()}")
             for k,v in addition.to_dict().items():
                 # logger.debug(f"Checking {k} in lookup table.")
                 if check_not_nan(k) and isinstance(k, str):
@@ -395,7 +400,7 @@ class SampleParser(object):
                 self.lookup_table.loc[self.lookup_table['Well']==addition['Well']] = np.nan
             except (ValueError, KeyError):
                 pass
-            logger.debug(f"Output sample dict: {sample}")
+            # logger.debug(f"Output sample dict: {sample}")
         logger.debug(f"Final lookup_table: \n\n {self.lookup_table}")
 
     def parse_samples(self, generate:bool=True) -> List[dict]|List[models.BasicSample]:
@@ -432,11 +437,7 @@ class SampleParser(object):
             translated_dict['sample_type'] = f"{self.submission_type} Sample"
             translated_dict = self.custom_sub_parser(translated_dict)
             translated_dict = self.custom_sample_parser(translated_dict)
-            logger.debug(f"Here is the output of the custom parser: \n\n{translated_dict}\n\n")
-            # if generate:
-            #     new_samples.append(self.generate_sample_object(translated_dict))
-            # else:
-            #     new_samples.append(translated_dict)
+            # logger.debug(f"Here is the output of the custom parser:\n{translated_dict}")
             new_samples.append(PydSample(**translated_dict))
         return result, new_samples
 

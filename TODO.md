@@ -1,10 +1,14 @@
-- [ ] Make the kit verifier make more sense.
-- [ ] Slim down the Import and Submit functions in main_window_functions.
+- [ ] Update artic submission type database entry to 
+- [ ] Document code 
+- [x] Rewrite tests... again.
+- [x] Have InfoItem change status self.missing to True if value changed.
+- [x] Make the kit verifier make more sense.
+- [x] Slim down the Import and Submit functions in main_window_functions.
 - [x] Create custom store methods for submission, reagent and sample.
 - [x] Make pydantic models for other things that use constructors.
 - [x] Move backend.db.functions.constructor functions into Pydantic models.
     - This will allow for better data validation.
-    - Parser -> Pydantic(validation) -> Form(user input) -> Pydantic(validation) -> SQL
+    - Parser(client input) -> Pydantic(validation) -> Form(user input) -> Pydantic(validation) -> SQL
 - [x] Rebuild RSLNamer and fix circular imports
     - Should be used when coming in to parser and when leaving form. NO OTHER PLACES.
 - [x] Change 'check_is_power_user' to decorator.

@@ -1,3 +1,7 @@
+## 202311.01
+
+- Kit integrity is now checked before creation of sql object to improve reagent type lookups.
+
 ## 202310.03
 
 - Better flexibility with parsers pulling methods from database objects.

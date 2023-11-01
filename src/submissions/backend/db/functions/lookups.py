@@ -141,7 +141,10 @@ def lookup_reagent_types(ctx:Settings,
         # logger.debug(f"Reagent reagent types: {reagent._sa_instance_state}")
         result = list(set(kit_type.reagent_types).intersection(reagent.type))
         logger.debug(f"Result: {result}")
-        return result[0]
+        try:
+            return result[0]
+        except IndexError:
+            return result
     match name:
         case str():
             logger.debug(f"Looking up reagent type by name: {name}")
@@ -249,7 +252,7 @@ def lookup_submissions(ctx:Settings,
     if chronologic:
         # query.order_by(models.BasicSubmission.submitted_date)
         query.order_by(model.submitted_date)
-    logger.debug(f"At the end of the search, the query gets: {query.all()}")
+    # logger.debug(f"At the end of the search, the query gets: {query.all()}")
     return query_return(query=query, limit=limit)
 
 def lookup_submission_type(ctx:Settings,
