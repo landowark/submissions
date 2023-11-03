@@ -22,7 +22,7 @@ class RSLNamer(object):
         if self.submission_type != None:
             enforcer = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(instr=instr, regex=enforcer.get_regex())
-            self.parsed_name = enforcer.enforce_name(ctx=ctx, instr=self.parsed_name)
+            self.parsed_name = enforcer.enforce_name(instr=self.parsed_name)
 
     @classmethod
     def retrieve_submission_type(cls, ctx:Settings, instr:str|Path) -> str:

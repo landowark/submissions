@@ -12,7 +12,7 @@ import sys, os, stat, platform, getpass
 import logging
 from logging import handlers
 from pathlib import Path
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, declarative_base, DeclarativeMeta, Query
 from sqlalchemy import create_engine
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,6 +36,9 @@ CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
 row_map = {1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H"}
+
+Base: DeclarativeMeta = declarative_base()
+metadata = Base.metadata
 
 def check_not_nan(cell_contents) -> bool:
     """
@@ -160,12 +163,21 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file_encoding='utf-8')
 
+    @field_validator('backup_path')
+    @classmethod
+    def set_backup_path(cls, value):
+        if isinstance(value, str):
+            value = Path(value)
+        metadata.backup_path = value
+        return value
+
     @field_validator('directory_path', mode="before")
     @classmethod
     def ensure_directory_exists(cls, value):
         if isinstance(value, str):
             value = Path(value)
         if value.exists():
+            metadata.directory_path = value
             return value
         else:
             raise FileNotFoundError(f"Couldn't find settings file {value}")
@@ -210,6 +222,8 @@ class Settings(BaseSettings):
             logger.debug(f"Using {database_path} for database file.")
             engine = create_engine(f"sqlite:///{database_path}")#, echo=True, future=True)
             session = Session(engine)
+            metadata.session = session
+            
             return session
 
     @field_validator('package', mode="before")
@@ -286,43 +300,6 @@ def get_config(settings_path: Path|str|None=None) -> Settings:
     with open(settings_path, "r") as stream:
         settings = yaml.load(stream, Loader=yaml.Loader)
     return Settings(**settings)
-
-def create_database_session(database_path: Path|str|None=None) -> Session:
-    """
-    Creates a session to sqlite3 database from path or default database if database_path is blank.
-    DEPRECIATED: THIS IS NOW HANDLED BY THE PYDANTIC SETTINGS OBJECT.
-
-    Args:
-        database_path (Path | str | None, optional): path to sqlite database. Defaults to None.
-
-    Returns:
-        Session: database session
-    """    
-    # convert string to path object
-    if isinstance(database_path, str):
-        database_path = Path(database_path)
-    # check if database path defined by user
-    if database_path == None:
-        # check in user's .submissions directory for submissions.db
-        if Path.home().joinpath(".submissions", "submissions.db").exists():
-            database_path = Path.home().joinpath(".submissions", "submissions.db")
-        # finally, look in the local dir
-        else:
-            database_path = package_dir.joinpath("submissions.db")
-    else:
-        # check if user defined path is directory
-        if database_path.is_dir():
-            database_path = database_path.joinpath("submissions.db")
-        # check if user defined path is a file
-        elif database_path.is_file():
-            database_path = database_path
-        else:
-            logger.error("No database file found. Exiting program.")
-            sys.exit()
-    logger.debug(f"Using {database_path} for database file.")
-    engine = create_engine(f"sqlite:///{database_path}")
-    session = Session(engine)
-    return session
 
 def setup_logger(verbosity:int=3):
     """
@@ -454,3 +431,33 @@ def convert_well_to_row_column(input_str:str) -> Tuple[int, int]:
     except IndexError:
         return None, None
     return row, column
+
+def query_return(query:Query, limit:int=0):
+    """
+    Execute sqlalchemy query.
+
+    Args:
+        query (Query): Query object
+        limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+    Returns:
+        _type_: Query result.
+    """    
+    with query.session.no_autoflush:
+        match limit:
+            case 0:
+                return query.all()
+            case 1:
+                return query.first()
+            case _:
+                return query.limit(limit).all()
+
+def setup_lookup(func):
+    def wrapper(*args, **kwargs):
+        for k, v in locals().items():
+            if k == "kwargs":
+                continue
+            if isinstance(v, dict):
+                raise ValueError("Cannot use dictionary in query. Make sure you parse it first.")
+        return func(*args, **kwargs)
+    return wrapper

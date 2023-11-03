@@ -281,7 +281,7 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     obj.pyd: PydSubmission = obj.form.parse_form()
     logger.debug(f"Submission: {pprint.pformat(obj.pyd)}")
     logger.debug("Checking kit integrity...")
-    kit_integrity = check_kit_integrity(ctx=obj.ctx, sub=obj.pyd)
+    kit_integrity = check_kit_integrity(sub=obj.pyd)
     if kit_integrity != None:
         return obj, dict(message=kit_integrity['message'], status="critical")
     base_submission, result = obj.pyd.toSQL()
@@ -307,11 +307,11 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             pass
     # add reagents to submission object
     for reagent in base_submission.reagents:
-        update_last_used(ctx=obj.ctx, reagent=reagent, kit=base_submission.extraction_kit)
+        update_last_used(reagent=reagent, kit=base_submission.extraction_kit)
     logger.debug(f"Here is the final submission: {pprint.pformat(base_submission.__dict__)}")
     logger.debug(f"Parsed reagents: {pprint.pformat(base_submission.reagents)}")    
     logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
-    base_submission.save(ctx=obj.ctx)
+    base_submission.save()
     # update summary sheet
     obj.table_widget.sub_wid.setData()
     # reset form
@@ -319,12 +319,12 @@ def submit_new_sample_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     logger.debug(f"All attributes of obj: {pprint.pformat(obj.__dict__)}")
     wkb = obj.pyd.autofill_excel()
     if wkb != None:
-        fname = select_save_file(obj=obj, default_name=obj.pyd.rsl_plate_num['value'], extension="xlsx")
+        fname = select_save_file(obj=obj, default_name=obj.pyd.construct_filename(), extension="xlsx")
         wkb.save(filename=fname.__str__())
     if hasattr(obj.pyd, 'csv'):
         dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
         if dlg.exec():
-            fname = select_save_file(obj, f"{base_submission.rsl_plate_num}.csv", extension="csv")
+            fname = select_save_file(obj, f"{obj.pyd.rsl_plate_num['value']}.csv", extension="csv")
             try:
                 obj.csv.to_csv(fname.__str__(), index=False)
             except PermissionError:
@@ -348,7 +348,8 @@ def generate_report_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         info = dlg.parse_form()
         logger.debug(f"Report info: {info}")
         # find submissions based on date range
-        subs = lookup_submissions(ctx=obj.ctx, start_date=info['start_date'], end_date=info['end_date'])
+        # subs = lookup_submissions(ctx=obj.ctx, start_date=info['start_date'], end_date=info['end_date'])
+        subs = BasicSubmission.query(start_date=info['start_date'], end_date=info['end_date'])
         # convert each object to dict
         records = [item.report_dict() for item in subs]
         # make dataframe from record dictionaries
@@ -468,7 +469,7 @@ def controls_getter_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     obj.mode = obj.table_widget.mode_typer.currentText()
     obj.table_widget.sub_typer.clear()
     # lookup subtypes
-    sub_types = get_control_subtypes(ctx=obj.ctx, type=obj.con_type, mode=obj.mode)
+    sub_types = get_control_subtypes(type=obj.con_type, mode=obj.mode)
     # sub_types = lookup_controls(ctx=obj.ctx, control_type=obj.con_type)
     if sub_types != []:
         # block signal that will rerun controls getter and update sub_typer
@@ -502,7 +503,8 @@ def chart_maker_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     logger.debug(f"Subtype: {obj.subtype}")
     # query all controls using the type/start and end dates from the gui
     # controls = get_all_controls_by_type(ctx=obj.ctx, con_type=obj.con_type, start_date=obj.start_date, end_date=obj.end_date)
-    controls = lookup_controls(ctx=obj.ctx, control_type=obj.con_type, start_date=obj.start_date, end_date=obj.end_date)
+    # controls = lookup_controls(ctx=obj.ctx, control_type=obj.con_type, start_date=obj.start_date, end_date=obj.end_date)
+    controls = Control.query(control_type=obj.con_type, start_date=obj.start_date, end_date=obj.end_date)
     # if no data found from query set fig to none for reporting in webview
     if controls == None:
         fig = None
@@ -544,10 +546,12 @@ def link_controls_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     """    
     result = None
     # all_bcs = lookup_all_submissions_by_type(obj.ctx, "Bacterial Culture")
-    all_bcs = lookup_submissions(ctx=obj.ctx, submission_type="Bacterial Culture")
+    # all_bcs = lookup_submissions(ctx=obj.ctx, submission_type="Bacterial Culture")
+    all_bcs = BasicSubmission.query(submission_type="Bacterial Culture")
     logger.debug(all_bcs)
     # all_controls = get_all_controls(obj.ctx)
-    all_controls = lookup_controls(ctx=obj.ctx)
+    # all_controls = lookup_controls(ctx=obj.ctx)
+    all_controls = Control.query()
     ac_list = [control.name for control in all_controls]
     count = 0
     for bcs in all_bcs:
@@ -615,7 +619,8 @@ def link_extractions_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             new_run[f"column{str(ii-5)}_vol"] = run[ii]
         # Lookup imported submissions
         # sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=new_run['rsl_plate_num'])
-        sub = lookup_submissions(ctx=obj.ctx, rsl_number=new_run['rsl_plate_num'])
+        # sub = lookup_submissions(ctx=obj.ctx, rsl_number=new_run['rsl_plate_num'])
+        sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
         # If no such submission exists, move onto the next run
         if sub == None:
             continue
@@ -680,7 +685,8 @@ def link_pcr_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             )
         # lookup imported submission
         # sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=new_run['rsl_plate_num'])
-        sub = lookup_submissions(ctx=obj.ctx, rsl_number=new_run['rsl_plate_num'])
+        # sub = lookup_submissions(ctx=obj.ctx, rsl_number=new_run['rsl_plate_num'])
+        sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
         # if imported submission doesn't exist move on to next run
         if sub == None:
             continue
@@ -734,7 +740,7 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     parser = PCRParser(ctx=obj.ctx, filepath=fname)
     logger.debug(f"Attempting lookup for {parser.plate_num}")
     # sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=parser.plate_num)
-    sub = lookup_submissions(ctx=obj.ctx, rsl_number=parser.plate_num)
+    sub = BasicSubmission.query(rsl_number=parser.plate_num)
     try:
         logger.debug(f"Found submission: {sub.rsl_plate_num}")
     except AttributeError:
@@ -742,7 +748,8 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
         logger.error(f"Submission of number {parser.plate_num} not found. Attempting rescue of plate repeat.")
         parser.plate_num = "-".join(parser.plate_num.split("-")[:-1])
         # sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=parser.plate_num)
-        sub = lookup_submissions(ctx=obj.ctx, rsl_number=parser.plate_num)
+        # sub = lookup_submissions(ctx=obj.ctx, rsl_number=parser.plate_num)
+        sub = BasicSubmission.query(rsl_number=parser.plate_num)
         try:
             logger.debug(f"Found submission: {sub.rsl_plate_num}")
         except AttributeError:
@@ -779,7 +786,7 @@ def import_pcr_results_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
             sample_dict = [item for item in parser.samples if item['sample']==sample.rsl_number][0]
         except IndexError:
             continue
-        update_subsampassoc_with_pcr(ctx=obj.ctx, submission=sub, sample=sample, input_dict=sample_dict)
+        update_subsampassoc_with_pcr(submission=sub, sample=sample, input_dict=sample_dict)
 
     result = dict(message=f"We added PCR info to {sub.rsl_plate_num}.", status='information')
     return obj, result
@@ -877,8 +884,6 @@ def autofill_excel(obj:QMainWindow, xl_map:dict, reagents:List[dict], missing_re
     fname = select_save_file(obj=obj, default_name=info['rsl_plate_num'], extension="xlsx")
     workbook.save(filename=fname.__str__())
 
-
-
 def construct_first_strand_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]:
     """
     Generates a csv file from client submitted xlsx file.
@@ -891,13 +896,16 @@ def construct_first_strand_function(obj:QMainWindow) -> Tuple[QMainWindow, dict]
     """    
     def get_plates(input_sample_number:str, plates:list) -> Tuple[int, str]:
         logger.debug(f"Looking up {input_sample_number} in {plates}")
-        samp = lookup_samples(ctx=obj.ctx, ww_processing_num=input_sample_number)
+        # samp = lookup_samples(ctx=obj.ctx, ww_processing_num=input_sample_number)
+        samp = BasicSample.query(ww_processing_num=input_sample_number)
         if samp ==  None:
-            samp = lookup_samples(ctx=obj.ctx, submitter_id=input_sample_number)
+            # samp = lookup_samples(ctx=obj.ctx, submitter_id=input_sample_number)
+            samp = BasicSample.query(submitter_id=input_sample_number)
         if samp == None:
             return None, None
         logger.debug(f"Got sample: {samp}")
-        new_plates = [(iii+1, lookup_submission_sample_association(ctx=obj.ctx, sample=samp, submission=plate)) for iii, plate in enumerate(plates)]
+        # new_plates = [(iii+1, lookup_submission_sample_association(ctx=obj.ctx, sample=samp, submission=plate)) for iii, plate in enumerate(plates)]
+        new_plates = [(iii+1, SubmissionSampleAssociation.query(sample=samp, submission=plate)) for iii, plate in enumerate(plates)]
         logger.debug(f"Associations: {pprint.pformat(new_plates)}")
         try:
             plate_num, plate = next(assoc for assoc in new_plates if assoc[1])

@@ -1,12 +1,16 @@
 '''
 All control related models.
 '''
-from . import Base
+from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Query
 import logging
 from operator import itemgetter
 import json
+from tools import Base, setup_lookup, query_return
+from datetime import date, datetime
+from typing import List
+from dateutil.parser import parse
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -21,6 +25,31 @@ class ControlType(Base):
     targets = Column(JSON) #: organisms checked for
     instances = relationship("Control", back_populates="controltype") #: control samples created of this type.
 
+    @classmethod
+    @setup_lookup
+    def query(cls,
+               name:str=None, 
+               limit:int=0
+               ) -> ControlType|List[ControlType]:
+        """
+        Lookup control archetypes in the database
+
+        Args:
+            ctx (Settings): Settings object passed down from gui.
+            name (str, optional): Control type name (limits results to 1). Defaults to None.
+            limit (int, optional): Maximum number of results to return. Defaults to 0.
+
+        Returns:
+            models.ControlType|List[models.ControlType]: ControlType(s) of interest.
+        """    
+        query = cls.metadata.session.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name==name)
+                limit = 1
+            case _:
+                pass
+        return query_return(query=query, limit=limit)
 
 class Control(Base):
     """
@@ -136,3 +165,88 @@ class Control(Base):
                 data = {}
         return data
 
+    @classmethod
+    @setup_lookup
+    def query(cls, 
+                control_type:ControlType|str|None=None,
+                start_date:date|str|int|None=None,
+                end_date:date|str|int|None=None,
+                control_name:str|None=None,
+                limit:int=0
+                ) -> Control|List[Control]:
+        """
+        Lookup control objects in the database based on a number of parameters.
+
+        Args:
+            control_type (models.ControlType | str | None, optional): Control archetype. Defaults to None.
+            start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
+            end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
+            control_name (str | None, optional): Name of control. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            models.Control|List[models.Control]: Control object of interest.
+        """    
+        query: Query = cls.metadata.session.query(cls)
+        # by control type
+        match control_type:
+            case ControlType():
+                logger.debug(f"Looking up control by control type: {control_type}")
+                # query = query.join(models.ControlType).filter(models.ControlType==control_type)
+                query = query.filter(cls.controltype==control_type)
+            case str():
+                logger.debug(f"Looking up control by control type: {control_type}")
+                query = query.join(ControlType).filter(ControlType.name==control_type)
+            case _:
+                pass
+        # by date range
+        if start_date != None and end_date == None:
+            logger.warning(f"Start date with no end date, using today.")
+            end_date = date.today()
+        if end_date != None and start_date == None:
+            logger.warning(f"End date with no start date, using Jan 1, 2023")
+            start_date = date(2023, 1, 1)
+        if start_date != None:
+            match start_date:
+                case date():
+                    start_date = start_date.strftime("%Y-%m-%d")
+                case int():
+                    start_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
+                case _:
+                    start_date = parse(start_date).strftime("%Y-%m-%d")
+            match end_date:
+                case date():
+                    end_date = end_date.strftime("%Y-%m-%d")
+                case int():
+                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime("%Y-%m-%d")
+                case _:
+                    end_date = parse(end_date).strftime("%Y-%m-%d")
+            logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
+            query = query.filter(cls.submitted_date.between(start_date, end_date))
+        match control_name:
+            case str():
+                query = query.filter(cls.name.startswith(control_name))
+                limit = 1
+            case _:
+                pass
+        return query_return(query=query, limit=limit)
+
+    @classmethod
+    def get_modes(cls):
+        """
+        Get all control modes from database
+
+        Args:
+            ctx (Settings): Settings object passed down from gui.
+
+        Returns:
+            List[str]: List of control mode names.
+        """    
+        rel = cls.metadata.session.query(cls).first()
+        try:
+            cols = [item.name for item in list(rel.__table__.columns) if isinstance(item.type, JSON)]
+        except AttributeError as e:
+            logger.debug(f"Failed to get available modes from db: {e}")
+            cols = []
+        return cols
+    

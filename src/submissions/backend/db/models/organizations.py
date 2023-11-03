@@ -1,13 +1,17 @@
 '''
 All client organization related models.
 '''
-from . import Base
+from __future__ import annotations
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Query
+from tools import Base, check_authorization, setup_lookup, query_return
+from typing import List
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 # table containing organization/contact relationship
 orgs_contacts = Table("_orgs_contacts", Base.metadata, Column("org_id", INTEGER, ForeignKey("_organizations.id")), Column("contact_id", INTEGER, ForeignKey("_contacts.id")))
-
 
 class Organization(Base):
     """
@@ -33,6 +37,7 @@ class Organization(Base):
     def __repr__(self) -> str:
         return f"<Organization({self.name})>"
     
+    @check_authorization
     def save(self, ctx):
         ctx.database_session.add(self)
         ctx.database_session.commit()
@@ -40,6 +45,31 @@ class Organization(Base):
     def set_attribute(self, name:str, value):
         setattr(self, name, value)
 
+    @classmethod
+    @setup_lookup
+    def query(cls,
+                name:str|None=None,
+                limit:int=0,
+                ) -> Organization|List[Organization]:
+        """
+        Lookup organizations in the database by a number of parameters.
+
+        Args:
+            name (str | None, optional): Name of the organization. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            Organization|List[Organization]: _description_
+        """    
+        query: Query = cls.metadata.session.query(cls)
+        match name:
+            case str():
+                logger.debug(f"Looking up organization with name: {name}")
+                query = query.filter(cls.name==name)
+                limit = 1
+            case _:
+                pass
+        return query_return(query=query, limit=limit)
 
 class Contact(Base):
     """
@@ -56,3 +86,44 @@ class Contact(Base):
     def __repr__(self) -> str:
         return f"<Contact({self.name})>"
 
+    @classmethod
+    @setup_lookup
+    def query(cls,
+                name:str|None=None,
+                email:str|None=None,
+                phone:str|None=None,
+                limit:int=0,
+                ) -> Contact|List[Contact]:
+        """
+        Lookup contacts in the database by a number of parameters.
+
+        Args:
+            name (str | None, optional): Name of the contact. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            Contact|List[Contact]: _description_
+        """    
+        query: Query = cls.metadata.session.query(cls)
+        match name:
+            case str():
+                logger.debug(f"Looking up contact with name: {name}")
+                query = query.filter(cls.name==name)
+                limit = 1
+            case _:
+                pass
+        match email:
+            case str():
+                logger.debug(f"Looking up contact with email: {name}")
+                query = query.filter(cls.email==email)
+                limit = 1
+            case _:
+                pass
+        match phone:
+            case str():
+                logger.debug(f"Looking up contact with phone: {name}")
+                query = query.filter(cls.phone==phone)
+                limit = 1
+            case _:
+                pass
+        return query_return(query=query, limit=limit)

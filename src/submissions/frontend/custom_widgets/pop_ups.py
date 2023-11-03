@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
 from tools import jinja_template_loading
 import logging
 from backend.db.functions import lookup_kit_types, lookup_submission_type
+from backend.db.models import KitType, SubmissionType
 from typing import Literal
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -53,7 +54,8 @@ class KitSelector(QDialog):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        kits = [item.__str__() for item in lookup_kit_types(ctx=ctx)]
+        # kits = [item.__str__() for item in lookup_kit_types(ctx=ctx)]
+        kits = [item.__str__() for item in KitType.query()]
         self.widget.addItems(kits)
         self.widget.setEditable(False)
         # set yes/no buttons
@@ -80,7 +82,8 @@ class SubmissionTypeSelector(QDialog):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        sub_type = [item.name for item in lookup_submission_type(ctx=ctx)]
+        # sub_type = [item.name for item in lookup_submission_type(ctx=ctx)]
+        sub_type = [item.name for item in SubmissionType.query()]
         self.widget.addItems(sub_type)
         self.widget.setEditable(False)
         # set yes/no buttons

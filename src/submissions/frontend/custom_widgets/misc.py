@@ -13,10 +13,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QDate, QSize, pyqtSignal
 from tools import check_not_nan, jinja_template_loading, Settings
-from backend.db.functions import \
-    lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association, \
-    lookup_submissions, lookup_organizations, lookup_kit_types
-from backend.db.models import SubmissionTypeKitTypeAssociation
+from backend.db.functions import (lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association, \
+    lookup_submissions, lookup_organizations, lookup_kit_types)
+from backend.db.models import *
 from sqlalchemy import FLOAT, INTEGER
 import logging
 import numpy as np
@@ -25,6 +24,7 @@ from backend.validators import PydReagent, PydKit, PydReagentType, PydSubmission
 from typing import Tuple, List
 from pprint import pformat
 import difflib
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -67,7 +67,8 @@ class AddReagentForm(QDialog):
         # widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
-        self.type_input.addItems([item.name for item in lookup_reagent_types(ctx=ctx)])
+        # self.type_input.addItems([item.name for item in lookup_reagent_types(ctx=ctx)])
+        self.type_input.addItems([item.name for item in ReagentType.query()])
         logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
         try:
@@ -103,7 +104,8 @@ class AddReagentForm(QDialog):
         """        
         logger.debug(self.type_input.currentText())
         self.name_input.clear()
-        lookup = lookup_reagents(ctx=self.ctx, reagent_type=self.type_input.currentText())
+        # lookup = lookup_reagents(ctx=self.ctx, reagent_type=self.type_input.currentText())
+        lookup = Reagent.query(reagent_type=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
 class ReportDatePicker(QDialog):
@@ -165,7 +167,8 @@ class KitAdder(QWidget):
         used_for = QComboBox()
         used_for.setObjectName("used_for")
         # Insert all existing sample types
-        used_for.addItems([item.name for item in lookup_submission_type(ctx=parent_ctx)])
+        # used_for.addItems([item.name for item in lookup_submission_type(ctx=parent_ctx)])
+        used_for.addItems([item.name for item in SubmissionType.query()])
         used_for.setEditable(True)
         self.grid.addWidget(used_for,3,1)
         # Get all fields in SubmissionTypeKitTypeAssociation
@@ -188,28 +191,6 @@ class KitAdder(QWidget):
                     add_widget = QLineEdit()
             add_widget.setObjectName(column.name)
             self.grid.addWidget(add_widget, idx,1)
-        # self.grid.addWidget(QLabel("Constant cost per full plate (plates, work hours, etc.):"),4,0)
-        # # widget to get constant cost
-        # const_cost = QDoubleSpinBox() #QSpinBox()
-        # const_cost.setObjectName("const_cost")
-        # const_cost.setMinimum(0)
-        # const_cost.setMaximum(9999)
-        # self.grid.addWidget(const_cost,4,1)
-        # self.grid.addWidget(QLabel("Cost per column (multidrop reagents, etc.):"),5,0)
-        # # widget to get mutable costs per column
-        # mut_cost_col = QDoubleSpinBox() #QSpinBox()
-        # mut_cost_col.setObjectName("mut_cost_col")
-        # mut_cost_col.setMinimum(0)
-        # mut_cost_col.setMaximum(9999)
-        # self.grid.addWidget(mut_cost_col,5,1)
-        # self.grid.addWidget(QLabel("Cost per sample (tips, reagents, etc.):"),6,0)
-        # # widget to get mutable costs per column
-        # mut_cost_samp = QDoubleSpinBox() #QSpinBox()
-        # mut_cost_samp.setObjectName("mut_cost_samp")
-        # mut_cost_samp.setMinimum(0)
-        # mut_cost_samp.setMaximum(9999)
-        # self.grid.addWidget(mut_cost_samp,6,1)
-        # button to add additional reagent types
         self.add_RT_btn = QPushButton("Add Reagent Type")
         self.grid.addWidget(self.add_RT_btn)
         self.add_RT_btn.clicked.connect(self.add_RT)
@@ -259,7 +240,7 @@ class KitAdder(QWidget):
         logger.debug(f"Output pyd object: {kit.__dict__}")
         # result = construct_kit_from_yaml(ctx=self.ctx, kit_dict=info)
         sqlobj, result = kit.toSQL(self.ctx)
-        sqlobj.save(ctx=self.ctx)
+        sqlobj.save()
         msg = AlertPop(message=result['message'], status=result['status'])
         msg.exec()
         self.__init__(self.ctx)
@@ -295,7 +276,8 @@ class ReagentTypeForm(QWidget):
         self.reagent_getter = QComboBox()
         self.reagent_getter.setObjectName("rtname")
         # lookup all reagent type names from db
-        lookup = lookup_reagent_types(ctx=ctx)
+        # lookup = lookup_reagent_types(ctx=ctx)
+        lookup = ReagentType.query()
         logger.debug(f"Looked up ReagentType names: {lookup}")
         self.reagent_getter.addItems([item.__str__() for item in lookup])
         self.reagent_getter.setEditable(True)
@@ -387,66 +369,6 @@ class ControlsDatePicker(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(80,20)  
 
-class ImportReagent(QComboBox):
-
-    """
-    NOTE: Depreciated in favour of ReagentFormWidget
-    """
-
-    def __init__(self, ctx:Settings, reagent:dict|PydReagent, extraction_kit:str):
-        super().__init__()
-        self.setEditable(True)
-        if isinstance(reagent, dict):
-            reagent = PydReagent(ctx=ctx, **reagent)
-        # Ensure that all reagenttypes have a name that matches the items in the excel parser
-        query_var = reagent.type
-        logger.debug(f"Import Reagent is looking at: {reagent.lot} for {query_var}")
-        if isinstance(reagent.lot, np.float64):
-            logger.debug(f"{reagent.lot} is a numpy float!")
-            try:
-                reagent.lot = int(reagent.lot)
-            except ValueError:
-                pass
-        # query for reagents using type name from sheet and kit from sheet
-        logger.debug(f"Attempting lookup of reagents by type: {query_var}")
-        # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-        lookup = lookup_reagents(ctx=ctx, reagent_type=query_var)
-        relevant_reagents = [item.__str__() for item in lookup]
-        output_reg = []
-        for rel_reagent in relevant_reagents:
-            # extract strings from any sets.
-            if isinstance(rel_reagent, set):
-                for thing in rel_reagent:
-                    output_reg.append(thing)
-            elif isinstance(rel_reagent, str):
-                output_reg.append(rel_reagent)
-        relevant_reagents = output_reg
-        # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
-        logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
-        if str(reagent.lot) not in relevant_reagents:
-            if check_not_nan(reagent.lot):
-                relevant_reagents.insert(0, str(reagent.lot))
-            else:
-                # TODO: look up the last used reagent of this type in the database
-                looked_up_rt = lookup_reagenttype_kittype_association(ctx=ctx, reagent_type=reagent.type, kit_type=extraction_kit)
-                looked_up_reg = lookup_reagents(ctx=ctx, lot_number=looked_up_rt.last_used)
-                logger.debug(f"Because there was no reagent listed for {reagent}, we will insert the last lot used: {looked_up_reg}")
-                if looked_up_reg != None:
-                    relevant_reagents.remove(str(looked_up_reg.lot))
-                    relevant_reagents.insert(0, str(looked_up_reg.lot))
-        else:
-            if len(relevant_reagents) > 1:
-                logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
-                idx = relevant_reagents.index(str(reagent.lot))
-                logger.debug(f"The index we got for {reagent.lot} in {relevant_reagents} was {idx}")
-                moved_reag = relevant_reagents.pop(idx)
-                relevant_reagents.insert(0, moved_reag)
-            else:
-                logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
-        logger.debug(f"New relevant reagents: {relevant_reagents}")
-        self.setObjectName(f"lot_{reagent.type}")
-        self.addItems(relevant_reagents)
-
 class FirstStrandSalvage(QDialog):
 
     def __init__(self, ctx:Settings, submitter_id:str, rsl_plate_num:str|None=None) -> None:
@@ -492,7 +414,8 @@ class FirstStrandPlateList(QDialog):
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        ww = [item.rsl_plate_num for item in lookup_submissions(ctx=ctx, submission_type="Wastewater")]
+        # ww = [item.rsl_plate_num for item in lookup_submissions(ctx=ctx, submission_type="Wastewater")]
+        ww = [item.rsl_plate_num for item in BasicSubmission.query(submission_type="Wastewater")]
         self.plate1 = QComboBox()
         self.plate2 = QComboBox()
         self.plate3 = QComboBox()
@@ -532,7 +455,8 @@ class ReagentFormWidget(QWidget):
 
     def parse_form(self) -> Tuple[PydReagent, dict]:
         lot = self.lot.currentText()
-        wanted_reagent = lookup_reagents(ctx=self.ctx, lot_number=lot, reagent_type=self.reagent.type)
+        # wanted_reagent = lookup_reagents(ctx=self.ctx, lot_number=lot, reagent_type=self.reagent.type)
+        wanted_reagent = Reagent.query(lot_number=lot, reagent_type=self.reagent.type)
         # if reagent doesn't exist in database, off to add it (uses App.add_reagent)
         if wanted_reagent == None:
             dlg = QuestionAsker(title=f"Add {lot}?", message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
@@ -546,10 +470,12 @@ class ReagentFormWidget(QWidget):
         else:
             # Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name
             # from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
-            rt = lookup_reagent_types(ctx=self.ctx, name=self.reagent.type)
+            # rt = lookup_reagent_types(ctx=self.ctx, name=self.reagent.type)
             # rt = lookup_reagent_types(ctx=self.ctx, kit_type=self.extraction_kit, reagent=wanted_reagent)
+            rt = ReagentType.query(name=self.reagent.type)
             if rt == None:
-                rt = lookup_reagent_types(ctx=self.ctx, kit_type=self.extraction_kit, reagent=wanted_reagent)
+                # rt = lookup_reagent_types(ctx=self.ctx, kit_type=self.extraction_kit, reagent=wanted_reagent)
+                rt = ReagentType.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
             return PydReagent(ctx=self.ctx, name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
 
     def updated(self):
@@ -584,7 +510,8 @@ class ReagentFormWidget(QWidget):
             #     pass
             logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
             # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-            lookup = lookup_reagents(ctx=self.ctx, reagent_type=reagent.type)
+            # lookup = lookup_reagents(ctx=self.ctx, reagent_type=reagent.type)
+            lookup = Reagent.query(reagent_type=reagent.type)
             relevant_reagents = [item.__str__() for item in lookup]
             output_reg = []
             for rel_reagent in relevant_reagents:
@@ -602,9 +529,11 @@ class ReagentFormWidget(QWidget):
                     relevant_reagents.insert(0, str(reagent.lot))
                 else:
                     # TODO: look up the last used reagent of this type in the database
-                    looked_up_rt = lookup_reagenttype_kittype_association(ctx=self.ctx, reagent_type=reagent.type, kit_type=extraction_kit)
+                    # looked_up_rt = lookup_reagenttype_kittype_association(ctx=self.ctx, reagent_type=reagent.type, kit_type=extraction_kit)
+                    looked_up_rt = KitTypeReagentTypeAssociation.query(reagent_type=reagent.type, kit_type=extraction_kit)
                     try:
-                        looked_up_reg = lookup_reagents(ctx=self.ctx, lot_number=looked_up_rt.last_used)
+                        # looked_up_reg = lookup_reagents(ctx=self.ctx, lot_number=looked_up_rt.last_used)
+                        looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
                     except AttributeError:
                         looked_up_reg = None
                     logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
@@ -743,7 +672,8 @@ class SubmissionFormWidget(QWidget):
                 case 'submitting_lab':
                     add_widget = QComboBox()
                     # lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
-                    labs = [item.__str__() for item in lookup_organizations(ctx=obj.ctx)]
+                    # labs = [item.__str__() for item in lookup_organizations(ctx=obj.ctx)]
+                    labs = [item.__str__() for item in Organization.query()]
                     # try to set closest match to top of list
                     try:
                         labs = difflib.get_close_matches(value, labs, len(labs), 0)
@@ -760,7 +690,8 @@ class SubmissionFormWidget(QWidget):
                     add_widget = QComboBox()
                     # lookup existing kits by 'submission_type' decided on by sheetparser
                     logger.debug(f"Looking up kits used for {submission_type}")
-                    uses = [item.__str__() for item in lookup_kit_types(ctx=obj.ctx, used_for=submission_type)]
+                    # uses = [item.__str__() for item in lookup_kit_types(ctx=obj.ctx, used_for=submission_type)]
+                    uses = [item.__str__() for item in KitType.query(used_for=submission_type)]
                     obj.uses = uses
                     logger.debug(f"Kits received for {submission_type}: {uses}")
                     if check_not_nan(value):
@@ -786,7 +717,8 @@ class SubmissionFormWidget(QWidget):
                 case 'submission_category':
                     add_widget = QComboBox()
                     cats = ['Diagnostic', "Surveillance", "Research"]
-                    cats += [item.name for item in lookup_submission_type(ctx=obj.ctx)]
+                    # cats += [item.name for item in lookup_submission_type(ctx=obj.ctx)]
+                    cats += [item.name for item in SubmissionType.query()]
                     try:
                         cats.insert(0, cats.pop(cats.index(value)))
                     except ValueError:

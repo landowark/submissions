@@ -1,25 +1,36 @@
-'''
-Contains convenience functions for using database
-'''
-import sys
+'''Contains or imports all database convenience functions'''
 from tools import Settings
-from .lookups import *
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
+from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
+import logging
 import pandas as pd
 import json
 from pathlib import Path
-import yaml
-from .. import models
-from . import store_object
-from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
-from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from pprint import pformat
+from .models import *
+# from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
+# from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 import logging
-from backend.validators import pydant
+from backend.validators.pydant import *
 
+logger = logging.getLogger(f"Submissions_{__name__}")
 
-logger = logging.getLogger(f"submissions.{__name__}")
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    """
+    *should* allow automatic creation of foreign keys in the database
+    I have no idea how it actually works.
 
-def submissions_to_df(ctx:Settings, submission_type:str|None=None, limit:int=0) -> pd.DataFrame:
+    Args:
+        dbapi_connection (_type_): _description_
+        connection_record (_type_): _description_
+    """    
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+def submissions_to_df(submission_type:str|None=None, limit:int=0) -> pd.DataFrame:
     """
     Convert submissions looked up by type to dataframe
 
@@ -34,7 +45,8 @@ def submissions_to_df(ctx:Settings, submission_type:str|None=None, limit:int=0) 
     logger.debug(f"Querying Type: {submission_type}")
     logger.debug(f"Using limit: {limit}")
     # use lookup function to create list of dicts
-    subs = [item.to_dict() for item in lookup_submissions(ctx=ctx, submission_type=submission_type, limit=limit)]
+    # subs = [item.to_dict() for item in lookup_submissions(ctx=ctx, submission_type=submission_type, limit=limit)]
+    subs = [item.to_dict() for item in BasicSubmission.query(submission_type=submission_type, limit=limit)]
     logger.debug(f"Got {len(subs)} results.")
     # make df from dicts (records) in list
     df = pd.DataFrame.from_records(subs)
@@ -66,7 +78,7 @@ def submissions_to_df(ctx:Settings, submission_type:str|None=None, limit:int=0) 
         pass
     return df
 
-def get_control_subtypes(ctx:Settings, type:str, mode:str) -> list[str]:
+def get_control_subtypes(type:str, mode:str) -> list[str]:
     """
     Get subtypes for a control analysis mode
 
@@ -80,7 +92,8 @@ def get_control_subtypes(ctx:Settings, type:str, mode:str) -> list[str]:
     """    
     # Only the first control of type is necessary since they all share subtypes
     try:
-        outs = lookup_controls(ctx=ctx, control_type=type, limit=1)
+        # outs = lookup_controls(ctx=ctx, control_type=type, limit=1)
+        outs = Control.query(control_type=type, limit=1)
     except (TypeError, IndexError):
         return []
     # Get analysis mode data as dict
@@ -93,7 +106,7 @@ def get_control_subtypes(ctx:Settings, type:str, mode:str) -> list[str]:
     subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
     return subtypes
 
-def update_last_used(ctx:Settings, reagent:models.Reagent, kit:models.KitType):
+def update_last_used(reagent:Reagent, kit:KitType):
     """
     Updates the 'last_used' field in kittypes/reagenttypes
 
@@ -104,78 +117,73 @@ def update_last_used(ctx:Settings, reagent:models.Reagent, kit:models.KitType):
     """    
     # rt = list(set(reagent.type).intersection(kit.reagent_types))[0]
     logger.debug(f"Attempting update of reagent type at intersection of ({reagent}), ({kit})")
-    rt = lookup_reagent_types(ctx=ctx, kit_type=kit, reagent=reagent)
+    # rt = lookup_reagent_types(ctx=ctx, kit_type=kit, reagent=reagent)
+    rt = ReagentType.query(kit_type=kit, reagent=reagent)
     if rt != None:
-        assoc = lookup_reagenttype_kittype_association(ctx=ctx, kit_type=kit, reagent_type=rt)
+        # assoc = lookup_reagenttype_kittype_association(ctx=ctx, kit_type=kit, reagent_type=rt)
+        assoc = KitTypeReagentTypeAssociation.query(kit_type=kit, reagent_type=rt)
         if assoc != None:
             if assoc.last_used != reagent.lot:
                 logger.debug(f"Updating {assoc} last used to {reagent.lot}")
                 assoc.last_used = reagent.lot
                 # ctx.database_session.merge(assoc)
                 # ctx.database_session.commit()
-                result = store_object(ctx=ctx, object=assoc)
+                # result = store_object(ctx=ctx, object=assoc)
+                result  = assoc.save()
                 return result  
     return dict(message=f"Updating last used {rt} was not performed.") 
 
-def delete_submission(ctx:Settings, id:int) -> dict|None:
-    """
-    Deletes a submission and its associated samples from the database.
+# def delete_submission(id:int) -> dict|None:
+#     """
+#     Deletes a submission and its associated samples from the database.
 
-    Args:
-        ctx (Settings): settings object passed down from gui
-        id (int): id of submission to be deleted.
-    """    
-    # In order to properly do this Im' going to have to delete all of the secondary table stuff as well.
-    # Retrieve submission
-    sub = lookup_submissions(ctx=ctx, id=id)
-    # Convert to dict for storing backup as a yml
-    backup = sub.to_dict()
-    try:
-        with open(Path(ctx.backup_path).joinpath(f"{sub.rsl_plate_num}-backup({date.today().strftime('%Y%m%d')}).yml"), "w") as f:
-            yaml.dump(backup, f)
-    except KeyError:
-        pass
-    ctx.database_session.delete(sub)
-    try:
-        ctx.database_session.commit()
-    except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
-        ctx.database_session.rollback()
-        raise e
-    return None
+#     Args:
+#         ctx (Settings): settings object passed down from gui
+#         id (int): id of submission to be deleted.
+#     """    
+#     # In order to properly do this Im' going to have to delete all of the secondary table stuff as well.
+#     # Retrieve submission
+#     # sub = lookup_submissions(ctx=ctx, id=id)
+#     sub = models.BasicSubmission.query(id=id)
+#     # Convert to dict for storing backup as a yml
+#     sub.delete()
+#     return None
     
-def update_ww_sample(ctx:Settings, sample_obj:dict) -> dict|None:
-    """
-    Retrieves wastewater sample by rsl number (sample_obj['sample']) and updates values from constructed dictionary
+# def update_ww_sample(sample_obj:dict) -> dict|None:
+#     """
+#     Retrieves wastewater sample by rsl number (sample_obj['sample']) and updates values from constructed dictionary
 
-    Args:
-        ctx (Settings): settings object passed down from gui
-        sample_obj (dict): dictionary representing new values for database object
-    """    
-    logger.debug(f"dictionary to use for update: {pformat(sample_obj)}")
-    logger.debug(f"Looking up {sample_obj['sample']} in plate {sample_obj['plate_rsl']}")
-    assoc = lookup_submission_sample_association(ctx=ctx, submission=sample_obj['plate_rsl'], sample=sample_obj['sample'])
-    if assoc != None:
-        for key, value in sample_obj.items():
-            # set attribute 'key' to 'value'
-            try:
-                check = getattr(assoc, key)
-            except AttributeError as e:
-                logger.error(f"Item doesn't have field {key} due to {e}")
-                continue
-            if check != value:
-                logger.debug(f"Setting association key: {key} to {value}")
-                try:
-                    setattr(assoc, key, value)
-                except AttributeError as e:
-                    logger.error(f"Can't set field {key} to {value} due to {e}")
-                    continue
-    else:
-        logger.error(f"Unable to find sample {sample_obj['sample']}")
-        return
-    result = store_object(ctx=ctx, object=assoc)
-    return result
+#     Args:
+#         ctx (Settings): settings object passed down from gui
+#         sample_obj (dict): dictionary representing new values for database object
+#     """    
+#     logger.debug(f"dictionary to use for update: {pformat(sample_obj)}")
+#     logger.debug(f"Looking up {sample_obj['sample']} in plate {sample_obj['plate_rsl']}")
+#     # assoc = lookup_submission_sample_association(ctx=ctx, submission=sample_obj['plate_rsl'], sample=sample_obj['sample'])
+#     assoc = models.SubmissionSampleAssociation.query(submission=sample_obj['plate_rsl'], sample=sample_obj['sample'])
+#     if assoc != None:
+#         for key, value in sample_obj.items():
+#             # set attribute 'key' to 'value'
+#             try:
+#                 check = getattr(assoc, key)
+#             except AttributeError as e:
+#                 logger.error(f"Item doesn't have field {key} due to {e}")
+#                 continue
+#             if check != value:
+#                 logger.debug(f"Setting association key: {key} to {value}")
+#                 try:
+#                     setattr(assoc, key, value)
+#                 except AttributeError as e:
+#                     logger.error(f"Can't set field {key} to {value} due to {e}")
+#                     continue
+#     else:
+#         logger.error(f"Unable to find sample {sample_obj['sample']}")
+#         return
+#     # result = store_object(ctx=ctx, object=assoc)
+#     result = assoc.save()
+#     return result
 
-def check_kit_integrity(ctx:Settings, sub:models.BasicSubmission|models.KitType|pydant.PydSubmission, reagenttypes:list=[]) -> dict|None:
+def check_kit_integrity(sub:BasicSubmission|KitType|PydSubmission, reagenttypes:list=[]) -> dict|None:
     """
     Ensures all reagents expected in kit are listed in Submission
 
@@ -190,11 +198,12 @@ def check_kit_integrity(ctx:Settings, sub:models.BasicSubmission|models.KitType|
     # What type is sub?
     # reagenttypes = []
     match sub:
-        case pydant.PydSubmission():
-            ext_kit = lookup_kit_types(ctx=ctx, name=sub.extraction_kit['value'])
+        case PydSubmission():
+            # ext_kit = lookup_kit_types(ctx=ctx, name=sub.extraction_kit['value'])
+            ext_kit = KitType.query(name=sub.extraction_kit['value'])
             ext_kit_rtypes = [item.name for item in ext_kit.get_reagents(required=True, submission_type=sub.submission_type['value'])]
             reagenttypes = [item.type for item in sub.reagents]
-        case models.BasicSubmission():
+        case BasicSubmission():
             # Get all required reagent types for this kit.
             ext_kit_rtypes = [item.name for item in sub.extraction_kit.get_reagents(required=True, submission_type=sub.submission_type_name)]
             # Overwrite function parameter reagenttypes
@@ -202,9 +211,10 @@ def check_kit_integrity(ctx:Settings, sub:models.BasicSubmission|models.KitType|
                 logger.debug(f"For kit integrity, looking up reagent: {reagent}")
                 try:
                     # rt = list(set(reagent.type).intersection(sub.extraction_kit.reagent_types))[0].name
-                    rt = lookup_reagent_types(ctx=ctx, kit_type=sub.extraction_kit, reagent=reagent)
+                    # rt = lookup_reagent_types(ctx=ctx, kit_type=sub.extraction_kit, reagent=reagent)
+                    rt = ReagentType.query(kit_type=sub.extraction_kit, reagent=reagent)
                     logger.debug(f"Got reagent type: {rt}")
-                    if isinstance(rt, models.ReagentType):
+                    if isinstance(rt, ReagentType):
                         reagenttypes.append(rt.name)
                 except AttributeError as e:
                     logger.error(f"Problem parsing reagents: {[f'{reagent.lot}, {reagent.type}' for reagent in sub.reagents]}")
@@ -212,7 +222,7 @@ def check_kit_integrity(ctx:Settings, sub:models.BasicSubmission|models.KitType|
                 except IndexError:
                     logger.error(f"No intersection of {reagent} type {reagent.type} and {sub.extraction_kit.reagent_types}")
                     raise ValueError(f"No intersection of {reagent} type {reagent.type} and {sub.extraction_kit.reagent_types}")
-        case models.KitType():
+        case KitType():
             ext_kit_rtypes = [item.name for item in sub.get_reagents(required=True)]
         case _:
             raise ValueError(f"There was no match for the integrity object.\n\nCheck to make sure they are imported from the same place because it matters.")
@@ -231,7 +241,7 @@ def check_kit_integrity(ctx:Settings, sub:models.BasicSubmission|models.KitType|
         result = {'message' : f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", 'missing': missing}
     return result
 
-def update_subsampassoc_with_pcr(ctx:Settings, submission:models.BasicSubmission, sample:models.BasicSample, input_dict:dict) -> dict|None:
+def update_subsampassoc_with_pcr(submission:BasicSubmission, sample:BasicSample, input_dict:dict) -> dict|None:
     """
     Inserts PCR results into wastewater submission/sample association
 
@@ -244,35 +254,39 @@ def update_subsampassoc_with_pcr(ctx:Settings, submission:models.BasicSubmission
     Returns:
         dict|None: result object
     """    
-    assoc = lookup_submission_sample_association(ctx, submission=submission, sample=sample)
+    # assoc = lookup_submission_sample_association(ctx, submission=submission, sample=sample)
+    assoc = SubmissionSampleAssociation.query(submission=submission, sample=sample)
     for k,v in input_dict.items():
         try:
             setattr(assoc, k, v)
         except AttributeError:
             logger.error(f"Can't set {k} to {v}")
-    result = store_object(ctx=ctx, object=assoc)
+    # result = store_object(ctx=ctx, object=assoc)
+    result = assoc.save()
     return result
 
-# def get_polymorphic_subclass(base:object|models.BasicSubmission=models.BasicSubmission, polymorphic_identity:str|None=None):
+
+# def store_object(ctx:Settings, object) -> dict|None:
 #     """
-#     Retrieves any subclasses of given base class whose polymorphic identity matches the string input.
-#     NOTE: Depreciated in favour of class based finders in 'submissions.py'
+#     Store an object in the database
 
 #     Args:
-#         base (object): Base (parent) class
-#         polymorphic_identity (str | None): Name of subclass of interest. (Defaults to None)
+#         ctx (Settings): Settings object passed down from gui
+#         object (_type_): Object to be stored
 
 #     Returns:
-#         _type_: Subclass, or parent class on 
+#         dict|None: Result of action
 #     """    
-#     if isinstance(polymorphic_identity, dict):
-#         polymorphic_identity = polymorphic_identity['value']
-#     if polymorphic_identity == None:
-#         return base
-#     else:
-#         try:
-#             return [item for item in base.__subclasses__() if item.__mapper_args__['polymorphic_identity']==polymorphic_identity][0]
-#         except Exception as e:
-#             logger.error(f"Could not get polymorph {polymorphic_identity} of {base} due to {e}")
-#             return base
-
+#     dbs = ctx.database_session
+#     dbs.merge(object)
+#     try:
+#         dbs.commit()
+#     except (SQLIntegrityError, AlcIntegrityError) as e:
+#         logger.debug(f"Hit an integrity error : {e}")
+#         dbs.rollback()
+#         return {"message":f"This object {object} already exists, so we can't add it.\n{e}", "status":"Critical"}
+#     except (SQLOperationalError, AlcOperationalError):
+#         logger.error(f"Hit an operational error: {e}")
+#         dbs.rollback()
+#         return {"message":"The database is locked for editing."}
+#     return None

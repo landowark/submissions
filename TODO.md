@@ -1,4 +1,9 @@
-- [ ] Update artic submission type database entry to 
+- [ ] Clear out any unnecessary ctx passes now that queries are improved.
+- [ ] Make a 'query or create' method in all db objects to go with new query.
+- [ ] Ensure Bacterial plates end up with RSL_YY_###_{submitterName}_{submitterPlateID}.xlsx format.
+- [x] Move lookup functions into class methods of db objects?
+    - Not sure if will work for associations.
+- [x] Update artic submission type database entry to add more technicians.
 - [ ] Document code 
 - [x] Rewrite tests... again.
 - [x] Have InfoItem change status self.missing to True if value changed.

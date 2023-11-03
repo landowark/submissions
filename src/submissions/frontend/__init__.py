@@ -1,7 +1,6 @@
 '''
 Constructs main application.
 '''
-from pprint import pformat
 import sys
 from PyQt6.QtWidgets import (
     QMainWindow, QToolBar, 
@@ -16,9 +15,10 @@ from pathlib import Path
 from backend.db.functions import (
     lookup_control_types, lookup_modes
 )
+from backend.db.models import ControlType, Control
 from backend.validators import PydSubmission, PydReagent
 from tools import check_if_app, Settings
-from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ImportReagent, ReagentFormWidget
+from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ReagentFormWidget
 import logging
 from datetime import date
 import webbrowser
@@ -228,7 +228,7 @@ class App(QMainWindow):
             # send reagent to db
             # store_reagent(ctx=self.ctx, reagent=reagent)
             sqlobj, result = reagent.toSQL()
-            sqlobj.save(ctx=self.ctx)
+            sqlobj.save()
             # result = store_object(ctx=self.ctx, object=reagent.toSQL()[0])
             self.result_reporter(result=result)
             return reagent
@@ -369,12 +369,14 @@ class AddSubForm(QWidget):
         self.control_typer = QComboBox()
         # fetch types of controls 
         # con_types = get_all_Control_Types_names(ctx=parent.ctx)
-        con_types = [item.name for item in lookup_control_types(ctx=parent.ctx)]
+        # con_types = [item.name for item in lookup_control_types(ctx=parent.ctx)]
+        con_types = [item.name for item in ControlType.query()]
         self.control_typer.addItems(con_types)
         # create custom widget to get types of analysis
         self.mode_typer = QComboBox()
         # mode_types = get_all_available_modes(ctx=parent.ctx)
-        mode_types = lookup_modes(ctx=parent.ctx)
+        # mode_types = lookup_modes(ctx=parent.ctx)
+        mode_types = Control.get_modes()
         self.mode_typer.addItems(mode_types)
         # create custom widget to get subtypes of analysis
         self.sub_typer = QComboBox()

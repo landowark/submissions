@@ -2,7 +2,6 @@
 Contains pydantic models and accompanying validators
 '''
 import uuid
-from PyQt6 import QtCore
 from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
@@ -12,14 +11,10 @@ from . import RSLNamer
 from pathlib import Path
 import re
 import logging
-from tools import check_not_nan, convert_nans_to_nones, Settings
-from backend.db.functions import (lookup_submissions, lookup_reagent_types, lookup_reagents, lookup_kit_types, 
-    lookup_organizations, lookup_submission_type, lookup_discounts, lookup_samples, lookup_submission_sample_association,
-    lookup_reagenttype_kittype_association
-)
+from tools import check_not_nan, convert_nans_to_nones, Settings, jinja_template_loading
 from backend.db.models import *
 from sqlalchemy.exc import InvalidRequestError, StatementError
-from PyQt6.QtWidgets import QComboBox, QWidget, QLabel, QVBoxLayout
+from PyQt6.QtWidgets import QComboBox, QWidget
 from pprint import pformat
 from openpyxl import load_workbook
 
@@ -47,7 +42,8 @@ class PydReagent(BaseModel):
     def rescue_type_with_lookup(cls, value, values):
         if value == None and values.data['lot'] != None:
             try:
-                return lookup_reagents(ctx=values.data['ctx'], lot_number=values.data['lot']).name
+                # return lookup_reagents(ctx=values.data['ctx'], lot_number=values.data['lot']).name
+                return Reagent.query(lot_number=values.data['lot'].name)
             except AttributeError:
                 return value
         return value
@@ -94,7 +90,8 @@ class PydReagent(BaseModel):
     def toSQL(self) -> Tuple[Reagent, dict]:
         result = None
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
-        reagent = lookup_reagents(ctx=self.ctx, lot_number=self.lot)
+        # reagent = lookup_reagents(ctx=self.ctx, lot_number=self.lot)
+        reagent = Reagent.query(lot_number=self.lot)
         logger.debug(f"Result: {reagent}")
         if reagent == None:
             reagent = Reagent()
@@ -109,7 +106,8 @@ class PydReagent(BaseModel):
                     case "expiry":
                         reagent.expiry = value
                     case "type":
-                        reagent_type = lookup_reagent_types(ctx=self.ctx, name=value)
+                        # reagent_type = lookup_reagent_types(ctx=self.ctx, name=value)
+                        reagent_type = ReagentType.query(name=value)
                         if reagent_type != None:
                             reagent.type.append(reagent_type)
                     case "name":
@@ -145,7 +143,8 @@ class PydSample(BaseModel, extra='allow'):
         result = None
         self.__dict__.update(self.model_extra)
         logger.debug(f"Here is the incoming sample dict: \n{self.__dict__}")
-        instance = lookup_samples(ctx=ctx, submitter_id=self.submitter_id)
+        # instance = lookup_samples(ctx=ctx, submitter_id=self.submitter_id)
+        instance = BasicSample.query(submitter_id=self.submitter_id)
         if instance == None:
             logger.debug(f"Sample {self.submitter_id} doesn't exist yet. Looking up sample object with polymorphic identity: {self.sample_type}")
             instance = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)()
@@ -158,7 +157,8 @@ class PydSample(BaseModel, extra='allow'):
                     instance.set_attribute(name=key, value=value)
         for row, column in zip(self.row, self.column):
             logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
-            association = lookup_submission_sample_association(ctx=ctx, submission=submission, row=row, column=column)
+            # association = lookup_submission_sample_association(ctx=ctx, submission=submission, row=row, column=column)
+            association = SubmissionSampleAssociation.query(submission=submission, row=row, column=column)
             logger.debug(f"Returned association: {association}")
             if association == None or association == []:
                 logger.debug(f"Looked up association at row {row}, column {column} didn't exist, creating new association.")
@@ -239,7 +239,8 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"RSL-plate initial value: {value['value']}")
         sub_type = values.data['submission_type']['value']
         if check_not_nan(value['value']):
-            if lookup_submissions(ctx=values.data['ctx'], rsl_number=value['value']) == None:
+            # if lookup_submissions(ctx=values.data['ctx'], rsl_number=value['value']) == None:
+            if BasicSubmission.query(rsl_number=value['value']) == None:
                 return dict(value=value['value'], missing=False)
             else:
                 logger.warning(f"Submission number {value} already exists in DB, attempting salvage with filepath")
@@ -325,9 +326,12 @@ class PydSubmission(BaseModel, extra='allow'):
                 output.append(dummy)
         self.samples = output
 
-    def improved_dict(self):
+    def improved_dict(self, dictionaries:bool=True):
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
-        output = {k:getattr(self, k) for k in fields}
+        if dictionaries:
+            output = {k:getattr(self, k) for k in fields}
+        else:
+            output = {k:(getattr(self, k) if not isinstance(getattr(self, k), dict) else getattr(self, k)['value']) for k in fields}
         return output
 
     def find_missing(self):
@@ -341,7 +345,8 @@ class PydSubmission(BaseModel, extra='allow'):
         msg = None
         status = None
         self.__dict__.update(self.model_extra)
-        instance = lookup_submissions(ctx=self.ctx, rsl_number=self.rsl_plate_num['value'])
+        # instance = lookup_submissions(ctx=self.ctx, rsl_number=self.rsl_plate_num['value'])
+        instance = BasicSubmission.query(rsl_number=self.rsl_plate_num['value'])
         if instance == None:
             instance = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)()
         else:
@@ -357,11 +362,13 @@ class PydSubmission(BaseModel, extra='allow'):
             match key:
                 case "extraction_kit":
                     logger.debug(f"Looking up kit {value}")
-                    field_value = lookup_kit_types(ctx=self.ctx, name=value)
+                    # field_value = lookup_kit_types(ctx=self.ctx, name=value)
+                    field_value = KitType.query(name=value)
                     logger.debug(f"Got {field_value} for kit {value}")
                 case "submitting_lab":
                     logger.debug(f"Looking up organization: {value}")
-                    field_value = lookup_organizations(ctx=self.ctx, name=value)
+                    # field_value = lookup_organizations(ctx=self.ctx, name=value)
+                    field_value = Organization.query(name=value)
                     logger.debug(f"Got {field_value} for organization {value}")
                 case "submitter_plate_num":
                     logger.debug(f"Submitter plate id: {value}")
@@ -376,7 +383,8 @@ class PydSubmission(BaseModel, extra='allow'):
                 case "reagents":
                     field_value = [reagent['value'].toSQL()[0] if isinstance(reagent, dict) else reagent.toSQL()[0] for reagent in value]
                 case "submission_type":
-                    field_value = lookup_submission_type(ctx=self.ctx, name=value)
+                    # field_value = lookup_submission_type(ctx=self.ctx, name=value)
+                    field_value = SubmissionType.query(name=value)
                 case "sample_count":
                     if value == None:
                         field_value = len(self.samples)
@@ -404,7 +412,8 @@ class PydSubmission(BaseModel, extra='allow'):
         # Apply any discounts that are applicable for client and kit.
         try:
             logger.debug("Checking and applying discounts...")
-            discounts = [item.amount for item in lookup_discounts(ctx=self.ctx, kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
+            # discounts = [item.amount for item in lookup_discounts(ctx=self.ctx, kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
+            discounts = [item.amount for item in Discount.query(kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
             logger.debug(f"We got discounts: {discounts}")
             if len(discounts) > 0:
                 discounts = sum(discounts)
@@ -433,7 +442,8 @@ class PydSubmission(BaseModel, extra='allow'):
         if len(reagents + list(info.keys())) == 0:
             return None
         logger.debug(f"We have blank info and/or reagents in the excel sheet.\n\tLet's try to fill them in.")
-        extraction_kit = lookup_kit_types(ctx=self.ctx, name=self.extraction_kit['value'])
+        # extraction_kit = lookup_kit_types(ctx=self.ctx, name=self.extraction_kit['value'])
+        extraction_kit = KitType.query(name=self.extraction_kit['value'])
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
         excel_map = extraction_kit.construct_xl_map_for_use(self.submission_type['value'])
         logger.debug(f"Extraction kit map:\n\n{pformat(excel_map)}")
@@ -498,6 +508,13 @@ class PydSubmission(BaseModel, extra='allow'):
         workbook = custom_parser.custom_autofill(workbook)
         return workbook
 
+    def construct_filename(self):
+        env = jinja_template_loading()
+        template = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type).filename_template()
+        logger.debug(f"Using template string: {template}")
+        template = env.from_string(template)
+        return template.render(**self.improved_dict(dictionaries=False))
+
 class PydContact(BaseModel):
 
     name: str
@@ -539,12 +556,14 @@ class PydReagentType(BaseModel):
         return value
     
     def toSQL(self, ctx:Settings, kit:KitType):
-        instance: ReagentType = lookup_reagent_types(ctx=ctx, name=self.name)
+        # instance: ReagentType = lookup_reagent_types(ctx=ctx, name=self.name)
+        instance: ReagentType = ReagentType.query(name=self.name)
         if instance == None:
             instance = ReagentType(name=self.name, eol_ext=self.eol_ext)
         logger.debug(f"This is the reagent type instance: {instance.__dict__}")
         try:
-            assoc = lookup_reagenttype_kittype_association(ctx=ctx, reagent_type=instance, kit_type=kit)
+            # assoc = lookup_reagenttype_kittype_association(ctx=ctx, reagent_type=instance, kit_type=kit)
+            assoc = KitTypeReagentTypeAssociation.query(reagent_type=instance, kit_type=kit)
         except StatementError:
             assoc = None
         if assoc == None:
@@ -559,7 +578,8 @@ class PydKit(BaseModel):
 
     def toSQL(self, ctx):
         result = dict(message=None, status='Information')
-        instance = lookup_kit_types(ctx=ctx, name=self.name)
+        # instance = lookup_kit_types(ctx=ctx, name=self.name)
+        instance = KitType.query(name=self.name)
         if instance == None:
             instance = KitType(name=self.name)
             # instance.reagent_types = [item.toSQL(ctx, instance) for item in self.reagent_types]

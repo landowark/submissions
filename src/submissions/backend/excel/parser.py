@@ -110,7 +110,8 @@ class SheetParser(object):
         """
         Enforce that only allowed reagents get into the Pydantic Model
         """          
-        kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
+        # kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
+        kit = models.KitType.query(name=self.sub['extraction_kit']['value'])
         allowed_reagents = [item.name for item in kit.get_reagents()]
         logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
         # self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
@@ -151,7 +152,8 @@ class InfoParser(object):
         if isinstance(submission_type, str):
             submission_type = dict(value=submission_type, missing=True)
         logger.debug(f"Looking up submission type: {submission_type['value']}")
-        submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
+        # submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
+        submission_type = models.SubmissionType.query(name=submission_type['value'])
         info_map = submission_type.info_map
         # Get the parse_info method from the submission type specified
         self.custom_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_info
@@ -212,7 +214,8 @@ class ReagentParser(object):
     def fetch_kit_info_map(self, extraction_kit:dict, submission_type:str):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
-        kit = lookup_kit_types(ctx=self.ctx, name=extraction_kit)
+        # kit = lookup_kit_types(ctx=self.ctx, name=extraction_kit)
+        kit = models.KitType.query(name=extraction_kit)
         if isinstance(submission_type, dict):
             submission_type = submission_type['value']
         reagent_map = kit.construct_xl_map_for_use(submission_type.title())
@@ -289,7 +292,8 @@ class SampleParser(object):
             dict: Info locations.
         """        
         logger.debug(f"Looking up submission type: {submission_type}")
-        submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
+        # submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
+        submission_type = models.SubmissionType.query(name=submission_type)
         logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
         # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
@@ -458,7 +462,8 @@ class SampleParser(object):
             logger.error(f"Could not find the model {query}. Using generic.")
             database_obj = models.BasicSample
         logger.debug(f"Searching database for {input_dict['submitter_id']}...")
-        instance = lookup_samples(ctx=self.ctx, submitter_id=str(input_dict['submitter_id']))
+        # instance = lookup_samples(ctx=self.ctx, submitter_id=str(input_dict['submitter_id']))
+        instance = models.BasicSample.query(submitter_id=str(input_dict['submitter_id']))
         if instance == None:
             logger.debug(f"Couldn't find sample {input_dict['submitter_id']}. Creating new sample.")
             instance = database_obj()

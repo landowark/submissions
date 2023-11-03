@@ -15,7 +15,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db.functions import submissions_to_df, delete_submission, lookup_submissions
+from backend.db.functions import submissions_to_df
+from backend.db.models import BasicSubmission
 from backend.excel import make_hitpicks
 from tools import check_if_app, Settings
 from tools import jinja_template_loading
@@ -98,7 +99,7 @@ class SubmissionsSheet(QTableView):
         """
         sets data in model
         """        
-        self.data = submissions_to_df(ctx=self.ctx)
+        self.data = submissions_to_df()
         try:
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)
@@ -180,7 +181,8 @@ class SubmissionsSheet(QTableView):
         logger.debug(index)
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
         if msg.exec():
-            delete_submission(ctx=self.ctx, id=value)
+            # delete_submission(id=value)
+            BasicSubmission.query(id=value).delete()
         else:
             return
         self.setData()
@@ -199,7 +201,8 @@ class SubmissionsSheet(QTableView):
             logger.error(f"Error: Had to truncate number of plates to 4.")
             indices = indices[:4]
         # lookup ids in the database
-        subs = [lookup_submissions(ctx=self.ctx, id=id) for id in indices]
+        # subs = [lookup_submissions(ctx=self.ctx, id=id) for id in indices]
+        subs = [BasicSubmission.query(id=id) for id in indices]
         # full list of samples
         dicto = []
         # list to contain plate images
@@ -256,7 +259,8 @@ class SubmissionDetails(QDialog):
         interior = QScrollArea()
         interior.setParent(self)
         # get submision from db
-        sub = lookup_submissions(ctx=ctx, id=id)
+        # sub = lookup_submissions(ctx=ctx, id=id)
+        sub = BasicSubmission.query(id=id)
         logger.debug(f"Submission details data:\n{pprint.pformat(sub.to_dict())}")
         self.base_dict = sub.to_dict(full_data=True)
         # don't want id
@@ -427,7 +431,8 @@ class SubmissionComment(QDialog):
         full_comment = {"name":commenter, "time": dt, "text": comment}
         logger.debug(f"Full comment: {full_comment}")
         # sub = lookup_submission_by_rsl_num(ctx = self.ctx, rsl_num=self.rsl)
-        sub = lookup_submissions(ctx = self.ctx, rsl_number=self.rsl)
+        # sub = lookup_submissions(ctx = self.ctx, rsl_number=self.rsl)
+        sub = BasicSubmission.query(rsl_number=self.rsl)
         try:
             sub.comment.append(full_comment)
         except AttributeError:
