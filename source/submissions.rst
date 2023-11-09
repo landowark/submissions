@@ -9,7 +9,17 @@ Subpackages
 
    submissions.backend
    submissions.frontend
-   submissions.tools
+
+Submodules
+----------
+
+submissions.tools module
+------------------------
+
+.. automodule:: submissions.tools
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 Module contents
 ---------------

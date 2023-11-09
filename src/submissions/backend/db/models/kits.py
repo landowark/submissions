@@ -2,12 +2,12 @@
 All kit and reagent related models
 '''
 from __future__ import annotations
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, func
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging
-from tools import Settings, check_authorization, Base, setup_lookup, query_return
+from tools import check_authorization, Base, setup_lookup, query_return, Report, Result
 from typing import List
 from . import Organization
 
@@ -322,10 +322,11 @@ class KitTypeReagentTypeAssociation(Base):
             limit = 1
         return query_return(query=query, limit=limit)
 
-    def save(self):
+    def save(self) -> Report:
+        report = Report()
         self.metadata.session.add(self)
         self.metadata.session.commit()
-        return None
+        return report
 
 class Reagent(Base):
     """
@@ -564,6 +565,7 @@ class SubmissionType(Base):
     @setup_lookup
     def query(cls, 
               name:str|None=None,
+              key:str|None=None,
               limit:int=0
               ) -> SubmissionType|List[SubmissionType]:
         """
@@ -585,7 +587,17 @@ class SubmissionType(Base):
                 limit = 1
             case _:
                 pass
+        match key:
+            case str():
+                query = query.filter(cls.info_map.op('->')(key)!=None)
+            case _:
+                pass
         return query_return(query=query, limit=limit)
+    
+    def save(self):
+        self.metadata.session.add(self)
+        self.metadata.session.commit()
+        return None
   
 class SubmissionTypeKitTypeAssociation(Base):
     """

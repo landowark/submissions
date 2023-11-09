@@ -76,7 +76,7 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     return html
 
 
-def convert_data_list_to_df(ctx:dict, input:list[dict], subtype:str|None=None) -> DataFrame:
+def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFrame:
     """
     Convert list of control records to dataframe
 
@@ -171,8 +171,8 @@ def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame,
         passed = False
     else:
         passed = True
-    logger.debug(f"\n\tCurrent date: {item['date']}\n\tPrevious dates:{previous_dates}")
-    logger.debug(f"DF: {type(df)}, previous_dates: {type(previous_dates)}")
+    # logger.debug(f"\n\tCurrent date: {item['date']}\n\tPrevious dates:{previous_dates}")
+    # logger.debug(f"DF: {type(df)}, previous_dates: {type(previous_dates)}")
     # if run didn't lead to changed date, return values
     if passed:
         logger.debug(f"Date check passed, returning.")

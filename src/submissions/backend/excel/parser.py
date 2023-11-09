@@ -7,8 +7,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from backend.db import models
-from backend.db.functions import lookup_kit_types, lookup_submission_type, lookup_samples
+from backend.db.models import *
 from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample
 import logging
 from collections import OrderedDict
@@ -49,19 +48,22 @@ class SheetParser(object):
             raise FileNotFoundError(f"Couldn't parse file {self.filepath}")
         self.sub = OrderedDict()
         # make decision about type of sample we have
-        self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(ctx=self.ctx, instr=self.filepath), missing=True)
+        self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(instr=self.filepath), missing=True)
         # # grab the info map from the submission type in database
         self.parse_info()
         self.import_kit_validation_check()
         self.parse_reagents()
         self.import_reagent_validation_check()
         self.parse_samples()
+        self.finalize_parse()
                 
     def parse_info(self):
         """
         Pulls basic information from the excel sheet
         """        
-        info = InfoParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_info()
+        parser = InfoParser(xl=self.xl, submission_type=self.sub['submission_type']['value'])
+        info = parser.parse_info() 
+        self.info_map = parser.map
         for k,v in info.items():
             match k:
                 case "sample":
@@ -77,13 +79,15 @@ class SheetParser(object):
         if extraction_kit == None:
             extraction_kit = extraction_kit=self.sub['extraction_kit']
         logger.debug(f"Parsing reagents for {extraction_kit}")
-        self.sub['reagents'] = ReagentParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type'], extraction_kit=extraction_kit).parse_reagents()
+        self.sub['reagents'] = ReagentParser(xl=self.xl, submission_type=self.sub['submission_type'], extraction_kit=extraction_kit).parse_reagents()
 
     def parse_samples(self):
         """
         Pulls sample info from the excel sheet
         """        
-        self.sample_result, self.sub['samples'] = SampleParser(ctx=self.ctx, xl=self.xl, submission_type=self.sub['submission_type']['value']).parse_samples()
+        parser = SampleParser(xl=self.xl, submission_type=self.sub['submission_type']['value'])
+        self.sample_result, self.sub['samples'] = parser.parse_samples()
+        self.plate_map = parser.plate_map
 
     def import_kit_validation_check(self):
         """
@@ -97,7 +101,7 @@ class SheetParser(object):
             List[PydReagent]: List of reagents
         """    
         if not check_not_nan(self.sub['extraction_kit']['value']):
-            dlg = KitSelector(ctx=self.ctx, title="Kit Needed", message="At minimum a kit is needed. Please select one.")
+            dlg = KitSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.")
             if dlg.exec():
                 self.sub['extraction_kit'] = dict(value=dlg.getValues(), missing=True)
             else:
@@ -111,11 +115,16 @@ class SheetParser(object):
         Enforce that only allowed reagents get into the Pydantic Model
         """          
         # kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
-        kit = models.KitType.query(name=self.sub['extraction_kit']['value'])
+        kit = KitType.query(name=self.sub['extraction_kit']['value'])
         allowed_reagents = [item.name for item in kit.get_reagents()]
         logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
         # self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
         self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent.type in allowed_reagents]
+
+    def finalize_parse(self):
+        finisher = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.sub['submission_type']).finalize_parse
+        self.sub = finisher(input_dict=self.sub, xl=self.xl, info_map=self.info_map, plate_map=self.plate_map)
+
         
     def to_pydantic(self) -> PydSubmission:
         """
@@ -125,15 +134,15 @@ class SheetParser(object):
             PydSubmission: output pydantic model
         """       
         logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pprint.pformat(self.sub)}")
-        psm = PydSubmission(ctx=self.ctx, filepath=self.filepath, **self.sub)
+        psm = PydSubmission(filepath=self.filepath, **self.sub)
         # delattr(psm, "filepath")
         return psm
     
 class InfoParser(object):
 
-    def __init__(self, ctx:Settings, xl:pd.ExcelFile, submission_type:str):
+    def __init__(self, xl:pd.ExcelFile, submission_type:str):
         logger.debug(f"\n\nHello from InfoParser!")
-        self.ctx = ctx
+        # self.ctx = ctx
         self.map = self.fetch_submission_info_map(submission_type=submission_type)
         self.xl = xl
         logger.debug(f"Info map for InfoParser: {pprint.pformat(self.map)}")
@@ -152,11 +161,10 @@ class InfoParser(object):
         if isinstance(submission_type, str):
             submission_type = dict(value=submission_type, missing=True)
         logger.debug(f"Looking up submission type: {submission_type['value']}")
-        # submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type['value'])
-        submission_type = models.SubmissionType.query(name=submission_type['value'])
+        submission_type = SubmissionType.query(name=submission_type['value'])
         info_map = submission_type.info_map
         # Get the parse_info method from the submission type specified
-        self.custom_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_info
+        self.custom_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_info
         return info_map
 
     def parse_info(self) -> dict:
@@ -174,7 +182,7 @@ class InfoParser(object):
                 if isinstance(v, str):
                     dicto[k] = dict(value=v, missing=False)
                     continue
-                if k == "samples":
+                if k in ["samples", "all_sheets"]:
                     continue
                 if sheet in self.map[k]['sheets']:
                     relevant[k] = v
@@ -205,9 +213,9 @@ class InfoParser(object):
                 
 class ReagentParser(object):
 
-    def __init__(self, ctx:Settings, xl:pd.ExcelFile, submission_type:str, extraction_kit:str):
+    def __init__(self, xl:pd.ExcelFile, submission_type:str, extraction_kit:str):
         logger.debug("\n\nHello from ReagentParser!\n\n")
-        self.ctx = ctx
+        # self.ctx = ctx
         self.map = self.fetch_kit_info_map(extraction_kit=extraction_kit, submission_type=submission_type)
         self.xl = xl
 
@@ -215,7 +223,7 @@ class ReagentParser(object):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         # kit = lookup_kit_types(ctx=self.ctx, name=extraction_kit)
-        kit = models.KitType.query(name=extraction_kit)
+        kit = KitType.query(name=extraction_kit)
         if isinstance(submission_type, dict):
             submission_type = submission_type['value']
         reagent_map = kit.construct_xl_map_for_use(submission_type.title())
@@ -238,7 +246,7 @@ class ReagentParser(object):
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                 except (KeyError, IndexError):
-                    listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=None, expiry=None, name=None, missing=True))
+                    listo.append(PydReagent(type=item.strip(), lot=None, expiry=None, name=None, missing=True))
                     continue
                 # If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
@@ -248,7 +256,7 @@ class ReagentParser(object):
                 # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
                 logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}")
-                listo.append(PydReagent(ctx=self.ctx, type=item.strip(), lot=lot, expiry=expiry, name=name, missing=missing))
+                listo.append(PydReagent(type=item.strip(), lot=lot, expiry=expiry, name=name, missing=missing))
         # logger.debug(f"Returning listo: {listo}")
         return listo
 
@@ -257,7 +265,7 @@ class SampleParser(object):
     object to pull data for samples in excel sheet and construct individual sample objects
     """
 
-    def __init__(self, ctx:Settings, xl:pd.ExcelFile, submission_type:str) -> None:
+    def __init__(self, xl:pd.ExcelFile, submission_type:str) -> None:
         """
         convert sample sub-dataframe to dictionary of records
 
@@ -268,7 +276,7 @@ class SampleParser(object):
         """        
         logger.debug("\n\nHello from SampleParser!")
         self.samples = []
-        self.ctx = ctx
+        # self.ctx = ctx
         self.xl = xl
         self.submission_type = submission_type
         sample_info_map = self.fetch_sample_info_map(submission_type=submission_type)
@@ -293,12 +301,12 @@ class SampleParser(object):
         """        
         logger.debug(f"Looking up submission type: {submission_type}")
         # submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
-        submission_type = models.SubmissionType.query(name=submission_type)
+        submission_type = SubmissionType.query(name=submission_type)
         logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
         # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
-        self.custom_sub_parser = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples
-        self.custom_sample_parser = models.BasicSample.find_polymorphic_subclass(polymorphic_identity=f"{submission_type.name} Sample").parse_sample
+        self.custom_sub_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples
+        self.custom_sample_parser = BasicSample.find_polymorphic_subclass(polymorphic_identity=f"{submission_type.name} Sample").parse_sample
         return sample_info_map
 
     def construct_plate_map(self, plate_map_location:dict) -> pd.DataFrame:
@@ -316,7 +324,7 @@ class SampleParser(object):
         df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
         df = df.set_index(df.columns[0])
         # custom_mapper = get_polymorphic_subclass(models.BasicSubmission, self.submission_type)
-        custom_mapper = models.BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+        custom_mapper = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         df = custom_mapper.custom_platemap(self.xl, df)
         logger.debug(f"Custom platemap:\n{df}")
         return df
@@ -407,7 +415,7 @@ class SampleParser(object):
             # logger.debug(f"Output sample dict: {sample}")
         logger.debug(f"Final lookup_table: \n\n {self.lookup_table}")
 
-    def parse_samples(self, generate:bool=True) -> List[dict]|List[models.BasicSample]:
+    def parse_samples(self, generate:bool=True) -> List[dict]|List[BasicSample]:
         """
         Parse merged platemap\lookup info into dicts/samples
 
@@ -445,36 +453,39 @@ class SampleParser(object):
             new_samples.append(PydSample(**translated_dict))
         return result, new_samples
 
-    def generate_sample_object(self, input_dict) -> models.BasicSample:
-        """
-        Constructs sample object from dict
+    # def generate_sample_object(self, input_dict) -> BasicSample:
+    #     """
+    #     Constructs sample object from dict.
+    #     NOTE: Depreciated due to using Pydantic object up until db saving.
 
-        Args:
-            input_dict (dict): sample information
+    #     Args:
+    #         input_dict (dict): sample information
 
-        Returns:
-            models.BasicSample: Sample object
-        """        
-        query = input_dict['sample_type'].replace(" ", "")
-        try:
-            database_obj = getattr(models, query)
-        except AttributeError as e:
-            logger.error(f"Could not find the model {query}. Using generic.")
-            database_obj = models.BasicSample
-        logger.debug(f"Searching database for {input_dict['submitter_id']}...")
-        # instance = lookup_samples(ctx=self.ctx, submitter_id=str(input_dict['submitter_id']))
-        instance = models.BasicSample.query(submitter_id=str(input_dict['submitter_id']))
-        if instance == None:
-            logger.debug(f"Couldn't find sample {input_dict['submitter_id']}. Creating new sample.")
-            instance = database_obj()
-            for k,v in input_dict.items():
-                try:
-                    instance.set_attribute(k, v)
-                except Exception as e:
-                    logger.error(f"Failed to set {k} due to {type(e).__name__}: {e}")
-        else:
-            logger.debug(f"Sample {instance.submitter_id} already exists, will run update.")
-        return dict(sample=instance, row=input_dict['row'], column=input_dict['column'])
+    #     Returns:
+    #         models.BasicSample: Sample object
+    #     """ 
+    #     database_obj = BasicSample.find_polymorphic_subclass(polymorphic_identity=input_dict['sample_type'])
+    #     # query = input_dict['sample_type'].replace(" ", "")
+    #     # try:
+    #     #     # database_obj = getattr(models, query)
+            
+    #     # except AttributeError as e:
+    #     #     logger.error(f"Could not find the model {query}. Using generic.")
+    #     #     database_obj = models.BasicSample
+    #     logger.debug(f"Searching database for {input_dict['submitter_id']}...")
+    #     # instance = lookup_samples(ctx=self.ctx, submitter_id=str(input_dict['submitter_id']))
+    #     instance = BasicSample.query(submitter_id=str(input_dict['submitter_id']))
+    #     if instance == None:
+    #         logger.debug(f"Couldn't find sample {input_dict['submitter_id']}. Creating new sample.")
+    #         instance = database_obj()
+    #         for k,v in input_dict.items():
+    #             try:
+    #                 instance.set_attribute(k, v)
+    #             except Exception as e:
+    #                 logger.error(f"Failed to set {k} due to {type(e).__name__}: {e}")
+    #     else:
+    #         logger.debug(f"Sample {instance.submitter_id} already exists, will run update.")
+    #     return dict(sample=instance, row=input_dict['row'], column=input_dict['column'])
     
     def grab_plates(self) -> List[str]:
         """
@@ -487,7 +498,7 @@ class SampleParser(object):
         for plate in self.plates:
             df = self.xl.parse(plate['sheet'], header=None)
             if isinstance(df.iat[plate['row']-1, plate['column']-1], str):
-                output = RSLNamer.retrieve_rsl_number(ctx=self.ctx, instr=df.iat[plate['row']-1, plate['column']-1])
+                output = RSLNamer.retrieve_rsl_number(instr=df.iat[plate['row']-1, plate['column']-1])
             else:
                 continue
             plates.append(output)
@@ -497,7 +508,7 @@ class PCRParser(object):
     """
     Object to pull data from Design and Analysis PCR export file.
     """    
-    def __init__(self, ctx:dict, filepath:Path|None = None) -> None:
+    def __init__(self, filepath:Path|None = None) -> None:
         """
         Initializes object.
 
@@ -505,7 +516,7 @@ class PCRParser(object):
             ctx (dict): settings passed down from gui.
             filepath (Path | None, optional): file to parse. Defaults to None.
         """        
-        self.ctx = ctx
+        # self.ctx = ctx
         logger.debug(f"Parsing {filepath.__str__()}")        
         if filepath == None:
             logger.error(f"No filepath given.")
@@ -521,11 +532,11 @@ class PCRParser(object):
                 return
         # self.pcr = OrderedDict()
         self.parse_general(sheet_name="Results")
-        namer = RSLNamer(ctx=self.ctx, instr=filepath.__str__())
+        namer = RSLNamer(instr=filepath.__str__())
         self.plate_num = namer.parsed_name
         self.submission_type = namer.submission_type
         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
-        parser = models.BasicSubmission.find_polymorphic_subclass(self.submission_type)
+        parser = BasicSubmission.find_polymorphic_subclass(self.submission_type)
         self.samples = parser.parse_pcr(xl=self.xl, rsl_number=self.plate_num)
         
     def parse_general(self, sheet_name:str):

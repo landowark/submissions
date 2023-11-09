@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
 )
 from tools import jinja_template_loading
 import logging
-from backend.db.functions import lookup_kit_types, lookup_submission_type
 from backend.db.models import KitType, SubmissionType
 from typing import Literal
 
@@ -38,19 +37,19 @@ class AlertPop(QMessageBox):
     """
     Dialog to show an alert.
     """    
-    def __init__(self, message:str, status:Literal['information', 'question', 'warning', 'critical']) -> QMessageBox:
+    def __init__(self, message:str, status:Literal['Information', 'Question', 'Warning', 'Critical'], owner:str|None=None) -> QMessageBox:
         super().__init__()
         # select icon by string
-        icon = getattr(QMessageBox.Icon, status.title())
+        icon = getattr(QMessageBox.Icon, status)
         self.setIcon(icon)
         self.setInformativeText(message)
-        self.setWindowTitle(status.title())
+        self.setWindowTitle(f"{owner} - {status.title()}")
 
 class KitSelector(QDialog):
     """
     dialog to ask yes/no questions
     """    
-    def __init__(self, ctx:dict, title:str, message:str) -> QDialog:
+    def __init__(self, title:str, message:str) -> QDialog:
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
@@ -78,7 +77,7 @@ class SubmissionTypeSelector(QDialog):
     """
     dialog to ask yes/no questions
     """    
-    def __init__(self, ctx:dict, title:str, message:str) -> QDialog:
+    def __init__(self, title:str, message:str) -> QDialog:
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()

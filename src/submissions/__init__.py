@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Version of the realpython-reader package
 __project__ = "submissions"
-__version__ = "202311.1b"
+__version__ = "202311.2b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = "2022-2023, Government of Canada"
 
@@ -37,3 +37,9 @@ class bcolors:
 # Landon, this is your even more slightly less past self here. I've overhauled a lot of stuff to make things more flexible, so you should
 # hopefully be even less screwed than before... at least with regards to parsers. The addition of kits and such is another story. Putting that
 # On the todo list.
+
+'''
+Landon, this is 2023-11-07 Landon here in a comment string no less. Really all you should have to do now to add in new experiments is create a new
+BasicSubmission derivative with associated SubbmissionType, BasicSample (and maybe SubmissionSampleAssociation if you're feeling lucky), oh, also, 
+kits, reagenttypes, reagents... This is sounding less and less impressive as I type it.
+'''

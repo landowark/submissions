@@ -1,3 +1,8 @@
+## 202311.02
+
+- Construct first strand integrated into Artic Import.
+- Addition of query_or_create methods for some classes.
+
 ## 202311.01
 
 - Kit integrity is now checked before creation of sql object to improve reagent type lookups.

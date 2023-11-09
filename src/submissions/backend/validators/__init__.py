@@ -1,8 +1,7 @@
 import logging, re
 from pathlib import Path
 from openpyxl import load_workbook
-from backend.db.models import BasicSubmission
-from tools import Settings
+from backend.db import BasicSubmission, SubmissionType
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -10,14 +9,12 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class RSLNamer(object):
     """
     Object that will enforce proper formatting on RSL plate names.
-    NOTE: Depreciated in favour of object based methods in 'submissions.py'
     """
-    def __init__(self, ctx, instr:str, sub_type:str|None=None):
-        self.ctx = ctx
+    def __init__(self, instr:str, sub_type:str|None=None):
         self.submission_type = sub_type
         
         if self.submission_type == None:
-            self.submission_type = self.retrieve_submission_type(ctx=self.ctx, instr=instr)
+            self.submission_type = self.retrieve_submission_type(instr=instr)
         logger.debug(f"got submission type: {self.submission_type}")
         if self.submission_type != None:
             enforcer = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
@@ -25,25 +22,30 @@ class RSLNamer(object):
             self.parsed_name = enforcer.enforce_name(instr=self.parsed_name)
 
     @classmethod
-    def retrieve_submission_type(cls, ctx:Settings, instr:str|Path) -> str:
+    def retrieve_submission_type(cls, instr:str|Path) -> str:
         match instr:
             case Path():
-                logger.debug(f"Using path method.")
+                logger.debug(f"Using path method for {instr}.")
                 if instr.exists():
                     wb = load_workbook(instr)
                     try:
                         submission_type = [item.strip().title() for item in wb.properties.category.split(";")][0]
                     except AttributeError:
                         try:
-                            for type in ctx.submission_types:
+                            sts = {item.name:item.info_map['all_sheets'] for item in SubmissionType.query(key="all_sheets")}
+                            for k,v in sts.items():
                                 # This gets the *first* submission type that matches the sheet names in the workbook 
-                                if wb.sheetnames == ctx.submission_types[type]['excel_map']:
-                                    submission_type = type.title()
+                                if wb.sheetnames == v:
+                                    submission_type = k.title()
+                                    break
                         except:
-                            submission_type = cls.retrieve_submission_type(ctx=ctx, instr=instr.stem.__str__())
+                            # On failure recurse using filename as string for string method
+                            submission_type = cls.retrieve_submission_type(instr=instr.stem.__str__())
+                else:
+                    submission_type = cls.retrieve_submission_type(instr=instr.stem.__str__())
             case str():
                 regex = BasicSubmission.construct_regex()
-                logger.debug(f"Using string method.")
+                logger.debug(f"Using string method for {instr}.")
                 m = regex.search(instr)
                 try:
                     submission_type = m.lastgroup
@@ -51,9 +53,13 @@ class RSLNamer(object):
                     logger.critical("No RSL plate number found or submission type found!")
             case _:
                 submission_type = None
-        if submission_type == None:
+        try:
+            check = submission_type == None
+        except UnboundLocalError:
+            check = True
+        if check:
             from frontend.custom_widgets import SubmissionTypeSelector
-            dlg = SubmissionTypeSelector(ctx, title="Couldn't parse submission type.", message="Please select submission type from list below.")
+            dlg = SubmissionTypeSelector(title="Couldn't parse submission type.", message="Please select submission type from list below.")
             if dlg.exec():
                 submission_type = dlg.parse_form()
         submission_type = submission_type.replace("_", " ")

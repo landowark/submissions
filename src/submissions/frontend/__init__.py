@@ -6,23 +6,27 @@ from PyQt6.QtWidgets import (
     QMainWindow, QToolBar, 
     QTabWidget, QWidget, QVBoxLayout,
     QComboBox, QHBoxLayout,
-    QScrollArea, QLineEdit, QDateEdit
+    QScrollArea
 )
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtGui import QAction
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from pathlib import Path
-from backend.db.functions import (
-    lookup_control_types, lookup_modes
-)
 from backend.db.models import ControlType, Control
 from backend.validators import PydSubmission, PydReagent
-from tools import check_if_app, Settings
-from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker, ReagentFormWidget
+from .functions import (
+    import_submission_function, kit_reload_function, kit_integrity_completion_function, 
+    submit_new_sample_function, generate_report_function, add_kit_function, add_org_function,
+    controls_getter_function, chart_maker_function, link_controls_function, link_extractions_function,
+    link_pcr_function, autofill_excel, scrape_reagents, export_csv_function, import_pcr_results_function
+)
+from tools import check_if_app, Settings, Report
+from frontend.custom_widgets import SubmissionsSheet, AlertPop, AddReagentForm, KitAdder, ControlsDatePicker
 import logging
 from datetime import date
 import webbrowser
 from pathlib import Path
+from typing import List
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -34,6 +38,7 @@ class App(QMainWindow):
         super().__init__()
         self.ctx = ctx
         self.last_dir = ctx.directory_path
+        self.report = Report()
         # indicate version and connected database in title bar
         try:
             self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}"
@@ -58,7 +63,6 @@ class App(QMainWindow):
         self.show()
         self.statusBar().showMessage('Ready', 5000)
         
-
     def _createMenuBar(self):
         """
         adds items to menu bar
@@ -67,7 +71,7 @@ class App(QMainWindow):
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
-        methodsMenu = menuBar.addMenu("&Methods")
+        # methodsMenu = menuBar.addMenu("&Methods")
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
@@ -75,7 +79,7 @@ class App(QMainWindow):
         helpMenu.addAction(self.docsAction)
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.importPCRAction)
-        methodsMenu.addAction(self.constructFS)
+        # methodsMenu.addAction(self.constructFS)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
@@ -106,8 +110,7 @@ class App(QMainWindow):
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
         self.docsAction = QAction("&Docs", self)
-        self.constructFS = QAction("Make First Strand", self)
-
+        # self.constructFS = QAction("Make First Strand", self)
 
     def _connectActions(self):
         """
@@ -128,7 +131,7 @@ class App(QMainWindow):
         self.joinPCRAction.triggered.connect(self.linkPCR)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
-        self.constructFS.triggered.connect(self.construct_first_strand)
+        # self.constructFS.triggered.connect(self.construct_first_strand)
         self.table_widget.formwidget.import_drag.connect(self.importSubmission)
 
     def showAbout(self):
@@ -150,7 +153,7 @@ class App(QMainWindow):
         logger.debug(f"Attempting to open {url}")
         webbrowser.get('windows-default').open(f"file://{url.__str__()}")
 
-    def result_reporter(self, result:dict|None=None):
+    def result_reporter(self):
     # def result_reporter(self, result:TypedDict[]|None=None):
         """
         Report any anomolous results - if any - to the user
@@ -158,31 +161,41 @@ class App(QMainWindow):
         Args:
             result (dict | None, optional): The result from a function. Defaults to None.
         """        
-        logger.info(f"We got the result: {result}")
-        if result != None:
-            msg = AlertPop(message=result['message'], status=result['status'])
-            msg.exec()
+        # logger.info(f"We got the result: {result}")
+        # if result != None:
+        #     msg = AlertPop(message=result['message'], status=result['status'])
+        #     msg.exec()
+        logger.debug(f"Running results reporter for: {self.report.results}")
+        if len(self.report.results) > 0:
+            logger.debug(f"We've got some results!")
+            for result in self.report.results:
+                logger.debug(f"Showing result: {result}")
+                if result != None:
+                    alert = result.report()
+                    if alert.exec():
+                        pass
+            self.report = Report()
         else:
             self.statusBar().showMessage("Action completed sucessfully.", 5000)
-
+        
     def importSubmission(self, fname:Path|None=None):
         """
         import submission from excel sheet into form
         """        
-        from .main_window_functions import import_submission_function
+        # from .main_window_functions import import_submission_function
         self.raise_()
         self.activateWindow()
-        self, result = import_submission_function(self, fname)
-        logger.debug(f"Import result: {result}")
-        self.result_reporter(result)
+        self = import_submission_function(self, fname)
+        logger.debug(f"Result from result reporter: {self.report.results}")
+        self.result_reporter()
 
     def kit_reload(self):
         """
         Removes all reagents from form before running kit integrity completion.
         """        
-        from .main_window_functions import kit_reload_function
-        self, result = kit_reload_function(self)
-        self.result_reporter(result)
+        # from .main_window_functions import kit_reload_function
+        self = kit_reload_function(self)
+        self.result_reporter()
 
     def kit_integrity_completion(self):
         """
@@ -190,15 +203,15 @@ class App(QMainWindow):
         NOTE: this will not change self.reagents which should be fine
         since it's only used when looking up 
         """        
-        from .main_window_functions import kit_integrity_completion_function
-        self, result = kit_integrity_completion_function(self)
-        self.result_reporter(result)
+        # from .main_window_functions import kit_integrity_completion_function
+        self = kit_integrity_completion_function(self)
+        self.result_reporter()
 
     def submit_new_sample(self):
         """
         Attempt to add sample to database when 'submit' button clicked
         """        
-        from .main_window_functions import submit_new_sample_function
+        # from .main_window_functions import submit_new_sample_function
         self, result = submit_new_sample_function(self)
         self.result_reporter(result)
 
@@ -237,7 +250,7 @@ class App(QMainWindow):
         """
         Action to create a summary of sheet data per client
         """
-        from .main_window_functions import generate_report_function
+        # from .main_window_functions import generate_report_function
         self, result = generate_report_function(self)
         self.result_reporter(result)
 
@@ -245,7 +258,7 @@ class App(QMainWindow):
         """
         Constructs new kit from yaml and adds to DB.
         """
-        from .main_window_functions import add_kit_function
+        # from .main_window_functions import add_kit_function
         self, result = add_kit_function(self)
         self.result_reporter(result)
 
@@ -253,7 +266,7 @@ class App(QMainWindow):
         """
         Constructs new kit from yaml and adds to DB.
         """
-        from .main_window_functions import add_org_function
+        # from .main_window_functions import add_org_function
         self, result = add_org_function(self)
         self.result_reporter(result)
 
@@ -261,24 +274,24 @@ class App(QMainWindow):
         """
         Lookup controls from database and send to chartmaker
         """    
-        from .main_window_functions import controls_getter_function
-        self, result = controls_getter_function(self)
-        self.result_reporter(result)    
+        # from .main_window_functions import controls_getter_function
+        self = controls_getter_function(self)
+        self.result_reporter()    
         
     def _chart_maker(self):
         """
         Creates plotly charts for webview
         """   
-        from .main_window_functions import chart_maker_function
-        self, result = chart_maker_function(self)     
-        self.result_reporter(result)
+        # from .main_window_functions import chart_maker_function
+        self = chart_maker_function(self)     
+        self.result_reporter()
 
     def linkControls(self):
         """
         Adds controls pulled from irida to relevant submissions
         NOTE: Depreciated due to improvements in controls scraper.
         """    
-        from .main_window_functions import link_controls_function
+        # from .main_window_functions import link_controls_function
         self, result = link_controls_function(self)
         self.result_reporter(result)  
 
@@ -286,7 +299,7 @@ class App(QMainWindow):
         """
         Links extraction logs from .csv files to relevant submissions.
         """     
-        from .main_window_functions import link_extractions_function
+        # from .main_window_functions import link_extractions_function
         self, result = link_extractions_function(self)
         self.result_reporter(result)
 
@@ -294,7 +307,7 @@ class App(QMainWindow):
         """
         Links PCR logs from .csv files to relevant submissions.
         """        
-        from .main_window_functions import link_pcr_function
+        # from .main_window_functions import link_pcr_function
         self, result = link_pcr_function(self)
         self.result_reporter(result)
 
@@ -302,25 +315,29 @@ class App(QMainWindow):
         """
         Imports results exported from Design and Analysis .eds files
         """        
-        from .main_window_functions import import_pcr_results_function
+        # from .main_window_functions import import_pcr_results_function
         self, result = import_pcr_results_function(self)
         self.result_reporter(result)
 
-    def construct_first_strand(self):
-        """
-        Converts first strand excel sheet to Biomek CSV
-        """        
-        from .main_window_functions import construct_first_strand_function
-        self, result = construct_first_strand_function(self)
-        self.result_reporter(result)
+    # def construct_first_strand(self):
+    #     """
+    #     Converts first strand excel sheet to Biomek CSV
+    #     """        
+    #     from .main_window_functions import construct_first_strand_function
+    #     self, result = construct_first_strand_function(self)
+    #     self.result_reporter(result)
 
     def scrape_reagents(self, *args, **kwargs):
-        from .main_window_functions import scrape_reagents
+        # from .main_window_functions import scrape_reagents
         logger.debug(f"Args: {args}")
         logger.debug(F"kwargs: {kwargs}")
-        self, result = scrape_reagents(self, args[0])
+        self = scrape_reagents(self, args[0])
         self.kit_integrity_completion()
-        self.result_reporter(result)
+        self.result_reporter()
+
+    def export_csv(self, fname:Path|None=None):
+        from .main_window_functions import export_csv_function
+        export_csv_function(self, fname)
 
 class AddSubForm(QWidget):
     

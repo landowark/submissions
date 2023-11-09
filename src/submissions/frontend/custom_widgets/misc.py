@@ -13,8 +13,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QDate, QSize, pyqtSignal
 from tools import check_not_nan, jinja_template_loading, Settings
-from backend.db.functions import (lookup_reagent_types, lookup_reagents, lookup_submission_type, lookup_reagenttype_kittype_association, \
-    lookup_submissions, lookup_organizations, lookup_kit_types)
 from backend.db.models import *
 from sqlalchemy import FLOAT, INTEGER
 import logging
@@ -200,7 +198,6 @@ class KitAdder(QWidget):
                        "qt_scrollarea_vcontainer", "submit_btn"
                        ]
         
-
     def add_RT(self) -> None:
         """
         insert new reagent type row
@@ -439,7 +436,7 @@ class ReagentFormWidget(QWidget):
         # self.setParent(parent)
         self.reagent = reagent
         self.extraction_kit = extraction_kit
-        self.ctx = reagent.ctx
+        # self.ctx = reagent.ctx
         layout = QVBoxLayout()
         self.label = self.ReagentParsedLabel(reagent=reagent)
         layout.addWidget(self.label)
@@ -476,7 +473,7 @@ class ReagentFormWidget(QWidget):
             if rt == None:
                 # rt = lookup_reagent_types(ctx=self.ctx, kit_type=self.extraction_kit, reagent=wanted_reagent)
                 rt = ReagentType.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
-            return PydReagent(ctx=self.ctx, name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
+            return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
 
     def updated(self):
         self.missing = True
@@ -504,7 +501,7 @@ class ReagentFormWidget(QWidget):
 
         def __init__(self, reagent, extraction_kit:str) -> None:
             super().__init__()
-            self.ctx = reagent.ctx
+            # self.ctx = reagent.ctx
             self.setEditable(True)
             # if reagent.parsed:
             #     pass
@@ -569,6 +566,7 @@ class SubmissionFormWidget(QWidget):
                     layout.addWidget(add_widget)
             else:
                 setattr(self, k, v)
+        
         self.setLayout(layout)
 
     def create_widget(self, key:str, value:dict, submission_type:str|None=None):

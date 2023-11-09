@@ -5,7 +5,7 @@ from __future__ import annotations
 from getpass import getuser
 import math
 from pprint import pformat
-from . import Reagent, SubmissionType
+from . import Reagent, SubmissionType, KitType, Organization
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 import logging
@@ -21,9 +21,11 @@ from tools import check_not_nan, row_map, Base, query_return, setup_lookup
 from datetime import datetime, date
 from typing import List
 from dateutil.parser import parse
+from dateutil.parser._parser import ParserError
 import yaml
-from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
+import sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -54,8 +56,8 @@ class BasicSubmission(Base):
     pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
-    comment = Column(JSON)
-    submission_category = Column(String(64))
+    comment = Column(JSON) #: user notes
+    submission_category = Column(String(64)) #: ["Research", "Diagnostic", "Surveillance"], else defaults to submission_type_name
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -253,7 +255,7 @@ class BasicSubmission(Base):
         Stupid stopgap solution to there being an issue with the Bacterial Culture plate map
 
         Args:
-            xl (pd.ExcelFile): original xl workbook
+            xl (pd.ExcelFile): original xl workbook, used for child classes mostly
             plate_map (pd.DataFrame): original plate map
 
         Returns:
@@ -268,6 +270,7 @@ class BasicSubmission(Base):
 
         Args:
             input_dict (dict): Input sample dictionary
+            xl (pd.ExcelFile): original xl workbook, used for child classes mostly
 
         Returns:
             dict: Updated sample dictionary
@@ -289,6 +292,10 @@ class BasicSubmission(Base):
         # logger.debug(f"Called {cls.__name__} sample parser")
         return input_dict
     
+    @classmethod
+    def finalize_parse(cls, input_dict:dict, xl:pd.ExcelFile|None=None, info_map:dict|None=None, plate_map:dict|None=None) -> dict:
+        return input_dict
+
     @classmethod
     def custom_autofill(cls, input_excel:Workbook) -> Workbook:
         """
@@ -315,9 +322,14 @@ class BasicSubmission(Base):
         return regex
  
     @classmethod
-    def find_subclasses(cls, attrs:dict|None=None, submission_type:str|None=None):
-        if submission_type != None:
-            return cls.find_polymorphic_subclass(submission_type)
+    def find_subclasses(cls, attrs:dict|None=None, submission_type:str|SubmissionType|None=None):
+        match submission_type:
+            case str():
+                return cls.find_polymorphic_subclass(submission_type)
+            case SubmissionType():
+                return cls.find_polymorphic_subclass(submission_type.name)
+            case _:
+                pass
         if len(attrs) == 0 or attrs == None:
             return cls
         if any([not hasattr(cls, attr) for attr in attrs]):
@@ -361,7 +373,7 @@ class BasicSubmission(Base):
                 yaml.dump(backup, f)
         except KeyError:
             pass
-        self.metadata.database_session.delete(self)
+        self.metadata.session.delete(self)
         try:
             self.metadata.session.commit()
         except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
@@ -396,6 +408,7 @@ class BasicSubmission(Base):
         Returns:
             models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
         """    
+        logger.debug(kwargs)
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         if submission_type == None:
             model = cls.find_subclasses(attrs=kwargs)
@@ -404,19 +417,7 @@ class BasicSubmission(Base):
                 model = cls.find_subclasses(submission_type=submission_type.name)
             else:
                 model = cls.find_subclasses(submission_type=submission_type)
-        # query: Query = setup_lookup(ctx=ctx, locals=locals()).query(model)
         query: Query = cls.metadata.session.query(model)
-        # by submission type
-        # match submission_type:
-        #     case SubmissionType():
-        #         logger.debug(f"Looking up BasicSubmission with submission type: {submission_type}")
-        #         query = query.filter(model.submission_type_name==submission_type.name)
-        #     case str():
-        #         logger.debug(f"Looking up BasicSubmission with submission type: {submission_type}")
-        #         query = query.filter(model.submission_type_name==submission_type)
-        #     case _:
-        #         pass
-        # by date range
         if start_date != None and end_date == None:
             logger.warning(f"Start date with no end date, using today.")
             end_date = date.today()
@@ -483,8 +484,92 @@ class BasicSubmission(Base):
         return query_return(query=query, limit=limit)
 
     @classmethod
+    def query_or_create(cls, submission_type:str|SubmissionType|None=None, **kwargs) -> BasicSubmission:
+        """
+        Returns object from db if exists, else, creates new. Due to need for user input, doesn't see much use ATM.
+
+        Args:
+            submission_type (str | SubmissionType | None, optional): Submission type to be created. Defaults to None.
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+
+        Returns:
+            cls: _description_
+        """        
+        code = 0
+        msg = None
+        disallowed = ["id"]
+        if kwargs == {}:
+            raise ValueError("Need to narrow down query or the first available instance will be returned.")
+        for key in kwargs.keys():
+            if key in disallowed:
+                raise ValueError(f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects. Use .query() instead.")
+        instance = cls.query(submission_type=submission_type, limit=1, **kwargs)
+        logger.debug(f"Retrieved instance: {instance}")
+        if instance == None:
+            used_class = cls.find_subclasses(attrs=kwargs, submission_type=submission_type)
+            instance = used_class(**kwargs)
+            match submission_type:
+                case str():
+                    submission_type = SubmissionType.query(name=submission_type)
+                case _:
+                    pass
+            instance.submission_type = submission_type
+            instance.submission_type_name = submission_type.name
+            if "submitted_date" not in kwargs.keys():
+                instance.submitted_date = date.today()
+        else:
+            code = 1
+            msg = "This submission already exists.\nWould you like to overwrite?"
+        return instance, code, msg
+
+    @classmethod
     def filename_template(cls):
         return "{{ rsl_plate_num }}"
+
+    def set_attribute(self, key, value):
+        match key:
+            case "extraction_kit":
+                logger.debug(f"Looking up kit {value}")
+                # field_value = lookup_kit_types(ctx=self.ctx, name=value)
+                field_value = KitType.query(name=value)
+                logger.debug(f"Got {field_value} for kit {value}")
+            case "submitting_lab":
+                logger.debug(f"Looking up organization: {value}")
+                # field_value = lookup_organizations(ctx=self.ctx, name=value)
+                field_value = Organization.query(name=value)
+                logger.debug(f"Got {field_value} for organization {value}")
+            case "submitter_plate_num":
+                logger.debug(f"Submitter plate id: {value}")
+                field_value = value
+            case "samples":
+                # instance = construct_samples(ctx=ctx, instance=instance, samples=value)
+                for sample in value:
+                    # logger.debug(f"Parsing {sample} to sql.")
+                    sample, _ = sample.toSQL(submission=self)
+                    # instance.samples.append(sample)
+                return
+            case "reagents":
+                field_value = [reagent['value'].toSQL()[0] if isinstance(reagent, dict) else reagent.toSQL()[0] for reagent in value]
+            case "submission_type":
+                # field_value = lookup_submission_type(ctx=self.ctx, name=value)
+                field_value = SubmissionType.query(name=value)
+            case "sample_count":
+                if value == None:
+                    field_value = len(self.samples)
+                else:
+                    field_value = value
+            case "ctx" | "csv" | "filepath":
+                return
+            case _:
+                field_value = value
+        # insert into field
+        try:
+            setattr(self, key, field_value)
+        except AttributeError:
+            logger.error(f"Could not set {self} attribute {key} to {value}")
 
 # Below are the custom submission types
 
@@ -759,7 +844,7 @@ class WastewaterArtic(BasicSubmission):
         input_dict['sample_type'] = "Wastewater Sample"
         # Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
         # at the end, this has to be done here. No moving to sqlalchemy object :(
-        input_dict['submitter_id'] = re.sub(r"\s\(.+\)$", "", str(input_dict['submitter_id'])).strip()
+        input_dict['submitter_id'] = re.sub(r"\s\(.+\)\s?$", "", str(input_dict['submitter_id'])).strip()
         return input_dict
     
     @classmethod
@@ -782,6 +867,53 @@ class WastewaterArtic(BasicSubmission):
     def get_regex(cls):
         return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
 
+    @classmethod
+    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None, plate_map: dict | None = None) -> dict:
+        input_dict = super().finalize_parse(input_dict, xl, info_map, plate_map)
+        logger.debug(pformat(input_dict))
+        logger.debug(pformat(info_map))
+        logger.debug(pformat(plate_map))
+        samples = []
+        for sample in input_dict['samples']:
+            if sample.submitter_id == "NTC1":
+                samples.append(dict(sample=sample.submitter_id, destination_row=8, destination_column=2, source_row=0, source_column=0, plate_number='control', plate=None))
+                continue
+            elif sample.submitter_id == "NTC2":
+                samples.append(dict(sample=sample.submitter_id, destination_row=8, destination_column=5, source_row=0, source_column=0, plate_number='control', plate=None))
+                continue
+            destination_row = sample.row[0]
+            destination_column = sample.column[0]
+            logger.debug(f"Looking up: {sample.submitter_id} friend.")
+            lookup_sample = BasicSample.query(submitter_id=sample.submitter_id)
+            lookup_ssa = SubmissionSampleAssociation.query(sample=lookup_sample, exclude_submission_type=cls.__mapper_args__['polymorphic_identity'] , chronologic=True, reverse=True, limit=1)
+            try:
+                plate = lookup_ssa.submission.rsl_plate_num
+                source_row = lookup_ssa.row
+                source_column = lookup_ssa.column
+            except AttributeError:
+                plate = ""
+                source_row = 0
+                source_column = 0
+            samples.append(dict(
+                sample=sample.submitter_id,
+                destination_column=destination_column, 
+                destination_row=destination_row,
+                plate=plate,
+                source_column=source_column,
+                source_row = source_row
+                ))
+        plates = sorted(list(set([sample['plate'] for sample in samples if sample['plate'] != None])))
+        for iii, plate in enumerate(plates):
+            for sample in samples:
+                if sample['plate'] == plate:
+                    sample['plate_number'] = iii + 1
+        df = pd.DataFrame.from_records(samples).fillna(value="")
+        df.source_row = df.source_row.astype(int)
+        df.source_column = df.source_column.astype(int)
+        df.sort_values(by=['destination_column', 'destination_row'], inplace=True)
+        input_dict['csv'] = df
+        return input_dict
+        
 class BasicSample(Base):
     """
     Base of basic sample which polymorphs into BCSample and WWSample
@@ -870,16 +1002,21 @@ class BasicSample(Base):
         return dict(name=self.submitter_id[:10], positive=False, tooltip=tooltip_text)
 
     @classmethod
-    def find_subclasses(cls, attrs:dict|None=None, rsl_number:str|None=None):
+    def find_subclasses(cls, attrs:dict|None=None, sample_type:str|None=None):
+        if sample_type != None:
+            return cls.find_polymorphic_subclass(polymorphic_identity=sample_type)
         if len(attrs) == 0 or attrs == None:
+            logger.debug(f"No attr, returning {cls}")
             return cls
         if any([not hasattr(cls, attr) for attr in attrs]):
+            logger.debug(f"{cls} is missing attrs. searching for better match.")
             # looks for first model that has all included kwargs
             try:
                 model = [subclass for subclass in cls.__subclasses__() if all([hasattr(subclass, attr) for attr in attrs])][0]
             except IndexError as e:
                 raise AttributeError(f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs)}")
         else:
+            logger.debug(f"{cls} has all necessary attributes, returning")
             return cls
         logger.debug(f"Using model: {model}")
         return model
@@ -906,7 +1043,7 @@ class BasicSample(Base):
     @setup_lookup
     def query(cls, 
               submitter_id:str|None=None,
-            #   sample_type:str|None=None,
+              sample_type:str|None=None,
               limit:int=0,
               **kwargs
               ) -> BasicSample|List[BasicSample]:
@@ -922,14 +1059,18 @@ class BasicSample(Base):
         Returns:
             models.BasicSample|List[models.BasicSample]: Sample(s) of interest.
         """    
+        if sample_type == None:
+            model = cls.find_subclasses(attrs=kwargs)
+        else:
+            model = cls.find_subclasses(sample_type=sample_type)
         logger.debug(f"Length of kwargs: {len(kwargs)}")
         # model = models.BasicSample.find_subclasses(ctx=ctx, attrs=kwargs)
         # query: Query = setup_lookup(ctx=ctx, locals=locals()).query(model)
-        query: Query = cls.metadata.session.query(cls)
+        query: Query = cls.metadata.session.query(model)
         match submitter_id:
             case str():
-                logger.debug(f"Looking up {cls} with submitter id: {submitter_id}")
-                query = query.filter(cls.submitter_id==submitter_id)
+                logger.debug(f"Looking up {model} with submitter id: {submitter_id}")
+                query = query.filter(model.submitter_id==submitter_id)
                 limit = 1
             case _:
                 pass
@@ -940,12 +1081,28 @@ class BasicSample(Base):
         #     case _:
         #         pass
         for k, v in kwargs.items():
-            attr = getattr(cls, k)
+            attr = getattr(model, k)
             logger.debug(f"Got attr: {attr}")
             query = query.filter(attr==v)
         if len(kwargs) > 0:
             limit = 1
         return query_return(query=query, limit=limit)
+    
+    @classmethod
+    def query_or_create(cls, sample_type:str, **kwargs):
+        disallowed = ["id"]
+        if kwargs == {}:
+            raise ValueError("Need to narrow down query or the first available instance will be returned.")
+        for key in kwargs.keys():
+            if key in disallowed:
+                raise ValueError(f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects.")
+        instance = cls.query(sample_type=sample_type, limit=1, **kwargs)
+        logger.debug(f"Retrieved instance: {instance}")
+        if instance == None:
+            used_class = cls.find_subclasses(attrs=kwargs, sample_type=sample_type)
+            instance = used_class(**kwargs)
+            instance.sample_type = sample_type
+        return instance
 
 class WastewaterSample(BasicSample):
     """
@@ -996,6 +1153,20 @@ class WastewaterSample(BasicSample):
             output_dict['rsl_number'] = output_dict['submitter_id']
         if output_dict['ww_full_sample_id'] != None:
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
+        # Ad hoc repair method for WW (or possibly upstream) not formatting some dates properly.
+        match output_dict['collection_date']:
+            case str():
+                try:
+                    output_dict['collection_date'] = parse(output_dict['collection_date']).date()
+                except ParserError:
+                    logger.error(f"Problem parsing collection_date: {output_dict['collection_date']}")
+                    output_dict['collection_date'] = date(1,1,1)
+            case datetime():
+                output_dict['collection_date'] = output_dict['collection_date'].date()
+            case date():
+                pass
+            case _:
+                del output_dict['collection_date']
         return output_dict
 
 class BacterialCultureSample(BasicSample):
@@ -1070,11 +1241,13 @@ class SubmissionSampleAssociation(Base):
     @setup_lookup
     def query(cls,
               submission:BasicSubmission|str|None=None,
+              exclude_submission_type:str|None=None,
               sample:BasicSample|str|None=None,
               row:int=0,
               column:int=0,
               limit:int=0,
-              chronologic:bool=False
+              chronologic:bool=False,
+              reverse:bool=False,
               ) -> SubmissionSampleAssociation|List[SubmissionSampleAssociation]:
         """
         Lookup junction of Submission and Sample in the database
@@ -1109,12 +1282,64 @@ class SubmissionSampleAssociation(Base):
             query = query.filter(cls.row==row)
         if column > 0:
             query = query.filter(cls.column==column)
-        logger.debug(f"Query count: {query.count()}")
+        match exclude_submission_type:
+            case str():
+                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name != exclude_submission_type)
+            case _:
+                pass
+        # logger.debug(f"Query count: {query.count()}")
+        if reverse and not chronologic:
+            query = query.order_by(BasicSubmission.id.desc())
+            # query = query.join(BasicSubmission).order_by(BasicSubmission.id.desc())
+            # query.join(BasicSubmission).order_by(cls.submission.id.desc())
         if chronologic:
-            query.join(BasicSubmission).order_by(BasicSubmission.submitted_date)
-        if query.count() == 1:
-            limit = 1
+            if reverse:
+                query = query.order_by(BasicSubmission.submitted_date.desc())
+                # query = query.join(BasicSubmission).order_by(BasicSubmission.submitted_date.desc())
+                # query.join(BasicSubmission).order_by(cls.submission.submitted_date.desc())
+            else:
+                query = query.order_by(BasicSubmission.submitted_date)
+                # query.join(BasicSubmission).order_by(cls.submission.submitted_date)
+        # if query.count() == 1:
+        #     limit = 1
         return query_return(query=query, limit=limit)
+    
+    @classmethod
+    def query_or_create(cls,
+                association_type:str="Basic Association", 
+                submission:BasicSubmission|str|None=None,
+                sample:BasicSample|str|None=None,
+                **kwargs):
+        match submission:
+            case BasicSubmission():
+                pass
+            case str():
+                submission = BasicSubmission.query(rsl_number=submission)
+            case _:
+                raise ValueError()
+        match sample:
+            case BasicSample():
+                pass
+            case str():
+                sample = BasicSample.query(submitter_id=sample)
+            case _:
+                raise ValueError()
+        try:
+            row = kwargs['row']
+        except KeyError:
+            row = None
+        try:
+            column = kwargs['column']
+        except KeyError:
+            column = None
+        try:
+            instance = cls.query(submission=submission, sample=sample, row=row, column=column, limit=1)
+        except StatementError:
+            instance = None
+        if instance == None:
+            used_cls = cls.find_polymorphic_subclass(polymorphic_identity=association_type)
+            instance = used_cls(submission=submission, sample=sample, **kwargs)
+        return instance
 
     def save(self):
         self.metadata.session.add(self)

@@ -1,6 +1,7 @@
 '''
 Contains miscellaenous functions used by both frontend and backend.
 '''
+from __future__ import annotations
 from pathlib import Path
 import re
 import numpy as np
@@ -14,9 +15,10 @@ from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Session, declarative_base, DeclarativeMeta, Query
 from sqlalchemy import create_engine
-from pydantic import field_validator
+from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Any, Tuple
+from typing import Any, Tuple, Literal, List
+import inspect
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -176,11 +178,10 @@ class Settings(BaseSettings):
     def ensure_directory_exists(cls, value):
         if isinstance(value, str):
             value = Path(value)
-        if value.exists():
-            metadata.directory_path = value
-            return value
-        else:
-            raise FileNotFoundError(f"Couldn't find settings file {value}")
+        if not value.exists():
+            value = Path().home()    
+        metadata.directory_path = value
+        return value
         
     @field_validator('database_path', mode="before")
     @classmethod
@@ -382,7 +383,7 @@ def jinja_template_loading():
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
     else:
-        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()#.__str__()
+        loader_path = Path(__file__).parent.joinpath('templates').absolute()#.__str__()
     # jinja template loading
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)
@@ -461,3 +462,55 @@ def setup_lookup(func):
                 raise ValueError("Cannot use dictionary in query. Make sure you parse it first.")
         return func(*args, **kwargs)
     return wrapper
+
+class Result(BaseModel):
+
+    owner: str = Field(default="", validate_default=True)
+    code: int = Field(default=0)
+    msg: str
+    status: Literal["NoIcon", "Question", "Information", "Warning", "Critical"] = Field(default="NoIcon")
+
+    def __repr__(self) -> str:
+        return f"Result({self.owner})"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.owner = inspect.stack()[1].function
+
+    def report(self):
+        from frontend.custom_widgets.misc import AlertPop
+        return AlertPop(message=self.msg, status=self.status, owner=self.owner)
+    
+class Report(BaseModel):
+
+    results: List[Result] = Field(default=[])
+
+    # def __init__(self, *args, **kwargs):
+    #     if 'msg' in kwargs.keys():
+    #         res = Result(msg=kwargs['msg'])
+    #         for k,v in kwargs.items():
+    #             if k in ['code', 'status']:
+    #                 setattr(res, k, v)
+    #         self.results.append(res)
+
+
+    def __repr__(self):
+        return f"Report(result_count:{len(self.results)})"
+
+    def add_result(self, result:Result|Report|None):
+        match result:
+            case Result():
+                logger.debug(f"Adding {result} to results.")
+                try:
+                    self.results.append(result)
+                except AttributeError:
+                    logger.error(f"Problem adding result.")
+            case Report():
+                
+                for res in result.results:
+                    logger.debug(f"Adding {res} from to results.")
+                    self.results.append(res)
+            case _:
+                pass
+
+

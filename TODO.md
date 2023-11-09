@@ -1,6 +1,10 @@
-- [ ] Clear out any unnecessary ctx passes now that queries are improved.
-- [ ] Make a 'query or create' method in all db objects to go with new query.
-- [ ] Ensure Bacterial plates end up with RSL_YY_###_{submitterName}_{submitterPlateID}.xlsx format.
+- [x] Create a result object to facilitate returning function results.
+- [ ] Refactor main_window_functions into as many objects (forms, etc.) as possible to clean it up.
+- [x] Integrate 'Construct First Strand' into the Artic import.
+- [x] Clear out any unnecessary ctx passes now that queries are improved.
+- [x] Make a 'query or create' method in all db objects to go with new query.
+    - Due to necessity of user input this has only been implemented for BasicSubmission, BasicSample and SubmissionSampleAssociation.
+- [x] Ensure Bacterial plates end up with RSL_YY_###_{submitterName}_{submitterPlateID}.xlsx format.
 - [x] Move lookup functions into class methods of db objects?
     - Not sure if will work for associations.
 - [x] Update artic submission type database entry to add more technicians.

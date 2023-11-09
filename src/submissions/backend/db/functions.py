@@ -1,5 +1,5 @@
 '''Contains or imports all database convenience functions'''
-from tools import Settings
+from tools import Result, Report
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
@@ -7,10 +7,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 import logging
 import pandas as pd
 import json
-from pathlib import Path
 from .models import *
-# from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
-# from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 import logging
 from backend.validators.pydant import *
 
@@ -47,7 +44,7 @@ def submissions_to_df(submission_type:str|None=None, limit:int=0) -> pd.DataFram
     # use lookup function to create list of dicts
     # subs = [item.to_dict() for item in lookup_submissions(ctx=ctx, submission_type=submission_type, limit=limit)]
     subs = [item.to_dict() for item in BasicSubmission.query(submission_type=submission_type, limit=limit)]
-    logger.debug(f"Got {len(subs)} results.")
+    logger.debug(f"Got {len(subs)} submissions.")
     # make df from dicts (records) in list
     df = pd.DataFrame.from_records(subs)
     # Exclude sub information
@@ -111,79 +108,24 @@ def update_last_used(reagent:Reagent, kit:KitType):
     Updates the 'last_used' field in kittypes/reagenttypes
 
     Args:
-        ctx (Settings): settings object passed down from gui
         reagent (models.Reagent): reagent to be used for update
         kit (models.KitType): kit to be used for lookup
     """    
-    # rt = list(set(reagent.type).intersection(kit.reagent_types))[0]
+    report = Report()
     logger.debug(f"Attempting update of reagent type at intersection of ({reagent}), ({kit})")
-    # rt = lookup_reagent_types(ctx=ctx, kit_type=kit, reagent=reagent)
     rt = ReagentType.query(kit_type=kit, reagent=reagent)
     if rt != None:
-        # assoc = lookup_reagenttype_kittype_association(ctx=ctx, kit_type=kit, reagent_type=rt)
         assoc = KitTypeReagentTypeAssociation.query(kit_type=kit, reagent_type=rt)
         if assoc != None:
             if assoc.last_used != reagent.lot:
                 logger.debug(f"Updating {assoc} last used to {reagent.lot}")
                 assoc.last_used = reagent.lot
-                # ctx.database_session.merge(assoc)
-                # ctx.database_session.commit()
-                # result = store_object(ctx=ctx, object=assoc)
-                result  = assoc.save()
-                return result  
-    return dict(message=f"Updating last used {rt} was not performed.") 
+                result = assoc.save()
+                return(report.add_result(result))
+    return report.add_result(Result(msg=f"Updating last used {rt} was not performed.", status="Information"))
 
-# def delete_submission(id:int) -> dict|None:
-#     """
-#     Deletes a submission and its associated samples from the database.
 
-#     Args:
-#         ctx (Settings): settings object passed down from gui
-#         id (int): id of submission to be deleted.
-#     """    
-#     # In order to properly do this Im' going to have to delete all of the secondary table stuff as well.
-#     # Retrieve submission
-#     # sub = lookup_submissions(ctx=ctx, id=id)
-#     sub = models.BasicSubmission.query(id=id)
-#     # Convert to dict for storing backup as a yml
-#     sub.delete()
-#     return None
-    
-# def update_ww_sample(sample_obj:dict) -> dict|None:
-#     """
-#     Retrieves wastewater sample by rsl number (sample_obj['sample']) and updates values from constructed dictionary
-
-#     Args:
-#         ctx (Settings): settings object passed down from gui
-#         sample_obj (dict): dictionary representing new values for database object
-#     """    
-#     logger.debug(f"dictionary to use for update: {pformat(sample_obj)}")
-#     logger.debug(f"Looking up {sample_obj['sample']} in plate {sample_obj['plate_rsl']}")
-#     # assoc = lookup_submission_sample_association(ctx=ctx, submission=sample_obj['plate_rsl'], sample=sample_obj['sample'])
-#     assoc = models.SubmissionSampleAssociation.query(submission=sample_obj['plate_rsl'], sample=sample_obj['sample'])
-#     if assoc != None:
-#         for key, value in sample_obj.items():
-#             # set attribute 'key' to 'value'
-#             try:
-#                 check = getattr(assoc, key)
-#             except AttributeError as e:
-#                 logger.error(f"Item doesn't have field {key} due to {e}")
-#                 continue
-#             if check != value:
-#                 logger.debug(f"Setting association key: {key} to {value}")
-#                 try:
-#                     setattr(assoc, key, value)
-#                 except AttributeError as e:
-#                     logger.error(f"Can't set field {key} to {value} due to {e}")
-#                     continue
-#     else:
-#         logger.error(f"Unable to find sample {sample_obj['sample']}")
-#         return
-#     # result = store_object(ctx=ctx, object=assoc)
-#     result = assoc.save()
-#     return result
-
-def check_kit_integrity(sub:BasicSubmission|KitType|PydSubmission, reagenttypes:list=[]) -> dict|None:
+def check_kit_integrity(sub:BasicSubmission|KitType|PydSubmission, reagenttypes:list=[]) -> Tuple[list, Report]:
     """
     Ensures all reagents expected in kit are listed in Submission
 
@@ -194,6 +136,7 @@ def check_kit_integrity(sub:BasicSubmission|KitType|PydSubmission, reagenttypes:
     Returns:
         dict|None: Result object containing a message and any missing components.
     """    
+    report = Report()
     logger.debug(type(sub))
     # What type is sub?
     # reagenttypes = []
@@ -238,8 +181,9 @@ def check_kit_integrity(sub:BasicSubmission|KitType|PydSubmission, reagenttypes:
     if len(missing)==0:
         result = None
     else:
-        result = {'message' : f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", 'missing': missing}
-    return result
+        result = Result(msg=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
+    report.add_result(result)
+    return report
 
 def update_subsampassoc_with_pcr(submission:BasicSubmission, sample:BasicSample, input_dict:dict) -> dict|None:
     """

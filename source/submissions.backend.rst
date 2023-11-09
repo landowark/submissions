@@ -9,7 +9,7 @@ Subpackages
 
    submissions.backend.db
    submissions.backend.excel
-   submissions.backend.pydant
+   submissions.backend.validators
 
 Module contents
 ---------------
