@@ -310,9 +310,10 @@ class BasicSubmission(Base):
         return input_excel
     
     @classmethod
-    def enforce_name(cls, instr:str) -> str:
+    def enforce_name(cls, instr:str, data:dict|None=None) -> str:
         logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} Enforcer!")
-        logger.debug(f"Attempting enforcement on {instr}")
+        logger.debug(f"Attempting enforcement on {instr} using data: {pformat(data)}")
+        # sys.exit()
         return instr
 
     @classmethod
@@ -499,7 +500,7 @@ class BasicSubmission(Base):
             cls: _description_
         """        
         code = 0
-        msg = None
+        msg = ""
         disallowed = ["id"]
         if kwargs == {}:
             raise ValueError("Need to narrow down query or the first available instance will be returned.")
@@ -636,9 +637,9 @@ class BacterialCulture(BasicSubmission):
         return input_excel
 
     @classmethod
-    def enforce_name(cls, instr:str) -> str:
-        outstr = super().enforce_name(instr=instr)
-        def construct() -> str:
+    def enforce_name(cls, instr:str, data:dict|None=None) -> str:
+        outstr = super().enforce_name(instr=instr, data=data)
+        def construct(data:dict|None=None) -> str:
             """
             DEPRECIATED due to slowness. Search for the largest rsl number and increment by 1
 
@@ -765,18 +766,28 @@ class Wastewater(BasicSubmission):
         return samples
     
     @classmethod
-    def enforce_name(cls, instr:str) -> str:
-        outstr = super().enforce_name(instr=instr)
-        def construct():
-            today = datetime.now()
+    def enforce_name(cls, instr:str, data:dict|None=None) -> str:
+        outstr = super().enforce_name(instr=instr, data=data)
+        def construct(data:dict|None=None):
+            if "submitted_date" in data.keys():
+                if data['submitted_date']['value'] != None:
+                    today = data['submitted_date']['value']
+                else:
+                    today = datetime.now()
+            else:
+                today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", instr)
+                try:
+                    today = parse(today.group())
+                except AttributeError:
+                    today = datetime.now()
             return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
         if outstr == None:
-            outstr = construct()
+            outstr = construct(data)
         try:
             outstr = re.sub(r"PCR(-|_)", "", outstr)
         except AttributeError as e:
             logger.error(f"Problem using regex: {e}")
-            outstr = construct()
+            outstr = construct(data)
         outstr = outstr.replace("RSLWW", "RSL-WW")
         outstr = re.sub(r"WW(\d{4})", r"WW-\1", outstr, flags=re.IGNORECASE)
         outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)
@@ -848,9 +859,9 @@ class WastewaterArtic(BasicSubmission):
         return input_dict
     
     @classmethod
-    def enforce_name(cls, instr:str) -> str:
-        outstr = super().enforce_name(instr=instr)
-        def construct():
+    def enforce_name(cls, instr:str, data:dict|None=None) -> str:
+        outstr = super().enforce_name(instr=instr, data=data)
+        def construct(data:dict|None=None):
             today = datetime.now()
             return f"RSL-AR-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
         try:

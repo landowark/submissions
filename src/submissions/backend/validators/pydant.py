@@ -11,7 +11,7 @@ from . import RSLNamer
 from pathlib import Path
 import re
 import logging
-from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading
+from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading, Report, Result
 from backend.db.models import *
 from sqlalchemy.exc import StatementError
 from PyQt6.QtWidgets import QComboBox, QWidget
@@ -86,8 +86,8 @@ class PydReagent(BaseModel):
         else:
             return values.data['type']
 
-    def toSQL(self) -> Tuple[Reagent, dict]:
-        result = None
+    def toSQL(self) -> Tuple[Reagent, Report]:
+        report = Report()
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
         # reagent = lookup_reagents(ctx=self.ctx, lot_number=self.lot)
         reagent = Reagent.query(lot_number=self.lot)
@@ -113,10 +113,10 @@ class PydReagent(BaseModel):
                         reagent.name = value
             # add end-of-life extension from reagent type to expiry date
             # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
-        return reagent, result
+        return reagent, report
 
     def toForm(self, parent:QWidget, extraction_kit:str) -> QComboBox:
-        from frontend.custom_widgets.misc import ReagentFormWidget
+        from frontend.widgets.submission_widget import ReagentFormWidget
         return ReagentFormWidget(parent=parent, reagent=self, extraction_kit=extraction_kit)
     
 class PydSample(BaseModel, extra='allow'):
@@ -180,8 +180,9 @@ class PydSubmission(BaseModel, extra='allow'):
     submission_type: dict|None
     # For defaults
     submitter_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
-    rsl_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitted_date: dict|None
+    rsl_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
+    # submitted_date: dict|None
     submitting_lab: dict|None
     sample_count: dict|None
     extraction_kit: dict|None
@@ -243,7 +244,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("rsl_plate_num")
     @classmethod
     def rsl_from_file(cls, value, values):
-        logger.debug(f"RSL-plate initial value: {value['value']}")
+        logger.debug(f"RSL-plate initial value: {value['value']} and other values: {values.data}")
         sub_type = values.data['submission_type']['value']
         if check_not_nan(value['value']):
             # if lookup_submissions(ctx=values.data['ctx'], rsl_number=value['value']) == None:
@@ -256,7 +257,7 @@ class PydSubmission(BaseModel, extra='allow'):
             #     return dict(value=output, missing=True)
             return value
         else:
-            output = RSLNamer(instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
+            output = RSLNamer(instr=values.data['filepath'].__str__(), sub_type=sub_type, data=values.data).parsed_name
             return dict(value=output, missing=True)
 
     @field_validator("technician", mode="before")
@@ -346,12 +347,11 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
 
-    def toSQL(self):
-        code = 0
-        msg = None
-        status = None
+    def toSQL(self) -> Tuple[BasicSubmission, Result]:
+        
         self.__dict__.update(self.model_extra)
         instance, code, msg = BasicSubmission.query_or_create(submission_type=self.submission_type['value'], rsl_plate_num=self.rsl_plate_num['value'])
+        result = Result(msg=msg, code=code)
         self.handle_duplicate_samples()
         logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
         for key, value in self.__dict__.items():
@@ -389,10 +389,10 @@ class PydSubmission(BaseModel, extra='allow'):
         except AttributeError as e:
             logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
         logger.debug(f"Constructed submissions message: {msg}")
-        return instance, {'code':code, 'message':msg, 'status':"Information"}
+        return instance, result
     
     def toForm(self, parent:QWidget):
-        from frontend.custom_widgets.misc import SubmissionFormWidget
+        from frontend.widgets.submission_widget import SubmissionFormWidget
         return SubmissionFormWidget(parent=parent, **self.improved_dict())
 
     def autofill_excel(self, missing_only:bool=True):

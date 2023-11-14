@@ -6,7 +6,7 @@ import logging
 from datetime import date, timedelta
 import re
 from typing import Tuple
-from tools import jinja_template_loading
+from tools import jinja_template_loading, Settings
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -198,7 +198,7 @@ def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
     return sorted(df[column_name].unique())
 
 
-def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
+def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
     """
     Removes semi-duplicates from dataframe after finding sequencing repeats.
 
@@ -211,7 +211,7 @@ def drop_reruns_from_df(ctx:dict, df: DataFrame) -> DataFrame:
     """    
     if 'rerun_regex' in ctx:
         sample_names = get_unique_values_in_df_column(df, column_name="name")
-        rerun_regex = re.compile(fr"{ctx['rerun_regex']}")
+        rerun_regex = re.compile(fr"{ctx.rerun_regex}")
         for sample in sample_names:
             if rerun_regex.search(sample):
                 first_run = re.sub(rerun_regex, "", sample)

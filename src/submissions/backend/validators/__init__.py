@@ -10,7 +10,7 @@ class RSLNamer(object):
     """
     Object that will enforce proper formatting on RSL plate names.
     """
-    def __init__(self, instr:str, sub_type:str|None=None):
+    def __init__(self, instr:str, sub_type:str|None=None, data:dict|None=None):
         self.submission_type = sub_type
         
         if self.submission_type == None:
@@ -19,7 +19,7 @@ class RSLNamer(object):
         if self.submission_type != None:
             enforcer = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(instr=instr, regex=enforcer.get_regex())
-            self.parsed_name = enforcer.enforce_name(instr=self.parsed_name)
+            self.parsed_name = enforcer.enforce_name(instr=self.parsed_name, data=data)
 
     @classmethod
     def retrieve_submission_type(cls, instr:str|Path) -> str:
@@ -58,7 +58,7 @@ class RSLNamer(object):
         except UnboundLocalError:
             check = True
         if check:
-            from frontend.custom_widgets import SubmissionTypeSelector
+            from frontend.widgets import SubmissionTypeSelector
             dlg = SubmissionTypeSelector(title="Couldn't parse submission type.", message="Please select submission type from list below.")
             if dlg.exec():
                 submission_type = dlg.parse_form()

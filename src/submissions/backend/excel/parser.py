@@ -2,7 +2,7 @@
 contains parser object for pulling values from client generated submission sheets.
 '''
 from getpass import getuser
-import pprint
+from pprint import pformat
 from typing import List
 import pandas as pd
 import numpy as np
@@ -15,7 +15,7 @@ import re
 from datetime import date
 from dateutil.parser import parse, ParserError
 from tools import check_not_nan, convert_nans_to_nones, Settings
-from frontend.custom_widgets.pop_ups import KitSelector
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -70,7 +70,7 @@ class SheetParser(object):
                     pass
                 case _:
                     self.sub[k] = v
-        logger.debug(f"Parser.sub after info scrape: {pprint.pformat(self.sub)}")
+        logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
 
     def parse_reagents(self, extraction_kit:str|None=None):
         """
@@ -100,6 +100,7 @@ class SheetParser(object):
         Returns:
             List[PydReagent]: List of reagents
         """    
+        from frontend.widgets.pop_ups import KitSelector
         if not check_not_nan(self.sub['extraction_kit']['value']):
             dlg = KitSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.")
             if dlg.exec():
@@ -117,7 +118,7 @@ class SheetParser(object):
         # kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
         kit = KitType.query(name=self.sub['extraction_kit']['value'])
         allowed_reagents = [item.name for item in kit.get_reagents()]
-        logger.debug(f"List of reagents for comparison with allowed_reagents: {pprint.pformat(self.sub['reagents'])}")
+        logger.debug(f"List of reagents for comparison with allowed_reagents: {pformat(self.sub['reagents'])}")
         # self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
         self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent.type in allowed_reagents]
 
@@ -133,7 +134,7 @@ class SheetParser(object):
         Returns:
             PydSubmission: output pydantic model
         """       
-        logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pprint.pformat(self.sub)}")
+        logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
         psm = PydSubmission(filepath=self.filepath, **self.sub)
         # delattr(psm, "filepath")
         return psm
@@ -145,7 +146,7 @@ class InfoParser(object):
         # self.ctx = ctx
         self.map = self.fetch_submission_info_map(submission_type=submission_type)
         self.xl = xl
-        logger.debug(f"Info map for InfoParser: {pprint.pformat(self.map)}")
+        logger.debug(f"Info map for InfoParser: {pformat(self.map)}")
         
 
     def fetch_submission_info_map(self, submission_type:str|dict) -> dict:
@@ -186,7 +187,7 @@ class InfoParser(object):
                     continue
                 if sheet in self.map[k]['sheets']:
                     relevant[k] = v
-            logger.debug(f"relevant map for {sheet}: {pprint.pformat(relevant)}")
+            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
@@ -236,7 +237,7 @@ class ReagentParser(object):
             df = self.xl.parse(sheet, header=None, dtype=object)
             df.replace({np.nan: None}, inplace = True)
             relevant = {k.strip():v for k,v in self.map.items() if sheet in self.map[k]['sheet']}
-            logger.debug(f"relevant map for {sheet}: {pprint.pformat(relevant)}")
+            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
@@ -302,7 +303,7 @@ class SampleParser(object):
         logger.debug(f"Looking up submission type: {submission_type}")
         # submission_type = lookup_submission_type(ctx=self.ctx, name=submission_type)
         submission_type = SubmissionType.query(name=submission_type)
-        logger.debug(f"info_map: {pprint.pformat(submission_type.info_map)}")
+        logger.debug(f"info_map: {pformat(submission_type.info_map)}")
         sample_info_map = submission_type.info_map['samples']
         # self.custom_parser = get_polymorphic_subclass(models.BasicSubmission, submission_type.name).parse_samples
         self.custom_sub_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples

@@ -9,7 +9,8 @@ logger = setup_logger(verbosity=3)
 # create settings object
 ctx = get_config(None)
 from PyQt6.QtWidgets import QApplication
-from frontend import App
+# from frontend import App
+from frontend.widgets.app import App
 
 if __name__ == '__main__':
     app = QApplication(['', '--no-sandbox'])

@@ -478,7 +478,7 @@ class Result(BaseModel):
         self.owner = inspect.stack()[1].function
 
     def report(self):
-        from frontend.custom_widgets.misc import AlertPop
+        from frontend.widgets.misc import AlertPop
         return AlertPop(message=self.msg, status=self.status, owner=self.owner)
     
 class Report(BaseModel):

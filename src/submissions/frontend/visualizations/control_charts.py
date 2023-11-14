@@ -51,7 +51,7 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     df = df.sort_values(by=sorts, ascending=ascending)
     logger.debug(df[df.isna().any(axis=1)])
     # actual chart construction is done by
-    fig = construct_chart(ctx=ctx, df=df, modes=modes, ytitle=ytitle)
+    fig = construct_chart(df=df, modes=modes, ytitle=ytitle)
     return fig
     
 
@@ -153,7 +153,7 @@ def output_figures(settings:dict, figs:list, group_name:str):
 
 
 
-def construct_chart(ctx:dict, df:pd.DataFrame, modes:list, ytitle:str|None=None) -> Figure:
+def construct_chart(df:pd.DataFrame, modes:list, ytitle:str|None=None) -> Figure:
     """
     Creates a plotly chart for controls from a pandas dataframe
 

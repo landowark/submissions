@@ -199,7 +199,7 @@ def update_subsampassoc_with_pcr(submission:BasicSubmission, sample:BasicSample,
         dict|None: result object
     """    
     # assoc = lookup_submission_sample_association(ctx, submission=submission, sample=sample)
-    assoc = SubmissionSampleAssociation.query(submission=submission, sample=sample)
+    assoc = SubmissionSampleAssociation.query(submission=submission, sample=sample, limit=1)
     for k,v in input_dict.items():
         try:
             setattr(assoc, k, v)
@@ -209,28 +209,3 @@ def update_subsampassoc_with_pcr(submission:BasicSubmission, sample:BasicSample,
     result = assoc.save()
     return result
 
-
-# def store_object(ctx:Settings, object) -> dict|None:
-#     """
-#     Store an object in the database
-
-#     Args:
-#         ctx (Settings): Settings object passed down from gui
-#         object (_type_): Object to be stored
-
-#     Returns:
-#         dict|None: Result of action
-#     """    
-#     dbs = ctx.database_session
-#     dbs.merge(object)
-#     try:
-#         dbs.commit()
-#     except (SQLIntegrityError, AlcIntegrityError) as e:
-#         logger.debug(f"Hit an integrity error : {e}")
-#         dbs.rollback()
-#         return {"message":f"This object {object} already exists, so we can't add it.\n{e}", "status":"Critical"}
-#     except (SQLOperationalError, AlcOperationalError):
-#         logger.error(f"Hit an operational error: {e}")
-#         dbs.rollback()
-#         return {"message":"The database is locked for editing."}
-#     return None
