@@ -25,7 +25,6 @@ from dateutil.parser._parser import ParserError
 import yaml
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-import sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -572,6 +571,17 @@ class BasicSubmission(Base):
         except AttributeError:
             logger.error(f"Could not set {self} attribute {key} to {value}")
 
+    def update_subsampassoc(self, sample:BasicSample, input_dict:dict):
+        assoc = SubmissionSampleAssociation.query(submission=self, sample=sample, limit=1)
+        for k,v in input_dict.items():
+            try:
+                setattr(assoc, k, v)
+            except AttributeError:
+                logger.error(f"Can't set {k} to {v}")
+        # result = store_object(ctx=ctx, object=assoc)
+        result = assoc.save()
+        return result
+
 # Below are the custom submission types
 
 class BacterialCulture(BasicSubmission):
@@ -925,6 +935,8 @@ class WastewaterArtic(BasicSubmission):
         input_dict['csv'] = df
         return input_dict
         
+# Sample Classes
+
 class BasicSample(Base):
     """
     Base of basic sample which polymorphs into BCSample and WWSample
@@ -1115,6 +1127,8 @@ class BasicSample(Base):
             instance.sample_type = sample_type
         return instance
 
+#Below are the custom sample types
+
 class WastewaterSample(BasicSample):
     """
     Derivative wastewater sample
@@ -1198,6 +1212,8 @@ class BacterialCultureSample(BasicSample):
         sample = super().to_sub_dict(submission_rsl=submission_rsl)
         sample['name'] = f"{self.submitter_id} - ({self.organism})"
         return sample
+
+# Submission to Sample Associations
 
 class SubmissionSampleAssociation(Base):
     """

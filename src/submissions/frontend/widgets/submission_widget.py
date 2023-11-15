@@ -11,7 +11,7 @@ from tools import Report, Result, check_not_nan
 from backend.excel.parser import SheetParser, PCRParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
-    check_kit_integrity, update_last_used, KitType, Organization, SubmissionType, Reagent, 
+    check_kit_integrity, KitType, Organization, SubmissionType, Reagent, 
     ReagentType, KitTypeReagentTypeAssociation, BasicSubmission, update_subsampassoc_with_pcr
 )
 from pprint import pformat
@@ -22,7 +22,7 @@ import difflib
 from datetime import date
 import inspect
 import json
-
+import sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -79,27 +79,6 @@ class SubmissionFormContainer(QWidget):
                 pass
             case _:
                 self.app.result_reporter()
-
-    # def kit_reload_function(self):
-    #     """
-    #     Reload the fields in the form
-
-    #     Args:
-    #         obj (QMainWindow): original app window
-
-    #     Returns:
-    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-    #     """    
-    #     report = Report()
-    #     # for item in obj.table_widget.formlayout.parentWidget().findChildren(QWidget):
-    #     logger.debug(f"Attempting to clear {obj.form.find_widgets()}")
-    #     for item in self.form.find_widgets():
-    #         if isinstance(item, ReagentFormWidget):
-    #             item.setParent(None)
-    #     self.kit_integrity_completion_function()
-    #     self.report.add_result(report)
-
-
 
     def kit_integrity_completion(self):
         """
@@ -296,6 +275,8 @@ class SubmissionFormContainer(QWidget):
             self.report.add_result(report)
             return
         base_submission, result = self.pyd.toSQL()
+        # logger.debug(f"Base submission: {base_submission.to_dict()}")
+        # sys.exit()
         # check output message for issues
         match result.code:
             # code 0: everything is fine.
@@ -303,7 +284,7 @@ class SubmissionFormContainer(QWidget):
                 self.report.add_result(None)
             # code 1: ask for overwrite
             case 1:
-                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result['message'])
+                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
                 if dlg.exec():
                     # Do not add duplicate reagents.
                     # base_submission.reagents = []
@@ -320,7 +301,10 @@ class SubmissionFormContainer(QWidget):
                 pass
         # add reagents to submission object
         for reagent in base_submission.reagents:
-            update_last_used(reagent=reagent, kit=base_submission.extraction_kit)
+            # logger.debug(f"Updating: {reagent} with {reagent.lot}")
+            # update_last_used(reagent=reagent, kit=base_submission.extraction_kit)
+            reagent.update_last_used(kit=base_submission.extraction_kit)
+        # sys.exit()
         logger.debug(f"Here is the final submission: {pformat(base_submission.__dict__)}")
         logger.debug(f"Parsed reagents: {pformat(base_submission.reagents)}")    
         logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
@@ -329,7 +313,7 @@ class SubmissionFormContainer(QWidget):
         self.app.table_widget.sub_wid.setData()
         # reset form
         self.form.setParent(None)
-        logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
+        # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
         wkb = self.pyd.autofill_excel()
         if wkb != None:
             fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="xlsx")
@@ -352,6 +336,7 @@ class SubmissionFormContainer(QWidget):
             fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
         try:
             self.pyd.csv.to_csv(fname.__str__(), index=False)
+            del self.pyd.csv
         except PermissionError:
             logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
 
@@ -424,7 +409,8 @@ class SubmissionFormContainer(QWidget):
                 sample_dict = [item for item in parser.samples if item['sample']==sample.rsl_number][0]
             except IndexError:
                 continue
-            update_subsampassoc_with_pcr(submission=sub, sample=sample, input_dict=sample_dict)
+            # update_subsampassoc_with_pcr(submission=sub, sample=sample, input_dict=sample_dict)
+            sub.update_subsampassoc(sample=sample, input_dict=sample_dict)
         self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
         # return obj, result
 
@@ -481,6 +467,7 @@ class SubmissionFormWidget(QWidget):
                         info[field] = value
         logger.debug(f"Info: {pformat(info)}")
         logger.debug(f"Reagents: {pformat(reagents)}")
+        # sys.exit()
         # app = self.parent().parent().parent().parent().parent().parent().parent().parent
         submission = PydSubmission(filepath=self.filepath, reagents=reagents, samples=self.samples, **info)
         return submission

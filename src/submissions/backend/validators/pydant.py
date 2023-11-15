@@ -13,7 +13,7 @@ import re
 import logging
 from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading, Report, Result
 from backend.db.models import *
-from sqlalchemy.exc import StatementError
+from sqlalchemy.exc import StatementError, IntegrityError
 from PyQt6.QtWidgets import QComboBox, QWidget
 from pprint import pformat
 from openpyxl import load_workbook
@@ -172,7 +172,10 @@ class PydSample(BaseModel, extra='allow'):
                                                                           submission=submission, 
                                                                           sample=instance, 
                                                                           row=row, column=column)
-                instance.sample_submission_associations.append(association)
+                try:
+                    instance.sample_submission_associations.append(association)
+                except IntegrityError:
+                    instance.metadata.session.rollback()
         return instance, result
 
 class PydSubmission(BaseModel, extra='allow'):
@@ -408,9 +411,9 @@ class PydSubmission(BaseModel, extra='allow'):
         extraction_kit = KitType.query(name=self.extraction_kit['value'])
         logger.debug(f"We have the extraction kit: {extraction_kit.name}")
         excel_map = extraction_kit.construct_xl_map_for_use(self.submission_type['value'])
-        logger.debug(f"Extraction kit map:\n\n{pformat(excel_map)}")
-        logger.debug(f"Missing reagents going into autofile: {pformat(reagents)}")
-        logger.debug(f"Missing info going into autofile: {pformat(info)}")
+        # logger.debug(f"Extraction kit map:\n\n{pformat(excel_map)}")
+        # logger.debug(f"Missing reagents going into autofile: {pformat(reagents)}")
+        # logger.debug(f"Missing info going into autofile: {pformat(info)}")
         new_reagents = []
         for reagent in reagents:
             new_reagent = {}

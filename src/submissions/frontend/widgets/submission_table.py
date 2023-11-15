@@ -145,7 +145,7 @@ class SubmissionsSheet(QTableView):
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),1).data()
         logger.debug(f"Selected value: {value}")
-        dlg = SubmissionComment(ctx=self.ctx, rsl=value)
+        dlg = SubmissionComment(rsl=value)
         if dlg.exec():
             dlg.add_comment()
 
@@ -455,6 +455,8 @@ class SubmissionDetails(QDialog):
 
         super().__init__(parent)
         # self.ctx = ctx
+        self.app = parent.parent().parent().parent().parent().parent().parent
+        print(f"App: {self.app}")
         self.setWindowTitle("Submission Details")
         # create scrollable interior
         interior = QScrollArea()
@@ -603,10 +605,10 @@ class SubmissionComment(QDialog):
     """
     a window for adding comment text to a submission
     """    
-    def __init__(self, ctx:Settings, rsl:str) -> None:
+    def __init__(self, rsl:str) -> None:
 
         super().__init__()
-        self.ctx = ctx
+        # self.ctx = ctx
         self.rsl = rsl
         self.setWindowTitle(f"{self.rsl} Submission Comment")
         # create text field
@@ -640,7 +642,6 @@ class SubmissionComment(QDialog):
         except AttributeError:
             sub.comment = [full_comment]
         logger.debug(sub.__dict__)
-        self.ctx.database_session.add(sub)
-        self.ctx.database_session.commit()
+        sub.save()
 
         

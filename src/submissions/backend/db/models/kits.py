@@ -471,6 +471,21 @@ class Reagent(Base):
                 pass
         return query_return(query=query, limit=limit)
 
+    def update_last_used(self, kit:KitType):
+        report = Report()
+        logger.debug(f"Attempting update of reagent type at intersection of ({self}), ({kit})")
+        rt = ReagentType.query(kit_type=kit, reagent=self, limit=1)
+        if rt != None:
+            logger.debug(f"got reagenttype {rt}")
+            assoc = KitTypeReagentTypeAssociation.query(kit_type=kit, reagent_type=rt)
+            if assoc != None:
+                if assoc.last_used != self.lot:
+                    logger.debug(f"Updating {assoc} last used to {self.lot}")
+                    assoc.last_used = self.lot
+                    result = assoc.save()
+                    return(report.add_result(result))
+        return report.add_result(Result(msg=f"Updating last used {rt} was not performed.", status="Information"))
+
 class Discount(Base):
     """
     Relationship table for client labs for certain kits.
