@@ -1,3 +1,8 @@
+## 202311.03
+
+- Added in tabular log parser.
+- Split main_window_functions into object specific functions.
+
 ## 202311.02
 
 - Construct first strand integrated into Artic Import.

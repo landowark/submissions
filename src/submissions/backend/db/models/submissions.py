@@ -17,7 +17,8 @@ import uuid
 import re
 import pandas as pd
 from openpyxl import Workbook
-from tools import check_not_nan, row_map, Base, query_return, setup_lookup
+from . import Base
+from tools import check_not_nan, row_map,  query_return, setup_lookup
 from datetime import datetime, date
 from typing import List
 from dateutil.parser import parse
@@ -29,13 +30,21 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 logger = logging.getLogger(f"submissions.{__name__}")
 
 # table containing reagents/submission relationships
-reagents_submissions = Table("_reagents_submissions", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("submission_id", INTEGER, ForeignKey("_submissions.id")))
+reagents_submissions = Table(
+                                "_reagents_submissions", 
+                                Base.metadata, 
+                                Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), 
+                                Column("submission_id", INTEGER, ForeignKey("_submissions.id")),
+                                extend_existing = True
+                            )
 
 class BasicSubmission(Base):
     """
     Concrete of basic submission which polymorphs into BacterialCulture and Wastewater
     """
+    
     __tablename__ = "_submissions"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key   
     rsl_plate_num = Column(String(32), unique=True, nullable=False) #: RSL name (e.g. RSL-22-0012)
@@ -705,7 +714,6 @@ class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """    
-    # pcr_info = Column(JSON)
     ext_technician = Column(String(64))
     pcr_technician = Column(String(64))
     __mapper_args__ = {"polymorphic_identity": "Wastewater", "polymorphic_load": "inline"}
@@ -948,6 +956,7 @@ class BasicSample(Base):
     """    
 
     __tablename__ = "_samples"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key
     submitter_id = Column(String(64), nullable=False, unique=True) #: identification from submitter
@@ -1226,6 +1235,8 @@ class SubmissionSampleAssociation(Base):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """    
     __tablename__ = "_submission_sample"
+    __table_args__ = {'extend_existing': True} 
+
     sample_id = Column(INTEGER, ForeignKey("_samples.id"), nullable=False)
     submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True)
     row = Column(INTEGER, primary_key=True) #: row on the 96 well plate

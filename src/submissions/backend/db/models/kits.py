@@ -2,24 +2,31 @@
 All kit and reagent related models
 '''
 from __future__ import annotations
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, func
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, func, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging
-from tools import check_authorization, Base, setup_lookup, query_return, Report, Result
+from tools import check_authorization, setup_lookup, query_return, Report, Result
 from typing import List
-from . import Organization
+from . import Base, Organization
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
-reagenttypes_reagents = Table("_reagenttypes_reagents", Base.metadata, Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), Column("reagenttype_id", INTEGER, ForeignKey("_reagent_types.id")))
+reagenttypes_reagents = Table(
+                                "_reagenttypes_reagents", 
+                                Base.metadata, 
+                                Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), 
+                                Column("reagenttype_id", INTEGER, ForeignKey("_reagent_types.id")),
+                                extend_existing = True
+                                )
 
 class KitType(Base):
     """
     Base of kits used in submission processing
     """    
     __tablename__ = "_kits"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64), unique=True) #: name of kit
@@ -162,6 +169,7 @@ class ReagentType(Base):
     Base of reagent type abstract
     """    
     __tablename__ = "_reagent_types"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: name of reagent type
@@ -251,6 +259,8 @@ class KitTypeReagentTypeAssociation(Base):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """    
     __tablename__ = "_reagenttypes_kittypes"
+    __table_args__ = {'extend_existing': True} 
+
     reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True)
     kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
     uses = Column(JSON)
@@ -333,6 +343,7 @@ class Reagent(Base):
     Concrete reagent instance
     """
     __tablename__ = "_reagents"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key
     type = relationship("ReagentType", back_populates="instances", secondary=reagenttypes_reagents) #: joined parent reagent type
@@ -491,6 +502,7 @@ class Discount(Base):
     Relationship table for client labs for certain kits.
     """
     __tablename__ = "_discounts"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key
     kit = relationship("KitType") #: joined parent reagent type
@@ -558,12 +570,14 @@ class SubmissionType(Base):
     Abstract of types of submissions.
     """    
     __tablename__ = "_submission_types"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key
     name = Column(String(128), unique=True) #: name of submission type
     info_map = Column(JSON) #: Where basic information is found in the excel workbook corresponding to this type.
     instances = relationship("BasicSubmission", backref="submission_type")
     # regex = Column(String(512))
+    template_file = Column(BLOB)
     
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -619,6 +633,8 @@ class SubmissionTypeKitTypeAssociation(Base):
     Abstract of relationship between kits and their submission type.
     """    
     __tablename__ = "_submissiontypes_kittypes"
+    __table_args__ = {'extend_existing': True} 
+
     submission_types_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True)
     kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True)
     mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)

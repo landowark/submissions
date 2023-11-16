@@ -28,7 +28,7 @@ def select_open_file(obj:QMainWindow, file_extension:str) -> Path:
         home_dir = obj.app.last_dir.resolve().__str__()
     fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = f"{file_extension}(*.{file_extension})")[0])
     # fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', filter = f"{file_extension}(*.{file_extension})")[0])
-    obj.last_file = fname
+    obj.last_dir = fname.parent
     return fname
 
 def select_save_file(obj:QMainWindow, default_name:str, extension:str) -> Path:

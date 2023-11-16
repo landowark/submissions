@@ -224,7 +224,6 @@ class Settings(BaseSettings):
             engine = create_engine(f"sqlite:///{database_path}")#, echo=True, future=True)
             session = Session(engine)
             metadata.session = session
-            
             return session
 
     @field_validator('package', mode="before")
@@ -513,4 +512,14 @@ class Report(BaseModel):
             case _:
                 pass
 
+def readInChunks(fileObj, chunkSize=2048):
+    """
+    Lazy function to read a file piece by piece.
+    Default chunk size: 2kB.
 
+    """
+    while True:
+        data = fileObj.readlines(chunkSize)
+        if not data:
+            break
+        yield data

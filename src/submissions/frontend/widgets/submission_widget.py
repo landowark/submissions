@@ -12,7 +12,7 @@ from backend.excel.parser import SheetParser, PCRParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
     check_kit_integrity, KitType, Organization, SubmissionType, Reagent, 
-    ReagentType, KitTypeReagentTypeAssociation, BasicSubmission, update_subsampassoc_with_pcr
+    ReagentType, KitTypeReagentTypeAssociation, BasicSubmission
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
@@ -22,7 +22,6 @@ import difflib
 from datetime import date
 import inspect
 import json
-import sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

@@ -4,20 +4,29 @@ All client organization related models.
 from __future__ import annotations
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
-from tools import Base, check_authorization, setup_lookup, query_return
+from . import Base
+from tools import check_authorization, setup_lookup, query_return
 from typing import List
 import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 # table containing organization/contact relationship
-orgs_contacts = Table("_orgs_contacts", Base.metadata, Column("org_id", INTEGER, ForeignKey("_organizations.id")), Column("contact_id", INTEGER, ForeignKey("_contacts.id")))
+orgs_contacts = Table(
+                        "_orgs_contacts", 
+                        Base.metadata, 
+                        Column("org_id", INTEGER, ForeignKey("_organizations.id")), 
+                        Column("contact_id", INTEGER, ForeignKey("_contacts.id")), 
+                        # __table_args__ = {'extend_existing': True} 
+                        extend_existing = True
+                    )
 
 class Organization(Base):
     """
     Base of organization
     """
     __tablename__ = "_organizations"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: organization name
@@ -76,6 +85,7 @@ class Contact(Base):
     Base of Contact
     """
     __tablename__ = "_contacts"
+    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: contact name
@@ -127,3 +137,4 @@ class Contact(Base):
             case _:
                 pass
         return query_return(query=query, limit=limit)
+    

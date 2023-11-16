@@ -16,7 +16,7 @@ from backend.validators import PydReagent
 # )
 from tools import check_if_app, Settings, Report
 from .pop_ups import  AlertPop
-from .misc import AddReagentForm
+from .misc import AddReagentForm, LogParser
 import logging
 from datetime import date
 import webbrowser
@@ -69,7 +69,7 @@ class App(QMainWindow):
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
-        # methodsMenu = menuBar.addMenu("&Methods")
+        methodsMenu = menuBar.addMenu("&Methods")
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
@@ -77,7 +77,7 @@ class App(QMainWindow):
         helpMenu.addAction(self.docsAction)
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.importPCRAction)
-        # methodsMenu.addAction(self.constructFS)
+        methodsMenu.addAction(self.searchLog)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
@@ -108,7 +108,7 @@ class App(QMainWindow):
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
         self.docsAction = QAction("&Docs", self)
-        # self.constructFS = QAction("Make First Strand", self)
+        self.searchLog = QAction("Search Log", self)
 
     def _connectActions(self):
         """
@@ -127,6 +127,7 @@ class App(QMainWindow):
         self.docsAction.triggered.connect(self.openDocs)
         # self.constructFS.triggered.connect(self.construct_first_strand)
         # self.table_widget.formwidget.import_drag.connect(self.importSubmission)
+        self.searchLog.triggered.connect(self.runSearch)
 
     def showAbout(self):
         """
@@ -335,13 +336,16 @@ class App(QMainWindow):
     #     # from .main_window_functions import export_csv_function
     #     export_csv_function(self, fname)
 
+    def runSearch(self):
+        dlg = LogParser(self)
+        dlg.exec()
+
 class AddSubForm(QWidget):
     
     def __init__(self, parent:QWidget):
         logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
-        self.parent = parent
         # Initialize tab screen
         self.tabs = QTabWidget()
         self.tab1 = QWidget()

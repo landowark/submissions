@@ -24,7 +24,9 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from submissions.backend.db.models import Base
-target_metadata = [Base.metadata]
+# META_DATA = MetaData(bind=CONN, reflect=True)
+# base = ctx.database_session.get_bind()
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

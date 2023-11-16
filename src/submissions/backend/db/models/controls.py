@@ -7,7 +7,8 @@ from sqlalchemy.orm import relationship, Query
 import logging
 from operator import itemgetter
 import json
-from tools import Base, setup_lookup, query_return
+from . import Base
+from tools import setup_lookup, query_return
 from datetime import date, datetime
 from typing import List
 from dateutil.parser import parse
@@ -19,7 +20,7 @@ class ControlType(Base):
     Base class of a control archetype.
     """    
     __tablename__ = '_control_types'
-    
+    __table_args__ = {'extend_existing': True} 
     
     id = Column(INTEGER, primary_key=True) #: primary key   
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
@@ -58,6 +59,7 @@ class Control(Base):
     """    
 
     __tablename__ = '_control_samples'
+    __table_args__ = {'extend_existing': True} 
     
     id = Column(INTEGER, primary_key=True) #: primary key
     parent_id = Column(String, ForeignKey("_control_types.id", name="fk_control_parent_id")) #: primary key of control type

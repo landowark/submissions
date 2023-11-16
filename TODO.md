@@ -1,5 +1,7 @@
+- [ ] Buuuuuuhh. Split polymorphic objects into different tables... and rebuild DB.... FFFFF
+    - https://stackoverflow.com/questions/16910782/sqlalchemy-nested-inheritance-polymorphic-relationships
 - [x] Create a result object to facilitate returning function results.
-- [ ] Refactor main_window_functions into as many objects (forms, etc.) as possible to clean it up.
+- [x] Refactor main_window_functions into as many objects (forms, etc.) as possible to clean it up.
 - [x] Integrate 'Construct First Strand' into the Artic import.
 - [x] Clear out any unnecessary ctx passes now that queries are improved.
 - [x] Make a 'query or create' method in all db objects to go with new query.

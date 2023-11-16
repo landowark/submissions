@@ -1,7 +1,7 @@
 import logging, re
 from pathlib import Path
 from openpyxl import load_workbook
-from backend.db import BasicSubmission, SubmissionType
+from backend.db.models import BasicSubmission, SubmissionType
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
