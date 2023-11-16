@@ -20,6 +20,7 @@ class ControlType(Base):
     """    
     __tablename__ = '_control_types'
     
+    
     id = Column(INTEGER, primary_key=True) #: primary key   
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
     targets = Column(JSON) #: organisms checked for

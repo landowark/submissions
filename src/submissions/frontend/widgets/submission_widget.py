@@ -400,7 +400,7 @@ class SubmissionFormContainer(QWidget):
         # obj.ctx.database_session.add(sub)
         logger.debug(f"Existing {type(sub.pcr_info)}: {sub.pcr_info}")
         logger.debug(f"Inserting {type(json.dumps(parser.pcr))}: {json.dumps(parser.pcr)}")
-        sub.save()
+        sub.save(original=False)
         logger.debug(f"Got {len(parser.samples)} samples to update!")
         logger.debug(f"Parser samples: {parser.samples}")
         for sample in sub.samples:

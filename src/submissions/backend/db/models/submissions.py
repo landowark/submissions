@@ -360,11 +360,15 @@ class BasicSubmission(Base):
         logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
         return []
 
-    def save(self):
-        self.uploaded_by = getuser()
+    def save(self, original:bool=True):
+        if original:
+            self.uploaded_by = getuser()
         self.metadata.session.add(self)
         self.metadata.session.commit()
         return None
+    
+    def update(self):
+        pass
     
     def delete(self):
         backup = self.to_dict()
@@ -408,7 +412,7 @@ class BasicSubmission(Base):
         Returns:
             models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
         """    
-        logger.debug(kwargs)
+        logger.debug(f"kwargs coming into query: {kwargs}")
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         if submission_type == None:
             model = cls.find_subclasses(attrs=kwargs)
@@ -651,7 +655,7 @@ class BacterialCulture(BasicSubmission):
         outstr = super().enforce_name(instr=instr, data=data)
         def construct(data:dict|None=None) -> str:
             """
-            DEPRECIATED due to slowness. Search for the largest rsl number and increment by 1
+            Create default plate name.
 
             Returns:
                 str: new RSL number
@@ -912,9 +916,10 @@ class WastewaterArtic(BasicSubmission):
                 source_row = lookup_ssa.row
                 source_column = lookup_ssa.column
             except AttributeError:
-                plate = ""
+                plate = "Error"
                 source_row = 0
                 source_column = 0
+                # continue
             samples.append(dict(
                 sample=sample.submitter_id,
                 destination_column=destination_column, 
@@ -931,7 +936,7 @@ class WastewaterArtic(BasicSubmission):
         df = pd.DataFrame.from_records(samples).fillna(value="")
         df.source_row = df.source_row.astype(int)
         df.source_column = df.source_column.astype(int)
-        df.sort_values(by=['destination_column', 'destination_row'], inplace=True)
+        df.sort_values(by=['plate_number', 'source_column', 'source_row'], inplace=True)
         input_dict['csv'] = df
         return input_dict
         

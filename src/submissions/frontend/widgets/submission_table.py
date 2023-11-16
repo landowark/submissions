@@ -145,7 +145,7 @@ class SubmissionsSheet(QTableView):
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),1).data()
         logger.debug(f"Selected value: {value}")
-        dlg = SubmissionComment(rsl=value)
+        dlg = SubmissionComment(parent=self, rsl=value)
         if dlg.exec():
             dlg.add_comment()
 
@@ -455,8 +455,10 @@ class SubmissionDetails(QDialog):
 
         super().__init__(parent)
         # self.ctx = ctx
-        self.app = parent.parent().parent().parent().parent().parent().parent
-        print(f"App: {self.app}")
+        try:
+            self.app = parent.parent().parent().parent().parent().parent().parent
+        except AttributeError:
+            self.app = None
         self.setWindowTitle("Submission Details")
         # create scrollable interior
         interior = QScrollArea()
@@ -605,10 +607,12 @@ class SubmissionComment(QDialog):
     """
     a window for adding comment text to a submission
     """    
-    def __init__(self, rsl:str) -> None:
+    def __init__(self, parent, rsl:str) -> None:
 
-        super().__init__()
+        super().__init__(parent)
         # self.ctx = ctx
+        self.app = parent.parent().parent().parent().parent().parent().parent
+        print(f"App: {self.app}")
         self.rsl = rsl
         self.setWindowTitle(f"{self.rsl} Submission Comment")
         # create text field
@@ -632,16 +636,18 @@ class SubmissionComment(QDialog):
         commenter = getuser()
         comment = self.txt_editor.toPlainText()
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
-        full_comment = {"name":commenter, "time": dt, "text": comment}
+        
+        full_comment = [{"name":commenter, "time": dt, "text": comment}]
         logger.debug(f"Full comment: {full_comment}")
-        # sub = lookup_submission_by_rsl_num(ctx = self.ctx, rsl_num=self.rsl)
-        # sub = lookup_submissions(ctx = self.ctx, rsl_number=self.rsl)
         sub = BasicSubmission.query(rsl_number=self.rsl)
         try:
-            sub.comment.append(full_comment)
-        except AttributeError:
-            sub.comment = [full_comment]
-        logger.debug(sub.__dict__)
-        sub.save()
+            # For some reason .append results in new comment being ignores, so have to concatenate lists.
+            sub.comment = sub.comment + full_comment
+        except AttributeError as e:
+            logger.error(f"Hit error {e} creating comment")
+            sub.comment = full_comment
+        # logger.debug(sub.comment)
+        sub.save(original=False)
+        # logger.debug(f"Save result: {result}")
 
         
