@@ -577,7 +577,7 @@ class SubmissionType(Base):
     info_map = Column(JSON) #: Where basic information is found in the excel workbook corresponding to this type.
     instances = relationship("BasicSubmission", backref="submission_type")
     # regex = Column(String(512))
-    template_file = Column(BLOB)
+    # template_file = Column(BLOB)
     
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",

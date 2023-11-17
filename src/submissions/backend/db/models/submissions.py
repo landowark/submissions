@@ -7,7 +7,7 @@ import math
 from pprint import pformat
 from . import Reagent, SubmissionType, KitType, Organization
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT, case
-from sqlalchemy.orm import relationship, validates, Query
+from sqlalchemy.orm import relationship, validates, Query, declared_attr
 import logging
 import json
 from json.decoder import JSONDecodeError
@@ -42,7 +42,9 @@ class BasicSubmission(Base):
     """
     Concrete of basic submission which polymorphs into BacterialCulture and Wastewater
     """
-    
+    # @declared_attr
+    # def __tablename__(cls):
+    #     return cls.__name__.lower()
     __tablename__ = "_submissions"
     __table_args__ = {'extend_existing': True} 
 
@@ -601,6 +603,7 @@ class BacterialCulture(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """    
+    # id = Column(INTEGER, ForeignKey('basicsubmission.id'), primary_key=True)
     controls = relationship("Control", back_populates="submission", uselist=True) #: A control sample added to submission
     __mapper_args__ = {"polymorphic_identity": "Bacterial Culture", "polymorphic_load": "inline"}
 
@@ -714,6 +717,7 @@ class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """    
+    # id = Column(INTEGER, ForeignKey('basicsubmission.id'), primary_key=True)
     ext_technician = Column(String(64))
     pcr_technician = Column(String(64))
     __mapper_args__ = {"polymorphic_identity": "Wastewater", "polymorphic_load": "inline"}
@@ -840,6 +844,7 @@ class WastewaterArtic(BasicSubmission):
     """
     derivative submission type for artic wastewater
     """    
+    # id = Column(INTEGER, ForeignKey('basicsubmission.id'), primary_key=True)
     __mapper_args__ = {"polymorphic_identity": "Wastewater Artic", "polymorphic_load": "inline"}
     artic_technician = Column(String(64))
 
@@ -924,10 +929,10 @@ class WastewaterArtic(BasicSubmission):
                 source_row = lookup_ssa.row
                 source_column = lookup_ssa.column
             except AttributeError:
-                plate = "Error"
-                source_row = 0
-                source_column = 0
-                # continue
+                # plate = "Error"
+                # source_row = 0
+                # source_column = 0
+                continue
             samples.append(dict(
                 sample=sample.submitter_id,
                 destination_column=destination_column, 
@@ -955,6 +960,9 @@ class BasicSample(Base):
     Base of basic sample which polymorphs into BCSample and WWSample
     """    
 
+    # @declared_attr
+    # def __tablename__(cls):
+    #     return cls.__name__.lower()
     __tablename__ = "_samples"
     __table_args__ = {'extend_existing': True} 
 
@@ -1147,6 +1155,7 @@ class WastewaterSample(BasicSample):
     """
     Derivative wastewater sample
     """
+    # id = Column(INTEGER, ForeignKey('basicsample.id'), primary_key=True)
     ww_processing_num = Column(String(64)) #: wastewater processing number 
     ww_full_sample_id = Column(String(64))
     rsl_number = Column(String(64)) #: rsl plate identification number
@@ -1212,6 +1221,7 @@ class BacterialCultureSample(BasicSample):
     """
     base of bacterial culture sample
     """
+    # id = Column(INTEGER, ForeignKey('basicsample.id'), primary_key=True)
     organism = Column(String(64)) #: bacterial specimen
     concentration = Column(String(16)) #: sample concentration
     __mapper_args__ = {"polymorphic_identity": "Bacterial Culture Sample", "polymorphic_load": "inline"}
@@ -1234,6 +1244,10 @@ class SubmissionSampleAssociation(Base):
     table containing submission/sample associations
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """    
+
+    # @declared_attr
+    # def __tablename__(cls):
+    #     return cls.__name__.lower()
     __tablename__ = "_submission_sample"
     __table_args__ = {'extend_existing': True} 
 
@@ -1393,6 +1407,9 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     """
     Derivative custom Wastewater/Submission Association... fancy.
     """    
+    # submission_id = Column(INTEGER, ForeignKey("submissionsampleassociation.submission_id"), primary_key=True)
+    # row = Column(INTEGER, ForeignKey("submissionsampleassociation.row"), nullable=False)
+    # column = Column(INTEGER, ForeignKey("submissionsampleassociation.column"), primary_key=True)
     ct_n1 = Column(FLOAT(2)) #: AKA ct for N1
     ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
     n1_status = Column(String(32)) #: positive or negative for N1

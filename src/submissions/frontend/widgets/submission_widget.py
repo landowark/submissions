@@ -32,7 +32,7 @@ class SubmissionFormContainer(QWidget):
     def __init__(self, parent: QWidget) -> None:
         logger.debug(f"Setting form widget...")
         super().__init__(parent)
-        self.app = self.parent().parent#().parent().parent().parent().parent().parent
+        self.app = self.parent().parent()
         self.report = Report()
         # self.parent = parent
         self.setAcceptDrops(True)

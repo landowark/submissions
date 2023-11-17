@@ -18,7 +18,7 @@ from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
 from backend.db.functions import submissions_to_df
 from backend.db.models import BasicSubmission
 from backend.excel import make_hitpicks, make_report_html, make_report_xlsx
-from tools import check_if_app, Settings, Report, Result
+from tools import check_if_app, Report, Result
 from tools import jinja_template_loading
 from xhtml2pdf import pisa
 from pathlib import Path
@@ -159,19 +159,19 @@ class SubmissionsSheet(QTableView):
         self.menu = QMenu(self)
         renameAction = QAction('Delete', self)
         detailsAction = QAction('Details', self)
-        barcodeAction = QAction("Print Barcode", self)
+        # barcodeAction = QAction("Print Barcode", self)
         commentAction = QAction("Add Comment", self)
-        hitpickAction = QAction("Hitpicks", self)
+        # hitpickAction = QAction("Hitpicks", self)
         renameAction.triggered.connect(lambda: self.delete_item(event))
         detailsAction.triggered.connect(lambda: self.show_details())
-        barcodeAction.triggered.connect(lambda: self.create_barcode())
+        # barcodeAction.triggered.connect(lambda: self.create_barcode())
         commentAction.triggered.connect(lambda: self.add_comment())
-        hitpickAction.triggered.connect(lambda: self.hit_pick())
+        # hitpickAction.triggered.connect(lambda: self.hit_pick())
         self.menu.addAction(detailsAction)
         self.menu.addAction(renameAction)
-        self.menu.addAction(barcodeAction)
+        # self.menu.addAction(barcodeAction)
         self.menu.addAction(commentAction)
-        self.menu.addAction(hitpickAction)
+        # self.menu.addAction(hitpickAction)
         # add other required actions
         self.menu.popup(QCursor.pos())
 
@@ -456,7 +456,7 @@ class SubmissionDetails(QDialog):
         super().__init__(parent)
         # self.ctx = ctx
         try:
-            self.app = parent.parent().parent().parent().parent().parent().parent
+            self.app = parent.parent().parent().parent().parent().parent().parent()
         except AttributeError:
             self.app = None
         self.setWindowTitle("Submission Details")
@@ -643,7 +643,7 @@ class SubmissionComment(QDialog):
         try:
             # For some reason .append results in new comment being ignores, so have to concatenate lists.
             sub.comment = sub.comment + full_comment
-        except AttributeError as e:
+        except (AttributeError, TypeError) as e:
             logger.error(f"Hit error {e} creating comment")
             sub.comment = full_comment
         # logger.debug(sub.comment)
