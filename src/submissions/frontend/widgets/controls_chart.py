@@ -3,10 +3,10 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
     QDateEdit, QLabel, QSizePolicy
 )
-from PyQt6.QtCore import QSignalBlocker
+from PyQt6.QtCore import QSignalBlocker, QLoggingCategory
 from backend.db import ControlType, Control, get_control_subtypes
 from PyQt6.QtCore import QDate, QSize
-import logging
+import logging, sys
 from tools import Report, Result
 from backend.excel.reports import convert_data_list_to_df
 from frontend.visualizations.control_charts import create_charts, construct_html
@@ -26,14 +26,10 @@ class ControlsViewer(QWidget):
         self.layout = QVBoxLayout(self)
         self.control_typer = QComboBox()
         # fetch types of controls 
-        # con_types = get_all_Control_Types_names(ctx=parent.ctx)
-        # con_types = [item.name for item in lookup_control_types(ctx=parent.ctx)]
         con_types = [item.name for item in ControlType.query()]
         self.control_typer.addItems(con_types)
         # create custom widget to get types of analysis
         self.mode_typer = QComboBox()
-        # mode_types = get_all_available_modes(ctx=parent.ctx)
-        # mode_types = lookup_modes(ctx=parent.ctx)
         mode_types = Control.get_modes()
         self.mode_typer.addItems(mode_types)
         # create custom widget to get subtypes of analysis
@@ -56,27 +52,17 @@ class ControlsViewer(QWidget):
         """
         Lookup controls from database and send to chartmaker
         """    
-        # from .main_window_functions import controls_getter_function
         self.controls_getter_function()
-        # self.result_reporter()    
         
     def chart_maker(self):
         """
         Creates plotly charts for webview
         """   
-        # from .main_window_functions import chart_maker_function
         self.chart_maker_function()     
-        # self.result_reporter()
 
     def controls_getter_function(self):
         """
         Get controls based on start/end dates
-
-        Args:
-            obj (QMainWindow): original app window
-
-        Returns:
-            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """    
         report = Report()
         # subtype defaults to disabled  
@@ -136,8 +122,6 @@ class ControlsViewer(QWidget):
             self.subtype = self.sub_typer.currentText()
         logger.debug(f"Subtype: {self.subtype}")
         # query all controls using the type/start and end dates from the gui
-        # controls = get_all_controls_by_type(ctx=obj.ctx, con_type=obj.con_type, start_date=obj.start_date, end_date=obj.end_date)
-        # controls = lookup_controls(ctx=obj.ctx, control_type=obj.con_type, start_date=obj.start_date, end_date=obj.end_date)
         controls = Control.query(control_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
         # if no data found from query set fig to none for reporting in webview
         if controls == None:
@@ -174,7 +158,6 @@ class ControlsDatePicker(QWidget):
     """    
     def __init__(self) -> None:
         super().__init__()
-
         self.start_date = QDateEdit(calendarPopup=True)
         # start date is two months prior to end date by default
         twomonthsago = QDate.currentDate().addDays(-60)

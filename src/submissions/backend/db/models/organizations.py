@@ -4,8 +4,8 @@ All client organization related models.
 from __future__ import annotations
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
-from . import Base
-from tools import check_authorization, setup_lookup, query_return
+from . import Base, BaseClass
+from tools import check_authorization, setup_lookup, query_return, Settings
 from typing import List
 import logging
 
@@ -21,12 +21,11 @@ orgs_contacts = Table(
                         extend_existing = True
                     )
 
-class Organization(Base):
+class Organization(BaseClass):
     """
     Base of organization
     """
     __tablename__ = "_organizations"
-    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: organization name
@@ -34,29 +33,15 @@ class Organization(Base):
     cost_centre = Column(String()) #: cost centre used by org for payment
     contacts = relationship("Contact", back_populates="organization", secondary=orgs_contacts) #: contacts involved with this org
 
-    def __str__(self) -> str:
-        """
-        String representing organization
-
-        Returns:
-            str: string representing organization name
-        """        
-        return self.name.replace("_", " ").title()
-    
     def __repr__(self) -> str:
         return f"<Organization({self.name})>"
-    
-    @check_authorization
-    def save(self, ctx):
-        ctx.database_session.add(self)
-        ctx.database_session.commit()
 
     def set_attribute(self, name:str, value):
         setattr(self, name, value)
 
     @classmethod
     @setup_lookup
-    def query(cls,
+    def query(cls, 
                 name:str|None=None,
                 limit:int=0,
                 ) -> Organization|List[Organization]:
@@ -68,24 +53,34 @@ class Organization(Base):
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-            Organization|List[Organization]: _description_
+            Organization|List[Organization]: 
         """    
-        query: Query = cls.metadata.session.query(cls)
+        query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                logger.debug(f"Looking up organization with name: {name}")
+                # logger.debug(f"Looking up organization with name: {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
         return query_return(query=query, limit=limit)
+    
+    @check_authorization
+    def save(self, ctx:Settings):
+        """
+        Adds this instance to the database and commits
 
-class Contact(Base):
+        Args:
+            ctx (Settings): Settings object passed down from GUI. Necessary to check authorization
+        """        
+        ctx.database_session.add(self)
+        ctx.database_session.commit()
+
+class Contact(BaseClass):
     """
     Base of Contact
     """
     __tablename__ = "_contacts"
-    __table_args__ = {'extend_existing': True} 
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: contact name
@@ -98,7 +93,7 @@ class Contact(Base):
 
     @classmethod
     @setup_lookup
-    def query(cls,
+    def query(cls, 
                 name:str|None=None,
                 email:str|None=None,
                 phone:str|None=None,
@@ -109,29 +104,32 @@ class Contact(Base):
 
         Args:
             name (str | None, optional): Name of the contact. Defaults to None.
+            email (str | None, optional): Email of the contact. Defaults to None.
+            phone (str | None, optional): Phone number of the contact. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-            Contact|List[Contact]: _description_
-        """    
-        query: Query = cls.metadata.session.query(cls)
+            Contact|List[Contact]: Contact(s) of interest.
+        """            
+        # super().query(session)
+        query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                logger.debug(f"Looking up contact with name: {name}")
+                # logger.debug(f"Looking up contact with name: {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
         match email:
             case str():
-                logger.debug(f"Looking up contact with email: {name}")
+                # logger.debug(f"Looking up contact with email: {name}")
                 query = query.filter(cls.email==email)
                 limit = 1
             case _:
                 pass
         match phone:
             case str():
-                logger.debug(f"Looking up contact with phone: {name}")
+                # logger.debug(f"Looking up contact with phone: {name}")
                 query = query.filter(cls.phone==phone)
                 limit = 1
             case _:

@@ -13,12 +13,13 @@ import sys, os, stat, platform, getpass
 import logging
 from logging import handlers
 from pathlib import Path
-from sqlalchemy.orm import Session, declarative_base, DeclarativeMeta, Query
+from sqlalchemy.orm import Query, Session
 from sqlalchemy import create_engine
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
 import inspect
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -38,9 +39,6 @@ CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
 row_map = {1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H"}
-
-Base: DeclarativeMeta = declarative_base()
-metadata = Base.metadata
 
 def check_not_nan(cell_contents) -> bool:
     """
@@ -106,12 +104,12 @@ def check_regex_match(pattern:str, check:str) -> bool:
     except TypeError:
         return False
     
-def massage_common_reagents(reagent_name:str):
-    logger.debug(f"Attempting to massage {reagent_name}")
-    if reagent_name.endswith("water") or "H2O" in reagent_name.upper():
-        reagent_name = "molecular_grade_water"
-    reagent_name = reagent_name.replace("µ", "u")
-    return reagent_name
+# def massage_common_reagents(reagent_name:str):
+#     logger.debug(f"Attempting to massage {reagent_name}")
+#     if reagent_name.endswith("water") or "H2O" in reagent_name.upper():
+#         reagent_name = "molecular_grade_water"
+#     reagent_name = reagent_name.replace("µ", "u")
+#     return reagent_name
 
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
@@ -170,7 +168,7 @@ class Settings(BaseSettings):
     def set_backup_path(cls, value):
         if isinstance(value, str):
             value = Path(value)
-        metadata.backup_path = value
+        # metadata.backup_path = value
         return value
 
     @field_validator('directory_path', mode="before")
@@ -180,7 +178,7 @@ class Settings(BaseSettings):
             value = Path(value)
         if not value.exists():
             value = Path().home()    
-        metadata.directory_path = value
+        # metadata.directory_path = value
         return value
         
     @field_validator('database_path', mode="before")
@@ -223,7 +221,7 @@ class Settings(BaseSettings):
             logger.debug(f"Using {database_path} for database file.")
             engine = create_engine(f"sqlite:///{database_path}")#, echo=True, future=True)
             session = Session(engine)
-            metadata.session = session
+            # metadata.session = session
             return session
 
     @field_validator('package', mode="before")
@@ -239,6 +237,7 @@ def get_config(settings_path: Path|str|None=None) -> Settings:
 
     Args:
         settings_path (Path | str | None, optional): Path to config.yml Defaults to None.
+        override (dict | None, optional): dictionary of settings to be used instead of file. Defaults to None.
 
     Returns:
         Settings: Pydantic settings object
@@ -273,7 +272,6 @@ def get_config(settings_path: Path|str|None=None) -> Settings:
             settings_path = Path.home().joinpath(".submissions", "config.yml")
         # finally look in the local config
         else:
-            # if getattr(sys, 'frozen', False):
             if check_if_app():
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
@@ -281,7 +279,6 @@ def get_config(settings_path: Path|str|None=None) -> Settings:
             with open(settings_path, "r") as dset:
                 default_settings = yaml.load(dset, Loader=yaml.Loader)
             # Tell program we need to copy the config.yml to the user directory
-            # copy_settings_trigger = True
             # copy settings to config directory
             return Settings(**copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=default_settings))
     else:
@@ -390,6 +387,12 @@ def jinja_template_loading():
     return env
 
 def check_authorization(func):
+    """
+    Decorator to check if user is authorized to access function
+
+    Args:
+        func (_type_): Function to be used.
+    """    
     def wrapper(*args, **kwargs):
         logger.debug(f"Checking authorization")
         if getpass.getuser() in kwargs['ctx'].power_users:
@@ -399,7 +402,7 @@ def check_authorization(func):
             return dict(code=1, message="This user does not have permission for this function.", status="warning")
     return wrapper
 
-def check_if_app(ctx:Settings=None) -> bool:
+def check_if_app() -> bool:
     """
     Checks if the program is running from pyinstaller compiled
 
@@ -484,15 +487,6 @@ class Report(BaseModel):
 
     results: List[Result] = Field(default=[])
 
-    # def __init__(self, *args, **kwargs):
-    #     if 'msg' in kwargs.keys():
-    #         res = Result(msg=kwargs['msg'])
-    #         for k,v in kwargs.items():
-    #             if k in ['code', 'status']:
-    #                 setattr(res, k, v)
-    #         self.results.append(res)
-
-
     def __repr__(self):
         return f"Report(result_count:{len(self.results)})"
 
@@ -523,3 +517,8 @@ def readInChunks(fileObj, chunkSize=2048):
         if not data:
             break
         yield data
+
+def get_first_blank_df_row(df:pd.DataFrame) -> int:
+    return len(df) + 1
+    
+ctx = get_config(None)

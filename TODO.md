@@ -1,5 +1,9 @@
-- [ ] Buuuuuuhh. Split polymorphic objects into different tables... and rebuild DB.... FFFFF
-    - https://stackoverflow.com/questions/16910782/sqlalchemy-nested-inheritance-polymorphic-relationships
+- [x] Clean up DB objects after failed test fix.
+- [x] Fix tests.
+- [ ] Fix pydant.PydSample.handle_duplicate_samples?
+- [ ] See if the number of queries in BasicSubmission functions (and others) can be trimmed down.
+- [x] Document code 
+    - Done Submissions up to BasicSample
 - [x] Create a result object to facilitate returning function results.
 - [x] Refactor main_window_functions into as many objects (forms, etc.) as possible to clean it up.
 - [x] Integrate 'Construct First Strand' into the Artic import.
@@ -10,7 +14,6 @@
 - [x] Move lookup functions into class methods of db objects?
     - Not sure if will work for associations.
 - [x] Update artic submission type database entry to add more technicians.
-- [ ] Document code 
 - [x] Rewrite tests... again.
 - [x] Have InfoItem change status self.missing to True if value changed.
 - [x] Make the kit verifier make more sense.
@@ -26,7 +29,7 @@
 - [x] Drag and drop files into submission form area?
 - [ ] Get info for controls into their sample hitpicks.
 - [x] Move submission-type specific parser functions into class methods in their respective models.
-- [ ] Improve function results reporting.
+- [x] Improve function results reporting.
     - Maybe make it a list until it gets to the reporter?
 - [x] Increase robustness of form parsers by adding custom procedures for each.
 - [x] Rerun Kit integrity if extraction kit changed in the form.

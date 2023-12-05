@@ -5,7 +5,7 @@ from pandas import DataFrame
 import logging
 from datetime import date, timedelta
 import re
-from typing import Tuple
+from typing import List, Tuple
 from tools import jinja_template_loading, Settings
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -27,7 +27,7 @@ def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
     df = df.sort_values("Submitting Lab")
     # aggregate cost and sample count columns
     df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Extraction Kit':'count', 'Cost': 'sum', 'Sample Count':'sum'})
-    df2 = df2.rename(columns={"Extraction Kit": 'Plate Count'})
+    df2 = df2.rename(columns={"Extraction Kit": 'Run Count'})
     logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
     df = df.drop('id', axis=1)
     df = df.sort_values(['Submitting Lab', "Submitted Date"])
@@ -57,16 +57,16 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
         logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
         logger.debug(f"Name: {row[0][1]}")
         data = [item for item in row[1]]
-        kit = dict(name=row[0][1], cost=data[1], plate_count=int(data[0]), sample_count=int(data[2]))
+        kit = dict(name=row[0][1], cost=data[1], run_count=int(data[0]), sample_count=int(data[2]))
         # if this is the same lab as before add together
         if lab == old_lab:
             output[-1]['kits'].append(kit)
             output[-1]['total_cost'] += kit['cost']
             output[-1]['total_samples'] += kit['sample_count']
-            output[-1]['total_plates'] += kit['plate_count']
+            output[-1]['total_runs'] += kit['run_count']
         # if not the same lab, make a new one
         else:
-            adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'], total_plates=kit['plate_count'])
+            adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'], total_runs=kit['run_count'])
             output.append(adder)
         old_lab = lab
     logger.debug(output)
@@ -83,10 +83,10 @@ def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFram
     Args:
         ctx (dict): settings passed from gui
         input (list[dict]): list of dictionaries containing records
-        subtype (str | None, optional): _description_. Defaults to None.
+        subtype (str | None, optional): name of submission type. Defaults to None.
 
     Returns:
-        DataFrame: _description_
+        DataFrame: dataframe of controls
     """    
     
     df = DataFrame.from_records(input)
@@ -218,5 +218,14 @@ def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
                 df = df.drop(df[df.name == first_run].index)
     return df
     
-def make_hitpicks(input:list) -> DataFrame:
+def make_hitpicks(input:List[dict]) -> DataFrame:
+    """
+    Converts lsit of dictionaries constructed by hitpicking to dataframe
+
+    Args:
+        input (List[dict]): list of hitpicked dictionaries
+
+    Returns:
+        DataFrame: constructed dataframe.
+    """    
     return DataFrame.from_records(input)

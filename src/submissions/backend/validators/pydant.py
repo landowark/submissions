@@ -1,22 +1,24 @@
 '''
 Contains pydantic models and accompanying validators
 '''
+from operator import attrgetter
 import uuid
 from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
-from typing import List, Any, Tuple, Literal
+from typing import List, Any, Tuple
 from . import RSLNamer
 from pathlib import Path
 import re
 import logging
-from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading, Report, Result
+from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading, Report, Result, row_map
 from backend.db.models import *
 from sqlalchemy.exc import StatementError, IntegrityError
 from PyQt6.QtWidgets import QComboBox, QWidget
-from pprint import pformat
-from openpyxl import load_workbook
+# from pprint import pformat
+from openpyxl import load_workbook, Workbook
+from io import BytesIO
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -87,9 +89,14 @@ class PydReagent(BaseModel):
             return values.data['type']
 
     def toSQL(self) -> Tuple[Reagent, Report]:
+        """
+        Converts this instance into a backend.db.models.kit.Reagent instance
+
+        Returns:
+            Tuple[Reagent, Report]: Reagent instance and result of function
+        """        
         report = Report()
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
-        # reagent = lookup_reagents(ctx=self.ctx, lot_number=self.lot)
         reagent = Reagent.query(lot_number=self.lot)
         logger.debug(f"Result: {reagent}")
         if reagent == None:
@@ -105,7 +112,6 @@ class PydReagent(BaseModel):
                     case "expiry":
                         reagent.expiry = value
                     case "type":
-                        # reagent_type = lookup_reagent_types(ctx=self.ctx, name=value)
                         reagent_type = ReagentType.query(name=value)
                         if reagent_type != None:
                             reagent.type.append(reagent_type)
@@ -116,6 +122,16 @@ class PydReagent(BaseModel):
         return reagent, report
 
     def toForm(self, parent:QWidget, extraction_kit:str) -> QComboBox:
+        """
+        Converts this instance into a form widget
+
+        Args:
+            parent (QWidget): Parent widget of the constructed object
+            extraction_kit (str): Name of extraction kit used
+
+        Returns:
+            QComboBox: Form object.
+        """        
         from frontend.widgets.submission_widget import ReagentFormWidget
         return ReagentFormWidget(parent=parent, reagent=self, extraction_kit=extraction_kit)
     
@@ -138,16 +154,19 @@ class PydSample(BaseModel, extra='allow'):
     def int_to_str(cls, value):
         return str(value)
     
-    def toSQL(self, submission=None):
-        result = None
+    def toSQL(self, submission:BasicSubmission|str=None) -> Tuple[BasicSample, Result]:
+        """
+        Converts this instance into a backend.db.models.submissions.Sample object
+
+        Args:
+            submission (BasicSubmission | str, optional): Submission joined to this sample. Defaults to None.
+
+        Returns:
+            Tuple[BasicSample, Result]: Sample object and result object.
+        """        
+        report = None
         self.__dict__.update(self.model_extra)
         logger.debug(f"Here is the incoming sample dict: \n{self.__dict__}")
-        # instance = lookup_samples(ctx=ctx, submitter_id=self.submitter_id)
-        # instance = BasicSample.query(submitter_id=self.submitter_id)
-        # if instance == None:
-        #     logger.debug(f"Sample {self.submitter_id} doesn't exist yet. Looking up sample object with polymorphic identity: {self.sample_type}")
-        #     instance = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)()
-        # instance = BasicSample.query_or_create(**{k:v for k,v in self.__dict__.items() if k not in ['row', 'column']})
         instance = BasicSample.query_or_create(sample_type=self.sample_type, submitter_id=self.submitter_id)
         for key, value in self.__dict__.items():
             # logger.debug(f"Setting sample field {key} to {value}")
@@ -161,13 +180,6 @@ class PydSample(BaseModel, extra='allow'):
             for row, column in zip(self.row, self.column):
                 # logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
                 logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
-                # association = lookup_submission_sample_association(ctx=ctx, submission=submission, row=row, column=column)
-                # association = SubmissionSampleAssociation.query(submission=submission, row=row, column=column)
-                # logger.debug(f"Returned association: {association}")
-                # if association == None or association == []:
-                #     logger.debug(f"Looked up association at row {row}, column {column} didn't exist, creating new association.")
-                #     association = SubmissionSampleAssociation.find_polymorphic_subclass(polymorphic_identity=f"{submission.submission_type_name} Association")
-                #     association = association(submission=submission, sample=instance, row=row, column=column)
                 association = SubmissionSampleAssociation.query_or_create(association_type=f"{assoc_type} Association", 
                                                                           submission=submission, 
                                                                           sample=instance, 
@@ -176,7 +188,7 @@ class PydSample(BaseModel, extra='allow'):
                     instance.sample_submission_associations.append(association)
                 except IntegrityError:
                     instance.metadata.session.rollback()
-        return instance, result
+        return instance, report
 
 class PydSubmission(BaseModel, extra='allow'):
     filepath: Path
@@ -185,7 +197,7 @@ class PydSubmission(BaseModel, extra='allow'):
     submitter_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitted_date: dict|None
     rsl_plate_num: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
-    # submitted_date: dict|None
+    submitted_date: dict|None
     submitting_lab: dict|None
     sample_count: dict|None
     extraction_kit: dict|None
@@ -197,7 +209,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submitter_plate_num")
     @classmethod
     def enforce_with_uuid(cls, value):
-        logger.debug(f"submitter plate id: {value}")
+        # logger.debug(f"submitter_plate_num coming into pydantic: {value}")
         if value['value'] == None or value['value'] == "None":
             return dict(value=uuid.uuid4().hex.upper(), missing=True)
         else:
@@ -250,14 +262,6 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"RSL-plate initial value: {value['value']} and other values: {values.data}")
         sub_type = values.data['submission_type']['value']
         if check_not_nan(value['value']):
-            # if lookup_submissions(ctx=values.data['ctx'], rsl_number=value['value']) == None:
-            # if BasicSubmission.query(rsl_number=value['value']) == None:
-            #     return dict(value=value['value'], missing=False)
-            # else:
-            #     logger.warning(f"Submission number {value} already exists in DB, attempting salvage with filepath")
-            #     # output = RSLNamer(ctx=values.data['ctx'], instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
-            #     output = RSLNamer(instr=values.data['filepath'].__str__(), sub_type=sub_type).parsed_name
-            #     return dict(value=output, missing=True)
             return value
         else:
             output = RSLNamer(instr=values.data['filepath'].__str__(), sub_type=sub_type, data=values.data).parsed_name
@@ -278,7 +282,6 @@ class PydSubmission(BaseModel, extra='allow'):
             return value
         else:
             return dict(value=convert_nans_to_nones(value['value']), missing=True)
-        return value
     
     @field_validator("sample_count", mode='before')
     @classmethod
@@ -290,7 +293,6 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("extraction_kit", mode='before')
     @classmethod
     def rescue_kit(cls, value):
-        
         if check_not_nan(value):
             if isinstance(value, str):
                 return dict(value=value, missing=False)
@@ -305,6 +307,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submission_type", mode='before')
     @classmethod
     def make_submission_type(cls, value, values):
+        logger.debug(f"Submission type coming into pydantic: {value}")
         if not isinstance(value, dict):
             value = {"value": value}
         if check_not_nan(value['value']):
@@ -313,6 +316,12 @@ class PydSubmission(BaseModel, extra='allow'):
         else:
             return dict(value=RSLNamer(instr=values.data['filepath'].__str__()).submission_type.title(), missing=True)
         
+    @field_validator("submission_category", mode="before")
+    def create_category(cls, value):
+        if not isinstance(value, dict):
+            return dict(value=value, missing=True)
+        return value
+
     @field_validator("submission_category")
     @classmethod
     def rescue_category(cls, value, values):
@@ -321,6 +330,10 @@ class PydSubmission(BaseModel, extra='allow'):
         return value
 
     def handle_duplicate_samples(self):
+        """
+        Collapses multiple samples with same submitter id into one with lists for rows, columns
+        TODO: Find out if this is really necessary
+        """        
         submitter_ids = list(set([sample.submitter_id for sample in self.samples]))
         output = []
         for id in submitter_ids:
@@ -336,7 +349,16 @@ class PydSubmission(BaseModel, extra='allow'):
                 output.append(dummy)
         self.samples = output
 
-    def improved_dict(self, dictionaries:bool=True):
+    def improved_dict(self, dictionaries:bool=True) -> dict:
+        """
+        Adds model_extra to fields.
+
+        Args:
+            dictionaries (bool, optional): Are dictionaries expected as input? i.e. Should key['value'] be retrieved. Defaults to True.
+
+        Returns:
+            dict: This instance as a dictionary
+        """        
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         if dictionaries:
             output = {k:getattr(self, k) for k in fields}
@@ -344,14 +366,25 @@ class PydSubmission(BaseModel, extra='allow'):
             output = {k:(getattr(self, k) if not isinstance(getattr(self, k), dict) else getattr(self, k)['value']) for k in fields}
         return output
 
-    def find_missing(self):
+    def find_missing(self) -> Tuple[dict, dict]:
+        """
+        Retrieves info and reagents marked as missing.
+
+        Returns:
+            Tuple[dict, dict]: Dict for missing info, dict for missing reagents.
+        """        
         info = {k:v for k,v in self.improved_dict().items() if isinstance(v, dict)}
         missing_info = {k:v for k,v in info.items() if v['missing']}
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
 
     def toSQL(self) -> Tuple[BasicSubmission, Result]:
-        
+        """
+        Converts this instance into a backend.db.models.submissions.BasicSubmission instance
+
+        Returns:
+            Tuple[BasicSubmission, Result]: BasicSubmission instance, result object
+        """        
         self.__dict__.update(self.model_extra)
         instance, code, msg = BasicSubmission.query_or_create(submission_type=self.submission_type['value'], rsl_plate_num=self.rsl_plate_num['value'])
         result = Result(msg=msg, code=code)
@@ -395,10 +428,42 @@ class PydSubmission(BaseModel, extra='allow'):
         return instance, result
     
     def toForm(self, parent:QWidget):
+        """
+        Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
+
+        Args:
+            parent (QWidget): parent widget of the constructed object
+
+        Returns:
+            SubmissionFormWidget: Submission form widget
+        """        
         from frontend.widgets.submission_widget import SubmissionFormWidget
         return SubmissionFormWidget(parent=parent, **self.improved_dict())
 
-    def autofill_excel(self, missing_only:bool=True):
+    def autofill_excel(self, missing_only:bool=True, backup:bool=False) -> Workbook:
+        """
+        Fills in relevant information/reagent cells in an excel workbook.
+
+        Args:
+            missing_only (bool, optional): Only fill missing items or all. Defaults to True.
+            backup (bool, optional): Do a full backup of the submission (adds samples). Defaults to False.
+
+        Returns:
+            Workbook: Filled in workbook
+        """        
+        # open a new workbook using openpyxl
+        if self.filepath.stem.startswith("tmp"):
+            template = SubmissionType.query(name=self.submission_type['value']).template_file
+            workbook = load_workbook(BytesIO(template))
+            missing_only = False
+        else:    
+            try:
+                workbook = load_workbook(self.filepath)
+            except Exception as e:
+                logger.error(f"Couldn't open workbook due to {e}")
+                template = SubmissionType.query(name=self.submission_type).template_file
+                workbook = load_workbook(BytesIO(template))
+                missing_only = False
         if missing_only:
             info, reagents = self.find_missing()
         else:
@@ -442,8 +507,6 @@ class PydSubmission(BaseModel, extra='allow'):
                 logger.error(f"Unable to fill in {k}, not found in relevant info.")
         logger.debug(f"New reagents: {new_reagents}")
         logger.debug(f"New info: {new_info}")
-        # open a new workbook using openpyxl
-        workbook = load_workbook(self.filepath)
         # get list of sheet names
         sheets = workbook.sheetnames
         # logger.debug(workbook.sheetnames)
@@ -468,12 +531,48 @@ class PydSubmission(BaseModel, extra='allow'):
                 logger.debug(f"Attempting: {item['type']} in row {item['location']['row']}, column {item['location']['column']}")
                 worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
             # Hacky way to pop in 'signed by'
-        # custom_parser = get_polymorphic_subclass(BasicSubmission, info['submission_type'])
         custom_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type['value'])
-        workbook = custom_parser.custom_autofill(workbook)
+        workbook = custom_parser.custom_autofill(workbook, info=self.improved_dict(), backup=backup)
+        return workbook
+    
+    def autofill_samples(self, workbook:Workbook) -> Workbook:
+        """
+        Fill in sample rows on the excel sheet
+
+        Args:
+            workbook (Workbook): Input excel workbook
+
+        Returns:
+            Workbook: Updated excel workbook
+        """        
+        sample_info = SubmissionType.query(name=self.submission_type['value']).info_map['samples']
+        worksheet = workbook[sample_info["lookup_table"]['sheet']]
+        samples = sorted(self.samples, key=attrgetter('column', 'row'))
+        logger.debug(f"Samples: {samples}")
+        # Fail safe against multiple instances of the same sample
+        for iii, sample in enumerate(samples, start=1):
+            row = sample_info['lookup_table']['start_row'] + iii
+            fields = [field for field in list(sample.model_fields.keys()) + list(sample.model_extra.keys()) if field in sample_info['sample_columns'].keys()]
+            for field in fields:
+                column = sample_info['sample_columns'][field]
+                value = getattr(sample, field)
+                match value:
+                    case list():
+                        value = value[0]
+                    case _:
+                        value = value
+                if field == "row":
+                    value = row_map[value]
+                worksheet.cell(row=row, column=column, value=value)
         return workbook
 
-    def construct_filename(self):
+    def construct_filename(self) -> str:
+        """
+        Creates filename for this instance
+
+        Returns:
+            str: Output filename
+        """        
         env = jinja_template_loading()
         template = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type).filename_template()
         logger.debug(f"Using template string: {template}")
@@ -483,12 +582,19 @@ class PydSubmission(BaseModel, extra='allow'):
         return render
 
 class PydContact(BaseModel):
+    
 
     name: str
     phone: str|None
     email: str|None
 
-    def toSQL(self):
+    def toSQL(self) -> Contact:
+        """
+        Converts this instance into a backend.db.models.organization.Contact instance
+
+        Returns:
+            Contact: Contact instance
+        """        
         return Contact(name=self.name, phone=self.phone, email=self.email)
 
 class PydOrganization(BaseModel):
@@ -497,7 +603,13 @@ class PydOrganization(BaseModel):
     cost_centre: str
     contacts: List[PydContact]|None
 
-    def toSQL(self):
+    def toSQL(self) -> Organization:
+        """
+        Converts this instance into a backend.db.models.organization.Organization instance.
+
+        Returns:
+           Organization: Organization instance
+        """        
         instance = Organization()
         for field in self.model_fields:
             match field:
@@ -522,7 +634,16 @@ class PydReagentType(BaseModel):
             return timedelta(days=value)
         return value
     
-    def toSQL(self, kit:KitType):
+    def toSQL(self, kit:KitType) -> ReagentType:
+        """
+        Converts this instance into a backend.db.models.ReagentType instance
+
+        Args:
+            kit (KitType): KitType joined to the reagenttype
+
+        Returns:
+            ReagentType: ReagentType instance
+        """        
         # instance: ReagentType = lookup_reagent_types(ctx=ctx, name=self.name)
         instance: ReagentType = ReagentType.query(name=self.name)
         if instance == None:
@@ -543,14 +664,21 @@ class PydKit(BaseModel):
     name: str
     reagent_types: List[PydReagentType] = []
 
-    def toSQL(self):
-        result = dict(message=None, status='Information')
+    def toSQL(self) -> Tuple[KitType, Report]:
+        """
+        Converts this instance into a backend.db.models.kits.KitType instance
+
+        Returns:
+            Tuple[KitType, Report]: KitType instance and report of results.
+        """        
+        # result = dict(message=None, status='Information')
+        report = Report()
         # instance = lookup_kit_types(ctx=ctx, name=self.name)
         instance = KitType.query(name=self.name)
         if instance == None:
             instance = KitType(name=self.name)
             # instance.reagent_types = [item.toSQL(ctx, instance) for item in self.reagent_types]
             [item.toSQL(instance) for item in self.reagent_types]
-        return instance, result
+        return instance, report
 
 

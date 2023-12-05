@@ -9,7 +9,7 @@ from backend.db import SubmissionTypeKitTypeAssociation, SubmissionType, Reagent
 from backend.validators import PydReagentType, PydKit
 import logging
 from pprint import pformat
-from tools import Report, Result
+from tools import Report
 from typing import Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -21,7 +21,6 @@ class KitAdder(QWidget):
     """    
     def __init__(self, parent) -> None:
         super().__init__(parent)
-        # self.ctx = parent_ctx
         self.report = Report()
         self.app = parent.parent
         main_box = QVBoxLayout(self)
@@ -30,7 +29,6 @@ class KitAdder(QWidget):
         scroll.setWidgetResizable(True)    
         scrollContent = QWidget(scroll)
         self.grid = QGridLayout()
-        # self.setLayout(self.grid)
         scrollContent.setLayout(self.grid)
         # insert submit button at top
         self.submit_btn = QPushButton("Submit")
@@ -45,7 +43,6 @@ class KitAdder(QWidget):
         used_for = QComboBox()
         used_for.setObjectName("used_for")
         # Insert all existing sample types
-        # used_for.addItems([item.name for item in lookup_submission_type(ctx=parent_ctx)])
         used_for.addItems([item.name for item in SubmissionType.query()])
         used_for.setEditable(True)
         self.grid.addWidget(used_for,3,1)
@@ -97,7 +94,6 @@ class KitAdder(QWidget):
         report = Report()
         # get form info
         info, reagents = self.parse_form()
-        # info, reagents = extract_form_info(self)
         info = {k:v for k,v in info.items() if k in [column.name for column in self.columns] + ['kit_name', 'used_for']}
         logger.debug(f"kit info: {pformat(info)}")
         logger.debug(f"kit reagents: {pformat(reagents)}")
@@ -115,7 +111,6 @@ class KitAdder(QWidget):
                     }}
             kit.reagent_types.append(PydReagentType(name=reagent['rtname'], eol_ext=reagent['eol'], uses=uses))
         logger.debug(f"Output pyd object: {kit.__dict__}")
-        # result = construct_kit_from_yaml(ctx=self.ctx, kit_dict=info)
         sqlobj, result = kit.toSQL(self.ctx)
         report.add_result(result=result)
         sqlobj.save()
@@ -153,10 +148,9 @@ class ReagentTypeForm(QWidget):
         self.reagent_getter = QComboBox()
         self.reagent_getter.setObjectName("rtname")
         # lookup all reagent type names from db
-        # lookup = lookup_reagent_types(ctx=ctx)
         lookup = ReagentType.query()
         logger.debug(f"Looked up ReagentType names: {lookup}")
-        self.reagent_getter.addItems([item.__str__() for item in lookup])
+        self.reagent_getter.addItems([item.name for item in lookup])
         self.reagent_getter.setEditable(True)
         grid.addWidget(self.reagent_getter,0,1)
         grid.addWidget(QLabel("Extension of Life (months):"),0,2)
@@ -221,3 +215,4 @@ class ReagentTypeForm(QWidget):
                             logger.debug(f"Adding key {key}, {sub_key} and value {widget.value()} to {info}")
                         info[key][sub_key] = widget.value()        
         return info
+

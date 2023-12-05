@@ -1,15 +1,15 @@
 '''
 Contains widgets specific to the submission summary and submission details.
 '''
-import base64
+import base64, logging, json
 from datetime import datetime
 from io import BytesIO
-import pprint
+from pprint import pformat
 from PyQt6 import QtPrintSupport
 from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QTableView,
     QTextEdit, QPushButton, QScrollArea, 
-    QMessageBox, QFileDialog, QMenu, QLabel,
+    QMessageBox, QMenu, QLabel,
     QDialogButtonBox, QToolBar
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -17,19 +17,16 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
 from backend.db.functions import submissions_to_df
 from backend.db.models import BasicSubmission
-from backend.excel import make_hitpicks, make_report_html, make_report_xlsx
-from tools import check_if_app, Report, Result
-from tools import jinja_template_loading
+from backend.excel import make_report_html, make_report_xlsx
+from tools import check_if_app, Report, Result, jinja_template_loading, get_first_blank_df_row, row_map
 from xhtml2pdf import pisa
-from pathlib import Path
-import logging
-from .pop_ups import QuestionAsker, AlertPop
+from .pop_ups import QuestionAsker
 from ..visualizations import make_plate_barcode, make_plate_map, make_plate_map_html
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
 import pandas as pd
+from openpyxl.worksheet.worksheet import Worksheet
 from getpass import getuser
-import json
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -161,16 +158,19 @@ class SubmissionsSheet(QTableView):
         detailsAction = QAction('Details', self)
         # barcodeAction = QAction("Print Barcode", self)
         commentAction = QAction("Add Comment", self)
+        backupAction = QAction("Backup", self)
         # hitpickAction = QAction("Hitpicks", self)
         renameAction.triggered.connect(lambda: self.delete_item(event))
         detailsAction.triggered.connect(lambda: self.show_details())
         # barcodeAction.triggered.connect(lambda: self.create_barcode())
         commentAction.triggered.connect(lambda: self.add_comment())
+        backupAction.triggered.connect(lambda: self.regenerate_submission_form())
         # hitpickAction.triggered.connect(lambda: self.hit_pick())
         self.menu.addAction(detailsAction)
         self.menu.addAction(renameAction)
         # self.menu.addAction(barcodeAction)
         self.menu.addAction(commentAction)
+        self.menu.addAction(backupAction)
         # self.menu.addAction(hitpickAction)
         # add other required actions
         self.menu.popup(QCursor.pos())
@@ -193,64 +193,64 @@ class SubmissionsSheet(QTableView):
             return
         self.setData()
 
-    def hit_pick(self):
-        """
-        Extract positive samples from submissions with PCR results and export to csv.
-        NOTE: For this to work for arbitrary samples, positive samples must have 'positive' in their name
-        """        
-        # Get all selected rows
-        indices = self.selectionModel().selectedIndexes()
-        # convert to id numbers
-        indices = [index.sibling(index.row(), 0).data() for index in indices]
-        # biomek can handle 4 plates maximum
-        if len(indices) > 4:
-            logger.error(f"Error: Had to truncate number of plates to 4.")
-            indices = indices[:4]
-        # lookup ids in the database
-        # subs = [lookup_submissions(ctx=self.ctx, id=id) for id in indices]
-        subs = [BasicSubmission.query(id=id) for id in indices]
-        # full list of samples
-        dicto = []
-        # list to contain plate images
-        images = []
-        for iii, sub in enumerate(subs):
-            # second check to make sure there aren't too many plates
-            if iii > 3: 
-                logger.error(f"Error: Had to truncate number of plates to 4.")
-                continue
-            plate_dicto = sub.hitpick_plate(plate_number=iii+1)
-            if plate_dicto == None:
-                continue
-            image = make_plate_map(plate_dicto)
-            images.append(image)
-            for item in plate_dicto:
-                if len(dicto) < 94:
-                    dicto.append(item)
-                else:
-                    logger.error(f"We had to truncate the number of samples to 94.")
-        logger.debug(f"We found {len(dicto)} to hitpick")
-        # convert all samples to dataframe
-        df = make_hitpicks(dicto)
-        df = df[df.positive != False]
-        logger.debug(f"Size of the dataframe: {df.shape[0]}")
-        msg = AlertPop(message=f"We found {df.shape[0]} samples to hitpick", status="INFORMATION")
-        msg.exec()
-        if df.size == 0:
-            return
-        date = datetime.strftime(datetime.today(), "%Y-%m-%d")
-        # ask for filename and save as csv.
-        home_dir = Path(self.ctx.directory_path).joinpath(f"Hitpicks_{date}.csv").resolve().__str__()
-        fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".csv")[0])
-        if fname.__str__() == ".":
-            logger.debug("Saving csv was cancelled.")
-            return
-        df.to_csv(fname.__str__(), index=False)
-        # show plate maps
-        for image in images:
-            try:
-                image.show()
-            except Exception as e:
-                logger.error(f"Could not show image: {e}.")
+    # def hit_pick(self):
+    #     """
+    #     Extract positive samples from submissions with PCR results and export to csv.
+    #     NOTE: For this to work for arbitrary samples, positive samples must have 'positive' in their name
+    #     """        
+    #     # Get all selected rows
+    #     indices = self.selectionModel().selectedIndexes()
+    #     # convert to id numbers
+    #     indices = [index.sibling(index.row(), 0).data() for index in indices]
+    #     # biomek can handle 4 plates maximum
+    #     if len(indices) > 4:
+    #         logger.error(f"Error: Had to truncate number of plates to 4.")
+    #         indices = indices[:4]
+    #     # lookup ids in the database
+    #     # subs = [lookup_submissions(ctx=self.ctx, id=id) for id in indices]
+    #     subs = [BasicSubmission.query(id=id) for id in indices]
+    #     # full list of samples
+    #     dicto = []
+    #     # list to contain plate images
+    #     images = []
+    #     for iii, sub in enumerate(subs):
+    #         # second check to make sure there aren't too many plates
+    #         if iii > 3: 
+    #             logger.error(f"Error: Had to truncate number of plates to 4.")
+    #             continue
+    #         plate_dicto = sub.hitpick_plate(plate_number=iii+1)
+    #         if plate_dicto == None:
+    #             continue
+    #         image = make_plate_map(plate_dicto)
+    #         images.append(image)
+    #         for item in plate_dicto:
+    #             if len(dicto) < 94:
+    #                 dicto.append(item)
+    #             else:
+    #                 logger.error(f"We had to truncate the number of samples to 94.")
+    #     logger.debug(f"We found {len(dicto)} to hitpick")
+    #     # convert all samples to dataframe
+    #     df = make_hitpicks(dicto)
+    #     df = df[df.positive != False]
+    #     logger.debug(f"Size of the dataframe: {df.shape[0]}")
+    #     msg = AlertPop(message=f"We found {df.shape[0]} samples to hitpick", status="INFORMATION")
+    #     msg.exec()
+    #     if df.size == 0:
+    #         return
+    #     date = datetime.strftime(datetime.today(), "%Y-%m-%d")
+    #     # ask for filename and save as csv.
+    #     home_dir = Path(self.ctx.directory_path).joinpath(f"Hitpicks_{date}.csv").resolve().__str__()
+    #     fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".csv")[0])
+    #     if fname.__str__() == ".":
+    #         logger.debug("Saving csv was cancelled.")
+    #         return
+    #     df.to_csv(fname.__str__(), index=False)
+    #     # show plate maps
+    #     for image in images:
+    #         try:
+    #             image.show()
+    #         except Exception as e:
+    #             logger.error(f"Could not show image: {e}.")
 
     def link_extractions(self):
         self.link_extractions_function()
@@ -420,6 +420,7 @@ class SubmissionsSheet(QTableView):
             subs = BasicSubmission.query(start_date=info['start_date'], end_date=info['end_date'])
             # convert each object to dict
             records = [item.report_dict() for item in subs]
+            logger.debug(f"Records: {pformat(records)}")
             # make dataframe from record dictionaries
             detailed_df, summary_df = make_report_xlsx(records=records)
             html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
@@ -430,23 +431,42 @@ class SubmissionsSheet(QTableView):
             writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
             summary_df.to_excel(writer, sheet_name="Report")
             detailed_df.to_excel(writer, sheet_name="Details", index=False)
-            worksheet = writer.sheets['Report']
-            for idx, col in enumerate(summary_df):  # loop through all columns
+            worksheet: Worksheet = writer.sheets['Report']
+            for idx, col in enumerate(summary_df, start=1):  # loop through all columns
                 series = summary_df[col]
                 max_len = max((
                     series.astype(str).map(len).max(),  # len of largest item
                     len(str(series.name))  # len of column name/header
                     )) + 20  # adding a little extra space
                 try:
-                    worksheet.column_dimensions[get_column_letter(idx)].width = max_len 
+                    # worksheet.column_dimensions[get_column_letter(idx=idx)].width = max_len
+                    # Convert idx to letter
+                    col_letter = chr(ord('@') + idx)
+                    worksheet.column_dimensions[col_letter].width = max_len
                 except ValueError:
                     pass
+            blank_row = get_first_blank_df_row(summary_df) + 1
+            logger.debug(f"Blank row index = {blank_row}")
+            for col in range(3,6):
+                col_letter = row_map[col]
+                worksheet.cell(row=blank_row, column=col, value=f"=SUM({col_letter}2:{col_letter}{str(blank_row-1)})")
             for cell in worksheet['D']:
                 if cell.row > 1:
                     cell.style = 'Currency'
             writer.close()
         self.report.add_result(report)
-        
+
+    def regenerate_submission_form(self):
+        index = (self.selectionModel().currentIndex())
+        value = index.sibling(index.row(),0).data()
+        logger.debug(index)
+        # msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
+        # if msg.exec():
+            # delete_submission(id=value)
+        sub = BasicSubmission.query(id=value)
+        fname = select_save_file(self, default_name=sub.to_pydantic().construct_filename(), extension="xlsx")
+        sub.backup(fname=fname)
+
 class SubmissionDetails(QDialog):
     """
     a window showing text details of submission
@@ -466,7 +486,7 @@ class SubmissionDetails(QDialog):
         # get submision from db
         # sub = lookup_submissions(ctx=ctx, id=id)
         sub = BasicSubmission.query(id=id)
-        logger.debug(f"Submission details data:\n{pprint.pformat(sub.to_dict())}")
+        logger.debug(f"Submission details data:\n{pformat(sub.to_dict())}")
         self.base_dict = sub.to_dict(full_data=True)
         # don't want id
         del self.base_dict['id']
@@ -611,8 +631,11 @@ class SubmissionComment(QDialog):
 
         super().__init__(parent)
         # self.ctx = ctx
-        self.app = parent.parent().parent().parent().parent().parent().parent
-        print(f"App: {self.app}")
+        try:
+            self.app = parent.parent().parent().parent().parent().parent().parent
+            print(f"App: {self.app}")
+        except AttributeError:
+            pass
         self.rsl = rsl
         self.setWindowTitle(f"{self.rsl} Submission Comment")
         # create text field

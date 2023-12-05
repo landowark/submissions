@@ -12,7 +12,6 @@ class RSLNamer(object):
     """
     def __init__(self, instr:str, sub_type:str|None=None, data:dict|None=None):
         self.submission_type = sub_type
-        
         if self.submission_type == None:
             self.submission_type = self.retrieve_submission_type(instr=instr)
         logger.debug(f"got submission type: {self.submission_type}")
@@ -23,6 +22,15 @@ class RSLNamer(object):
 
     @classmethod
     def retrieve_submission_type(cls, instr:str|Path) -> str:
+        """
+        Gets submission type from excel file properties or sheet names or regex pattern match or user input
+
+        Args:
+            instr (str | Path): filename
+
+        Returns:
+            str: parsed submission type
+        """        
         match instr:
             case Path():
                 logger.debug(f"Using path method for {instr}.")
@@ -32,7 +40,8 @@ class RSLNamer(object):
                         submission_type = [item.strip().title() for item in wb.properties.category.split(";")][0]
                     except AttributeError:
                         try:
-                            sts = {item.name:item.info_map['all_sheets'] for item in SubmissionType.query(key="all_sheets")}
+                            # sts = {item.name:item.info_map['all_sheets'] for item in SubmissionType.query(key="all_sheets")}
+                            sts = {item.name:item.get_template_file_sheets() for item in SubmissionType.query()}
                             for k,v in sts.items():
                                 # This gets the *first* submission type that matches the sheet names in the workbook 
                                 if wb.sheetnames == v:

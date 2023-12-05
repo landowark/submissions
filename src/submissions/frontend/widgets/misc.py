@@ -13,7 +13,7 @@ from backend.db.models import *
 import logging
 from .pop_ups import AlertPop
 from .functions import select_open_file
-from tools import readInChunks
+from tools import readInChunks, Settings
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -23,9 +23,9 @@ class AddReagentForm(QDialog):
     """
     dialog to add gather info about new reagent
     """    
-    def __init__(self, ctx:dict, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, reagent_name:str|None=None) -> None:
+    def __init__(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, reagent_name:str|None=None) -> None:
         super().__init__()
-        self.ctx = ctx
+        # self.ctx = ctx
         if reagent_lot == None:
             reagent_lot = reagent_type
 
@@ -81,7 +81,13 @@ class AddReagentForm(QDialog):
         self.setLayout(self.layout)
         self.type_input.currentTextChanged.connect(self.update_names)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Converts information in form to dict.
+
+        Returns:
+            dict: Output info
+        """        
         return dict(name=self.name_input.currentText(), 
                     lot=self.lot_input.text(), 
                     expiry=self.exp_input.date().toPyDate(),
@@ -93,7 +99,6 @@ class AddReagentForm(QDialog):
         """        
         logger.debug(self.type_input.currentText())
         self.name_input.clear()
-        # lookup = lookup_reagents(ctx=self.ctx, reagent_type=self.type_input.currentText())
         lookup = Reagent.query(reagent_type=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
@@ -103,7 +108,6 @@ class ReportDatePicker(QDialog):
     """    
     def __init__(self) -> None:
         super().__init__()
-
         self.setWindowTitle("Select Report Date Range")
         # make confirm/reject buttons
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -125,7 +129,13 @@ class ReportDatePicker(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Converts information in this object to a dict
+
+        Returns:
+            dict: output dict.
+        """        
         return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
 
 class FirstStrandSalvage(QDialog):
@@ -161,35 +171,6 @@ class FirstStrandSalvage(QDialog):
 
     def parse_form(self):
         return dict(plate=self.rsl_plate_num.text(), submitter_id=self.submitter_id_input.text(), well=f"{self.row_letter.currentText()}{self.column_number.currentText()}")
-
-class FirstStrandPlateList(QDialog):
-
-    def __init__(self, ctx:Settings) -> None:
-        super().__init__()
-        self.setWindowTitle("First Strand Plates")
-
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        # ww = [item.rsl_plate_num for item in lookup_submissions(ctx=ctx, submission_type="Wastewater")]
-        ww = [item.rsl_plate_num for item in BasicSubmission.query(submission_type="Wastewater")]
-        self.plate1 = QComboBox()
-        self.plate2 = QComboBox()
-        self.plate3 = QComboBox()
-        self.layout = QFormLayout()
-        for ii, plate in enumerate([self.plate1, self.plate2, self.plate3]):
-            plate.addItems(ww)
-            self.layout.addRow(self.tr(f"&Plate {ii+1}:"), plate)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
-
-    def parse_form(self):
-        output = []
-        for plate in [self.plate1, self.plate2, self.plate3]:
-            output.append(plate.currentText())
-        return output
 
 class LogParser(QDialog):
 

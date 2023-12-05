@@ -1,3 +1,13 @@
+## 202312.01
+
+- Backups will now create an regenerated xlsx file.
+- Report generator now does sums automatically.
+
+## 202311.04
+
+- Added xlsx template files to the database.
+- Switched session hand-off to sqlalchemy to abstract parent class.
+
 ## 202311.03
 
 - Added in tabular log parser.

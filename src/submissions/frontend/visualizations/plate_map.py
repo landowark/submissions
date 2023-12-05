@@ -84,14 +84,17 @@ def make_plate_map(sample_list:list) -> Image:
     return new_img
 
 def make_plate_map_html(sample_list:list, plate_rows:int=8, plate_columns=12) -> str:
-    try:
-        plate_num = sample_list[0]['plate_name']
-    except IndexError as e:
-        logger.error(f"Couldn't get a plate number. Will not make plate.")
-        return None
-    except TypeError as e:
-        logger.error(f"No samples for this plate. Nothing to do.")
-        return None
+    """
+    Constructs an html based plate map.
+
+    Args:
+        sample_list (list): List of submission samples
+        plate_rows (int, optional): Number of rows in the plate. Defaults to 8.
+        plate_columns (int, optional): Number of columns in the plate. Defaults to 12.
+
+    Returns:
+        str: html output string.
+    """    
     for sample in sample_list:
         if sample['positive']:
             sample['background_color'] = "#f10f07"
@@ -109,3 +112,4 @@ def make_plate_map_html(sample_list:list, plate_rows:int=8, plate_columns=12) ->
     template = env.get_template("plate_map.html")
     html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
     return html
+

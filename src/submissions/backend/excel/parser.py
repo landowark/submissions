@@ -16,7 +16,6 @@ from datetime import date
 from dateutil.parser import parse, ParserError
 from tools import check_not_nan, convert_nans_to_nones, Settings
 
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 row_keys = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
@@ -28,7 +27,7 @@ class SheetParser(object):
     def __init__(self, ctx:Settings, filepath:Path|None = None):
         """
         Args:
-            ctx (Settings): Settings object passed down from gui
+            ctx (Settings): Settings object passed down from gui. Necessary for Bacterial to get directory path.
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
         """        
         self.ctx = ctx
@@ -56,6 +55,7 @@ class SheetParser(object):
         self.import_reagent_validation_check()
         self.parse_samples()
         self.finalize_parse()
+        logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
                 
     def parse_info(self):
         """
@@ -70,15 +70,17 @@ class SheetParser(object):
                     pass
                 case _:
                     self.sub[k] = v
-        logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
-
+        
     def parse_reagents(self, extraction_kit:str|None=None):
         """
         Pulls reagent info from the excel sheet
+
+        Args:
+            extraction_kit (str | None, optional): Relevant extraction kit for reagent map. Defaults to None.
         """        
         if extraction_kit == None:
             extraction_kit = extraction_kit=self.sub['extraction_kit']
-        logger.debug(f"Parsing reagents for {extraction_kit}")
+        # logger.debug(f"Parsing reagents for {extraction_kit}")
         self.sub['reagents'] = ReagentParser(xl=self.xl, submission_type=self.sub['submission_type'], extraction_kit=extraction_kit).parse_reagents()
 
     def parse_samples(self):
@@ -92,13 +94,6 @@ class SheetParser(object):
     def import_kit_validation_check(self):
         """
         Enforce that the parser has an extraction kit
-
-        Args:
-            ctx (Settings): Settings obj passed down from gui
-            parser_sub (dict): The parser dictionary before going to pydantic
-
-        Returns:
-            List[PydReagent]: List of reagents
         """    
         from frontend.widgets.pop_ups import KitSelector
         if not check_not_nan(self.sub['extraction_kit']['value']):
@@ -115,18 +110,18 @@ class SheetParser(object):
         """
         Enforce that only allowed reagents get into the Pydantic Model
         """          
-        # kit = lookup_kit_types(ctx=self.ctx, name=self.sub['extraction_kit']['value'])
         kit = KitType.query(name=self.sub['extraction_kit']['value'])
         allowed_reagents = [item.name for item in kit.get_reagents()]
-        logger.debug(f"List of reagents for comparison with allowed_reagents: {pformat(self.sub['reagents'])}")
-        # self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent['value'].type in allowed_reagents]
+        # logger.debug(f"List of reagents for comparison with allowed_reagents: {pformat(self.sub['reagents'])}")
         self.sub['reagents'] = [reagent for reagent in self.sub['reagents'] if reagent.type in allowed_reagents]
 
     def finalize_parse(self):
+        """
+        Run custom final validations of data for submission subclasses.
+        """        
         finisher = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.sub['submission_type']).finalize_parse
         self.sub = finisher(input_dict=self.sub, xl=self.xl, info_map=self.info_map, plate_map=self.plate_map)
 
-        
     def to_pydantic(self) -> PydSubmission:
         """
         Generates a pydantic model of scraped data for validation
@@ -134,21 +129,19 @@ class SheetParser(object):
         Returns:
             PydSubmission: output pydantic model
         """       
-        logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
+        # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
         psm = PydSubmission(filepath=self.filepath, **self.sub)
-        # delattr(psm, "filepath")
         return psm
     
 class InfoParser(object):
 
     def __init__(self, xl:pd.ExcelFile, submission_type:str):
-        logger.debug(f"\n\nHello from InfoParser!")
+        logger.info(f"\n\Hello from InfoParser!\n\n")
         # self.ctx = ctx
         self.map = self.fetch_submission_info_map(submission_type=submission_type)
         self.xl = xl
         logger.debug(f"Info map for InfoParser: {pformat(self.map)}")
         
-
     def fetch_submission_info_map(self, submission_type:str|dict) -> dict:
         """
         Gets location of basic info from the submission_type object in the database.
@@ -192,6 +185,11 @@ class InfoParser(object):
                 continue
             for item in relevant:
                 value = df.iat[relevant[item]['row']-1, relevant[item]['column']-1]
+                match item:
+                    case "submission_type":
+                        value = value.title()
+                    case _:
+                        pass
                 logger.debug(f"Setting {item} on {sheet} to {value}")
                 if check_not_nan(value):
                     if value != "None":
@@ -206,10 +204,6 @@ class InfoParser(object):
                             continue
                 else:
                     dicto[item] = dict(value=convert_nans_to_nones(value), missing=True)
-            try:
-                check = dicto['submission_category'] not in ["", None]
-            except KeyError:
-                check = False
         return self.custom_parser(input_dict=dicto, xl=self.xl)
                 
 class ReagentParser(object):
@@ -220,7 +214,17 @@ class ReagentParser(object):
         self.map = self.fetch_kit_info_map(extraction_kit=extraction_kit, submission_type=submission_type)
         self.xl = xl
 
-    def fetch_kit_info_map(self, extraction_kit:dict, submission_type:str):
+    def fetch_kit_info_map(self, extraction_kit:dict, submission_type:str) -> dict:
+        """
+        Gets location of kit reagents from database
+
+        Args:
+            extraction_kit (dict): Relevant kit information.
+            submission_type (str): Name of submission type.
+
+        Returns:
+            dict: locations of reagent info for the kit.
+        """        
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         # kit = lookup_kit_types(ctx=self.ctx, name=extraction_kit)
@@ -231,7 +235,13 @@ class ReagentParser(object):
         del reagent_map['info']
         return reagent_map
     
-    def parse_reagents(self) -> list:
+    def parse_reagents(self) -> List[PydReagent]:
+        """
+        Extracts reagent information from the excel form.
+
+        Returns:
+            List[PydReagent]: List of parsed reagents.
+        """        
         listo = []
         for sheet in self.xl.sheet_names:
             df = self.xl.parse(sheet, header=None, dtype=object)
@@ -271,11 +281,10 @@ class SampleParser(object):
         convert sample sub-dataframe to dictionary of records
 
         Args:
-            ctx (Settings): settings object passed down from gui
             df (pd.DataFrame): input sample dataframe
             elution_map (pd.DataFrame | None, optional): optional map of elution plate. Defaults to None.
         """        
-        logger.debug("\n\nHello from SampleParser!")
+        logger.debug("\n\nHello from SampleParser!\n\n")
         self.samples = []
         # self.ctx = ctx
         self.xl = xl
@@ -454,40 +463,6 @@ class SampleParser(object):
             new_samples.append(PydSample(**translated_dict))
         return result, new_samples
 
-    # def generate_sample_object(self, input_dict) -> BasicSample:
-    #     """
-    #     Constructs sample object from dict.
-    #     NOTE: Depreciated due to using Pydantic object up until db saving.
-
-    #     Args:
-    #         input_dict (dict): sample information
-
-    #     Returns:
-    #         models.BasicSample: Sample object
-    #     """ 
-    #     database_obj = BasicSample.find_polymorphic_subclass(polymorphic_identity=input_dict['sample_type'])
-    #     # query = input_dict['sample_type'].replace(" ", "")
-    #     # try:
-    #     #     # database_obj = getattr(models, query)
-            
-    #     # except AttributeError as e:
-    #     #     logger.error(f"Could not find the model {query}. Using generic.")
-    #     #     database_obj = models.BasicSample
-    #     logger.debug(f"Searching database for {input_dict['submitter_id']}...")
-    #     # instance = lookup_samples(ctx=self.ctx, submitter_id=str(input_dict['submitter_id']))
-    #     instance = BasicSample.query(submitter_id=str(input_dict['submitter_id']))
-    #     if instance == None:
-    #         logger.debug(f"Couldn't find sample {input_dict['submitter_id']}. Creating new sample.")
-    #         instance = database_obj()
-    #         for k,v in input_dict.items():
-    #             try:
-    #                 instance.set_attribute(k, v)
-    #             except Exception as e:
-    #                 logger.error(f"Failed to set {k} due to {type(e).__name__}: {e}")
-    #     else:
-    #         logger.debug(f"Sample {instance.submitter_id} already exists, will run update.")
-    #     return dict(sample=instance, row=input_dict['row'], column=input_dict['column'])
-    
     def grab_plates(self) -> List[str]:
         """
         Parse plate names from 
@@ -514,7 +489,6 @@ class PCRParser(object):
         Initializes object.
 
         Args:
-            ctx (dict): settings passed down from gui.
             filepath (Path | None, optional): file to parse. Defaults to None.
         """        
         # self.ctx = ctx

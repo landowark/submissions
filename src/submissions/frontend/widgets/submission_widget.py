@@ -65,9 +65,6 @@ class SubmissionFormContainer(QWidget):
         self.app.result_reporter()
 
     def scrape_reagents(self, *args, **kwargs):
-        # from .main_window_functions import scrape_reagents
-        # logger.debug(f"Args: {args}")
-        # logger.debug(F"kwargs: {kwargs}")
         print(f"\n\n{inspect.stack()[1].function}\n\n")
         self.scrape_reagents_function(args[0])
         self.kit_integrity_completion()
@@ -140,7 +137,7 @@ class SubmissionFormContainer(QWidget):
             return
         # create sheetparser using excel sheet and context from gui
         try:
-            self.prsr = SheetParser(ctx=self.ctx, filepath=fname)
+            self.prsr = SheetParser(ctx=self.app.ctx, filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
@@ -519,7 +516,7 @@ class SubmissionFormWidget(QWidget):
                 case 'submitting_lab':
                     add_widget = QComboBox()
                     # lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
-                    labs = [item.__str__() for item in Organization.query()]
+                    labs = [item.name for item in Organization.query()]
                     # try to set closest match to top of list
                     try:
                         labs = difflib.get_close_matches(value, labs, len(labs), 0)
@@ -536,7 +533,7 @@ class SubmissionFormWidget(QWidget):
                     add_widget = QComboBox()
                     # lookup existing kits by 'submission_type' decided on by sheetparser
                     logger.debug(f"Looking up kits used for {submission_type}")
-                    uses = [item.__str__() for item in KitType.query(used_for=submission_type)]
+                    uses = [item.name for item in KitType.query(used_for=submission_type)]
                     obj.uses = uses
                     logger.debug(f"Kits received for {submission_type}: {uses}")
                     if check_not_nan(value):
@@ -616,6 +613,8 @@ class ReagentFormWidget(QWidget):
     def __init__(self, parent:QWidget, reagent:PydReagent, extraction_kit:str):
         super().__init__(parent)
         # self.setParent(parent)
+        self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
+        
         self.reagent = reagent
         self.extraction_kit = extraction_kit
         # self.ctx = reagent.ctx
@@ -640,7 +639,8 @@ class ReagentFormWidget(QWidget):
         if wanted_reagent == None:
             dlg = QuestionAsker(title=f"Add {lot}?", message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
             if dlg.exec():
-                wanted_reagent = self.parent().parent().parent().parent().parent().parent().parent().parent().parent.add_reagent(reagent_lot=lot, reagent_type=self.reagent.type, expiry=self.reagent.expiry, name=self.reagent.name)
+                print(self.app)
+                wanted_reagent = self.app.add_reagent(reagent_lot=lot, reagent_type=self.reagent.type, expiry=self.reagent.expiry, name=self.reagent.name)
                 return wanted_reagent, None
             else:
                 # In this case we will have an empty reagent and the submission will fail kit integrity check
@@ -690,7 +690,7 @@ class ReagentFormWidget(QWidget):
             # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
             # lookup = lookup_reagents(ctx=self.ctx, reagent_type=reagent.type)
             lookup = Reagent.query(reagent_type=reagent.type)
-            relevant_reagents = [item.__str__() for item in lookup]
+            relevant_reagents = [str(item.lot) for item in lookup]
             output_reg = []
             for rel_reagent in relevant_reagents:
             # extract strings from any sets.

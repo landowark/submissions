@@ -4,25 +4,26 @@ Functions for constructing controls graphs using plotly.
 import plotly
 import plotly.express as px
 import pandas as pd
-from pathlib import Path
 from plotly.graph_objects import Figure
 import logging
 from backend.excel import get_unique_values_in_df_column
+from tools import Settings
+from frontend.widgets.functions import select_save_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
+def create_charts(ctx:Settings, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     """
     Constructs figures based on parsed pandas dataframe.
 
     Args:
-        settings (dict): settings passed down from gui
+        ctx (Settings): settings passed down from gui
         df (pd.DataFrame): input dataframe
-        group_name (str): controltype
+        ytitle (str | None, optional): title for the y-axis. Defaults to None.
 
     Returns:
-        Figure: plotly figure
+        Figure: Plotly figure
     """    
     from backend.excel import drop_reruns_from_df
     # converts starred genera to normal and splits off list of starred
@@ -54,8 +55,6 @@ def create_charts(ctx:dict, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     fig = construct_chart(df=df, modes=modes, ytitle=ytitle)
     return fig
     
-
-
 def generic_figure_markers(fig:Figure, modes:list=[], ytitle:str|None=None) -> Figure:
     """
     Adds standard layout to figure.
@@ -63,6 +62,7 @@ def generic_figure_markers(fig:Figure, modes:list=[], ytitle:str|None=None) -> F
     Args:
         fig (Figure): Input figure.
         modes (list, optional): List of modes included in figure. Defaults to [].
+        ytitle (str, optional): Title for the y-axis. Defaults to None.
 
     Returns:
         Figure: Output figure with updated titles, rangeslider, buttons.
@@ -102,7 +102,6 @@ def generic_figure_markers(fig:Figure, modes:list=[], ytitle:str|None=None) -> F
     assert type(fig) == Figure
     return fig
 
-
 def make_buttons(modes:list, fig_len:int) -> list:
     """
     Creates list of buttons with one for each mode to be used in showing/hiding mode traces.
@@ -135,7 +134,7 @@ def make_buttons(modes:list, fig_len:int) -> list:
                         ))
     return buttons
 
-def output_figures(settings:dict, figs:list, group_name:str):
+def output_figures(figs:list, group_name:str):
     """
     Writes plotly figure to html file.
 
@@ -144,21 +143,19 @@ def output_figures(settings:dict, figs:list, group_name:str):
         fig (Figure): input figure object
         group_name (str): controltype
     """
-    with open(Path(settings['folder']['output']).joinpath(f'{group_name}.html'), "w") as f:
+    output = select_save_file(None, default_name=group_name, extension="html")
+    with open(output, "w") as f:
         for fig in figs:
             try:
                 f.write(fig.to_html(full_html=False, include_plotlyjs='cdn'))
             except AttributeError:
                 logger.error(f"The following figure was a string: {fig}")
 
-
-
 def construct_chart(df:pd.DataFrame, modes:list, ytitle:str|None=None) -> Figure:
     """
     Creates a plotly chart for controls from a pandas dataframe
 
     Args:
-        ctx (dict): settings passed down from gui
         df (pd.DataFrame): input dataframe of controls
         modes (list): analysis modes to construct charts for
         ytitle (str | None, optional): title on the y-axis. Defaults to None.
@@ -200,72 +197,69 @@ def construct_chart(df:pd.DataFrame, modes:list, ytitle:str|None=None) -> Figure
 # Below are the individual construction functions. They must be named "construct_{mode}_chart" and 
 # take only json_in and mode to hook into the main processor.
 
-def construct_refseq_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:str) -> Figure:
-    """
-    Constructs intial refseq chart for both contains and matches (depreciated).
+# def construct_refseq_chart(df:pd.DataFrame, group_name:str, mode:str) -> Figure:
+#     """
+#     Constructs intial refseq chart for both contains and matches (depreciated).
 
-    Args:
-        settings (dict): settings passed down from gui.
-        df (pd.DataFrame): dataframe containing all sample data for the group.
-        group_name (str): name of the group being processed.
-        mode (str): contains or matches, overwritten by hardcoding, so don't think about it too hard.
+#     Args:
+#         df (pd.DataFrame): dataframe containing all sample data for the group.
+#         group_name (str): name of the group being processed.
+#         mode (str): contains or matches, overwritten by hardcoding, so don't think about it too hard.
 
-    Returns:
-        Figure: initial figure with contains and matches traces.
-    """    
-    # This overwrites the mode from the signature, might get confusing.
-    fig = Figure()
-    modes = ['contains', 'matches']
-    for ii, mode in enumerate(modes): 
-        bar = px.bar(df, x="submitted_date", 
-            y=f"{mode}_ratio", 
-            color="target", 
-            title=f"{group_name}_{mode}", 
-            barmode='stack', 
-            hover_data=["genus", "name", f"{mode}_hashes"], 
-            text="genera"
-        )
-        bar.update_traces(visible = ii == 0)
-        # Plotly express returns a full figure, so we have to use the data from that figure only.
-        fig.add_traces(bar.data)
-    # sys.exit(f"number of traces={len(fig.data)}")
-    return generic_figure_markers(fig=fig, modes=modes)
+#     Returns:
+#         Figure: initial figure with contains and matches traces.
+#     """    
+#     # This overwrites the mode from the signature, might get confusing.
+#     fig = Figure()
+#     modes = ['contains', 'matches']
+#     for ii, mode in enumerate(modes): 
+#         bar = px.bar(df, x="submitted_date", 
+#             y=f"{mode}_ratio", 
+#             color="target", 
+#             title=f"{group_name}_{mode}", 
+#             barmode='stack', 
+#             hover_data=["genus", "name", f"{mode}_hashes"], 
+#             text="genera"
+#         )
+#         bar.update_traces(visible = ii == 0)
+#         # Plotly express returns a full figure, so we have to use the data from that figure only.
+#         fig.add_traces(bar.data)
+#     # sys.exit(f"number of traces={len(fig.data)}")
+#     return generic_figure_markers(fig=fig, modes=modes)
 
+# def construct_kraken_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:str) -> Figure:
+#     """
+#     Constructs intial refseq chart for each mode in the kraken config settings. (depreciated)
 
-def construct_kraken_chart(settings:dict, df:pd.DataFrame, group_name:str, mode:str) -> Figure:
-    """
-    Constructs intial refseq chart for each mode in the kraken config settings. (depreciated)
+#     Args:
+#         settings (dict): settings passed down from click.
+#         df (pd.DataFrame): dataframe containing all sample data for the group.
+#         group_name (str): name of the group being processed.
+#         mode (str): kraken modes retrieved from config file by setup.
 
-    Args:
-        settings (dict): settings passed down from click.
-        df (pd.DataFrame): dataframe containing all sample data for the group.
-        group_name (str): name of the group being processed.
-        mode (str): kraken modes retrieved from config file by setup.
-
-    Returns:
-        Figure: initial figure with traces for modes
-    """    
-    df[f'{mode}_count'] = pd.to_numeric(df[f'{mode}_count'],errors='coerce')
-    df = df.groupby('submitted_date')[f'{mode}_count'].nlargest(2)
+#     Returns:
+#         Figure: initial figure with traces for modes
+#     """    
+#     df[f'{mode}_count'] = pd.to_numeric(df[f'{mode}_count'],errors='coerce')
+#     df = df.groupby('submitted_date')[f'{mode}_count'].nlargest(2)
     
-    # The actual percentage from kraken was off due to exclusion of NaN, recalculating.
-    df[f'{mode}_percent'] = 100 * df[f'{mode}_count'] / df.groupby('submitted_date')[f'{mode}_count'].transform('sum')
-    modes = settings['modes'][mode]
-    # This overwrites the mode from the signature, might get confusing.
-    fig = Figure()
-    for ii, entry in enumerate(modes):         
-        bar = px.bar(df, x="submitted_date", 
-            y=entry,
-            color="genus",
-            title=f"{group_name}_{entry}", 
-            barmode="stack", 
-            hover_data=["genus", "name", "target"],
-            text="genera",
-        )
-        bar.update_traces(visible = ii == 0)
-        fig.add_traces(bar.data)
-    return generic_figure_markers(fig=fig, modes=modes)
-
+#     # The actual percentage from kraken was off due to exclusion of NaN, recalculating.
+#     df[f'{mode}_percent'] = 100 * df[f'{mode}_count'] / df.groupby('submitted_date')[f'{mode}_count'].transform('sum')
+#     modes = settings['modes'][mode]
+#     # This overwrites the mode from the signature, might get confusing.
+#     fig = Figure()
+#     for ii, entry in enumerate(modes):         
+#         bar = px.bar(df, x="submitted_date", 
+#             y=entry,
+#             color="genus",
+#             title=f"{group_name}_{entry}", 
+#             barmode="stack", 
+#             hover_data=["genus", "name", "target"],
+#             text="genera",
+#         )
+#         bar.update_traces(visible = ii == 0)
+#         fig.add_traces(bar.data)
+#     return generic_figure_markers(fig=fig, modes=modes)
 
 def divide_chunks(input_list:list, chunk_count:int):
     """
@@ -280,7 +274,6 @@ def divide_chunks(input_list:list, chunk_count:int):
     """    
     k, m = divmod(len(input_list), chunk_count)
     return (input_list[i*k+min(i, m):(i+1)*k+min(i+1, m)] for i in range(chunk_count))
-
 
 def construct_html(figure:Figure) -> str:
     """

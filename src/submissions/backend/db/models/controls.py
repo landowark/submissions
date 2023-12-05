@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship, Query
 import logging
 from operator import itemgetter
 import json
-from . import Base
+from . import BaseClass
 from tools import setup_lookup, query_return
 from datetime import date, datetime
 from typing import List
@@ -15,12 +15,11 @@ from dateutil.parser import parse
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class ControlType(Base):
+class ControlType(BaseClass):
     """
     Base class of a control archetype.
     """    
     __tablename__ = '_control_types'
-    __table_args__ = {'extend_existing': True} 
     
     id = Column(INTEGER, primary_key=True) #: primary key   
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
@@ -29,7 +28,7 @@ class ControlType(Base):
 
     @classmethod
     @setup_lookup
-    def query(cls,
+    def query(cls, 
                name:str=None, 
                limit:int=0
                ) -> ControlType|List[ControlType]:
@@ -37,14 +36,13 @@ class ControlType(Base):
         Lookup control archetypes in the database
 
         Args:
-            ctx (Settings): Settings object passed down from gui.
             name (str, optional): Control type name (limits results to 1). Defaults to None.
             limit (int, optional): Maximum number of results to return. Defaults to 0.
 
         Returns:
             models.ControlType|List[models.ControlType]: ControlType(s) of interest.
         """    
-        query = cls.metadata.session.query(cls)
+        query = cls.__database_session__.query(cls)
         match name:
             case str():
                 query = query.filter(cls.name==name)
@@ -52,14 +50,13 @@ class ControlType(Base):
             case _:
                 pass
         return query_return(query=query, limit=limit)
-
-class Control(Base):
+    
+class Control(BaseClass):
     """
     Base class of a control sample.
     """    
 
     __tablename__ = '_control_samples'
-    __table_args__ = {'extend_existing': True} 
     
     id = Column(INTEGER, primary_key=True) #: primary key
     parent_id = Column(String, ForeignKey("_control_types.id", name="fk_control_parent_id")) #: primary key of control type
@@ -114,10 +111,9 @@ class Control(Base):
 
     def convert_by_mode(self, mode:str) -> list[dict]:
         """
-        split control object into analysis types for controls graphs
+        split this instance into analysis types for controls graphs
 
         Args:
-            control (models.Control): control to be parsed into list
             mode (str): analysis type, 'contains', etc
 
         Returns:
@@ -169,6 +165,21 @@ class Control(Base):
         return data
 
     @classmethod
+    def get_modes(cls) -> List[str]:
+        """
+        Get all control modes from database
+
+        Returns:
+            List[str]: List of control mode names.
+        """    
+        try:
+            cols = [item.name for item in list(cls.__table__.columns) if isinstance(item.type, JSON)]
+        except AttributeError as e:
+            logger.error(f"Failed to get available modes from db: {e}")
+            cols = []
+        return cols
+
+    @classmethod
     @setup_lookup
     def query(cls, 
                 control_type:ControlType|str|None=None,
@@ -190,15 +201,14 @@ class Control(Base):
         Returns:
             models.Control|List[models.Control]: Control object of interest.
         """    
-        query: Query = cls.metadata.session.query(cls)
+        query: Query = cls.__database_session__.query(cls)
         # by control type
         match control_type:
             case ControlType():
-                logger.debug(f"Looking up control by control type: {control_type}")
-                # query = query.join(models.ControlType).filter(models.ControlType==control_type)
+                # logger.debug(f"Looking up control by control type: {control_type}")
                 query = query.filter(cls.controltype==control_type)
             case str():
-                logger.debug(f"Looking up control by control type: {control_type}")
+                # logger.debug(f"Looking up control by control type: {control_type}")
                 query = query.join(ControlType).filter(ControlType.name==control_type)
             case _:
                 pass
@@ -224,7 +234,7 @@ class Control(Base):
                     end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime("%Y-%m-%d")
                 case _:
                     end_date = parse(end_date).strftime("%Y-%m-%d")
-            logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
+            # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         match control_name:
             case str():
@@ -233,23 +243,3 @@ class Control(Base):
             case _:
                 pass
         return query_return(query=query, limit=limit)
-
-    @classmethod
-    def get_modes(cls):
-        """
-        Get all control modes from database
-
-        Args:
-            ctx (Settings): Settings object passed down from gui.
-
-        Returns:
-            List[str]: List of control mode names.
-        """    
-        rel = cls.metadata.session.query(cls).first()
-        try:
-            cols = [item.name for item in list(rel.__table__.columns) if isinstance(item.type, JSON)]
-        except AttributeError as e:
-            logger.debug(f"Failed to get available modes from db: {e}")
-            cols = []
-        return cols
-    
