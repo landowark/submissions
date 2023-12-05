@@ -325,7 +325,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submission_category")
     @classmethod
     def rescue_category(cls, value, values):
-        if value['value'] not in ["Research", "Diagnostic", "Surveillance"]:
+        if value['value'] not in ["Research", "Diagnostic", "Surveillance", "Validation"]:
             value['value'] = values.data['submission_type']['value']
         return value
 

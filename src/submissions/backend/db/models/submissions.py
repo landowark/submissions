@@ -58,7 +58,7 @@ class BasicSubmission(BaseClass):
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
     comment = Column(JSON) #: user notes
-    submission_category = Column(String(64)) #: ["Research", "Diagnostic", "Surveillance"], else defaults to submission_type_name
+    submission_category = Column(String(64)) #: ["Research", "Diagnostic", "Surveillance", "Validation"], else defaults to submission_type_name
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -1483,6 +1483,7 @@ class BacterialCultureSample(BasicSample):
     # id = Column(INTEGER, ForeignKey('basicsample.id'), primary_key=True)
     organism = Column(String(64)) #: bacterial specimen
     concentration = Column(String(16)) #: sample concentration
+    control = relationship("Control", back_populates="sample", uselist=False)
     __mapper_args__ = {"polymorphic_identity": "Bacterial Culture Sample", "polymorphic_load": "inline"}
 
     def to_sub_dict(self, submission_rsl:str) -> dict:
@@ -1494,6 +1495,13 @@ class BacterialCultureSample(BasicSample):
         """
         sample = super().to_sub_dict(submission_rsl=submission_rsl)
         sample['name'] = f"{self.submitter_id} - ({self.organism})"
+        return sample
+
+    def to_hitpick(self, submission_rsl: str | None = None) -> dict | None:
+        sample = super().to_hitpick(submission_rsl)
+        if self.control != None:
+            sample['colour'] = [0,128,0]
+            sample['tooltip'] += f"<br>- Control: {self.control.controltype.name} - {self.control.controltype.targets}"
         return sample
 
 # Submission to Sample Associations

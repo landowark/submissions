@@ -31,10 +31,14 @@ def make_plate_map(sample_list:list) -> Image:
     # Go through samples and change its row/column to red if positive, else blue
     for sample in sample_list:
         logger.debug(f"sample keys: {list(sample.keys())}")
+        # set color of square
         if sample['positive']:
             colour = [255,0,0]
         else:
-            colour = [0,0,255]
+            if 'colour' in sample.keys():
+                colour = sample['colour']
+            else:
+                colour = [0,0,255]
         grid[int(sample['row'])-1][int(sample['column'])-1] = colour
     # Create pixel image from the grid and enlarge
     img = Image.fromarray(grid).resize((1200, 800), resample=Image.NEAREST)
@@ -99,7 +103,10 @@ def make_plate_map_html(sample_list:list, plate_rows:int=8, plate_columns=12) ->
         if sample['positive']:
             sample['background_color'] = "#f10f07"
         else:
-            sample['background_color'] = "#80cbc4"
+            if "colour" in sample.keys():
+                sample['background_color'] = "#69d84f"
+            else:
+                sample['background_color'] = "#80cbc4"
     output_samples = []
     for column in range(1, plate_columns+1):
         for row in range(1, plate_rows+1):

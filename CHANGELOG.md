@@ -1,5 +1,6 @@
 ## 202312.01
 
+- Control samples info now available in plate map.
 - Backups will now create an regenerated xlsx file.
 - Report generator now does sums automatically.
 

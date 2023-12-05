@@ -27,7 +27,7 @@
     - Should be used when coming in to parser and when leaving form. NO OTHER PLACES.
 - [x] Change 'check_is_power_user' to decorator.
 - [x] Drag and drop files into submission form area?
-- [ ] Get info for controls into their sample hitpicks.
+- [x] Get info for controls into their sample hitpicks.
 - [x] Move submission-type specific parser functions into class methods in their respective models.
 - [x] Improve function results reporting.
     - Maybe make it a list until it gets to the reporter?

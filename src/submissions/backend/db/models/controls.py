@@ -71,6 +71,8 @@ class Control(BaseClass):
     refseq_version = Column(String(16)) #: version of refseq used in fastq parsing
     kraken2_version = Column(String(16)) #: version of kraken2 used in fastq parsing
     kraken2_db_version = Column(String(32)) #: folder name of kraken2 db
+    sample = relationship("BacterialCultureSample", back_populates="control")
+    sample_id = Column(INTEGER, ForeignKey("_samples.id", ondelete="SET NULL", name="cont_BCS_id"))
 
     def __repr__(self) -> str:
         return f"<Control({self.name})>"
@@ -243,3 +245,8 @@ class Control(BaseClass):
             case _:
                 pass
         return query_return(query=query, limit=limit)
+
+    def save(self):
+        self.__database_session__.add(self)
+        self.__database_session__.commit()
+
