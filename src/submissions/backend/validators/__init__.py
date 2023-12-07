@@ -3,7 +3,6 @@ from pathlib import Path
 from openpyxl import load_workbook
 from backend.db.models import BasicSubmission, SubmissionType
 
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class RSLNamer(object):

@@ -1,9 +1,10 @@
+- [x] SubmissionReagentAssociation.query 
+- [x] Move as much from db.functions to objects as possible.
 - [x] Clean up DB objects after failed test fix.
 - [x] Fix tests.
-- [ ] Fix pydant.PydSample.handle_duplicate_samples?
+- [x] Fix pydant.PydSample.handle_duplicate_samples?
 - [ ] See if the number of queries in BasicSubmission functions (and others) can be trimmed down.
 - [x] Document code 
-    - Done Submissions up to BasicSample
 - [x] Create a result object to facilitate returning function results.
 - [x] Refactor main_window_functions into as many objects (forms, etc.) as possible to clean it up.
 - [x] Integrate 'Construct First Strand' into the Artic import.

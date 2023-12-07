@@ -5,23 +5,20 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal
 from pathlib import Path
 from . import select_open_file, select_save_file
-import logging
+import logging, difflib, inspect, json, sys
 from pathlib import Path
 from tools import Report, Result, check_not_nan
 from backend.excel.parser import SheetParser, PCRParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
-    check_kit_integrity, KitType, Organization, SubmissionType, Reagent, 
+    KitType, Organization, SubmissionType, Reagent, 
     ReagentType, KitTypeReagentTypeAssociation, BasicSubmission
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
 # from .misc import ReagentFormWidget
 from typing import List, Tuple
-import difflib
 from datetime import date
-import inspect
-import json
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -143,14 +140,14 @@ class SubmissionFormContainer(QWidget):
             return
         except AttributeError:
             self.prsr = SheetParser(ctx=self.app.ctx, filepath=fname)
-        try:
-            logger.debug(f"Submission dictionary:\n{pformat(self.prsr.sub)}")
-            self.pyd = self.prsr.to_pydantic()
-            logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")
-        except Exception as e:
-            report.add_result(Result(msg=f"Problem creating pydantic model:\n\n{e}", status="Critical"))
-            self.report.add_result(report)
-            return
+        # try:
+        logger.debug(f"Submission dictionary:\n{pformat(self.prsr.sub)}")
+        self.pyd = self.prsr.to_pydantic()
+        logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")
+        # except Exception as e:
+        #     report.add_result(Result(msg=f"Problem creating pydantic model:\n\n{e}", status="Critical"))
+        #     self.report.add_result(report)
+        #     return
         self.form = self.pyd.toForm(parent=self)
         self.layout().addWidget(self.form)
         kit_widget = self.form.find_widgets(object_name="extraction_kit")[0].input
@@ -265,7 +262,8 @@ class SubmissionFormContainer(QWidget):
         self.pyd: PydSubmission = self.form.parse_form()
         logger.debug(f"Submission: {pformat(self.pyd)}")
         logger.debug("Checking kit integrity...")
-        result = check_kit_integrity(sub=self.pyd)
+        # result = check_kit_integrity(sub=self.pyd)
+        result = self.pyd.check_kit_integrity()
         report.add_result(result)
         if len(result.results) > 0:
             self.report.add_result(report)
@@ -417,7 +415,8 @@ class SubmissionFormWidget(QWidget):
         # self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
         #                "qt_scrollarea_vcontainer", "submit_btn"
         #                ]
-        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx']
+        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment']
+        self.recover = ['filepath', 'samples', 'csv', 'comment']
         layout = QVBoxLayout()
         for k, v in kwargs.items():
             if k not in self.ignore:
@@ -448,8 +447,6 @@ class SubmissionFormWidget(QWidget):
         logger.debug(f"Hello from form parser!")
         info = {}
         reagents = []
-        if hasattr(self, 'csv'):
-            info['csv'] = self.csv
         for widget in self.findChildren(QWidget):
             # logger.debug(f"Parsed widget of type {type(widget)}")
             match widget:
@@ -463,9 +460,13 @@ class SubmissionFormWidget(QWidget):
                         info[field] = value
         logger.debug(f"Info: {pformat(info)}")
         logger.debug(f"Reagents: {pformat(reagents)}")
-        # sys.exit()
+        # logger.debug(f"Attrs not in info: {[k for k, v in self.__dict__.items() if k not in info.keys()]}")
+        for item in self.recover:
+            if hasattr(self, item):
+                info[item] = getattr(self, item)
         # app = self.parent().parent().parent().parent().parent().parent().parent().parent
-        submission = PydSubmission(filepath=self.filepath, reagents=reagents, samples=self.samples, **info)
+        # submission = PydSubmission(filepath=self.filepath, reagents=reagents, samples=self.samples, **info)
+        submission = PydSubmission(reagents=reagents, **info)
         return submission
     
     class InfoItem(QWidget):

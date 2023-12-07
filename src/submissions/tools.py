@@ -5,12 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 import re
 import numpy as np
-import logging
+import logging, re, yaml, sys, os, stat, platform, getpass, inspect
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader
-import yaml
-import sys, os, stat, platform, getpass
-import logging
 from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Query, Session
@@ -18,8 +15,6 @@ from sqlalchemy import create_engine
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
-import inspect
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

@@ -1,8 +1,6 @@
 '''
 Constructs main application.
-TODO: Complete.
 '''
-import sys
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow, 
@@ -14,14 +12,12 @@ from backend.validators import PydReagent
 from tools import check_if_app, Settings, Report
 from .pop_ups import  AlertPop
 from .misc import AddReagentForm, LogParser
-import logging
+import logging, webbrowser, sys
 from datetime import date
-import webbrowser
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .kit_creator import KitAdder
-import webbrowser
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")

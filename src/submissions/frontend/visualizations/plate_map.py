@@ -1,9 +1,8 @@
 from pathlib import Path
-import sys
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from tools import check_if_app, jinja_template_loading
-import logging
+import logging, sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

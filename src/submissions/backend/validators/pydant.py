@@ -2,7 +2,7 @@
 Contains pydantic models and accompanying validators
 '''
 from operator import attrgetter
-import uuid
+import uuid, re, logging
 from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
@@ -10,8 +10,6 @@ from dateutil.parser._parser import ParserError
 from typing import List, Any, Tuple
 from . import RSLNamer
 from pathlib import Path
-import re
-import logging
 from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading, Report, Result, row_map
 from backend.db.models import *
 from sqlalchemy.exc import StatementError, IntegrityError
@@ -28,6 +26,14 @@ class PydReagent(BaseModel):
     expiry: date|None
     name: str|None
     missing: bool = Field(default=True)
+    comment: str|None = Field(default="", validate_default=True)
+
+    @field_validator('comment', mode='before')
+    @classmethod
+    def create_comment(cls, value):
+        if value == None:
+            return ""
+        return value
 
     @field_validator("type", mode='before')
     @classmethod
@@ -88,7 +94,7 @@ class PydReagent(BaseModel):
         else:
             return values.data['type']
 
-    def toSQL(self) -> Tuple[Reagent, Report]:
+    def toSQL(self, submission:BasicSubmission|str=None) -> Tuple[Reagent, Report]:
         """
         Converts this instance into a backend.db.models.kit.Reagent instance
 
@@ -96,6 +102,8 @@ class PydReagent(BaseModel):
             Tuple[Reagent, Report]: Reagent instance and result of function
         """        
         report = Report()
+        if self.model_extra != None:
+            self.__dict__.update(self.model_extra)
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
         reagent = Reagent.query(lot_number=self.lot)
         logger.debug(f"Result: {reagent}")
@@ -117,6 +125,11 @@ class PydReagent(BaseModel):
                             reagent.type.append(reagent_type)
                     case "name":
                         reagent.name = value
+                    case "comment":
+                        continue
+                assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
+                assoc.comments = self.comment
+                reagent.reagent_submission_associations.append(assoc)
             # add end-of-life extension from reagent type to expiry date
             # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
         return reagent, report
@@ -203,8 +216,16 @@ class PydSubmission(BaseModel, extra='allow'):
     extraction_kit: dict|None
     technician: dict|None
     submission_category: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
+    comment: dict|None = Field(default=dict(value="", missing=True), validate_default=True)
     reagents: List[dict]|List[PydReagent] = []
     samples: List[Any]
+
+    @field_validator('comment', mode='before')
+    @classmethod
+    def create_comment(cls, value):
+        if value == None:
+            return ""
+        return value
 
     @field_validator("submitter_plate_num")
     @classmethod
@@ -218,13 +239,19 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submitted_date", mode="before")
     @classmethod
     def rescue_date(cls, value):
-        if value == None:
+        logger.debug(f"\n\nDate coming into pydantic: {value}\n\n")
+        try:
+            check = value['value'] == None
+        except TypeError:
+            check = True
+        if check:
             return dict(value=date.today(), missing=True)
         return value
 
     @field_validator("submitted_date")
     @classmethod
     def strip_datetime_string(cls, value):
+        
         if isinstance(value['value'], datetime):
             return value
         if isinstance(value['value'], date):
@@ -307,7 +334,6 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submission_type", mode='before')
     @classmethod
     def make_submission_type(cls, value, values):
-        logger.debug(f"Submission type coming into pydantic: {value}")
         if not isinstance(value, dict):
             value = {"value": value}
         if check_not_nan(value['value']):
@@ -331,8 +357,8 @@ class PydSubmission(BaseModel, extra='allow'):
 
     def handle_duplicate_samples(self):
         """
-        Collapses multiple samples with same submitter id into one with lists for rows, columns
-        TODO: Find out if this is really necessary
+        Collapses multiple samples with same submitter id into one with lists for rows, columns.
+        Necessary to prevent trying to create duplicate samples in SQL creation.
         """        
         submitter_ids = list(set([sample.submitter_id for sample in self.samples]))
         output = []
@@ -581,9 +607,37 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"Template rendered as: {render}")
         return render
 
-class PydContact(BaseModel):
-    
+    def check_kit_integrity(self, reagenttypes:list=[]) -> Report:
+        """
+        Ensures all reagents expected in kit are listed in Submission
+       
+        Args:
+            reagenttypes (list | None, optional): List to check against complete list. Defaults to None.
 
+        Returns:
+            Report: Result object containing a message and any missing components.
+        """    
+        report = Report()
+        ext_kit = KitType.query(name=self.extraction_kit['value'])
+        ext_kit_rtypes = [item.name for item in ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
+        reagenttypes = [item.type for item in self.reagents]
+        logger.debug(f"Kit reagents: {ext_kit_rtypes}")
+        logger.debug(f"Submission reagents: {reagenttypes}")
+        # check if lists are equal
+        check = set(ext_kit_rtypes) == set(reagenttypes)
+        logger.debug(f"Checking if reagents match kit contents: {check}")
+        # what reagent types are in both lists?
+        missing = list(set(ext_kit_rtypes).difference(reagenttypes))
+        logger.debug(f"Missing reagents types: {missing}")
+        # if lists are equal return no problem
+        if len(missing)==0:
+            result = None
+        else:
+            result = Result(msg=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
+        report.add_result(result)
+        return report
+
+class PydContact(BaseModel):
     name: str
     phone: str|None
     email: str|None

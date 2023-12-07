@@ -6,13 +6,13 @@ from getpass import getuser
 import math, json, logging, uuid, tempfile, re, yaml
 from pprint import pformat
 from . import Reagent, SubmissionType, KitType, Organization
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, Table, JSON, FLOAT, case
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from json.decoder import JSONDecodeError
 from sqlalchemy.ext.associationproxy import association_proxy
 import pandas as pd
 from openpyxl import Workbook
-from . import Base, BaseClass
+from . import BaseClass
 from tools import check_not_nan, row_map,  query_return, setup_lookup
 from datetime import datetime, date
 from typing import List
@@ -23,15 +23,6 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from pathlib import Path
 
 logger = logging.getLogger(f"submissions.{__name__}")
-
-# table containing reagents/submission relationships
-reagents_submissions = Table(
-                                "_reagents_submissions", 
-                                Base.metadata, 
-                                Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), 
-                                Column("submission_id", INTEGER, ForeignKey("_submissions.id")),
-                                extend_existing = True
-                            )
 
 class BasicSubmission(BaseClass):
     """
@@ -51,7 +42,7 @@ class BasicSubmission(BaseClass):
     submission_type_name = Column(String, ForeignKey("_submission_types.name", ondelete="SET NULL", name="fk_BS_subtype_name")) #: name of joined submission type
     technician = Column(String(64)) #: initials of processing tech(s)
     # Move this into custom types?
-    reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
+    # reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
     pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
@@ -68,6 +59,15 @@ class BasicSubmission(BaseClass):
     # association proxy of "user_keyword_associations" collection
     # to "keyword" attribute
     samples = association_proxy("submission_sample_associations", "sample") #: Association proxy to SubmissionSampleAssociation.samples
+
+    submission_reagent_associations = relationship(
+        "SubmissionReagentAssociation",
+        back_populates="submission",
+        cascade="all, delete-orphan",
+    ) #: Relation to SubmissionSampleAssociation
+    # association proxy of "user_keyword_associations" collection
+    # to "keyword" attribute
+    reagents = association_proxy("submission_reagent_associations", "reagent") #: Association proxy to SubmissionSampleAssociation.samples
 
     # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
@@ -438,6 +438,22 @@ class BasicSubmission(BaseClass):
         """        
         return "{{ rsl_plate_num }}"
 
+    @classmethod
+    def submissions_to_df(cls, submission_type:str|None=None, limit:int=0) -> pd.DataFrame:
+        logger.debug(f"Querying Type: {submission_type}")
+        logger.debug(f"Using limit: {limit}")
+        # use lookup function to create list of dicts
+        subs = [item.to_dict() for item in cls.query(submission_type=submission_type, limit=limit)]
+        logger.debug(f"Got {len(subs)} submissions.")
+        df = pd.DataFrame.from_records(subs)
+        # Exclude sub information
+        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents']:
+            try:
+                df = df.drop(item, axis=1)
+            except:
+                logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
+        return df
+
     def set_attribute(self, key:str, value):
         """
         Performs custom attribute setting based on values.
@@ -479,6 +495,11 @@ class BasicSubmission(BaseClass):
                     field_value = value
             case "ctx" | "csv" | "filepath":
                 return
+            case "comment":
+                if value == "" or value == None or value == 'null':
+                    field_value = None
+                else:
+                    field_value = dict(name="submitter", text=value, time=datetime.now())
             case _:
                 field_value = value
         # insert into field
@@ -595,7 +616,8 @@ class BasicSubmission(BaseClass):
                 start_date:date|str|int|None=None,
                 end_date:date|str|int|None=None,
                 reagent:Reagent|str|None=None,
-                chronologic:bool=False, limit:int=0, 
+                chronologic:bool=False, 
+                limit:int=0, 
                 **kwargs
                 ) -> BasicSubmission | List[BasicSubmission]:
         """

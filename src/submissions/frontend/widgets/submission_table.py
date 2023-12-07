@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db.functions import submissions_to_df
 from backend.db.models import BasicSubmission
 from backend.excel import make_report_html, make_report_xlsx
 from tools import check_if_app, Report, Result, jinja_template_loading, get_first_blank_df_row, row_map
@@ -102,7 +101,8 @@ class SubmissionsSheet(QTableView):
         """
         sets data in model
         """        
-        self.data = submissions_to_df()
+        # self.data = submissions_to_df()
+        self.data = BasicSubmission.submissions_to_df()
         try:
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)

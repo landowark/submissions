@@ -9,9 +9,8 @@ import numpy as np
 from pathlib import Path
 from backend.db.models import *
 from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample
-import logging
+import logging, re
 from collections import OrderedDict
-import re
 from datetime import date
 from dateutil.parser import parse, ParserError
 from tools import check_not_nan, convert_nans_to_nones, Settings
@@ -256,8 +255,12 @@ class ReagentParser(object):
                     name = df.iat[relevant[item]['name']['row']-1, relevant[item]['name']['column']-1]
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
+                    if 'comment' in relevant[item].keys():
+                        comment = df.iat[relevant[item]['comment']['row']-1, relevant[item]['comment']['column']-1]
+                    else:
+                        comment = ""
                 except (KeyError, IndexError):
-                    listo.append(PydReagent(type=item.strip(), lot=None, expiry=None, name=None, missing=True))
+                    listo.append(PydReagent(type=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True))
                     continue
                 # If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
@@ -266,8 +269,8 @@ class ReagentParser(object):
                     missing = True
                 # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}")
-                listo.append(PydReagent(type=item.strip(), lot=lot, expiry=expiry, name=name, missing=missing))
+                logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
+                listo.append(PydReagent(type=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment, missing=missing))
         # logger.debug(f"Returning listo: {listo}")
         return listo
 

@@ -3,8 +3,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
     QDateEdit, QLabel, QSizePolicy
 )
-from PyQt6.QtCore import QSignalBlocker, QLoggingCategory
-from backend.db import ControlType, Control, get_control_subtypes
+from PyQt6.QtCore import QSignalBlocker
+from backend.db import ControlType, Control#, get_control_subtypes
 from PyQt6.QtCore import QDate, QSize
 import logging, sys
 from tools import Report, Result
@@ -88,7 +88,8 @@ class ControlsViewer(QWidget):
         self.mode = self.mode_typer.currentText()
         self.sub_typer.clear()
         # lookup subtypes
-        sub_types = get_control_subtypes(type=self.con_type, mode=self.mode)
+        # sub_types = get_control_subtypes(type=self.con_type, mode=self.mode)
+        sub_types = ControlType.query(name=self.con_type).get_subtypes(mode=self.mode)
         # sub_types = lookup_controls(ctx=obj.ctx, control_type=obj.con_type)
         if sub_types != []:
             # block signal that will rerun controls getter and update sub_typer

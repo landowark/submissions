@@ -4,9 +4,8 @@ All control related models.
 from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship, Query
-import logging
+import logging, json
 from operator import itemgetter
-import json
 from . import BaseClass
 from tools import setup_lookup, query_return
 from datetime import date, datetime
@@ -51,6 +50,26 @@ class ControlType(BaseClass):
                 pass
         return query_return(query=query, limit=limit)
     
+    def get_subtypes(self, mode:str) -> List[str]:
+        """
+        Get subtypes associated with this controltype
+
+        Args:
+            mode (str): analysis mode name
+
+        Returns:
+            List[str]: list of subtypes available
+        """        
+        outs = self.instances[0]
+        jsoner = json.loads(getattr(outs, mode))
+        logger.debug(f"JSON out: {jsoner.keys()}")
+        try:
+            genera = list(jsoner.keys())[0]
+        except IndexError:
+            return []
+        subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
+        return subtypes
+          
 class Control(BaseClass):
     """
     Base class of a control sample.
@@ -249,4 +268,3 @@ class Control(BaseClass):
     def save(self):
         self.__database_session__.add(self)
         self.__database_session__.commit()
-

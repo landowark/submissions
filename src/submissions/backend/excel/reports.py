@@ -2,9 +2,8 @@
 Contains functions for generating summary reports
 '''
 from pandas import DataFrame
-import logging
+import logging, re
 from datetime import date, timedelta
-import re
 from typing import List, Tuple
 from tools import jinja_template_loading, Settings
 

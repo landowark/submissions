@@ -183,15 +183,6 @@ class ReagentType(BaseClass):
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
     kit_types = association_proxy("reagenttype_kit_associations", "kit_type", creator=lambda kit: KitTypeReagentTypeAssociation(kit_type=kit))
 
-    # def __str__(self) -> str:
-    #     """
-    #     string representing this object
-
-    #     Returns:
-    #         str: string representing this object's name
-    #     """        
-    #     return self.name
-    
     def __repr__(self):
         return f"<ReagentType({self.name})>"
     
@@ -379,7 +370,17 @@ class Reagent(BaseClass):
     name = Column(String(64)) #: reagent name
     lot = Column(String(64)) #: lot number of reagent
     expiry = Column(TIMESTAMP) #: expiry date - extended by eol_ext of parent programmatically
-    submissions = relationship("BasicSubmission", back_populates="reagents", uselist=True) #: submissions this reagent is used in
+    # submissions = relationship("BasicSubmission", back_populates="reagents", uselist=True) #: submissions this reagent is used in
+
+    reagent_submission_associations = relationship(
+        "SubmissionReagentAssociation",
+        back_populates="reagent",
+        cascade="all, delete-orphan",
+    ) #: Relation to SubmissionSampleAssociation
+    # association proxy of "user_keyword_associations" collection
+    # to "keyword" attribute
+    submissions = association_proxy("reagent_submission_associations", "submission") #: Association proxy to SubmissionSampleAssociation.samples
+
 
     def __repr__(self):
         if self.name != None:
@@ -706,3 +707,69 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
                 query = query.join(KitType).filter(KitType.id==kit_type)
         limit = query.count()
         return query_return(query=query, limit=limit)
+
+class SubmissionReagentAssociation(BaseClass):
+
+    __tablename__ = "_reagents_submissions"
+
+    reagent_id = Column(INTEGER, ForeignKey("_reagents.id"), primary_key=True) #: id of associated sample
+    submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True)
+    comments = Column(String(1024))
+
+    submission = relationship("BasicSubmission", back_populates="submission_reagent_associations") #: associated submission
+
+    reagent = relationship(Reagent, back_populates="reagent_submission_associations")
+
+    def __repr__(self):
+        return f"<{self.submission.rsl_plate_num}&{self.reagent.lot}>"
+
+    def __init__(self, reagent=None, submission=None):
+        self.reagent = reagent
+        self.submission = submission
+        self.comments = ""
+
+    @classmethod
+    @setup_lookup
+    def query(cls, 
+              submission:"BasicSubmission"|str|int|None=None, 
+              reagent:Reagent|str|None=None,
+              limit:int=0) -> SubmissionReagentAssociation|List[SubmissionReagentAssociation]:
+        """
+        Lookup SubmissionReagentAssociations of interest.
+
+        Args:
+            submission (BasicSubmission&quot; | str | int | None, optional): Identifier of joined submission. Defaults to None.
+            reagent (Reagent | str | None, optional): Identifier of joined reagent. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            SubmissionReagentAssociation|List[SubmissionReagentAssociation]: SubmissionReagentAssociation(s) of interest
+        """        
+        from . import BasicSubmission
+        query: Query = cls.__database_session__.query(cls)
+        match reagent:
+            case Reagent():
+                query = query.filter(cls.reagent==reagent)
+            case str():
+                # logger.debug(f"Filtering query with reagent: {reagent}")
+                reagent = Reagent.query(lot_number=reagent)
+                query = query.filter(cls.reagent==reagent)
+                # logger.debug([item.reagent.lot for item in query.all()])
+                # query = query.join(Reagent).filter(Reagent.lot==reagent)
+            case _:
+                pass
+        # logger.debug(f"Result of query after reagent: {query.all()}")
+        match submission:
+            case BasicSubmission():
+                query = query.filter(cls.submission==submission)
+            case str():
+                query = query.join(BasicSubmission).filter(BasicSubmission.rsl_plate_num==submission)
+            case int():
+                query = query.join(BasicSubmission).filter(BasicSubmission.id==submission)
+            case _:
+                pass
+        # logger.debug(f"Result of query after submission: {query.all()}")
+        # limit = query.count()
+        return query_return(query=query, limit=limit)
+
+
