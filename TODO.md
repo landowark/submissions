@@ -1,9 +1,14 @@
+- [ ] Update Artic and add in equipment listings... *sigh*.
+- [x] Fix WastewaterAssociations not in Session error.
+    - Done... I think?
+- [x] Fix submitted date always being today.
+    - this is an issue with the way client is filling in form with =TODAY()
 - [x] SubmissionReagentAssociation.query 
 - [x] Move as much from db.functions to objects as possible.
 - [x] Clean up DB objects after failed test fix.
 - [x] Fix tests.
 - [x] Fix pydant.PydSample.handle_duplicate_samples?
-- [ ] See if the number of queries in BasicSubmission functions (and others) can be trimmed down.
+- [x] See if the number of queries in BasicSubmission functions (and others) can be trimmed down.
 - [x] Document code 
 - [x] Create a result object to facilitate returning function results.
 - [x] Refactor main_window_functions into as many objects (forms, etc.) as possible to clean it up.

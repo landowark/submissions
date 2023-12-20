@@ -82,7 +82,7 @@ class KitAdder(QWidget):
         print(self.app)
         # get bottommost row
         maxrow = self.grid.rowCount()
-        reg_form = ReagentTypeForm()
+        reg_form = ReagentTypeForm(parent=self)
         reg_form.setObjectName(f"ReagentForm_{maxrow}")
         # self.grid.addWidget(reg_form, maxrow + 1,0,1,2)
         self.grid.addWidget(reg_form, maxrow,0,1,4)
@@ -139,8 +139,8 @@ class ReagentTypeForm(QWidget):
     """
     custom widget to add information about a new reagenttype
     """    
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, parent) -> None:
+        super().__init__(parent)
         grid = QGridLayout()
         self.setLayout(grid)
         grid.addWidget(QLabel("Reagent Type Name"),0,0)

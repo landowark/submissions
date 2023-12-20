@@ -53,7 +53,7 @@ class KitSelector(QDialog):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        kits = [item.__str__() for item in KitType.query()]
+        kits = [item.name for item in KitType.query()]
         self.widget.addItems(kits)
         self.widget.setEditable(False)
         # set yes/no buttons

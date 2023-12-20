@@ -127,9 +127,10 @@ class PydReagent(BaseModel):
                         reagent.name = value
                     case "comment":
                         continue
-                assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
-                assoc.comments = self.comment
-                reagent.reagent_submission_associations.append(assoc)
+                if submission != None:
+                    assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
+                    assoc.comments = self.comment
+                    reagent.reagent_submission_associations.append(assoc)
             # add end-of-life extension from reagent type to expiry date
             # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
         return reagent, report
@@ -199,7 +200,8 @@ class PydSample(BaseModel, extra='allow'):
                                                                           row=row, column=column)
                 try:
                     instance.sample_submission_associations.append(association)
-                except IntegrityError:
+                except IntegrityError as e:
+                    logger.error(f"Could not attach submission sample association due to: {e}")
                     instance.metadata.session.rollback()
         return instance, report
 
@@ -420,13 +422,18 @@ class PydSubmission(BaseModel, extra='allow'):
             if isinstance(value, dict):
                 value = value['value']
             logger.debug(f"Setting {key} to {value}")
-            try:
-                instance.set_attribute(key=key, value=value)
-            except AttributeError as e:
-                logger.debug(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
-                continue
-            except KeyError:
-                continue
+            match key:
+                case "samples":
+                    for sample in self.samples:
+                        sample, _ = sample.toSQL(submission=instance)
+                case _:
+                    try:
+                        instance.set_attribute(key=key, value=value)
+                    except AttributeError as e:
+                        logger.debug(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
+                        continue
+                    except KeyError:
+                        continue
         try:
             logger.debug(f"Calculating costs for procedure...")
             instance.calculate_base_cost()
@@ -735,4 +742,35 @@ class PydKit(BaseModel):
             [item.toSQL(instance) for item in self.reagent_types]
         return instance, report
 
+class PydEquipment(BaseModel, extra='ignore'):
 
+    name: str
+    nickname: str|None
+    asset_number: str
+    pool_name: str|None
+    static: bool|int
+
+    @field_validator("static")
+    @classmethod
+    def to_boolean(cls, value):
+        match value:
+            case int():
+                if value == 0:
+                    return False
+                else:
+                    return True
+            case _:
+                return value
+
+    def toForm(self, parent):
+        from frontend.widgets.equipment_usage import EquipmentCheckBox
+        return EquipmentCheckBox(parent=parent, equipment=self)
+
+class PydEquipmentPool(BaseModel):
+
+    name: str
+    equipment: List[PydEquipment]
+
+    def toForm(self, parent):
+        from frontend.widgets.equipment_usage import PoolComboBox
+        return PoolComboBox(parent=parent, pool=self)

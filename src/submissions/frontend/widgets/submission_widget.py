@@ -62,12 +62,13 @@ class SubmissionFormContainer(QWidget):
         self.app.result_reporter()
 
     def scrape_reagents(self, *args, **kwargs):
-        print(f"\n\n{inspect.stack()[1].function}\n\n")
-        self.scrape_reagents_function(args[0])
+        caller = inspect.stack()[1].function.__repr__().replace("'", "")
+        logger.debug(f"Args: {args}, kwargs: {kwargs}")
+        self.scrape_reagents_function(args[0], caller=caller)
         self.kit_integrity_completion()
         self.app.report.add_result(self.report)
         self.report = Report()
-        match inspect.stack()[1].function:
+        match inspect.stack()[1].function.__repr__():
             case "import_submission_function":
                 pass
             case _:
@@ -83,7 +84,7 @@ class SubmissionFormContainer(QWidget):
         self.kit_integrity_completion_function()
         self.app.report.add_result(self.report)
         self.report = Report()
-        match inspect.stack()[1].function:
+        match inspect.stack()[1].function.__repr__():
             case "import_submission_function":
                 pass
             case _:
@@ -161,7 +162,7 @@ class SubmissionFormContainer(QWidget):
         logger.debug(f"Outgoing report: {self.report.results}")
         logger.debug(f"All attributes of submission container:\n{pformat(self.__dict__)}")
 
-    def scrape_reagents_function(self, extraction_kit:str):
+    def scrape_reagents_function(self, extraction_kit:str, caller:str|None=None):
         """
         Extracted scrape reagents function that will run when 
         form 'extraction_kit' widget is updated.
@@ -173,6 +174,9 @@ class SubmissionFormContainer(QWidget):
         Returns:
             Tuple[QMainWindow, dict]: Updated application and result
         """    
+        self.form.reagents = []
+        logger.debug(f"\n\n{caller}\n\n")
+        # assert caller == "import_submission_function"
         report = Report()
         logger.debug(f"Extraction kit: {extraction_kit}")
         # obj.reagents = []
@@ -195,7 +199,15 @@ class SubmissionFormContainer(QWidget):
         #         obj.reagents.append(reagent)
         #     else:
         #         obj.missing_reagents.append(reagent)
-        self.form.reagents = self.prsr.sub['reagents']
+        match caller:
+            case "import_submission_function":
+                self.form.reagents = self.prsr.sub['reagents']
+            case _:
+                already_have = [reagent for reagent in self.prsr.sub['reagents'] if not reagent.missing]
+                names = list(set([item.type for item in already_have]))
+                logger.debug(f"reagents: {already_have}")
+                reagents = [item.to_pydantic() for item in KitType.query(name=extraction_kit).get_reagents(submission_type=self.pyd.submission_type) if item.name not in names]
+                self.form.reagents = already_have + reagents
         # logger.debug(f"Imported reagents: {obj.reagents}")
         # logger.debug(f"Missing reagents: {obj.missing_reagents}")
         self.report.add_result(report)
@@ -221,6 +233,7 @@ class SubmissionFormContainer(QWidget):
         self.ext_kit = kit_widget.currentText()
         # for reagent in obj.pyd.reagents:
         for reagent in self.form.reagents:
+            logger.debug(f"Creating widget for {reagent}")
             add_widget = ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
             # add_widget.setParent(sub_form_container.form)
             self.form.layout().addWidget(add_widget)

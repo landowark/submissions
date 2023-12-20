@@ -18,6 +18,8 @@ from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .kit_creator import KitAdder
+from .submission_type_creator import SubbmissionTypeAdder
+
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -207,11 +209,13 @@ class AddSubForm(QWidget):
         self.tab1 = QWidget()
         self.tab2 = QWidget()
         self.tab3 = QWidget()
+        self.tab4 = QWidget()
         self.tabs.resize(300,200)
         # Add tabs
         self.tabs.addTab(self.tab1,"Submissions")
         self.tabs.addTab(self.tab2,"Controls")
-        self.tabs.addTab(self.tab3, "Add Kit")
+        self.tabs.addTab(self.tab3, "Add SubmissionType")
+        self.tabs.addTab(self.tab4, "Add Kit")
         # Create submission adder form
         self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
@@ -238,10 +242,14 @@ class AddSubForm(QWidget):
         self.tab2.layout.addWidget(self.controls_viewer)
         self.tab2.setLayout(self.tab2.layout)
         # create custom widget to add new tabs
-        adder = KitAdder(self)
+        ST_adder = SubbmissionTypeAdder(self)
         self.tab3.layout = QVBoxLayout(self)
-        self.tab3.layout.addWidget(adder)
+        self.tab3.layout.addWidget(ST_adder)
         self.tab3.setLayout(self.tab3.layout)
+        kit_adder = KitAdder(self)
+        self.tab4.layout = QVBoxLayout(self)
+        self.tab4.layout.addWidget(kit_adder)
+        self.tab4.setLayout(self.tab4.layout)
         # add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)

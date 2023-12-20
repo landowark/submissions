@@ -3,7 +3,6 @@ Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
 from pathlib import Path
-import re
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect
 import pandas as pd
@@ -99,13 +98,6 @@ def check_regex_match(pattern:str, check:str) -> bool:
     except TypeError:
         return False
     
-# def massage_common_reagents(reagent_name:str):
-#     logger.debug(f"Attempting to massage {reagent_name}")
-#     if reagent_name.endswith("water") or "H2O" in reagent_name.upper():
-#         reagent_name = "molecular_grade_water"
-#     reagent_name = reagent_name.replace("µ", "u")
-#     return reagent_name
-
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
     def doRollover(self):
@@ -143,7 +135,7 @@ class Settings(BaseSettings):
     Pydantic model to hold settings
 
     Raises:
-        FileNotFoundError: _description_
+        FileNotFoundError: Error if database not found.
 
     """    
     directory_path: Path
@@ -516,4 +508,10 @@ def readInChunks(fileObj, chunkSize=2048):
 def get_first_blank_df_row(df:pd.DataFrame) -> int:
     return len(df) + 1
     
+def is_missing(value:Any) -> Tuple[Any, bool]:
+    if check_not_nan(value):
+        return value, False
+    else:
+        return convert_nans_to_nones(value), True
+
 ctx = get_config(None)

@@ -13,7 +13,7 @@ import logging, re
 from collections import OrderedDict
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, convert_nans_to_nones, Settings
+from tools import check_not_nan, convert_nans_to_nones, Settings, is_missing
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -186,23 +186,15 @@ class InfoParser(object):
                 value = df.iat[relevant[item]['row']-1, relevant[item]['column']-1]
                 match item:
                     case "submission_type":
+                        value, missing = is_missing(value)
                         value = value.title()
                     case _:
-                        pass
+                        value, missing = is_missing(value)
                 logger.debug(f"Setting {item} on {sheet} to {value}")
-                if check_not_nan(value):
-                    if value != "None":
-                        try:
-                            dicto[item] = dict(value=value, missing=False)
-                        except (KeyError, IndexError):
-                            continue
-                    else:
-                        try:
-                            dicto[item] = dict(value=value, missing=True)
-                        except (KeyError, IndexError):
-                            continue
-                else:
-                    dicto[item] = dict(value=convert_nans_to_nones(value), missing=True)
+                try:
+                    dicto[item] = dict(value=value, missing=missing)
+                except (KeyError, IndexError):
+                    continue
         return self.custom_parser(input_dict=dicto, xl=self.xl)
                 
 class ReagentParser(object):
@@ -293,7 +285,9 @@ class SampleParser(object):
         self.xl = xl
         self.submission_type = submission_type
         sample_info_map = self.fetch_sample_info_map(submission_type=submission_type)
+        logger.debug(f"sample_info_map: {sample_info_map}")
         self.plate_map = self.construct_plate_map(plate_map_location=sample_info_map['plate_map'])
+        logger.debug(f"plate_map: {self.plate_map}")
         self.lookup_table = self.construct_lookup_table(lookup_table_location=sample_info_map['lookup_table'])
         if "plates" in sample_info_map:
             self.plates = sample_info_map['plates']
@@ -332,10 +326,12 @@ class SampleParser(object):
         Returns:
             pd.DataFrame: Plate map grid
         """        
+        logger.debug(f"Plate map location: {plate_map_location}")
         df = self.xl.parse(plate_map_location['sheet'], header=None, dtype=object)
         df = df.iloc[plate_map_location['start_row']-1:plate_map_location['end_row'], plate_map_location['start_column']-1:plate_map_location['end_column']]
         df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
         df = df.set_index(df.columns[0])
+        logger.debug(f"Vanilla platemap: {df}")
         # custom_mapper = get_polymorphic_subclass(models.BasicSubmission, self.submission_type)
         custom_mapper = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         df = custom_mapper.custom_platemap(self.xl, df)
@@ -440,6 +436,7 @@ class SampleParser(object):
         """        
         result = None
         new_samples = []
+        logger.debug(f"Starting samples: {pformat(self.samples)}")
         for ii, sample in enumerate(self.samples):
             # try:
             #     if sample['submitter_id'] in [check_sample['sample'].submitter_id for check_sample in new_samples]:

@@ -1,4 +1,11 @@
+## 202312.03
+
+- Enabled creation of new submission types in gui.
+- Enabled Equipment addition.
+
 ## 202312.02
+
+- Bug fixes for switching kits
 
 ## 202312.01
 

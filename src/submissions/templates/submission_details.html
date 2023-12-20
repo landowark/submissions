@@ -32,10 +32,10 @@
               visibility: visible;
               font-size: large;
             }
-            </style>
+        </style>
         <title>Submission Details for {{ sub['Plate Number'] }}</title>
     </head>
-    {% set excluded = ['reagents', 'samples', 'controls', 'extraction_info', 'pcr_info', 'comment', 'barcode', 'platemap', 'export_map'] %}
+    {% set excluded = ['reagents', 'samples', 'controls', 'extraction_info', 'pcr_info', 'comment', 'barcode', 'platemap', 'export_map', 'equipment'] %}
     <body>
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;{% if sub['barcode'] %}<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">{% endif %}
         <p>{% for key, value in sub.items() if key not in excluded %}
@@ -45,6 +45,12 @@
         <p>{% for item in sub['reagents'] %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}</b>: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
         {% endfor %}</p>
+        {% if sub['equipment'] %}
+        <h3><u>Equipment:</u></h3>
+        <p>{% for item in sub['equipment'] %}
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['name'] }}:</b> {{ item['asset_number']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
+        {% endfor %}</p>
+        {% endif %}
         {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}

@@ -10,6 +10,7 @@ import logging
 from tools import check_authorization, setup_lookup, query_return, Report, Result, Settings
 from typing import List
 from pandas import ExcelFile
+from pathlib import Path
 from . import Base, BaseClass, Organization
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -55,7 +56,7 @@ class KitType(BaseClass):
     def __repr__(self) -> str:
         return f"<KitType({self.name})>"
     
-    def get_reagents(self, required:bool=False, submission_type:str|SubmissionType|None=None) -> list:
+    def get_reagents(self, required:bool=False, submission_type:str|SubmissionType|None=None) -> List[ReagentType]:
         """
         Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
 
@@ -242,6 +243,10 @@ class ReagentType(BaseClass):
             case _:
                 pass
         return query_return(query=query, limit=limit)
+    
+    def to_pydantic(self):
+        from backend.validators.pydant import PydReagent
+        return PydReagent(lot=None, type=self.name, name=self.name, expiry=date.today())
 
 class KitTypeReagentTypeAssociation(BaseClass):
     """
@@ -583,6 +588,14 @@ class SubmissionType(BaseClass):
 
     kit_types = association_proxy("submissiontype_kit_associations", "kit_type") #: Proxy of kittype association
 
+    submissiontype_equipment_associations = relationship(
+        "SubmissionTypeEquipmentAssociation",
+        back_populates="submission_type",
+        cascade="all, delete-orphan"
+    )
+
+    equipment = association_proxy("submissiontype_equipment_associations", "equipment")
+
     def __repr__(self) -> str:
         return f"<SubmissionType({self.name})>"
     
@@ -594,6 +607,35 @@ class SubmissionType(BaseClass):
             List[str]: List of sheet names
         """                                
         return ExcelFile(self.template_file).sheet_names
+
+    def set_template_file(self, filepath:Path|str):
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
+        with open (filepath, "rb") as f:
+            data = f.read()
+        self.template_file = data
+        self.save()        
+
+    def get_equipment(self) -> list:
+        from backend.validators.pydant import PydEquipmentPool
+        # if static:
+        #     return [item.equipment.to_pydantic() for item in self.submissiontype_equipment_associations if item.static==1]
+        # else:
+        preliminary1 = [item.equipment.to_pydantic(static=item.static) for item in self.submissiontype_equipment_associations]# if item.static==0]
+        preliminary2 = [item.equipment.to_pydantic(static=item.static) for item in self.submissiontype_equipment_associations]# if item.static==0]
+        output = []
+        pools = list(set([item.pool_name for item in preliminary1 if item.pool_name != None]))
+        for pool in pools:
+            c_ = []
+            for item in preliminary1:
+                if item.pool_name == pool:
+                    c_.append(item)
+                    preliminary2.remove(item)
+            if len(c_) > 0:
+                output.append(PydEquipmentPool(name=pool, equipment=c_))
+        for item in preliminary2:
+            output.append(item)
+        return output
 
     @classmethod
     @setup_lookup
@@ -772,4 +814,145 @@ class SubmissionReagentAssociation(BaseClass):
         # limit = query.count()
         return query_return(query=query, limit=limit)
 
+    def to_sub_dict(self, extraction_kit):
+        output = self.reagent.to_sub_dict(extraction_kit)
+        output['comments'] = self.comments
+        return output
+
+class Equipment(BaseClass):
+
+    # Currently abstract until ready to implement
+    # __abstract__ = True
+
+    __tablename__ = "_equipment"
+
+    id = Column(INTEGER, primary_key=True)
+    name = Column(String(64))
+    nickname = Column(String(64))
+    asset_number = Column(String(16))
+    pool_name = Column(String(16))
+
+    equipment_submission_associations = relationship(
+        "SubmissionEquipmentAssociation",
+        back_populates="equipment",
+        cascade="all, delete-orphan",
+    )
+
+    submissions = association_proxy("equipment_submission_associations", "submission")
+
+    equipment_submissiontype_associations = relationship(
+        "SubmissionTypeEquipmentAssociation",
+        back_populates="equipment",
+        cascade="all, delete-orphan",
+    )
+
+    submission_types = association_proxy("equipment_submission_associations", "submission_type")
+
+    def __repr__(self):
+        return f"<Equipment({self.name})>"
+
+    @classmethod
+    @setup_lookup
+    def query(cls, 
+              name:str|None=None,
+              nickname:str|None=None,
+              asset_number:str|None=None,
+              limit:int=0
+              ) -> Equipment|List[Equipment]:
+        query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name==name)
+                limit = 1
+            case _:
+                pass
+        match nickname:
+            case str():
+                query = query.filter(cls.nickname==nickname)
+                limit = 1
+            case _:
+                pass
+        match asset_number:
+            case str():
+                query = query.filter(cls.asset_number==asset_number)
+                limit = 1
+            case _:
+                pass
+        return query_return(query=query, limit=limit)
+    
+    def to_pydantic(self, static):
+        from backend.validators.pydant import PydEquipment
+        return PydEquipment(static=static, **self.__dict__)
+
+    def save(self):
+        self.__database_session__.add(self)
+        self.__database_session__.commit()
+
+class SubmissionEquipmentAssociation(BaseClass):
+
+    # Currently abstract until ready to implement
+    # __abstract__ = True
+
+    __tablename__ = "_equipment_submissions"
+
+    equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True) #: id of associated equipment
+    submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True) #: id of associated submission
+    process = Column(String(64)) #: name of the process run on this equipment
+    start_time = Column(TIMESTAMP)
+    end_time = Column(TIMESTAMP)
+    comments = Column(String(1024))
+    
+    submission = relationship("BasicSubmission", back_populates="submission_equipment_associations") #: associated submission
+
+    equipment = relationship(Equipment, back_populates="equipment_submission_associations") #: associated submission
+
+    def __init__(self, submission, equipment):
+        self.submission = submission
+        self.equipment = equipment
+
+    def to_sub_dict(self) -> dict:
+        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments)
+        return output
+    
+    def save(self):
+        self.__database_session__.add(self)
+        self.__database_session__.commit()
+
+class SubmissionTypeEquipmentAssociation(BaseClass):
+
+    # __abstract__ = True
+
+    __tablename__ = "_submissiontype_equipment"
+
+    equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True) #: id of associated equipment
+    submissiontype_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True) #: id of associated submission
+    uses = Column(JSON) #: locations of equipment on the submission type excel sheet.
+    static = Column(INTEGER, default=1) #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+
+    submission_type = relationship(SubmissionType, back_populates="submissiontype_equipment_associations") #: associated submission
+
+    equipment = relationship(Equipment, back_populates="equipment_submissiontype_associations") #: associated equipment
+
+    @validates('static')
+    def validate_age(self, key, value):
+        """
+        Ensures only 1 & 0 used in 'static'
+
+        Args:
+            key (str): name of attribute
+            value (_type_): value of attribute
+
+        Raises:
+            ValueError: Raised if bad value given
+
+        Returns:
+            _type_: value
+        """        
+        if not 0 <= value < 2:
+            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+        return value
+    
+    def save(self):
+        self.__database_session__.add(self)
+        self.__database_session__.commit()
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from getpass import getuser
 import math, json, logging, uuid, tempfile, re, yaml
 from pprint import pformat
-from . import Reagent, SubmissionType, KitType, Organization
+from . import Reagent, SubmissionType, KitType, Organization, Equipment, SubmissionEquipmentAssociation
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from json.decoder import JSONDecodeError
@@ -69,6 +69,13 @@ class BasicSubmission(BaseClass):
     # to "keyword" attribute
     reagents = association_proxy("submission_reagent_associations", "reagent") #: Association proxy to SubmissionSampleAssociation.samples
 
+    submission_equipment_associations = relationship(
+        "SubmissionEquipmentAssociation",
+        back_populates="submission",
+        cascade="all, delete-orphan"
+    )
+    equipment = association_proxy("submission_equipment_associations", "equipment")
+
     # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
         "polymorphic_identity": "Basic Submission",
@@ -124,7 +131,7 @@ class BasicSubmission(BaseClass):
         # Updated 2023-09 to use the extraction kit to pull reagents.
         if full_data:
             try:
-                reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in self.reagents]
+                reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in self.submission_reagent_associations]
             except Exception as e:
                 logger.error(f"We got an error retrieving reagents: {e}")
                 reagents = None
@@ -138,6 +145,13 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}")
             comments = None
+        try:
+            equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
+            if len(equipment) == 0:
+                equipment = None
+        except Exception as e:
+            logger.error(f"Error setting equipment: {self.equipment}")
+            equipment = None
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -153,7 +167,8 @@ class BasicSubmission(BaseClass):
             "reagents": reagents,
             "samples": samples,
             "extraction_info": ext_info,
-            "comment": comments
+            "comment": comments,
+            "equipment": equipment
         }
         return output
 
@@ -447,7 +462,7 @@ class BasicSubmission(BaseClass):
         logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # Exclude sub information
-        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents']:
+        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment']:
             try:
                 df = df.drop(item, axis=1)
             except:
@@ -520,7 +535,7 @@ class BasicSubmission(BaseClass):
             _type_: _description_
         """        
         # assoc = SubmissionSampleAssociation.query(submission=self, sample=sample, limit=1)
-        assoc = [item.sample for item in self.submission_sample_associations if item.sample==sample][0]
+        assoc = [item for item in self.submission_sample_associations if item.sample==sample][0]
         for k,v in input_dict.items():
             try:
                 setattr(assoc, k, v)
@@ -750,7 +765,8 @@ class BasicSubmission(BaseClass):
             code = 1
             msg = "This submission already exists.\nWould you like to overwrite?"
         return instance, code, msg
-        
+
+
 # Below are the custom submission types
 
 class BacterialCulture(BasicSubmission):
@@ -877,6 +893,12 @@ class BacterialCulture(BasicSubmission):
         template += "_{{ submitting_lab }}_{{ submitter_plate_num }}"
         return template
     
+    @classmethod
+    def parse_info(cls, input_dict: dict, xl: pd.ExcelFile | None = None) -> dict:
+        input_dict = super().parse_info(input_dict, xl)
+        input_dict['submitted_date']['missing'] = True
+        return input_dict
+
 class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
@@ -1009,7 +1031,8 @@ class Wastewater(BasicSubmission):
         Returns:
             str: String for regex construction
         """        
-        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789]|$)R?\d?)?)"
+        # return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\s]|$)R?\d?)?)"
+        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\s]|$)?R?\d?)?)"
   
 class WastewaterArtic(BasicSubmission):
     """
@@ -1416,7 +1439,9 @@ class BasicSample(BaseClass):
         return instance
 
     def save(self):
-        raise AttributeError(f"Save not implemented for {self.__class__}")
+        # raise AttributeError(f"Save not implemented for {self.__class__}")
+        self.__database_session__.add(self)
+        self.__database_session__.commit()
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
@@ -1735,4 +1760,3 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     pcr_results = Column(JSON) #: imported PCR status from QuantStudio
 
     __mapper_args__ = {"polymorphic_identity": "Wastewater Association", "polymorphic_load": "inline"}
-

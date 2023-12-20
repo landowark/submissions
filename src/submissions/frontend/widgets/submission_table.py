@@ -15,11 +15,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db.models import BasicSubmission
+from backend.db.models import BasicSubmission, Equipment, SubmissionEquipmentAssociation
 from backend.excel import make_report_html, make_report_xlsx
 from tools import check_if_app, Report, Result, jinja_template_loading, get_first_blank_df_row, row_map
 from xhtml2pdf import pisa
 from .pop_ups import QuestionAsker
+from .equipment_usage import EquipmentUsage
 from ..visualizations import make_plate_barcode, make_plate_map, make_plate_map_html
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
@@ -159,21 +160,43 @@ class SubmissionsSheet(QTableView):
         # barcodeAction = QAction("Print Barcode", self)
         commentAction = QAction("Add Comment", self)
         backupAction = QAction("Backup", self)
+        equipAction = QAction("Add Equipment", self)
         # hitpickAction = QAction("Hitpicks", self)
         renameAction.triggered.connect(lambda: self.delete_item(event))
         detailsAction.triggered.connect(lambda: self.show_details())
         # barcodeAction.triggered.connect(lambda: self.create_barcode())
         commentAction.triggered.connect(lambda: self.add_comment())
         backupAction.triggered.connect(lambda: self.regenerate_submission_form())
+        equipAction.triggered.connect(lambda: self.add_equipment())
         # hitpickAction.triggered.connect(lambda: self.hit_pick())
         self.menu.addAction(detailsAction)
         self.menu.addAction(renameAction)
         # self.menu.addAction(barcodeAction)
         self.menu.addAction(commentAction)
         self.menu.addAction(backupAction)
+        self.menu.addAction(equipAction)
         # self.menu.addAction(hitpickAction)
         # add other required actions
         self.menu.popup(QCursor.pos())
+
+    def add_equipment(self):
+        index = (self.selectionModel().currentIndex())
+        value = index.sibling(index.row(),0).data()
+        self.add_equipment_function(rsl_plate_id=value)
+
+    def add_equipment_function(self, rsl_plate_id):
+        submission = BasicSubmission.query(id=rsl_plate_id)
+        submission_type = submission.submission_type_name
+        dlg = EquipmentUsage(parent=self, submission_type=submission_type)
+        if dlg.exec():
+            equipment = dlg.parse_form()
+            for equip in equipment:
+                e = Equipment.query(name=equip)
+                assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
+                # submission.submission_equipment_associations.append(assoc)
+                logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
+                # submission.save()
+                assoc.save()
 
     def delete_item(self, event):
         """
@@ -192,65 +215,6 @@ class SubmissionsSheet(QTableView):
         else:
             return
         self.setData()
-
-    # def hit_pick(self):
-    #     """
-    #     Extract positive samples from submissions with PCR results and export to csv.
-    #     NOTE: For this to work for arbitrary samples, positive samples must have 'positive' in their name
-    #     """        
-    #     # Get all selected rows
-    #     indices = self.selectionModel().selectedIndexes()
-    #     # convert to id numbers
-    #     indices = [index.sibling(index.row(), 0).data() for index in indices]
-    #     # biomek can handle 4 plates maximum
-    #     if len(indices) > 4:
-    #         logger.error(f"Error: Had to truncate number of plates to 4.")
-    #         indices = indices[:4]
-    #     # lookup ids in the database
-    #     # subs = [lookup_submissions(ctx=self.ctx, id=id) for id in indices]
-    #     subs = [BasicSubmission.query(id=id) for id in indices]
-    #     # full list of samples
-    #     dicto = []
-    #     # list to contain plate images
-    #     images = []
-    #     for iii, sub in enumerate(subs):
-    #         # second check to make sure there aren't too many plates
-    #         if iii > 3: 
-    #             logger.error(f"Error: Had to truncate number of plates to 4.")
-    #             continue
-    #         plate_dicto = sub.hitpick_plate(plate_number=iii+1)
-    #         if plate_dicto == None:
-    #             continue
-    #         image = make_plate_map(plate_dicto)
-    #         images.append(image)
-    #         for item in plate_dicto:
-    #             if len(dicto) < 94:
-    #                 dicto.append(item)
-    #             else:
-    #                 logger.error(f"We had to truncate the number of samples to 94.")
-    #     logger.debug(f"We found {len(dicto)} to hitpick")
-    #     # convert all samples to dataframe
-    #     df = make_hitpicks(dicto)
-    #     df = df[df.positive != False]
-    #     logger.debug(f"Size of the dataframe: {df.shape[0]}")
-    #     msg = AlertPop(message=f"We found {df.shape[0]} samples to hitpick", status="INFORMATION")
-    #     msg.exec()
-    #     if df.size == 0:
-    #         return
-    #     date = datetime.strftime(datetime.today(), "%Y-%m-%d")
-    #     # ask for filename and save as csv.
-    #     home_dir = Path(self.ctx.directory_path).joinpath(f"Hitpicks_{date}.csv").resolve().__str__()
-    #     fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".csv")[0])
-    #     if fname.__str__() == ".":
-    #         logger.debug("Saving csv was cancelled.")
-    #         return
-    #     df.to_csv(fname.__str__(), index=False)
-    #     # show plate maps
-    #     for image in images:
-    #         try:
-    #             image.show()
-    #         except Exception as e:
-    #             logger.error(f"Could not show image: {e}.")
 
     def link_extractions(self):
         self.link_extractions_function()
