@@ -18,7 +18,7 @@ from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .kit_creator import KitAdder
-from .submission_type_creator import SubbmissionTypeAdder
+from .submission_type_creator import SubmissionTypeAdder
 
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -242,7 +242,7 @@ class AddSubForm(QWidget):
         self.tab2.layout.addWidget(self.controls_viewer)
         self.tab2.setLayout(self.tab2.layout)
         # create custom widget to add new tabs
-        ST_adder = SubbmissionTypeAdder(self)
+        ST_adder = SubmissionTypeAdder(self)
         self.tab3.layout = QVBoxLayout(self)
         self.tab3.layout.addWidget(ST_adder)
         self.tab3.setLayout(self.tab3.layout)

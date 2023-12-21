@@ -1,3 +1,4 @@
+- [ ] Complete info_map in the SubmissionTypeCreator widget.
 - [ ] Update Artic and add in equipment listings... *sigh*.
 - [x] Fix WastewaterAssociations not in Session error.
     - Done... I think?

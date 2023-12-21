@@ -19,7 +19,7 @@ from .functions import select_open_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class SubbmissionTypeAdder(QWidget):
+class SubmissionTypeAdder(QWidget):
 
     def __init__(self, parent) -> None:
         super().__init__(parent)
@@ -77,13 +77,16 @@ class SubbmissionTypeAdder(QWidget):
     def submit(self):
         info = self.parse_form()
         ST = SubmissionType(name=self.st_name.text(), info_map=info)
-        with open(self.template_path, "rb") as f:
-            ST.template_file = f.read()
-        logger.debug(ST.__dict__)
+        try:
+            with open(self.template_path, "rb") as f:
+                ST.template_file = f.read()
+        except FileNotFoundError:
+            logger.error(f"Could not find template file: {self.template_path}")
+        ST.save(ctx=self.app.ctx)
 
     def parse_form(self):
         widgets = [widget for widget in self.findChildren(QWidget) if isinstance(widget, InfoWidget)]
-        return [{widget.objectName():widget.parse_form()} for widget in widgets]
+        return {widget.objectName():widget.parse_form() for widget in widgets}
     
     def get_template_path(self):
         self.template_path = select_open_file(obj=self, file_extension="xlsx")

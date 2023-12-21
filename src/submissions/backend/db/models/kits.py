@@ -12,6 +12,7 @@ from typing import List
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
+from tools import Settings
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -671,7 +672,8 @@ class SubmissionType(BaseClass):
                 pass
         return query_return(query=query, limit=limit)
     
-    def save(self):
+    @check_authorization
+    def save(self, ctx:Settings):
         """
         Adds this instances to the database and commits.
         """        
@@ -952,7 +954,8 @@ class SubmissionTypeEquipmentAssociation(BaseClass):
             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
         return value
     
-    def save(self):
+    @check_authorization
+    def save(self, ctx:Settings):
         self.__database_session__.add(self)
         self.__database_session__.commit()
 
