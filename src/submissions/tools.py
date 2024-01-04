@@ -45,8 +45,10 @@ def check_not_nan(cell_contents) -> bool:
         bool: True if cell has value, else, false.
     """    
     # check for nan as a string first
+    exclude = ['unnamed:', 'blank', 'void']
     try:
-        if "Unnamed:" in cell_contents or "blank" in cell_contents.lower():
+        # if "Unnamed:" in cell_contents or "blank" in cell_contents.lower():
+        if cell_contents.lower() in exclude:
             cell_contents = np.nan
         cell_contents = cell_contents.lower()
     except (TypeError, AttributeError):

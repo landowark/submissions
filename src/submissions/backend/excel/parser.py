@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from backend.db.models import *
-from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample
+from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample, PydEquipment
 import logging, re
 from collections import OrderedDict
 from datetime import date
@@ -53,6 +53,7 @@ class SheetParser(object):
         self.parse_reagents()
         self.import_reagent_validation_check()
         self.parse_samples()
+        self.parse_equipment()
         self.finalize_parse()
         logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
                 
@@ -89,6 +90,10 @@ class SheetParser(object):
         parser = SampleParser(xl=self.xl, submission_type=self.sub['submission_type']['value'])
         self.sample_result, self.sub['samples'] = parser.parse_samples()
         self.plate_map = parser.plate_map
+
+    def parse_equipment(self):
+        parser = EquipmentParser(xl=self.xl, submission_type=self.sub['submission_type']['value'])
+        self.sub['equipment'] = parser.parse_equipment()
 
     def import_kit_validation_check(self):
         """
@@ -129,6 +134,9 @@ class SheetParser(object):
             PydSubmission: output pydantic model
         """       
         # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
+        logger.debug(f"Equipment: {self.sub['equipment']}")
+        if len(self.sub['equipment']) == 0:
+            self.sub['equipment'] = None
         psm = PydSubmission(filepath=self.filepath, **self.sub)
         return psm
     
@@ -480,6 +488,45 @@ class SampleParser(object):
             plates.append(output)
         return plates
     
+class EquipmentParser(object):
+
+    def __init__(self, xl:pd.ExcelFile, submission_type:str) -> None:
+        self.submission_type = submission_type
+        self.xl = xl
+        self.map = self.fetch_equipment_map()
+        # self.equipment = self.parse_equipment()
+
+    def fetch_equipment_map(self) -> List[dict]:
+        submission_type = SubmissionType.query(name=self.submission_type)
+        return submission_type.construct_equipment_map()
+    
+    def get_asset_number(self, input:str) -> str:
+        regex = Equipment.get_regex()
+        return regex.search(input).group().strip("-")
+    
+    def parse_equipment(self):
+        logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
+        output = []
+        # sheets = list(set([item['sheet'] for item in self.map]))
+        # logger.debug(f"Sheets: {sheets}")
+        for sheet in self.xl.sheet_names:
+            df = self.xl.parse(sheet, header=None, dtype=object)
+            relevant = [item for item in self.map if item['sheet']==sheet]
+            # logger.debug(f"Relevant equipment: {pformat(relevant)}")
+            previous_asset = ""
+            for equipment in relevant:
+                asset = df.iat[equipment['name']['row']-1, equipment['name']['column']-1]
+                if not check_not_nan(asset):
+                    asset = previous_asset
+                else:
+                    previous_asset = asset
+                asset = self.get_asset_number(input=asset)
+                eq = Equipment.query(asset_number=asset)
+                process = df.iat[equipment['process']['row']-1, equipment['process']['column']-1]
+                output.append(PydEquipment(name=eq.name, process=[process], role=equipment['role'], asset_number=asset, nickname=eq.nickname))
+                # logger.debug(f"Here is the output so far: {pformat(output)}")
+        return output
+
 class PCRParser(object):
     """
     Object to pull data from Design and Analysis PCR export file.

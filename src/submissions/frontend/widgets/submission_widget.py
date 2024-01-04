@@ -315,6 +315,8 @@ class SubmissionFormContainer(QWidget):
         logger.debug(f"Here is the final submission: {pformat(base_submission.__dict__)}")
         logger.debug(f"Parsed reagents: {pformat(base_submission.reagents)}")    
         logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
+        logger.debug(f"Samples from pyd: {pformat(self.pyd.samples)}")
+        logger.debug(f"Samples SQL: {pformat([item.__dict__ for item in base_submission.samples])}")
         base_submission.save()
         # update summary sheet
         self.app.table_widget.sub_wid.setData()
@@ -428,8 +430,8 @@ class SubmissionFormWidget(QWidget):
         # self.ignore = [None, "", "qt_spinbox_lineedit", "qt_scrollarea_viewport", "qt_scrollarea_hcontainer",
         #                "qt_scrollarea_vcontainer", "submit_btn"
         #                ]
-        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment']
-        self.recover = ['filepath', 'samples', 'csv', 'comment']
+        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 'equipment']
+        self.recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
         layout = QVBoxLayout()
         for k, v in kwargs.items():
             if k not in self.ignore:
@@ -475,8 +477,11 @@ class SubmissionFormWidget(QWidget):
         logger.debug(f"Reagents: {pformat(reagents)}")
         # logger.debug(f"Attrs not in info: {[k for k, v in self.__dict__.items() if k not in info.keys()]}")
         for item in self.recover:
+            logger.debug(f"Attempting to recover: {item}")
             if hasattr(self, item):
-                info[item] = getattr(self, item)
+                value = getattr(self, item)
+                logger.debug(f"Setting {item}")
+                info[item] = value
         # app = self.parent().parent().parent().parent().parent().parent().parent().parent
         # submission = PydSubmission(filepath=self.filepath, reagents=reagents, samples=self.samples, **info)
         submission = PydSubmission(reagents=reagents, **info)
@@ -727,6 +732,8 @@ class ReagentFormWidget(QWidget):
                         # looked_up_reg = lookup_reagents(ctx=self.ctx, lot_number=looked_up_rt.last_used)
                         looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
                     except AttributeError:
+                        looked_up_reg = None
+                    if isinstance(looked_up_reg, list):
                         looked_up_reg = None
                     logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
                     if looked_up_reg != None:

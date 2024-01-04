@@ -4,8 +4,9 @@ Models for the main submission types.
 from __future__ import annotations
 from getpass import getuser
 import math, json, logging, uuid, tempfile, re, yaml
+from operator import attrgetter
 from pprint import pformat
-from . import Reagent, SubmissionType, KitType, Organization, Equipment, SubmissionEquipmentAssociation
+from . import Reagent, SubmissionType, KitType, Organization
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from json.decoder import JSONDecodeError
@@ -13,7 +14,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 import pandas as pd
 from openpyxl import Workbook
 from . import BaseClass
-from tools import check_not_nan, row_map,  query_return, setup_lookup
+from tools import check_not_nan, row_map, query_return, setup_lookup, jinja_template_loading
 from datetime import datetime, date
 from typing import List
 from dateutil.parser import parse
@@ -137,21 +138,23 @@ class BasicSubmission(BaseClass):
                 reagents = None
             # samples = [item.sample.to_sub_dict(submission_rsl=self.rsl_plate_num) for item in self.submission_sample_associations]
             samples = [item.to_sub_dict() for item in self.submission_sample_associations]
+            try:
+                equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
+                if len(equipment) == 0:
+                    equipment = None
+            except Exception as e:
+                logger.error(f"Error setting equipment: {self.equipment}")
+                equipment = None
         else:
             reagents = None
             samples = None
+            equipment = None
         try:
             comments = self.comment
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}")
             comments = None
-        try:
-            equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
-            if len(equipment) == 0:
-                equipment = None
-        except Exception as e:
-            logger.error(f"Error setting equipment: {self.equipment}")
-            equipment = None
+        
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -508,7 +511,7 @@ class BasicSubmission(BaseClass):
                     field_value = len(self.samples)
                 else:
                     field_value = value
-            case "ctx" | "csv" | "filepath":
+            case "ctx" | "csv" | "filepath" | "equipment":
                 return
             case "comment":
                 if value == "" or value == None or value == 'null':
@@ -552,8 +555,9 @@ class BasicSubmission(BaseClass):
         Returns:
             PydSubmission: converted object.
         """        
-        from backend.validators import PydSubmission, PydSample, PydReagent
+        from backend.validators import PydSubmission, PydSample, PydReagent, PydEquipment
         dicto = self.to_dict(full_data=True)
+        logger.debug(f"Backup dictionary: {pformat(dicto)}")
         # dicto['filepath'] = Path(tempfile.TemporaryFile().name)
         new_dict = {}
         for key, value in dicto.items():
@@ -562,6 +566,8 @@ class BasicSubmission(BaseClass):
                     new_dict[key] = [PydReagent(**reagent) for reagent in value]
                 case "samples":
                     new_dict[key] = [PydSample(**sample) for sample in dicto['samples']]
+                case "equipment":
+                    new_dict[key] = [PydEquipment(**equipment) for equipment in dicto['equipment']]
                 case "Plate Number":
                     new_dict['rsl_plate_num'] = dict(value=value, missing=True)
                 case "Submitter Plate Number":
@@ -576,19 +582,20 @@ class BasicSubmission(BaseClass):
         # sys.exit()
         return PydSubmission(**new_dict)
 
-    def backup(self, fname:Path):
+    def backup(self, fname:Path, full_backup:bool=True):
         """
         Exports xlsx and yml info files for this instance.
 
         Args:
             fname (Path): Filename of xlsx file.
         """        
-        backup = self.to_dict(full_data=True)
-        try:
-            with open(self.__backup_path__.joinpath(fname.with_suffix(".yml")), "w") as f:
-                yaml.dump(backup, f)
-        except KeyError as e:
-            logger.error(f"Problem saving yml backup file: {e}")
+        if full_backup:
+            backup = self.to_dict(full_data=True)
+            try:
+                with open(self.__backup_path__.joinpath(fname.with_suffix(".yml")), "w") as f:
+                    yaml.dump(backup, f)
+            except KeyError as e:
+                logger.error(f"Problem saving yml backup file: {e}")
         pyd = self.to_pydantic()
         wb = pyd.autofill_excel()
         wb = pyd.autofill_samples(wb)
@@ -766,6 +773,8 @@ class BasicSubmission(BaseClass):
             msg = "This submission already exists.\nWould you like to overwrite?"
         return instance, code, msg
 
+    def get_used_equipment(self) -> List[str]:
+        return [item.role for item in self.submission_equipment_associations]
 
 # Below are the custom submission types
 
@@ -882,7 +891,8 @@ class BacterialCulture(BasicSubmission):
         Returns:
             str: string for regex construction
         """        
-        return "(?P<Bacterial_Culture>RSL-?\\d{2}-?\\d{4})"
+        # return "(?P<Bacterial_Culture>RSL-?\\d{2}-?\\d{4})"
+        return "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\s]|$)?R?\d?)?)"
     
     @classmethod
     def filename_template(cls):
@@ -1175,7 +1185,36 @@ class WastewaterArtic(BasicSubmission):
             logger.error(f"Couldn't construct df due to {e}")
         input_dict['csv'] = df
         return input_dict
-        
+
+    @classmethod
+    def custom_autofill(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False) -> Workbook:
+        input_excel = super().custom_autofill(input_excel, info, backup)
+        worksheet = input_excel["First Strand List"]
+        samples = cls.query(rsl_number=info['rsl_plate_num']['value']).submission_sample_associations
+        samples = sorted(samples, key=attrgetter('column', 'row'))
+        source_plates = []
+        first_samples = []
+        for sample in samples:
+            sample = sample.sample
+            try:
+                assoc = [item.submission.rsl_plate_num for item in sample.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
+            except IndexError:
+                logger.error(f"Association not found for {sample}")
+                continue
+            if assoc not in source_plates:
+                source_plates.append(assoc)
+                first_samples.append(sample.ww_processing_num)
+        # Pad list to length of 3
+        # source_plates = list(set(source_plates))
+        source_plates += ['None'] * (3 - len(source_plates))
+        first_samples += [''] * (3 - len(first_samples))
+        source_plates = zip(source_plates, first_samples, strict=False)
+        for iii, plate in enumerate(source_plates, start=8):
+            logger.debug(f"Plate: {plate}")
+            for jjj, value in enumerate(plate, start=3):
+                worksheet.cell(row=iii, column=jjj, value=value)
+        return input_excel
+
 # Sample Classes
 
 class BasicSample(BaseClass):
@@ -1286,11 +1325,15 @@ class BasicSample(BaseClass):
             dict: dictionary of sample id, row and column in elution plate
         """        
         # Since there is no PCR, negliable result is necessary.
-        assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
-        tooltip_text =  f"""
-                            Sample name: {self.submitter_id}<br>
-                            Well: {row_map[assoc.row]}{assoc.column}
-                        """
+        # assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
+        fields = self.to_sub_dict(submission_rsl=submission_rsl)
+        env = jinja_template_loading()
+        template = env.get_template("tooltip.html")
+        tooltip_text = template.render(fields=fields)
+        # tooltip_text =  f"""
+        #                     Sample name: {self.submitter_id}<br>
+        #                     Well: {row_map[assoc.row]}{assoc.column}
+        #                 """
         return dict(name=self.submitter_id[:10], positive=False, tooltip=tooltip_text)
 
     @classmethod
@@ -1436,6 +1479,7 @@ class BasicSample(BaseClass):
             used_class = cls.find_subclasses(attrs=kwargs, sample_type=sample_type)
             instance = used_class(**kwargs)
             instance.sample_type = sample_type
+            logger.debug(f"Creating instance: {instance}")
         return instance
 
     def save(self):
@@ -1523,6 +1567,25 @@ class WastewaterSample(BasicSample):
                 del output_dict['collection_date']
         return output_dict
 
+    def to_sub_dict(self, submission_rsl: str | BasicSubmission) -> dict:
+        sample = super().to_sub_dict(submission_rsl)
+        if self.ww_processing_num != None:
+            sample['ww_processing_num'] = self.ww_processing_num
+        else:
+            sample['ww_processing_num'] = self.submitter_id
+        try:
+            assoc = [item for item in self.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
+        except:
+            assoc = None
+        if assoc != None:
+            try:
+                sample['ct'] = f"{assoc.ct_n1:.2f}, {assoc.ct_n2:.2f}"
+            except TypeError:
+                sample['ct'] = "None, None"
+            sample['source_plate'] = assoc.submission.rsl_plate_num
+            sample['source_well'] = f"{row_map[assoc.row]}{assoc.column}"
+        return sample
+
 class BacterialCultureSample(BasicSample):
     """
     base of bacterial culture sample
@@ -1541,7 +1604,9 @@ class BacterialCultureSample(BasicSample):
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
         sample = super().to_sub_dict(submission_rsl=submission_rsl)
-        sample['name'] = f"{self.submitter_id} - ({self.organism})"
+        sample['name'] = self.submitter_id
+        sample['organism'] = self.organism
+        sample['concentration'] = self.concentration
         return sample
 
     def to_hitpick(self, submission_rsl: str | None = None) -> dict | None:
@@ -1622,13 +1687,15 @@ class SubmissionSampleAssociation(BaseClass):
         if isinstance(polymorphic_identity, dict):
             polymorphic_identity = polymorphic_identity['value']
         if polymorphic_identity == None:
-            return cls
+            output = cls
         else:
             try:
-                return [item for item in cls.__subclasses__() if item.__mapper_args__['polymorphic_identity']==polymorphic_identity][0]
+                output = [item for item in cls.__subclasses__() if item.__mapper_args__['polymorphic_identity']==polymorphic_identity][0]
             except Exception as e:
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
-                return cls
+                output = cls
+        logger.debug(f"Using SubmissionSampleAssociation subclass: {output}")
+        return output
             
     @classmethod
     @setup_lookup
@@ -1707,6 +1774,7 @@ class SubmissionSampleAssociation(BaseClass):
        Returns:
             SubmissionSampleAssociation: Queried or new association.
         """        
+        logger.debug(f"Attempting create or query with {kwargs}")
         match submission:
             case BasicSubmission():
                 pass

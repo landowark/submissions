@@ -1,3 +1,7 @@
+## 202401.01
+
+- Improved tooltips and form regeneration.
+
 ## 202312.03
 
 - Enabled creation of new submission types in gui.

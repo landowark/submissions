@@ -1,6 +1,7 @@
 '''
 Contains pydantic models and accompanying validators
 '''
+from __future__ import annotations
 from operator import attrgetter
 import uuid, re, logging
 from pydantic import BaseModel, field_validator, Field
@@ -189,6 +190,7 @@ class PydSample(BaseModel, extra='allow'):
                     continue
                 case _:
                     instance.set_attribute(name=key, value=value)
+        out_associations = []
         if submission != None:
             assoc_type = self.sample_type.replace("Sample", "").strip()
             for row, column in zip(self.row, self.column):
@@ -198,12 +200,14 @@ class PydSample(BaseModel, extra='allow'):
                                                                           submission=submission, 
                                                                           sample=instance, 
                                                                           row=row, column=column)
+                logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     instance.sample_submission_associations.append(association)
+                    out_associations.append(association)
                 except IntegrityError as e:
                     logger.error(f"Could not attach submission sample association due to: {e}")
                     instance.metadata.session.rollback()
-        return instance, report
+        return instance, out_associations, report
 
 class PydSubmission(BaseModel, extra='allow'):
     filepath: Path
@@ -220,7 +224,16 @@ class PydSubmission(BaseModel, extra='allow'):
     submission_category: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
     comment: dict|None = Field(default=dict(value="", missing=True), validate_default=True)
     reagents: List[dict]|List[PydReagent] = []
-    samples: List[Any]
+    samples: List[PydSample]
+    equipment: List[PydEquipment]|None
+
+    @field_validator('equipment', mode='before')
+    @classmethod
+    def convert_equipment_dict(cls, value):
+        logger.debug(f"Equipment: {value}")
+        if isinstance(value, dict):
+            return value['value']
+        return value
 
     @field_validator('comment', mode='before')
     @classmethod
@@ -425,7 +438,17 @@ class PydSubmission(BaseModel, extra='allow'):
             match key:
                 case "samples":
                     for sample in self.samples:
-                        sample, _ = sample.toSQL(submission=instance)
+                        sample, associations, _ = sample.toSQL(submission=instance)
+                        logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
+                        for assoc in associations:
+                            instance.submission_sample_associations.append(assoc)
+                case "equipment":
+                    logger.debug(f"Equipment: {pformat(self.equipment)}")
+                    for equip in self.equipment:
+                        equip, association = equip.toSQL(submission=instance)
+                        if association != None:
+                            logger.debug(f"Equipment association SQL object to be added to submission: {association.__dict__}")
+                            instance.submission_equipment_associations.append(association)
                 case _:
                     try:
                         instance.set_attribute(key=key, value=value)
@@ -559,6 +582,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 except Exception as e:
                     logger.error(f"Could not write name {reagent['name']['value']} due to {e}")
             # Get relevant info for that sheet
+            new_info = [item for item in new_info if isinstance(item['location'], dict)]
             sheet_info = [item for item in new_info if sheet in item['location']['sheets']]
             for item in sheet_info:
                 logger.debug(f"Attempting: {item['type']} in row {item['location']['row']}, column {item['location']['column']}")
@@ -579,9 +603,11 @@ class PydSubmission(BaseModel, extra='allow'):
             Workbook: Updated excel workbook
         """        
         sample_info = SubmissionType.query(name=self.submission_type['value']).info_map['samples']
+        logger.debug(f"Sample info: {pformat(sample_info)}")
+        logger.debug(f"Workbook sheets: {workbook.sheetnames}")
         worksheet = workbook[sample_info["lookup_table"]['sheet']]
         samples = sorted(self.samples, key=attrgetter('column', 'row'))
-        logger.debug(f"Samples: {samples}")
+        logger.debug(f"Samples: {pformat(samples)}")
         # Fail safe against multiple instances of the same sample
         for iii, sample in enumerate(samples, start=1):
             row = sample_info['lookup_table']['start_row'] + iii
@@ -744,33 +770,46 @@ class PydKit(BaseModel):
 
 class PydEquipment(BaseModel, extra='ignore'):
 
+    asset_number: str
     name: str
     nickname: str|None
-    asset_number: str
-    pool_name: str|None
-    static: bool|int
+    process: List[str]|None
+    role: str|None
 
-    @field_validator("static")
+    @field_validator('process')
     @classmethod
-    def to_boolean(cls, value):
-        match value:
-            case int():
-                if value == 0:
-                    return False
-                else:
-                    return True
-            case _:
-                return value
+    def remove_dupes(cls, value):
+        if isinstance(value, list):
+            return list(set(value))
+        else:
+            return value
 
     def toForm(self, parent):
         from frontend.widgets.equipment_usage import EquipmentCheckBox
         return EquipmentCheckBox(parent=parent, equipment=self)
+    
+    def toSQL(self, submission:BasicSubmission|str=None):
+        if isinstance(submission, str):
+            submission = BasicSubmission.query(rsl_number=submission)
+        equipment = Equipment.query(asset_number=self.asset_number)
+        if equipment == None:
+            return
+        if submission != None:
+            assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
+            assoc.process = self.process[0]
+            assoc.role = self.role
+            # equipment.equipment_submission_associations.append(assoc)
+            equipment.equipment_submission_associations.append(assoc)
+        else:
+            assoc = None
+        return equipment, assoc
 
-class PydEquipmentPool(BaseModel):
+class PydEquipmentRole(BaseModel):
 
     name: str
     equipment: List[PydEquipment]
-
-    def toForm(self, parent):
-        from frontend.widgets.equipment_usage import PoolComboBox
-        return PoolComboBox(parent=parent, pool=self)
+    
+    def toForm(self, parent, submission_type, used):
+        from frontend.widgets.equipment_usage import RoleComboBox
+        return RoleComboBox(parent=parent, role=self, submission_type=submission_type, used=used)
+    

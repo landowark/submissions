@@ -187,16 +187,19 @@ class SubmissionsSheet(QTableView):
     def add_equipment_function(self, rsl_plate_id):
         submission = BasicSubmission.query(id=rsl_plate_id)
         submission_type = submission.submission_type_name
-        dlg = EquipmentUsage(parent=self, submission_type=submission_type)
+        dlg = EquipmentUsage(parent=self, submission_type=submission_type, submission=submission)
         if dlg.exec():
             equipment = dlg.parse_form()
+            logger.debug(f"We've got equipment: {equipment}")
             for equip in equipment:
-                e = Equipment.query(name=equip)
+                e = Equipment.query(name=equip.name)
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
+                assoc.process = equip.processes[0]
+                assoc.role = equip.role
                 # submission.submission_equipment_associations.append(assoc)
                 logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
                 # submission.save()
-                assoc.save()
+                # assoc.save()
 
     def delete_item(self, event):
         """
@@ -429,7 +432,7 @@ class SubmissionsSheet(QTableView):
             # delete_submission(id=value)
         sub = BasicSubmission.query(id=value)
         fname = select_save_file(self, default_name=sub.to_pydantic().construct_filename(), extension="xlsx")
-        sub.backup(fname=fname)
+        sub.backup(fname=fname, full_backup=False)
 
 class SubmissionDetails(QDialog):
     """

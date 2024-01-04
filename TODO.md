@@ -1,5 +1,6 @@
+- [x] Finish Equipment Parser (add in regex to id asset_number)
 - [ ] Complete info_map in the SubmissionTypeCreator widget.
-- [ ] Update Artic and add in equipment listings... *sigh*.
+- [x] Update Artic and add in equipment listings... *sigh*.
 - [x] Fix WastewaterAssociations not in Session error.
     - Done... I think?
 - [x] Fix submitted date always being today.

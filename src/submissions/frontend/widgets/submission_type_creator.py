@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from sqlalchemy import FLOAT, INTEGER
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from backend.db import SubmissionType, Equipment, SubmissionTypeEquipmentAssociation, BasicSubmission
+from backend.db import SubmissionType, Equipment, SubmissionTypeEquipmentRoleAssociation, BasicSubmission
 from backend.validators import PydReagentType, PydKit
 import logging
 from pprint import pformat
