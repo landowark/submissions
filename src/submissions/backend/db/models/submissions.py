@@ -15,7 +15,7 @@ import pandas as pd
 from openpyxl import Workbook
 from . import BaseClass
 from tools import check_not_nan, row_map, query_return, setup_lookup, jinja_template_loading
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import List
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
@@ -397,7 +397,7 @@ class BasicSubmission(BaseClass):
                 return cls.find_polymorphic_subclass(submission_type.name)
             case _:
                 pass
-        if len(attrs) == 0 or attrs == None:
+        if attrs == None or len(attrs) == 0:
             return cls
         if any([not hasattr(cls, attr) for attr in attrs]):
             # looks for first model that has all included kwargs
@@ -675,6 +675,7 @@ class BasicSubmission(BaseClass):
             logger.warning(f"End date with no start date, using Jan 1, 2023")
             start_date = date(2023, 1, 1)
         if start_date != None:
+            logger.debug(f"Querying with start date: {start_date} and end date: {end_date}")
             match start_date:
                 case date():
                     start_date = start_date.strftime("%Y-%m-%d")
@@ -683,14 +684,19 @@ class BasicSubmission(BaseClass):
                 case _:
                     start_date = parse(start_date).strftime("%Y-%m-%d")
             match end_date:
-                case date():
+                case date() | datetime():
                     end_date = end_date.strftime("%Y-%m-%d")
                 case int():
                     end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime("%Y-%m-%d")
                 case _:
                     end_date = parse(end_date).strftime("%Y-%m-%d")
             # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
-            query = query.filter(cls.submitted_date.between(start_date, end_date))
+            logger.debug(f"Start date {start_date} == End date {end_date}: {start_date==end_date}")
+            if start_date == end_date:
+                start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
+                query = query.filter(cls.submitted_date==start_date)
+            else:
+                query = query.filter(cls.submitted_date.between(start_date, end_date))
         # by reagent (for some reason)
         match reagent:
             case str():
@@ -846,42 +852,55 @@ class BacterialCulture(BasicSubmission):
         """
         Extends parent
         """        
+        from backend.validators import RSLNamer
+        data['abbreviation'] = "BC"
         outstr = super().enforce_name(instr=instr, data=data)
-        def construct(data:dict|None=None) -> str:
-            """
-            Create default plate name.
+        # def construct(data:dict|None=None) -> str:
+        #     """
+        #     Create default plate name.
 
-            Returns:
-                str: new RSL number
-            """        
-            # logger.debug(f"Attempting to construct RSL number from scratch...")
-            directory = cls.__directory_path__.joinpath("Bacteria")
-            year = str(datetime.now().year)[-2:]
-            if directory.exists():
-                logger.debug(f"Year: {year}")
-                relevant_rsls = []
-                all_xlsx = [item.stem for item in directory.rglob("*.xlsx") if bool(re.search(r"RSL-\d{2}-\d{4}", item.stem)) and year in item.stem[4:6]]
-                # logger.debug(f"All rsls: {all_xlsx}")
-                for item in all_xlsx:
-                    try:
-                        relevant_rsls.append(re.match(r"RSL-\d{2}-\d{4}", item).group(0))
-                    except Exception as e:
-                        logger.error(f"Regex error: {e}")
-                        continue
-                # logger.debug(f"Initial xlsx: {relevant_rsls}")
-                max_number = max([int(item[-4:]) for item in relevant_rsls])
-                # logger.debug(f"The largest sample number is: {max_number}")
-                return f"RSL-{year}-{str(max_number+1).zfill(4)}"
-            else:
-                # raise FileNotFoundError(f"Unable to locate the directory: {directory.__str__()}")
-                return f"RSL-{year}-0000"
+        #     Returns:
+        #         str: new RSL number
+        #     """        
+        #     # logger.debug(f"Attempting to construct RSL number from scratch...")
+        #     directory = cls.__directory_path__.joinpath("Bacteria")
+        #     year = str(datetime.now().year)[-2:]
+        #     if directory.exists():
+        #         logger.debug(f"Year: {year}")
+        #         relevant_rsls = []
+        #         all_xlsx = [item.stem for item in directory.rglob("*.xlsx") if bool(re.search(r"RSL-\d{2}-\d{4}", item.stem)) and year in item.stem[4:6]]
+        #         # logger.debug(f"All rsls: {all_xlsx}")
+        #         for item in all_xlsx:
+        #             try:
+        #                 relevant_rsls.append(re.match(r"RSL-\d{2}-\d{4}", item).group(0))
+        #             except Exception as e:
+        #                 logger.error(f"Regex error: {e}")
+        #                 continue
+        #         # logger.debug(f"Initial xlsx: {relevant_rsls}")
+        #         max_number = max([int(item[-4:]) for item in relevant_rsls])
+        #         # logger.debug(f"The largest sample number is: {max_number}")
+        #         return f"RSL-{year}-{str(max_number+1).zfill(4)}"
+        #     else:
+        #         # raise FileNotFoundError(f"Unable to locate the directory: {directory.__str__()}")
+        #         return f"RSL-{year}-0000"
+        # try:
+        #     outstr = re.sub(r"RSL(\d{2})", r"RSL-\1", outstr, flags=re.IGNORECASE)
+        # except (AttributeError, TypeError) as e:
+        #     outstr = construct()
+        #     # year = datetime.now().year
+        #     # self.parsed_name = f"RSL-{str(year)[-2:]}-0000"
+        # return re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", outstr, flags=re.IGNORECASE)
+        # def construct():
+        #     previous = cls.query(start_date=date.today(), end_date=date.today(), submission_type=cls.__name__)
+        #     max = len(previous)
+        #     return f"RSL-BC-{date.today().strftime('%Y%m%d')}-{max+1}"
         try:
-            outstr = re.sub(r"RSL(\d{2})", r"RSL-\1", outstr, flags=re.IGNORECASE)
+            outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)
+            outstr = re.sub(r"BC(\d{6})", r"BC-\1", outstr, flags=re.IGNORECASE)
         except (AttributeError, TypeError) as e:
-            outstr = construct()
-            # year = datetime.now().year
-            # self.parsed_name = f"RSL-{str(year)[-2:]}-0000"
-        return re.sub(r"RSL-(\d{2})(\d{4})", r"RSL-\1-\2", outstr, flags=re.IGNORECASE)
+            # outstr = construct()
+            outstr = RSLNamer.construct_new_plate_name(data=data)
+        return outstr
 
     @classmethod
     def get_regex(cls) -> str:
@@ -992,27 +1011,30 @@ class Wastewater(BasicSubmission):
         """
         Extends parent
         """        
+        from backend.validators import RSLNamer
+        data['abbreviation'] = "WW"
         outstr = super().enforce_name(instr=instr, data=data)
-        def construct(data:dict|None=None):
-            if "submitted_date" in data.keys():
-                if data['submitted_date']['value'] != None:
-                    today = data['submitted_date']['value']
-                else:
-                    today = datetime.now()
-            else:
-                today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", instr)
-                try:
-                    today = parse(today.group())
-                except AttributeError:
-                    today = datetime.now()
-            return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
-        if outstr == None:
-            outstr = construct(data)
+        # def construct(data:dict|None=None):
+        #     if "submitted_date" in data.keys():
+        #         if data['submitted_date']['value'] != None:
+        #             today = data['submitted_date']['value']
+        #         else:
+        #             today = datetime.now()
+        #     else:
+        #         today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", instr)
+        #         try:
+        #             today = parse(today.group())
+        #         except AttributeError:
+        #             today = datetime.now()
+        #     return f"RSL-WW-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+        # if outstr == None:
+            # outstr = construct(data)
         try:
             outstr = re.sub(r"PCR(-|_)", "", outstr)
         except AttributeError as e:
             logger.error(f"Problem using regex: {e}")
-            outstr = construct(data)
+            # outstr = construct(data)
+            outstr = RSLNamer.construct_new_plate_name(instr=outstr)
         outstr = outstr.replace("RSLWW", "RSL-WW")
         outstr = re.sub(r"WW(\d{4})", r"WW-\1", outstr, flags=re.IGNORECASE)
         outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)
@@ -1094,14 +1116,17 @@ class WastewaterArtic(BasicSubmission):
         """
         Extends parent
         """        
+        from backend.validators import RSLNamer
+        data['abbreviation'] = "AR"
         outstr = super().enforce_name(instr=instr, data=data)
-        def construct(data:dict|None=None):
-            today = datetime.now()
-            return f"RSL-AR-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
+        # def construct(data:dict|None=None):
+        #     today = datetime.now()
+        #     return f"RSL-AR-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}"
         try:
             outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"RSL-AR-\1\2\3", outstr, flags=re.IGNORECASE)
         except AttributeError:
-            outstr = construct()
+            # outstr = construct()
+            outstr = RSLNamer.construct_new_plate_name(instr=outstr, data=data)
         try:
             plate_number = int(re.search(r"_|-\d?_", outstr).group().strip("_").strip("-"))
         except (AttributeError, ValueError) as e:

@@ -4,9 +4,9 @@ from pathlib import Path
 
 # Version of the realpython-reader package
 __project__ = "submissions"
-__version__ = "202312.4b"
+__version__ = "202401.1b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
-__copyright__ = "2022-2023, Government of Canada"
+__copyright__ = "2022-2024, Government of Canada"
 
 project_path = Path(__file__).parents[2].absolute()
 

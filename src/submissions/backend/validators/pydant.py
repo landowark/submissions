@@ -355,8 +355,9 @@ class PydSubmission(BaseModel, extra='allow'):
             value = value['value'].title()
             return dict(value=value, missing=False)
         else:
-            return dict(value=RSLNamer(instr=values.data['filepath'].__str__()).submission_type.title(), missing=True)
-        
+            # return dict(value=RSLNamer(instr=values.data['filepath'].__str__()).submission_type.title(), missing=True)
+            return dict(value=RSLNamer.retrieve_submission_type(instr=values.data['filepath']).title(), missing=True)
+      
     @field_validator("submission_category", mode="before")
     def create_category(cls, value):
         if not isinstance(value, dict):
@@ -444,6 +445,11 @@ class PydSubmission(BaseModel, extra='allow'):
                             instance.submission_sample_associations.append(assoc)
                 case "equipment":
                     logger.debug(f"Equipment: {pformat(self.equipment)}")
+                    try:
+                        if equip == None:
+                            continue
+                    except UnboundLocalError:
+                        continue
                     for equip in self.equipment:
                         equip, association = equip.toSQL(submission=instance)
                         if association != None:
@@ -773,20 +779,20 @@ class PydEquipment(BaseModel, extra='ignore'):
     asset_number: str
     name: str
     nickname: str|None
-    process: List[str]|None
+    process: str|None
     role: str|None
 
-    @field_validator('process')
-    @classmethod
-    def remove_dupes(cls, value):
-        if isinstance(value, list):
-            return list(set(value))
-        else:
-            return value
+    # @field_validator('process')
+    # @classmethod
+    # def remove_dupes(cls, value):
+    #     if isinstance(value, list):
+    #         return list(set(value))
+    #     else:
+    #         return value
 
-    def toForm(self, parent):
-        from frontend.widgets.equipment_usage import EquipmentCheckBox
-        return EquipmentCheckBox(parent=parent, equipment=self)
+    # def toForm(self, parent):
+    #     from frontend.widgets.equipment_usage import EquipmentCheckBox
+    #     return EquipmentCheckBox(parent=parent, equipment=self)
     
     def toSQL(self, submission:BasicSubmission|str=None):
         if isinstance(submission, str):
@@ -796,7 +802,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             return
         if submission != None:
             assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
-            assoc.process = self.process[0]
+            assoc.process = self.process
             assoc.role = self.role
             # equipment.equipment_submission_associations.append(assoc)
             equipment.equipment_submission_associations.append(assoc)
@@ -808,6 +814,7 @@ class PydEquipmentRole(BaseModel):
 
     name: str
     equipment: List[PydEquipment]
+    processes: List[str]|None
     
     def toForm(self, parent, submission_type, used):
         from frontend.widgets.equipment_usage import RoleComboBox

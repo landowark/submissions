@@ -96,7 +96,8 @@ class RoleComboBox(QWidget):
         self.process.setMaximumWidth(125)
         self.process.setMinimumWidth(125)
         self.process.setEditable(True)
-        self.process.addItems(submission_type.get_processes_for_role(equipment_role=role.name))
+        # self.process.addItems(submission_type.get_processes_for_role(equipment_role=role.name))
+        self.process.addItems(role.processes)
         self.layout.addWidget(self.check)
         self.layout.addWidget(QLabel(f"{role.name}:"))
         self.layout.addWidget(self.box)
@@ -107,7 +108,7 @@ class RoleComboBox(QWidget):
     def parse_form(self) -> str|None:
         eq = Equipment.query(name=self.box.currentText())
         if self.check:
-            return PydEquipment(name=eq.name, processes=[self.process.currentText()], role=self.role.name, asset_number=eq.asset_number, nickname=eq.nickname)
+            return PydEquipment(name=eq.name, process=self.process.currentText(), role=self.role.name, asset_number=eq.asset_number, nickname=eq.nickname)
         else:
             return None
         

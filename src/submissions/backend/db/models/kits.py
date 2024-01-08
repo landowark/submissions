@@ -32,6 +32,22 @@ equipmentroles_equipment = Table(
     extend_existing=True
 )
 
+equipmentroles_processes = Table(
+    "_equipmentroles_processes",
+    Base.metadata,
+    Column("process_id", INTEGER, ForeignKey("_process.id")),
+    Column("equipmentroles_id", INTEGER, ForeignKey("_equipment_roles.id")),
+    extend_existing=True
+)
+
+submissiontypes_processes = Table(
+    "_submissiontypes_processes",
+    Base.metadata,
+    Column("process_id", INTEGER, ForeignKey("_process.id")),
+    Column("equipmentroles_id", INTEGER, ForeignKey("_submission_types.id")),
+    extend_existing=True
+)
+
 class KitType(BaseClass):
     """
     Base of kits used in submission processing
@@ -588,6 +604,7 @@ class SubmissionType(BaseClass):
     instances = relationship("BasicSubmission", backref="submission_type") #: Concrete instances of this type.
     # regex = Column(String(512))
     template_file = Column(BLOB) #: Blank form for this type stored as binary.
+    processes = relationship("Process", back_populates="submission_types", secondary=submissiontypes_processes)
     
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -855,7 +872,10 @@ class Equipment(BaseClass):
         return f"<Equipment({self.name})>"
     
     def get_processes(self, submission_type:SubmissionType):
-        return [assoc.process for assoc in self.equipment_submission_associations if assoc.submission.submission_type_name==submission_type.name]
+        processes = [assoc.process for assoc in self.equipment_submission_associations if assoc.submission.submission_type_name==submission_type.name]
+        if len(processes) == 0:
+            processes = ['']
+        return processes
 
     @classmethod
     @setup_lookup
@@ -888,7 +908,8 @@ class Equipment(BaseClass):
     
     def to_pydantic(self, submission_type:SubmissionType):
         from backend.validators.pydant import PydEquipment
-        return PydEquipment(processes=self.get_processes(submission_type=submission_type), role=None, **self.__dict__)
+        # return PydEquipment(process=self.get_processes(submission_type=submission_type), role=None, **self.__dict__)
+        return PydEquipment(process=None, role=None, **self.__dict__)
 
     def save(self):
         self.__database_session__.add(self)
@@ -911,6 +932,7 @@ class EquipmentRole(BaseClass):
     id = Column(INTEGER, primary_key=True)
     name = Column(String(32))
     instances = relationship("Equipment", back_populates="roles", secondary=equipmentroles_equipment)
+    processes = relationship("Process", back_populates="equipment_roles", secondary=equipmentroles_processes)
 
     equipmentrole_submissiontype_associations = relationship(
         "SubmissionTypeEquipmentRoleAssociation",
@@ -926,7 +948,9 @@ class EquipmentRole(BaseClass):
     def to_pydantic(self, submission_type:SubmissionType):
         from backend.validators.pydant import PydEquipmentRole
         equipment = [item.to_pydantic(submission_type=submission_type) for item in self.instances]
-        return PydEquipmentRole(equipment=equipment, **self.__dict__)
+        pyd_dict = self.__dict__
+        pyd_dict['processes'] = self.get_processes(submission_type=submission_type)
+        return PydEquipmentRole(equipment=equipment, **pyd_dict)
     
     @classmethod
     @setup_lookup
@@ -945,6 +969,25 @@ class EquipmentRole(BaseClass):
             case _:
                 pass
         return query_return(query=query, limit=limit)
+    
+    def get_processes(self, submission_type:str|SubmissionType|None) -> List[Process]:
+        if isinstance(submission_type, str):
+            submission_type = SubmissionType.query(name=submission_type)
+        if submission_type != None:                                                
+            output = [process.name for process in self.processes if submission_type in process.submission_types]
+        else:
+            output = [process.name for process in self.processes]
+        if len(output) == 0:
+            return ['']
+        else:
+            return output
+        
+    def save(self):
+        try:
+            self.__database_session__.add(self)
+            self.__database_session__.commit()
+        except:
+            self.__database_session__.rollback()
 
 class SubmissionEquipmentAssociation(BaseClass):
 
@@ -956,7 +999,8 @@ class SubmissionEquipmentAssociation(BaseClass):
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True) #: id of associated equipment
     submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True) #: id of associated submission
     role = Column(String(64), primary_key=True) #: name of the role the equipment fills
-    process = Column(String(64)) #: name of the process run on this equipment
+    # process = Column(String(64)) #: name of the process run on this equipment
+    process_id = Column(INTEGER, ForeignKey("_process.id",ondelete="SET NULL", name="SEA_Process_id"))
     start_time = Column(TIMESTAMP)
     end_time = Column(TIMESTAMP)
     comments = Column(String(1024))
@@ -970,7 +1014,7 @@ class SubmissionEquipmentAssociation(BaseClass):
         self.equipment = equipment
 
     def to_sub_dict(self) -> dict:
-        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments, process=[self.process], role=self.role, nickname=self.equipment.nickname)
+        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments, process=self.process.name, role=self.role, nickname=self.equipment.nickname)
         return output
     
     def save(self):
@@ -1021,3 +1065,149 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
         self.__database_session__.add(self)
         self.__database_session__.commit()
 
+class Process(BaseClass):
+
+    __tablename__ = "_process"
+
+    id = Column(INTEGER, primary_key=True)
+    name = Column(String(64))
+    submission_types = relationship("SubmissionType", back_populates='processes', secondary=submissiontypes_processes)
+    equipment_roles = relationship("EquipmentRole", back_populates='processes', secondary=equipmentroles_processes)
+    submissions = relationship("SubmissionEquipmentAssociation", backref='process')
+
+    def __repr__(self):
+        return f"<Process({self.name})"
+    
+    @classmethod
+    @setup_lookup
+    def query(cls, name:str|None, limit:int=0):
+        query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name==name)
+                limit = 1
+            case _:
+                pass
+        return query_return(query=query, limit=limit)
+
+    def save(self):
+        try:
+            self.__database_session__.add(self)
+            self.__database_session__.commit()
+        except:
+            self.__database_session__.rollback()
+
+# class KitTypeReagentTypeAssociation(BaseClass):
+#     """
+#     table containing reagenttype/kittype associations
+#     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+#     """    
+#     __tablename__ = "_reagenttypes_kittypes"
+
+#     reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True) #: id of associated reagent type
+#     kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True) #: id of associated reagent type
+#     uses = Column(JSON) #: map to location on excel sheets of different submission types
+#     required = Column(INTEGER) #: whether the reagent type is required for the kit (Boolean 1 or 0)
+#     last_used = Column(String(32)) #: last used lot number of this type of reagent
+
+#     kit_type = relationship(KitType, back_populates="kit_reagenttype_associations") #: relationship to associated kit
+
+#     # reference to the "ReagentType" object
+#     reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations") #: relationship to associated reagent type
+
+#     def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+#         # logger.debug(f"Parameters: Kit={kit_type}, RT={reagent_type}, Uses={uses}, Required={required}")
+#         self.kit_type = kit_type
+#         self.reagent_type = reagent_type
+#         self.uses = uses
+#         self.required = required
+
+#     def __repr__(self) -> str:
+#         return f"<KitTypeReagentTypeAssociation({self.kit_type} & {self.reagent_type})>"
+
+#     @validates('required')
+#     def validate_age(self, key, value):
+#         """
+#         Ensures only 1 & 0 used in 'required'
+
+#         Args:
+#             key (str): name of attribute
+#             value (_type_): value of attribute
+
+#         Raises:
+#             ValueError: Raised if bad value given
+
+#         Returns:
+#             _type_: value
+#         """        
+#         if not 0 <= value < 2:
+#             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+#         return value
+    
+#     @validates('reagenttype')
+#     def validate_reagenttype(self, key, value):
+#         """
+#         Ensures reagenttype is an actual ReagentType
+
+#         Args:
+#             key (str)): name of attribute
+#             value (_type_): value of attribute
+
+#         Raises:
+#             ValueError: raised if reagenttype is not a ReagentType
+
+#         Returns:
+#             _type_: ReagentType
+#         """        
+#         if not isinstance(value, ReagentType):
+#             raise ValueError(f'{value} is not a reagenttype')
+#         return value
+    
+#     @classmethod
+#     @setup_lookup
+#     def query(cls,
+#                 kit_type:KitType|str|None=None,
+#                 reagent_type:ReagentType|str|None=None,
+#                 limit:int=0
+#                 ) -> KitTypeReagentTypeAssociation|List[KitTypeReagentTypeAssociation]:
+#         """
+#         Lookup junction of ReagentType and KitType
+
+#         Args:
+#             kit_type (models.KitType | str | None): KitType of interest.
+#             reagent_type (models.ReagentType | str | None): ReagentType of interest.
+#             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+#         Returns:
+#             models.KitTypeReagentTypeAssociation|List[models.KitTypeReagentTypeAssociation]: Junction of interest.
+#         """    
+#         query: Query = cls.__database_session__.query(cls)
+#         match kit_type:
+#             case KitType():
+#                 query = query.filter(cls.kit_type==kit_type)
+#             case str():
+#                 query = query.join(KitType).filter(KitType.name==kit_type)
+#             case _:
+#                 pass
+#         match reagent_type:
+#             case ReagentType():
+#                 query = query.filter(cls.reagent_type==reagent_type)
+#             case str():
+#                 query = query.join(ReagentType).filter(ReagentType.name==reagent_type)
+#             case _:
+#                 pass
+#         if kit_type != None and reagent_type != None:
+#             limit = 1
+#         return query_return(query=query, limit=limit)
+
+#     def save(self) -> Report:
+#         """
+#         Adds this instance to the database and commits.
+
+#         Returns:
+#             Report: Result of save action
+#         """        
+#         report = Report()
+#         self.__database_session__.add(self)
+#         self.__database_session__.commit()
+#         return report

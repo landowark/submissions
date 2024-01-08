@@ -2,6 +2,7 @@ import logging, re
 from pathlib import Path
 from openpyxl import load_workbook
 from backend.db.models import BasicSubmission, SubmissionType
+from datetime import date
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -17,6 +18,10 @@ class RSLNamer(object):
         if self.submission_type != None:
             enforcer = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(instr=instr, regex=enforcer.get_regex())
+            if data == None:
+                data = dict(submission_type=self.submission_type)
+            if "submission_type" not in data.keys():
+                data['submission_type'] = self.submission_type
             self.parsed_name = enforcer.enforce_name(instr=self.parsed_name, data=data)
 
     @classmethod
@@ -104,5 +109,23 @@ class RSLNamer(object):
             parsed_name = None
         logger.debug(f"Got parsed submission name: {parsed_name}")
         return parsed_name
+    
+    @classmethod
+    def construct_new_plate_name(cls, data:dict) -> str:
+        if "submitted_date" in data.keys():
+            if data['submitted_date']['value'] != None:
+                today = data['submitted_date']['value']
+            else:
+                today = datetime.now()
+        else:
+            today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", instr)
+            try:
+                today = parse(today.group())
+            except AttributeError:
+                today = datetime.now()
+        previous = BasicSubmission.query(start_date=today, end_date=today, submission_type=data['submission_type'])
+        plate_number = len(previous) + 1
+        return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
+
         
 from .pydant import *

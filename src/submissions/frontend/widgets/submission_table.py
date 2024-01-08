@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db.models import BasicSubmission, Equipment, SubmissionEquipmentAssociation
+from backend.db.models import BasicSubmission, Equipment, SubmissionEquipmentAssociation, Process
 from backend.excel import make_report_html, make_report_xlsx
 from tools import check_if_app, Report, Result, jinja_template_loading, get_first_blank_df_row, row_map
 from xhtml2pdf import pisa
@@ -194,12 +194,13 @@ class SubmissionsSheet(QTableView):
             for equip in equipment:
                 e = Equipment.query(name=equip.name)
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
-                assoc.process = equip.processes[0]
+                process = Process.query(name=equip.process)
+                assoc.process = process
                 assoc.role = equip.role
                 # submission.submission_equipment_associations.append(assoc)
                 logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
                 # submission.save()
-                # assoc.save()
+                assoc.save()
 
     def delete_item(self, event):
         """
