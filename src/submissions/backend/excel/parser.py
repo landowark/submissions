@@ -211,6 +211,7 @@ class ReagentParser(object):
         logger.debug("\n\nHello from ReagentParser!\n\n")
         # self.ctx = ctx
         self.map = self.fetch_kit_info_map(extraction_kit=extraction_kit, submission_type=submission_type)
+        logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
     def fetch_kit_info_map(self, extraction_kit:dict, submission_type:str) -> dict:
@@ -523,7 +524,7 @@ class EquipmentParser(object):
                 asset = self.get_asset_number(input=asset)
                 eq = Equipment.query(asset_number=asset)
                 process = df.iat[equipment['process']['row']-1, equipment['process']['column']-1]
-                output.append(PydEquipment(name=eq.name, process=[process], role=equipment['role'], asset_number=asset, nickname=eq.nickname))
+                output.append(PydEquipment(name=eq.name, process=process, role=equipment['role'], asset_number=asset, nickname=eq.nickname))
                 # logger.debug(f"Here is the output so far: {pformat(output)}")
         return output
 

@@ -94,9 +94,9 @@ class KitType(BaseClass):
         """        
         match submission_type:
             case SubmissionType():
-                relevant_associations = [item for item in self.kit_reagenttype_associations if submission_type.name in item.uses.keys()]
+                relevant_associations = [item for item in self.kit_reagenttype_associations if item.submission_type==submission_type]
             case str():
-                relevant_associations = [item for item in self.kit_reagenttype_associations if submission_type in item.uses.keys()]
+                relevant_associations = [item for item in self.kit_reagenttype_associations if item.submission_type.name==submission_type]
             case _:
                 relevant_associations = [item for item in self.kit_reagenttype_associations]
         if required:
@@ -104,7 +104,7 @@ class KitType(BaseClass):
         else:
             return [item.reagent_type for item in relevant_associations]
     
-    def construct_xl_map_for_use(self, use:str) -> dict:
+    def construct_xl_map_for_use(self, submission_type:str|SubmissionType) -> dict:
         """
         Creates map of locations in excel workbook for a SubmissionType
 
@@ -115,16 +115,25 @@ class KitType(BaseClass):
             dict: Dictionary containing information locations.
         """        
         map = {}
+        match submission_type:
+            case str():
+                assocs = [item for item in self.kit_reagenttype_associations if item.submission_type.name==submission_type]
+                st_assoc = [item for item in self.used_for if submission_type == item.name][0]
+            case SubmissionType():
+                assocs = [item for item in self.kit_reagenttype_associations if item.submission_type==submission_type]
+                st_assoc = submission_type
+            case _:
+                raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
         # Get all KitTypeReagentTypeAssociation for SubmissionType
-        assocs = [item for item in self.kit_reagenttype_associations if use in item.uses]
+        # assocs = [item for item in self.kit_reagenttype_associations if item.submission_type==submission_type]
         for assoc in assocs:
             try:
-                map[assoc.reagent_type.name] = assoc.uses[use]
+                map[assoc.reagent_type.name] = assoc.uses
             except TypeError:
                 continue
         # Get SubmissionType info map
         try:
-            st_assoc = [item for item in self.used_for if use == item.name][0]
+            # st_assoc = [item for item in self.used_for if use == item.name][0]
             map['info'] = st_assoc.info_map
         except IndexError as e:
             map['info'] = {}
@@ -273,120 +282,123 @@ class ReagentType(BaseClass):
         from backend.validators.pydant import PydReagent
         return PydReagent(lot=None, type=self.name, name=self.name, expiry=date.today())
 
-class KitTypeReagentTypeAssociation(BaseClass):
-    """
-    table containing reagenttype/kittype associations
-    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
-    """    
-    __tablename__ = "_reagenttypes_kittypes"
+# class KitTypeReagentTypeAssociation(BaseClass):
+#     """
+#     table containing reagenttype/kittype associations
+#     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+#     """    
+#     __tablename__ = "_reagenttypes_kittypes"
 
-    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True) #: id of associated reagent type
-    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True) #: id of associated reagent type
-    uses = Column(JSON) #: map to location on excel sheets of different submission types
-    required = Column(INTEGER) #: whether the reagent type is required for the kit (Boolean 1 or 0)
-    last_used = Column(String(32)) #: last used lot number of this type of reagent
+#     reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True) #: id of associated reagent type
+#     kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True) #: id of associated reagent type
+#     submission_type_id = (Column(INTEGER), ForeignKey("_submission_types.id"), primary_key=True)
+#     uses = Column(JSON) #: map to location on excel sheets of different submission types
+#     required = Column(INTEGER) #: whether the reagent type is required for the kit (Boolean 1 or 0)
+#     last_used = Column(String(32)) #: last used lot number of this type of reagent
 
-    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations") #: relationship to associated kit
+#     kit_type = relationship(KitType, back_populates="kit_reagenttype_associations") #: relationship to associated kit
 
-    # reference to the "ReagentType" object
-    reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations") #: relationship to associated reagent type
+#     # reference to the "ReagentType" object
+#     reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations") #: relationship to associated reagent type
 
-    def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
-        # logger.debug(f"Parameters: Kit={kit_type}, RT={reagent_type}, Uses={uses}, Required={required}")
-        self.kit_type = kit_type
-        self.reagent_type = reagent_type
-        self.uses = uses
-        self.required = required
+#     submission_type = relationship(SubmissionType, back_populates="submissiontype_kit_rt_associations")
 
-    def __repr__(self) -> str:
-        return f"<KitTypeReagentTypeAssociation({self.kit_type} & {self.reagent_type})>"
+#     def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+#         # logger.debug(f"Parameters: Kit={kit_type}, RT={reagent_type}, Uses={uses}, Required={required}")
+#         self.kit_type = kit_type
+#         self.reagent_type = reagent_type
+#         self.uses = uses
+#         self.required = required
 
-    @validates('required')
-    def validate_age(self, key, value):
-        """
-        Ensures only 1 & 0 used in 'required'
+#     def __repr__(self) -> str:
+#         return f"<KitTypeReagentTypeAssociation({self.kit_type} & {self.reagent_type})>"
 
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
+#     @validates('required')
+#     def validate_age(self, key, value):
+#         """
+#         Ensures only 1 & 0 used in 'required'
 
-        Raises:
-            ValueError: Raised if bad value given
+#         Args:
+#             key (str): name of attribute
+#             value (_type_): value of attribute
 
-        Returns:
-            _type_: value
-        """        
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
+#         Raises:
+#             ValueError: Raised if bad value given
+
+#         Returns:
+#             _type_: value
+#         """        
+#         if not 0 <= value < 2:
+#             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+#         return value
     
-    @validates('reagenttype')
-    def validate_reagenttype(self, key, value):
-        """
-        Ensures reagenttype is an actual ReagentType
+#     @validates('reagenttype')
+#     def validate_reagenttype(self, key, value):
+#         """
+#         Ensures reagenttype is an actual ReagentType
 
-        Args:
-            key (str)): name of attribute
-            value (_type_): value of attribute
+#         Args:
+#             key (str)): name of attribute
+#             value (_type_): value of attribute
 
-        Raises:
-            ValueError: raised if reagenttype is not a ReagentType
+#         Raises:
+#             ValueError: raised if reagenttype is not a ReagentType
 
-        Returns:
-            _type_: ReagentType
-        """        
-        if not isinstance(value, ReagentType):
-            raise ValueError(f'{value} is not a reagenttype')
-        return value
+#         Returns:
+#             _type_: ReagentType
+#         """        
+#         if not isinstance(value, ReagentType):
+#             raise ValueError(f'{value} is not a reagenttype')
+#         return value
     
-    @classmethod
-    @setup_lookup
-    def query(cls,
-                kit_type:KitType|str|None=None,
-                reagent_type:ReagentType|str|None=None,
-                limit:int=0
-                ) -> KitTypeReagentTypeAssociation|List[KitTypeReagentTypeAssociation]:
-        """
-        Lookup junction of ReagentType and KitType
+#     @classmethod
+#     @setup_lookup
+#     def query(cls,
+#                 kit_type:KitType|str|None=None,
+#                 reagent_type:ReagentType|str|None=None,
+#                 limit:int=0
+#                 ) -> KitTypeReagentTypeAssociation|List[KitTypeReagentTypeAssociation]:
+#         """
+#         Lookup junction of ReagentType and KitType
 
-        Args:
-            kit_type (models.KitType | str | None): KitType of interest.
-            reagent_type (models.ReagentType | str | None): ReagentType of interest.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+#         Args:
+#             kit_type (models.KitType | str | None): KitType of interest.
+#             reagent_type (models.ReagentType | str | None): ReagentType of interest.
+#             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
-        Returns:
-            models.KitTypeReagentTypeAssociation|List[models.KitTypeReagentTypeAssociation]: Junction of interest.
-        """    
-        query: Query = cls.__database_session__.query(cls)
-        match kit_type:
-            case KitType():
-                query = query.filter(cls.kit_type==kit_type)
-            case str():
-                query = query.join(KitType).filter(KitType.name==kit_type)
-            case _:
-                pass
-        match reagent_type:
-            case ReagentType():
-                query = query.filter(cls.reagent_type==reagent_type)
-            case str():
-                query = query.join(ReagentType).filter(ReagentType.name==reagent_type)
-            case _:
-                pass
-        if kit_type != None and reagent_type != None:
-            limit = 1
-        return query_return(query=query, limit=limit)
+#         Returns:
+#             models.KitTypeReagentTypeAssociation|List[models.KitTypeReagentTypeAssociation]: Junction of interest.
+#         """    
+#         query: Query = cls.__database_session__.query(cls)
+#         match kit_type:
+#             case KitType():
+#                 query = query.filter(cls.kit_type==kit_type)
+#             case str():
+#                 query = query.join(KitType).filter(KitType.name==kit_type)
+#             case _:
+#                 pass
+#         match reagent_type:
+#             case ReagentType():
+#                 query = query.filter(cls.reagent_type==reagent_type)
+#             case str():
+#                 query = query.join(ReagentType).filter(ReagentType.name==reagent_type)
+#             case _:
+#                 pass
+#         if kit_type != None and reagent_type != None:
+#             limit = 1
+#         return query_return(query=query, limit=limit)
 
-    def save(self) -> Report:
-        """
-        Adds this instance to the database and commits.
+#     def save(self) -> Report:
+#         """
+#         Adds this instance to the database and commits.
 
-        Returns:
-            Report: Result of save action
-        """        
-        report = Report()
-        self.__database_session__.add(self)
-        self.__database_session__.commit()
-        return report
+#         Returns:
+#             Report: Result of save action
+#         """        
+#         report = Report()
+#         self.__database_session__.add(self)
+#         self.__database_session__.commit()
+#         return report
 
 class Reagent(BaseClass):
     """
@@ -622,6 +634,12 @@ class SubmissionType(BaseClass):
 
     equipment = association_proxy("submissiontype_equipmentrole_associations", "equipment_role")
 
+    submissiontype_kit_rt_associations = relationship(
+        "KitTypeReagentTypeAssociation",
+        back_populates="submission_type",
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         return f"<SubmissionType({self.name})>"
     
@@ -777,6 +795,125 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
                 query = query.join(KitType).filter(KitType.id==kit_type)
         limit = query.count()
         return query_return(query=query, limit=limit)
+
+class KitTypeReagentTypeAssociation(BaseClass):
+    """
+    table containing reagenttype/kittype associations
+    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    """    
+    __tablename__ = "_reagenttypes_kittypes"
+
+    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True) #: id of associated reagent type
+    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True) #: id of associated reagent type
+    submission_type_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True)
+    uses = Column(JSON) #: map to location on excel sheets of different submission types
+    required = Column(INTEGER) #: whether the reagent type is required for the kit (Boolean 1 or 0)
+    last_used = Column(String(32)) #: last used lot number of this type of reagent
+
+    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations") #: relationship to associated kit
+
+    # reference to the "ReagentType" object
+    reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations") #: relationship to associated reagent type
+
+    submission_type = relationship(SubmissionType, back_populates="submissiontype_kit_rt_associations")
+
+    def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+        # logger.debug(f"Parameters: Kit={kit_type}, RT={reagent_type}, Uses={uses}, Required={required}")
+        self.kit_type = kit_type
+        self.reagent_type = reagent_type
+        self.uses = uses
+        self.required = required
+
+    def __repr__(self) -> str:
+        return f"<KitTypeReagentTypeAssociation({self.kit_type} & {self.reagent_type})>"
+
+    @validates('required')
+    def validate_age(self, key, value):
+        """
+        Ensures only 1 & 0 used in 'required'
+
+        Args:
+            key (str): name of attribute
+            value (_type_): value of attribute
+
+        Raises:
+            ValueError: Raised if bad value given
+
+        Returns:
+            _type_: value
+        """        
+        if not 0 <= value < 2:
+            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+        return value
+    
+    @validates('reagenttype')
+    def validate_reagenttype(self, key, value):
+        """
+        Ensures reagenttype is an actual ReagentType
+
+        Args:
+            key (str)): name of attribute
+            value (_type_): value of attribute
+
+        Raises:
+            ValueError: raised if reagenttype is not a ReagentType
+
+        Returns:
+            _type_: ReagentType
+        """        
+        if not isinstance(value, ReagentType):
+            raise ValueError(f'{value} is not a reagenttype')
+        return value
+    
+    @classmethod
+    @setup_lookup
+    def query(cls,
+                kit_type:KitType|str|None=None,
+                reagent_type:ReagentType|str|None=None,
+                limit:int=0
+                ) -> KitTypeReagentTypeAssociation|List[KitTypeReagentTypeAssociation]:
+        """
+        Lookup junction of ReagentType and KitType
+
+        Args:
+            kit_type (models.KitType | str | None): KitType of interest.
+            reagent_type (models.ReagentType | str | None): ReagentType of interest.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            models.KitTypeReagentTypeAssociation|List[models.KitTypeReagentTypeAssociation]: Junction of interest.
+        """    
+        query: Query = cls.__database_session__.query(cls)
+        match kit_type:
+            case KitType():
+                query = query.filter(cls.kit_type==kit_type)
+            case str():
+                query = query.join(KitType).filter(KitType.name==kit_type)
+            case _:
+                pass
+        match reagent_type:
+            case ReagentType():
+                query = query.filter(cls.reagent_type==reagent_type)
+            case str():
+                query = query.join(ReagentType).filter(ReagentType.name==reagent_type)
+            case _:
+                pass
+        if kit_type != None and reagent_type != None:
+            limit = 1
+        return query_return(query=query, limit=limit)
+
+    def save(self) -> Report:
+        """
+        Adds this instance to the database and commits.
+
+        Returns:
+            Report: Result of save action
+        """        
+        report = Report()
+        self.__database_session__.add(self)
+        self.__database_session__.commit()
+        return report
+
 
 class SubmissionReagentAssociation(BaseClass):
 
