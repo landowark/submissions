@@ -113,12 +113,15 @@ class RSLNamer(object):
     @classmethod
     def construct_new_plate_name(cls, data:dict) -> str:
         if "submitted_date" in data.keys():
-            if data['submitted_date']['value'] != None:
-                today = data['submitted_date']['value']
+            if isinstance(data['submitted_date'], dict):
+                if data['submitted_date']['value'] != None:
+                    today = data['submitted_date']['value']
+                else:
+                    today = datetime.now()
             else:
-                today = datetime.now()
+                today = data['submitted_date']
         else:
-            today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", instr)
+            today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['rsl_plate_num'])
             try:
                 today = parse(today.group())
             except AttributeError:

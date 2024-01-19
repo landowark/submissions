@@ -391,6 +391,21 @@ def check_authorization(func):
             return dict(code=1, message="This user does not have permission for this function.", status="warning")
     return wrapper
 
+# def check_authorization(user:str):
+#     def decorator(function):
+#         def wrapper(*args, **kwargs):
+#             # funny_stuff()
+#             # print(argument)
+#             power_users = 
+#             if user in ctx.power_users:
+#                 result = function(*args, **kwargs)
+#             else:
+#                 logger.error(f"User {getpass.getuser()} is not authorized for this function.")
+#                 result = dict(code=1, message="This user does not have permission for this function.", status="warning")
+#             return result
+#         return wrapper
+#     return decorator
+
 def check_if_app() -> bool:
     """
     Checks if the program is running from pyinstaller compiled
@@ -460,6 +475,12 @@ class Result(BaseModel):
     code: int = Field(default=0)
     msg: str
     status: Literal["NoIcon", "Question", "Information", "Warning", "Critical"] = Field(default="NoIcon")
+
+    
+    @field_validator('status', mode='before')
+    @classmethod
+    def to_title(cls, value:str):
+        return value.title()
 
     def __repr__(self) -> str:
         return f"Result({self.owner})"

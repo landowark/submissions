@@ -106,7 +106,7 @@ class PydReagent(BaseModel):
         if self.model_extra != None:
             self.__dict__.update(self.model_extra)
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
-        reagent = Reagent.query(lot_number=self.lot)
+        reagent = Reagent.query(lot_number=self.lot, name=self.name)
         logger.debug(f"Result: {reagent}")
         if reagent == None:
             reagent = Reagent()
@@ -208,6 +208,56 @@ class PydSample(BaseModel, extra='allow'):
                     logger.error(f"Could not attach submission sample association due to: {e}")
                     instance.metadata.session.rollback()
         return instance, out_associations, report
+
+class PydEquipment(BaseModel, extra='ignore'):
+
+    asset_number: str
+    name: str
+    nickname: str|None
+    processes: List[str]|None
+    role: str|None
+
+    @field_validator('processes', mode='before')
+    @classmethod
+    def make_empty_list(cls, value):
+        # logger.debug(f"Pydantic value: {value}")
+        if value == None:
+            value = ['']
+        if len(value)==0:
+            value=['']
+        return value
+
+    # def toForm(self, parent):
+    #     from frontend.widgets.equipment_usage import EquipmentCheckBox
+    #     return EquipmentCheckBox(parent=parent, equipment=self)
+    
+    def toSQL(self, submission:BasicSubmission|str=None):
+        if isinstance(submission, str):
+            submission = BasicSubmission.query(rsl_number=submission)
+        equipment = Equipment.query(asset_number=self.asset_number)
+        if equipment == None:
+            return
+        if submission != None:
+            assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
+            process = Process.query(name=self.processes[0])
+            if process == None:
+                from frontend.widgets.pop_ups import QuestionAsker
+                dlg = QuestionAsker(title="Add Process?", message=f"Unable to find {self.processes[0]} in the database.\nWould you like to add it?")
+                if dlg.exec():
+                    kit = submission.extraction_kit
+                    submission_type = submission.submission_type
+                    process = Process(name=self.processes[0])
+                    process.kit_types.append(kit)
+                    process.submission_types.append(submission_type)
+                    process.equipment.append(equipment)
+                    process.save()
+            assoc.process = process
+            assoc.role = self.role
+            # equipment.equipment_submission_associations.append(assoc)
+            equipment.equipment_submission_associations.append(assoc)
+        else:
+            assoc = None
+        return equipment, assoc
 
 class PydSubmission(BaseModel, extra='allow'):
     filepath: Path
@@ -453,8 +503,10 @@ class PydSubmission(BaseModel, extra='allow'):
                     for equip in self.equipment:
                         equip, association = equip.toSQL(submission=instance)
                         if association != None:
+                            association.save()
                             logger.debug(f"Equipment association SQL object to be added to submission: {association.__dict__}")
                             instance.submission_equipment_associations.append(association)
+                
                 case _:
                     try:
                         instance.set_attribute(key=key, value=value)
@@ -570,9 +622,7 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"New reagents: {new_reagents}")
         logger.debug(f"New info: {new_info}")
         # get list of sheet names
-        sheets = workbook.sheetnames
-        # logger.debug(workbook.sheetnames)
-        for sheet in sheets:
+        for sheet in workbook.sheetnames:
             # open sheet
             worksheet=workbook[sheet]
             # Get relevant reagents for that sheet
@@ -613,11 +663,14 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"Workbook sheets: {workbook.sheetnames}")
         worksheet = workbook[sample_info["lookup_table"]['sheet']]
         samples = sorted(self.samples, key=attrgetter('column', 'row'))
+        custom_sampler = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type).adjust_autofill_samples
+        samples = custom_sampler(samples=samples)
         logger.debug(f"Samples: {pformat(samples)}")
         # Fail safe against multiple instances of the same sample
         for iii, sample in enumerate(samples, start=1):
             row = sample_info['lookup_table']['start_row'] + iii
             fields = [field for field in list(sample.model_fields.keys()) + list(sample.model_extra.keys()) if field in sample_info['sample_columns'].keys()]
+            
             for field in fields:
                 column = sample_info['sample_columns'][field]
                 value = getattr(sample, field)
@@ -629,6 +682,42 @@ class PydSubmission(BaseModel, extra='allow'):
                 if field == "row":
                     value = row_map[value]
                 worksheet.cell(row=row, column=column, value=value)
+        return workbook
+    
+    def autofill_equipment(self, workbook:Workbook) -> Workbook:
+        equipment_map = SubmissionType.query(name=self.submission_type['value']).construct_equipment_map()
+        logger.debug(f"Equipment map: {equipment_map}")
+        # See if all equipment has a location map
+        # If not, create a new sheet to store them in.
+        if not all([len(item.keys()) > 1 for item in equipment_map]):
+            logger.warning("Creating 'Equipment' sheet to hold unmapped equipment")
+            workbook.create_sheet("Equipment")
+        equipment = []
+        for ii, equip in enumerate(self.equipment, start=1):
+            loc = [item for item in equipment_map if item['role'] == equip.role][0]
+            try:
+                loc['name']['value'] = equip.name
+                loc['process']['value'] = equip.processes[0]
+            except KeyError:
+                loc['name'] = dict(row=ii, column=2)
+                loc['process'] = dict(row=ii, column=3)
+                loc['name']['value'] = equip.name
+                loc['process']['value'] = equip.processes[0]
+                loc['sheet'] = "Equipment"
+            equipment.append(loc)
+        logger.debug(f"Using equipment: {equipment}")
+        for sheet in workbook.sheetnames:
+            logger.debug(f"Looking at: {sheet}")
+            worksheet = workbook[sheet]
+            relevant = [item for item in equipment if item['sheet'] == sheet]
+            for rel in relevant:
+                match sheet:
+                    case "Equipment":
+                        worksheet.cell(row=rel['name']['row'], column=1, value=rel['role'])
+                    case _:
+                        pass
+                worksheet.cell(row=rel['name']['row'], column=rel['name']['column'], value=rel['name']['value'])
+                worksheet.cell(row=rel['process']['row'], column=rel['process']['column'], value=rel['process']['value'])
         return workbook
 
     def construct_filename(self) -> str:
@@ -773,42 +862,6 @@ class PydKit(BaseModel):
             # instance.reagent_types = [item.toSQL(ctx, instance) for item in self.reagent_types]
             [item.toSQL(instance) for item in self.reagent_types]
         return instance, report
-
-class PydEquipment(BaseModel, extra='ignore'):
-
-    asset_number: str
-    name: str
-    nickname: str|None
-    process: str|None
-    role: str|None
-
-    # @field_validator('process')
-    # @classmethod
-    # def remove_dupes(cls, value):
-    #     if isinstance(value, list):
-    #         return list(set(value))
-    #     else:
-    #         return value
-
-    # def toForm(self, parent):
-    #     from frontend.widgets.equipment_usage import EquipmentCheckBox
-    #     return EquipmentCheckBox(parent=parent, equipment=self)
-    
-    def toSQL(self, submission:BasicSubmission|str=None):
-        if isinstance(submission, str):
-            submission = BasicSubmission.query(rsl_number=submission)
-        equipment = Equipment.query(asset_number=self.asset_number)
-        if equipment == None:
-            return
-        if submission != None:
-            assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
-            assoc.process = self.process
-            assoc.role = self.role
-            # equipment.equipment_submission_associations.append(assoc)
-            equipment.equipment_submission_associations.append(assoc)
-        else:
-            assoc = None
-        return equipment, assoc
 
 class PydEquipmentRole(BaseModel):
 

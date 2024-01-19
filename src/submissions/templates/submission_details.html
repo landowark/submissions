@@ -48,7 +48,7 @@
         {% if sub['equipment'] %}
         <h3><u>Equipment:</u></h3>
         <p>{% for item in sub['equipment'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> {{ item['name'] }}({{ item['asset_number'] }}): {{ item['process']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> {{ item['name'] }} ({{ item['asset_number'] }}): {{ item['processes'][0]|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
         {% endfor %}</p>
         {% endif %}
         {% if sub['samples'] %}
@@ -97,9 +97,9 @@
         {% endfor %}</p>
         {% endfor %}
         {% endif %}
-        {% if sub['comments'] %}
+        {% if sub['comment'] %}
         <h3><u>Comments:</u></h3>
-        <p>{% for entry in sub['comments'] %}
+        <p>{% for entry in sub['comment'] %}
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
         {% endfor %}</p>
         {% endif %}

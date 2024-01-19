@@ -323,21 +323,21 @@ class SubmissionFormContainer(QWidget):
         # reset form
         self.form.setParent(None)
         # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
-        wkb = self.pyd.autofill_excel()
-        if wkb != None:
-            fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="xlsx")
-            try:
-                wkb.save(filename=fname.__str__())
-            except PermissionError:
-                logger.error("Hit a permission error when saving workbook. Cancelled?")
-        if hasattr(self.pyd, 'csv'):
-            dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
-            if dlg.exec():
-                fname = select_save_file(self, f"{self.pyd.construct_filename()}.csv", extension="csv")
-                try:
-                    self.pyd.csv.to_csv(fname.__str__(), index=False)
-                except PermissionError:
-                    logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
+        # wkb = self.pyd.autofill_excel()
+        # if wkb != None:
+        #     fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="xlsx")
+        #     try:
+        #         wkb.save(filename=fname.__str__())
+        #     except PermissionError:
+        #         logger.error("Hit a permission error when saving workbook. Cancelled?")
+        # if hasattr(self.pyd, 'csv'):
+        #     dlg = QuestionAsker("Export CSV?", "Would you like to export the csv file?")
+        #     if dlg.exec():
+        #         fname = select_save_file(self, f"{self.pyd.construct_filename()}.csv", extension="csv")
+        #         try:
+        #             self.pyd.csv.to_csv(fname.__str__(), index=False)
+        #         except PermissionError:
+        #             logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
         self.report.add_result(report)
 
     def export_csv_function(self, fname:Path|None=None):

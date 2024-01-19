@@ -503,7 +503,12 @@ class EquipmentParser(object):
     
     def get_asset_number(self, input:str) -> str:
         regex = Equipment.get_regex()
-        return regex.search(input).group().strip("-")
+        logger.debug(f"Using equipment regex: {regex} on {input}")
+        try:
+            return regex.search(input).group().strip("-")
+        except AttributeError:
+            return input
+
     
     def parse_equipment(self):
         logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
@@ -512,7 +517,10 @@ class EquipmentParser(object):
         # logger.debug(f"Sheets: {sheets}")
         for sheet in self.xl.sheet_names:
             df = self.xl.parse(sheet, header=None, dtype=object)
-            relevant = [item for item in self.map if item['sheet']==sheet]
+            try:
+                relevant = [item for item in self.map if item['sheet']==sheet]
+            except (TypeError, KeyError):
+                continue
             # logger.debug(f"Relevant equipment: {pformat(relevant)}")
             previous_asset = ""
             for equipment in relevant:
@@ -524,7 +532,10 @@ class EquipmentParser(object):
                 asset = self.get_asset_number(input=asset)
                 eq = Equipment.query(asset_number=asset)
                 process = df.iat[equipment['process']['row']-1, equipment['process']['column']-1]
-                output.append(PydEquipment(name=eq.name, process=process, role=equipment['role'], asset_number=asset, nickname=eq.nickname))
+                try:
+                    output.append(PydEquipment(name=eq.name, processes=[process], role=equipment['role'], asset_number=asset, nickname=eq.nickname))
+                except AttributeError:
+                    logger.error(f"Unable to add {eq} to PydEquipment list.")
                 # logger.debug(f"Here is the output so far: {pformat(output)}")
         return output
 

@@ -18,8 +18,12 @@ class BaseClass(Base):
         Base (DeclarativeMeta): Declarative base for metadata.
     """
     __abstract__ = True
-
+    
     __table_args__ = {'extend_existing': True} 
+
+    @declared_attr
+    def __tablename__(cls):
+        return f"_{cls.__name__.lower()}"
 
     @declared_attr
     def __database_session__(cls):
@@ -44,6 +48,15 @@ class BaseClass(Base):
         else:
             from test_settings import ctx
         return ctx.backup_path
+    
+    def save(self):
+        logger.debug(f"Saving {self}")
+        try:
+            self.__database_session__.add(self)
+            self.__database_session__.commit()
+        except Exception as e:
+            logger.critical(f"Problem saving object: {e}")
+            self.__database_session__.rollback()
 
 from .controls import *
 # import order must go: orgs, kit, subs due to circular import issues

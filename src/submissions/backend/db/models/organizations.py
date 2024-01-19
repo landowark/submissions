@@ -25,7 +25,7 @@ class Organization(BaseClass):
     """
     Base of organization
     """
-    __tablename__ = "_organizations"
+    # __tablename__ = "_organizations"
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: organization name
@@ -73,14 +73,13 @@ class Organization(BaseClass):
         Args:
             ctx (Settings): Settings object passed down from GUI. Necessary to check authorization
         """        
-        ctx.database_session.add(self)
-        ctx.database_session.commit()
+        super().save()
 
 class Contact(BaseClass):
     """
     Base of Contact
     """
-    __tablename__ = "_contacts"
+    # __tablename__ = "_contacts"
 
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: contact name

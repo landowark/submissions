@@ -18,7 +18,7 @@ class ControlType(BaseClass):
     """
     Base class of a control archetype.
     """    
-    __tablename__ = '_control_types'
+    # __tablename__ = '_control_types'
     
     id = Column(INTEGER, primary_key=True) #: primary key   
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
@@ -75,7 +75,7 @@ class Control(BaseClass):
     Base class of a control sample.
     """    
 
-    __tablename__ = '_control_samples'
+    # __tablename__ = '_control_samples'
     
     id = Column(INTEGER, primary_key=True) #: primary key
     parent_id = Column(String, ForeignKey("_control_types.id", name="fk_control_parent_id")) #: primary key of control type
@@ -264,7 +264,4 @@ class Control(BaseClass):
             case _:
                 pass
         return query_return(query=query, limit=limit)
-
-    def save(self):
-        self.__database_session__.add(self)
-        self.__database_session__.commit()
+    

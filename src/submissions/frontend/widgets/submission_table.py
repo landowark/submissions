@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db.models import BasicSubmission, Equipment, SubmissionEquipmentAssociation, Process
+from backend.db.models import BasicSubmission, Equipment
 from backend.excel import make_report_html, make_report_xlsx
 from tools import check_if_app, Report, Result, jinja_template_loading, get_first_blank_df_row, row_map
 from xhtml2pdf import pisa
@@ -95,8 +95,8 @@ class SubmissionsSheet(QTableView):
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
-        
-        self.doubleClicked.connect(self.show_details)
+        # self.doubleClicked.connect(self.show_details)
+        self.doubleClicked.connect(lambda x: BasicSubmission.query(id=x.sibling(x.row(), 0).data()).show_details(self))
  
     def setData(self) -> None: 
         """
@@ -114,16 +114,16 @@ class SubmissionsSheet(QTableView):
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
         
-    def show_details(self) -> None:
-        """
-        creates detailed data to show in seperate window
-        """        
-        logger.debug(f"Sheet.app: {self.app}")
-        index = (self.selectionModel().currentIndex())
-        value = index.sibling(index.row(),0).data()
-        dlg = SubmissionDetails(parent=self, id=value)
-        if dlg.exec():
-            pass  
+    # def show_details(self, submission:BasicSubmission) -> None:
+    #     """
+    #     creates detailed data to show in seperate window
+    #     """        
+    #     logger.debug(f"Sheet.app: {self.app}")
+    #     # index = (self.selectionModel().currentIndex())
+    #     # value = index.sibling(index.row(),0).data()
+    #     dlg = SubmissionDetails(parent=self, sub=submission)
+    #     if dlg.exec():
+    #         pass  
 
     def create_barcode(self) -> None:
         """
@@ -154,38 +154,47 @@ class SubmissionsSheet(QTableView):
         Args:
             event (_type_): the item of interest
         """        
+        id = self.selectionModel().currentIndex()
+        id = id.sibling(id.row(),0).data()
+        submission = BasicSubmission.query(id=id)
         self.menu = QMenu(self)
-        renameAction = QAction('Delete', self)
-        detailsAction = QAction('Details', self)
-        # barcodeAction = QAction("Print Barcode", self)
-        commentAction = QAction("Add Comment", self)
-        backupAction = QAction("Backup", self)
-        equipAction = QAction("Add Equipment", self)
-        # hitpickAction = QAction("Hitpicks", self)
-        renameAction.triggered.connect(lambda: self.delete_item(event))
-        detailsAction.triggered.connect(lambda: self.show_details())
-        # barcodeAction.triggered.connect(lambda: self.create_barcode())
-        commentAction.triggered.connect(lambda: self.add_comment())
-        backupAction.triggered.connect(lambda: self.regenerate_submission_form())
-        equipAction.triggered.connect(lambda: self.add_equipment())
-        # hitpickAction.triggered.connect(lambda: self.hit_pick())
-        self.menu.addAction(detailsAction)
-        self.menu.addAction(renameAction)
-        # self.menu.addAction(barcodeAction)
-        self.menu.addAction(commentAction)
-        self.menu.addAction(backupAction)
-        self.menu.addAction(equipAction)
-        # self.menu.addAction(hitpickAction)
+        # renameAction = QAction('Delete', self)
+        # detailsAction = QAction('Details', self)
+        # commentAction = QAction("Add Comment", self)
+        # equipAction = QAction("Add Equipment", self)
+        # backupAction = QAction("Export", self)
+        # renameAction.triggered.connect(lambda: self.delete_item(submission))
+        # detailsAction.triggered.connect(lambda: self.show_details(submission))
+        # commentAction.triggered.connect(lambda: self.add_comment(submission))
+        # backupAction.triggered.connect(lambda: self.regenerate_submission_form(submission))
+        # equipAction.triggered.connect(lambda: self.add_equipment(submission))
+        # self.menu.addAction(detailsAction)
+        # self.menu.addAction(renameAction)
+        # self.menu.addAction(commentAction)
+        # self.menu.addAction(backupAction)
+        # self.menu.addAction(equipAction)
+        self.con_actions = submission.custom_context_events()
+        for k in self.con_actions.keys():
+            logger.debug(f"Adding {k}")
+            action = QAction(k, self)
+            action.triggered.connect(lambda _, action_name=k: self.triggered_action(action_name=action_name))
+            self.menu.addAction(action)
         # add other required actions
         self.menu.popup(QCursor.pos())
+
+    def triggered_action(self, action_name:str):
+        logger.debug(f"Action: {action_name}")
+        logger.debug(f"Responding with {self.con_actions[action_name]}")
+        func = self.con_actions[action_name]
+        func(obj=self)
 
     def add_equipment(self):
         index = (self.selectionModel().currentIndex())
         value = index.sibling(index.row(),0).data()
         self.add_equipment_function(rsl_plate_id=value)
 
-    def add_equipment_function(self, rsl_plate_id):
-        submission = BasicSubmission.query(id=rsl_plate_id)
+    def add_equipment_function(self, submission:BasicSubmission):
+        # submission = BasicSubmission.query(id=rsl_plate_id)
         submission_type = submission.submission_type_name
         dlg = EquipmentUsage(parent=self, submission_type=submission_type, submission=submission)
         if dlg.exec():
@@ -193,29 +202,33 @@ class SubmissionsSheet(QTableView):
             logger.debug(f"We've got equipment: {equipment}")
             for equip in equipment:
                 e = Equipment.query(name=equip.name)
-                assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
-                process = Process.query(name=equip.process)
-                assoc.process = process
-                assoc.role = equip.role
+                # assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
+                # process = Process.query(name=equip.processes)
+                # assoc.process = process
+                # assoc.role = equip.role
+                _, assoc = equip.toSQL(submission=submission)
                 # submission.submission_equipment_associations.append(assoc)
                 logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
                 # submission.save()
                 assoc.save()
+        else:
+            pass
 
-    def delete_item(self, event):
+    def delete_item(self, submission:BasicSubmission):
         """
         Confirms user deletion and sends id to backend for deletion.
 
         Args:
             event (_type_): the item of interest
         """        
-        index = (self.selectionModel().currentIndex())
-        value = index.sibling(index.row(),0).data()
-        logger.debug(index)
-        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
+        # index = (self.selectionModel().currentIndex())
+        # value = index.sibling(index.row(),0).data()
+        # logger.debug(index)
+        # msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
+        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {submission.rsl_plate_num}?\n")
         if msg.exec():
             # delete_submission(id=value)
-            BasicSubmission.query(id=value).delete()
+            submission.delete()
         else:
             return
         self.setData()
@@ -424,221 +437,11 @@ class SubmissionsSheet(QTableView):
             writer.close()
         self.report.add_result(report)
 
-    def regenerate_submission_form(self):
-        index = (self.selectionModel().currentIndex())
-        value = index.sibling(index.row(),0).data()
-        logger.debug(index)
-        # msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
-        # if msg.exec():
-            # delete_submission(id=value)
-        sub = BasicSubmission.query(id=value)
-        fname = select_save_file(self, default_name=sub.to_pydantic().construct_filename(), extension="xlsx")
-        sub.backup(fname=fname, full_backup=False)
+    def regenerate_submission_form(self, submission:BasicSubmission):
+        # index = (self.selectionModel().currentIndex())
+        # value = index.sibling(index.row(),0).data()
+        # logger.debug(index)
+        # sub = BasicSubmission.query(id=value)
+        fname = select_save_file(self, default_name=submission.to_pydantic().construct_filename(), extension="xlsx")
+        submission.backup(fname=fname, full_backup=False)
 
-class SubmissionDetails(QDialog):
-    """
-    a window showing text details of submission
-    """    
-    def __init__(self, parent, id:int) -> None:
-
-        super().__init__(parent)
-        # self.ctx = ctx
-        try:
-            self.app = parent.parent().parent().parent().parent().parent().parent()
-        except AttributeError:
-            self.app = None
-        self.setWindowTitle("Submission Details")
-        # create scrollable interior
-        interior = QScrollArea()
-        interior.setParent(self)
-        # get submision from db
-        # sub = lookup_submissions(ctx=ctx, id=id)
-        sub = BasicSubmission.query(id=id)
-        logger.debug(f"Submission details data:\n{pformat(sub.to_dict())}")
-        self.base_dict = sub.to_dict(full_data=True)
-        # don't want id
-        del self.base_dict['id']
-        logger.debug(f"Creating barcode.")
-        if not check_if_app():
-            self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
-        logger.debug(f"Hitpicking plate...")
-        self.plate_dicto = sub.hitpick_plate()
-        logger.debug(f"Making platemap...")
-        self.base_dict['platemap'] = make_plate_map_html(self.plate_dicto)
-        # logger.debug(f"Platemap: {self.base_dict['platemap']}")
-        # logger.debug(f"platemap: {platemap}")
-        # image_io = BytesIO()
-        # try:
-        #     platemap.save(image_io, 'JPEG')
-        # except AttributeError:
-        #     logger.error(f"No plate map found for {sub.rsl_plate_num}")
-        # self.base_dict['platemap'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
-        self.template = env.get_template("submission_details.html")
-        self.html = self.template.render(sub=self.base_dict)
-        webview = QWebEngineView()
-        webview.setMinimumSize(900, 500)
-        webview.setMaximumSize(900, 500)
-        webview.setHtml(self.html)
-        self.layout = QVBoxLayout()
-        interior.resize(900, 500)
-        interior.setWidget(webview)
-        self.setFixedSize(900, 500)
-        # button to export a pdf version
-        btn = QPushButton("Export PDF")
-        btn.setParent(self)
-        btn.setFixedWidth(900)
-        btn.clicked.connect(self.export)
-        
-    def export(self):
-        """
-        Renders submission to html, then creates and saves .pdf file to user selected file.
-        """        
-        # try:
-        #     home_dir = Path(self.ctx.directory_path).joinpath(f"Submission_Details_{self.base_dict['Plate Number']}.pdf").resolve().__str__()
-        # except FileNotFoundError:
-        #     home_dir = Path.home().resolve().__str__()
-        # fname = Path(QFileDialog.getSaveFileName(self, "Save File", home_dir, filter=".pdf")[0])
-        # if fname.__str__() == ".":
-        #     logger.debug("Saving pdf was cancelled.")
-        #     return
-        fname = select_save_file(obj=self, default_name=self.base_dict['Plate Number'], extension="pdf")
-        del self.base_dict['platemap']
-        export_map = make_plate_map(self.plate_dicto)
-        image_io = BytesIO()
-        try:
-            export_map.save(image_io, 'JPEG')
-        except AttributeError:
-            logger.error(f"No plate map found")
-        self.base_dict['export_map'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
-        self.html2 = self.template.render(sub=self.base_dict)
-        try:
-            with open(fname, "w+b") as f:
-                pisa.CreatePDF(self.html2, dest=f)
-        except PermissionError as e:
-            logger.error(f"Error saving pdf: {e}")
-            msg = QMessageBox()
-            msg.setText("Permission Error")
-            msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
-            msg.setWindowTitle("Permission Error")
-            msg.exec()
-
-class BarcodeWindow(QDialog):
-
-    def __init__(self, rsl_num:str):
-        super().__init__()
-        # set the title
-        self.setWindowTitle("Image")
-        self.layout = QVBoxLayout()
-        # setting  the geometry of window
-        self.setGeometry(0, 0, 400, 300)
-        # creating label
-        self.label = QLabel()
-        self.img = make_plate_barcode(rsl_num)
-        self.pixmap = QPixmap()
-        self.pixmap.loadFromData(self.img)
-        # adding image to label
-        self.label.setPixmap(self.pixmap)
-        # show all the widgets]
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.layout.addWidget(self.label)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
-        self._createActions()
-        self._createToolBar()
-        self._connectActions()
-        
-
-
-    def _createToolBar(self):
-        """
-        adds items to menu bar
-        """    
-        toolbar = QToolBar("My main toolbar")
-        toolbar.addAction(self.printAction)
-        
-
-    def _createActions(self):
-        """
-        creates actions
-        """        
-        self.printAction = QAction("&Print", self)
-
-
-    def _connectActions(self):
-        """
-        connect menu and tool bar item to functions
-        """
-        self.printAction.triggered.connect(self.print_barcode)
-
-
-    def print_barcode(self):
-        """
-        Sends barcode image to printer.
-        """        
-        printer = QtPrintSupport.QPrinter()
-        dialog = QtPrintSupport.QPrintDialog(printer)
-        if dialog.exec():
-            self.handle_paint_request(printer, self.pixmap.toImage())
-
-
-    def handle_paint_request(self, printer:QtPrintSupport.QPrinter, im):
-        logger.debug(f"Hello from print handler.")
-        painter = QPainter(printer)
-        image = QPixmap.fromImage(im)
-        painter.drawPixmap(120, -20, image)
-        painter.end()
-        
-class SubmissionComment(QDialog):
-    """
-    a window for adding comment text to a submission
-    """    
-    def __init__(self, parent, rsl:str) -> None:
-
-        super().__init__(parent)
-        # self.ctx = ctx
-        try:
-            self.app = parent.parent().parent().parent().parent().parent().parent
-            print(f"App: {self.app}")
-        except AttributeError:
-            pass
-        self.rsl = rsl
-        self.setWindowTitle(f"{self.rsl} Submission Comment")
-        # create text field
-        self.txt_editor = QTextEdit(self)
-        self.txt_editor.setReadOnly(False)
-        self.txt_editor.setText("Add Comment")
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.layout = QVBoxLayout()
-        self.setFixedSize(400, 300)
-        self.layout.addWidget(self.txt_editor)
-        self.layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignBottom)
-        self.setLayout(self.layout)
-        
-    def add_comment(self):
-        """
-        Adds comment to submission object.
-        """        
-        commenter = getuser()
-        comment = self.txt_editor.toPlainText()
-        dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
-        
-        full_comment = [{"name":commenter, "time": dt, "text": comment}]
-        logger.debug(f"Full comment: {full_comment}")
-        sub = BasicSubmission.query(rsl_number=self.rsl)
-        try:
-            # For some reason .append results in new comment being ignores, so have to concatenate lists.
-            sub.comment = sub.comment + full_comment
-        except (AttributeError, TypeError) as e:
-            logger.error(f"Hit error {e} creating comment")
-            sub.comment = full_comment
-        # logger.debug(sub.comment)
-        sub.save(original=False)
-        # logger.debug(f"Save result: {result}")
-
-        
