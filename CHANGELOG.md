@@ -1,3 +1,7 @@
+## 202401.04
+
+- Large scale database refactor to increase modularity.
+
 ## 202401.01
 
 - Improved tooltips and form regeneration.

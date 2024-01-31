@@ -78,20 +78,20 @@ class Control(BaseClass):
     # __tablename__ = '_control_samples'
     
     id = Column(INTEGER, primary_key=True) #: primary key
-    parent_id = Column(String, ForeignKey("_control_types.id", name="fk_control_parent_id")) #: primary key of control type
+    parent_id = Column(String, ForeignKey("_controltype.id", name="fk_control_parent_id")) #: primary key of control type
     controltype = relationship("ControlType", back_populates="instances", foreign_keys=[parent_id]) #: reference to parent control type
     name = Column(String(255), unique=True) #: Sample ID
     submitted_date = Column(TIMESTAMP) #: Date submitted to Robotics
     contains = Column(JSON) #: unstructured hashes in contains.tsv for each organism
     matches = Column(JSON) #: unstructured hashes in matches.tsv for each organism
     kraken = Column(JSON) #: unstructured output from kraken_report
-    submission_id = Column(INTEGER, ForeignKey("_submissions.id")) #: parent submission id
+    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id")) #: parent submission id
     submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
     refseq_version = Column(String(16)) #: version of refseq used in fastq parsing
     kraken2_version = Column(String(16)) #: version of kraken2 used in fastq parsing
     kraken2_db_version = Column(String(32)) #: folder name of kraken2 db
     sample = relationship("BacterialCultureSample", back_populates="control")
-    sample_id = Column(INTEGER, ForeignKey("_samples.id", ondelete="SET NULL", name="cont_BCS_id"))
+    sample_id = Column(INTEGER, ForeignKey("_basicsample.id", ondelete="SET NULL", name="cont_BCS_id"))
 
     def __repr__(self) -> str:
         return f"<Control({self.name})>"

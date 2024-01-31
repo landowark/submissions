@@ -15,8 +15,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 orgs_contacts = Table(
                         "_orgs_contacts", 
                         Base.metadata, 
-                        Column("org_id", INTEGER, ForeignKey("_organizations.id")), 
-                        Column("contact_id", INTEGER, ForeignKey("_contacts.id")), 
+                        Column("org_id", INTEGER, ForeignKey("_organization.id")), 
+                        Column("contact_id", INTEGER, ForeignKey("_contact.id")), 
                         # __table_args__ = {'extend_existing': True} 
                         extend_existing = True
                     )

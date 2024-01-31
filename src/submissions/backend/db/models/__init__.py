@@ -50,7 +50,7 @@ class BaseClass(Base):
         return ctx.backup_path
     
     def save(self):
-        logger.debug(f"Saving {self}")
+        # logger.debug(f"Saving {self}")
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()

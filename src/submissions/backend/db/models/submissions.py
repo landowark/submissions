@@ -3,7 +3,8 @@ Models for the main submission types.
 '''
 from __future__ import annotations
 from getpass import getuser
-import math, json, logging, uuid, tempfile, re, yaml
+import math, json, logging, uuid, tempfile, re, yaml, zipfile
+import sys
 from operator import attrgetter
 from pprint import pformat
 from . import Reagent, SubmissionType, KitType, Organization
@@ -13,9 +14,10 @@ from json.decoder import JSONDecodeError
 from sqlalchemy.ext.associationproxy import association_proxy
 import pandas as pd
 from openpyxl import Workbook
-from . import BaseClass, Equipment
+from openpyxl.worksheet.worksheet import Worksheet
+from . import BaseClass
 from tools import check_not_nan, row_map, query_return, setup_lookup, jinja_template_loading
-from datetime import datetime, date, time
+from datetime import datetime, date
 from typing import List, Any
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
@@ -37,17 +39,16 @@ class BasicSubmission(BaseClass):
     submitter_plate_num = Column(String(127), unique=True) #: The number given to the submission by the submitting lab
     submitted_date = Column(TIMESTAMP) #: Date submission received
     submitting_lab = relationship("Organization", back_populates="submissions") #: client org
-    submitting_lab_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete="SET NULL", name="fk_BS_sublab_id")) #: client lab id from _organizations
+    submitting_lab_id = Column(INTEGER, ForeignKey("_organization.id", ondelete="SET NULL", name="fk_BS_sublab_id")) #: client lab id from _organizations
     sample_count = Column(INTEGER) #: Number of samples in the submission
     extraction_kit = relationship("KitType", back_populates="submissions") #: The extraction kit used
-    extraction_kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete="SET NULL", name="fk_BS_extkit_id")) #: id of joined extraction kit
-    submission_type_name = Column(String, ForeignKey("_submission_types.name", ondelete="SET NULL", name="fk_BS_subtype_name")) #: name of joined submission type
+    extraction_kit_id = Column(INTEGER, ForeignKey("_kittype.id", ondelete="SET NULL", name="fk_BS_extkit_id")) #: id of joined extraction kit
+    submission_type_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL", name="fk_BS_subtype_name")) #: name of joined submission type
     technician = Column(String(64)) #: initials of processing tech(s)
     # Move this into custom types?
     # reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
-    reagents_id = Column(String, ForeignKey("_reagents.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
+    reagents_id = Column(String, ForeignKey("_reagent.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
-    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
     comment = Column(JSON) #: user notes
@@ -132,19 +133,21 @@ class BasicSubmission(BaseClass):
             logger.error(f"Json error in {self.rsl_plate_num}: {e}")
         # Updated 2023-09 to use the extraction kit to pull reagents.
         if full_data:
+            logger.debug(f"Attempting reagents.")
             try:
                 reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in self.submission_reagent_associations]
             except Exception as e:
                 logger.error(f"We got an error retrieving reagents: {e}")
                 reagents = None
             # samples = [item.sample.to_sub_dict(submission_rsl=self.rsl_plate_num) for item in self.submission_sample_associations]
+            logger.debug(f"Running samples.")
             samples = self.adjust_to_dict_samples(backup=backup)
             try:
                 equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
                 if len(equipment) == 0:
                     equipment = None
             except Exception as e:
-                logger.error(f"Error setting equipment: {self.equipment}")
+                logger.error(f"Error setting equipment: {e}")
                 equipment = None
         else:
             reagents = None
@@ -155,7 +158,6 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}")
             comments = None
-        
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
@@ -440,6 +442,7 @@ class BasicSubmission(BaseClass):
     def filename_template(cls) -> str:
         """
         Constructs template for filename of this class.
+        Note: This is meant to be used with the dictionary constructed in self.to_dict(). Keys need to have spaces removed
 
         Returns:
             str: filename template in jinja friendly format.
@@ -461,6 +464,20 @@ class BasicSubmission(BaseClass):
             except:
                 logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
         return df
+
+    @classmethod
+    def custom_sample_autofill_row(cls, sample, worksheet:Worksheet) -> int:
+        """
+        _summary_
+
+        Args:
+            sample (_type_): _description_
+            worksheet (Workbook): _description_
+
+        Returns:
+            int: _description_
+        """      
+        return None  
 
     def set_attribute(self, key:str, value):
         """
@@ -547,7 +564,7 @@ class BasicSubmission(BaseClass):
         """        
         from backend.validators import PydSubmission, PydSample, PydReagent, PydEquipment
         dicto = self.to_dict(full_data=True, backup=backup)
-        logger.debug(f"Backup dictionary: {pformat(dicto)}")
+        # logger.debug(f"Backup dictionary: {pformat(dicto)}")
         # dicto['filepath'] = Path(tempfile.TemporaryFile().name)
         new_dict = {}
         for key, value in dicto.items():
@@ -572,7 +589,7 @@ class BasicSubmission(BaseClass):
                     # new_dict[key.lower().replace(" ", "_")]['value'] = value
                     # new_dict[key.lower().replace(" ", "_")]['missing'] = True
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
-        logger.debug(f"Dictionary coming into PydSubmission: {pformat(new_dict)}")
+        # logger.debug(f"Dictionary coming into PydSubmission: {pformat(new_dict)}")
         # sys.exit()
         return PydSubmission(**new_dict)
 
@@ -797,22 +814,15 @@ class BasicSubmission(BaseClass):
             # logger.debug(f"Save result: {result}")
 
     def add_equipment(self, obj):
-        # submission_type = submission.submission_type_name
         from frontend.widgets.equipment_usage import EquipmentUsage
-        dlg = EquipmentUsage(parent=obj, submission_type=self.submission_type_name, submission=self)
+        dlg = EquipmentUsage(parent=obj, submission=self)
         if dlg.exec():
             equipment = dlg.parse_form()
             logger.debug(f"We've got equipment: {equipment}")
             for equip in equipment:
-                # e = Equipment.query(name=equip.name)
-                # assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
-                # process = Process.query(name=equip.processes)
-                # assoc.process = process
-                # assoc.role = equip.role
+                logger.debug(f"Processing: {equip}")
                 _, assoc = equip.toSQL(submission=self)
-                # submission.submission_equipment_associations.append(assoc)
                 logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
-                # submission.save()
                 assoc.save()
         else:
             pass
@@ -825,12 +835,14 @@ class BasicSubmission(BaseClass):
             fname (Path): Filename of xlsx file.
         """        
         logger.debug("Hello from backup.")
+        pyd = self.to_pydantic(backup=True)
         if fname == None:
             from frontend.widgets.functions import select_save_file
-            from backend.validators import RSLNamer
-            abbreviation = self.get_abbreviation()
-            file_data = dict(rsl_plate_num=self.rsl_plate_num, submission_type=self.submission_type_name, submitted_date=self.submitted_date, abbreviation=abbreviation)
-            fname = select_save_file(default_name=RSLNamer.construct_new_plate_name(data=file_data), extension="xlsx", obj=obj)
+            fname = select_save_file(default_name=pyd.construct_filename(), extension="xlsx", obj=obj)
+        logger.debug(fname.name)
+        if fname.name == "":
+            logger.debug(f"export cancelled.")
+            return
         if full_backup:
             backup = self.to_dict(full_data=True)
             try:
@@ -838,7 +850,6 @@ class BasicSubmission(BaseClass):
                     yaml.dump(backup, f)
             except KeyError as e:
                 logger.error(f"Problem saving yml backup file: {e}")
-        pyd = self.to_pydantic(backup=True)
         wb = pyd.autofill_excel()
         wb = pyd.autofill_samples(wb)
         wb = pyd.autofill_equipment(wb)
@@ -856,14 +867,14 @@ class BacterialCulture(BasicSubmission):
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSubmission.id))
 
-    def to_dict(self, full_data:bool=False) -> dict:
+    def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
         Returns:
             dict: dictionary used in submissions summary
         """        
-        output = super().to_dict(full_data=full_data)
+        output = super().to_dict(full_data=full_data, backup=backup)
         if full_data:
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
@@ -996,6 +1007,22 @@ class BacterialCulture(BasicSubmission):
         input_dict['submitted_date']['missing'] = True
         return input_dict
 
+    @classmethod
+    def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
+        logger.debug(f"Checking {sample.well}")
+        logger.debug(f"here's the worksheet: {worksheet}")
+        row = super().custom_sample_autofill_row(sample, worksheet)
+        df = pd.DataFrame(list(worksheet.values))
+        # logger.debug(f"Here's the dataframe: {df}")
+        idx = df[df[0]==sample.well]
+        if idx.empty:
+            new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
+            logger.debug(f"Checking: {new}")
+            idx = df[df[0]==new]
+        logger.debug(f"Here is the row: {idx}")
+        row = idx.index.to_list()[0]
+        return row + 1
+
 class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
@@ -1003,11 +1030,13 @@ class Wastewater(BasicSubmission):
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
     ext_technician = Column(String(64))
     pcr_technician = Column(String(64))
+    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
+
     __mapper_args__ = __mapper_args__ = dict(polymorphic_identity="Wastewater", 
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSubmission.id))
 
-    def to_dict(self, full_data:bool=False) -> dict:
+    def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
@@ -1020,6 +1049,7 @@ class Wastewater(BasicSubmission):
         except TypeError as e:
             pass
         output['Technician'] = f"Enr: {self.technician}, Ext: {self.ext_technician}, PCR: {self.pcr_technician}"
+        
         return output
     
     @classmethod
@@ -1144,6 +1174,18 @@ class Wastewater(BasicSubmission):
     def adjust_autofill_samples(cls, samples: List[Any]) -> List[Any]:
         samples = super().adjust_autofill_samples(samples)
         return [item for item in samples if not item.submitter_id.startswith("EN")]
+    
+    @classmethod
+    def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
+        logger.debug(f"Checking {sample.well}")
+        logger.debug(f"here's the worksheet: {worksheet}")
+        row = super().custom_sample_autofill_row(sample, worksheet)
+        df = pd.DataFrame(list(worksheet.values))
+        logger.debug(f"Here's the dataframe: {df}")
+        idx = df[df[1]==sample.sample_location]
+        logger.debug(f"Here is the row: {idx}")
+        row = idx.index.to_list()[0]
+        return row + 1
 
 class WastewaterArtic(BasicSubmission):
     """
@@ -1155,6 +1197,9 @@ class WastewaterArtic(BasicSubmission):
                            inherit_condition=(id == BasicSubmission.id))
     artic_technician = Column(String(64))
     dna_core_submission_number = Column(String(64))
+    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
+    gel_image = Column(String(64))
+    gel_info = Column(JSON)
 
     def calculate_base_cost(self):
         """
@@ -1381,10 +1426,19 @@ class WastewaterArtic(BasicSubmission):
     
     def gel_box(self, obj):
         from frontend.widgets.gel_checker import GelBox
-        dlg = GelBox(parent=obj)
+        from frontend.widgets import select_open_file
+        fname = select_open_file(obj=obj, file_extension="jpg")
+        dlg = GelBox(parent=obj, img_path=fname)
         if dlg.exec():
-            output = dlg.parse_form()
-        print(output)
+            img_path, output = dlg.parse_form()
+            self.gel_image = img_path.name
+            self.gel_info = output
+            with zipfile.ZipFile(self.__directory_path__.joinpath("submission_imgs.zip"), 'a') as zipf:
+                # Add a file located at the source_path to the destination within the zip
+                # file. It will overwrite existing files if the names collide, but it
+                # will give a warning
+                zipf.write(img_path, self.gel_image)
+            self.save()
 
 # Sample Classes
 
@@ -1439,7 +1493,10 @@ class BasicSample(BaseClass):
             return value
         
     def __repr__(self) -> str:
-        return f"<{self.sample_type.replace('_', ' ').title().replace(' ', '')}({self.submitter_id})>"
+        try:
+            return f"<{self.sample_type.replace('_', ' ').title().replace(' ', '')}({self.submitter_id})>"
+        except AttributeError:
+            return f"<Sample({self.submitter_id})"
     
     def to_sub_dict(self, submission_rsl:str) -> dict:
         """
@@ -1448,6 +1505,7 @@ class BasicSample(BaseClass):
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
+        # logger.debug(f"Converting {self} to dict.")
         sample = {}
         sample['submitter_id'] = self.submitter_id
         sample['sample_type'] = self.sample_type
@@ -1642,6 +1700,9 @@ class WastewaterSample(BasicSample):
         """
         sample = super().to_sub_dict(submission_rsl=submission_rsl)
         sample['ww_processing_num'] = self.ww_processing_num
+        sample['sample_location'] = self.sample_location
+        sample['received_date'] = self.received_date
+        sample['collection_date'] = self.collection_date
         return sample
         
     @classmethod
@@ -1721,9 +1782,10 @@ class SubmissionSampleAssociation(BaseClass):
     """    
 
     # __tablename__ = "_submission_sample"
-
-    sample_id = Column(INTEGER, ForeignKey("_samples.id"), nullable=False) #: id of associated sample
-    submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True) #: id of associated submission
+    
+    id = Column(INTEGER, unique=True, nullable=False)
+    sample_id = Column(INTEGER, ForeignKey("_basicsample.id"), nullable=False) #: id of associated sample
+    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True) #: id of associated submission
     row = Column(INTEGER, primary_key=True) #: row on the 96 well plate
     column = Column(INTEGER, primary_key=True) #: column on the 96 well plate
 
@@ -1743,14 +1805,23 @@ class SubmissionSampleAssociation(BaseClass):
         "with_polymorphic": "*",
     }
 
-    def __init__(self, submission:BasicSubmission=None, sample:BasicSample=None, row:int=1, column:int=1):
+    def __init__(self, submission:BasicSubmission=None, sample:BasicSample=None, row:int=1, column:int=1, id:int|None=None):
         self.submission = submission
         self.sample = sample
         self.row = row
         self.column = column
+        if id != None:
+            self.id = id
+        else:
+            self.id = self.__class__.autoincrement_id()
+        logger.debug(f"Using id: {self.id}")
 
     def __repr__(self) -> str:
-        return f"<SubmissionSampleAssociation({self.submission.rsl_plate_num} & {self.sample.submitter_id})"
+        try:
+            return f"<{self.__class__.__name__}({self.submission.rsl_plate_num} & {self.sample.submitter_id})"
+        except AttributeError as e:
+            logger.error(f"Unable to construct __repr__ due to: {e}")
+            return super().__repr__()
     
     def to_sub_dict(self) -> dict:
         """
@@ -1760,6 +1831,7 @@ class SubmissionSampleAssociation(BaseClass):
             dict: Updated dictionary with row, column and well updated
         """        
         # Get sample info
+        # logger.debug(f"Running {self.__repr__()}")
         sample = self.sample.to_sub_dict(submission_rsl=self.submission)
         # sample = {}
         sample['name'] = self.sample.submitter_id
@@ -1787,6 +1859,7 @@ class SubmissionSampleAssociation(BaseClass):
         # Since there is no PCR, negliable result is necessary.
         # assoc = [item for item in self.sample_submission_associations if item.submission.rsl_plate_num==submission_rsl][0]
         sample = self.to_sub_dict()
+        logger.debug(f"Sample dict to hitpick: {sample}")
         env = jinja_template_loading()
         template = env.get_template("tooltip.html")
         tooltip_text = template.render(fields=sample)
@@ -1800,6 +1873,14 @@ class SubmissionSampleAssociation(BaseClass):
                         # """
         sample.update(dict(name=self.sample.submitter_id[:10], tooltip=tooltip_text))
         return sample
+
+    @classmethod
+    def autoincrement_id(cls):
+        try:
+            return max([item.id for item in cls.query()]) + 1
+        except ValueError as e:
+            logger.error(f"Problem incrementing id: {e}")
+            return 1
 
     @classmethod
     def find_polymorphic_subclass(cls, polymorphic_identity:str|None=None) -> SubmissionSampleAssociation:   
@@ -1890,6 +1971,7 @@ class SubmissionSampleAssociation(BaseClass):
                 association_type:str="Basic Association", 
                 submission:BasicSubmission|str|None=None,
                 sample:BasicSample|str|None=None,
+                id:int|None=None,
                 **kwargs) -> SubmissionSampleAssociation:
         """
         Queries for an association, if none exists creates a new one.
@@ -1931,7 +2013,7 @@ class SubmissionSampleAssociation(BaseClass):
             instance = None
         if instance == None:
             used_cls = cls.find_polymorphic_subclass(polymorphic_identity=association_type)
-            instance = used_cls(submission=submission, sample=sample, **kwargs)
+            instance = used_cls(submission=submission, sample=sample, id=id, **kwargs)
         return instance
 
     def delete(self):
@@ -1941,8 +2023,8 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     """
     Derivative custom Wastewater/Submission Association... fancy.
     """    
-    sample_id = Column(INTEGER, ForeignKey('_submissionsampleassociation.sample_id'), primary_key=True)
-    submission_id = Column(INTEGER, ForeignKey('_submissionsampleassociation.submission_id'), primary_key=True)
+    # sample_id = Column(INTEGER, ForeignKey('_submissionsampleassociation.sample_id'), primary_key=True)
+    id = Column(INTEGER, ForeignKey("_submissionsampleassociation.id"), primary_key=True)
     ct_n1 = Column(FLOAT(2)) #: AKA ct for N1
     ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
     n1_status = Column(String(32)) #: positive or negative for N1
@@ -1952,7 +2034,11 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     # __mapper_args__ = {"polymorphic_identity": "Wastewater Association", "polymorphic_load": "inline"}
     __mapper_args__ = dict(polymorphic_identity="Wastewater Association", 
                            polymorphic_load="inline", 
-                           inherit_condition=(sample_id == SubmissionSampleAssociation.sample_id))
+                        #    inherit_condition=(submission_id==SubmissionSampleAssociation.submission_id and 
+                        #                       row==SubmissionSampleAssociation.row and 
+                        #                       column==SubmissionSampleAssociation.column))
+                        inherit_condition=(id==SubmissionSampleAssociation.id))
+                        # inherit_foreign_keys=(sample_id == SubmissionSampleAssociation.sample_id, submission_id == SubmissionSampleAssociation.submission_id))
 
     def to_sub_dict(self) -> dict:
         sample = super().to_sub_dict()
@@ -1970,3 +2056,12 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         except (TypeError, AttributeError) as e:
             logger.error(f"Couldn't set tooltip for {self.sample.rsl_number}. Looks like there isn't PCR data.")
         return sample
+
+    @classmethod
+    def autoincrement_id(cls):
+        try:
+            parent = [base for base in cls.__bases__ if base.__name__=="SubmissionSampleAssociation"][0]
+            return max([item.id for item in parent.query()]) + 1
+        except ValueError as e:
+            logger.error(f"Problem incrementing id: {e}")
+            return 1       

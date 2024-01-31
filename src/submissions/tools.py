@@ -357,7 +357,7 @@ def copy_settings(settings_path:Path, settings:dict) -> dict:
             yaml.dump(settings, f)
     return settings
 
-def jinja_template_loading():
+def jinja_template_loading() -> Environment:
     """
     Returns jinja2 template environment.
 

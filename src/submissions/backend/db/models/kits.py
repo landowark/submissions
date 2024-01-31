@@ -18,8 +18,8 @@ logger = logging.getLogger(f'submissions.{__name__}')
 reagenttypes_reagents = Table(
                                 "_reagenttypes_reagents", 
                                 Base.metadata, 
-                                Column("reagent_id", INTEGER, ForeignKey("_reagents.id")), 
-                                Column("reagenttype_id", INTEGER, ForeignKey("_reagent_types.id")),
+                                Column("reagent_id", INTEGER, ForeignKey("_reagent.id")), 
+                                Column("reagenttype_id", INTEGER, ForeignKey("_reagenttype.id")),
                                 extend_existing = True
                                 )
 
@@ -27,7 +27,7 @@ equipmentroles_equipment = Table(
     "_equipmentroles_equipment",
     Base.metadata,
     Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
-    Column("equipmentroles_id", INTEGER, ForeignKey("_equipment_roles.id")),
+    Column("equipmentroles_id", INTEGER, ForeignKey("_equipmentrole.id")),
     extend_existing=True
 )
 
@@ -43,7 +43,7 @@ equipmentroles_processes = Table(
     "_equipmentroles_processes",
     Base.metadata,
     Column("process_id", INTEGER, ForeignKey("_process.id")),
-    Column("equipmentrole_id", INTEGER, ForeignKey("_equipment_roles.id")),
+    Column("equipmentrole_id", INTEGER, ForeignKey("_equipmentrole.id")),
     extend_existing=True
 )
 
@@ -51,7 +51,7 @@ submissiontypes_processes = Table(
     "_submissiontypes_processes",
     Base.metadata,
     Column("process_id", INTEGER, ForeignKey("_process.id")),
-    Column("equipmentroles_id", INTEGER, ForeignKey("_submission_types.id")),
+    Column("equipmentroles_id", INTEGER, ForeignKey("_submissiontype.id")),
     extend_existing=True
 )
 
@@ -59,7 +59,7 @@ kittypes_processes = Table(
     "_kittypes_processes",
     Base.metadata,
     Column("process_id", INTEGER, ForeignKey("_process.id")),
-    Column("kit_id", INTEGER, ForeignKey("_kits.id")),
+    Column("kit_id", INTEGER, ForeignKey("_kittype.id")),
     extend_existing=True
 )
 
@@ -304,7 +304,7 @@ class Reagent(BaseClass):
 
     id = Column(INTEGER, primary_key=True) #: primary key
     type = relationship("ReagentType", back_populates="instances", secondary=reagenttypes_reagents) #: joined parent reagent type
-    type_id = Column(INTEGER, ForeignKey("_reagent_types.id", ondelete='SET NULL', name="fk_reagent_type_id")) #: id of parent reagent type
+    type_id = Column(INTEGER, ForeignKey("_reagenttype.id", ondelete='SET NULL', name="fk_reagent_type_id")) #: id of parent reagent type
     name = Column(String(64)) #: reagent name
     lot = Column(String(64)) #: lot number of reagent
     expiry = Column(TIMESTAMP) #: expiry date - extended by eol_ext of parent programmatically
@@ -442,9 +442,9 @@ class Discount(BaseClass):
 
     id = Column(INTEGER, primary_key=True) #: primary key
     kit = relationship("KitType") #: joined parent reagent type
-    kit_id = Column(INTEGER, ForeignKey("_kits.id", ondelete='SET NULL', name="fk_kit_type_id")) #: id of joined kit
+    kit_id = Column(INTEGER, ForeignKey("_kittype.id", ondelete='SET NULL', name="fk_kit_type_id")) #: id of joined kit
     client = relationship("Organization") #: joined client lab
-    client_id = Column(INTEGER, ForeignKey("_organizations.id", ondelete='SET NULL', name="fk_org_id")) #: id of joined client
+    client_id = Column(INTEGER, ForeignKey("_organization.id", ondelete='SET NULL', name="fk_org_id")) #: id of joined client
     name = Column(String(128)) #: Short description 
     amount = Column(FLOAT(2)) #: Dollar amount of discount
 
@@ -625,8 +625,9 @@ class SubmissionType(BaseClass):
         """
         Adds this instances to the database and commits.
         """        
-        self.__database_session__.add(self)
-        self.__database_session__.commit()
+        # self.__database_session__.add(self)
+        # self.__database_session__.commit()
+        super().save()
   
 class SubmissionTypeKitTypeAssociation(BaseClass):
     """
@@ -634,8 +635,8 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
     """    
     # __tablename__ = "_submissiontypes_kittypes"
 
-    submission_types_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True) #: id of joined submission type
-    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True) #: id of joined kit
+    submission_types_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True) #: id of joined submission type
+    kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True) #: id of joined kit
     mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
     mutable_cost_sample = Column(FLOAT(2)) #: dollar amount that can change with number of samples (reagents, tips, etc)
     constant_cost = Column(FLOAT(2)) #: dollar amount per plate that will remain constant (plates, man hours, etc)
@@ -707,9 +708,9 @@ class KitTypeReagentTypeAssociation(BaseClass):
     """    
     # __tablename__ = "_reagenttypes_kittypes"
 
-    reagent_types_id = Column(INTEGER, ForeignKey("_reagent_types.id"), primary_key=True) #: id of associated reagent type
-    kits_id = Column(INTEGER, ForeignKey("_kits.id"), primary_key=True) #: id of associated reagent type
-    submission_type_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True)
+    reagent_types_id = Column(INTEGER, ForeignKey("_reagenttype.id"), primary_key=True) #: id of associated reagent type
+    kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True) #: id of associated reagent type
+    submission_type_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True)
     uses = Column(JSON) #: map to location on excel sheets of different submission types
     required = Column(INTEGER) #: whether the reagent type is required for the kit (Boolean 1 or 0)
     last_used = Column(String(32)) #: last used lot number of this type of reagent
@@ -810,8 +811,8 @@ class SubmissionReagentAssociation(BaseClass):
 
     # __tablename__ = "_reagents_submissions"
 
-    reagent_id = Column(INTEGER, ForeignKey("_reagents.id"), primary_key=True) #: id of associated sample
-    submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True)
+    reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True) #: id of associated sample
+    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)
     comments = Column(String(1024))
 
     submission = relationship("BasicSubmission", back_populates="submission_reagent_associations") #: associated submission
@@ -1060,7 +1061,7 @@ class SubmissionEquipmentAssociation(BaseClass):
     # __tablename__ = "_equipment_submissions"
 
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True) #: id of associated equipment
-    submission_id = Column(INTEGER, ForeignKey("_submissions.id"), primary_key=True) #: id of associated submission
+    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True) #: id of associated submission
     role = Column(String(64), primary_key=True) #: name of the role the equipment fills
     # process = Column(String(64)) #: name of the process run on this equipment
     process_id = Column(INTEGER, ForeignKey("_process.id",ondelete="SET NULL", name="SEA_Process_id"))
@@ -1090,8 +1091,8 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
 
     # __tablename__ = "_submissiontype_equipmentrole"
 
-    equipmentrole_id = Column(INTEGER, ForeignKey("_equipment_roles.id"), primary_key=True) #: id of associated equipment
-    submissiontype_id = Column(INTEGER, ForeignKey("_submission_types.id"), primary_key=True) #: id of associated submission
+    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True) #: id of associated equipment
+    submissiontype_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True) #: id of associated submission
     uses = Column(JSON) #: locations of equipment on the submission type excel sheet.
     static = Column(INTEGER, default=1) #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
 
@@ -1156,7 +1157,7 @@ class Process(BaseClass):
     
     @classmethod
     @setup_lookup
-    def query(cls, name:str|None, limit:int=0):
+    def query(cls, name:str|None=None, limit:int=0):
         query = cls.__database_session__.query(cls)
         match name:
             case str():

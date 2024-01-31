@@ -8,7 +8,7 @@ from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
-from typing import List, Any, Tuple
+from typing import List, Tuple
 from . import RSLNamer
 from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, jinja_template_loading, Report, Result, row_map
@@ -156,8 +156,9 @@ class PydSample(BaseModel, extra='allow'):
     sample_type: str
     row: int|List[int]|None
     column: int|List[int]|None
+    assoc_id: int|List[int]|None = Field(default=None)
 
-    @field_validator("row", "column")
+    @field_validator("row", "column", "assoc_id")
     @classmethod
     def row_int_to_list(cls, value):
         if isinstance(value, int):
@@ -193,14 +194,14 @@ class PydSample(BaseModel, extra='allow'):
         out_associations = []
         if submission != None:
             assoc_type = self.sample_type.replace("Sample", "").strip()
-            for row, column in zip(self.row, self.column):
-                # logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
+            for row, column, id in zip(self.row, self.column, self.assoc_id):
+                logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
                 logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
                 association = SubmissionSampleAssociation.query_or_create(association_type=f"{assoc_type} Association", 
-                                                                          submission=submission, 
-                                                                          sample=instance, 
-                                                                          row=row, column=column)
-                logger.debug(f"Using submission_sample_association: {association}")
+                                                                            submission=submission, 
+                                                                            sample=instance, 
+                                                                            row=row, column=column, id=id)
+                # logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     instance.sample_submission_associations.append(association)
                     out_associations.append(association)
@@ -254,7 +255,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             assoc.process = process
             assoc.role = self.role
             # equipment.equipment_submission_associations.append(assoc)
-            equipment.equipment_submission_associations.append(assoc)
+            # equipment.equipment_submission_associations.append(assoc)
         else:
             assoc = None
         return equipment, assoc
@@ -275,7 +276,7 @@ class PydSubmission(BaseModel, extra='allow'):
     comment: dict|None = Field(default=dict(value="", missing=True), validate_default=True)
     reagents: List[dict]|List[PydReagent] = []
     samples: List[PydSample]
-    equipment: List[PydEquipment]|None
+    equipment: List[PydEquipment]|None =[]
 
     @field_validator('equipment', mode='before')
     @classmethod
@@ -421,6 +422,16 @@ class PydSubmission(BaseModel, extra='allow'):
             value['value'] = values.data['submission_type']['value']
         return value
 
+    @field_validator("samples")
+    def assign_ids(cls, value, values):
+        starting_id = SubmissionSampleAssociation.autoincrement_id()
+        output = []
+        for iii, sample in enumerate(value, start=starting_id):
+            sample.assoc_id = [iii]
+            output.append(sample)
+        return output
+
+
     def handle_duplicate_samples(self):
         """
         Collapses multiple samples with same submitter id into one with lists for rows, columns.
@@ -428,14 +439,19 @@ class PydSubmission(BaseModel, extra='allow'):
         """        
         submitter_ids = list(set([sample.submitter_id for sample in self.samples]))
         output = []
-        for id in submitter_ids:
+        for iii, id in enumerate(submitter_ids, start=1):
             relevants = [item for item in self.samples if item.submitter_id==id]
             if len(relevants) <= 1:
                 output += relevants
             else:
                 rows = [item.row[0] for item in relevants]
                 columns = [item.column[0] for item in relevants]
+                ids = [item.assoc_id[0] for item in relevants]
+                # for jjj, rel in enumerate(relevants, start=1):
+                #     starting_id += jjj  
+                #     ids.append(starting_id)                  
                 dummy = relevants[0]
+                dummy.assoc_id = ids
                 dummy.row = rows
                 dummy.column = columns
                 output.append(dummy)
@@ -663,14 +679,17 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"Workbook sheets: {workbook.sheetnames}")
         worksheet = workbook[sample_info["lookup_table"]['sheet']]
         samples = sorted(self.samples, key=attrgetter('column', 'row'))
-        custom_sampler = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type).adjust_autofill_samples
-        samples = custom_sampler(samples=samples)
+        submission_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+        samples = submission_obj.adjust_autofill_samples(samples=samples)
         logger.debug(f"Samples: {pformat(samples)}")
         # Fail safe against multiple instances of the same sample
         for iii, sample in enumerate(samples, start=1):
-            row = sample_info['lookup_table']['start_row'] + iii
+            logger.debug(f"Sample: {sample}")
+            row = submission_obj.custom_sample_autofill_row(sample, worksheet=worksheet)
+            logger.debug(f"Writing to {row}")
+            if row == None:
+                row = sample_info['lookup_table']['start_row'] + iii
             fields = [field for field in list(sample.model_fields.keys()) + list(sample.model_extra.keys()) if field in sample_info['sample_columns'].keys()]
-            
             for field in fields:
                 column = sample_info['sample_columns'][field]
                 value = getattr(sample, field)

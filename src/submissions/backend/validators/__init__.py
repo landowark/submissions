@@ -3,6 +3,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from backend.db.models import BasicSubmission, SubmissionType
 from datetime import date
+from tools import jinja_template_loading
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -126,9 +127,20 @@ class RSLNamer(object):
                 today = parse(today.group())
             except AttributeError:
                 today = datetime.now()
-        previous = BasicSubmission.query(start_date=today, end_date=today, submission_type=data['submission_type'])
-        plate_number = len(previous) + 1
+        if "rsl_plate_num" in data.keys():
+            plate_number = data['rsl_plate_num'].split("-")[-1][0]
+        else:
+            previous = BasicSubmission.query(start_date=today, end_date=today, submission_type=data['submission_type'])
+            plate_number = len(previous) + 1
         return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
+    
+    @classmethod
+    def construct_export_name(cls, template, **kwargs):
+        logger.debug(f"Kwargs: {kwargs}")
+        logger.debug(f"Template: {template}")
+        environment = jinja_template_loading()
+        template = environment.from_string(template)
+        return template.render(**kwargs)
 
         
 from .pydant import *

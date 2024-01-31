@@ -1,7 +1,7 @@
 # import required modules
-from PyQt6.QtCore import Qt
+# from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import *
-import sys
+# import sys
 from PyQt6.QtWidgets import QWidget
 import numpy as np
 import pyqtgraph as pg
@@ -13,12 +13,13 @@ import numpy as np
 # Main window class
 class GelBox(QDialog):
 
-    def __init__(self, parent):
+    def __init__(self, parent, img_path):
         super().__init__(parent)
         # setting title
         self.setWindowTitle("PyQtGraph")
+        self.img_path = img_path
         # setting geometry
-        self.setGeometry(100, 100, 600, 500)
+        self.setGeometry(50, 50, 1200, 900)
         # icon
         icon = QIcon("skin.png")
         # setting icon to the window
@@ -35,7 +36,7 @@ class GelBox(QDialog):
         pg.setConfigOptions(antialias=True)
         # creating image view object
         self.imv = pg.ImageView()
-        img = np.array(Image.open("C:\\Users\\lwark\\Desktop\\PLATE1_17012024_103607AM_1_4x26.jpg").rotate(-90).transpose(Image.FLIP_LEFT_RIGHT))
+        img = np.array(Image.open(self.img_path).rotate(-90).transpose(Image.FLIP_LEFT_RIGHT))
         self.imv.setImage(img)#, xvals=np.linspace(1., 3., data.shape[0]))
         layout = QGridLayout()
         # setting this layout to the widget
@@ -54,7 +55,7 @@ class GelBox(QDialog):
         self.setLayout(layout)
 
     def parse_form(self):
-        return self.form.parse_form()
+        return self.img_path, self.form.parse_form()
         
 
 class ControlsForm(QWidget):
@@ -79,6 +80,7 @@ class ControlsForm(QWidget):
         for iii in range(3):
             for jjj in range(3):
                 widge = QLineEdit()
+                widge.setText("Neg")
                 widge.setObjectName(f"{rows[iii]} : {columns[jjj]}")
                 self.layout.addWidget(widge, iii+1, jjj+2, 1, 1)
         self.setLayout(self.layout)
