@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 from datetime import date
 import logging, re
-from tools import check_authorization, setup_lookup, query_return, Report, Result, Settings
+from tools import check_authorization, setup_lookup, Report, Result, Settings
 from typing import List
 from pandas import ExcelFile
 from pathlib import Path

@@ -13,7 +13,7 @@ from backend.db.models import *
 import logging
 from .pop_ups import AlertPop
 from .functions import select_open_file
-from tools import readInChunks, Settings
+from tools import Settings
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

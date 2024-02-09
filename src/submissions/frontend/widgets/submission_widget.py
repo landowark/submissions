@@ -137,12 +137,12 @@ class SubmissionFormContainer(QWidget):
             return
         # create sheetparser using excel sheet and context from gui
         try:
-            self.prsr = SheetParser(ctx=self.app.ctx, filepath=fname)
+            self.prsr = SheetParser(filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
         except AttributeError:
-            self.prsr = SheetParser(ctx=self.app.ctx, filepath=fname)
+            self.prsr = SheetParser(filepath=fname)
         logger.debug(f"Submission dictionary:\n{pformat(self.prsr.sub)}")
         self.pyd = self.prsr.to_pydantic()
         logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")

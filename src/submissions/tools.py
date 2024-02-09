@@ -94,6 +94,12 @@ def convert_nans_to_nones(input_str) -> str|None:
         return input_str
     return None
 
+def is_missing(value:Any) -> Tuple[Any, bool]:
+    if check_not_nan(value):
+        return value, False
+    else:
+        return convert_nans_to_nones(value), True
+
 def check_regex_match(pattern:str, check:str) -> bool:
     """
     Determines if a pattern matches a str

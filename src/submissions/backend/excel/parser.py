@@ -13,7 +13,7 @@ import logging, re
 from collections import OrderedDict
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, convert_nans_to_nones, is_missing, row_map
+from tools import check_not_nan, convert_nans_to_nones, row_map, is_missing
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

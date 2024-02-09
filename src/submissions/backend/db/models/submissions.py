@@ -21,7 +21,7 @@ from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from . import BaseClass
-from tools import check_not_nan, row_map, query_return, setup_lookup, jinja_template_loading, rreplace
+from tools import check_not_nan, row_map, setup_lookup, jinja_template_loading, rreplace
 from datetime import datetime, date
 from typing import List, Any, Tuple
 from dateutil.parser import parse
