@@ -2,9 +2,10 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox, 
                              QLabel, QWidget, QHBoxLayout, 
                              QVBoxLayout, QDialogButtonBox)
-from backend.db.models import SubmissionType, Equipment, BasicSubmission
+from backend.db.models import Equipment, BasicSubmission
 from backend.validators.pydant import PydEquipment, PydEquipmentRole
 import logging
+from typing import List
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -24,19 +25,29 @@ class EquipmentUsage(QDialog):
         self.populate_form()
 
     def populate_form(self):
+        """
+        Create form widgets
+        """        
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         label = self.LabelRow(parent=self)
         self.layout.addWidget(label)
+        # logger.debug("Creating widgets for equipment")
         for eq in self.opt_equipment:
-            widg = eq.toForm(parent=self, submission_type=self.submission.submission_type, used=self.used_equipment)
+            widg = eq.toForm(parent=self, used=self.used_equipment)
             self.layout.addWidget(widg)
             widg.update_processes()
         self.layout.addWidget(self.buttonBox)
 
-    def parse_form(self):
+    def parse_form(self) -> List[PydEquipment]:
+        """
+        Pull info from all RoleComboBox widgets
+
+        Returns:
+            List[PydEquipment]: All equipment pulled from widgets
+        """        
         output = []
         for widget in self.findChildren(QWidget):
             match widget:
@@ -63,43 +74,18 @@ class EquipmentUsage(QDialog):
             self.setLayout(self.layout)
 
         def check_all(self):
+            """
+            Toggles all checkboxes in the form
+            """            
             for object in self.parent().findChildren(QCheckBox):
                 object.setChecked(self.check.isChecked())
-            
-class EquipmentCheckBox(QWidget):
 
-    def __init__(self, parent, equipment:PydEquipment) -> None:
-        super().__init__(parent)
-        self.layout = QHBoxLayout()
-        self.label = QLabel()
-        self.label.setMaximumWidth(125)
-        self.label.setMinimumWidth(125)
-        self.check = QCheckBox()
-        if equipment.static:
-            self.check.setChecked(True)
-        if equipment.nickname != None:
-            text = f"{equipment.name} ({equipment.nickname})"
-        else:
-            text = equipment.name
-        self.setObjectName(equipment.name)
-        self.label.setText(text)
-        self.layout.addWidget(self.label)
-        self.layout.addWidget(self.check)
-        self.setLayout(self.layout)
-
-    def parse_form(self) -> str|None:
-        if self.check.isChecked():
-            return self.objectName()
-        else:
-            return None
-
+# TODO: Figure out how this is working again
 class RoleComboBox(QWidget):
 
-    def __init__(self, parent, role:PydEquipmentRole, submission_type:SubmissionType, used:list) -> None:
+    def __init__(self, parent, role:PydEquipmentRole, used:list) -> None:
         super().__init__(parent)
         self.layout = QHBoxLayout()
-        # label = QLabel()
-        # label.setText(pool.name)
         self.role = role
         self.check = QCheckBox()
         if role.name in used:
@@ -111,14 +97,10 @@ class RoleComboBox(QWidget):
         self.box.setMinimumWidth(200)
         self.box.addItems([item.name for item in role.equipment])
         self.box.currentTextChanged.connect(self.update_processes)
-        # self.check = QCheckBox()
-        # self.layout.addWidget(label)
         self.process = QComboBox()
         self.process.setMaximumWidth(200)
         self.process.setMinimumWidth(200)
         self.process.setEditable(True)
-        # self.process.addItems(submission_type.get_processes_for_role(equipment_role=role.name))
-        # self.process.addItems(role.processes)
         self.layout.addWidget(self.check)
         label = QLabel(f"{role.name}:")
         label.setMinimumWidth(200)
@@ -127,11 +109,12 @@ class RoleComboBox(QWidget):
         self.layout.addWidget(label)
         self.layout.addWidget(self.box)
         self.layout.addWidget(self.process)
-        # self.layout.addWidget(self.check)
         self.setLayout(self.layout)
-        # self.update_processes()
         
     def update_processes(self):
+        """
+        Changes processes when equipment is changed
+        """        
         equip = self.box.currentText()
         logger.debug(f"Updating equipment: {equip}")
         equip2 = [item for item in self.role.equipment if item.name==equip][0]
@@ -139,10 +122,16 @@ class RoleComboBox(QWidget):
         self.process.clear()
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])
 
-    def parse_form(self) -> str|None:
+    def parse_form(self) -> PydEquipment|None:
+        """
+        Creates PydEquipment for values in form
+
+        Returns:
+            PydEquipment|None: PydEquipment matching form
+        """        
         eq = Equipment.query(name=self.box.currentText())
-        # if self.check.isChecked():
-        return PydEquipment(name=eq.name, processes=[self.process.currentText()], role=self.role.name, asset_number=eq.asset_number, nickname=eq.nickname)
-        # else:
-        #     return None
+        try:
+            return PydEquipment(name=eq.name, processes=[self.process.currentText()], role=self.role.name, asset_number=eq.asset_number, nickname=eq.nickname)
+        except Exception as e:
+            logger.error(f"Could create PydEquipment due to: {e}")
         

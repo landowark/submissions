@@ -4,9 +4,9 @@ from PyQt6.QtWidgets import (
     QDateEdit, QLabel, QSizePolicy
 )
 from PyQt6.QtCore import QSignalBlocker
-from backend.db import ControlType, Control#, get_control_subtypes
+from backend.db import ControlType, Control
 from PyQt6.QtCore import QDate, QSize
-import logging, sys
+import logging
 from tools import Report, Result
 from backend.excel.reports import convert_data_list_to_df
 from frontend.visualizations.control_charts import create_charts, construct_html
@@ -88,9 +88,7 @@ class ControlsViewer(QWidget):
         self.mode = self.mode_typer.currentText()
         self.sub_typer.clear()
         # lookup subtypes
-        # sub_types = get_control_subtypes(type=self.con_type, mode=self.mode)
         sub_types = ControlType.query(name=self.con_type).get_subtypes(mode=self.mode)
-        # sub_types = lookup_controls(ctx=obj.ctx, control_type=obj.con_type)
         if sub_types != []:
             # block signal that will rerun controls getter and update sub_typer
             with QSignalBlocker(self.sub_typer) as blocker: 
@@ -103,7 +101,6 @@ class ControlsViewer(QWidget):
         self.chart_maker()
         self.report.add_result(report)
         
-
     def chart_maker_function(self):
         """
         Create html chart for controls reporting

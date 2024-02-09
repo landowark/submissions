@@ -1,3 +1,7 @@
+## 202402.01
+
+- Addition of gel box for Artic quality control.
+
 ## 202401.04
 
 - Large scale database refactor to increase modularity.

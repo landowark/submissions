@@ -2,20 +2,13 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea,
     QGridLayout, QPushButton, QLabel,
-    QLineEdit, QComboBox, QDoubleSpinBox,
-    QSpinBox, QDateEdit
+    QLineEdit, QSpinBox
 )
-from sqlalchemy import FLOAT, INTEGER
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from backend.db import SubmissionType, Equipment, SubmissionTypeEquipmentRoleAssociation, BasicSubmission
-from backend.validators import PydReagentType, PydKit
+from backend.db import SubmissionType, BasicSubmission
 import logging
-from pprint import pformat
 from tools import Report
-from typing import Tuple
 from .functions import select_open_file
-
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -46,35 +39,21 @@ class SubmissionTypeAdder(QWidget):
         self.grid.addWidget(template_selector,3,1)
         self.template_label = QLabel("None")
         self.grid.addWidget(self.template_label,3,2)
-        # self.grid.addWidget(QLabel("Used For Submission Type:"),3,0)
         # widget to get uses of kit
         exclude = ['id', 'submitting_lab_id', 'extraction_kit_id', 'reagents_id', 'extraction_info', 'pcr_info', 'run_cost']
         self.columns = {key:value for key, value in BasicSubmission.__dict__.items() if isinstance(value, InstrumentedAttribute)}
         self.columns = {key:value for key, value in self.columns.items() if hasattr(value, "type") and key not in exclude}
         for iii, key in enumerate(self.columns):
             idx = iii + 4
-            # convert field name to human readable.
-            # field_name = key
-            # self.grid.addWidget(QLabel(field_name),idx,0)
-            # print(self.columns[key].type)
-            # match self.columns[key].type:
-            #     case FLOAT():
-            #         add_widget = QDoubleSpinBox()
-            #         add_widget.setMinimum(0)
-            #         add_widget.setMaximum(9999)
-            #     case INTEGER():
-            #         add_widget = QSpinBox()
-            #         add_widget.setMinimum(0)
-            #         add_widget.setMaximum(9999)
-            #     case _:
-            #         add_widget = QLineEdit()
-            # add_widget.setObjectName(key)
             self.grid.addWidget(InfoWidget(parent=self, key=key), idx,0,1,3)
         scroll.setWidget(scrollContent)
         self.submit_btn.clicked.connect(self.submit)
         template_selector.clicked.connect(self.get_template_path)
 
     def submit(self):
+        """
+        Create SubmissionType and send to db
+        """        
         info = self.parse_form()
         ST = SubmissionType(name=self.st_name.text(), info_map=info)
         try:
@@ -84,11 +63,20 @@ class SubmissionTypeAdder(QWidget):
             logger.error(f"Could not find template file: {self.template_path}")
         ST.save(ctx=self.app.ctx)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Pulls info from form
+
+        Returns:
+            dict: information from form
+        """        
         widgets = [widget for widget in self.findChildren(QWidget) if isinstance(widget, InfoWidget)]
         return {widget.objectName():widget.parse_form() for widget in widgets}
     
     def get_template_path(self):
+        """
+        Sets path for loading a submission form template
+        """        
         self.template_path = select_open_file(obj=self, file_extension="xlsx")
         self.template_label.setText(self.template_path.__str__())
 
@@ -113,7 +101,13 @@ class InfoWidget(QWidget):
         self.column.setObjectName("column")
         grid.addWidget(self.column,2,3)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Pulls info from the Info form.
+
+        Returns:
+            dict: sheets, row, column
+        """        
         return dict(
             sheets = self.sheet.text().split(","),
             row = self.row.value(),

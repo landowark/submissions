@@ -52,7 +52,6 @@ class App(QMainWindow):
         self._createMenuBar()
         self._createToolBar()
         self._connectActions()
-        # self._controls_getter()
         self.show()
         self.statusBar().showMessage('Ready', 5000)
         
@@ -114,14 +113,10 @@ class App(QMainWindow):
         self.importPCRAction.triggered.connect(self.table_widget.formwidget.import_pcr_results)
         self.addReagentAction.triggered.connect(self.add_reagent)
         self.generateReportAction.triggered.connect(self.table_widget.sub_wid.generate_report)
-        # self.addKitAction.triggered.connect(self.add_kit)
-        # self.addOrgAction.triggered.connect(self.add_org)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
-        # self.constructFS.triggered.connect(self.construct_first_strand)
-        # self.table_widget.formwidget.import_drag.connect(self.importSubmission)
         self.searchLog.triggered.connect(self.runSearch)
 
     def showAbout(self):

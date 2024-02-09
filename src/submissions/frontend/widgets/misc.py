@@ -25,7 +25,6 @@ class AddReagentForm(QDialog):
     """    
     def __init__(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, reagent_name:str|None=None) -> None:
         super().__init__()
-        # self.ctx = ctx
         if reagent_lot == None:
             reagent_lot = reagent_type
 
@@ -41,7 +40,6 @@ class AddReagentForm(QDialog):
         self.name_input.setObjectName("name")
         self.name_input.setEditable(True)
         self.name_input.setCurrentText(reagent_name)
-        # self.name_input.setText(reagent_name)
         self.lot_input = QLineEdit()
         self.lot_input.setObjectName("lot")
         self.lot_input.setText(reagent_lot)
@@ -56,7 +54,6 @@ class AddReagentForm(QDialog):
         # widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
-        # self.type_input.addItems([item.name for item in lookup_reagent_types(ctx=ctx)])
         self.type_input.addItems([item.name for item in ReagentType.query()])
         logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
@@ -169,7 +166,13 @@ class FirstStrandSalvage(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Pulls first strand info from form.
+
+        Returns:
+            dict: Output info
+        """              
         return dict(plate=self.rsl_plate_num.text(), submitter_id=self.submitter_id_input.text(), well=f"{self.row_letter.currentText()}{self.column_number.currentText()}")
 
 class LogParser(QDialog):
@@ -193,9 +196,15 @@ class LogParser(QDialog):
 
 
     def filelookup(self):
+        """
+        Select file to search
+        """        
         self.fname = select_open_file(self, "tabular")
 
     def runsearch(self):
+        """
+        Gets total/percent occurences of string in tabular file.
+        """        
         count: int = 0
         total: int = 0
         logger.debug(f"Current search term: {self.phrase_looker.currentText()}")

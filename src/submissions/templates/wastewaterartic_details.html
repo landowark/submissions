@@ -1,0 +1,38 @@
+{% extends "basicsubmission_details.html" %}
+
+<head>
+    {% block head %}
+    {{ super() }}
+    {% endblock %}
+</head>
+
+<body>
+    {% block body %}
+    {{ super() }}
+    {% if sub['gel_info'] %}
+    <br/>
+    <h3><u>Gel Box:</u></h3>
+    {% if sub['gel_image'] %}
+        <br/>
+        <img align='left' height="400px" width="600px" src="data:image/jpeg;base64,{{ sub['gel_image'] | safe }}">
+    {% endif %}
+    <br/>
+        <table style="width:100%; border: 1px solid black; border-collapse: collapse;">
+            <tr>
+            {% for header in sub['headers'] %}
+                <th>{{ header }}</th>
+            {% endfor %}
+            </tr>
+            {% for field in sub['gel_info'] %}
+            <tr>
+                <td>{{ field['name'] }}</td>
+                {% for item in field['values'] %}
+                <td>{{ item['value'] }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>    
+    <br/>    
+    {% endif %}
+    {% endblock %}
+</body>

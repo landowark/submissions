@@ -1,24 +1,24 @@
 from PyQt6.QtWidgets import (QDialog, QScrollArea, QPushButton, QVBoxLayout, QMessageBox,
-                             QLabel, QDialogButtonBox, QToolBar, QTextEdit)
-from PyQt6.QtGui import QAction, QPixmap
+                             QDialogButtonBox, QTextEdit)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import Qt
-from PyQt6 import QtPrintSupport
 from backend.db.models import BasicSubmission
-from ..visualizations import make_plate_barcode, make_plate_map, make_plate_map_html
-from tools import check_if_app, jinja_template_loading
+from tools import check_if_app
 from .functions import select_save_file
 from io import BytesIO
+from tempfile import TemporaryFile, TemporaryDirectory
+from pathlib import Path
 from xhtml2pdf import pisa
 import logging, base64
 from getpass import getuser
 from datetime import datetime
 from pprint import pformat
+from html2image import Html2Image
+from PIL import Image
+from typing import List
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
-
-env = jinja_template_loading()
 
 class SubmissionDetails(QDialog):
     """
@@ -27,7 +27,6 @@ class SubmissionDetails(QDialog):
     def __init__(self, parent, sub:BasicSubmission) -> None:
 
         super().__init__(parent)
-        # self.ctx = ctx
         try:
             self.app = parent.parent().parent().parent().parent().parent().parent()
         except AttributeError:
@@ -36,19 +35,16 @@ class SubmissionDetails(QDialog):
         # create scrollable interior
         interior = QScrollArea()
         interior.setParent(self)
-        # sub = BasicSubmission.query(id=id)
         self.base_dict = sub.to_dict(full_data=True)
         logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
         # don't want id
         del self.base_dict['id']
         logger.debug(f"Creating barcode.")
         if not check_if_app():
-            self.base_dict['barcode'] = base64.b64encode(make_plate_barcode(self.base_dict['Plate Number'], width=120, height=30)).decode('utf-8')
-        logger.debug(f"Hitpicking plate...")
-        self.plate_dicto = sub.hitpick_plate()
+            self.base_dict['barcode'] = base64.b64encode(sub.make_plate_barcode(width=120, height=30)).decode('utf-8')
         logger.debug(f"Making platemap...")
-        self.base_dict['platemap'] = make_plate_map_html(self.plate_dicto)
-        self.template = env.get_template("submission_details.html")
+        self.base_dict['platemap'] = sub.make_plate_map()
+        self.base_dict, self.template = sub.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict)
         webview = QWebEngineView()
         webview.setMinimumSize(900, 500)
@@ -63,21 +59,29 @@ class SubmissionDetails(QDialog):
         btn.setParent(self)
         btn.setFixedWidth(900)
         btn.clicked.connect(self.export)
-        
+
+           
     def export(self):
         """
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """        
         fname = select_save_file(obj=self, default_name=self.base_dict['Plate Number'], extension="pdf")
-        del self.base_dict['platemap']
-        export_map = make_plate_map(self.plate_dicto)
         image_io = BytesIO()
+        temp_dir = Path(TemporaryDirectory().name)
+        hti = Html2Image(output_path=temp_dir, size=(1200, 750))
+        temp_file = Path(TemporaryFile(dir=temp_dir, suffix=".png").name)
+        screenshot = hti.screenshot(self.base_dict['platemap'], save_as=temp_file.name)
+        export_map = Image.open(screenshot[0])
+        export_map = export_map.convert('RGB')
         try:
             export_map.save(image_io, 'JPEG')
         except AttributeError:
             logger.error(f"No plate map found")
         self.base_dict['export_map'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
+        del self.base_dict['platemap']
         self.html2 = self.template.render(sub=self.base_dict)
+        with open("test.html", "w") as fw:
+            fw.write(self.html2)
         try:
             with open(fname, "w+b") as f:
                 pisa.CreatePDF(self.html2, dest=f)
@@ -88,73 +92,6 @@ class SubmissionDetails(QDialog):
             msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
             msg.setWindowTitle("Permission Error")
             msg.exec()
-
-class BarcodeWindow(QDialog):
-
-    def __init__(self, rsl_num:str):
-        super().__init__()
-        # set the title
-        self.setWindowTitle("Image")
-        self.layout = QVBoxLayout()
-        # setting  the geometry of window
-        self.setGeometry(0, 0, 400, 300)
-        # creating label
-        self.label = QLabel()
-        self.img = make_plate_barcode(rsl_num)
-        self.pixmap = QPixmap()
-        self.pixmap.loadFromData(self.img)
-        # adding image to label
-        self.label.setPixmap(self.pixmap)
-        # show all the widgets]
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.layout.addWidget(self.label)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
-        self._createActions()
-        self._createToolBar()
-        self._connectActions()
-        
-    def _createToolBar(self):
-        """
-        adds items to menu bar
-        """    
-        toolbar = QToolBar("My main toolbar")
-        toolbar.addAction(self.printAction)
-        
-
-    def _createActions(self):
-        """
-        creates actions
-        """        
-        self.printAction = QAction("&Print", self)
-
-
-    def _connectActions(self):
-        """
-        connect menu and tool bar item to functions
-        """
-        self.printAction.triggered.connect(self.print_barcode)
-
-
-    def print_barcode(self):
-        """
-        Sends barcode image to printer.
-        """        
-        printer = QtPrintSupport.QPrinter()
-        dialog = QtPrintSupport.QPrintDialog(printer)
-        if dialog.exec():
-            self.handle_paint_request(printer, self.pixmap.toImage())
-
-
-    def handle_paint_request(self, printer:QtPrintSupport.QPrinter, im):
-        logger.debug(f"Hello from print handler.")
-        painter = QPainter(printer)
-        image = QPixmap.fromImage(im)
-        painter.drawPixmap(120, -20, image)
-        painter.end()
         
 class SubmissionComment(QDialog):
     """
@@ -163,7 +100,6 @@ class SubmissionComment(QDialog):
     def __init__(self, parent, submission:BasicSubmission) -> None:
 
         super().__init__(parent)
-        # self.ctx = ctx
         try:
             self.app = parent.parent().parent().parent().parent().parent().parent
             print(f"App: {self.app}")
@@ -185,7 +121,7 @@ class SubmissionComment(QDialog):
         self.layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignBottom)
         self.setLayout(self.layout)
         
-    def parse_form(self):
+    def parse_form(self) -> List[dict]:
         """
         Adds comment to submission object.
         """        

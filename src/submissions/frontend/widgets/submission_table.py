@@ -1,36 +1,21 @@
 '''
 Contains widgets specific to the submission summary and submission details.
 '''
-import base64, logging, json
-from datetime import datetime
-from io import BytesIO
+import logging, json
 from pprint import pformat
-from PyQt6 import QtPrintSupport
-from PyQt6.QtWidgets import (
-    QVBoxLayout, QDialog, QTableView,
-    QTextEdit, QPushButton, QScrollArea, 
-    QMessageBox, QMenu, QLabel,
-    QDialogButtonBox, QToolBar
-)
-from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWidgets import QTableView, QMenu
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
-from PyQt6.QtGui import QAction, QCursor, QPixmap, QPainter
-from backend.db.models import BasicSubmission, Equipment
+from PyQt6.QtGui import QAction, QCursor
+from backend.db.models import BasicSubmission
 from backend.excel import make_report_html, make_report_xlsx
-from tools import check_if_app, Report, Result, jinja_template_loading, get_first_blank_df_row, row_map
+from tools import Report, Result, get_first_blank_df_row, row_map
 from xhtml2pdf import pisa
-from .pop_ups import QuestionAsker
-from .equipment_usage import EquipmentUsage
-from ..visualizations import make_plate_barcode, make_plate_map, make_plate_map_html
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
 import pandas as pd
 from openpyxl.worksheet.worksheet import Worksheet
-from getpass import getuser
 
 logger = logging.getLogger(f"submissions.{__name__}")
-
-env = jinja_template_loading()
 
 class pandasModel(QAbstractTableModel):
     """
@@ -89,20 +74,17 @@ class SubmissionsSheet(QTableView):
         """        
         super().__init__(parent)
         self.app = self.parent()
-        # self.ctx = ctx
         self.report = Report()
         self.setData()
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
-        # self.doubleClicked.connect(self.show_details)
         self.doubleClicked.connect(lambda x: BasicSubmission.query(id=x.sibling(x.row(), 0).data()).show_details(self))
  
     def setData(self) -> None: 
         """
         sets data in model
         """        
-        # self.data = submissions_to_df()
         self.data = BasicSubmission.submissions_to_df()
         try:
             self.data['id'] = self.data['id'].apply(str)
@@ -114,39 +96,6 @@ class SubmissionsSheet(QTableView):
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
         
-    # def show_details(self, submission:BasicSubmission) -> None:
-    #     """
-    #     creates detailed data to show in seperate window
-    #     """        
-    #     logger.debug(f"Sheet.app: {self.app}")
-    #     # index = (self.selectionModel().currentIndex())
-    #     # value = index.sibling(index.row(),0).data()
-    #     dlg = SubmissionDetails(parent=self, sub=submission)
-    #     if dlg.exec():
-    #         pass  
-
-    def create_barcode(self) -> None:
-        """
-        Generates a window for displaying barcode
-        """        
-        index = (self.selectionModel().currentIndex())
-        value = index.sibling(index.row(),1).data()
-        logger.debug(f"Selected value: {value}")
-        dlg = BarcodeWindow(value)
-        if dlg.exec():
-            dlg.print_barcode()
-
-    def add_comment(self) -> None:
-        """
-        Generates a text editor window.
-        """        
-        index = (self.selectionModel().currentIndex())
-        value = index.sibling(index.row(),1).data()
-        logger.debug(f"Selected value: {value}")
-        dlg = SubmissionComment(parent=self, rsl=value)
-        if dlg.exec():
-            dlg.add_comment()
-
     def contextMenuEvent(self, event):
         """
         Creates actions for right click menu events.
@@ -158,21 +107,6 @@ class SubmissionsSheet(QTableView):
         id = id.sibling(id.row(),0).data()
         submission = BasicSubmission.query(id=id)
         self.menu = QMenu(self)
-        # renameAction = QAction('Delete', self)
-        # detailsAction = QAction('Details', self)
-        # commentAction = QAction("Add Comment", self)
-        # equipAction = QAction("Add Equipment", self)
-        # backupAction = QAction("Export", self)
-        # renameAction.triggered.connect(lambda: self.delete_item(submission))
-        # detailsAction.triggered.connect(lambda: self.show_details(submission))
-        # commentAction.triggered.connect(lambda: self.add_comment(submission))
-        # backupAction.triggered.connect(lambda: self.regenerate_submission_form(submission))
-        # equipAction.triggered.connect(lambda: self.add_equipment(submission))
-        # self.menu.addAction(detailsAction)
-        # self.menu.addAction(renameAction)
-        # self.menu.addAction(commentAction)
-        # self.menu.addAction(backupAction)
-        # self.menu.addAction(equipAction)
         self.con_actions = submission.custom_context_events()
         for k in self.con_actions.keys():
             logger.debug(f"Adding {k}")
@@ -183,57 +117,21 @@ class SubmissionsSheet(QTableView):
         self.menu.popup(QCursor.pos())
 
     def triggered_action(self, action_name:str):
+        """
+        Calls the triggered action from the context menu
+
+        Args:
+            action_name (str): name of the action from the menu
+        """        
         logger.debug(f"Action: {action_name}")
         logger.debug(f"Responding with {self.con_actions[action_name]}")
         func = self.con_actions[action_name]
         func(obj=self)
 
-    def add_equipment(self):
-        index = (self.selectionModel().currentIndex())
-        value = index.sibling(index.row(),0).data()
-        self.add_equipment_function(rsl_plate_id=value)
-
-    def add_equipment_function(self, submission:BasicSubmission):
-        # submission = BasicSubmission.query(id=rsl_plate_id)
-        submission_type = submission.submission_type_name
-        dlg = EquipmentUsage(parent=self, submission_type=submission_type, submission=submission)
-        if dlg.exec():
-            equipment = dlg.parse_form()
-            logger.debug(f"We've got equipment: {equipment}")
-            for equip in equipment:
-                e = Equipment.query(name=equip.name)
-                # assoc = SubmissionEquipmentAssociation(submission=submission, equipment=e)
-                # process = Process.query(name=equip.processes)
-                # assoc.process = process
-                # assoc.role = equip.role
-                _, assoc = equip.toSQL(submission=submission)
-                # submission.submission_equipment_associations.append(assoc)
-                logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
-                # submission.save()
-                assoc.save()
-        else:
-            pass
-
-    def delete_item(self, submission:BasicSubmission):
-        """
-        Confirms user deletion and sends id to backend for deletion.
-
-        Args:
-            event (_type_): the item of interest
-        """        
-        # index = (self.selectionModel().currentIndex())
-        # value = index.sibling(index.row(),0).data()
-        # logger.debug(index)
-        # msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {index.sibling(index.row(),1).data()}?\n")
-        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {submission.rsl_plate_num}?\n")
-        if msg.exec():
-            # delete_submission(id=value)
-            submission.delete()
-        else:
-            return
-        self.setData()
-
     def link_extractions(self):
+        """
+        Pull extraction logs into the db
+        """        
         self.link_extractions_function()
         self.app.report.add_result(self.report)
         self.report = Report()
@@ -306,6 +204,9 @@ class SubmissionsSheet(QTableView):
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
 
     def link_pcr(self):
+        """
+        Pull pcr logs into the db
+        """        
         self.link_pcr_function()
         self.app.report.add_result(self.report)
         self.report = Report()
@@ -376,6 +277,9 @@ class SubmissionsSheet(QTableView):
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         
     def generate_report(self):
+        """
+        Make a report
+        """        
         self.generate_report_function()
         self.app.report.add_result(self.report)
         self.report = Report()
@@ -436,12 +340,3 @@ class SubmissionsSheet(QTableView):
                     cell.style = 'Currency'
             writer.close()
         self.report.add_result(report)
-
-    def regenerate_submission_form(self, submission:BasicSubmission):
-        # index = (self.selectionModel().currentIndex())
-        # value = index.sibling(index.row(),0).data()
-        # logger.debug(index)
-        # sub = BasicSubmission.query(id=value)
-        fname = select_save_file(self, default_name=submission.to_pydantic().construct_filename(), extension="xlsx")
-        submission.backup(fname=fname, full_backup=False)
-

@@ -4,7 +4,7 @@ All kit and reagent related models
 from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
-from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
 from datetime import date
 import logging, re
 from tools import check_authorization, setup_lookup, query_return, Report, Result, Settings
@@ -15,6 +15,7 @@ from . import Base, BaseClass, Organization
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
+# logger.debug("Table for ReagentType/Reagent relations")
 reagenttypes_reagents = Table(
                                 "_reagenttypes_reagents", 
                                 Base.metadata, 
@@ -23,6 +24,7 @@ reagenttypes_reagents = Table(
                                 extend_existing = True
                                 )
 
+# logger.debug("Table for EquipmentRole/Equipment relations")
 equipmentroles_equipment = Table(
     "_equipmentroles_equipment",
     Base.metadata,
@@ -31,6 +33,7 @@ equipmentroles_equipment = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for Equipment/Process relations")
 equipment_processes = Table(
     "_equipment_processes",
     Base.metadata,
@@ -39,6 +42,7 @@ equipment_processes = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for EquipmentRole/Process relations")
 equipmentroles_processes = Table(
     "_equipmentroles_processes",
     Base.metadata,
@@ -47,6 +51,7 @@ equipmentroles_processes = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for SubmissionType/Process relations")
 submissiontypes_processes = Table(
     "_submissiontypes_processes",
     Base.metadata,
@@ -55,6 +60,7 @@ submissiontypes_processes = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for KitType/Process relations")
 kittypes_processes = Table(
     "_kittypes_processes",
     Base.metadata,
@@ -67,12 +73,11 @@ class KitType(BaseClass):
     """
     Base of kits used in submission processing
     """    
-    # __tablename__ = "_kits"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64), unique=True) #: name of kit
     submissions = relationship("BasicSubmission", back_populates="extraction_kit") #: submissions this kit was used for
-    processes = relationship("Process", back_populates="kit_types", secondary=kittypes_processes)
+    processes = relationship("Process", back_populates="kit_types", secondary=kittypes_processes) #: equipment processes used by this kit
     
     kit_reagenttype_associations = relationship(
         "KitTypeReagentTypeAssociation",
@@ -80,20 +85,22 @@ class KitType(BaseClass):
         cascade="all, delete-orphan",
     )
 
-    # association proxy of "user_keyword_associations" collection
-    # to "keyword" attribute
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type", creator=lambda RT: KitTypeReagentTypeAssociation(reagent_type=RT))
+    reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type", creator=lambda RT: KitTypeReagentTypeAssociation(reagent_type=RT)) #: Association proxy to KitTypeReagentTypeAssociation
 
     kit_submissiontype_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
         back_populates="kit_type",
         cascade="all, delete-orphan",
-    )
+    ) #: Relation to SubmissionType
 
-    used_for = association_proxy("kit_submissiontype_associations", "submission_type")
+    used_for = association_proxy("kit_submissiontype_associations", "submission_type") #: Association proxy to SubmissionTypeKitTypeAssociation
 
     def __repr__(self) -> str:
+        """
+        Returns:
+            str: A representation of the object.
+        """        
         return f"<KitType({self.name})>"
     
     def get_reagents(self, required:bool=False, submission_type:str|SubmissionType|None=None) -> List[ReagentType]:
@@ -109,12 +116,16 @@ class KitType(BaseClass):
         """        
         match submission_type:
             case SubmissionType():
+                # logger.debug(f"Getting reagents by SubmissionType {submission_type}")
                 relevant_associations = [item for item in self.kit_reagenttype_associations if item.submission_type==submission_type]
             case str():
+                # logger.debug(f"Getting reagents by str {submission_type}")
                 relevant_associations = [item for item in self.kit_reagenttype_associations if item.submission_type.name==submission_type]
             case _:
+                # logger.debug(f"Getting reagents")
                 relevant_associations = [item for item in self.kit_reagenttype_associations]
         if required:
+            # logger.debug(f"Filtering by required.")
             return [item.reagent_type for item in relevant_associations if item.required == 1]
         else:
             return [item.reagent_type for item in relevant_associations]
@@ -133,14 +144,16 @@ class KitType(BaseClass):
         # Account for submission_type variable type.
         match submission_type:
             case str():
+                # logger.debug(f"Constructing xl map with str {submission_type}")
                 assocs = [item for item in self.kit_reagenttype_associations if item.submission_type.name==submission_type]
                 st_assoc = [item for item in self.used_for if submission_type == item.name][0]
             case SubmissionType():
+                # logger.debug(f"Constructing xl map with SubmissionType {submission_type}")
                 assocs = [item for item in self.kit_reagenttype_associations if item.submission_type==submission_type]
                 st_assoc = submission_type
             case _:
                 raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
-        # Get all KitTypeReagentTypeAssociation for SubmissionType
+        # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
         for assoc in assocs:
             try:
                 map[assoc.reagent_type.name] = assoc.uses
@@ -176,42 +189,42 @@ class KitType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match used_for:
             case str():
-                # logger.debug(f"Looking up kit type by use: {used_for}")
+                # logger.debug(f"Looking up kit type by used_for str: {used_for}")
                 query = query.filter(cls.used_for.any(name=used_for))
             case SubmissionType():
+                # logger.debug(f"Looking up kit type by used_for SubmissionType: {used_for}")
                 query = query.filter(cls.used_for.contains(used_for))
             case _:
                 pass
         match name:
             case str():
-                # logger.debug(f"Looking up kit type by name: {name}")
+                # logger.debug(f"Looking up kit type by name str: {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
         match id:
             case int():
-                # logger.debug(f"Looking up kit type by id: {id}")
+                # logger.debug(f"Looking up kit type by id int: {id}")
                 query = query.filter(cls.id==id)
                 limit = 1
             case str():
-                # logger.debug(f"Looking up kit type by id: {id}")
+                # logger.debug(f"Looking up kit type by id str: {id}")
                 query = query.filter(cls.id==int(id))
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
     @check_authorization
-    def save(self, ctx:Settings):
+    def save(self):
         super().save()
 
 class ReagentType(BaseClass):
     """
     Base of reagent type abstract
     """    
-    # __tablename__ = "_reagent_types"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: name of reagent type
     instances = relationship("Reagent", back_populates="type", secondary=reagenttypes_reagents) #: concrete instances of this reagent type
@@ -221,14 +234,16 @@ class ReagentType(BaseClass):
         "KitTypeReagentTypeAssociation",
         back_populates="reagent_type",
         cascade="all, delete-orphan",
-    )
+    ) #: Relation to KitTypeReagentTypeAssociation
 
-    # association proxy of "user_keyword_associations" collection
-    # to "keyword" attribute
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    kit_types = association_proxy("reagenttype_kit_associations", "kit_type", creator=lambda kit: KitTypeReagentTypeAssociation(kit_type=kit))
+    kit_types = association_proxy("reagenttype_kit_associations", "kit_type", creator=lambda kit: KitTypeReagentTypeAssociation(kit_type=kit)) #: Association proxy to KitTypeReagentTypeAssociation
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of object
+        """        
         return f"<ReagentType({self.name})>"
     
     @classmethod
@@ -262,11 +277,13 @@ class ReagentType(BaseClass):
         else:
             match kit_type:
                 case str():
+                    # logger.debug(f"Lookup ReagentType by kittype str {kit_type}")
                     kit_type = KitType.query(name=kit_type)
                 case _:
                     pass
             match reagent:
                 case str():
+                    # logger.debug(f"Lookup ReagentType by reagent str {reagent}")
                     reagent = Reagent.query(lot_number=reagent)
                 case _:
                     pass
@@ -281,27 +298,32 @@ class ReagentType(BaseClass):
                 return None
         match name:
             case str():
-                # logger.debug(f"Looking up reagent type by name: {name}")
+                # logger.debug(f"Looking up reagent type by name str: {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
-    def to_pydantic(self):
+    def to_pydantic(self) -> "PydReagent":
+        """
+        Create default PydReagent from this object
+
+        Returns:
+            PydReagent: PydReagent representation of this object.
+        """        
         from backend.validators.pydant import PydReagent
         return PydReagent(lot=None, type=self.name, name=self.name, expiry=date.today())
     
     @check_authorization
-    def save(self, ctx:Settings):
+    def save(self):
         super().save()
 
 class Reagent(BaseClass):
     """
     Concrete reagent instance
     """
-    # __tablename__ = "_reagents"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key
     type = relationship("ReagentType", back_populates="instances", secondary=reagenttypes_reagents) #: joined parent reagent type
     type_id = Column(INTEGER, ForeignKey("_reagenttype.id", ondelete='SET NULL', name="fk_reagent_type_id")) #: id of parent reagent type
@@ -314,8 +336,7 @@ class Reagent(BaseClass):
         back_populates="reagent",
         cascade="all, delete-orphan",
     ) #: Relation to SubmissionSampleAssociation
-    # association proxy of "user_keyword_associations" collection
-    # to "keyword" attribute
+    
     submissions = association_proxy("reagent_submission_associations", "submission") #: Association proxy to SubmissionSampleAssociation.samples
 
 
@@ -407,39 +428,38 @@ class Reagent(BaseClass):
         Returns:
             models.Reagent | List[models.Reagent]: reagent or list of reagents matching filter.
         """    
-        # super().query(session)
         query: Query = cls.__database_session__.query(cls)
         match reagent_type:
             case str():
-                # logger.debug(f"Looking up reagents by reagent type: {reagent_type}")
+                # logger.debug(f"Looking up reagents by reagent type str: {reagent_type}")
                 query = query.join(cls.type).filter(ReagentType.name==reagent_type)
             case ReagentType():
-                # logger.debug(f"Looking up reagents by reagent type: {reagent_type}")
+                # logger.debug(f"Looking up reagents by reagent type ReagentType: {reagent_type}")
                 query = query.filter(cls.type.contains(reagent_type))
             case _:
                 pass
         match name:
             case str():
-                logger.debug(f"Looking up reagent by name: {name}")
+                # logger.debug(f"Looking up reagent by name str: {name}")
+                # Not limited due to multiple reagents having same name.
                 query = query.filter(cls.name==name)
             case _:
                 pass
         match lot_number:
             case str():
-                logger.debug(f"Looking up reagent by lot number: {lot_number}")
+                # logger.debug(f"Looking up reagent by lot number str: {lot_number}")
                 query = query.filter(cls.lot==lot_number)
                 # In this case limit number returned.
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
 class Discount(BaseClass):
     """
     Relationship table for client labs for certain kits.
     """
-    # __tablename__ = "_discounts"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key
     kit = relationship("KitType") #: joined parent reagent type
     kit_id = Column(INTEGER, ForeignKey("_kittype.id", ondelete='SET NULL', name="fk_kit_type_id")) #: id of joined kit
@@ -449,6 +469,10 @@ class Discount(BaseClass):
     amount = Column(FLOAT(2)) #: Dollar amount of discount
 
     def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this object
+        """        
         return f"<Discount({self.name})>"
     
     @classmethod
@@ -474,10 +498,10 @@ class Discount(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match organization:
             case Organization():
-                # logger.debug(f"Looking up discount with organization: {organization}")
+                # logger.debug(f"Looking up discount with organization Organization: {organization}")
                 query = query.filter(cls.client==Organization)
             case str():
-                # logger.debug(f"Looking up discount with organization: {organization}")
+                # logger.debug(f"Looking up discount with organization str: {organization}")
                 query = query.join(Organization).filter(Organization.name==organization)
             case int():
                 # logger.debug(f"Looking up discount with organization id: {organization}")
@@ -487,35 +511,34 @@ class Discount(BaseClass):
                 pass
         match kit_type:
             case KitType():
-                # logger.debug(f"Looking up discount with kit type: {kit_type}")
+                # logger.debug(f"Looking up discount with kit type KitType: {kit_type}")
                 query = query.filter(cls.kit==kit_type)
             case str():
-                # logger.debug(f"Looking up discount with kit type: {kit_type}")
+                # logger.debug(f"Looking up discount with kit type str: {kit_type}")
                 query = query.join(KitType).filter(KitType.name==kit_type)
             case int():
-                # logger.debug(f"Looking up discount with kit type id: {organization}")
+                # logger.debug(f"Looking up discount with kit type id: {kit_type}")
                 query = query.join(KitType).filter(KitType.id==kit_type)
             case _:
                 # raise ValueError(f"Invalid value for kit type: {kit_type}")
                 pass
-        return query.all()
+        return cls.query_return(query=query)
     
     @check_authorization
-    def save(self, ctx:Settings):
+    def save(self):
         super().save()
     
 class SubmissionType(BaseClass):
     """
     Abstract of types of submissions.
     """    
-    # __tablename__ = "_submission_types"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key
     name = Column(String(128), unique=True) #: name of submission type
     info_map = Column(JSON) #: Where basic information is found in the excel workbook corresponding to this type.
     instances = relationship("BasicSubmission", backref="submission_type") #: Concrete instances of this type.
     template_file = Column(BLOB) #: Blank form for this type stored as binary.
-    processes = relationship("Process", back_populates="submission_types", secondary=submissiontypes_processes)
+    processes = relationship("Process", back_populates="submission_types", secondary=submissiontypes_processes) #: Relation to equipment processes used for this type.
     
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -529,17 +552,21 @@ class SubmissionType(BaseClass):
         "SubmissionTypeEquipmentRoleAssociation",
         back_populates="submission_type",
         cascade="all, delete-orphan"
-    )
+    ) #: Association of equipmentroles
 
-    equipment = association_proxy("submissiontype_equipmentrole_associations", "equipment_role")
+    equipment = association_proxy("submissiontype_equipmentrole_associations", "equipment_role") #: Proxy of equipmentrole associations
 
     submissiontype_kit_rt_associations = relationship(
         "KitTypeReagentTypeAssociation",
         back_populates="submission_type",
         cascade="all, delete-orphan"
-    )
+    ) #: triple association of KitTypes, ReagentTypes, SubmissionTypes
 
     def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this object.
+        """        
         return f"<SubmissionType({self.name})>"
     
     def get_template_file_sheets(self) -> List[str]:
@@ -551,16 +578,37 @@ class SubmissionType(BaseClass):
         """                                
         return ExcelFile(self.template_file).sheet_names
 
-    def set_template_file(self, ctx:Settings, filepath:Path|str):
+    def set_template_file(self, filepath:Path|str):
+        """
+
+        Sets the binary store to an excel file.
+
+        Args:
+            filepath (Path | str): Path to the template file.
+
+        Raises:
+            ValueError: Raised if file is not excel file.
+        """             
         if isinstance(filepath, str):
             filepath = Path(filepath)
+        try:
+            xl = ExcelFile(filepath)
+        except ValueError:
+            raise ValueError(f"File {filepath} is not of appropriate type.")
         with open (filepath, "rb") as f:
             data = f.read()
         self.template_file = data
-        self.save(ctx=ctx)        
+        self.save()        
 
-    def construct_equipment_map(self):
+    def construct_equipment_map(self) -> List[dict]:
+        """
+        Constructs map of equipment to excel cells.
+
+        Returns:
+            List[dict]: List of equipment locations in excel sheet
+        """
         output = []
+        # logger.debug("Iterating through equipment roles")
         for item in self.submissiontype_equipmentrole_associations:
             map = item.uses
             if map == None:
@@ -571,16 +619,36 @@ class SubmissionType(BaseClass):
                 pass
             output.append(map)
         return output
-        # return [item.uses for item in self.submissiontype_equipmentrole_associations]
 
     def get_equipment(self, extraction_kit:str|KitType|None=None) -> List['PydEquipmentRole']:
+        """
+        Returns PydEquipmentRole of all equipment associated with this SubmissionType
+
+        Returns:
+            List['PydEquipmentRole']: List of equipment roles
+        """        
         return [item.to_pydantic(submission_type=self, extraction_kit=extraction_kit) for item in self.equipment]
     
-    def get_processes_for_role(self, equipment_role:str|EquipmentRole, kit:str|KitType|None=None):
+    def get_processes_for_role(self, equipment_role:str|EquipmentRole, kit:str|KitType|None=None) -> list:
+        """
+        Get processes associated with this SubmissionType for an EquipmentRole
+
+        Args:
+            equipment_role (str | EquipmentRole): EquipmentRole of interest
+            kit (str | KitType | None, optional): Kit of interest. Defaults to None.
+
+        Raises:
+            TypeError: Raised if wrong type given for equipmentrole
+
+        Returns:
+            list: list of associated processes
+        """        
         match equipment_role:
             case str():
+                # logger.debug(f"Getting processes for equipmentrole str {equipment_role}")
                 relevant = [item.get_all_processes(kit) for item in self.submissiontype_equipmentrole_associations if item.equipment_role.name==equipment_role]
             case EquipmentRole():
+                # logger.debug(f"Getting processes for equipmentrole EquipmentRole {equipment_role}")
                 relevant = [item.get_all_processes(kit) for item in self.submissiontype_equipmentrole_associations if item.equipment_role==equipment_role]
             case _:
                 raise TypeError(f"Type {type(equipment_role)} is not allowed")
@@ -597,7 +665,6 @@ class SubmissionType(BaseClass):
         Lookup submission type in the database by a number of parameters
 
         Args:
-            ctx (Settings): Settings object passed down from gui
             name (str | None, optional): Name of submission type. Defaults to None.
             key (str | None, optional): A key present in the info-map to lookup. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
@@ -608,33 +675,31 @@ class SubmissionType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Looking up submission type by name: {name}")
+                # logger.debug(f"Looking up submission type by name str: {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
         match key:
             case str():
+                # logger.debug(f"Looking up submission type by info-map key str: {key}")
                 query = query.filter(cls.info_map.op('->')(key)!=None)
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
     @check_authorization
-    def save(self, ctx:Settings):
+    def save(self):
         """
         Adds this instances to the database and commits.
         """        
-        # self.__database_session__.add(self)
-        # self.__database_session__.commit()
         super().save()
   
 class SubmissionTypeKitTypeAssociation(BaseClass):
     """
     Abstract of relationship between kits and their submission type.
     """    
-    # __tablename__ = "_submissiontypes_kittypes"
-
+    
     submission_types_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True) #: id of joined submission type
     kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True) #: id of joined kit
     mutable_cost_column = Column(FLOAT(2)) #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
@@ -654,10 +719,11 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         self.constant_cost = 0.00
 
     def __repr__(self) -> str:
-        return f"<SubmissionTypeKitTypeAssociation({self.submission_type.name})>"
-    
-    def set_attrib(self, name, value):
-        self.__setattr__(name, value)
+        """
+        Returns:
+            str: Representation of this object
+        """        
+        return f"<SubmissionTypeKitTypeAssociation({self.submission_type.name}&{self.kit_type.name})>"
 
     @classmethod
     @setup_lookup
@@ -699,15 +765,14 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
                 # logger.debug(f"Looking up {cls.__name__} by id {kit_type}")
                 query = query.join(KitType).filter(KitType.id==kit_type)
         limit = query.count()
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
 
 class KitTypeReagentTypeAssociation(BaseClass):
     """
     table containing reagenttype/kittype associations
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """    
-    # __tablename__ = "_reagenttypes_kittypes"
-
+    
     reagent_types_id = Column(INTEGER, ForeignKey("_reagenttype.id"), primary_key=True) #: id of associated reagent type
     kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True) #: id of associated reagent type
     submission_type_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True)
@@ -715,15 +780,14 @@ class KitTypeReagentTypeAssociation(BaseClass):
     required = Column(INTEGER) #: whether the reagent type is required for the kit (Boolean 1 or 0)
     last_used = Column(String(32)) #: last used lot number of this type of reagent
 
-    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations") #: relationship to associated kit
+    kit_type = relationship(KitType, back_populates="kit_reagenttype_associations") #: relationship to associated KitType
 
     # reference to the "ReagentType" object
-    reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations") #: relationship to associated reagent type
+    reagent_type = relationship(ReagentType, back_populates="reagenttype_kit_associations") #: relationship to associated ReagentType
 
-    submission_type = relationship(SubmissionType, back_populates="submissiontype_kit_rt_associations")
+    submission_type = relationship(SubmissionType, back_populates="submissiontype_kit_rt_associations") #: relationship to associated SubmissionType
 
     def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
-        # logger.debug(f"Parameters: Kit={kit_type}, RT={reagent_type}, Uses={uses}, Required={required}")
         self.kit_type = kit_type
         self.reagent_type = reagent_type
         self.uses = uses
@@ -791,35 +855,45 @@ class KitTypeReagentTypeAssociation(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match kit_type:
             case KitType():
+                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by kit_type KitType {kit_type}")
                 query = query.filter(cls.kit_type==kit_type)
             case str():
+                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by kit_type str {kit_type}")
                 query = query.join(KitType).filter(KitType.name==kit_type)
             case _:
                 pass
         match reagent_type:
             case ReagentType():
+                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by reagent_type ReagentType {reagent_type}")
                 query = query.filter(cls.reagent_type==reagent_type)
             case str():
+                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by reagent_type ReagentType {reagent_type}")
                 query = query.join(ReagentType).filter(ReagentType.name==reagent_type)
             case _:
                 pass
         if kit_type != None and reagent_type != None:
             limit = 1
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
 
 class SubmissionReagentAssociation(BaseClass):
-
-    # __tablename__ = "_reagents_submissions"
-
-    reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True) #: id of associated sample
-    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)
-    comments = Column(String(1024))
+    """
+    table containing submission/reagent associations
+    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    """    
+    
+    reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True) #: id of associated reagent
+    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True) #: id of associated submission
+    comments = Column(String(1024)) #: Comments about reagents
 
     submission = relationship("BasicSubmission", back_populates="submission_reagent_associations") #: associated submission
 
-    reagent = relationship(Reagent, back_populates="reagent_submission_associations")
+    reagent = relationship(Reagent, back_populates="reagent_submission_associations") #: associatied reagent
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this SubmissionReagentAssociation
+        """        
         return f"<{self.submission.rsl_plate_num}&{self.reagent.lot}>"
 
     def __init__(self, reagent=None, submission=None):
@@ -848,80 +922,108 @@ class SubmissionReagentAssociation(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match reagent:
             case Reagent():
+                # logger.debug(f"Lookup SubmissionReagentAssociation by reagent Reagent {reagent}")
                 query = query.filter(cls.reagent==reagent)
             case str():
-                # logger.debug(f"Filtering query with reagent: {reagent}")
-                reagent = Reagent.query(lot_number=reagent)
-                query = query.filter(cls.reagent==reagent)
+                # logger.debug(f"Lookup SubmissionReagentAssociation by reagent str {reagent}")
+                query = query.join(Reagent).filter(Reagent.lot==reagent)
             case _:
                 pass
-        # logger.debug(f"Result of query after reagent: {query.all()}")
         match submission:
             case BasicSubmission():
+                # logger.debug(f"Lookup SubmissionReagentAssociation by submission BasicSubmission {submission}")
                 query = query.filter(cls.submission==submission)
             case str():
+                # logger.debug(f"Lookup SubmissionReagentAssociation by submission str {submission}")
                 query = query.join(BasicSubmission).filter(BasicSubmission.rsl_plate_num==submission)
             case int():
+                # logger.debug(f"Lookup SubmissionReagentAssociation by submission id {submission}")
                 query = query.join(BasicSubmission).filter(BasicSubmission.id==submission)
             case _:
                 pass
-        # logger.debug(f"Result of query after submission: {query.all()}")
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
 
-    def to_sub_dict(self, extraction_kit):
+    def to_sub_dict(self, extraction_kit) -> dict:
+        """
+        Converts this SubmissionReagentAssociation (and associated Reagent) to dict
+
+        Args:
+            extraction_kit (_type_): Extraction kit of interest
+
+        Returns:
+            dict: This SubmissionReagentAssociation as dict
+        """        
         output = self.reagent.to_sub_dict(extraction_kit)
         output['comments'] = self.comments
         return output
 
 class Equipment(BaseClass):
-
-    # Currently abstract until ready to implement
-    # __abstract__ = True
-
-    # __tablename__ = "_equipment"
-
-    id = Column(INTEGER, primary_key=True)
-    name = Column(String(64))
-    nickname = Column(String(64))
-    asset_number = Column(String(16))
-    roles = relationship("EquipmentRole", back_populates="instances", secondary=equipmentroles_equipment)
-    processes = relationship("Process", back_populates="equipment", secondary=equipment_processes)
+    """
+    A concrete instance of equipment
+    """
+    
+    id = Column(INTEGER, primary_key=True) #: id, primary key
+    name = Column(String(64)) #: equipment name
+    nickname = Column(String(64)) #: equipment nickname
+    asset_number = Column(String(16)) #: Given asset number (corpo nickname if you will)
+    roles = relationship("EquipmentRole", back_populates="instances", secondary=equipmentroles_equipment) #: relation to EquipmentRoles
+    processes = relationship("Process", back_populates="equipment", secondary=equipment_processes) #: relation to Processes
 
     equipment_submission_associations = relationship(
         "SubmissionEquipmentAssociation",
         back_populates="equipment",
         cascade="all, delete-orphan",
-    )
+    ) #: Association with BasicSubmission
 
-    submissions = association_proxy("equipment_submission_associations", "submission")
+    submissions = association_proxy("equipment_submission_associations", "submission") #: proxy to equipment_submission_associations.submission
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns:
+            str: represenation of this Equipment
+        """        
         return f"<Equipment({self.name})>"
     
-    def to_dict(self, processes:bool=False):
+    def to_dict(self, processes:bool=False) -> dict:
+        """
+        This Equipment as a dictionary
+
+        Args:
+            processes (bool, optional): Whether to include processes. Defaults to False.
+
+        Returns:
+            dict: _description_
+        """        
         if not processes:
             return {k:v for k,v in self.__dict__.items() if k != 'processes'}
         else:
             return {k:v for k,v in self.__dict__.items()}
 
-    def get_processes(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None):
+    def get_processes(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None) -> List[str]:
+        """
+        Get all processes associated with this Equipment for a given SubmissionType
+
+        Args:
+            submission_type (SubmissionType): SubmissionType of interest
+            extraction_kit (str | KitType | None, optional): KitType to filter by. Defaults to None.
+
+        Returns:
+            List[Process]: List of process names
+        """        
         processes = [process for process in self.processes if submission_type in process.submission_types]
         match extraction_kit:
             case str():
+                # logger.debug(f"Filtering processes by extraction_kit str {extraction_kit}")
                 processes = [process for process in processes if extraction_kit in [kit.name for kit in process.kit_types]]
             case KitType():
+                # logger.debug(f"Filtering processes by extraction_kit KitType {extraction_kit}")
                 processes = [process for process in processes if extraction_kit in process.kit_types]
             case _:
                 pass
         processes = [process.name for process in processes]
-        # try:
         assert all([isinstance(process, str) for process in processes])
-        # except AssertionError as e:
-            # logger.error(processes)
-            # raise e
         if len(processes) == 0:
             processes = ['']
-        # logger.debug(f"Processes: {processes}")
         return processes
 
     @classmethod
@@ -932,38 +1034,64 @@ class Equipment(BaseClass):
               asset_number:str|None=None,
               limit:int=0
               ) -> Equipment|List[Equipment]:
+        """
+        Lookup a list of or single Equipment.
+
+        Args:
+            name (str | None, optional): Equipment name. Defaults to None.
+            nickname (str | None, optional): Equipment nickname. Defaults to None.
+            asset_number (str | None, optional): Equipment asset number. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            Equipment|List[Equipment]: Equipment or list of equipment matching query parameters.
+        """        
         query = cls.__database_session__.query(cls)
         match name:
             case str():
+                # logger.debug(f"Lookup Equipment by name str {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
         match nickname:
             case str():
+                # logger.debug(f"Lookup Equipment by nickname str {nickname}")
                 query = query.filter(cls.nickname==nickname)
                 limit = 1
             case _:
                 pass
         match asset_number:
             case str():
+                # logger.debug(f"Lookup Equipment by asset_number str {asset_number}")
                 query = query.filter(cls.asset_number==asset_number)
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
-    def to_pydantic(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None):
+    def to_pydantic(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None) -> "PydEquipment":
+        """
+        Creates PydEquipment of this Equipment
+
+        Args:
+            submission_type (SubmissionType): Relevant SubmissionType
+            extraction_kit (str | KitType | None, optional): Relevant KitType. Defaults to None.
+
+        Returns:
+            PydEquipment: _description_
+        """
         from backend.validators.pydant import PydEquipment
         return PydEquipment(processes=self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit), role=None, **self.to_dict(processes=False))
-        # return PydEquipment(process=None, role=None, **self.__dict__)
-
-    def save(self):
-        self.__database_session__.add(self)
-        self.__database_session__.commit()
 
     @classmethod
     def get_regex(cls) -> re.Pattern:
+        """
+        Creates regex to determine tip manufacturer
+
+        Returns:
+            re.Pattern: regex
+        """        
         return re.compile(r"""
                           (?P<PHAC>50\d{5}$)|
                           (?P<HC>HC-\d{6}$)|
@@ -973,26 +1101,38 @@ class Equipment(BaseClass):
                           re.VERBOSE)
 
 class EquipmentRole(BaseClass):
+    """
+    Abstract roles for equipment
 
-    # __tablename__ = "_equipment_roles"
-
-    id = Column(INTEGER, primary_key=True)
-    name = Column(String(32))
-    instances = relationship("Equipment", back_populates="roles", secondary=equipmentroles_equipment)
-    processes = relationship("Process", back_populates='equipment_roles', secondary=equipmentroles_processes)
+    """
+    
+    id = Column(INTEGER, primary_key=True) #: Role id, primary key
+    name = Column(String(32)) #: Common name
+    instances = relationship("Equipment", back_populates="roles", secondary=equipmentroles_equipment) #: Concrete instances (Equipment) of role
+    processes = relationship("Process", back_populates='equipment_roles', secondary=equipmentroles_processes) #: Associated Processes
 
     equipmentrole_submissiontype_associations = relationship(
         "SubmissionTypeEquipmentRoleAssociation",
         back_populates="equipment_role",
         cascade="all, delete-orphan",
-    )
+    ) #: relation to SubmissionTypes
 
-    submission_types = association_proxy("equipmentrole_submission_associations", "submission_type")
+    submission_types = association_proxy("equipmentrole_submission_associations", "submission_type") #: proxy to equipmentrole_submissiontype_associations.submission_type
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this EquipmentRole
+        """        
         return f"<EquipmentRole({self.name})>"
     
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        This EquipmentRole as a dictionary
+
+        Returns:
+            dict: This EquipmentRole dict
+        """        
         output = {}
         for key, value in self.__dict__.items():
             match key:
@@ -1003,47 +1143,81 @@ class EquipmentRole(BaseClass):
             output[key] = value
         return output
 
-    def to_pydantic(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None):
+    def to_pydantic(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None) -> "PydEquipmentRole":
+        """
+        Creates a PydEquipmentRole of this EquipmentRole
+
+        Args:
+            submission_type (SubmissionType): SubmissionType of interest
+            extraction_kit (str | KitType | None, optional): KitType of interest. Defaults to None.
+
+        Returns:
+            PydEquipmentRole: This EquipmentRole as PydEquipmentRole
+        """        
         from backend.validators.pydant import PydEquipmentRole
+        # logger.debug("Creating list of PydEquipment in this role")
         equipment = [item.to_pydantic(submission_type=submission_type, extraction_kit=extraction_kit) for item in self.instances]
-        # processes = [item.name for item in self.processes]
         pyd_dict = self.to_dict()
+        # logger.debug("Creating list of Processes in this role")
         pyd_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit)
         return PydEquipmentRole(equipment=equipment, **pyd_dict)
     
     @classmethod
     @setup_lookup
     def query(cls, name:str|None=None, id:int|None=None, limit:int=0) -> EquipmentRole|List[EquipmentRole]:
+        """
+        Lookup Equipment roles.
+
+        Args:
+            name (str | None, optional): EquipmentRole name. Defaults to None.
+            id (int | None, optional): EquipmentRole id. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+
+        Returns:
+            EquipmentRole|List[EquipmentRole]: List of EquipmentRoles matching criteria
+        """        
         query = cls.__database_session__.query(cls)
         match id:
             case int():
+                # logger.debug(f"Lookup EquipmentRole by id {id}")
                 query = query.filter(cls.id==id)
                 limit = 1
             case _:
                 pass
         match name:
             case str():
+                # logger.debug(f"Lookup EquipmentRole by name str {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
     def get_processes(self, submission_type:str|SubmissionType|None, extraction_kit:str|KitType|None=None) -> List[Process]:
+        """
+        Get processes used by this EquipmentRole
+
+        Args:
+            submission_type (str | SubmissionType | None): SubmissionType of interest
+            extraction_kit (str | KitType | None, optional): KitType of interest. Defaults to None.
+
+        Returns:
+            List[Process]: _description_
+        """        
         if isinstance(submission_type, str):
+            # logger.debug(f"Checking if str {submission_type} exists")
             submission_type = SubmissionType.query(name=submission_type)
-        # assert all([isinstance(process, Process) for process in self.processes])
-        # logger.debug(self.processes)
-        if submission_type != None:                                                
-            # for process in self.processes:
-                # logger.debug(f"Process: {type(process)}: {process}")
+        if submission_type != None:
+            # logger.debug("Getting all processes for this EquipmentRole")
             processes = [process for process in self.processes if submission_type in process.submission_types]
         else:
             processes = self.processes
         match extraction_kit:
             case str():
+                # logger.debug(f"Filtering processes by extraction_kit str {extraction_kit}")
                 processes = [item for item in processes if extraction_kit in [kit.name for kit in item.kit_type]]
             case KitType():
+                # logger.debug(f"Filtering processes by extraction_kit KitType {extraction_kit}")
                 processes = [item for item in processes if extraction_kit in [kit for kit in item.kit_type]]
             case _:
                 pass
@@ -1054,20 +1228,17 @@ class EquipmentRole(BaseClass):
             return output
 
 class SubmissionEquipmentAssociation(BaseClass):
-
-    # Currently abstract until ready to implement
-    # __abstract__ = True
-
-    # __tablename__ = "_equipment_submissions"
-
+    """
+    Abstract association between BasicSubmission and Equipment
+    """
+    
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True) #: id of associated equipment
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True) #: id of associated submission
     role = Column(String(64), primary_key=True) #: name of the role the equipment fills
-    # process = Column(String(64)) #: name of the process run on this equipment
-    process_id = Column(INTEGER, ForeignKey("_process.id",ondelete="SET NULL", name="SEA_Process_id"))
-    start_time = Column(TIMESTAMP)
-    end_time = Column(TIMESTAMP)
-    comments = Column(String(1024))
+    process_id = Column(INTEGER, ForeignKey("_process.id",ondelete="SET NULL", name="SEA_Process_id")) #: Foreign key of process id
+    start_time = Column(TIMESTAMP) #: start time of equipment use
+    end_time = Column(TIMESTAMP) #: end time of equipment use
+    comments = Column(String(1024)) #: comments about equipment
     
     submission = relationship("BasicSubmission", back_populates="submission_equipment_associations") #: associated submission
 
@@ -1078,19 +1249,19 @@ class SubmissionEquipmentAssociation(BaseClass):
         self.equipment = equipment
 
     def to_sub_dict(self) -> dict:
+        """
+        This SubmissionEquipmentAssociation as a dictionary
+
+        Returns:
+            dict: This SubmissionEquipmentAssociation as a dictionary
+        """        
         output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments, processes=[self.process.name], role=self.role, nickname=self.equipment.nickname)
         return output
-    
-    def save(self):
-        self.__database_session__.add(self)
-        self.__database_session__.commit()
 
 class SubmissionTypeEquipmentRoleAssociation(BaseClass):
-
-    # __abstract__ = True
-
-    # __tablename__ = "_submissiontype_equipmentrole"
-
+    """
+    Abstract association between SubmissionType and EquipmentRole
+    """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True) #: id of associated equipment
     submissiontype_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True) #: id of associated submission
     uses = Column(JSON) #: locations of equipment on the submission type excel sheet.
@@ -1119,51 +1290,74 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
         return value
     
-    def get_all_processes(self, extraction_kit:KitType|str|None=None):
+    def get_all_processes(self, extraction_kit:KitType|str|None=None) -> List[Process]:
+        """
+        Get all processes associated with this SubmissionTypeEquipmentRole
+
+        Args:
+            extraction_kit (KitType | str | None, optional): KitType of interest. Defaults to None.
+
+        Returns:
+            List[Process]: All associated processes
+        """        
         processes = [equipment.get_processes(self.submission_type) for equipment in self.equipment_role.instances]
         # flatten list
         processes = [item for items in processes for item in items if item != None ]
         match extraction_kit:
             case str():
+                # logger.debug(f"Filtering Processes by extraction_kit str {extraction_kit}")
                 processes = [item for item in processes if extraction_kit in [kit.name for kit in item.kit_type]]
             case KitType():
+                # logger.debug(f"Filtering Processes by extraction_kit KitType {extraction_kit}")
                 processes = [item for item in processes if extraction_kit in [kit for kit in item.kit_type]]
             case _:
                 pass
         return processes
 
     @check_authorization
-    def save(self, ctx:Settings):
-        # self.__database_session__.add(self)
-        # self.__database_session__.commit()
+    def save(self):
         super().save()
 
 class Process(BaseClass):
     """
     A Process is a method used by a piece of equipment.
     """    
-    # __tablename__ = "_process"
+    
+    id = Column(INTEGER, primary_key=True) #: Process id, primary key
+    name = Column(String(64)) #: Process name
+    submission_types = relationship("SubmissionType", back_populates='processes', secondary=submissiontypes_processes) #: relation to SubmissionType
+    equipment = relationship("Equipment", back_populates='processes', secondary=equipment_processes) #: relation to Equipment
+    equipment_roles = relationship("EquipmentRole", back_populates='processes', secondary=equipmentroles_processes) #: relation to EquipmentRoles
+    submissions = relationship("SubmissionEquipmentAssociation", backref='process') #: relation to SubmissionEquipmentAssociation
+    kit_types = relationship("KitType", back_populates='processes', secondary=kittypes_processes) #: relation to KitType
 
-    id = Column(INTEGER, primary_key=True)
-    name = Column(String(64))
-    submission_types = relationship("SubmissionType", back_populates='processes', secondary=submissiontypes_processes)
-    equipment = relationship("Equipment", back_populates='processes', secondary=equipment_processes)
-    equipment_roles = relationship("EquipmentRole", back_populates='processes', secondary=equipmentroles_processes)
-    submissions = relationship("SubmissionEquipmentAssociation", backref='process')
-    kit_types = relationship("KitType", back_populates='processes', secondary=kittypes_processes)
-
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this Process
+        """        
         return f"<Process({self.name})"
     
     @classmethod
     @setup_lookup
-    def query(cls, name:str|None=None, limit:int=0):
+    def query(cls, name:str|None=None, limit:int=0) -> Process|List[Process]:
+        """
+        Lookup Processes
+
+        Args:
+            name (str | None, optional): Process name. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
+
+        Returns:
+            Process|List[Process]: Process(es) matching criteria
+        """        
         query = cls.__database_session__.query(cls)
         match name:
             case str():
+                # logger.debug(f"Lookup Process with name str {name}")
                 query = query.filter(cls.name==name)
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
 

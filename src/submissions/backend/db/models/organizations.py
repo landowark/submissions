@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
-from tools import check_authorization, setup_lookup, query_return, Settings
+from tools import check_authorization, setup_lookup
 from typing import List
 import logging
 
@@ -25,8 +25,7 @@ class Organization(BaseClass):
     """
     Base of organization
     """
-    # __tablename__ = "_organizations"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: organization name
     submissions = relationship("BasicSubmission", back_populates="submitting_lab") #: submissions this organization has submitted
@@ -34,10 +33,11 @@ class Organization(BaseClass):
     contacts = relationship("Contact", back_populates="organization", secondary=orgs_contacts) #: contacts involved with this org
 
     def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this Organization
+        """        
         return f"<Organization({self.name})>"
-
-    def set_attribute(self, name:str, value):
-        setattr(self, name, value)
 
     @classmethod
     @setup_lookup
@@ -63,24 +63,17 @@ class Organization(BaseClass):
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
     @check_authorization
-    def save(self, ctx:Settings):
-        """
-        Adds this instance to the database and commits
-
-        Args:
-            ctx (Settings): Settings object passed down from GUI. Necessary to check authorization
-        """        
+    def save(self):
         super().save()
 
 class Contact(BaseClass):
     """
     Base of Contact
     """
-    # __tablename__ = "_contacts"
-
+    
     id = Column(INTEGER, primary_key=True) #: primary key  
     name = Column(String(64)) #: contact name
     email = Column(String(64)) #: contact email
@@ -88,6 +81,10 @@ class Contact(BaseClass):
     organization = relationship("Organization", back_populates="contacts", uselist=True, secondary=orgs_contacts) #: relationship to joined organization
 
     def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of this Contact
+        """        
         return f"<Contact({self.name})>"
 
     @classmethod
@@ -133,5 +130,5 @@ class Contact(BaseClass):
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     

@@ -219,7 +219,7 @@ def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
     
 def make_hitpicks(input:List[dict]) -> DataFrame:
     """
-    Converts lsit of dictionaries constructed by hitpicking to dataframe
+    Converts list of dictionaries constructed by hitpicking to dataframe
 
     Args:
         input (List[dict]): list of hitpicked dictionaries

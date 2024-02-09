@@ -79,12 +79,10 @@ class KitAdder(QWidget):
         """
         insert new reagent type row
         """        
-        print(self.app)
         # get bottommost row
         maxrow = self.grid.rowCount()
         reg_form = ReagentTypeForm(parent=self)
         reg_form.setObjectName(f"ReagentForm_{maxrow}")
-        # self.grid.addWidget(reg_form, maxrow + 1,0,1,2)
         self.grid.addWidget(reg_form, maxrow,0,1,4)
         
     def submit(self) -> None:
@@ -118,6 +116,12 @@ class KitAdder(QWidget):
         self.__init__(self.parent())
 
     def parse_form(self) -> Tuple[dict, list]:
+        """
+        Pulls reagent and general info from form
+
+        Returns:
+            Tuple[dict, list]: dict=info, list=reagents
+        """        
         logger.debug(f"Hello from {self.__class__} parser!")
         info = {}
         reagents = []
@@ -188,10 +192,19 @@ class ReagentTypeForm(QWidget):
                        ]
 
     def remove(self):
+        """
+        Destroys this row of reagenttype from the form
+        """        
         self.setParent(None)
         self.destroy()
 
     def parse_form(self) -> dict:
+        """
+        Pulls ReagentType info from the form.
+
+        Returns:
+            dict: _description_
+        """        
         logger.debug(f"Hello from {self.__class__} parser!")
         info = {}
         info['eol'] = self.eol.value()

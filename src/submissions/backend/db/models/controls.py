@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship, Query
 import logging, json
 from operator import itemgetter
 from . import BaseClass
-from tools import setup_lookup, query_return
+from tools import setup_lookup
 from datetime import date, datetime
 from typing import List
 from dateutil.parser import parse
@@ -18,7 +18,6 @@ class ControlType(BaseClass):
     """
     Base class of a control archetype.
     """    
-    # __tablename__ = '_control_types'
     
     id = Column(INTEGER, primary_key=True) #: primary key   
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
@@ -48,7 +47,7 @@ class ControlType(BaseClass):
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     
     def get_subtypes(self, mode:str) -> List[str]:
         """
@@ -60,10 +59,13 @@ class ControlType(BaseClass):
         Returns:
             List[str]: list of subtypes available
         """        
+        # Get first instance since all should have same subtypes
         outs = self.instances[0]
+        # Get mode of instance
         jsoner = json.loads(getattr(outs, mode))
         logger.debug(f"JSON out: {jsoner.keys()}")
         try:
+            # Pick genera (all should have same subtypes)
             genera = list(jsoner.keys())[0]
         except IndexError:
             return []
@@ -74,8 +76,6 @@ class Control(BaseClass):
     """
     Base class of a control sample.
     """    
-
-    # __tablename__ = '_control_samples'
     
     id = Column(INTEGER, primary_key=True) #: primary key
     parent_id = Column(String, ForeignKey("_controltype.id", name="fk_control_parent_id")) #: primary key of control type
@@ -90,10 +90,14 @@ class Control(BaseClass):
     refseq_version = Column(String(16)) #: version of refseq used in fastq parsing
     kraken2_version = Column(String(16)) #: version of kraken2 used in fastq parsing
     kraken2_db_version = Column(String(32)) #: folder name of kraken2 db
-    sample = relationship("BacterialCultureSample", back_populates="control")
-    sample_id = Column(INTEGER, ForeignKey("_basicsample.id", ondelete="SET NULL", name="cont_BCS_id"))
+    sample = relationship("BacterialCultureSample", back_populates="control") #: This control's submission sample
+    sample_id = Column(INTEGER, ForeignKey("_basicsample.id", ondelete="SET NULL", name="cont_BCS_id")) #: sample id key
 
     def __repr__(self) -> str:
+        """
+        Returns:
+            str: Representation of self
+        """        
         return f"<Control({self.name})>"
 
     def to_sub_dict(self) -> dict:
@@ -103,25 +107,25 @@ class Control(BaseClass):
         Returns:
             dict: output dictionary containing: Name, Type, Targets, Top Kraken results
         """        
-        # load json string into dict
+        # logger.debug("loading json string into dict")
         try:
             kraken = json.loads(self.kraken)
         except TypeError:
             kraken = {}
-        # calculate kraken count total to use in percentage
+        # logger.debug("calculating kraken count total to use in percentage")
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
         new_kraken = []
         for item in kraken:
-            # calculate kraken percent (overwrites what's already been scraped)
+            # logger.debug("calculating kraken percent (overwrites what's already been scraped)")
             kraken_percent = kraken[item]['kraken_count'] / kraken_cnt_total
             new_kraken.append({'name': item, 'kraken_count':kraken[item]['kraken_count'], 'kraken_percent':"{0:.0%}".format(kraken_percent)})
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
-        # set targets
+        # logger.debug("setting targets")
         if self.controltype.targets == []:
             targets = ["None"]
         else:
             targets = self.controltype.targets
-        # construct output dictionary
+        # logger.debug("constructing output dictionary")
         output = {
             "name" : self.name,
             "type" : self.controltype.name,
@@ -141,49 +145,28 @@ class Control(BaseClass):
             list[dict]: list of records
         """    
         output = []
-        # load json string for mode (i.e. contains, matches, kraken2)
+        # logger.debug("load json string for mode (i.e. contains, matches, kraken2)")
         try:
             data = json.loads(getattr(self, mode))
         except TypeError:
             data = {}
         logger.debug(f"Length of data: {len(data)}")
-        # dict keys are genera of bacteria, e.g. 'Streptococcus'
+        # logger.debug("dict keys are genera of bacteria, e.g. 'Streptococcus'")
         for genus in data:
             _dict = {}
             _dict['name'] = self.name
             _dict['submitted_date'] = self.submitted_date
             _dict['genus'] = genus
-            # get Target or Off-target of genus
+            # logger.debug("get Target or Off-target of genus")
             _dict['target'] = 'Target' if genus.strip("*") in self.controltype.targets else "Off-target"
-            # set 'contains_hashes', etc for genus, 
+            # logger.debug("set 'contains_hashes', etc for genus")
             for key in data[genus]:
                 _dict[key] = data[genus][key]
             output.append(_dict)
-        # Have to triage kraken data to keep program from getting overwhelmed
+        # logger.debug("Have to triage kraken data to keep program from getting overwhelmed")
         if "kraken" in mode:
             output = sorted(output, key=lambda d: d[f"{mode}_count"], reverse=True)[:49]
         return output
-    
-    def create_dummy_data(self, mode:str) -> dict:
-        """
-        Create non-zero length data to maintain entry of zero length 'contains' (depreciated)
-
-        Args:
-            mode (str): analysis type, 'contains', etc
-
-        Returns:
-            dict: dictionary of 'Nothing' genus
-        """        
-        match mode:
-            case "contains":
-                data = {"Nothing": {"contains_hashes":"0/400", "contains_ratio":0.0}}
-            case "matches":
-                data = {"Nothing": {"matches_hashes":"0/400", "matches_ratio":0.0}}
-            case "kraken":
-                data = {"Nothing": {"kraken_percent":0.0, "kraken_count":0}}
-            case _:
-                data = {}
-        return data
 
     @classmethod
     def get_modes(cls) -> List[str]:
@@ -194,6 +177,7 @@ class Control(BaseClass):
             List[str]: List of control mode names.
         """    
         try:
+            # logger.debug("Creating a list of JSON columns in _controls table")
             cols = [item.name for item in list(cls.__table__.columns) if isinstance(item.type, JSON)]
         except AttributeError as e:
             logger.error(f"Failed to get available modes from db: {e}")
@@ -243,25 +227,32 @@ class Control(BaseClass):
         if start_date != None:
             match start_date:
                 case date():
+                    # logger.debug(f"Lookup control by start date({start_date})")
                     start_date = start_date.strftime("%Y-%m-%d")
                 case int():
+                    # logger.debug(f"Lookup control by ordinal start date {start_date}")
                     start_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
                 case _:
+                    # logger.debug(f"Lookup control with parsed start date {start_date}")
                     start_date = parse(start_date).strftime("%Y-%m-%d")
             match end_date:
                 case date():
+                    # logger.debug(f"Lookup control by end date({end_date})")
                     end_date = end_date.strftime("%Y-%m-%d")
                 case int():
+                    # logger.debug(f"Lookup control by ordinal end date {end_date}")
                     end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime("%Y-%m-%d")
                 case _:
+                    # logger.debug(f"Lookup control with parsed end date {end_date}")
                     end_date = parse(end_date).strftime("%Y-%m-%d")
             # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         match control_name:
             case str():
+                # logger.debug(f"Lookup control by name {control_name}")
                 query = query.filter(cls.name.startswith(control_name))
                 limit = 1
             case _:
                 pass
-        return query_return(query=query, limit=limit)
+        return cls.query_return(query=query, limit=limit)
     

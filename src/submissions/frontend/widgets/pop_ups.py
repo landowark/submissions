@@ -47,7 +47,7 @@ class AlertPop(QMessageBox):
 
 class KitSelector(QDialog):
     """
-    dialog to ask yes/no questions
+    dialog to input KitType manually
     """    
     def __init__(self, title:str, message:str) -> QDialog:
         super().__init__()
@@ -69,12 +69,18 @@ class KitSelector(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def getValues(self):
+    def getValues(self) -> str:
+        """
+        Get KitType(str) from widget
+
+        Returns:
+            str: KitType as str
+        """        
         return self.widget.currentText()
 
 class SubmissionTypeSelector(QDialog):
     """
-    dialog to ask yes/no questions
+    dialog to input SubmissionType manually
     """    
     def __init__(self, title:str, message:str) -> QDialog:
         super().__init__()
@@ -97,5 +103,11 @@ class SubmissionTypeSelector(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def parse_form(self):
+    def parse_form(self) -> str:
+        """
+        Pulls SubmissionType(str) from widget
+
+        Returns:
+            str: SubmissionType as str
+        """
         return self.widget.currentText()

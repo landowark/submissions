@@ -1,6 +1,7 @@
 <!doctype html>
 <html>
     <head>
+        {% block head %}
         <style>
             /* Tooltip container */
             .tooltip {
@@ -34,11 +35,13 @@
             }
         </style>
         <title>Submission Details for {{ sub['Plate Number'] }}</title>
+        {% endblock %}
     </head>
-    {% set excluded = ['reagents', 'samples', 'controls', 'extraction_info', 'pcr_info', 'comment', 'barcode', 'platemap', 'export_map', 'equipment'] %}
     <body>
+        {% block body %}
+        <!-- {% set excluded = ['reagents', 'samples', 'controls', 'extraction_info', 'pcr_info', 'comment', 'barcode', 'platemap', 'export_map', 'equipment'] %} -->
         <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;{% if sub['barcode'] %}<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">{% endif %}
-        <p>{% for key, value in sub.items() if key not in excluded %}
+        <p>{% for key, value in sub.items() if key not in sub['excluded'] %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key }}: </b>{% if key=='Cost' %}{% if sub['Cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br>
         {% endfor %}</p>
         <h3><u>Reagents:</u></h3>
@@ -111,5 +114,6 @@
         <h3><u>Plate map:</u></h3>
         <img height="300px" width="650px" src="data:image/jpeg;base64,{{ sub['export_map'] | safe }}">
         {% endif %}
+        {% endblock %}
     </body>
 </html>

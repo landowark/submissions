@@ -95,6 +95,16 @@ def convert_nans_to_nones(input_str) -> str|None:
     return None
 
 def check_regex_match(pattern:str, check:str) -> bool:
+    """
+    Determines if a pattern matches a str
+
+    Args:
+        pattern (str): regex pattern string
+        check (str): string to be checked
+
+    Returns:
+        bool: match found?
+    """    
     try:
         return bool(re.match(fr"{pattern}", check))
     except TypeError:
@@ -375,37 +385,6 @@ def jinja_template_loading() -> Environment:
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     return env
 
-def check_authorization(func):
-    """
-    Decorator to check if user is authorized to access function
-
-    Args:
-        func (_type_): Function to be used.
-    """    
-    def wrapper(*args, **kwargs):
-        logger.debug(f"Checking authorization")
-        if getpass.getuser() in kwargs['ctx'].power_users:
-            return func(*args, **kwargs)
-        else:
-            logger.error(f"User {getpass.getuser()} is not authorized for this function.")
-            return dict(code=1, message="This user does not have permission for this function.", status="warning")
-    return wrapper
-
-# def check_authorization(user:str):
-#     def decorator(function):
-#         def wrapper(*args, **kwargs):
-#             # funny_stuff()
-#             # print(argument)
-#             power_users = 
-#             if user in ctx.power_users:
-#                 result = function(*args, **kwargs)
-#             else:
-#                 logger.error(f"User {getpass.getuser()} is not authorized for this function.")
-#                 result = dict(code=1, message="This user does not have permission for this function.", status="warning")
-#             return result
-#         return wrapper
-#     return decorator
-
 def check_if_app() -> bool:
     """
     Checks if the program is running from pyinstaller compiled
@@ -431,7 +410,7 @@ def convert_well_to_row_column(input_str:str) -> Tuple[int, int]:
     Returns:
         Tuple[int, int]: row, column
     """    
-    row_keys = dict(A=1, B=2, C=3, D=4, E=5, F=6, G=7, H=8)
+    row_keys = {v:k for k,v in row_map.items()}
     try:
         row = int(row_keys[input_str[0].upper()])
         column = int(input_str[1:]) 
@@ -439,27 +418,13 @@ def convert_well_to_row_column(input_str:str) -> Tuple[int, int]:
         return None, None
     return row, column
 
-def query_return(query:Query, limit:int=0):
+def setup_lookup(func):
     """
-    Execute sqlalchemy query.
+    Checks to make sure all args are allowed
 
     Args:
-        query (Query): Query object
-        limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-    Returns:
-        _type_: Query result.
+        func (_type_): _description_
     """    
-    with query.session.no_autoflush:
-        match limit:
-            case 0:
-                return query.all()
-            case 1:
-                return query.first()
-            case _:
-                return query.limit(limit).all()
-
-def setup_lookup(func):
     def wrapper(*args, **kwargs):
         for k, v in locals().items():
             if k == "kwargs":
@@ -509,32 +474,30 @@ class Report(BaseModel):
                 except AttributeError:
                     logger.error(f"Problem adding result.")
             case Report():
-                
+                # logger.debug(f"Adding all results in report to new report")
                 for res in result.results:
                     logger.debug(f"Adding {res} from to results.")
                     self.results.append(res)
             case _:
                 pass
-
-def readInChunks(fileObj, chunkSize=2048):
-    """
-    Lazy function to read a file piece by piece.
-    Default chunk size: 2kB.
-
-    """
-    while True:
-        data = fileObj.readlines(chunkSize)
-        if not data:
-            break
-        yield data
-
-def get_first_blank_df_row(df:pd.DataFrame) -> int:
-    return len(df) + 1
     
-def is_missing(value:Any) -> Tuple[Any, bool]:
-    if check_not_nan(value):
-        return value, False
-    else:
-        return convert_nans_to_nones(value), True
+def rreplace(s, old, new):
+    return (s[::-1].replace(old[::-1],new[::-1], 1))[::-1]
 
 ctx = get_config(None)
+
+def check_authorization(func):
+    """
+    Decorator to check if user is authorized to access function
+
+    Args:
+        func (_type_): Function to be used.
+    """    
+    def wrapper(*args, **kwargs):
+        logger.debug(f"Checking authorization")
+        if getpass.getuser() in ctx.power_users:
+            return func(*args, **kwargs)
+        else:
+            logger.error(f"User {getpass.getuser()} is not authorized for this function.")
+            return dict(code=1, message="This user does not have permission for this function.", status="warning")
+    return wrapper

@@ -12,7 +12,6 @@ from frontend.widgets.functions import select_save_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-
 def create_charts(ctx:Settings, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     """
     Constructs figures based on parsed pandas dataframe.
@@ -40,7 +39,6 @@ def create_charts(ctx:Settings, df:pd.DataFrame, ytitle:str|None=None) -> Figure
             genera.append("")
     df['genus'] = df['genus'].replace({'\*':''}, regex=True).replace({"NaN":"Unknown"})
     df['genera'] = genera
-    # df = df.dropna()
     # remove original runs, using reruns if applicable
     df = drop_reruns_from_df(ctx=ctx, df=df)
     # sort by and exclude from
