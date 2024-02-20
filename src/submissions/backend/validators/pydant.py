@@ -642,7 +642,14 @@ class PydSubmission(BaseModel, extra='allow'):
                 new_item = {}
                 new_item['type'] = k
                 new_item['location'] = excel_map['info'][k]
-                new_item['value'] = v['value']
+                match k:
+                    case "comment":
+                        if v['value'] is not None:
+                            new_item['value'] = "--".join([comment['text'] for comment in v['value']])
+                        else:
+                            new_item['value'] = None
+                    case _:
+                        new_item['value'] = v['value']
                 new_info.append(new_item)
             except KeyError:
                 logger.error(f"Unable to fill in {k}, not found in relevant info.")

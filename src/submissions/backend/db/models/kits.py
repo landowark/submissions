@@ -4,10 +4,10 @@ All kit and reagent related models
 from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
-from sqlalchemy.ext.associationproxy import association_proxy, AssociationProxy
+from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
-from tools import check_authorization, setup_lookup, Report, Result, Settings
+from tools import check_authorization, setup_lookup, Report, Result
 from typing import List
 from pandas import ExcelFile
 from pathlib import Path
@@ -921,23 +921,32 @@ class SubmissionReagentAssociation(BaseClass):
         from . import BasicSubmission
         query: Query = cls.__database_session__.query(cls)
         match reagent:
-            case Reagent():
+            case Reagent() | str():
                 # logger.debug(f"Lookup SubmissionReagentAssociation by reagent Reagent {reagent}")
+                if isinstance(reagent, str):
+                    reagent = Reagent.query(lot_number=reagent)
                 query = query.filter(cls.reagent==reagent)
-            case str():
-                # logger.debug(f"Lookup SubmissionReagentAssociation by reagent str {reagent}")
-                query = query.join(Reagent).filter(Reagent.lot==reagent)
+            # case str():
+            #     logger.debug(f"Lookup SubmissionReagentAssociation by reagent str {reagent}")
+                
+            #     query = query.filter(cls.reagent==reagent)
+            #     logger.debug(f"Result: {query.all()}")
             case _:
                 pass
         match submission:
-            case BasicSubmission():
+            case BasicSubmission() | str():
+                if isinstance(submission, str):
+                    submission = BasicSubmission.query(rsl_number=submission)
                 # logger.debug(f"Lookup SubmissionReagentAssociation by submission BasicSubmission {submission}")
                 query = query.filter(cls.submission==submission)
-            case str():
-                # logger.debug(f"Lookup SubmissionReagentAssociation by submission str {submission}")
-                query = query.join(BasicSubmission).filter(BasicSubmission.rsl_plate_num==submission)
+            # case str():
+            #     logger.debug(f"Lookup SubmissionReagentAssociation by submission str {submission}")
+            #     submission = BasicSubmission.query(rsl_number=submission)
+            #     query = query.filter(cls.submission==submission)
+            #     logger.debug(f"Result: {query.all()}")
             case int():
                 # logger.debug(f"Lookup SubmissionReagentAssociation by submission id {submission}")
+                submission = BasicSubmission.query(id=submission)                
                 query = query.join(BasicSubmission).filter(BasicSubmission.id==submission)
             case _:
                 pass

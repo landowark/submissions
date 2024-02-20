@@ -338,7 +338,7 @@ class BasicSubmission(BaseClass):
         logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # Exclude sub information
-        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment']:
+        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number']:
             try:
                 df = df.drop(item, axis=1)
             except:
@@ -1068,7 +1068,21 @@ class BacterialCulture(BasicSubmission):
             outstr = re.sub(r"BC(\d{6})", r"BC-\1", outstr, flags=re.IGNORECASE)
         except (AttributeError, TypeError) as e:
             outstr = RSLNamer.construct_new_plate_name(data=data)
-        return outstr
+        try:
+            plate_number = re.search(r"(?:(-|_)\d)(?!\d)", outstr).group().strip("_").strip("-")
+            # logger.debug(f"Plate number is: {plate_number}")
+        except AttributeError as e:
+            plate_number = "1"
+        outstr = re.sub(r"(\d{8})(-|_)?\d?(R\d?)?", rf"\1-{plate_number}\3", outstr)
+        # logger.debug(f"After addition of plate number the plate name is: {outstr}")
+        try:
+            repeat = re.search(r"-\dR(?P<repeat>\d)?", outstr).groupdict()['repeat']
+            if repeat == None:
+                repeat = "1"
+        except AttributeError as e:
+            repeat = ""
+        return re.sub(r"(-\dR)\d?", rf"\1 {repeat}", outstr).replace(" ", "")
+        # return outstr
 
     @classmethod
     def get_regex(cls) -> str:
@@ -1078,7 +1092,7 @@ class BacterialCulture(BasicSubmission):
         Returns:
             str: string for regex construction
         """        
-        return "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\s]|$)?R?\d?)?)"
+        return "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
     
     @classmethod
     def filename_template(cls):
@@ -1244,7 +1258,7 @@ class Wastewater(BasicSubmission):
         Returns:
             str: String for regex construction
         """        
-        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\s]|$)?R?\d?)?)"
+        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
   
     @classmethod
     def adjust_autofill_samples(cls, samples: List[Any]) -> List[Any]:

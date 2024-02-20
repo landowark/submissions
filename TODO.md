@@ -1,3 +1,4 @@
+- [ ] Create Tips ... *sigh*.
 - [x] Create platemap image from html for export to pdf.
 - [x] Move plate map maker to submission.
 - [x] Finish Equipment Parser (add in regex to id asset_number)

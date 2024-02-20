@@ -32,7 +32,6 @@ def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
     df = df.sort_values(['Submitting Lab', "Submitted Date"])
     return df, df2
 
-
 def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     
     """
@@ -74,7 +73,6 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     html = temp.render(input=dicto)
     return html
 
-
 def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFrame:
     """
     Convert list of control records to dataframe
@@ -104,7 +102,6 @@ def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFram
     df = df_column_renamer(df=df)
     return df
 
-
 def df_column_renamer(df:DataFrame) -> DataFrame:
     """
     Ad hoc function I created to clarify some fields
@@ -122,7 +119,6 @@ def df_column_renamer(df:DataFrame) -> DataFrame:
         "kraken_count":"kraken2_read_count_(top_50)",
         "kraken_percent":"kraken2_read_percent_(top_50)"
     })
-
 
 def displace_date(df:DataFrame) -> DataFrame:
     """
@@ -182,7 +178,6 @@ def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame,
         df, previous_dates = check_date(df, item, previous_dates)
         return df, previous_dates
                 
-
 def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
     """
     get all unique values in a dataframe column by name
@@ -195,7 +190,6 @@ def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
         list: sorted list of unique values
     """    
     return sorted(df[column_name].unique())
-
 
 def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
     """

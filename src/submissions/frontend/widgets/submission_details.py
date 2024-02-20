@@ -60,7 +60,6 @@ class SubmissionDetails(QDialog):
         btn.setFixedWidth(900)
         btn.clicked.connect(self.export)
 
-           
     def export(self):
         """
         Renders submission to html, then creates and saves .pdf file to user selected file.

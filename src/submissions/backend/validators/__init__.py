@@ -133,10 +133,10 @@ class RSLNamer(object):
             else:
                 today = data['submitted_date']
         else:
-            today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['rsl_plate_num'])
             try:
+                today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['rsl_plate_num'])
                 today = parse(today.group())
-            except AttributeError:
+            except (AttributeError, KeyError):
                 today = datetime.now()
         if "rsl_plate_num" in data.keys():
             plate_number = data['rsl_plate_num'].split("-")[-1][0]

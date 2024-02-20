@@ -601,5 +601,3 @@ class PCRParser(object):
         self.pcr['plugin'] = df.iloc[19][1]
         self.pcr['exported_on'] = df.iloc[20][1]
         self.pcr['imported_by'] = getuser()
-
-    

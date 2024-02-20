@@ -1,12 +1,12 @@
 """
 Gel box for artic quality control
 """
-from PyQt6.QtWidgets import *
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
+                             QLabel, QLineEdit, QDialogButtonBox
+                             )
 import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtGui import *
-from PyQt6.QtCore import *
+from PyQt6.QtGui import QIcon
 from PIL import Image
 import numpy as np
 import logging

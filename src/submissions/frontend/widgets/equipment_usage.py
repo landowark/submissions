@@ -80,7 +80,6 @@ class EquipmentUsage(QDialog):
             for object in self.parent().findChildren(QCheckBox):
                 object.setChecked(self.check.isChecked())
 
-# TODO: Figure out how this is working again
 class RoleComboBox(QWidget):
 
     def __init__(self, parent, role:PydEquipmentRole, used:list) -> None:

@@ -9,7 +9,7 @@ import pandas as pd
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
