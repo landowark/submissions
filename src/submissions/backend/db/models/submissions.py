@@ -2284,4 +2284,5 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         except ValueError as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1
-               
+
+       

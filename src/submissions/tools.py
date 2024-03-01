@@ -303,6 +303,29 @@ def get_config(settings_path: Path|str|None=None) -> Settings:
         settings = yaml.load(stream, Loader=yaml.Loader)
     return Settings(**settings)
 
+class CustomFormatter(logging.Formatter):
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    # format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(message)s"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
 def setup_logger(verbosity:int=3):
     """
     Set logger levels using settings.
@@ -337,7 +360,8 @@ def setup_logger(verbosity:int=3):
             ch.setLevel(logging.WARNING)
     ch.name = "Stream"
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - {%(pathname)s:%(lineno)d} - %(message)s')
+    # formatter = logging.Formatter('%(asctime)s - %(levelname)s - {%(pathname)s:%(lineno)d} - %(message)s')
+    formatter = CustomFormatter()
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
     # add the handlers to the logger
