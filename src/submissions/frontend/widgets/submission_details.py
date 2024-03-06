@@ -1,8 +1,10 @@
 from PyQt6.QtWidgets import (QDialog, QScrollArea, QPushButton, QVBoxLayout, QMessageBox,
                              QDialogButtonBox, QTextEdit)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import Qt
-from backend.db.models import BasicSubmission
+from PyQt6.QtWebChannel import QWebChannel
+from PyQt6.QtCore import Qt, pyqtSlot
+
+from backend.db.models import BasicSubmission, BasicSample
 from tools import check_if_app
 from .functions import select_save_file
 from io import BytesIO
@@ -31,7 +33,7 @@ class SubmissionDetails(QDialog):
             self.app = parent.parent().parent().parent().parent().parent().parent()
         except AttributeError:
             self.app = None
-        self.setWindowTitle("Submission Details")
+        self.setWindowTitle(f"Submission Details - {sub.rsl_plate_num}")
         # create scrollable interior
         interior = QScrollArea()
         interior.setParent(self)
@@ -46,19 +48,34 @@ class SubmissionDetails(QDialog):
         self.base_dict['platemap'] = sub.make_plate_map()
         self.base_dict, self.template = sub.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict)
-        webview = QWebEngineView()
-        webview.setMinimumSize(900, 500)
-        webview.setMaximumSize(900, 500)
-        webview.setHtml(self.html)
+        self.webview = QWebEngineView(parent=self)
+        self.webview.setMinimumSize(900, 500)
+        self.webview.setMaximumSize(900, 500)
+        self.webview.setHtml(self.html)
         self.layout = QVBoxLayout()
         interior.resize(900, 500)
-        interior.setWidget(webview)
+        interior.setWidget(self.webview)
         self.setFixedSize(900, 500)
         # button to export a pdf version
         btn = QPushButton("Export PDF")
         btn.setParent(self)
         btn.setFixedWidth(900)
         btn.clicked.connect(self.export)
+        # setup channel
+        self.channel = QWebChannel()
+        self.channel.registerObject('backend', self)
+        self.webview.page().setWebChannel(self.channel)
+
+    @pyqtSlot(str)
+    def sample_details(self, sample):
+        # print(f"{string} is in row {row}, column {column}")
+        # self.webview.setHtml(f"<html><body><br><br>{sample}</body></html>")
+        sample = BasicSample.query(submitter_id=sample)
+        base_dict = sample.to_sub_dict(full_data=True)
+        base_dict, template = sample.get_details_template(base_dict=base_dict)
+        html = template.render(sample=base_dict)
+        self.webview.setHtml(html)
+        # sample.show_details(obj=self)
 
     def export(self):
         """
@@ -130,4 +147,4 @@ class SubmissionComment(QDialog):
         full_comment = [{"name":commenter, "time": dt, "text": comment}]
         logger.debug(f"Full comment: {full_comment}")
         return full_comment
-        
+

@@ -225,6 +225,7 @@ class PydEquipment(BaseModel, extra='ignore'):
     @classmethod
     def make_empty_list(cls, value):
         # logger.debug(f"Pydantic value: {value}")
+        value = convert_nans_to_nones(value)
         if value == None:
             value = ['']
         if len(value)==0:

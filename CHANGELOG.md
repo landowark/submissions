@@ -1,3 +1,7 @@
+## 202402.04
+
+- Addition of comments to gel box.
+
 ## 202402.01
 
 - Addition of gel box for Artic quality control.

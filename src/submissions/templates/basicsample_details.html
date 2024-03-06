@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+    <head>
+        {% block head %}
+        <style>
+            /* Tooltip container */
+            .tooltip {
+              position: relative;
+              display: inline-block;
+              border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+            }
+            
+            /* Tooltip text */
+            .tooltip .tooltiptext {
+              visibility: hidden;
+              width: 120px;
+              background-color: black;
+              color: #fff;
+              text-align: center;
+              padding: 5px 0;
+              border-radius: 6px;
+             
+              /* Position the tooltip text - see examples below! */
+              position: absolute;
+              z-index: 1;
+              bottom: 100%;
+              left: 50%;
+              margin-left: -60px;
+            }
+            
+            /* Show the tooltip text when you mouse over the tooltip container */
+            .tooltip:hover .tooltiptext {
+              visibility: visible;
+              font-size: large;
+            }
+        </style>
+        <title>Sample Details for {{ sample['Submitter ID'] }}</title>
+        <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+        {% endblock %}
+    </head>
+    <body>
+        {% block body %}
+        <h2><u>Sample Details for {{ sample['Submitter ID'] }}</u></h2>
+        <p>{% for key, value in sample.items() if key not in sample['excluded'] %}
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key }}: </b>{{ value }}<br>
+        {% endfor %}</p>
+        {% if sample['submissions'] %}<h2>Submissions:</h2>
+            {% for submission in sample['submissions'] %}
+            <p>{{ submission['Plate Name'] }}: {{ submission['Well'] }}</p>
+            {% endfor %}
+        {% endif %}
+        {% endblock %}
+    </body>
+</html>

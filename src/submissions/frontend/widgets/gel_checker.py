@@ -2,7 +2,8 @@
 Gel box for artic quality control
 """
 from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
-                             QLabel, QLineEdit, QDialogButtonBox
+                             QLabel, QLineEdit, QDialogButtonBox,
+                             QTextEdit
                              )
 import numpy as np
 import pyqtgraph as pg
@@ -44,7 +45,8 @@ class GelBox(QDialog):
         # creating image view object
         self.imv = pg.ImageView()
         img = np.array(Image.open(self.img_path).rotate(-90).transpose(Image.FLIP_LEFT_RIGHT))
-        self.imv.setImage(img)#, xvals=np.linspace(1., 3., data.shape[0]))
+        self.imv.setImage(img, scale=None)#, xvals=np.linspace(1., 3., data.shape[0]))
+        
         layout = QGridLayout()
         layout.addWidget(QLabel("DNA Core Submission Number"),0,1)
         self.core_number = QLineEdit()
@@ -59,7 +61,7 @@ class GelBox(QDialog):
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        layout.addWidget(self.buttonBox, 22, 5, 1, 1)#, alignment=Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(self.buttonBox, 23, 1, 1, 1)#, alignment=Qt.AlignmentFlag.AlignTop)
         self.setLayout(layout)
 
     def parse_form(self) -> Tuple[str, str|Path, list]:
@@ -70,14 +72,14 @@ class GelBox(QDialog):
             Tuple[str, str|Path, list]: output values
         """        
         dna_core_submission_number = self.core_number.text()
-        return dna_core_submission_number, self.img_path, self.form.parse_form()
+        values, comment = self.form.parse_form()
+        return dna_core_submission_number, self.img_path, values, comment
         
 class ControlsForm(QWidget):
 
     def __init__(self, parent) -> None:
         super().__init__(parent)
         self.layout = QGridLayout()
-        
         columns = []
         rows = []
         for iii, item in enumerate(["Negative Control Key", "Description", "Results - 65 C", "Results - 63 C", "Results - Spike"]):
@@ -98,6 +100,11 @@ class ControlsForm(QWidget):
                 widge.setText("Neg")
                 widge.setObjectName(f"{rows[iii]} : {columns[jjj]}")
                 self.layout.addWidget(widge, iii+1, jjj+2, 1, 1)
+        self.layout.addWidget(QLabel("Comments:"), 0,5,1,1)
+        self.comment_field = QTextEdit(self)
+        self.comment_field.setFixedHeight(50)
+        self.layout.addWidget(self.comment_field, 1,5,4,1)
+        
         self.setLayout(self.layout)
 
     def parse_form(self) -> List[dict]:
@@ -118,4 +125,4 @@ class ControlsForm(QWidget):
             if label[0] not in [item['name'] for item in output]:
                 output.append(dicto)
         logger.debug(pformat(output))
-        return output
+        return output, self.comment_field.toPlainText()

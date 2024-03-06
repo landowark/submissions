@@ -276,7 +276,7 @@ class BasicSubmission(BaseClass):
         sample_list = self.hitpick_plate()
         # logger.debug("Setting background colours")
         for sample in sample_list:
-            if sample['positive']:
+            if sample['Positive']:
                 sample['background_color'] = "#f10f07"
             else:
                 if "colour" in sample.keys():
@@ -288,7 +288,7 @@ class BasicSubmission(BaseClass):
         for column in range(1, plate_columns+1):
             for row in range(1, plate_rows+1):
                 try:
-                    well = [item for item in sample_list if item['row'] == row and item['column']==column][0]
+                    well = [item for item in sample_list if item['Row'] == row and item['Column']==column][0]
                 except IndexError:
                     well = dict(name="", row=row, column=column, background_color="#ffffff")
                 output_samples.append(well)
@@ -429,7 +429,8 @@ class BasicSubmission(BaseClass):
                 case "reagents":
                     new_dict[key] = [PydReagent(**reagent) for reagent in value]
                 case "samples":
-                    new_dict[key] = [PydSample(**sample) for sample in dicto['samples']]
+                    # samples = {k.lower().replace(" ", "_"):v for k,v in dicto['samples'].items()}
+                    new_dict[key] = [PydSample(**{k.lower().replace(" ", "_"):v for k,v in sample.items()}) for sample in dicto['samples']]
                 case "equipment":
                     try:
                         new_dict[key] = [PydEquipment(**equipment) for equipment in dicto['equipment']]
@@ -1293,6 +1294,7 @@ class WastewaterArtic(BasicSubmission):
     pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
     gel_image = Column(String(64)) #: file name of gel image in zip file
     gel_info = Column(JSON) #: unstructured data from gel.
+    source_plates = Column(JSON) #: wastewater plates that samples come from
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic", 
                            polymorphic_load="inline", 
@@ -1328,11 +1330,32 @@ class WastewaterArtic(BasicSubmission):
         output['gel_info'] = self.gel_info
         output['gel_image'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
+        output['source_plates'] = self.source_plates
         return output
 
     @classmethod
     def get_abbreviation(cls) -> str:
         return "AR"
+
+    @classmethod
+    def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
+        """
+        Update submission dictionary with type specific information
+
+        Args:
+            input_dict (dict): Input sample dictionary
+            xl (pd.ExcelFile): original xl workbook, used for child classes mostly
+
+        Returns:
+            dict: Updated sample dictionary
+        """        
+        input_dict = super().parse_info(input_dict)
+        df = xl.parse("First Strand List", header=None)
+        plates = []
+        for row in [8,9,10]:
+            plates.append(dict(plate=df.iat[row-1, 2], start_sample=df.iat[row-1, 3]))
+        input_dict['source_plates'] = plates
+        return input_dict
 
     @classmethod
     def parse_samples(cls, input_dict: dict) -> dict:
@@ -1364,8 +1387,11 @@ class WastewaterArtic(BasicSubmission):
 
         Returns:
             str: output name
-        """        
+        """       
+        # Remove letters. 
         processed = re.sub(r"[A-Z]", "", input_str)
+        # Remove trailing '-' if any
+        processed = processed.strip("-")
         try:
             en_num = re.search(r"\-\d{1}$", processed).group()
             processed = rreplace(processed, en_num, "")
@@ -1507,18 +1533,22 @@ class WastewaterArtic(BasicSubmission):
         worksheet = input_excel["First Strand List"]
         samples = cls.query(rsl_number=info['rsl_plate_num']['value']).submission_sample_associations
         samples = sorted(samples, key=attrgetter('column', 'row'))
-        source_plates = []
-        first_samples = []
-        for sample in samples:
-            sample = sample.sample
-            try:
-                assoc = [item.submission.rsl_plate_num for item in sample.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
-            except IndexError:
-                logger.error(f"Association not found for {sample}")
-                continue
-            if assoc not in source_plates:
-                source_plates.append(assoc)
-                first_samples.append(sample.ww_processing_num)
+        try:
+            source_plates = [item['plate'] for item in info['source_plates']]
+            first_samples = [item['start_sample'] for item in info['source_plates']]
+        except:
+            source_plates = []
+            first_samples = []
+            for sample in samples:
+                sample = sample.sample
+                try:
+                    assoc = [item.submission.rsl_plate_num for item in sample.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
+                except IndexError:
+                    logger.error(f"Association not found for {sample}")
+                    continue
+                if assoc not in source_plates:
+                    source_plates.append(assoc)
+                    first_samples.append(sample.ww_processing_num)
         # Pad list to length of 3
         source_plates += ['None'] * (3 - len(source_plates))
         first_samples += [''] * (3 - len(first_samples))
@@ -1573,7 +1603,7 @@ class WastewaterArtic(BasicSubmission):
             Tuple[dict, Template]: (Updated dictionary, Template to be rendered)
         """        
         base_dict, template = super().get_details_template(base_dict=base_dict)
-        base_dict['excluded'] += ['gel_info', 'gel_image', 'headers', "dna_core_submission_number"]
+        base_dict['excluded'] += ['gel_info', 'gel_image', 'headers', "dna_core_submission_number", "source_plates"]
         base_dict['DNA Core ID'] = base_dict['dna_core_submission_number']
         check = 'gel_info' in base_dict.keys() and base_dict['gel_info'] != None
         if check:
@@ -1598,20 +1628,20 @@ class WastewaterArtic(BasicSubmission):
             List[dict]: Updated dictionaries
         """       
         logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
-        if backup:
-            output = []
-            for assoc in self.submission_sample_associations:
-                dicto = assoc.to_sub_dict()
-                old_sub = assoc.sample.get_previous_ww_submission(current_artic_submission=self)
-                try:
-                    dicto['plate_name'] = old_sub.rsl_plate_num
-                except AttributeError:
-                    dicto['plate_name'] = ""
-                old_assoc = WastewaterAssociation.query(submission=old_sub, sample=assoc.sample, limit=1)
-                dicto['well'] = f"{row_map[old_assoc.row]}{old_assoc.column}"
-                output.append(dicto)
-        else:
-            output = super().adjust_to_dict_samples(backup=False)
+        # if backup:
+        output = []
+        for assoc in self.submission_sample_associations:
+            dicto = assoc.to_sub_dict()
+            old_sub = assoc.sample.get_previous_ww_submission(current_artic_submission=self)
+            try:
+                dicto['plate_name'] = old_sub.rsl_plate_num
+            except AttributeError:
+                dicto['plate_name'] = ""
+            old_assoc = WastewaterAssociation.query(submission=old_sub, sample=assoc.sample, limit=1)
+            dicto['well'] = f"{row_map[old_assoc.row]}{old_assoc.column}"
+            output.append(dicto)
+        # else:
+        #     output = super().adjust_to_dict_samples(backup=False)
         return output
 
     def custom_context_events(self) -> dict:
@@ -1637,9 +1667,15 @@ class WastewaterArtic(BasicSubmission):
         fname = select_open_file(obj=obj, file_extension="jpg")
         dlg = GelBox(parent=obj, img_path=fname)
         if dlg.exec():
-            self.dna_core_submission_number, img_path, output = dlg.parse_form()
+            self.dna_core_submission_number, img_path, output, comment = dlg.parse_form()
             self.gel_image = img_path.name
             self.gel_info = output
+            dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
+            com = dict(text=comment, name=getuser(), time=dt)
+            if self.comment is not None:
+                self.comment.append(com)
+            else:
+                self.comment = [com]
             logger.debug(pformat(self.gel_info))
             with ZipFile(self.__directory_path__.joinpath("submission_imgs.zip"), 'a') as zipf:
                 # Add a file located at the source_path to the destination within the zip
@@ -1703,7 +1739,7 @@ class BasicSample(BaseClass):
         except AttributeError:
             return f"<Sample({self.submitter_id})"
     
-    def to_sub_dict(self) -> dict:
+    def to_sub_dict(self, full_data:bool=False) -> dict:
         """
         gui friendly dictionary, extends parent method.
 
@@ -1712,8 +1748,10 @@ class BasicSample(BaseClass):
         """
         # logger.debug(f"Converting {self} to dict.")
         sample = {}
-        sample['submitter_id'] = self.submitter_id
-        sample['sample_type'] = self.sample_type
+        sample['Submitter ID'] = self.submitter_id
+        sample['Sample Type'] = self.sample_type
+        if full_data:
+            sample['submissions'] = [item.to_sub_dict() for item in self.sample_submission_associations]
         return sample
 
     def set_attribute(self, name:str, value):
@@ -1797,6 +1835,41 @@ class BasicSample(BaseClass):
         """        
         return input_dict
     
+    @classmethod
+    def get_details_template(cls, base_dict:dict) -> Tuple[dict, Template]:
+        """
+        Get the details jinja template for the correct class
+
+        Args:
+            base_dict (dict): incoming dictionary of Submission fields
+
+        Returns:
+            Tuple(dict, Template): (Updated dictionary, Template to be rendered)
+        """        
+        base_dict['excluded'] = ['submissions', 'excluded']
+        env = jinja_template_loading()
+        temp_name = f"{cls.__name__.lower()}_details.html"
+        logger.debug(f"Returning template: {temp_name}")
+        try:
+            template = env.get_template(temp_name)
+        except TemplateNotFound as e:
+            logger.error(f"Couldn't find template {e}")
+            template = env.get_template("basicsample_details.html")
+        return base_dict, template
+
+    def show_details(self, obj):
+        """
+        Creates Widget for showing sample details.
+
+        Args:
+            obj (_type_): parent widget
+        """        
+        logger.debug("Hello from details")
+        from frontend.widgets.sample_details import SampleDetails
+        dlg = SampleDetails(parent=obj, samp=self)
+        if dlg.exec():
+            pass
+
     @classmethod
     @setup_lookup
     def query(cls, 
@@ -1896,18 +1969,18 @@ class WastewaterSample(BasicSample):
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSample.id))
 
-    def to_sub_dict(self) -> dict:
+    def to_sub_dict(self, full_data:bool=False) -> dict:
         """
         gui friendly dictionary, extends parent method.
 
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
-        sample = super().to_sub_dict()
-        sample['ww_processing_num'] = self.ww_processing_num
-        sample['sample_location'] = self.sample_location
-        sample['received_date'] = self.received_date
-        sample['collection_date'] = self.collection_date
+        sample = super().to_sub_dict(full_data=full_data)
+        sample['WW Processing Number'] = self.ww_processing_num
+        sample['Sample Location'] = self.sample_location
+        sample['Received Date'] = self.received_date
+        sample['Collection Date'] = self.collection_date
         return sample
         
     @classmethod
@@ -1944,9 +2017,14 @@ class WastewaterSample(BasicSample):
     
     def get_previous_ww_submission(self, current_artic_submission:WastewaterArtic):
         # assocs = [assoc for assoc in self.sample_submission_associations if assoc.submission.submission_type_name=="Wastewater"]
-        subs = self.submissions[:self.submissions.index(current_artic_submission)]
-        subs = [sub for sub in subs if sub.submission_type_name=="Wastewater"]
-        logger.debug(f"Submissions up to current artic submission: {subs}")
+        # subs = self.submissions[:self.submissions.index(current_artic_submission)]
+        try:
+            plates = [item['plate'] for item in current_artic_submission.source_plates]
+        except TypeError as e:
+            logger.error(f"source_plates must not be present")
+            plates = [item.rsl_plate_num for item in self.submissions[:self.submissions.index(current_artic_submission)]]
+        subs = [sub for sub in self.submissions if sub.rsl_plate_num in plates]
+        logger.debug(f"Submissions: {subs}")
         try:
             return subs[-1]
         except IndexError:
@@ -1964,17 +2042,17 @@ class BacterialCultureSample(BasicSample):
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSample.id))
 
-    def to_sub_dict(self) -> dict:
+    def to_sub_dict(self, full_data:bool=False) -> dict:
         """
         gui friendly dictionary, extends parent method.
 
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
-        sample = super().to_sub_dict()
-        sample['name'] = self.submitter_id
-        sample['organism'] = self.organism
-        sample['concentration'] = self.concentration
+        sample = super().to_sub_dict(full_data=full_data)
+        sample['Name'] = self.submitter_id
+        sample['Organism'] = self.organism
+        sample['Concentration'] = self.concentration
         if self.control != None:
             sample['colour'] = [0,128,0]
             sample['tooltip'] = f"Control: {self.control.controltype.name} - {self.control.controltype.targets}"
@@ -2038,16 +2116,16 @@ class SubmissionSampleAssociation(BaseClass):
         # Get sample info
         # logger.debug(f"Running {self.__repr__()}")
         sample = self.sample.to_sub_dict()
-        sample['name'] = self.sample.submitter_id
-        sample['row'] = self.row
-        sample['column'] = self.column
+        sample['Name'] = self.sample.submitter_id
+        sample['Row'] = self.row
+        sample['Column'] = self.column
         try:
-            sample['well'] = f"{row_map[self.row]}{self.column}"
+            sample['Well'] = f"{row_map[self.row]}{self.column}"
         except KeyError as e:
             logger.error(f"Unable to find row {self.row} in row_map.")
-            sample['well'] = None
-        sample['plate_name'] = self.submission.rsl_plate_num
-        sample['positive'] = False
+            sample['Well'] = None
+        sample['Plate Name'] = self.submission.rsl_plate_num
+        sample['Positive'] = False
         return sample
     
     def to_hitpick(self) -> dict|None:

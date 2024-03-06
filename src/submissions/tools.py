@@ -116,37 +116,7 @@ def check_regex_match(pattern:str, check:str) -> bool:
     except TypeError:
         return False
     
-class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
-
-    def doRollover(self):
-        """
-        Override base class method to make the new log file group writable.
-        """
-        # Rotate the file first.
-        handlers.RotatingFileHandler.doRollover(self)
-        # Add group write to the current permissions.
-        currMode = os.stat(self.baseFilename).st_mode
-        os.chmod(self.baseFilename, currMode | stat.S_IWGRP)
-
-    def _open(self):
-        prevumask=os.umask(0o002)
-        rtv=handlers.RotatingFileHandler._open(self)
-        os.umask(prevumask)
-        return rtv
-
-class StreamToLogger(object):
-    """
-    Fake file-like stream object that redirects writes to a logger instance.
-    """
-
-    def __init__(self, logger, log_level=logging.INFO):
-        self.logger = logger
-        self.log_level = log_level
-        self.linebuf = ''
-
-    def write(self, buf):
-        for line in buf.rstrip().splitlines():
-            self.logger.log(self.log_level, line.rstrip())
+# Settings
 
 class Settings(BaseSettings):
     """
@@ -303,6 +273,26 @@ def get_config(settings_path: Path|str|None=None) -> Settings:
         settings = yaml.load(stream, Loader=yaml.Loader)
     return Settings(**settings)
 
+# Logging formatters
+
+class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
+
+    def doRollover(self):
+        """
+        Override base class method to make the new log file group writable.
+        """
+        # Rotate the file first.
+        handlers.RotatingFileHandler.doRollover(self)
+        # Add group write to the current permissions.
+        currMode = os.stat(self.baseFilename).st_mode
+        os.chmod(self.baseFilename, currMode | stat.S_IWGRP)
+
+    def _open(self):
+        prevumask=os.umask(0o002)
+        rtv=handlers.RotatingFileHandler._open(self)
+        os.umask(prevumask)
+        return rtv
+
 class CustomFormatter(logging.Formatter):
 
     grey = "\x1b[38;20m"
@@ -325,6 +315,20 @@ class CustomFormatter(logging.Formatter):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
+
+class StreamToLogger(object):
+    """
+    Fake file-like stream object that redirects writes to a logger instance.
+    """
+
+    def __init__(self, logger, log_level=logging.INFO):
+        self.logger = logger
+        self.log_level = log_level
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
 
 def setup_logger(verbosity:int=3):
     """

@@ -103,6 +103,7 @@ class SubmissionsSheet(QTableView):
         Args:
             event (_type_): the item of interest
         """        
+        # logger.debug(event().__dict__)
         id = self.selectionModel().currentIndex()
         id = id.sibling(id.row(),0).data()
         submission = BasicSubmission.query(id=id)

@@ -35,6 +35,7 @@
             }
         </style>
         <title>Submission Details for {{ sub['Plate Number'] }}</title>
+        <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
         {% endblock %}
     </head>
     <body>
@@ -57,7 +58,7 @@
         {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {% if item['organism'] %} {{ item['name'] }} - ({{ item['organism']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}){% else %} {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}{% endif %}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['Well'] }}:</b> {% if item['Organism'] %} {{ item['Name'] }} - ({{ item['Organism']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}){% else %} {{ item['Name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}{% endif %}<br>
         {% endfor %}</p>
         {% endif %}
         {% if sub['controls'] %}
@@ -116,4 +117,15 @@
         {% endif %}
         {% endblock %}
     </body>
+    <script>
+        var backend;
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+            backend = channel.objects.backend;
+        });
+        {% for sample in sub['samples'] %}
+        document.getElementById("{{sample['Submitter ID']}}").addEventListener("dblclick", function(){
+            backend.sample_details("{{ sample['Submitter ID'] }}");
+        });
+        {% endfor %}
+    </script>
 </html>
