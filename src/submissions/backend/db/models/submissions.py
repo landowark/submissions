@@ -9,7 +9,7 @@ from tempfile import TemporaryDirectory
 from reportlab.graphics.barcode import createBarcodeImageInMemory
 from reportlab.graphics.shapes import Drawing
 from reportlab.lib.units import mm
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 from pprint import pformat
 from . import Reagent, SubmissionType, KitType, Organization
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
@@ -1349,11 +1349,13 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             dict: Updated sample dictionary
         """        
+        from backend.validators import RSLNamer
         input_dict = super().parse_info(input_dict)
         df = xl.parse("First Strand List", header=None)
         plates = []
         for row in [8,9,10]:
-            plates.append(dict(plate=df.iat[row-1, 2], start_sample=df.iat[row-1, 3]))
+            plate_name = RSLNamer(df.iat[row-1, 2]).parsed_name
+            plates.append(dict(plate=plate_name, start_sample=df.iat[row-1, 3]))
         input_dict['source_plates'] = plates
         return input_dict
 
@@ -1373,6 +1375,16 @@ class WastewaterArtic(BasicSubmission):
         # Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
         # at the end, this has to be done here. No moving to sqlalchemy object :(
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)\s?$", "", str(input_dict['submitter_id'])).strip()
+        try: 
+            input_dict['ww_processing_num'] = input_dict['sample_name_(lims)']
+            del input_dict['sample_name_(lims)']
+        except KeyError:
+            logger.error(f"Unable to set ww_processing_num for sample {input_dict['submitter_id']}")
+        try: 
+            input_dict['ww_full_sample_id'] = input_dict['sample_name_(ww)']
+            del input_dict['sample_name_(ww)']
+        except KeyError:
+            logger.error(f"Unable to set ww_processing_num for sample {input_dict['submitter_id']}")
         if "ENC" in input_dict['submitter_id']:
             input_dict['submitter_id'] = cls.en_adapter(input_str=input_dict['submitter_id'])
         return input_dict
@@ -1642,6 +1654,7 @@ class WastewaterArtic(BasicSubmission):
             output.append(dicto)
         # else:
         #     output = super().adjust_to_dict_samples(backup=False)
+        
         return output
 
     def custom_context_events(self) -> dict:
@@ -1751,7 +1764,7 @@ class BasicSample(BaseClass):
         sample['Submitter ID'] = self.submitter_id
         sample['Sample Type'] = self.sample_type
         if full_data:
-            sample['submissions'] = [item.to_sub_dict() for item in self.sample_submission_associations]
+            sample['submissions'] = sorted([item.to_sub_dict() for item in self.sample_submission_associations], key=itemgetter('submitted_date'))
         return sample
 
     def set_attribute(self, name:str, value):
@@ -1856,19 +1869,6 @@ class BasicSample(BaseClass):
             logger.error(f"Couldn't find template {e}")
             template = env.get_template("basicsample_details.html")
         return base_dict, template
-
-    def show_details(self, obj):
-        """
-        Creates Widget for showing sample details.
-
-        Args:
-            obj (_type_): parent widget
-        """        
-        logger.debug("Hello from details")
-        from frontend.widgets.sample_details import SampleDetails
-        dlg = SampleDetails(parent=obj, samp=self)
-        if dlg.exec():
-            pass
 
     @classmethod
     @setup_lookup
@@ -2126,6 +2126,7 @@ class SubmissionSampleAssociation(BaseClass):
             sample['Well'] = None
         sample['Plate Name'] = self.submission.rsl_plate_num
         sample['Positive'] = False
+        sample['submitted_date'] = self.submission.submitted_date
         return sample
     
     def to_hitpick(self) -> dict|None:

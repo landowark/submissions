@@ -37,21 +37,21 @@ class SubmissionDetails(QDialog):
         # create scrollable interior
         interior = QScrollArea()
         interior.setParent(self)
-        self.base_dict = sub.to_dict(full_data=True)
-        logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
-        # don't want id
-        del self.base_dict['id']
-        logger.debug(f"Creating barcode.")
-        if not check_if_app():
-            self.base_dict['barcode'] = base64.b64encode(sub.make_plate_barcode(width=120, height=30)).decode('utf-8')
-        logger.debug(f"Making platemap...")
-        self.base_dict['platemap'] = sub.make_plate_map()
-        self.base_dict, self.template = sub.get_details_template(base_dict=self.base_dict)
-        self.html = self.template.render(sub=self.base_dict)
+        # self.base_dict = sub.to_dict(full_data=True)
+        # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
+        # # don't want id
+        # del self.base_dict['id']
+        # logger.debug(f"Creating barcode.")
+        # if not check_if_app():
+        #     self.base_dict['barcode'] = base64.b64encode(sub.make_plate_barcode(width=120, height=30)).decode('utf-8')
+        # logger.debug(f"Making platemap...")
+        # self.base_dict['platemap'] = sub.make_plate_map()
+        # self.base_dict, self.template = sub.get_details_template(base_dict=self.base_dict)
+        # self.html = self.template.render(sub=self.base_dict)
         self.webview = QWebEngineView(parent=self)
         self.webview.setMinimumSize(900, 500)
         self.webview.setMaximumSize(900, 500)
-        self.webview.setHtml(self.html)
+        # self.webview.setHtml(self.html)
         self.layout = QVBoxLayout()
         interior.resize(900, 500)
         interior.setWidget(self.webview)
@@ -64,18 +64,46 @@ class SubmissionDetails(QDialog):
         # setup channel
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
+        self.submission_details(submission=sub)
         self.webview.page().setWebChannel(self.channel)
 
     @pyqtSlot(str)
-    def sample_details(self, sample):
-        # print(f"{string} is in row {row}, column {column}")
-        # self.webview.setHtml(f"<html><body><br><br>{sample}</body></html>")
+    def sample_details(self, sample:str):
+        """
+        Changes details view to summary of Sample
+
+        Args:
+            sample (str): Submitter Id of the sample.
+        """        
         sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
         base_dict, template = sample.get_details_template(base_dict=base_dict)
         html = template.render(sample=base_dict)
         self.webview.setHtml(html)
-        # sample.show_details(obj=self)
+        
+    @pyqtSlot(str)
+    def submission_details(self, submission:str|BasicSubmission):
+        """
+        Sets details view to summary of Submission.
+
+        Args:
+            submission (str | BasicSubmission): Submission of interest.
+        """        
+        logger.debug(f"Details for: {submission}")
+        if isinstance(submission, str):
+            submission = BasicSubmission.query(rsl_number=submission)
+        self.base_dict = submission.to_dict(full_data=True)
+        logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
+        # don't want id
+        del self.base_dict['id']
+        logger.debug(f"Creating barcode.")
+        if not check_if_app():
+            self.base_dict['barcode'] = base64.b64encode(submission.make_plate_barcode(width=120, height=30)).decode('utf-8')
+        logger.debug(f"Making platemap...")
+        self.base_dict['platemap'] = submission.make_plate_map()
+        self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
+        self.html = self.template.render(sub=self.base_dict)
+        self.webview.setHtml(self.html)
 
     def export(self):
         """

@@ -395,7 +395,7 @@ class SubmissionFormWidget(QWidget):
 
     def __init__(self, parent: QWidget, **kwargs) -> None:
         super().__init__(parent)
-        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 'equipment']
+        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 'equipment', 'source_plates']
         self.recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
         layout = QVBoxLayout()
         for k, v in kwargs.items():

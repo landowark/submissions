@@ -44,9 +44,11 @@ class GelBox(QDialog):
         pg.setConfigOptions(antialias=True)
         # creating image view object
         self.imv = pg.ImageView()
-        img = np.array(Image.open(self.img_path).rotate(-90).transpose(Image.FLIP_LEFT_RIGHT))
-        self.imv.setImage(img, scale=None)#, xvals=np.linspace(1., 3., data.shape[0]))
-        
+        # Create image.
+        # For some reason, ImageView wants to flip the image, so we have to rotate and flip the array first.
+        # Using the Image.rotate function results in cropped image.
+        img = np.flip(np.rot90(np.array(Image.open(self.img_path)),1),0)
+        self.imv.setImage(img)
         layout = QGridLayout()
         layout.addWidget(QLabel("DNA Core Submission Number"),0,1)
         self.core_number = QLineEdit()

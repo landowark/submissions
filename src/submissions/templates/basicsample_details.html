@@ -46,9 +46,20 @@
         {% endfor %}</p>
         {% if sample['submissions'] %}<h2>Submissions:</h2>
             {% for submission in sample['submissions'] %}
-            <p>{{ submission['Plate Name'] }}: {{ submission['Well'] }}</p>
+            <p id="{{ submission['Plate Name'] }}"><b>{{ submission['Plate Name'] }}:</b> {{ submission['Well'] }}</p>
             {% endfor %}
         {% endif %}
         {% endblock %}
     </body>
+    <script>
+      var backend;
+      new QWebChannel(qt.webChannelTransport, function (channel) {
+          backend = channel.objects.backend;
+      });
+      {% for submission in sample['submissions'] %}
+      document.getElementById("{{ submission['Plate Name'] }}").addEventListener("dblclick", function(){
+          backend.submission_details("{{ submission['Plate Name'] }}");
+      });
+      {% endfor %}
+  </script>
 </html>
