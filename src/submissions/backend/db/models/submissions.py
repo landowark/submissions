@@ -426,7 +426,7 @@ class BasicSubmission(BaseClass):
         dicto = self.to_dict(full_data=True, backup=backup)
         new_dict = {}
         for key, value in dicto.items():
-            missing = value is None or value == ""
+            missing = value is None or value in ['', 'None']
             match key:
                 case "reagents":
                     new_dict[key] = [PydReagent(**reagent, missing=False) for reagent in value]

@@ -111,7 +111,7 @@ class App(QMainWindow):
         logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
         self.importPCRAction.triggered.connect(self.table_widget.formwidget.import_pcr_results)
-        self.addReagentAction.triggered.connect(self.add_reagent)
+        self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.generateReportAction.triggered.connect(self.table_widget.sub_wid.generate_report)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
@@ -158,36 +158,7 @@ class App(QMainWindow):
         else:
             self.statusBar().showMessage("Action completed sucessfully.", 5000)
         
-    def add_reagent(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, name:str|None=None):
-        """
-        Action to create new reagent in DB.
-
-        Args:
-            reagent_lot (str | None, optional): Parsed reagent from import form. Defaults to None.
-            reagent_type (str | None, optional): Parsed reagent type from import form. Defaults to None.
-            expiry (date | None, optional): Parsed reagent expiry data. Defaults to None.
-            name (str | None, optional): Parsed reagent name. Defaults to None.
-
-        Returns:
-            models.Reagent: the constructed reagent object to add to submission
-        """        
-        report = Report()
-        if isinstance(reagent_lot, bool):
-            reagent_lot = ""
-        # create form
-        dlg = AddReagentForm(reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry, reagent_name=name)
-        if dlg.exec():
-            # extract form info
-            info = dlg.parse_form()
-            logger.debug(f"Reagent info: {info}")
-            # create reagent object
-            reagent = PydReagent(ctx=self.ctx, **info)
-            # send reagent to db
-            sqlobj, result = reagent.toSQL()
-            sqlobj.save()
-            report.add_result(result)
-            self.result_reporter()
-            return reagent
+    
 
     def runSearch(self):
         dlg = LogParser(self)

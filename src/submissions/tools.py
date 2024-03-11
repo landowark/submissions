@@ -14,6 +14,7 @@ from sqlalchemy import create_engine
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
+from __init__ import bcolors
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -295,20 +296,14 @@ class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
 class CustomFormatter(logging.Formatter):
 
-    grey = "\x1b[38;20m"
-    yellow = "\x1b[33;20m"
-    red = "\x1b[31;20m"
-    bold_red = "\x1b[31;1m"
-    reset = "\x1b[0m"
-    # format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
     format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(message)s"
 
     FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: grey + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
+        logging.DEBUG: bcolors.ENDC + format + bcolors.ENDC,
+        logging.INFO: bcolors.ENDC + format + bcolors.ENDC,
+        logging.WARNING: bcolors.WARNING + format + bcolors.ENDC,
+        logging.ERROR: bcolors.FAIL + format + bcolors.ENDC,
+        logging.CRITICAL: bcolors.FAIL + format + bcolors.ENDC
     }
 
     def format(self, record):
