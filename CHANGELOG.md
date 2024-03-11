@@ -1,3 +1,8 @@
+## 202403.02
+
+- Moved functions out of submission container to submission form
+- Added submission editting functionality.
+
 ## 202403.01
 
 - Added navigation in submission details to sample details.

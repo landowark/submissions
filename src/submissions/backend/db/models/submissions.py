@@ -426,9 +426,10 @@ class BasicSubmission(BaseClass):
         dicto = self.to_dict(full_data=True, backup=backup)
         new_dict = {}
         for key, value in dicto.items():
+            missing = value is None or value == ""
             match key:
                 case "reagents":
-                    new_dict[key] = [PydReagent(**reagent) for reagent in value]
+                    new_dict[key] = [PydReagent(**reagent, missing=False) for reagent in value]
                 case "samples":
                     # samples = {k.lower().replace(" ", "_"):v for k,v in dicto['samples'].items()}
                     new_dict[key] = [PydSample(**{k.lower().replace(" ", "_"):v for k,v in sample.items()}) for sample in dicto['samples']]
@@ -438,12 +439,12 @@ class BasicSubmission(BaseClass):
                     except TypeError as e:
                         logger.error(f"Possible no equipment error: {e}")
                 case "Plate Number":
-                    new_dict['rsl_plate_num'] = dict(value=value, missing=True)
+                    new_dict['rsl_plate_num'] = dict(value=value, missing=missing)
                 case "Submitter Plate Number":
-                    new_dict['submitter_plate_num'] = dict(value=value, missing=True)
+                    new_dict['submitter_plate_num'] = dict(value=value, missing=missing)
                 case _:
                     logger.debug(f"Setting dict {key} to {value}")
-                    new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=True)
+                    new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=missing)
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
         return PydSubmission(**new_dict)
 

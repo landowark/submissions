@@ -65,48 +65,48 @@ class SubmissionFormContainer(QWidget):
         self.report = Report()
         self.app.result_reporter()
 
-    def scrape_reagents(self, *args, **kwargs):
-        """
-        Called when a reagent is changed.
-        """        
-        caller = inspect.stack()[1].function.__repr__().replace("'", "")
-        logger.debug(f"Args: {args}, kwargs: {kwargs}")
-        self.scrape_reagents_function(args[0], caller=caller)
-        self.kit_integrity_completion()
-        self.app.report.add_result(self.report)
-        self.report = Report()
-        match inspect.stack()[1].function.__repr__():
-            case "import_submission_function":
-                pass
-            case _:
-                self.app.result_reporter()
+    # def scrape_reagents(self, *args, **kwargs):
+    #     """
+    #     Called when a reagent is changed.
+    #     """        
+    #     caller = inspect.stack()[1].function.__repr__().replace("'", "")
+    #     logger.debug(f"Args: {args}, kwargs: {kwargs}")
+    #     self.scrape_reagents_function(args[0], caller=caller)
+    #     self.kit_integrity_completion()
+    #     self.app.report.add_result(self.report)
+    #     self.report = Report()
+    #     match inspect.stack()[1].function.__repr__():
+    #         case "import_submission_function":
+    #             pass
+    #         case _:
+    #             self.app.result_reporter()
 
-    def kit_integrity_completion(self):
-        """
-        Performs check of imported reagents
-        NOTE: this will not change self.reagents which should be fine
-        since it's only used when looking up 
-        """        
-        self.kit_integrity_completion_function()
-        self.app.report.add_result(self.report)
-        self.report = Report()
-        match inspect.stack()[1].function.__repr__():
-            case "import_submission_function":
-                pass
-            case _:
-                self.app.result_reporter()
+    # def kit_integrity_completion(self):
+    #     """
+    #     Performs check of imported reagents
+    #     NOTE: this will not change self.reagents which should be fine
+    #     since it's only used when looking up 
+    #     """        
+    #     self.kit_integrity_completion_function()
+    #     self.app.report.add_result(self.report)
+    #     self.report = Report()
+    #     match inspect.stack()[1].function.__repr__():
+    #         case "import_submission_function":
+    #             pass
+    #         case _:
+    #             self.app.result_reporter()
 
-    def submit_new_sample(self):
-        """
-        Attempt to add sample to database when 'submit' button clicked
-        """        
-        self.submit_new_sample_function()
-        self.app.report.add_result(self.report)
-        self.report = Report()
-        self.app.result_reporter()
+    # def submit_new_sample(self):
+    #     """
+    #     Attempt to add sample to database when 'submit' button clicked
+    #     """        
+    #     self.submit_new_sample_function()
+    #     self.app.report.add_result(self.report)
+    #     self.report = Report()
+    #     self.app.result_reporter()
 
-    def export_csv(self, fname:Path|None=None):
-        self.export_csv_function(fname)
+    # def export_csv(self, fname:Path|None=None):
+    #     self.export_csv_function(fname)
 
     def import_submission_function(self, fname:Path|None=None):
         """
@@ -159,168 +159,168 @@ class SubmissionFormContainer(QWidget):
         logger.debug(f"Outgoing report: {self.report.results}")
         logger.debug(f"All attributes of submission container:\n{pformat(self.__dict__)}")
 
-    def scrape_reagents_function(self, extraction_kit:str, caller:str|None=None):
-        """
-        Extracted scrape reagents function that will run when 
-        form 'extraction_kit' widget is updated.
+    # def scrape_reagents_function(self, extraction_kit:str, caller:str|None=None):
+    #     """
+    #     Extracted scrape reagents function that will run when 
+    #     form 'extraction_kit' widget is updated.
 
-        Args:
-            obj (QMainWindow): updated main application
-            extraction_kit (str): name of extraction kit (in 'extraction_kit' widget)
+    #     Args:
+    #         obj (QMainWindow): updated main application
+    #         extraction_kit (str): name of extraction kit (in 'extraction_kit' widget)
 
-        Returns:
-            Tuple[QMainWindow, dict]: Updated application and result
-        """    
-        self.form.reagents = []
-        logger.debug(f"\n\n{caller}\n\n")
-        report = Report()
-        logger.debug(f"Extraction kit: {extraction_kit}")
-        # Remove previous reagent widgets
-        try:
-            old_reagents = self.form.find_widgets()
-        except AttributeError:
-            logger.error(f"Couldn't find old reagents.")
-            old_reagents = []
-        # logger.debug(f"\n\nAttempting to clear: {old_reagents}\n\n")
-        for reagent in old_reagents:
-            if isinstance(reagent, ReagentFormWidget) or isinstance(reagent, QPushButton):
-                reagent.setParent(None)
-        match caller:
-            case "import_submission_function":
-                self.form.reagents = self.prsr.sub['reagents']
-            case _:
-                already_have = [reagent for reagent in self.prsr.sub['reagents'] if not reagent.missing]
-                names = list(set([item.type for item in already_have]))
-                logger.debug(f"reagents: {already_have}")
-                reagents = [item.to_pydantic() for item in KitType.query(name=extraction_kit).get_reagents(submission_type=self.pyd.submission_type) if item.name not in names]
-                self.form.reagents = already_have + reagents
-        # logger.debug(f"Imported reagents: {obj.reagents}")
-        # logger.debug(f"Missing reagents: {obj.missing_reagents}")
-        self.report.add_result(report)
-        logger.debug(f"Outgoing report: {self.report.results}")
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Updated application and result
+    #     """    
+    #     self.form.reagents = []
+    #     logger.debug(f"\n\n{caller}\n\n")
+    #     report = Report()
+    #     logger.debug(f"Extraction kit: {extraction_kit}")
+    #     # Remove previous reagent widgets
+    #     try:
+    #         old_reagents = self.form.find_widgets()
+    #     except AttributeError:
+    #         logger.error(f"Couldn't find old reagents.")
+    #         old_reagents = []
+    #     # logger.debug(f"\n\nAttempting to clear: {old_reagents}\n\n")
+    #     for reagent in old_reagents:
+    #         if isinstance(reagent, ReagentFormWidget) or isinstance(reagent, QPushButton):
+    #             reagent.setParent(None)
+    #     match caller:
+    #         case "import_submission_function":
+    #             self.form.reagents = self.prsr.sub['reagents']
+    #         case _:
+    #             already_have = [reagent for reagent in self.prsr.sub['reagents'] if not reagent.missing]
+    #             names = list(set([item.type for item in already_have]))
+    #             logger.debug(f"reagents: {already_have}")
+    #             reagents = [item.to_pydantic() for item in KitType.query(name=extraction_kit).get_reagents(submission_type=self.pyd.submission_type) if item.name not in names]
+    #             self.form.reagents = already_have + reagents
+    #     # logger.debug(f"Imported reagents: {obj.reagents}")
+    #     # logger.debug(f"Missing reagents: {obj.missing_reagents}")
+    #     self.report.add_result(report)
+    #     logger.debug(f"Outgoing report: {self.report.results}")
 
-    def kit_integrity_completion_function(self):
-        """
-        Compare kit contents to parsed contents
+    # def kit_integrity_completion_function(self):
+    #     """
+    #     Compare kit contents to parsed contents
 
-        Args:
-            obj (QMainWindow): The original app window
+    #     Args:
+    #         obj (QMainWindow): The original app window
 
-        Returns:
-            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
-        report = Report()
-        missing_reagents = []
-        # logger.debug(inspect.currentframe().f_back.f_code.co_name)
-        # find the widget that contains kit info
-        kit_widget = self.form.find_widgets(object_name="extraction_kit")[0].input
-        logger.debug(f"Kit selector: {kit_widget}")
-        # get current kit being used
-        self.ext_kit = kit_widget.currentText()
-        for reagent in self.form.reagents:
-            logger.debug(f"Creating widget for {reagent}")
-            add_widget = ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
-            # self.form.layout().addWidget(add_widget)
-            self.form.layout.addWidget(add_widget)
-            if reagent.missing:
-                missing_reagents.append(reagent)
-        logger.debug(f"Checking integrity of {self.ext_kit}")
-        # TODO: put check_kit_integrity here instead of what's here?
-        # see if there are any missing reagents
-        if len(missing_reagents) > 0:
-            result = Result(msg=f"""The submission you are importing is missing some reagents expected by the kit.\n\n 
-                            It looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\n 
-                            Alternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents. 
-                            \n\nPlease make sure you check the lots carefully!""".replace("  ", ""), status="Warning")
-            report.add_result(result)
-        if hasattr(self.pyd, "csv"):
-            export_csv_btn = QPushButton("Export CSV")
-            export_csv_btn.setObjectName("export_csv_btn")
-            self.form.layout().addWidget(export_csv_btn)
-            export_csv_btn.clicked.connect(self.export_csv)
-        submit_btn = QPushButton("Submit")
-        submit_btn.setObjectName("submit_btn")
-        self.form.layout().addWidget(submit_btn)
-        submit_btn.clicked.connect(self.submit_new_sample)
-        self.report.add_result(report)
-        logger.debug(f"Outgoing report: {self.report.results}")
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    #     """    
+    #     report = Report()
+    #     missing_reagents = []
+    #     # logger.debug(inspect.currentframe().f_back.f_code.co_name)
+    #     # find the widget that contains kit info
+    #     kit_widget = self.form.find_widgets(object_name="extraction_kit")[0].input
+    #     logger.debug(f"Kit selector: {kit_widget}")
+    #     # get current kit being used
+    #     self.ext_kit = kit_widget.currentText()
+    #     for reagent in self.form.reagents:
+    #         logger.debug(f"Creating widget for {reagent}")
+    #         add_widget = ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
+    #         # self.form.layout().addWidget(add_widget)
+    #         self.form.layout.addWidget(add_widget)
+    #         if reagent.missing:
+    #             missing_reagents.append(reagent)
+    #     logger.debug(f"Checking integrity of {self.ext_kit}")
+    #     # TODO: put check_kit_integrity here instead of what's here?
+    #     # see if there are any missing reagents
+    #     if len(missing_reagents) > 0:
+    #         result = Result(msg=f"""The submission you are importing is missing some reagents expected by the kit.\n\n 
+    #                         It looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\n 
+    #                         Alternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents. 
+    #                         \n\nPlease make sure you check the lots carefully!""".replace("  ", ""), status="Warning")
+    #         report.add_result(result)
+    #     if hasattr(self.pyd, "csv"):
+    #         export_csv_btn = QPushButton("Export CSV")
+    #         export_csv_btn.setObjectName("export_csv_btn")
+    #         self.form.layout().addWidget(export_csv_btn)
+    #         export_csv_btn.clicked.connect(self.export_csv)
+    #     submit_btn = QPushButton("Submit")
+    #     submit_btn.setObjectName("submit_btn")
+    #     self.form.layout().addWidget(submit_btn)
+    #     submit_btn.clicked.connect(self.submit_new_sample)
+    #     self.report.add_result(report)
+    #     logger.debug(f"Outgoing report: {self.report.results}")
 
-    def submit_new_sample_function(self) -> QWidget:
-        """
-        Parse forms and add sample to the database.
+    # def submit_new_sample_function(self) -> QWidget:
+    #     """
+    #     Parse forms and add sample to the database.
 
-        Args:
-            obj (QMainWindow): original app window
+    #     Args:
+    #         obj (QMainWindow): original app window
 
-        Returns:
-            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
-        logger.debug(f"\n\nBeginning Submission\n\n")
-        report = Report()
-        self.pyd: PydSubmission = self.form.parse_form()
-        logger.debug(f"Submission: {pformat(self.pyd)}")
-        logger.debug("Checking kit integrity...")
-        result = self.pyd.check_kit_integrity()
-        report.add_result(result)
-        if len(result.results) > 0:
-            self.report.add_result(report)
-            return
-        base_submission, result = self.pyd.toSQL()
-        # logger.debug(f"Base submission: {base_submission.to_dict()}")
-        # check output message for issues
-        match result.code:
-            # code 0: everything is fine.
-            case 0:
-                self.report.add_result(None)
-            # code 1: ask for overwrite
-            case 1:
-                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
-                if dlg.exec():
-                    # Do not add duplicate reagents.
-                    # base_submission.reagents = []
-                    result = None
-                else:
-                    self.app.ctx.database_session.rollback()
-                    self.report.add_result(Result(msg="Overwrite cancelled", status="Information"))
-                    return
-            # code 2: No RSL plate number given
-            case 2:
-                self.report.add_result(result)
-                return
-            case _:
-                pass
-        # add reagents to submission object
-        for reagent in base_submission.reagents:
-            # logger.debug(f"Updating: {reagent} with {reagent.lot}")
-            reagent.update_last_used(kit=base_submission.extraction_kit)
-        # logger.debug(f"Here is the final submission: {pformat(base_submission.__dict__)}")
-        # logger.debug(f"Parsed reagents: {pformat(base_submission.reagents)}")    
-        # logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
-        # logger.debug(f"Samples from pyd: {pformat(self.pyd.samples)}")
-        # logger.debug(f"Samples SQL: {pformat([item.__dict__ for item in base_submission.samples])}")
-        # logger.debug(f"")
-        base_submission.save()
-        # update summary sheet
-        self.app.table_widget.sub_wid.setData()
-        # reset form
-        self.form.setParent(None)
-        # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
-        self.report.add_result(report)
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    #     """    
+    #     logger.debug(f"\n\nBeginning Submission\n\n")
+    #     report = Report()
+    #     self.pyd: PydSubmission = self.form.parse_form()
+    #     logger.debug(f"Submission: {pformat(self.pyd)}")
+    #     logger.debug("Checking kit integrity...")
+    #     result = self.pyd.check_kit_integrity()
+    #     report.add_result(result)
+    #     if len(result.results) > 0:
+    #         self.report.add_result(report)
+    #         return
+    #     base_submission, result = self.pyd.toSQL()
+    #     # logger.debug(f"Base submission: {base_submission.to_dict()}")
+    #     # check output message for issues
+    #     match result.code:
+    #         # code 0: everything is fine.
+    #         case 0:
+    #             self.report.add_result(None)
+    #         # code 1: ask for overwrite
+    #         case 1:
+    #             dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
+    #             if dlg.exec():
+    #                 # Do not add duplicate reagents.
+    #                 # base_submission.reagents = []
+    #                 result = None
+    #             else:
+    #                 self.app.ctx.database_session.rollback()
+    #                 self.report.add_result(Result(msg="Overwrite cancelled", status="Information"))
+    #                 return
+    #         # code 2: No RSL plate number given
+    #         case 2:
+    #             self.report.add_result(result)
+    #             return
+    #         case _:
+    #             pass
+    #     # add reagents to submission object
+    #     for reagent in base_submission.reagents:
+    #         # logger.debug(f"Updating: {reagent} with {reagent.lot}")
+    #         reagent.update_last_used(kit=base_submission.extraction_kit)
+    #     # logger.debug(f"Here is the final submission: {pformat(base_submission.__dict__)}")
+    #     # logger.debug(f"Parsed reagents: {pformat(base_submission.reagents)}")    
+    #     # logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
+    #     # logger.debug(f"Samples from pyd: {pformat(self.pyd.samples)}")
+    #     # logger.debug(f"Samples SQL: {pformat([item.__dict__ for item in base_submission.samples])}")
+    #     # logger.debug(f"")
+    #     base_submission.save()
+    #     # update summary sheet
+    #     self.app.table_widget.sub_wid.setData()
+    #     # reset form
+    #     self.form.setParent(None)
+    #     # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
+    #     self.report.add_result(report)
 
-    def export_csv_function(self, fname:Path|None=None):
-        """
-        Save the submission's csv file.
+    # def export_csv_function(self, fname:Path|None=None):
+    #     """
+    #     Save the submission's csv file.
 
-        Args:
-            fname (Path | None, optional): Input filename. Defaults to None.
-        """        
-        if isinstance(fname, bool) or fname == None:
-            fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
-        try:
-            self.pyd.csv.to_csv(fname.__str__(), index=False)
-            del self.pyd.csv
-        except PermissionError:
-            logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
+    #     Args:
+    #         fname (Path | None, optional): Input filename. Defaults to None.
+    #     """        
+    #     if isinstance(fname, bool) or fname == None:
+    #         fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
+    #     try:
+    #         self.pyd.csv.to_csv(fname.__str__(), index=False)
+    #         del self.pyd.csv
+    #     except PermissionError:
+    #         logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
 
     def import_pcr_results(self):
         """
@@ -396,7 +396,14 @@ class SubmissionFormWidget(QWidget):
 
     def __init__(self, parent: QWidget, **kwargs) -> None:
         super().__init__(parent)
-        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 'equipment', 'source_plates']
+        self.report = Report()
+        self.app = parent.app
+        # self.input = [{k:v} for k,v in kwargs.items()]
+        self.samples = []
+        self.missing_info = []
+        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 
+                       'equipment', 'source_plates', 'id', 'cost', 'extraction_info', 
+                       'controls', 'pcr_info', 'gel_info', 'gel_image']
         self.recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
         self.layout = QVBoxLayout()
         for k, v in kwargs.items():
@@ -404,9 +411,25 @@ class SubmissionFormWidget(QWidget):
                 add_widget = self.create_widget(key=k, value=v, submission_type=kwargs['submission_type'])
                 if add_widget != None:
                     self.layout.addWidget(add_widget)
-            else:
-                setattr(self, k, v)
+                if k == "extraction_kit":
+                    add_widget.input.currentTextChanged.connect(self.scrape_reagents)
+            # else:
+            self.__setattr__(k, v)
+        self.scrape_reagents(self.extraction_kit['value'])
+        # extraction kit must be added last so widget order makes sense.
+        # self.layout.addWidget(self.create_widget(key="extraction_kit", value=self.extraction_kit, submission_type=self.submission_type))
+        if hasattr(self, "csv"):
+            export_csv_btn = QPushButton("Export CSV")
+            export_csv_btn.setObjectName("export_csv_btn")
+            self.layout.addWidget(export_csv_btn)
+            export_csv_btn.clicked.connect(self.export_csv_function)
+        submit_btn = QPushButton("Submit")
+        submit_btn.setObjectName("submit_btn")
+        self.layout.addWidget(submit_btn)
+        submit_btn.clicked.connect(self.submit_new_sample_function)
         self.setLayout(self.layout)
+        self.app.report.add_result(self.report)
+        self.app.result_reporter()
 
     def create_widget(self, key:str, value:dict, submission_type:str|None=None) -> "self.InfoItem":
         """
@@ -422,15 +445,96 @@ class SubmissionFormWidget(QWidget):
         """        
         if key not in self.ignore:
             widget = self.InfoItem(self, key=key, value=value, submission_type=submission_type)
-            # match key:
-            #     case "extraction_kit":
-            #         # compare obj.reagents with expected reagents in kit
-            #         self.scrape_reagents(widget.currentText())
-            #         widget.currentTextChanged.connect(self.scrape_reagents)
-            #     case _:
-            #         pass
             return widget
         return None
+    
+    def scrape_reagents(self, *args, **kwargs):#extraction_kit:str, caller:str|None=None):
+        """
+        Extracted scrape reagents function that will run when 
+        form 'extraction_kit' widget is updated.
+
+        Args:
+            obj (QMainWindow): updated main application
+            extraction_kit (str): name of extraction kit (in 'extraction_kit' widget)
+
+        Returns:
+            Tuple[QMainWindow, dict]: Updated application and result
+        """    
+        extraction_kit = args[0]
+        caller = inspect.stack()[1].function.__repr__().replace("'", "")
+        # self.reagents = []
+        # logger.debug(f"Self.reagents: {self.reagents}")
+        # logger.debug(f"\n\n{caller}\n\n")
+        # logger.debug(f"SubmissionType: {self.submission_type}")
+        report = Report()
+        logger.debug(f"Extraction kit: {extraction_kit}")
+        # Remove previous reagent widgets
+        try:
+            old_reagents = self.find_widgets()
+        except AttributeError:
+            logger.error(f"Couldn't find old reagents.")
+            old_reagents = []
+        # logger.debug(f"\n\nAttempting to clear: {old_reagents}\n\n")
+        for reagent in old_reagents:
+            if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
+                reagent.setParent(None)
+        # match caller:
+        #     case "import_submission_function":
+        #         self.reagents = self.prsr.sub['reagents']
+        #     case _:
+        # already_have = [reagent for reagent in self.prsr.sub['reagents'] if not reagent.missing]
+        already_have = [reagent for reagent in self.reagents if not reagent.missing]
+        names = list(set([item.type for item in already_have]))
+        # logger.debug(f"Already have: {already_have}")
+        reagents = [item.to_pydantic() for item in KitType.query(name=extraction_kit).get_reagents(submission_type=self.submission_type['value']) if item.name not in names]
+        # logger.debug(f"Missing: {reagents}")
+        self.reagents = already_have + reagents
+        # logger.debug(f"Reagents: {self.reagents}")
+        self.kit_integrity_completion_function(extraction_kit=extraction_kit)
+        # logger.debug(f"Missing reagents: {obj.missing_reagents}")
+        self.report.add_result(report)
+        logger.debug(f"Outgoing report: {self.report.results}")
+
+    def kit_integrity_completion_function(self, extraction_kit:str|None=None):
+        """
+        Compare kit contents to parsed contents and creates widgets.
+
+        Args:
+            obj (QMainWindow): The original app window
+
+        Returns:
+            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+        """    
+        report = Report()
+        missing_reagents = []
+        # logger.debug(inspect.currentframe().f_back.f_code.co_name)
+        # find the widget that contains kit info
+        if extraction_kit is None:
+            kit_widget = self.find_widgets(object_name="extraction_kit")[0].input
+            logger.debug(f"Kit selector: {kit_widget}")
+            # get current kit being used
+            self.ext_kit = kit_widget.currentText()
+        else:
+            self.ext_kit = extraction_kit
+        for reagent in self.reagents:
+            logger.debug(f"Creating widget for {reagent}")
+            add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
+            # self.form.layout().addWidget(add_widget)
+            self.layout.addWidget(add_widget)
+            if reagent.missing:
+                missing_reagents.append(reagent)
+        logger.debug(f"Checking integrity of {self.ext_kit}")
+        # TODO: put check_kit_integrity here instead of what's here?
+        # see if there are any missing reagents
+        if len(missing_reagents) > 0:
+            result = Result(msg=f"""The submission you are importing is missing some reagents expected by the kit.\n\n 
+                            It looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\n 
+                            Alternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents. 
+                            \n\nPlease make sure you check the lots carefully!""".replace("  ", ""), status="Warning")
+            report.add_result(result)
+        
+        self.report.add_result(report)
+        logger.debug(f"Outgoing report: {self.report.results}")
         
     def clear_form(self):
         """
@@ -454,6 +558,83 @@ class SubmissionFormWidget(QWidget):
             query = [widget for widget in query if widget.objectName()==object_name]
         return query
     
+    def submit_new_sample_function(self) -> QWidget:
+        """
+        Parse forms and add sample to the database.
+
+        Args:
+            obj (QMainWindow): original app window
+
+        Returns:
+            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+        """    
+        logger.debug(f"\n\nBeginning Submission\n\n")
+        report = Report()
+        self.pyd: PydSubmission = self.parse_form()
+        logger.debug(f"Submission: {pformat(self.pyd)}")
+        logger.debug("Checking kit integrity...")
+        result = self.pyd.check_kit_integrity()
+        report.add_result(result)
+        if len(result.results) > 0:
+            self.report.add_result(report)
+            return
+        base_submission, result = self.pyd.toSQL()
+        # logger.debug(f"Base submission: {base_submission.to_dict()}")
+        # check output message for issues
+        match result.code:
+            # code 0: everything is fine.
+            case 0:
+                self.report.add_result(None)
+            # code 1: ask for overwrite
+            case 1:
+                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
+                if dlg.exec():
+                    # Do not add duplicate reagents.
+                    # base_submission.reagents = []
+                    result = None
+                else:
+                    self.app.ctx.database_session.rollback()
+                    self.report.add_result(Result(msg="Overwrite cancelled", status="Information"))
+                    return
+            # code 2: No RSL plate number given
+            case 2:
+                self.report.add_result(result)
+                return
+            case _:
+                pass
+        # add reagents to submission object
+        for reagent in base_submission.reagents:
+            # logger.debug(f"Updating: {reagent} with {reagent.lot}")
+            reagent.update_last_used(kit=base_submission.extraction_kit)
+        # logger.debug(f"Here is the final submission: {pformat(base_submission.__dict__)}")
+        # logger.debug(f"Parsed reagents: {pformat(base_submission.reagents)}")    
+        # logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
+        # logger.debug(f"Samples from pyd: {pformat(self.pyd.samples)}")
+        # logger.debug(f"Samples SQL: {pformat([item.__dict__ for item in base_submission.samples])}")
+        # logger.debug(f"")
+        base_submission.save()
+        # update summary sheet
+        self.app.table_widget.sub_wid.setData()
+        # reset form
+        self.setParent(None)
+        # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
+        self.report.add_result(report)
+
+    def export_csv_function(self, fname:Path|None=None):
+        """
+        Save the submission's csv file.
+
+        Args:
+            fname (Path | None, optional): Input filename. Defaults to None.
+        """        
+        pyd = self.parse_form()
+        if isinstance(fname, bool) or fname == None:
+            fname = select_save_file(obj=self, default_name=pyd.construct_filename(), extension="csv")
+        try:
+            pyd.csv.to_csv(fname.__str__(), index=False)
+        except PermissionError:
+            logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
+
     def parse_form(self) -> PydSubmission:
         """
         Transforms form info into PydSubmission
@@ -467,7 +648,7 @@ class SubmissionFormWidget(QWidget):
         for widget in self.findChildren(QWidget):
             # logger.debug(f"Parsed widget of type {type(widget)}")
             match widget:
-                case ReagentFormWidget():
+                case self.ReagentFormWidget():
                     reagent, _ = widget.parse_form()
                     if reagent != None:
                         reagents.append(reagent)
@@ -581,7 +762,7 @@ class SubmissionFormWidget(QWidget):
                         logger.error(f"Couldn't find {obj.prsr.sub['extraction_kit']}")
                         obj.ext_kit = uses[0]
                     add_widget.addItems(uses)
-                    # Run reagent scraper whenever extraction kit is changed.
+                    
                 case 'submitted_date':
                     # uses base calendar
                     add_widget = QDateEdit(calendarPopup=True)
@@ -652,127 +833,127 @@ class SubmissionFormWidget(QWidget):
                     output = key.replace('_', ' ')
                 self.setText(f"UPDATED {output}")
 
-class ReagentFormWidget(QWidget):
+    class ReagentFormWidget(QWidget):
 
-    def __init__(self, parent:QWidget, reagent:PydReagent, extraction_kit:str):
-        super().__init__(parent)
-        self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
-        self.reagent = reagent
-        self.extraction_kit = extraction_kit
-        layout = QVBoxLayout()
-        self.label = self.ReagentParsedLabel(reagent=reagent)
-        layout.addWidget(self.label)
-        self.lot = self.ReagentLot(reagent=reagent, extraction_kit=extraction_kit)
-        layout.addWidget(self.lot)
-        # Remove spacing between reagents
-        layout.setContentsMargins(0,0,0,0)
-        self.setLayout(layout)
-        self.setObjectName(reagent.name)
-        self.missing = reagent.missing
-        # If changed set self.missing to True and update self.label
-        self.lot.currentTextChanged.connect(self.updated)
+        def __init__(self, parent:QWidget, reagent:PydReagent, extraction_kit:str):
+            super().__init__(parent)
+            self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
+            self.reagent = reagent
+            self.extraction_kit = extraction_kit
+            layout = QVBoxLayout()
+            self.label = self.ReagentParsedLabel(reagent=reagent)
+            layout.addWidget(self.label)
+            self.lot = self.ReagentLot(reagent=reagent, extraction_kit=extraction_kit)
+            layout.addWidget(self.lot)
+            # Remove spacing between reagents
+            layout.setContentsMargins(0,0,0,0)
+            self.setLayout(layout)
+            self.setObjectName(reagent.name)
+            self.missing = reagent.missing
+            # If changed set self.missing to True and update self.label
+            self.lot.currentTextChanged.connect(self.updated)
 
-    def parse_form(self) -> Tuple[PydReagent, dict]:
-        """
-        Pulls form info into PydReagent
-
-        Returns:
-            Tuple[PydReagent, dict]: PydReagent and Report(?)
-        """        
-        lot = self.lot.currentText()
-        wanted_reagent = Reagent.query(lot_number=lot, reagent_type=self.reagent.type)
-        # if reagent doesn't exist in database, off to add it (uses App.add_reagent)
-        if wanted_reagent == None:
-            dlg = QuestionAsker(title=f"Add {lot}?", message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
-            if dlg.exec():
-                wanted_reagent = self.app.add_reagent(reagent_lot=lot, reagent_type=self.reagent.type, expiry=self.reagent.expiry, name=self.reagent.name)
-                return wanted_reagent, None
-            else:
-                # In this case we will have an empty reagent and the submission will fail kit integrity check
-                logger.debug("Will not add reagent.")
-                return None, Result(msg="Failed integrity check", status="Critical")
-        else:
-            # Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name
-            # from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
-            rt = ReagentType.query(name=self.reagent.type)
-            if rt == None:
-                rt = ReagentType.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
-            return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
-
-    def updated(self):
-        """
-        Set widget status to updated
-        """        
-        self.missing = True
-        self.label.updated(self.reagent.type)
-
-    class ReagentParsedLabel(QLabel):
-        
-        def __init__(self, reagent:PydReagent):
-            super().__init__()
-            try:
-                check = not reagent.missing
-            except:
-                check = False
-            self.setObjectName(f"{reagent.type}_label")
-            if check:
-                self.setText(f"Parsed {reagent.type}")
-            else:
-                self.setText(f"MISSING {reagent.type}")
-        
-        def updated(self, reagent_type:str):
+        def parse_form(self) -> Tuple[PydReagent, dict]:
             """
-            Marks widget as updated
+            Pulls form info into PydReagent
 
-            Args:
-                reagent_type (str): _description_
-            """            
-            self.setText(f"UPDATED {reagent_type}")
-
-    class ReagentLot(QComboBox):
-
-        def __init__(self, reagent, extraction_kit:str) -> None:
-            super().__init__()
-            self.setEditable(True)
-            logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
-            # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-            lookup = Reagent.query(reagent_type=reagent.type)
-            relevant_reagents = [str(item.lot) for item in lookup]
-            output_reg = []
-            for rel_reagent in relevant_reagents:
-            # extract strings from any sets.
-                if isinstance(rel_reagent, set):
-                    for thing in rel_reagent:
-                        output_reg.append(thing)
-                elif isinstance(rel_reagent, str):
-                    output_reg.append(rel_reagent)
-            relevant_reagents = output_reg
-            # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
-            logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
-            if str(reagent.lot) not in relevant_reagents:
-                if check_not_nan(reagent.lot):
-                    relevant_reagents.insert(0, str(reagent.lot))
+            Returns:
+                Tuple[PydReagent, dict]: PydReagent and Report(?)
+            """        
+            lot = self.lot.currentText()
+            wanted_reagent = Reagent.query(lot_number=lot, reagent_type=self.reagent.type)
+            # if reagent doesn't exist in database, off to add it (uses App.add_reagent)
+            if wanted_reagent == None:
+                dlg = QuestionAsker(title=f"Add {lot}?", message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
+                if dlg.exec():
+                    wanted_reagent = self.app.add_reagent(reagent_lot=lot, reagent_type=self.reagent.type, expiry=self.reagent.expiry, name=self.reagent.name)
+                    return wanted_reagent, None
                 else:
-                    looked_up_rt = KitTypeReagentTypeAssociation.query(reagent_type=reagent.type, kit_type=extraction_kit)
-                    try:
-                        looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
-                    except AttributeError:
-                        looked_up_reg = None
-                    if isinstance(looked_up_reg, list):
-                        looked_up_reg = None
-                    logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
-                    if looked_up_reg != None:
-                        relevant_reagents.remove(str(looked_up_reg.lot))
-                        relevant_reagents.insert(0, str(looked_up_reg.lot))
+                    # In this case we will have an empty reagent and the submission will fail kit integrity check
+                    logger.debug("Will not add reagent.")
+                    return None, Result(msg="Failed integrity check", status="Critical")
             else:
-                if len(relevant_reagents) > 1:
-                    logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
-                    idx = relevant_reagents.index(str(reagent.lot))
-                    logger.debug(f"The index we got for {reagent.lot} in {relevant_reagents} was {idx}")
-                    moved_reag = relevant_reagents.pop(idx)
-                    relevant_reagents.insert(0, moved_reag)
+                # Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name
+                # from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
+                rt = ReagentType.query(name=self.reagent.type)
+                if rt == None:
+                    rt = ReagentType.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
+                return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
+
+        def updated(self):
+            """
+            Set widget status to updated
+            """        
+            self.missing = True
+            self.label.updated(self.reagent.type)
+
+        class ReagentParsedLabel(QLabel):
+            
+            def __init__(self, reagent:PydReagent):
+                super().__init__()
+                try:
+                    check = not reagent.missing
+                except:
+                    check = False
+                self.setObjectName(f"{reagent.type}_label")
+                if check:
+                    self.setText(f"Parsed {reagent.type}")
                 else:
-                    logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
-            logger.debug(f"New relevant reagents: {relevant_reagents}")
-            self.setObjectName(f"lot_{reagent.type}")
-            self.addItems(relevant_reagents)
+                    self.setText(f"MISSING {reagent.type}")
+            
+            def updated(self, reagent_type:str):
+                """
+                Marks widget as updated
+
+                Args:
+                    reagent_type (str): _description_
+                """            
+                self.setText(f"UPDATED {reagent_type}")
+
+        class ReagentLot(QComboBox):
+
+            def __init__(self, reagent, extraction_kit:str) -> None:
+                super().__init__()
+                self.setEditable(True)
+                logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
+                # below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
+                lookup = Reagent.query(reagent_type=reagent.type)
+                relevant_reagents = [str(item.lot) for item in lookup]
+                output_reg = []
+                for rel_reagent in relevant_reagents:
+                # extract strings from any sets.
+                    if isinstance(rel_reagent, set):
+                        for thing in rel_reagent:
+                            output_reg.append(thing)
+                    elif isinstance(rel_reagent, str):
+                        output_reg.append(rel_reagent)
+                relevant_reagents = output_reg
+                # if reagent in sheet is not found insert it into the front of relevant reagents so it shows 
+                logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
+                if str(reagent.lot) not in relevant_reagents:
+                    if check_not_nan(reagent.lot):
+                        relevant_reagents.insert(0, str(reagent.lot))
+                    else:
+                        looked_up_rt = KitTypeReagentTypeAssociation.query(reagent_type=reagent.type, kit_type=extraction_kit)
+                        try:
+                            looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
+                        except AttributeError:
+                            looked_up_reg = None
+                        if isinstance(looked_up_reg, list):
+                            looked_up_reg = None
+                        logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
+                        if looked_up_reg != None:
+                            relevant_reagents.remove(str(looked_up_reg.lot))
+                            relevant_reagents.insert(0, str(looked_up_reg.lot))
+                else:
+                    if len(relevant_reagents) > 1:
+                        logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
+                        idx = relevant_reagents.index(str(reagent.lot))
+                        logger.debug(f"The index we got for {reagent.lot} in {relevant_reagents} was {idx}")
+                        moved_reag = relevant_reagents.pop(idx)
+                        relevant_reagents.insert(0, moved_reag)
+                    else:
+                        logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
+                logger.debug(f"New relevant reagents: {relevant_reagents}")
+                self.setObjectName(f"lot_{reagent.type}")
+                self.addItems(relevant_reagents)
