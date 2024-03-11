@@ -4,6 +4,7 @@ Contains all models for sqlalchemy
 import sys
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query
 from sqlalchemy.ext.declarative import declared_attr
+# Load testing environment
 if 'pytest' in sys.modules:
     from pathlib import Path
     sys.path.append(Path(__file__).parents[4].absolute().joinpath("tests").__str__())

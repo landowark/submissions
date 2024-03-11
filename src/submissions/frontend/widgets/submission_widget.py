@@ -148,11 +148,11 @@ class SubmissionFormContainer(QWidget):
         logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")
         self.form = self.pyd.toForm(parent=self)
         self.layout().addWidget(self.form)
-        kit_widget = self.form.find_widgets(object_name="extraction_kit")[0].input
-        logger.debug(f"Kitwidget {kit_widget}")
-        self.scrape_reagents(kit_widget.currentText())
-        kit_widget.currentTextChanged.connect(self.scrape_reagents)
-        # compare obj.reagents with expected reagents in kit
+        # kit_widget = self.form.find_widgets(object_name="extraction_kit")[0].input
+        # logger.debug(f"Kitwidget {kit_widget}")
+        # self.scrape_reagents(kit_widget.currentText())
+        # kit_widget.currentTextChanged.connect(self.scrape_reagents)
+        # # compare obj.reagents with expected reagents in kit
         if self.prsr.sample_result != None:
             report.add_result(msg=self.prsr.sample_result, status="Warning")
         self.report.add_result(report)
@@ -220,7 +220,8 @@ class SubmissionFormContainer(QWidget):
         for reagent in self.form.reagents:
             logger.debug(f"Creating widget for {reagent}")
             add_widget = ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
-            self.form.layout().addWidget(add_widget)
+            # self.form.layout().addWidget(add_widget)
+            self.form.layout.addWidget(add_widget)
             if reagent.missing:
                 missing_reagents.append(reagent)
         logger.debug(f"Checking integrity of {self.ext_kit}")
@@ -397,15 +398,15 @@ class SubmissionFormWidget(QWidget):
         super().__init__(parent)
         self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 'equipment', 'source_plates']
         self.recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
-        layout = QVBoxLayout()
+        self.layout = QVBoxLayout()
         for k, v in kwargs.items():
             if k not in self.ignore:
                 add_widget = self.create_widget(key=k, value=v, submission_type=kwargs['submission_type'])
                 if add_widget != None:
-                    layout.addWidget(add_widget)
+                    self.layout.addWidget(add_widget)
             else:
                 setattr(self, k, v)
-        self.setLayout(layout)
+        self.setLayout(self.layout)
 
     def create_widget(self, key:str, value:dict, submission_type:str|None=None) -> "self.InfoItem":
         """
@@ -420,7 +421,15 @@ class SubmissionFormWidget(QWidget):
             self.InfoItem: Form widget to hold name:value
         """        
         if key not in self.ignore:
-            return self.InfoItem(self, key=key, value=value, submission_type=submission_type)
+            widget = self.InfoItem(self, key=key, value=value, submission_type=submission_type)
+            # match key:
+            #     case "extraction_kit":
+            #         # compare obj.reagents with expected reagents in kit
+            #         self.scrape_reagents(widget.currentText())
+            #         widget.currentTextChanged.connect(self.scrape_reagents)
+            #     case _:
+            #         pass
+            return widget
         return None
         
     def clear_form(self):

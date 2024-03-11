@@ -33,21 +33,10 @@ class SubmissionDetails(QDialog):
             self.app = parent.parent().parent().parent().parent().parent().parent()
         except AttributeError:
             self.app = None
-        self.setWindowTitle(f"Submission Details - {sub.rsl_plate_num}")
+        # self.setWindowTitle(f"Submission Details - {sub.rsl_plate_num}")
         # create scrollable interior
         interior = QScrollArea()
         interior.setParent(self)
-        # self.base_dict = sub.to_dict(full_data=True)
-        # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
-        # # don't want id
-        # del self.base_dict['id']
-        # logger.debug(f"Creating barcode.")
-        # if not check_if_app():
-        #     self.base_dict['barcode'] = base64.b64encode(sub.make_plate_barcode(width=120, height=30)).decode('utf-8')
-        # logger.debug(f"Making platemap...")
-        # self.base_dict['platemap'] = sub.make_plate_map()
-        # self.base_dict, self.template = sub.get_details_template(base_dict=self.base_dict)
-        # self.html = self.template.render(sub=self.base_dict)
         self.webview = QWebEngineView(parent=self)
         self.webview.setMinimumSize(900, 500)
         self.webview.setMaximumSize(900, 500)
@@ -80,6 +69,7 @@ class SubmissionDetails(QDialog):
         base_dict, template = sample.get_details_template(base_dict=base_dict)
         html = template.render(sample=base_dict)
         self.webview.setHtml(html)
+        self.setWindowTitle(f"Sample Details - {sample.submitter_id}")
         
     @pyqtSlot(str)
     def submission_details(self, submission:str|BasicSubmission):
@@ -104,6 +94,7 @@ class SubmissionDetails(QDialog):
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict)
         self.webview.setHtml(self.html)
+        self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
 
     def export(self):
         """
@@ -124,8 +115,6 @@ class SubmissionDetails(QDialog):
         self.base_dict['export_map'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
         del self.base_dict['platemap']
         self.html2 = self.template.render(sub=self.base_dict)
-        with open("test.html", "w") as fw:
-            fw.write(self.html2)
         try:
             with open(fname, "w+b") as f:
                 pisa.CreatePDF(self.html2, dest=f)

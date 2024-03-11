@@ -1,3 +1,8 @@
+## 202403.01
+
+- Added navigation in submission details to sample details.
+- Updated cost calculations.
+
 ## 202402.04
 
 - Addition of comments to gel box.

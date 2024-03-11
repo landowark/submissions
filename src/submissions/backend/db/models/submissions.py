@@ -3,7 +3,7 @@ Models for the main submission types.
 '''
 from __future__ import annotations
 from getpass import getuser
-import math, json, logging, uuid, tempfile, re, yaml, base64
+import json, logging, uuid, tempfile, re, yaml, base64
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory
 from reportlab.graphics.barcode import createBarcodeImageInMemory
@@ -237,6 +237,7 @@ class BasicSubmission(BaseClass):
                 self.run_cost = assoc.constant_cost + (assoc.mutable_cost_column * cols_count_96) + (assoc.mutable_cost_sample * int(self.sample_count))
             except Exception as e:
                 logger.error(f"Calculation error: {e}")
+        self.run_cost = round(self.run_cost, 2)
 
     def calculate_column_count(self) -> int:
         """
@@ -338,7 +339,7 @@ class BasicSubmission(BaseClass):
         logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # Exclude sub information
-        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number']:
+        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'source_plates']:
             try:
                 df = df.drop(item, axis=1)
             except:
@@ -873,8 +874,8 @@ class BasicSubmission(BaseClass):
         Returns:
             dict: dictionary of functions
         """        
-        names = ["Delete", "Details", "Add Comment", "Add Equipment", "Export"]
-        funcs = [self.delete, self.show_details, self.add_comment, self.add_equipment, self.backup]
+        names = ["Delete", "Details", "Edit", "Add Comment", "Add Equipment", "Export"]
+        funcs = [self.delete, self.show_details, self.edit, self.add_comment, self.add_equipment, self.backup]
         dicto = {item[0]:item[1] for item in zip(names, funcs)}
         return dicto
     
@@ -914,6 +915,15 @@ class BasicSubmission(BaseClass):
         dlg = SubmissionDetails(parent=obj, sub=self)
         if dlg.exec():
             pass
+
+    def edit(self, obj):
+        from frontend.widgets.submission_widget import SubmissionFormWidget
+        for widg in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
+            logger.debug(widg)
+            widg.setParent(None)
+        pyd = self.to_pydantic(backup=True)
+        form = pyd.toForm(parent=obj)
+        obj.app.table_widget.formwidget.layout().addWidget(form)
 
     def add_comment(self, obj):
         """
@@ -1299,25 +1309,6 @@ class WastewaterArtic(BasicSubmission):
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic", 
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSubmission.id))
-
-    def calculate_base_cost(self):
-        """
-        This method overrides parent method due to multiple output plates from a single submission
-        """        
-        logger.debug(f"Hello from calculate base cost in WWArtic")
-        try:
-            cols_count_96 = math.ceil(int(self.sample_count) / 8)
-        except Exception as e:
-            logger.error(f"Column count error: {e}")
-        assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if item.submission_type == self.submission_type][0]
-        # Since we have multiple output plates per submission form, the constant cost will have to reflect this.
-        output_plate_count = math.ceil(int(self.sample_count) / 16)
-        logger.debug(f"Looks like we have {output_plate_count} output plates.")
-        const_cost = assoc.constant_cost * output_plate_count
-        try:
-            self.run_cost = const_cost + (assoc.mutable_cost_column * cols_count_96) + (assoc.mutable_cost_sample * int(self.sample_count))
-        except Exception as e:
-            logger.error(f"Calculation error: {e}")
 
     def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
         """
@@ -1859,7 +1850,7 @@ class BasicSample(BaseClass):
         Returns:
             Tuple(dict, Template): (Updated dictionary, Template to be rendered)
         """        
-        base_dict['excluded'] = ['submissions', 'excluded']
+        base_dict['excluded'] = ['submissions', 'excluded', 'colour', 'tooltip']
         env = jinja_template_loading()
         temp_name = f"{cls.__name__.lower()}_details.html"
         logger.debug(f"Returning template: {temp_name}")
