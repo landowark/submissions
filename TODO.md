@@ -1,3 +1,4 @@
+- [ ] Fix updating of Extraction Kit in submission form widget.
 - [x] Fix cropping of gel image.
 - [ ] Create Tips ... *sigh*.
 - [x] Create platemap image from html for export to pdf.

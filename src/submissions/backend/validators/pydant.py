@@ -441,6 +441,9 @@ class PydSubmission(BaseModel, extra='allow'):
             output.append(sample)
         return output
 
+    def set_attribute(self, key, value):
+        self.__setattr__(name=key, value=value)
+
     def handle_duplicate_samples(self):
         """
         Collapses multiple samples with same submitter id into one with lists for rows, columns.
@@ -577,7 +580,7 @@ class PydSubmission(BaseModel, extra='allow'):
             SubmissionFormWidget: Submission form widget
         """        
         from frontend.widgets.submission_widget import SubmissionFormWidget
-        return SubmissionFormWidget(parent=parent, **self.improved_dict())
+        return SubmissionFormWidget(parent=parent, submission=self)
 
     def autofill_excel(self, missing_only:bool=True, backup:bool=False) -> Workbook:
         """
@@ -782,7 +785,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Template rendered as: {render}")
         return render
 
-    def check_kit_integrity(self, reagenttypes:list=[]) -> Report:
+    def check_kit_integrity(self, reagenttypes:list=[], extraction_kit:str|dict|None=None) -> Tuple[List[PydReagent], Report]:
         """
         Ensures all reagents expected in kit are listed in Submission
        
@@ -793,24 +796,43 @@ class PydSubmission(BaseModel, extra='allow'):
             Report: Result object containing a message and any missing components.
         """    
         report = Report()
+        logger.debug(f"Extraction kit: {extraction_kit}. Is it a string? {isinstance(extraction_kit, str)}")
+        if isinstance(extraction_kit, str):
+            extraction_kit = dict(value=extraction_kit)
+        if extraction_kit is not None:
+            if extraction_kit != self.extraction_kit['value']:
+                self.extraction_kit['value'] = extraction_kit['value']
+                reagenttypes = []
+            else:
+                reagenttypes = [item.type for item in self.reagents]
+        else:
+            reagenttypes = [item.type for item in self.reagents]
+        logger.debug(f"Looking up {self.extraction_kit['value']}")
         ext_kit = KitType.query(name=self.extraction_kit['value'])
-        ext_kit_rtypes = [item.name for item in ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
-        reagenttypes = [item.type for item in self.reagents]
+        ext_kit_rtypes = [item.to_pydantic() for item in ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
         logger.debug(f"Kit reagents: {ext_kit_rtypes}")
-        logger.debug(f"Submission reagents: {reagenttypes}")
+        logger.debug(f"Submission reagents: {self.reagents}")
         # check if lists are equal
-        check = set(ext_kit_rtypes) == set(reagenttypes)
-        logger.debug(f"Checking if reagents match kit contents: {check}")
-        # what reagent types are in both lists?
-        missing = list(set(ext_kit_rtypes).difference(reagenttypes))
+        # check = set(ext_kit_rtypes) == set(reagenttypes)
+        # logger.debug(f"Checking if reagents match kit contents: {check}")
+        # # what reagent types are in both lists?
+        # missing = list(set(ext_kit_rtypes).difference(reagenttypes))
+        missing = []
+        output_reagents = self.reagents
+        logger.debug(f"Already have these reagent types: {reagenttypes}")
+        for rt in ext_kit_rtypes:
+            if rt.type not in reagenttypes:
+                missing.append(rt)
+                if rt.type not in [item.type for item in output_reagents]:
+                    output_reagents.append(rt)
         logger.debug(f"Missing reagents types: {missing}")
         # if lists are equal return no problem
         if len(missing)==0:
             result = None
         else:
-            result = Result(msg=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
+            result = Result(msg=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
         report.add_result(result)
-        return report
+        return output_reagents, report
 
 class PydContact(BaseModel):
     

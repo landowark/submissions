@@ -372,7 +372,9 @@ class BasicSubmission(BaseClass):
                     sample, _ = sample.toSQL(submission=self)
                 return
             case "reagents":
+                logger.debug(f"Reagents coming into SQL: {value}")
                 field_value = [reagent['value'].toSQL()[0] if isinstance(reagent, dict) else reagent.toSQL()[0] for reagent in value]
+                logger.debug(f"Reagents coming out of SQL: {field_value}")
             case "submission_type":
                 field_value = SubmissionType.query(name=value)
             case "sample_count":
@@ -392,8 +394,8 @@ class BasicSubmission(BaseClass):
         # insert into field
         try:
             self.__setattr__(key, field_value)
-        except AttributeError:
-            logger.error(f"Could not set {self} attribute {key} to {value}")
+        except AttributeError as e:
+            logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
 
     def update_subsampassoc(self, sample:BasicSample, input_dict:dict):
         """
