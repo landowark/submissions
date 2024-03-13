@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor
 from backend.db.models import BasicSubmission
 from backend.excel import make_report_html, make_report_xlsx
-from tools import Report, Result, row_map
+from tools import Report, Result, row_map, get_first_blank_df_row
 from xhtml2pdf import pisa
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
