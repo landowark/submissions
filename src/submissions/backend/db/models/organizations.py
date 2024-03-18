@@ -41,7 +41,8 @@ class Organization(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, 
+    def query(cls,
+                id:int|None=None, 
                 name:str|None=None,
                 limit:int=0,
                 ) -> Organization|List[Organization]:
@@ -56,6 +57,12 @@ class Organization(BaseClass):
             Organization|List[Organization]: 
         """    
         query: Query = cls.__database_session__.query(cls)
+        match id:
+            case int():
+                query = query.filter(cls.id==id)
+                limit = 1
+            case _:
+                pass
         match name:
             case str():
                 # logger.debug(f"Looking up organization with name: {name}")

@@ -518,7 +518,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)
-                        logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
+                        # logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
                         for assoc in associations:
                             instance.submission_sample_associations.append(assoc)
                 case "equipment":
@@ -534,7 +534,6 @@ class PydSubmission(BaseModel, extra='allow'):
                             association.save()
                             logger.debug(f"Equipment association SQL object to be added to submission: {association.__dict__}")
                             instance.submission_equipment_associations.append(association)
-                
                 case _:
                     try:
                         instance.set_attribute(key=key, value=value)
@@ -548,7 +547,10 @@ class PydSubmission(BaseModel, extra='allow'):
             instance.calculate_base_cost()
         except (TypeError, AttributeError) as e:
             logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
-            instance.run_cost = instance.extraction_kit.cost_per_run
+            try:
+                instance.run_cost = instance.extraction_kit.cost_per_run
+            except AttributeError:
+                instance.run_cost = 0
         logger.debug(f"Calculated base run cost of: {instance.run_cost}")
         # Apply any discounts that are applicable for client and kit.
         try:

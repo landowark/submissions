@@ -274,7 +274,7 @@ class SampleParser(object):
     object to pull data for samples in excel sheet and construct individual sample objects
     """
 
-    def __init__(self, xl:pd.ExcelFile, submission_type:str) -> None:
+    def __init__(self, xl:pd.ExcelFile, submission_type:str, sample_map:dict|None=None) -> None:
         """
         convert sample sub-dataframe to dictionary of records
 
@@ -286,7 +286,7 @@ class SampleParser(object):
         self.samples = []
         self.xl = xl
         self.submission_type = submission_type
-        sample_info_map = self.fetch_sample_info_map(submission_type=submission_type)
+        sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
         logger.debug(f"sample_info_map: {sample_info_map}")
         self.plate_map = self.construct_plate_map(plate_map_location=sample_info_map['plate_map'])
         logger.debug(f"plate_map: {self.plate_map}")
@@ -298,7 +298,7 @@ class SampleParser(object):
         if isinstance(self.lookup_table, pd.DataFrame):
             self.parse_lookup_table()
         
-    def fetch_sample_info_map(self, submission_type:str) -> dict:
+    def fetch_sample_info_map(self, submission_type:str, sample_map:dict|None=None) -> dict:
         """
         Gets info locations in excel book for submission type.
 
@@ -311,7 +311,10 @@ class SampleParser(object):
         logger.debug(f"Looking up submission type: {submission_type}")
         submission_type = SubmissionType.query(name=submission_type)
         logger.debug(f"info_map: {pformat(submission_type.info_map)}")
-        sample_info_map = submission_type.info_map['samples']
+        if sample_map is None:
+            sample_info_map = submission_type.info_map['samples']
+        else:
+            sample_info_map = sample_map
         self.custom_sub_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_samples
         self.custom_sample_parser = BasicSample.find_polymorphic_subclass(polymorphic_identity=f"{submission_type.name} Sample").parse_sample
         return sample_info_map

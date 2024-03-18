@@ -1242,9 +1242,9 @@ class Wastewater(BasicSubmission):
         outstr = super().enforce_name(instr=instr, data=data)
         try:
             outstr = re.sub(r"PCR(-|_)", "", outstr)
-        except AttributeError as e:
+        except (AttributeError, TypeError) as e:
             logger.error(f"Problem using regex: {e}")
-            outstr = RSLNamer.construct_new_plate_name(instr=outstr)
+            outstr = RSLNamer.construct_new_plate_name(data=data)
         outstr = outstr.replace("RSLWW", "RSL-WW")
         outstr = re.sub(r"WW(\d{4})", r"WW-\1", outstr, flags=re.IGNORECASE)
         outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)

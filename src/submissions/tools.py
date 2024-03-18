@@ -117,12 +117,15 @@ def check_regex_match(pattern:str, check:str) -> bool:
         return False
 
 def get_first_blank_df_row(df:pd.DataFrame) -> int:
-    #First, find NaN entries in first column
-    # blank_row_bool = df.iloc[:,2].isna()
-    # logger.debug(f"Blank row bool: {blank_row_bool}")
-    # #Next, get index of first NaN entry
-    # blank_row_index =  [i for i, x in enumerate(blank_row_bool) if x][0]
-    # return blank_row_index
+    """
+    For some reason I need a whole function for this.
+
+    Args:
+        df (pd.DataFrame): Input dataframe.
+
+    Returns:
+        int: Index of the row after the last used row.
+    """    
     return df.shape[0] + 1
 
 # Settings

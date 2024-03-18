@@ -469,11 +469,11 @@ class SubmissionFormWidget(QWidget):
         Args:
             fname (Path | None, optional): Input filename. Defaults to None.
         """        
-        pyd = self.parse_form()
+        self.parse_form()
         if isinstance(fname, bool) or fname == None:
-            fname = select_save_file(obj=self, default_name=pyd.construct_filename(), extension="csv")
+            fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
         try:
-            pyd.csv.to_csv(fname.__str__(), index=False)
+            self.pyd.csv.to_csv(fname.__str__(), index=False)
         except PermissionError:
             logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
 

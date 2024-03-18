@@ -339,7 +339,6 @@ class Reagent(BaseClass):
     
     submissions = association_proxy("reagent_submission_associations", "submission") #: Association proxy to SubmissionSampleAssociation.samples
 
-
     def __repr__(self):
         if self.name != None:
             return f"<Reagent({self.name}-{self.lot})>"
