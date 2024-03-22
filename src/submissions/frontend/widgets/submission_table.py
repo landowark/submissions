@@ -178,12 +178,14 @@ class SubmissionsSheet(QTableView):
             except AttributeError:
                 continue
             if sub.extraction_info != None:
-                existing = json.loads(sub.extraction_info)
+                # existing = json.loads(sub.extraction_info)
+                existing = sub.extraction_info
             else:
                 existing = None
             # Check if the new info already exists in the imported submission
             try:
-                if json.dumps(new_run) in sub.extraction_info:
+                # if json.dumps(new_run) in sub.extraction_info:
+                if new_run in sub.extraction_info:
                     logger.debug(f"Looks like we already have that info.")
                     continue
             except TypeError:
@@ -194,13 +196,16 @@ class SubmissionsSheet(QTableView):
                     logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
                     existing.append(new_run)
                     logger.debug(f"Setting: {existing}")
-                    sub.extraction_info = json.dumps(existing)
+                    # sub.extraction_info = json.dumps(existing)
+                    sub.extraction_info = existing
                 except TypeError:
                     logger.error(f"Error updating!")
-                    sub.extraction_info = json.dumps([new_run])
+                    # sub.extraction_info = json.dumps([new_run])
+                    sub.extraction_info = [new_run]
                 logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.extraction_info}")
             else:
-                sub.extraction_info = json.dumps([new_run])        
+                # sub.extraction_info = json.dumps([new_run])
+                sub.extraction_info = [new_run]
             sub.save()
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
 
@@ -250,30 +255,35 @@ class SubmissionsSheet(QTableView):
                 continue
             # check if pcr_info already exists
             if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
-                existing = json.loads(sub.pcr_info)
+                # existing = json.loads(sub.pcr_info)
+                existing = sub.pcr_info
             else:
                 existing = None
             # check if this entry already exists in imported submission
             try:
-                if json.dumps(new_run) in sub.pcr_info:
+                # if json.dumps(new_run) in sub.pcr_info:
+                if new_run in sub.pcr_info:
                     logger.debug(f"Looks like we already have that info.")
                     continue
                 else:
                     count += 1
             except TypeError:
                 logger.error(f"No json to dump")
-            if existing != None:
+            if existing is not None:
                 try:
                     logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
                     existing.append(new_run)
                     logger.debug(f"Setting: {existing}")
+                    # sub.pcr_info = json.dumps(existing)
                     sub.pcr_info = json.dumps(existing)
                 except TypeError:
                     logger.error(f"Error updating!")
-                    sub.pcr_info = json.dumps([new_run])
+                    # sub.pcr_info = json.dumps([new_run])
+                    sub.pcr_info = [new_run]
                 logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.pcr_info}")
             else:
-                sub.pcr_info = json.dumps([new_run])        
+                # sub.pcr_info = json.dumps([new_run])
+                sub.pcr_info = [new_run]
             sub.save()
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         
@@ -305,7 +315,7 @@ class SubmissionsSheet(QTableView):
             # find submissions based on date range
             subs = BasicSubmission.query(start_date=info['start_date'], end_date=info['end_date'])
             # convert each object to dict
-            records = [item.report_dict() for item in subs]
+            records = [item.to_dict(report=True) for item in subs]
             logger.debug(f"Records: {pformat(records)}")
             # make dataframe from record dictionaries
             detailed_df, summary_df = make_report_xlsx(records=records)

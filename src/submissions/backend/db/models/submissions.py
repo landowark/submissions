@@ -96,9 +96,10 @@ class BasicSubmission(BaseClass):
         Returns:
             str: Representation of this BasicSubmission
         """        
-        return f"{self.submission_type}Submission({self.rsl_plate_num})"
+        submission_type = self.submission_type or "Basic"
+        return f"{submission_type}Submission({self.rsl_plate_num})"
 
-    def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
+    def to_dict(self, full_data:bool=False, backup:bool=False, report:bool=False) -> dict:
         """
         Constructs dictionary used in submissions summary
 
@@ -126,13 +127,33 @@ class BasicSubmission(BaseClass):
             ext_kit = None
         # load scraped extraction info
         try:
-            ext_info = json.loads(self.extraction_info)
+            # ext_info = json.loads(self.extraction_info)
+            ext_info = self.extraction_info
         except TypeError:
             ext_info = None
-        except JSONDecodeError as e:
-            ext_info = None
-            logger.error(f"Json error in {self.rsl_plate_num}: {e}")
-        # Updated 2023-09 to use the extraction kit to pull reagents.
+        # except JSONDecodeError as e:
+        #     ext_info = None
+        #     logger.error(f"Json error in {self.rsl_plate_num}: {e}")
+        output = {
+            "id": self.id,
+            "Plate Number": self.rsl_plate_num,
+            "Submission Type": self.submission_type_name,
+            # "Submission Category": self.submission_category,
+            "Submitter Plate Number": self.submitter_plate_num,
+            "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
+            "Submitting Lab": sub_lab,
+            "Sample Count": self.sample_count,
+            "Extraction Kit": ext_kit,
+            # "Technician": self.technician,
+            "Cost": self.run_cost,
+            # "reagents": reagents,
+            # "samples": samples,
+            # "extraction_info": ext_info,
+            # "comment": comments,
+            # "equipment": equipment
+        }
+        if report:
+            return output
         if full_data:
             logger.debug(f"Attempting reagents.")
             try:
@@ -160,60 +181,27 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}")
             comments = None
-        output = {
-            "id": self.id,
-            "Plate Number": self.rsl_plate_num,
-            "Submission Type": self.submission_type_name,
-            "Submission Category": self.submission_category,
-            "Submitter Plate Number": self.submitter_plate_num,
-            "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
-            "Submitting Lab": sub_lab,
-            "Sample Count": self.sample_count,
-            "Extraction Kit": ext_kit,
-            "Technician": self.technician,
-            "Cost": self.run_cost,
-            "reagents": reagents,
-            "samples": samples,
-            "extraction_info": ext_info,
-            "comment": comments,
-            "equipment": equipment
-        }
-        return output
-
-    def report_dict(self) -> dict:
-        """
-        dictionary used in creating reports
-
-        Returns:
-            dict: dictionary used in creating reports
-        """        
-        # get lab name from nested organization object 
-        try:
-            sub_lab = self.submitting_lab.name
-        except AttributeError:
-            sub_lab = None
-        try:
-            sub_lab = sub_lab.replace("_", " ").title()
-        except AttributeError:
-            pass
-        # get extraction kit name from nested kittype object
-        try:
-            ext_kit = self.extraction_kit.name
-        except AttributeError:
-            ext_kit = None
-        output = {
-            "id": self.id,
-            "Plate Number": self.rsl_plate_num,
-            "Submission Type": self.submission_type_name.replace("_", " ").title(),
-            "Submitter Plate Number": self.submitter_plate_num,
-            "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
-            "Submitting Lab": sub_lab,
-            "Sample Count": self.sample_count,
-            "Extraction Kit": ext_kit,
-            "Cost": self.run_cost
-        }
+        output["Submission Category"] = self.submission_category
+        output["Technician"] = self.technician
+        output["reagents"] = reagents
+        output["samples"] = samples
+        output["extraction_info"] = ext_info
+        output["comment"] = comments
+        output["equipment"] = equipment
         return output
     
+    def calculate_column_count(self) -> int:
+        """
+        Calculate the number of columns in this submission 
+
+        Returns:
+            int: Number of unique columns.
+        """           
+        # logger.debug(f"Here's the samples: {self.samples}")
+        columns = set([assoc.column for assoc in self.submission_sample_associations])
+        # logger.debug(f"Here are the columns for {self.rsl_plate_num}: {columns}")
+        return len(columns)
+
     def calculate_base_cost(self):
         """
         Calculates cost of the plate
@@ -225,7 +213,7 @@ class BasicSubmission(BaseClass):
             logger.error(f"Column count error: {e}")
         # Get kit associated with this submission
         assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if item.submission_type == self.submission_type][0]
-        # logger.debug(f"Came up with association: {assoc}")
+        logger.debug(f"Came up with association: {assoc}")
         # If every individual cost is 0 this is probably an old plate.
         if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
             try:
@@ -238,18 +226,6 @@ class BasicSubmission(BaseClass):
             except Exception as e:
                 logger.error(f"Calculation error: {e}")
         self.run_cost = round(self.run_cost, 2)
-
-    def calculate_column_count(self) -> int:
-        """
-        Calculate the number of columns in this submission 
-
-        Returns:
-            int: Number of unique columns.
-        """           
-        # logger.debug(f"Here's the samples: {self.samples}")
-        columns = set([assoc.column for assoc in self.submission_sample_associations])
-        # logger.debug(f"Here are the columns for {self.rsl_plate_num}: {columns}")
-        return len(columns)
     
     def hitpick_plate(self) -> list:
         """
@@ -363,9 +339,9 @@ class BasicSubmission(BaseClass):
                 # logger.debug(f"Looking up organization: {value}")
                 field_value = Organization.query(name=value)
                 # logger.debug(f"Got {field_value} for organization {value}")
-            case "submitter_plate_num":
-                # logger.debug(f"Submitter plate id: {value}")
-                field_value = value
+            # case "submitter_plate_num":
+            #     # logger.debug(f"Submitter plate id: {value}")
+            #     field_value = value
             case "samples":
                 for sample in value:
                     # logger.debug(f"Parsing {sample} to sql.")
@@ -388,7 +364,12 @@ class BasicSubmission(BaseClass):
                 if value == "" or value == None or value == 'null':
                     field_value = None
                 else:
-                    field_value = dict(name="submitter", text=value, time=datetime.now())
+                    field_value = dict(name=getuser(), text=value, time=datetime.now())
+                    if self.comment is None:
+                        self.comment = [field_value]
+                    else:
+                        self.comment.append(field_value)
+                return
             case _:
                 field_value = value
         # insert into field
@@ -1010,21 +991,23 @@ class BacterialCulture(BasicSubmission):
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSubmission.id))
 
-    def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
+    def to_dict(self, full_data:bool=False, backup:bool=False, report:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
         Returns:
             dict: dictionary used in submissions summary
         """        
-        output = super().to_dict(full_data=full_data, backup=backup)
+        output = super().to_dict(full_data=full_data, backup=backup, report=report)
+        if report:
+            return output
         if full_data:
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
     
     @classmethod
-    def get_abbreviation(cls) -> str:
-        return "BC"
+    def get_default_info(cls) -> dict:
+        return dict(abbreviation="BC", submission_type="Bacterial Culture")
 
     @classmethod
     def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
@@ -1066,20 +1049,27 @@ class BacterialCulture(BasicSubmission):
             sheet.cell(row=12, column=2, value="=IF(ISBLANK('Sample List'!$B42),\"\",'Sample List'!$B42)")
         if sheet.cell(13,2).value == None:
             sheet.cell(row=13, column=2, value="=IF(ISBLANK('Sample List'!$B43),\"\",'Sample List'!$B43)")
-        input_excel["Sample List"].cell(row=15, column=2, value=getuser()[0:2].upper())
+        input_excel["Sample List"].cell(row=15, column=2, value=getuser())
         return input_excel
 
     @classmethod
-    def enforce_name(cls, instr:str, data:dict|None=None) -> str:
+    def enforce_name(cls, instr:str, data:dict|None={}) -> str:
         """
         Extends parent
         """        
         from backend.validators import RSLNamer
-        data['abbreviation'] = cls.get_abbreviation()
+        defaults = cls.get_default_info()
+        data['abbreviation'] = defaults['abbreviation']
+        if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
+            data['submission_type'] = defaults['submission_type']
         outstr = super().enforce_name(instr=instr, data=data)
+        if outstr in [None, ""]:
+            outstr = RSLNamer.construct_new_plate_name(data=data)
+        if re.search(rf"{data['abbreviation']}", outstr, flags=re.IGNORECASE) is None:
+            outstr = re.sub(rf"RSL-?", rf"RSL-{data['abbreviation']}-", outstr, flags=re.IGNORECASE)
         try:
             outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)
-            outstr = re.sub(r"BC(\d{6})", r"BC-\1", outstr, flags=re.IGNORECASE)
+            outstr = re.sub(rf"{data['abbreviation']}(\d{6})", rf"{data['abbreviation']}-\1", outstr, flags=re.IGNORECASE).upper()
         except (AttributeError, TypeError) as e:
             outstr = RSLNamer.construct_new_plate_name(data=data)
         try:
@@ -1117,14 +1107,14 @@ class BacterialCulture(BasicSubmission):
         template += "_{{ submitting_lab }}_{{ submitter_plate_num }}"
         return template
     
-    @classmethod
-    def parse_info(cls, input_dict: dict, xl: pd.ExcelFile | None = None) -> dict:
-        """
-        Extends parent
-        """        
-        input_dict = super().parse_info(input_dict, xl)
-        input_dict['submitted_date']['missing'] = True
-        return input_dict
+    # @classmethod
+    # def parse_info(cls, input_dict: dict, xl: pd.ExcelFile | None = None) -> dict:
+    #     """
+    #     Extends parent
+    #     """        
+    #     input_dict = super().parse_info(input_dict, xl)
+    #     input_dict['submitted_date']['missing'] = True
+    #     return input_dict
 
     @classmethod
     def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
@@ -1158,25 +1148,29 @@ class Wastewater(BasicSubmission):
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSubmission.id))
 
-    def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
+    def to_dict(self, full_data:bool=False, backup:bool=False, report:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
         Returns:
             dict: dictionary used in submissions summary
         """        
-        output = super().to_dict(full_data=full_data)
+        output = super().to_dict(full_data=full_data, backup=backup, report=report)
+        if report:
+            return output
         try:
-            output['pcr_info'] = json.loads(self.pcr_info)
+            # output['pcr_info'] = json.loads(self.pcr_info)
+            output['pcr_info'] = self.pcr_info
         except TypeError as e:
             pass
-        output['Technician'] = f"Enr: {self.technician}, Ext: {self.ext_technician}, PCR: {self.pcr_technician}"
-        
+        ext_tech = self.ext_technician or self.technician
+        pcr_tech = self.pcr_technician or self.technician
+        output['Technician'] = f"Enr: {self.technician}, Ext: {ext_tech}, PCR: {pcr_tech}"
         return output
     
     @classmethod
-    def get_abbreviation(cls) -> str:
-        return "WW"
+    def get_default_info(cls) -> dict:
+        return dict(abbreviation="WW", submission_type="Wastewater")
 
     @classmethod
     def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
@@ -1212,7 +1206,7 @@ class Wastewater(BasicSubmission):
         except ValueError:
             logger.error("Well call number doesn't match sample number")
         logger.debug(f"Well call df: {well_call_df}")
-        for ii, row in samples_df.iterrows():
+        for _, row in samples_df.iterrows():
             try:
                 sample_obj = [sample for sample in samples if sample['sample'] == row[3]][0]    
             except IndexError:
@@ -1238,7 +1232,8 @@ class Wastewater(BasicSubmission):
         Extends parent
         """        
         from backend.validators import RSLNamer
-        data['abbreviation'] = cls.get_abbreviation()
+        defaults = cls.get_default_info()
+        data['abbreviation'] = defaults['abbreviation']
         outstr = super().enforce_name(instr=instr, data=data)
         try:
             outstr = re.sub(r"PCR(-|_)", "", outstr)
@@ -1313,14 +1308,16 @@ class WastewaterArtic(BasicSubmission):
                            polymorphic_load="inline", 
                            inherit_condition=(id == BasicSubmission.id))
 
-    def to_dict(self, full_data:bool=False, backup:bool=False) -> dict:
+    def to_dict(self, full_data:bool=False, backup:bool=False, report:bool=False) -> dict:
         """
         Extends parent class method to add controls to dict
 
         Returns:
             dict: dictionary used in submissions summary
         """        
-        output = super().to_dict(full_data=full_data)
+        output = super().to_dict(full_data=full_data, backup=backup, report=report)
+        if report:
+            return output
         output['gel_info'] = self.gel_info
         output['gel_image'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
@@ -2140,7 +2137,7 @@ class SubmissionSampleAssociation(BaseClass):
             tooltip_text += sample['tooltip']
         except KeyError:
             pass
-        sample.update(dict(name=self.sample.submitter_id[:10], tooltip=tooltip_text))
+        sample.update(dict(Name=self.sample.submitter_id[:10], tooltip=tooltip_text))
         return sample
 
     @classmethod

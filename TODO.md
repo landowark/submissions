@@ -1,3 +1,4 @@
+- [ ] Merge BasicSubmission.find_subclasses and BasicSubmission.find_polymorphic_subclass
 - [ ] Fix updating of Extraction Kit in submission form widget.
 - [x] Fix cropping of gel image.
 - [ ] Create Tips ... *sigh*.

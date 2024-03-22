@@ -1,3 +1,7 @@
+## 202403.03
+
+- Automated version construction.
+
 ## 202403.02
 
 - Moved functions out of submission container to submission form

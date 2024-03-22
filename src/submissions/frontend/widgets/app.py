@@ -124,7 +124,7 @@ class App(QMainWindow):
         Show the 'about' message
         """        
         output = f"Version: {self.ctx.package.__version__}\n\nAuthor: {self.ctx.package.__author__['name']} - {self.ctx.package.__author__['email']}\n\nCopyright: {self.ctx.package.__copyright__}"
-        about = AlertPop(message=output, status="information")
+        about = AlertPop(message=output, status="Information")
         about.exec()
 
     def openDocs(self):

@@ -1,12 +1,24 @@
 # __init__.py
 
 from pathlib import Path
+from datetime import date
+import calendar
 
 # Version of the realpython-reader package
+
+year = date.today().year
+month = date.today().month
+day = date.today().day
+
+def get_week_of_month() -> int:
+    for ii, week in enumerate(calendar.monthcalendar(date.today().year, date.today().month)):
+        if day in week:
+            return ii + 1
+
 __project__ = "submissions"
-__version__ = "202403.2b"
+__version__ = f"{year}{str(month).zfill(2)}.{get_week_of_month()}b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
-__copyright__ = "2022-2024, Government of Canada"
+__copyright__ = f"2022-{date.today().year}, Government of Canada"
 
 project_path = Path(__file__).parents[2].absolute()
 

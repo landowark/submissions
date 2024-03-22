@@ -1252,9 +1252,13 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     equipment = relationship(Equipment, back_populates="equipment_submission_associations") #: associated equipment
 
-    def __init__(self, submission, equipment):
+    def __repr__(self):
+        return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num}&{self.equipment.name})>"
+
+    def __init__(self, submission, equipment, role:str="None"):
         self.submission = submission
         self.equipment = equipment
+        self.role = role
 
     def to_sub_dict(self) -> dict:
         """
@@ -1263,7 +1267,11 @@ class SubmissionEquipmentAssociation(BaseClass):
         Returns:
             dict: This SubmissionEquipmentAssociation as a dictionary
         """        
-        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments, processes=[self.process.name], role=self.role, nickname=self.equipment.nickname)
+        try:
+            process = self.process.name
+        except AttributeError:
+            process = "No process found"
+        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments, processes=[process], role=self.role, nickname=self.equipment.nickname)
         return output
 
 class SubmissionTypeEquipmentRoleAssociation(BaseClass):
@@ -1344,7 +1352,7 @@ class Process(BaseClass):
         Returns:
             str: Representation of this Process
         """        
-        return f"<Process({self.name})"
+        return f"<Process({self.name})>"
     
     @classmethod
     @setup_lookup

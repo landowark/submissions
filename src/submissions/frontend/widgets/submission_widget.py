@@ -151,23 +151,28 @@ class SubmissionFormContainer(QWidget):
                 return
         # Check if PCR info already exists
         if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
-            existing = json.loads(sub.pcr_info)
+            # existing = json.loads(sub.pcr_info)
+            existing = sub.pcr_info
         else:
             existing = None
         if existing != None:
             # update pcr_info
             try:
                 logger.debug(f"Updating {type(existing)}: {existing} with {type(parser.pcr)}: {parser.pcr}")
-                if json.dumps(parser.pcr) not in sub.pcr_info:
+                # if json.dumps(parser.pcr) not in sub.pcr_info:
+                if parser.pcr not in sub.pcr_info:
                     existing.append(parser.pcr)
                 logger.debug(f"Setting: {existing}")
-                sub.pcr_info = json.dumps(existing)
+                # sub.pcr_info = json.dumps(existing)
+                sub.pcr_info = existing
             except TypeError:
                 logger.error(f"Error updating!")
-                sub.pcr_info = json.dumps([parser.pcr])
+                # sub.pcr_info = json.dumps([parser.pcr])
+                sub.pcr_info = [parser.pcr]
             logger.debug(f"Final pcr info for {sub.rsl_plate_num}: {sub.pcr_info}")
         else:
-            sub.pcr_info = json.dumps([parser.pcr])
+            # sub.pcr_info = json.dumps([parser.pcr])
+            sub.pcr_info = [parser.pcr]
         logger.debug(f"Existing {type(sub.pcr_info)}: {sub.pcr_info}")
         logger.debug(f"Inserting {type(json.dumps(parser.pcr))}: {json.dumps(parser.pcr)}")
         sub.save(original=False)
