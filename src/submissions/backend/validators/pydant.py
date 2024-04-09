@@ -138,19 +138,19 @@ class PydReagent(BaseModel):
             # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
         return reagent, report
 
-    def toForm(self, parent:QWidget, extraction_kit:str) -> QComboBox:
-        """
-        Converts this instance into a form widget
+    # def toForm(self, parent:QWidget, extraction_kit:str) -> QComboBox:
+    #     """
+    #     Converts this instance into a form widget
 
-        Args:
-            parent (QWidget): Parent widget of the constructed object
-            extraction_kit (str): Name of extraction kit used
+    #     Args:
+    #         parent (QWidget): Parent widget of the constructed object
+    #         extraction_kit (str): Name of extraction kit used
 
-        Returns:
-            QComboBox: Form object.
-        """        
-        from frontend.widgets.submission_widget import ReagentFormWidget
-        return ReagentFormWidget(parent=parent, reagent=self, extraction_kit=extraction_kit)
+    #     Returns:
+    #         QComboBox: Form object.
+    #     """        
+    #     from frontend.widgets.submission_widget import ReagentFormWidget
+    #     return ReagentFormWidget(parent=parent, reagent=self, extraction_kit=extraction_kit)
     
 class PydSample(BaseModel, extra='allow'):
 
@@ -705,16 +705,19 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug("Sorting samples by row/column")
         samples = sorted(self.samples, key=attrgetter('column', 'row'))
         submission_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+        # custom function to adjust values for writing.
         samples = submission_obj.adjust_autofill_samples(samples=samples)
         logger.debug(f"Samples: {pformat(samples)}")
         # Fail safe against multiple instances of the same sample
         for iii, sample in enumerate(samples, start=1):
             logger.debug(f"Sample: {sample}")
+            # custom function to find the row of this sample
             row = submission_obj.custom_sample_autofill_row(sample, worksheet=worksheet)
             logger.debug(f"Writing to {row}")
             if row == None:
                 row = sample_info['lookup_table']['start_row'] + iii
             fields = [field for field in list(sample.model_fields.keys()) + list(sample.model_extra.keys()) if field in sample_info['sample_columns'].keys()]
+            logger.debug(f"Here are the fields we are going to fill:\n\t{fields}")
             for field in fields:
                 column = sample_info['sample_columns'][field]
                 value = getattr(sample, field)

@@ -280,7 +280,10 @@ class SubmissionFormWidget(QWidget):
         if key not in self.ignore:
             match value:
                 case PydReagent():
-                    widget = self.ReagentFormWidget(self, reagent=value, extraction_kit=extraction_kit)
+                    if value.name.lower() != "not applicable":
+                        widget = self.ReagentFormWidget(self, reagent=value, extraction_kit=extraction_kit)
+                    else:
+                        widget = None
                 case _:
                     widget = self.InfoItem(self, key=key, value=value, submission_type=submission_type)
             return widget
