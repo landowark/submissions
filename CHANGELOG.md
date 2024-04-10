@@ -1,3 +1,8 @@
+## 202404.02
+
+- Various bug fixes.
+- Added ability to sign off on submission in submission details.
+
 ## 202403.03
 
 - Automated version construction.

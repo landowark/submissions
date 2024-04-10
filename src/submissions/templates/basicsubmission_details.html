@@ -116,6 +116,12 @@
         <img height="300px" width="650px" src="data:image/jpeg;base64,{{ sub['export_map'] | safe }}">
         {% endif %}
         {% endblock %}
+        {% if signing_permission %}
+        <button type="button" id="sign_btn">Sign Off</button>
+        {% endif %}
+        <br>
+        <br>
+        <br>
     </body>
     <script>
         var backend;
@@ -127,5 +133,8 @@
             backend.sample_details("{{ sample['Submitter ID'] }}");
         });
         {% endfor %}
+        document.getElementById("sign_btn").addEventListener("click", function(){
+            backend.sign_off("{{ sub['Plate Number'] }}");
+        })
     </script>
 </html>

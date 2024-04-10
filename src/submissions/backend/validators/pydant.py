@@ -137,20 +137,6 @@ class PydReagent(BaseModel):
             # add end-of-life extension from reagent type to expiry date
             # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
         return reagent, report
-
-    # def toForm(self, parent:QWidget, extraction_kit:str) -> QComboBox:
-    #     """
-    #     Converts this instance into a form widget
-
-    #     Args:
-    #         parent (QWidget): Parent widget of the constructed object
-    #         extraction_kit (str): Name of extraction kit used
-
-    #     Returns:
-    #         QComboBox: Form object.
-    #     """        
-    #     from frontend.widgets.submission_widget import ReagentFormWidget
-    #     return ReagentFormWidget(parent=parent, reagent=self, extraction_kit=extraction_kit)
     
 class PydSample(BaseModel, extra='allow'):
 

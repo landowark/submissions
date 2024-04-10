@@ -5,7 +5,7 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 
 from backend.db.models import BasicSubmission, BasicSample
-from tools import check_if_app
+from tools import check_if_app, check_authorization, is_power_user
 from .functions import select_save_file
 from io import BytesIO
 from tempfile import TemporaryFile, TemporaryDirectory
@@ -92,9 +92,17 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Making platemap...")
         self.base_dict['platemap'] = submission.make_plate_map()
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
-        self.html = self.template.render(sub=self.base_dict)
+        self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
+
+    @pyqtSlot(str)
+    def sign_off(self, submission:str|BasicSubmission):
+        logger.debug(f"Signing off on {submission}")
+        if isinstance(submission, str):
+            submission = BasicSubmission.query(rsl_number=submission)
+        submission.uploaded_by = getuser()
+        submission.save()
 
     def export(self):
         """

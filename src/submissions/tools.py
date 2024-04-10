@@ -537,6 +537,9 @@ def rreplace(s, old, new):
 
 ctx = get_config(None)
 
+def is_power_user() -> bool:
+    return getpass.getuser() in ctx.power_users
+
 def check_authorization(func):
     """
     Decorator to check if user is authorized to access function
@@ -546,7 +549,7 @@ def check_authorization(func):
     """    
     def wrapper(*args, **kwargs):
         logger.debug(f"Checking authorization")
-        if getpass.getuser() in ctx.power_users:
+        if is_power_user():
             return func(*args, **kwargs)
         else:
             logger.error(f"User {getpass.getuser()} is not authorized for this function.")
