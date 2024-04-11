@@ -95,10 +95,12 @@ class SubmissionDetails(QDialog):
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
+        with open("details.html", "w") as f:
+            f.write(self.html)
 
     @pyqtSlot(str)
     def sign_off(self, submission:str|BasicSubmission):
-        logger.debug(f"Signing off on {submission}")
+        logger.debug(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_number=submission)
         submission.uploaded_by = getuser()

@@ -3,7 +3,7 @@ Models for the main submission types.
 '''
 from __future__ import annotations
 from getpass import getuser
-import json, logging, uuid, tempfile, re, yaml, base64
+import logging, uuid, tempfile, re, yaml, base64
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory
 from reportlab.graphics.barcode import createBarcodeImageInMemory
@@ -14,7 +14,6 @@ from pprint import pformat
 from . import Reagent, SubmissionType, KitType, Organization
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
-from json.decoder import JSONDecodeError
 from sqlalchemy.ext.associationproxy import association_proxy
 import pandas as pd
 from openpyxl import Workbook
@@ -252,7 +251,7 @@ class BasicSubmission(BaseClass):
         sample_list = self.hitpick_plate()
         # logger.debug("Setting background colours")
         for sample in sample_list:
-            if sample['Positive']:
+            if sample['positive']:
                 sample['background_color'] = "#f10f07"
             else:
                 if "colour" in sample.keys():
@@ -1268,6 +1267,54 @@ class Wastewater(BasicSubmission):
         row = idx.index.to_list()[0]
         return row + 1
 
+    def custom_context_events(self) -> dict:
+        events = super().custom_context_events()
+        events['Link PCR'] = self.link_pcr
+        return events
+
+    def link_pcr(self, obj):
+        from backend.excel import PCRParser
+        from frontend.widgets import select_open_file
+        fname = select_open_file(obj=obj, file_extension="xlsx")
+        parser = PCRParser(filepath=fname)
+        # Check if PCR info already exists
+        if hasattr(self, 'pcr_info') and self.pcr_info != None:
+            # existing = json.loads(sub.pcr_info)
+            existing = self.pcr_info
+        else:
+            existing = None
+        if existing != None:
+            # update pcr_info
+            try:
+                logger.debug(f"Updating {type(existing)}: {existing} with {type(parser.pcr)}: {parser.pcr}")
+                # if json.dumps(parser.pcr) not in sub.pcr_info:
+                if parser.pcr not in self.pcr_info:
+                    existing.append(parser.pcr)
+                logger.debug(f"Setting: {existing}")
+                # sub.pcr_info = json.dumps(existing)
+                self.pcr_info = existing
+            except TypeError:
+                logger.error(f"Error updating!")
+                # sub.pcr_info = json.dumps([parser.pcr])
+                self.pcr_info = [parser.pcr]
+            logger.debug(f"Final pcr info for {self.rsl_plate_num}: {self.pcr_info}")
+        else:
+            # sub.pcr_info = json.dumps([parser.pcr])
+            self.pcr_info = [parser.pcr]
+        logger.debug(f"Existing {type(self.pcr_info)}: {self.pcr_info}")
+        logger.debug(f"Inserting {type(parser.pcr)}: {parser.pcr}")
+        self.save(original=False)
+        logger.debug(f"Got {len(parser.samples)} samples to update!")
+        logger.debug(f"Parser samples: {parser.samples}")
+        for sample in self.samples:
+            logger.debug(f"Running update on: {sample}")
+            try:
+                sample_dict = [item for item in parser.samples if item['sample']==sample.rsl_number][0]
+            except IndexError:
+                continue
+            self.update_subsampassoc(sample=sample, input_dict=sample_dict)
+        # self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
+
 class WastewaterArtic(BasicSubmission):
     """
     derivative submission type for artic wastewater
@@ -2094,7 +2141,7 @@ class SubmissionSampleAssociation(BaseClass):
             logger.error(f"Unable to find row {self.row} in row_map.")
             sample['Well'] = None
         sample['Plate Name'] = self.submission.rsl_plate_num
-        sample['Positive'] = False
+        sample['positive'] = False
         sample['submitted_date'] = self.submission.submitted_date
         return sample
     

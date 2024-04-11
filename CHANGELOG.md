@@ -1,6 +1,7 @@
 ## 202404.02
 
 - Various bug fixes.
+- Move import PCR results to context menu.
 - Added ability to sign off on submission in submission details.
 
 ## 202403.03

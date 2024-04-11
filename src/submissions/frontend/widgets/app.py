@@ -8,18 +8,15 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from pathlib import Path
-from backend.validators import PydReagent
 from tools import check_if_app, Settings, Report
 from .pop_ups import  AlertPop
-from .misc import AddReagentForm, LogParser
+from .misc import LogParser
 import logging, webbrowser, sys
-from datetime import date
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .kit_creator import KitAdder
 from .submission_type_creator import SubmissionTypeAdder
-
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -70,7 +67,7 @@ class App(QMainWindow):
         helpMenu.addAction(self.helpAction)
         helpMenu.addAction(self.docsAction)
         fileMenu.addAction(self.importAction)
-        fileMenu.addAction(self.importPCRAction)
+        # fileMenu.addAction(self.importPCRAction)
         methodsMenu.addAction(self.searchLog)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
@@ -93,7 +90,7 @@ class App(QMainWindow):
         """        
         logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
-        self.importPCRAction = QAction("&Import PCR Results", self)
+        # self.importPCRAction = QAction("&Import PCR Results", self)
         self.addReagentAction = QAction("Add Reagent", self)
         self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Import Kit", self)
@@ -110,7 +107,7 @@ class App(QMainWindow):
         """
         logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
-        self.importPCRAction.triggered.connect(self.table_widget.formwidget.import_pcr_results)
+        # self.importPCRAction.triggered.connect(self.table_widget.formwidget.import_pcr_results)
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.generateReportAction.triggered.connect(self.table_widget.sub_wid.generate_report)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
@@ -157,8 +154,6 @@ class App(QMainWindow):
             self.report = Report()
         else:
             self.statusBar().showMessage("Action completed sucessfully.", 5000)
-        
-    
 
     def runSearch(self):
         dlg = LogParser(self)
