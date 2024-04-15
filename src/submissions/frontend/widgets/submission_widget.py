@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal
 from pathlib import Path
 from . import select_open_file, select_save_file
-import logging, difflib, inspect, json
+import logging, difflib, inspect, pickle
 from pathlib import Path
 from tools import Report, Result, check_not_nan
 from backend.excel.parser import SheetParser, PCRParser
@@ -147,7 +147,7 @@ class SubmissionFormWidget(QWidget):
 
     def __init__(self, parent: QWidget, submission:PydSubmission) -> None:
         super().__init__(parent)
-        self.report = Report()
+        # self.report = Report()
         self.app = parent.app
         self.pyd = submission
         # self.input = [{k:v} for k,v in kwargs.items()]
@@ -177,18 +177,18 @@ class SubmissionFormWidget(QWidget):
         self.scrape_reagents(self.pyd.extraction_kit)
         # extraction kit must be added last so widget order makes sense.
         # self.layout.addWidget(self.create_widget(key="extraction_kit", value=self.extraction_kit, submission_type=self.submission_type))
-        if hasattr(self.pyd, "csv"):
-            export_csv_btn = QPushButton("Export CSV")
-            export_csv_btn.setObjectName("export_csv_btn")
-            self.layout.addWidget(export_csv_btn)
-            export_csv_btn.clicked.connect(self.export_csv_function)
-        submit_btn = QPushButton("Submit")
-        submit_btn.setObjectName("submit_btn")
-        self.layout.addWidget(submit_btn)
-        submit_btn.clicked.connect(self.submit_new_sample_function)
-        self.setLayout(self.layout)
-        self.app.report.add_result(self.report)
-        self.app.result_reporter()
+        # if hasattr(self.pyd, "csv"):
+        #     export_csv_btn = QPushButton("Export CSV")
+        #     export_csv_btn.setObjectName("export_csv_btn")
+        #     self.layout.addWidget(export_csv_btn)
+        #     export_csv_btn.clicked.connect(self.export_csv_function)
+        # submit_btn = QPushButton("Submit")
+        # submit_btn.setObjectName("submit_btn")
+        # self.layout.addWidget(submit_btn)
+        # submit_btn.clicked.connect(self.submit_new_sample_function)
+        # self.setLayout(self.layout)
+        # self.app.report.add_result(self.report)
+        # self.app.result_reporter()
 
     def create_widget(self, key:str, value:dict|PydReagent, submission_type:str|None=None, extraction_kit:str|None=None) -> "self.InfoItem":
         """
@@ -230,7 +230,7 @@ class SubmissionFormWidget(QWidget):
         caller = inspect.stack()[1].function.__repr__().replace("'", "")
         # self.reagents = []
         # logger.debug(f"Self.reagents: {self.reagents}")
-        # logger.debug(f"\n\n{caller}\n\n")
+        logger.debug(f"\n\n{pformat(caller)}\n\n")
         # logger.debug(f"SubmissionType: {self.submission_type}")
         report = Report()
         logger.debug(f"Extraction kit: {extraction_kit}")
@@ -257,13 +257,25 @@ class SubmissionFormWidget(QWidget):
         # self.pyd.reagents = already_have + reagents
         # logger.debug(f"Reagents: {self.reagents}")
         # self.kit_integrity_completion_function(extraction_kit=extraction_kit)
-        reagents, report = self.pyd.check_kit_integrity(extraction_kit=extraction_kit)
+        reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=extraction_kit)
         # logger.debug(f"Missing reagents: {obj.missing_reagents}")
         for reagent in reagents:
             add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.pyd.extraction_kit)
             self.layout.addWidget(add_widget)
-        self.report.add_result(report)
-        logger.debug(f"Outgoing report: {self.report.results}")
+        report.add_result(integrity_report)
+        logger.debug(f"Outgoing report: {report.results}")
+        if hasattr(self.pyd, "csv"):
+            export_csv_btn = QPushButton("Export CSV")
+            export_csv_btn.setObjectName("export_csv_btn")
+            self.layout.addWidget(export_csv_btn)
+            export_csv_btn.clicked.connect(self.export_csv_function)
+        submit_btn = QPushButton("Submit")
+        submit_btn.setObjectName("submit_btn")
+        self.layout.addWidget(submit_btn)
+        submit_btn.clicked.connect(self.submit_new_sample_function)
+        self.setLayout(self.layout)
+        self.app.report.add_result(report)
+        self.app.result_reporter()
 
     def kit_integrity_completion_function(self, extraction_kit:str|None=None):
         """
@@ -302,7 +314,6 @@ class SubmissionFormWidget(QWidget):
                             Alternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents. 
                             \n\nPlease make sure you check the lots carefully!""".replace("  ", ""), status="Warning")
             report.add_result(result)
-        
         self.report.add_result(report)
         logger.debug(f"Outgoing report: {self.report.results}")
         

@@ -2,6 +2,7 @@
 
 - Various bug fixes.
 - Move import PCR results to context menu.
+- Automated backup of database.
 - Added ability to sign off on submission in submission details.
 
 ## 202403.03

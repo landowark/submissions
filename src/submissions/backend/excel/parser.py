@@ -266,7 +266,11 @@ class ReagentParser(object):
                 # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
                 logger.debug(f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
-                if name.lower() != "not applicable":
+                try:
+                    check = name.lower() != "not applicable"
+                except AttributeError:
+                    check = True
+                if check:
                     listo.append(PydReagent(type=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment, missing=missing))
         return listo
 

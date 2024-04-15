@@ -192,7 +192,7 @@ class PydSample(BaseModel, extra='allow'):
                                                                             row=row, column=column, id=id)
                 # logger.debug(f"Using submission_sample_association: {association}")
                 try:
-                    instance.sample_submission_associations.append(association)
+                    # instance.sample_submission_associations.append(association)
                     out_associations.append(association)
                 except IntegrityError as e:
                     logger.error(f"Could not attach submission sample association due to: {e}")
@@ -809,7 +809,8 @@ class PydSubmission(BaseModel, extra='allow'):
         # # what reagent types are in both lists?
         # missing = list(set(ext_kit_rtypes).difference(reagenttypes))
         missing = []
-        output_reagents = self.reagents
+        # output_reagents = self.reagents
+        output_reagents = ext_kit_rtypes
         logger.debug(f"Already have these reagent types: {reagenttypes}")
         for rt in ext_kit_rtypes:
             if rt.type not in reagenttypes:

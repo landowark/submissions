@@ -538,7 +538,11 @@ def rreplace(s, old, new):
 ctx = get_config(None)
 
 def is_power_user() -> bool:
-    return getpass.getuser() in ctx.power_users
+    try:
+        check = getpass.getuser() in ctx.power_users
+    except:
+        check = False
+    return check
 
 def check_authorization(func):
     """

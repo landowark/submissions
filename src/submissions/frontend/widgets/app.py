@@ -9,9 +9,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QAction
 from pathlib import Path
 from tools import check_if_app, Settings, Report
+from datetime import date
 from .pop_ups import  AlertPop
 from .misc import LogParser
-import logging, webbrowser, sys
+import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
@@ -51,6 +52,7 @@ class App(QMainWindow):
         self._connectActions()
         self.show()
         self.statusBar().showMessage('Ready', 5000)
+        self.backup_database()
         
     def _createMenuBar(self):
         """
@@ -158,6 +160,16 @@ class App(QMainWindow):
     def runSearch(self):
         dlg = LogParser(self)
         dlg.exec()
+
+    def backup_database(self):
+        month = date.today().strftime("%Y-%m")
+        # day = date.today().strftime("%Y-%m-%d")
+        logger.debug(f"Here is the db directory: {self.ctx.database_path}")
+        logger.debug(f"Here is the backup directory: {self.ctx.backup_path}")
+        current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve().with_suffix(".db")
+        if not current_month_bak.exists() and "demo" not in self.ctx.database_path.__str__():
+            logger.debug("No backup found for this month, backing up database.")
+            shutil.copyfile(self.ctx.database_path, current_month_bak)
 
 class AddSubForm(QWidget):
     

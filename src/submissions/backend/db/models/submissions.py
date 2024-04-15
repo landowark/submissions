@@ -436,6 +436,7 @@ class BasicSubmission(BaseClass):
         Args:
             original (bool, optional): Is this the first save. Defaults to True.
         """        
+        logger.debug("Saving submission.")
         if original:
             self.uploaded_by = getuser()
         super().save()
@@ -605,12 +606,15 @@ class BasicSubmission(BaseClass):
         # logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} Enforcer!")
         # return instr
         from backend.validators import RSLNamer
+        logger.debug(f"instr coming into {cls}: {instr}")
+        logger.debug(f"data coming into {cls}: {data}")
         defaults = cls.get_default_info()
         data['abbreviation'] = defaults['abbreviation']
         if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
             data['submission_type'] = defaults['submission_type']
         # outstr = super().enforce_name(instr=instr, data=data)
         if instr in [None, ""]:
+            logger.debug("Sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
         else:
             outstr = instr
@@ -620,6 +624,7 @@ class BasicSubmission(BaseClass):
             outstr = re.sub(r"(\d{4})-(\d{2})-(\d{2})", r"\1\2\3", outstr)
             outstr = re.sub(rf"{data['abbreviation']}(\d{6})", rf"{data['abbreviation']}-\1", outstr, flags=re.IGNORECASE).upper()
         except (AttributeError, TypeError) as e:
+            logger.error(f"Error making outstr: {e}, sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
         try:
             plate_number = re.search(r"(?:(-|_)\d)(?!\d)", outstr).group().strip("_").strip("-")
@@ -1281,28 +1286,32 @@ class Wastewater(BasicSubmission):
         if hasattr(self, 'pcr_info') and self.pcr_info != None:
             # existing = json.loads(sub.pcr_info)
             existing = self.pcr_info
+            logger.debug(f"Found existing pcr info: {pformat(self.pcr_info)}")
         else:
             existing = None
         if existing != None:
             # update pcr_info
             try:
-                logger.debug(f"Updating {type(existing)}: {existing} with {type(parser.pcr)}: {parser.pcr}")
+                logger.debug(f"Updating {type(existing)}:\n {pformat(existing)} with {type(parser.pcr)}:\n {pformat(parser.pcr)}")
                 # if json.dumps(parser.pcr) not in sub.pcr_info:
                 if parser.pcr not in self.pcr_info:
+                    logger.debug(f"This is new pcr info, appending to existing")
                     existing.append(parser.pcr)
-                logger.debug(f"Setting: {existing}")
+                else:
+                    logger.debug("This info already exists, skipping.")
+                # logger.debug(f"Setting {self.rsl_plate_num} PCR to:\n {pformat(existing)}")
                 # sub.pcr_info = json.dumps(existing)
                 self.pcr_info = existing
             except TypeError:
                 logger.error(f"Error updating!")
                 # sub.pcr_info = json.dumps([parser.pcr])
                 self.pcr_info = [parser.pcr]
-            logger.debug(f"Final pcr info for {self.rsl_plate_num}: {self.pcr_info}")
+            logger.debug(f"Final pcr info for {self.rsl_plate_num}:\n {pformat(self.pcr_info)}")
         else:
             # sub.pcr_info = json.dumps([parser.pcr])
             self.pcr_info = [parser.pcr]
-        logger.debug(f"Existing {type(self.pcr_info)}: {self.pcr_info}")
-        logger.debug(f"Inserting {type(parser.pcr)}: {parser.pcr}")
+        # logger.debug(f"Existing {type(self.pcr_info)}: {self.pcr_info}")
+        # logger.debug(f"Inserting {type(parser.pcr)}: {parser.pcr}")
         self.save(original=False)
         logger.debug(f"Got {len(parser.samples)} samples to update!")
         logger.debug(f"Parser samples: {parser.samples}")
@@ -1383,15 +1392,15 @@ class WastewaterArtic(BasicSubmission):
             instr = re.sub(r"Artic", "", instr, flags=re.IGNORECASE)
         except (AttributeError, TypeError) as e:
             logger.error(f"Problem using regex: {e}")
-        try:
-            check = instr.startswith("RSL")
-        except AttributeError:
-            check = False
-        if not check:
-            try:
-                instr = "RSL" + instr
-            except:
-                instr = "RSL"
+        # try:
+        #     check = instr.startswith("RSL")
+        # except AttributeError:
+        #     check = False
+        # if not check:
+        #     try:
+        #         instr = "RSL" + instr
+        #     except TypeError:
+        #         instr = "RSL"
         outstr = super().enforce_name(instr=instr, data=data)
         return outstr
 
@@ -1540,7 +1549,8 @@ class WastewaterArtic(BasicSubmission):
             df.sort_values(by=['destination_column', 'destination_row'], inplace=True)
         except AttributeError as e:
             logger.error(f"Couldn't construct df due to {e}")
-        input_dict['csv'] = df
+        # input_dict['csv'] = df
+        input_dict['csv'] = xl.parse("hitpicks_csv_to_export")
         return input_dict
 
     @classmethod
