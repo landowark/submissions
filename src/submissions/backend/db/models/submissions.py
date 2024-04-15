@@ -1143,8 +1143,8 @@ class Wastewater(BasicSubmission):
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
     ext_technician = Column(String(64)) #: Name of technician doing extraction
     pcr_technician = Column(String(64)) #: Name of technician doing pcr
-    # pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
-    pcr_info = Column(NestedMutableJson)
+    # pcr_info = Column(JSON) 
+    pcr_info = Column(NestedMutableJson)#: unstructured output from pcr table logger or user(Artic)
 
     __mapper_args__ = __mapper_args__ = dict(polymorphic_identity="Wastewater", 
                            polymorphic_load="inline", 

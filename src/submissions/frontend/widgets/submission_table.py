@@ -275,7 +275,7 @@ class SubmissionsSheet(QTableView):
                     existing.append(new_run)
                     logger.debug(f"Setting: {existing}")
                     # sub.pcr_info = json.dumps(existing)
-                    sub.pcr_info = json.dumps(existing)
+                    sub.pcr_info = existing
                 except TypeError:
                     logger.error(f"Error updating!")
                     # sub.pcr_info = json.dumps([new_run])
