@@ -1,7 +1,8 @@
-- [ ] Appending of qPCR results to WW not saving. Find out why.
+- [x] Update controls to NestedMutableJson
+- [x] Appending of qPCR results to WW not saving. Find out why.
     - Possibly due to immutable JSON? But... it's worked before... Right?
     - Based on research, if a top-level JSON field is not changed, SQLalchemy will not detect changes.
-    - May have to use a special class: [link](https://docs.sqlalchemy.org/en/14/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values)
+    - Using sqlalchemy-json module seems to have helped.
 - [ ] Add Bead basher and Assit to DB.
 - [x] Artic not creating right plate name.
 - [ ] Merge BasicSubmission.find_subclasses and BasicSubmission.find_polymorphic_subclass

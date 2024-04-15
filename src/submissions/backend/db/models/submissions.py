@@ -11,22 +11,24 @@ from reportlab.graphics.shapes import Drawing
 from reportlab.lib.units import mm
 from operator import attrgetter, itemgetter
 from pprint import pformat
-from . import Reagent, SubmissionType, KitType, Organization
+from . import BaseClass, Reagent, SubmissionType, KitType, Organization
+# MutableDict and JSONEncodedDict are custom classes designed to get around JSON columns not being updated.
+# See: https://docs.sqlalchemy.org/en/14/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy_json import NestedMutableJson
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
+from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
-from . import BaseClass
 from tools import check_not_nan, row_map, setup_lookup, jinja_template_loading, rreplace
 from datetime import datetime, date
 from typing import List, Any, Tuple
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
-from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
-from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
@@ -52,10 +54,10 @@ class BasicSubmission(BaseClass):
     # Move this into custom types?
     # reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagent.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
-    extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
+    extraction_info = Column(NestedMutableJson) #: unstructured output from the extraction table logger.
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
-    comment = Column(JSON) #: user notes
+    comment = Column(NestedMutableJson) #: user notes
     submission_category = Column(String(64)) #: ["Research", "Diagnostic", "Surveillance", "Validation"], else defaults to submission_type_name
 
     submission_sample_associations = relationship(
@@ -1141,7 +1143,8 @@ class Wastewater(BasicSubmission):
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
     ext_technician = Column(String(64)) #: Name of technician doing extraction
     pcr_technician = Column(String(64)) #: Name of technician doing pcr
-    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
+    # pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
+    pcr_info = Column(NestedMutableJson)
 
     __mapper_args__ = __mapper_args__ = dict(polymorphic_identity="Wastewater", 
                            polymorphic_load="inline", 
@@ -1331,10 +1334,10 @@ class WastewaterArtic(BasicSubmission):
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
     artic_technician = Column(String(64)) #: Name of technician performing artic
     dna_core_submission_number = Column(String(64)) #: Number used by core as id
-    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
+    pcr_info = Column(NestedMutableJson) #: unstructured output from pcr table logger or user(Artic)
     gel_image = Column(String(64)) #: file name of gel image in zip file
-    gel_info = Column(JSON) #: unstructured data from gel.
-    source_plates = Column(JSON) #: wastewater plates that samples come from
+    gel_info = Column(NestedMutableJson) #: unstructured data from gel.
+    source_plates = Column(NestedMutableJson) #: wastewater plates that samples come from
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic", 
                            polymorphic_load="inline", 
@@ -2339,7 +2342,7 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
     n1_status = Column(String(32)) #: positive or negative for N1
     n2_status = Column(String(32)) #: positive or negative for N2
-    pcr_results = Column(JSON) #: imported PCR status from QuantStudio
+    pcr_results = Column(NestedMutableJson) #: imported PCR status from QuantStudio
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Association", 
                            polymorphic_load="inline", 

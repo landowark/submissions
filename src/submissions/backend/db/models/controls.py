@@ -4,7 +4,8 @@ All control related models.
 from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship, Query
-import logging, json
+from sqlalchemy_json import NestedMutableJson
+import logging
 from operator import itemgetter
 from . import BaseClass
 from tools import setup_lookup
@@ -60,9 +61,10 @@ class ControlType(BaseClass):
             List[str]: list of subtypes available
         """        
         # Get first instance since all should have same subtypes
-        outs = self.instances[0]
+        # outs = self.instances[0]
         # Get mode of instance
-        jsoner = json.loads(getattr(outs, mode))
+        # jsoner = json.loads(getattr(outs, mode))
+        jsoner = getattr(self.instances[0], mode)
         logger.debug(f"JSON out: {jsoner.keys()}")
         try:
             # Pick genera (all should have same subtypes)
@@ -82,9 +84,9 @@ class Control(BaseClass):
     controltype = relationship("ControlType", back_populates="instances", foreign_keys=[parent_id]) #: reference to parent control type
     name = Column(String(255), unique=True) #: Sample ID
     submitted_date = Column(TIMESTAMP) #: Date submitted to Robotics
-    contains = Column(JSON) #: unstructured hashes in contains.tsv for each organism
-    matches = Column(JSON) #: unstructured hashes in matches.tsv for each organism
-    kraken = Column(JSON) #: unstructured output from kraken_report
+    contains = Column(NestedMutableJson) #: unstructured hashes in contains.tsv for each organism
+    matches = Column(NestedMutableJson) #: unstructured hashes in matches.tsv for each organism
+    kraken = Column(NestedMutableJson) #: unstructured output from kraken_report
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id")) #: parent submission id
     submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
     refseq_version = Column(String(16)) #: version of refseq used in fastq parsing
@@ -109,7 +111,8 @@ class Control(BaseClass):
         """        
         # logger.debug("loading json string into dict")
         try:
-            kraken = json.loads(self.kraken)
+            # kraken = json.loads(self.kraken)
+            kraken = self.kraken
         except TypeError:
             kraken = {}
         # logger.debug("calculating kraken count total to use in percentage")
@@ -147,7 +150,8 @@ class Control(BaseClass):
         output = []
         # logger.debug("load json string for mode (i.e. contains, matches, kraken2)")
         try:
-            data = json.loads(getattr(self, mode))
+            # data = json.loads(getattr(self, mode))
+            data = self.__getattribute__(mode)
         except TypeError:
             data = {}
         logger.debug(f"Length of data: {len(data)}")
