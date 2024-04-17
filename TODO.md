@@ -1,3 +1,5 @@
+- [ ] Fix Parsed/Missing mix ups.
+- [x] Have sample parser check for controls and add to reagents?
 - [x] Update controls to NestedMutableJson
 - [x] Appending of qPCR results to WW not saving. Find out why.
     - Possibly due to immutable JSON? But... it's worked before... Right?

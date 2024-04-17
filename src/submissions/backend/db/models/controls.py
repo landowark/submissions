@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy_json import NestedMutableJson
-import logging
+import logging, re
 from operator import itemgetter
 from . import BaseClass
 from tools import setup_lookup
@@ -24,6 +24,9 @@ class ControlType(BaseClass):
     name = Column(String(255), unique=True) #: controltype name (e.g. MCS)
     targets = Column(JSON) #: organisms checked for
     instances = relationship("Control", back_populates="controltype") #: control samples created of this type.
+
+    def __repr__(self) -> str:
+        return f"<ControlType({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -74,6 +77,16 @@ class ControlType(BaseClass):
         subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
         return subtypes
           
+    @classmethod
+    def get_positive_control_types(cls):
+        return [item for item in cls.query() if item.targets != []]
+    
+    @classmethod
+    def build_positive_regex(cls):
+        strings = list(set([item.name.split("-")[0] for item in cls.get_positive_control_types()]))
+        return re.compile(rf"(^{'|^'.join(strings)})-.*", flags=re.IGNORECASE)
+
+
 class Control(BaseClass):
     """
     Base class of a control sample.

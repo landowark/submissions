@@ -809,8 +809,8 @@ class PydSubmission(BaseModel, extra='allow'):
         # # what reagent types are in both lists?
         # missing = list(set(ext_kit_rtypes).difference(reagenttypes))
         missing = []
-        # output_reagents = self.reagents
-        output_reagents = ext_kit_rtypes
+        output_reagents = self.reagents
+        # output_reagents = ext_kit_rtypes
         logger.debug(f"Already have these reagent types: {reagenttypes}")
         for rt in ext_kit_rtypes:
             if rt.type not in reagenttypes:

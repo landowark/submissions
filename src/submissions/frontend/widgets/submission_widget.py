@@ -369,7 +369,7 @@ class SubmissionFormWidget(QWidget):
         match result.code:
             # code 0: everything is fine.
             case 0:
-                self.report.add_result(None)
+                report.add_result(None)
             # code 1: ask for overwrite
             case 1:
                 dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
@@ -379,11 +379,11 @@ class SubmissionFormWidget(QWidget):
                     result = None
                 else:
                     self.app.ctx.database_session.rollback()
-                    self.report.add_result(Result(msg="Overwrite cancelled", status="Information"))
+                    report.add_result(Result(msg="Overwrite cancelled", status="Information"))
                     return
             # code 2: No RSL plate number given
             case 2:
-                self.report.add_result(result)
+                report.add_result(result)
                 return
             case _:
                 pass
@@ -457,7 +457,8 @@ class SubmissionFormWidget(QWidget):
         for k,v in info.items():
             self.pyd.set_attribute(key=k, value=v)
         # return submission
-        self.report.add_result(report)
+        report.add_result(report)
+        return report
     
     class InfoItem(QWidget):
 
