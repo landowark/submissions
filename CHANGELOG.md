@@ -1,3 +1,8 @@
+## 202404.03
+
+- Package updates.
+- Bug fixes for JSON updaters.
+
 ## 202404.02
 
 - Various bug fixes.
