@@ -16,12 +16,15 @@ from . import BaseClass, Reagent, SubmissionType, KitType, Organization
 # See: https://docs.sqlalchemy.org/en/14/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy_json import NestedMutableJson
+# from sqlalchemy.ext.declarative import declared_attr
+# from sqlalchemy_json import NestedMutableJson
+# from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 import pandas as pd
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import check_not_nan, row_map, setup_lookup, jinja_template_loading, rreplace
@@ -54,10 +57,10 @@ class BasicSubmission(BaseClass):
     # Move this into custom types?
     # reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagent.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
-    extraction_info = Column(NestedMutableJson) #: unstructured output from the extraction table logger.
+    extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
     uploaded_by = Column(String(32)) #: user name of person who submitted the submission to the database.
-    comment = Column(NestedMutableJson) #: user notes
+    comment = Column(JSON) #: user notes
     submission_category = Column(String(64)) #: ["Research", "Diagnostic", "Surveillance", "Validation"], else defaults to submission_type_name
 
     submission_sample_associations = relationship(
@@ -98,6 +101,13 @@ class BasicSubmission(BaseClass):
         """        
         submission_type = self.submission_type or "Basic"
         return f"{submission_type}Submission({self.rsl_plate_num})"
+
+    @classmethod
+    def jsons(cls):
+        output = [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
+        if issubclass(cls, BasicSubmission) and not cls.__name__ == "BasicSubmission":
+            output += BasicSubmission.jsons()
+        return output
 
     def to_dict(self, full_data:bool=False, backup:bool=False, report:bool=False) -> dict:
         """
@@ -315,7 +325,7 @@ class BasicSubmission(BaseClass):
         logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # Exclude sub information
-        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'source_plates']:
+        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents', 'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']:
             try:
                 df = df.drop(item, axis=1)
             except:
@@ -360,15 +370,29 @@ class BasicSubmission(BaseClass):
                     field_value = value
             case "ctx" | "csv" | "filepath" | "equipment":
                 return
-            case "comment":
-                if value == "" or value == None or value == 'null':
-                    field_value = None
+            # case "comment":
+            #     if value == "" or value == None or value == 'null':
+            #         field_value = None
+            #     else:
+            #         field_value = dict(name=getuser(), text=value, time=datetime.now())
+            #         # if self.comment is None:
+            #         #     self.comment = [field_value]
+            #         # else:
+            #         #     self.comment.append(field_value)
+            #         self.update_json(field=key, value=field_value)
+            #     return
+            case item if item in self.jsons():
+                logger.debug(f"Setting JSON attribute.")
+                existing = self.__getattribute__(key)
+                if existing is None:
+                    existing = []
+                if value in existing:
+                    logger.warning("Value already exists. Preventing duplicate addition.")
+                    return
                 else:
-                    field_value = dict(name=getuser(), text=value, time=datetime.now())
-                    if self.comment is None:
-                        self.comment = [field_value]
-                    else:
-                        self.comment.append(field_value)
+                    existing.append(value)
+                self.__setattr__(key, existing)
+                flag_modified(self, key)
                 return
             case _:
                 field_value = value
@@ -957,12 +981,13 @@ class BasicSubmission(BaseClass):
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
-            try:
-                # For some reason .append results in new comment being ignored, so have to concatenate lists.
-                self.comment = self.comment + comment
-            except (AttributeError, TypeError) as e:
-                logger.error(f"Hit error ({e}) creating comment")
-                self.comment = comment
+            # try:
+            #     # For some reason .append results in new comment being ignored, so have to concatenate lists.
+            #     self.comment = self.comment + comment
+            # except (AttributeError, TypeError) as e:
+            #     logger.error(f"Hit error ({e}) creating comment")
+            #     self.comment = comment
+            self.set_attribute(key='comment', value=comment)
             logger.debug(self.comment)
             self.save(original=False)
 
@@ -1108,15 +1133,6 @@ class BacterialCulture(BasicSubmission):
         template += "_{{ submitting_lab }}_{{ submitter_plate_num }}"
         return template
     
-    # @classmethod
-    # def parse_info(cls, input_dict: dict, xl: pd.ExcelFile | None = None) -> dict:
-    #     """
-    #     Extends parent
-    #     """        
-    #     input_dict = super().parse_info(input_dict, xl)
-    #     input_dict['submitted_date']['missing'] = True
-    #     return input_dict
-
     @classmethod
     def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None, plate_map: dict | None = None) -> dict:
         """
@@ -1177,7 +1193,7 @@ class Wastewater(BasicSubmission):
     ext_technician = Column(String(64)) #: Name of technician doing extraction
     pcr_technician = Column(String(64)) #: Name of technician doing pcr
     # pcr_info = Column(JSON) 
-    pcr_info = Column(NestedMutableJson)#: unstructured output from pcr table logger or user(Artic)
+    pcr_info = Column(JSON)#: unstructured output from pcr table logger or user(Artic)
 
     __mapper_args__ = __mapper_args__ = dict(polymorphic_identity="Wastewater", 
                            polymorphic_load="inline", 
@@ -1319,35 +1335,36 @@ class Wastewater(BasicSubmission):
         fname = select_open_file(obj=obj, file_extension="xlsx")
         parser = PCRParser(filepath=fname)
         # Check if PCR info already exists
-        if hasattr(self, 'pcr_info') and self.pcr_info != None:
-            # existing = json.loads(sub.pcr_info)
-            existing = self.pcr_info
-            logger.debug(f"Found existing pcr info: {pformat(self.pcr_info)}")
-        else:
-            existing = None
-        if existing != None:
-            # update pcr_info
-            try:
-                logger.debug(f"Updating {type(existing)}:\n {pformat(existing)} with {type(parser.pcr)}:\n {pformat(parser.pcr)}")
-                # if json.dumps(parser.pcr) not in sub.pcr_info:
-                if parser.pcr not in self.pcr_info:
-                    logger.debug(f"This is new pcr info, appending to existing")
-                    existing.append(parser.pcr)
-                else:
-                    logger.debug("This info already exists, skipping.")
-                # logger.debug(f"Setting {self.rsl_plate_num} PCR to:\n {pformat(existing)}")
-                # sub.pcr_info = json.dumps(existing)
-                self.pcr_info = existing
-            except TypeError:
-                logger.error(f"Error updating!")
-                # sub.pcr_info = json.dumps([parser.pcr])
-                self.pcr_info = [parser.pcr]
-            logger.debug(f"Final pcr info for {self.rsl_plate_num}:\n {pformat(self.pcr_info)}")
-        else:
-            # sub.pcr_info = json.dumps([parser.pcr])
-            self.pcr_info = [parser.pcr]
-        # logger.debug(f"Existing {type(self.pcr_info)}: {self.pcr_info}")
-        # logger.debug(f"Inserting {type(parser.pcr)}: {parser.pcr}")
+        # if hasattr(self, 'pcr_info') and self.pcr_info != None:
+        #     # existing = json.loads(sub.pcr_info)
+        #     existing = self.pcr_info
+        #     logger.debug(f"Found existing pcr info: {pformat(self.pcr_info)}")
+        # else:
+        #     existing = None
+        # if existing != None:
+        #     # update pcr_info
+        #     try:
+        #         logger.debug(f"Updating {type(existing)}:\n {pformat(existing)} with {type(parser.pcr)}:\n {pformat(parser.pcr)}")
+        #         # if json.dumps(parser.pcr) not in sub.pcr_info:
+        #         if parser.pcr not in self.pcr_info:
+        #             logger.debug(f"This is new pcr info, appending to existing")
+        #             existing.append(parser.pcr)
+        #         else:
+        #             logger.debug("This info already exists, skipping.")
+        #         # logger.debug(f"Setting {self.rsl_plate_num} PCR to:\n {pformat(existing)}")
+        #         # sub.pcr_info = json.dumps(existing)
+        #         self.pcr_info = existing
+        #     except TypeError:
+        #         logger.error(f"Error updating!")
+        #         # sub.pcr_info = json.dumps([parser.pcr])
+        #         self.pcr_info = [parser.pcr]
+        #     logger.debug(f"Final pcr info for {self.rsl_plate_num}:\n {pformat(self.pcr_info)}")
+        # else:
+        #     # sub.pcr_info = json.dumps([parser.pcr])
+        #     self.pcr_info = [parser.pcr]
+        # # logger.debug(f"Existing {type(self.pcr_info)}: {self.pcr_info}")
+        # # logger.debug(f"Inserting {type(parser.pcr)}: {parser.pcr}")
+        self.set_attribute("pcr_info", parser.pcr)
         self.save(original=False)
         logger.debug(f"Got {len(parser.samples)} samples to update!")
         logger.debug(f"Parser samples: {parser.samples}")
@@ -1367,10 +1384,12 @@ class WastewaterArtic(BasicSubmission):
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
     artic_technician = Column(String(64)) #: Name of technician performing artic
     dna_core_submission_number = Column(String(64)) #: Number used by core as id
-    pcr_info = Column(NestedMutableJson) #: unstructured output from pcr table logger or user(Artic)
+    pcr_info = Column(JSON) #: unstructured output from pcr table logger or user(Artic)
     gel_image = Column(String(64)) #: file name of gel image in zip file
-    gel_info = Column(NestedMutableJson) #: unstructured data from gel.
-    source_plates = Column(NestedMutableJson) #: wastewater plates that samples come from
+    gel_info = Column(JSON) #: unstructured data from gel.
+    gel_controls = Column(JSON) #: locations of controls on the gel
+    source_plates = Column(JSON) #: wastewater plates that samples come from
+
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic", 
                            polymorphic_load="inline", 
@@ -1408,14 +1427,14 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             dict: Updated sample dictionary
         """        
-        from backend.validators import RSLNamer
+        # from backend.validators import RSLNamer
         input_dict = super().parse_info(input_dict)
-        df = xl.parse("First Strand List", header=None)
-        plates = []
-        for row in [8,9,10]:
-            plate_name = RSLNamer(df.iat[row-1, 2]).parsed_name
-            plates.append(dict(plate=plate_name, start_sample=df.iat[row-1, 3]))
-        input_dict['source_plates'] = plates
+        ws = load_workbook(xl.io, data_only=True)['Egel results']
+        data = [ws.cell(row=jj,column=ii) for ii in range(15,27) for jj in range(10,18)]
+        data = [cell for cell in data if cell.value is not None and "NTC" in cell.value]
+        input_dict['gel_controls'] = [dict(sample_id=cell.value, location=f"{row_map[cell.row-9]}{str(cell.column-14).zfill(2)}") for cell in data]
+        # df = xl.parse("Egel results").iloc[7:16, 13:26]
+        # df = df.set_index(df.columns[0])
         return input_dict
 
     @classmethod
@@ -1535,57 +1554,6 @@ class WastewaterArtic(BasicSubmission):
             dict: Updated parser product.
         """        
         input_dict = super().finalize_parse(input_dict, xl, info_map, plate_map)
-        # logger.debug(pformat(input_dict))
-        # logger.debug(pformat(info_map))
-        # logger.debug(pformat(plate_map))
-        # samples = []
-        # for sample in input_dict['samples']:
-        #     logger.debug(f"Input sample: {pformat(sample.__dict__)}")
-        #     if sample.submitter_id == "NTC1":
-        #         samples.append(dict(sample=sample.submitter_id, destination_row=8, destination_column=2, source_row=0, source_column=0, plate_number='control', plate=None))
-        #         continue
-        #     elif sample.submitter_id == "NTC2":
-        #         samples.append(dict(sample=sample.submitter_id, destination_row=8, destination_column=5, source_row=0, source_column=0, plate_number='control', plate=None))
-        #         continue
-        #     destination_row = sample.row[0]
-        #     destination_column = sample.column[0]
-        #     # logger.debug(f"Looking up: {sample.submitter_id} friend.")
-        #     lookup_sample = BasicSample.query(submitter_id=sample.submitter_id)
-        #     lookup_ssa = SubmissionSampleAssociation.query(sample=lookup_sample, exclude_submission_type=cls.__mapper_args__['polymorphic_identity'] , chronologic=True, reverse=True, limit=1)
-        #     try:
-        #         plate = lookup_ssa.submission.rsl_plate_num
-        #         source_row = lookup_ssa.row
-        #         source_column = lookup_ssa.column
-        #     except AttributeError as e:
-        #         logger.error(f"Problem with lookup: {e}")
-        #         plate = "Error"
-        #         source_row = 0
-        #         source_column = 0
-        #         # continue
-        #     output_sample = dict(
-        #         sample=sample.submitter_id,
-        #         destination_column=destination_column, 
-        #         destination_row=destination_row,
-        #         plate=plate,
-        #         source_column=source_column,
-        #         source_row = source_row
-        #         )
-        #     logger.debug(f"output sample: {pformat(output_sample)}")
-        #     samples.append(output_sample)
-        # plates = sorted(list(set([sample['plate'] for sample in samples if sample['plate'] != None and sample['plate'] != "Error"])))
-        # logger.debug(f"Here's what I got for plates: {plates}")
-        # for iii, plate in enumerate(plates):
-        #     for sample in samples:
-        #         if sample['plate'] == plate:
-        #             sample['plate_number'] = iii + 1
-        # df = pd.DataFrame.from_records(samples).fillna(value="")
-        # try:
-        #     df.source_row = df.source_row.astype(int)
-        #     df.source_column = df.source_column.astype(int)
-        #     df.sort_values(by=['destination_column', 'destination_row'], inplace=True)
-        # except AttributeError as e:
-        #     logger.error(f"Couldn't construct df due to {e}")
-        # input_dict['csv'] = df
         input_dict['csv'] = xl.parse("hitpicks_csv_to_export")
         return input_dict
 
@@ -1606,30 +1574,30 @@ class WastewaterArtic(BasicSubmission):
         worksheet = input_excel["First Strand List"]
         samples = cls.query(rsl_number=info['rsl_plate_num']['value']).submission_sample_associations
         samples = sorted(samples, key=attrgetter('column', 'row'))
-        try:
-            source_plates = [item['plate'] for item in info['source_plates']]
-            first_samples = [item['start_sample'] for item in info['source_plates']]
-        except:
-            source_plates = []
-            first_samples = []
-            for sample in samples:
-                sample = sample.sample
-                try:
-                    assoc = [item.submission.rsl_plate_num for item in sample.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
-                except IndexError:
-                    logger.error(f"Association not found for {sample}")
-                    continue
-                if assoc not in source_plates:
-                    source_plates.append(assoc)
-                    first_samples.append(sample.ww_processing_num)
-        # Pad list to length of 3
-        source_plates += ['None'] * (3 - len(source_plates))
-        first_samples += [''] * (3 - len(first_samples))
-        source_plates = zip(source_plates, first_samples, strict=False)
-        for iii, plate in enumerate(source_plates, start=8):
-            logger.debug(f"Plate: {plate}")
-            for jjj, value in enumerate(plate, start=3):
-                worksheet.cell(row=iii, column=jjj, value=value)
+        # try:
+        #     source_plates = [item['plate'] for item in info['source_plates']]
+        #     first_samples = [item['start_sample'] for item in info['source_plates']]
+        # except:
+        #     source_plates = []
+        #     first_samples = []
+        #     for sample in samples:
+        #         sample = sample.sample
+        #         try:
+        #             assoc = [item.submission.rsl_plate_num for item in sample.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
+        #         except IndexError:
+        #             logger.error(f"Association not found for {sample}")
+        #             continue
+        #         if assoc not in source_plates:
+        #             source_plates.append(assoc)
+        #             first_samples.append(sample.ww_processing_num)
+        # # Pad list to length of 3
+        # source_plates += ['None'] * (3 - len(source_plates))
+        # first_samples += [''] * (3 - len(first_samples))
+        # source_plates = zip(source_plates, first_samples, strict=False)
+        # for iii, plate in enumerate(source_plates, start=8):
+        #     logger.debug(f"Plate: {plate}")
+        #     for jjj, value in enumerate(plate, start=3):
+        #         worksheet.cell(row=iii, column=jjj, value=value)
         logger.debug(f"Info:\n{pformat(info)}")
         check = 'gel_info' in info.keys() and info['gel_info']['value'] != None
         if check:
@@ -1676,7 +1644,7 @@ class WastewaterArtic(BasicSubmission):
             Tuple[dict, Template]: (Updated dictionary, Template to be rendered)
         """        
         base_dict, template = super().get_details_template(base_dict=base_dict)
-        base_dict['excluded'] += ['gel_info', 'gel_image', 'headers', "dna_core_submission_number", "source_plates"]
+        base_dict['excluded'] += ['gel_info', 'gel_image', 'headers', "dna_core_submission_number", "source_plates", "gel_controls"]
         base_dict['DNA Core ID'] = base_dict['dna_core_submission_number']
         check = 'gel_info' in base_dict.keys() and base_dict['gel_info'] != None
         if check:
@@ -1739,7 +1707,7 @@ class WastewaterArtic(BasicSubmission):
         from frontend.widgets.gel_checker import GelBox
         from frontend.widgets import select_open_file
         fname = select_open_file(obj=obj, file_extension="jpg")
-        dlg = GelBox(parent=obj, img_path=fname)
+        dlg = GelBox(parent=obj, img_path=fname, submission=self)
         if dlg.exec():
             self.dna_core_submission_number, img_path, output, comment = dlg.parse_form()
             self.gel_image = img_path.name
@@ -2375,7 +2343,7 @@ class WastewaterAssociation(SubmissionSampleAssociation):
     ct_n2 = Column(FLOAT(2)) #: AKA ct for N2
     n1_status = Column(String(32)) #: positive or negative for N1
     n2_status = Column(String(32)) #: positive or negative for N2
-    pcr_results = Column(NestedMutableJson) #: imported PCR status from QuantStudio
+    pcr_results = Column(JSON) #: imported PCR status from QuantStudio
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Association", 
                            polymorphic_load="inline", 

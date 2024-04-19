@@ -7,24 +7,26 @@ from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
                              )
 import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QFont
 from PIL import Image
 import numpy as np
 import logging
 from pprint import pformat
 from typing import Tuple, List
 from pathlib import Path
+from backend.db.models import WastewaterArtic
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 # Main window class
 class GelBox(QDialog):
 
-    def __init__(self, parent, img_path:str|Path):
+    def __init__(self, parent, img_path:str|Path, submission:WastewaterArtic):
         super().__init__(parent)
         # setting title
         self.setWindowTitle("PyQtGraph")
         self.img_path = img_path
+        self.submission = submission
         # setting geometry
         self.setGeometry(50, 50, 1200, 900)
         # icon
@@ -57,7 +59,11 @@ class GelBox(QDialog):
         # plot window goes on right side, spanning 3 rows
         layout.addWidget(self.imv, 1, 1,20,20)
         # setting this widget as central widget of the main window
-        self.form = ControlsForm(parent=self)
+        try:
+            control_info = sorted(self.submission.gel_controls, key=lambda d: d['location'])
+        except KeyError:
+            control_info = None
+        self.form = ControlsForm(parent=self, control_info=control_info)
         layout.addWidget(self.form,22,1,1,4)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -79,16 +85,24 @@ class GelBox(QDialog):
         
 class ControlsForm(QWidget):
 
-    def __init__(self, parent) -> None:
+    def __init__(self, parent, control_info:List=None) -> None:
         super().__init__(parent)
         self.layout = QGridLayout()
         columns = []
         rows = []
+        try:
+            tt_text = "\n".join([f"{item['sample_id']} - CELL {item['location']}" for item in control_info])
+        except TypeError:
+            tt_text = None
         for iii, item in enumerate(["Negative Control Key", "Description", "Results - 65 C", "Results - 63 C", "Results - Spike"]):
             label = QLabel(item)
             self.layout.addWidget(label, 0, iii,1,1)
             if iii > 1:
                 columns.append(item)
+            elif iii == 0:
+                if tt_text:
+                    label.setStyleSheet("font-weight: bold; color: blue; text-decoration: underline;")
+                    label.setToolTip(tt_text)
         for iii, item in enumerate(["RSL-NTC", "ENC-NTC", "NTC"], start=1):
             label = QLabel(item)
             self.layout.addWidget(label, iii, 0, 1, 1)
@@ -102,6 +116,11 @@ class ControlsForm(QWidget):
                 widge.setText("Neg")
                 widge.setObjectName(f"{rows[iii]} : {columns[jjj]}")
                 self.layout.addWidget(widge, iii+1, jjj+2, 1, 1)
+        # try:
+        #     for iii, item in enumerate(control_info, start=1):
+        #         self.layout.addWidget(QLabel(f"{item['sample_id']} - {item['location']}"), iii+4, 1)
+        # except TypeError:
+        #     pass
         self.layout.addWidget(QLabel("Comments:"), 0,5,1,1)
         self.comment_field = QTextEdit(self)
         self.comment_field.setFixedHeight(50)

@@ -1,3 +1,4 @@
+- [ ] Critical: Convert Json lits to dicts so I can have them update properly without using crashy Sqlalchemy-json
 - [ ] Fix Parsed/Missing mix ups.
 - [x] Have sample parser check for controls and add to reagents?
 - [x] Update controls to NestedMutableJson

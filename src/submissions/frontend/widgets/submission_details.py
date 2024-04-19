@@ -95,8 +95,8 @@ class SubmissionDetails(QDialog):
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
-        with open("details.html", "w") as f:
-            f.write(self.html)
+        # with open("details.html", "w") as f:
+        #     f.write(self.html)
 
     @pyqtSlot(str)
     def sign_off(self, submission:str|BasicSubmission):
@@ -171,7 +171,7 @@ class SubmissionComment(QDialog):
         commenter = getuser()
         comment = self.txt_editor.toPlainText()
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
-        full_comment = [{"name":commenter, "time": dt, "text": comment}]
+        full_comment = {"name":commenter, "time": dt, "text": comment}
         logger.debug(f"Full comment: {full_comment}")
         return full_comment
 

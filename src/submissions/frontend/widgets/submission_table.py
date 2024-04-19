@@ -1,7 +1,7 @@
 '''
 Contains widgets specific to the submission summary and submission details.
 '''
-import logging, json
+import logging
 from pprint import pformat
 from PyQt6.QtWidgets import QTableView, QMenu
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
@@ -177,35 +177,36 @@ class SubmissionsSheet(QTableView):
                 count += 1
             except AttributeError:
                 continue
-            if sub.extraction_info != None:
-                # existing = json.loads(sub.extraction_info)
-                existing = sub.extraction_info
-            else:
-                existing = None
-            # Check if the new info already exists in the imported submission
-            try:
-                # if json.dumps(new_run) in sub.extraction_info:
-                if new_run in sub.extraction_info:
-                    logger.debug(f"Looks like we already have that info.")
-                    continue
-            except TypeError:
-                pass
-            # Update or create the extraction info
-            if existing != None:
-                try:
-                    logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
-                    existing.append(new_run)
-                    logger.debug(f"Setting: {existing}")
-                    # sub.extraction_info = json.dumps(existing)
-                    sub.extraction_info = existing
-                except TypeError:
-                    logger.error(f"Error updating!")
-                    # sub.extraction_info = json.dumps([new_run])
-                    sub.extraction_info = [new_run]
-                logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.extraction_info}")
-            else:
-                # sub.extraction_info = json.dumps([new_run])
-                sub.extraction_info = [new_run]
+            sub.set_attribute('extraction_info', new_run)
+            # if sub.extraction_info != None:
+            #     # existing = json.loads(sub.extraction_info)
+            #     existing = sub.extraction_info
+            # else:
+            #     existing = None
+            # # Check if the new info already exists in the imported submission
+            # try:
+            #     # if json.dumps(new_run) in sub.extraction_info:
+            #     if new_run in sub.extraction_info:
+            #         logger.debug(f"Looks like we already have that info.")
+            #         continue
+            # except TypeError:
+            #     pass
+            # # Update or create the extraction info
+            # if existing != None:
+            #     try:
+            #         logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
+            #         existing.append(new_run)
+            #         logger.debug(f"Setting: {existing}")
+            #         # sub.extraction_info = json.dumps(existing)
+            #         sub.extraction_info = existing
+            #     except TypeError:
+            #         logger.error(f"Error updating!")
+            #         # sub.extraction_info = json.dumps([new_run])
+            #         sub.extraction_info = [new_run]
+            #     logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.extraction_info}")
+            # else:
+            #     # sub.extraction_info = json.dumps([new_run])
+            #     sub.extraction_info = [new_run]
             sub.save()
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
 
@@ -253,37 +254,38 @@ class SubmissionsSheet(QTableView):
                 logger.debug(f"Found submission: {sub.rsl_plate_num}")
             except AttributeError:
                 continue
-            # check if pcr_info already exists
-            if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
-                # existing = json.loads(sub.pcr_info)
-                existing = sub.pcr_info
-            else:
-                existing = None
-            # check if this entry already exists in imported submission
-            try:
-                # if json.dumps(new_run) in sub.pcr_info:
-                if new_run in sub.pcr_info:
-                    logger.debug(f"Looks like we already have that info.")
-                    continue
-                else:
-                    count += 1
-            except TypeError:
-                logger.error(f"No json to dump")
-            if existing is not None:
-                try:
-                    logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
-                    existing.append(new_run)
-                    logger.debug(f"Setting: {existing}")
-                    # sub.pcr_info = json.dumps(existing)
-                    sub.pcr_info = existing
-                except TypeError:
-                    logger.error(f"Error updating!")
-                    # sub.pcr_info = json.dumps([new_run])
-                    sub.pcr_info = [new_run]
-                logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.pcr_info}")
-            else:
-                # sub.pcr_info = json.dumps([new_run])
-                sub.pcr_info = [new_run]
+            sub.set_attribute('pcr_info', new_run)
+            # # check if pcr_info already exists
+            # if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
+            #     # existing = json.loads(sub.pcr_info)
+            #     existing = sub.pcr_info
+            # else:
+            #     existing = None
+            # # check if this entry already exists in imported submission
+            # try:
+            #     # if json.dumps(new_run) in sub.pcr_info:
+            #     if new_run in sub.pcr_info:
+            #         logger.debug(f"Looks like we already have that info.")
+            #         continue
+            #     else:
+            #         count += 1
+            # except TypeError:
+            #     logger.error(f"No json to dump")
+            # if existing is not None:
+            #     try:
+            #         logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
+            #         existing.append(new_run)
+            #         logger.debug(f"Setting: {existing}")
+            #         # sub.pcr_info = json.dumps(existing)
+            #         sub.pcr_info = existing
+            #     except TypeError:
+            #         logger.error(f"Error updating!")
+            #         # sub.pcr_info = json.dumps([new_run])
+            #         sub.pcr_info = [new_run]
+            #     logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.pcr_info}")
+            # else:
+            #     # sub.pcr_info = json.dumps([new_run])
+            #     sub.pcr_info = [new_run]
             sub.save()
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         

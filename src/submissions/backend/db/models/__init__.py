@@ -86,7 +86,7 @@ class BaseClass(Base):
         """
         Add the object to the database and commit
         """        
-        logger.debug(f"Saving object: {pformat(self.__dict__)}")
+        # logger.debug(f"Saving object: {pformat(self.__dict__)}")
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()

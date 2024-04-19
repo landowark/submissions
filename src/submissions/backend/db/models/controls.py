@@ -4,14 +4,14 @@ All control related models.
 from __future__ import annotations
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey
 from sqlalchemy.orm import relationship, Query
-from sqlalchemy_json import NestedMutableJson
-import logging, re
+import logging, re, sys
 from operator import itemgetter
 from . import BaseClass
 from tools import setup_lookup
 from datetime import date, datetime
 from typing import List
 from dateutil.parser import parse
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -86,7 +86,6 @@ class ControlType(BaseClass):
         strings = list(set([item.name.split("-")[0] for item in cls.get_positive_control_types()]))
         return re.compile(rf"(^{'|^'.join(strings)})-.*", flags=re.IGNORECASE)
 
-
 class Control(BaseClass):
     """
     Base class of a control sample.
@@ -97,9 +96,9 @@ class Control(BaseClass):
     controltype = relationship("ControlType", back_populates="instances", foreign_keys=[parent_id]) #: reference to parent control type
     name = Column(String(255), unique=True) #: Sample ID
     submitted_date = Column(TIMESTAMP) #: Date submitted to Robotics
-    contains = Column(NestedMutableJson) #: unstructured hashes in contains.tsv for each organism
-    matches = Column(NestedMutableJson) #: unstructured hashes in matches.tsv for each organism
-    kraken = Column(NestedMutableJson) #: unstructured output from kraken_report
+    contains = Column(JSON) #: unstructured hashes in contains.tsv for each organism
+    matches = Column(JSON) #: unstructured hashes in matches.tsv for each organism
+    kraken = Column(JSON) #: unstructured output from kraken_report
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id")) #: parent submission id
     submission = relationship("BacterialCulture", back_populates="controls", foreign_keys=[submission_id]) #: parent submission
     refseq_version = Column(String(16)) #: version of refseq used in fastq parsing

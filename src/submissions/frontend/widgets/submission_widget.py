@@ -5,14 +5,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal
 from pathlib import Path
 from . import select_open_file, select_save_file
-import logging, difflib, inspect, pickle
+import logging, difflib, inspect
 from pathlib import Path
 from tools import Report, Result, check_not_nan
-from backend.excel.parser import SheetParser, PCRParser
+from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
     KitType, Organization, SubmissionType, Reagent, 
-    ReagentType, KitTypeReagentTypeAssociation, BasicSubmission
+    ReagentType, KitTypeReagentTypeAssociation
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
@@ -154,7 +154,7 @@ class SubmissionFormWidget(QWidget):
         # self.samples = []
         self.missing_info = []
         self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 
-                       'equipment', 'source_plates', 'id', 'cost', 'extraction_info', 
+                       'equipment', 'gel_controls', 'id', 'cost', 'extraction_info', 
                        'controls', 'pcr_info', 'gel_info', 'gel_image']
         self.recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
         self.layout = QVBoxLayout()
