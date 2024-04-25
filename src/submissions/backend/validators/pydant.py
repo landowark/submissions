@@ -8,13 +8,13 @@ from pydantic import BaseModel, field_validator, Field
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser._parser import ParserError
-from typing import List, Tuple
+from typing import List, Tuple, Literal
 from . import RSLNamer
 from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, Report, Result, row_map
 from backend.db.models import *
 from sqlalchemy.exc import StatementError, IntegrityError
-from PyQt6.QtWidgets import QComboBox, QWidget
+from PyQt6.QtWidgets import QWidget
 from openpyxl import load_workbook, Workbook
 from io import BytesIO
 
@@ -24,7 +24,7 @@ class PydReagent(BaseModel):
     
     lot: str|None
     type: str|None
-    expiry: date|None
+    expiry: date|Literal['NA']|None
     name: str|None
     missing: bool = Field(default=True)
     comment: str|None = Field(default="", validate_default=True)
@@ -77,6 +77,8 @@ class PydReagent(BaseModel):
             match value:
                 case int():
                     return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2).date()
+                case 'NA':
+                    return value
                 case str():
                     return parse(value)
                 case date():
@@ -85,6 +87,13 @@ class PydReagent(BaseModel):
                     return convert_nans_to_nones(str(value))
         if value == None:
             value = date.today()
+        return value
+    
+    @field_validator("expiry")
+    @classmethod
+    def date_na(cls, value):
+        if isinstance(value, date) and value.year == 1970:
+            value = "NA"
         return value
     
     @field_validator("name", mode="before")
@@ -125,6 +134,10 @@ class PydReagent(BaseModel):
                             reagent.type.append(reagent_type)
                     case "comment":
                         continue
+                    case "expiry":
+                        if isinstance(value, str):
+                            value = date(year=1970, month=1, day=1)
+                        reagent.expiry = value
                     case _:
                         try:
                             reagent.__setattr__(key, value)
@@ -271,6 +284,7 @@ class PydSubmission(BaseModel, extra='allow'):
     reagents: List[dict]|List[PydReagent] = []
     samples: List[PydSample]
     equipment: List[PydEquipment]|None =[]
+    cost_centre: dict|None = Field(default=dict(value=None, missing=True), validate_default=True)
 
     @field_validator('equipment', mode='before')
     @classmethod
@@ -332,10 +346,28 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submitting_lab", mode="before")
     @classmethod
     def rescue_submitting_lab(cls, value):
-        if value == None:
+        if value is None:
             return dict(value=None, missing=True)
         return value
-
+    
+    @field_validator("submitting_lab")
+    @classmethod
+    def lookup_submitting_lab(cls, value):
+        if isinstance(value['value'], str):
+            try:
+                value['value'] = Organization.query(name=value['value']).name
+            except AttributeError:
+                value['value'] = None
+        if value['value'] is None:
+            value['missing'] = True
+            from frontend.widgets.pop_ups import ObjectSelector
+            dlg = ObjectSelector(title="Missing Submitting Lab", message="We need a submitting lab. Please select from the list.", obj_type=Organization)
+            if dlg.exec():
+                value['value'] = dlg.getValues()
+            else:
+                value['value'] = None
+        return value
+        
     @field_validator("rsl_plate_num", mode='before')
     @classmethod
     def rescue_rsl_number(cls, value):
@@ -426,6 +458,30 @@ class PydSubmission(BaseModel, extra='allow'):
             sample.assoc_id = [iii]
             output.append(sample)
         return output
+
+    @field_validator("cost_centre", mode="before")
+    @classmethod
+    def rescue_cost_centre(cls, value):
+        match value:
+            case dict():
+                return value
+            case _:
+                return dict(value=value, missing=True)
+
+    @field_validator("cost_centre")
+    @classmethod
+    def get_cost_centre(cls, value, values):
+        # logger.debug(f"Value coming in for cost_centre: {value}")
+        match value['value']:
+            case None:
+                from backend.db.models import Organization
+                org = Organization.query(name=values.data['submitting_lab']['value'])
+                try:
+                    return dict(value=org.cost_centre, missing=True)
+                except AttributeError:
+                    return dict(value="xxx", missing=True)
+            case _:
+                return value
 
     def set_attribute(self, key, value):
         self.__setattr__(name=key, value=value)
@@ -599,6 +655,7 @@ class PydSubmission(BaseModel, extra='allow'):
         else:
             info = {k:v for k,v in self.improved_dict().items() if isinstance(v, dict)}
             reagents = self.reagents
+            
         if len(reagents + list(info.keys())) == 0:
             # logger.warning("No info to fill in, returning")
             return None
@@ -616,14 +673,14 @@ class PydSubmission(BaseModel, extra='allow'):
             new_reagent = {}
             new_reagent['type'] = reagent.type
             new_reagent['lot'] = excel_map[new_reagent['type']]['lot']
-            new_reagent['lot']['value'] = reagent.lot
+            new_reagent['lot']['value'] = reagent.lot or "NA"
             new_reagent['expiry'] = excel_map[new_reagent['type']]['expiry']
-            new_reagent['expiry']['value'] = reagent.expiry
+            new_reagent['expiry']['value'] = reagent.expiry or "NA"
             new_reagent['sheet'] = excel_map[new_reagent['type']]['sheet']
             # name is only present for Bacterial Culture
             try:
                 new_reagent['name'] = excel_map[new_reagent['type']]['name']
-                new_reagent['name']['value'] = reagent.name
+                new_reagent['name']['value'] = reagent.name or "Not Applicable"
             except Exception as e:
                 logger.error(f"Couldn't get name due to {e}")
             new_reagents.append(new_reagent)
@@ -657,6 +714,8 @@ class PydSubmission(BaseModel, extra='allow'):
                 # logger.debug(f"Attempting to write lot {reagent['lot']['value']} in: row {reagent['lot']['row']}, column {reagent['lot']['column']}")
                 worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'], value=reagent['lot']['value'])
                 # logger.debug(f"Attempting to write expiry {reagent['expiry']['value']} in: row {reagent['expiry']['row']}, column {reagent['expiry']['column']}")
+                if reagent['expiry']['value'].year == 1970:
+                    reagent['expiry']['value'] = "NA"
                 worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'], value=reagent['expiry']['value'])
                 try:
                     # logger.debug(f"Attempting to write name {reagent['name']['value']} in: row {reagent['name']['row']}, column {reagent['name']['column']}")
@@ -790,14 +849,13 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"Extraction kit: {extraction_kit}. Is it a string? {isinstance(extraction_kit, str)}")
         if isinstance(extraction_kit, str):
             extraction_kit = dict(value=extraction_kit)
-        if extraction_kit is not None:
-            if extraction_kit != self.extraction_kit['value']:
+        if extraction_kit is not None and extraction_kit != self.extraction_kit['value']:
                 self.extraction_kit['value'] = extraction_kit['value']
-                reagenttypes = []
-            else:
-                reagenttypes = [item.type for item in self.reagents]
-        else:
-            reagenttypes = [item.type for item in self.reagents]
+        #         reagenttypes = []
+        #     else:
+        #         reagenttypes = [item.type for item in self.reagents]
+        # else:
+        #     reagenttypes = [item.type for item in self.reagents]
         logger.debug(f"Looking up {self.extraction_kit['value']}")
         ext_kit = KitType.query(name=self.extraction_kit['value'])
         ext_kit_rtypes = [item.to_pydantic() for item in ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
@@ -808,21 +866,26 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Checking if reagents match kit contents: {check}")
         # # what reagent types are in both lists?
         # missing = list(set(ext_kit_rtypes).difference(reagenttypes))
-        missing = []
-        output_reagents = self.reagents
-        # output_reagents = ext_kit_rtypes
-        logger.debug(f"Already have these reagent types: {reagenttypes}")
-        for rt in ext_kit_rtypes:
-            if rt.type not in reagenttypes:
-                missing.append(rt)
-                if rt.type not in [item.type for item in output_reagents]:
-                    output_reagents.append(rt)
-        logger.debug(f"Missing reagents types: {missing}")
+        # missing = []
+        # Exclude any reagenttype found in this pyd not expected in kit.
+        expected_check = [item.type for item in ext_kit_rtypes]
+        output_reagents = [rt for rt in self.reagents if rt.type in expected_check]
+        logger.debug(f"Already have these reagent types: {output_reagents}")
+        missing_check = [item.type for item in output_reagents]
+        missing_reagents = [rt for rt in ext_kit_rtypes if rt.type not in missing_check]
+        missing_reagents += [rt for rt in output_reagents if rt.missing]
+        # for rt in ext_kit_rtypes:
+        #     if rt.type not in [item.type for item in output_reagents]:
+        #         missing.append(rt)
+        #         if rt.type not in [item.type for item in output_reagents]:
+        #             output_reagents.append(rt)
+        output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
+        logger.debug(f"Missing reagents types: {missing_reagents}")
         # if lists are equal return no problem
-        if len(missing)==0:
+        if len(missing_reagents)==0:
             result = None
         else:
-            result = Result(msg=f"The submission you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in missing]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
+            result = Result(msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!", status="Warning")
         report.add_result(result)
         return output_reagents, report
 

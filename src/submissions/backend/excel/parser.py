@@ -62,9 +62,11 @@ class SheetParser(object):
         parser = InfoParser(xl=self.xl, submission_type=self.sub['submission_type']['value'])
         info = parser.parse_info() 
         self.info_map = parser.map
+        # exclude_from_info = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.sub['submission_type']).exclude_from_info_parser()
         for k,v in info.items():
             match k:
                 case "sample":
+                # case item if 
                     pass
                 case _:
                     self.sub[k] = v
@@ -97,9 +99,9 @@ class SheetParser(object):
         """
         Enforce that the parser has an extraction kit
         """    
-        from frontend.widgets.pop_ups import KitSelector
+        from frontend.widgets.pop_ups import ObjectSelector
         if not check_not_nan(self.sub['extraction_kit']['value']):
-            dlg = KitSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.")
+            dlg = ObjectSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.", obj_type=KitType)
             if dlg.exec():
                 self.sub['extraction_kit'] = dict(value=dlg.getValues(), missing=True)
             else:
@@ -133,7 +135,11 @@ class SheetParser(object):
         """       
         # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
         logger.debug(f"Equipment: {self.sub['equipment']}")
-        if len(self.sub['equipment']) == 0:
+        try:
+            check = len(self.sub['equipment']) == 0
+        except TypeError:
+            check = True
+        if check:
             self.sub['equipment'] = None
         psm = PydSubmission(filepath=self.filepath, **self.sub)
         return psm
@@ -142,11 +148,12 @@ class InfoParser(object):
 
     def __init__(self, xl:pd.ExcelFile, submission_type:str):
         logger.info(f"\n\Hello from InfoParser!\n\n")
-        self.map = self.fetch_submission_info_map(submission_type=submission_type)
+        self.submission_type = submission_type
+        self.map = self.fetch_submission_info_map()
         self.xl = xl
         logger.debug(f"Info map for InfoParser: {pformat(self.map)}")
         
-    def fetch_submission_info_map(self, submission_type:str|dict) -> dict:
+    def fetch_submission_info_map(self) -> dict:
         """
         Gets location of basic info from the submission_type object in the database.
 
@@ -156,10 +163,10 @@ class InfoParser(object):
         Returns:
             dict: Location map of all info for this submission type
         """        
-        if isinstance(submission_type, str):
-            submission_type = dict(value=submission_type, missing=True)
-        logger.debug(f"Looking up submission type: {submission_type['value']}")
-        submission_type = SubmissionType.query(name=submission_type['value'])
+        if isinstance(self.submission_type, str):
+            self.submission_type = dict(value=self.submission_type, missing=True)
+        logger.debug(f"Looking up submission type: {self.submission_type['value']}")
+        submission_type = SubmissionType.query(name=self.submission_type['value'])
         info_map = submission_type.info_map
         # Get the parse_info method from the submission type specified
         self.custom_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name).parse_info
@@ -172,16 +179,25 @@ class InfoParser(object):
         Returns:
             dict: key:value of basic info
         """        
+        if isinstance(self.submission_type, str):
+            self.submission_type = dict(value=self.submission_type, missing=True)
         dicto = {}
+        exclude_from_generic = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type['value']).get_default_info("parser_ignore")
+        # This loop parses generic info
+        logger.debug(f"Map: {self.map}")
+        # time.sleep(5)
         for sheet in self.xl.sheet_names:
             df = self.xl.parse(sheet, header=None)
             relevant = {}
             for k, v in self.map.items():
+                # exclude from generic parsing
+                if k in exclude_from_generic:
+                    continue
+                # If the value is hardcoded put it in the dictionary directly.
                 if isinstance(v, str):
                     dicto[k] = dict(value=v, missing=False)
                     continue
-                if k in ["samples", "all_sheets"]:
-                    continue
+                logger.debug(f"Looking for {k} in self.map")
                 if sheet in self.map[k]['sheets']:
                     relevant[k] = v
             logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
@@ -252,6 +268,7 @@ class ReagentParser(object):
                     lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
                     expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                     if 'comment' in relevant[item].keys():
+                        logger.debug(f"looking for {relevant[item]} comment.")
                         comment = df.iat[relevant[item]['comment']['row']-1, relevant[item]['comment']['column']-1]
                     else:
                         comment = ""
@@ -294,7 +311,7 @@ class SampleParser(object):
         sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
         logger.debug(f"sample_info_map: {sample_info_map}")
         self.plate_map = self.construct_plate_map(plate_map_location=sample_info_map['plate_map'])
-        logger.debug(f"plate_map: {self.plate_map}")
+        # logger.debug(f"plate_map: {self.plate_map}")
         self.lookup_table = self.construct_lookup_table(lookup_table_location=sample_info_map['lookup_table'])
         if "plates" in sample_info_map:
             self.plates = sample_info_map['plates']
@@ -439,7 +456,7 @@ class SampleParser(object):
         """        
         result = None
         new_samples = []
-        logger.debug(f"Starting samples: {pformat(self.samples)}")
+        # logger.debug(f"Starting samples: {pformat(self.samples)}")
         for sample in self.samples:
             translated_dict = {}
             for k, v in sample.items():

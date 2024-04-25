@@ -65,8 +65,8 @@ class Organization(BaseClass):
                 pass
         match name:
             case str():
-                # logger.debug(f"Looking up organization with name: {name}")
-                query = query.filter(cls.name==name)
+                # logger.debug(f"Looking up organization with name starting with: {name}")
+                query = query.filter(cls.name.startswith(name))
                 limit = 1
             case _:
                 pass

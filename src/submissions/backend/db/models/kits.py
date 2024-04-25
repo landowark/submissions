@@ -374,11 +374,15 @@ class Reagent(BaseClass):
         except (TypeError, AttributeError) as e:
             place_holder = date.today()
             logger.debug(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
+        if self.expiry.year == 1970:
+            place_holder = "NA"
+        else:
+            place_holder = place_holder.strftime("%Y-%m-%d")
         return dict(
             name=self.name,
             type=rtype,
             lot=self.lot,
-            expiry=place_holder.strftime("%Y-%m-%d")
+            expiry=place_holder
         )
     
     def update_last_used(self, kit:KitType) -> Report:
@@ -410,6 +414,7 @@ class Reagent(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls, 
+                id:int|None=None,
                 reagent_type:str|ReagentType|None=None,
                 lot_number:str|None=None,
                 name:str|None=None,
@@ -428,6 +433,12 @@ class Reagent(BaseClass):
             models.Reagent | List[models.Reagent]: reagent or list of reagents matching filter.
         """    
         query: Query = cls.__database_session__.query(cls)
+        match id:
+            case int():
+                query = query.filter(cls.id==id)
+                limit = 1
+            case _:
+                pass
         match reagent_type:
             case str():
                 # logger.debug(f"Looking up reagents by reagent type str: {reagent_type}")
@@ -535,6 +546,7 @@ class SubmissionType(BaseClass):
     id = Column(INTEGER, primary_key=True) #: primary key
     name = Column(String(128), unique=True) #: name of submission type
     info_map = Column(JSON) #: Where basic information is found in the excel workbook corresponding to this type.
+    defaults = Column(JSON) #: Basic information about this submission type
     instances = relationship("BasicSubmission", backref="submission_type") #: Concrete instances of this type.
     template_file = Column(BLOB) #: Blank form for this type stored as binary.
     processes = relationship("Process", back_populates="submission_types", secondary=submissiontypes_processes) #: Relation to equipment processes used for this type.
@@ -652,6 +664,10 @@ class SubmissionType(BaseClass):
             case _:
                 raise TypeError(f"Type {type(equipment_role)} is not allowed")
         return list(set([item for items in relevant for item in items if item != None ]))
+
+    def get_submission_class(self):
+        from .submissions import BasicSubmission
+        return BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.name)
 
     @classmethod
     @setup_lookup

@@ -135,7 +135,7 @@ class SubmissionFormContainer(QWidget):
             info = dlg.parse_form()
             logger.debug(f"Reagent info: {info}")
             # create reagent object
-            reagent = PydReagent(ctx=self.app.ctx, **info)
+            reagent = PydReagent(ctx=self.app.ctx, **info, missing=False)
             # send reagent to db
             sqlobj, result = reagent.toSQL()
             sqlobj.save()
@@ -150,45 +150,29 @@ class SubmissionFormWidget(QWidget):
         # self.report = Report()
         self.app = parent.app
         self.pyd = submission
-        # self.input = [{k:v} for k,v in kwargs.items()]
-        # self.samples = []
         self.missing_info = []
-        self.ignore = ['filepath', 'samples', 'reagents', 'csv', 'ctx', 'comment', 
-                       'equipment', 'gel_controls', 'id', 'cost', 'extraction_info', 
-                       'controls', 'pcr_info', 'gel_info', 'gel_image']
-        self.recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
+        st = SubmissionType.query(name=self.pyd.submission_type['value']).get_submission_class()
+        defaults = st.get_default_info("form_recover", "form_ignore")
+        self.recover = defaults['form_recover']
+        self.ignore = defaults['form_ignore']
+        # self.ignore += self.recover
+        # logger.debug(f"Attempting to extend ignore list with {self.pyd.submission_type['value']}")
         self.layout = QVBoxLayout()
         # for k, v in kwargs.items():
         for k in list(self.pyd.model_fields.keys()) + list(self.pyd.model_extra.keys()):
-            if k not in self.ignore:
-                try:
-                    value = self.pyd.__getattribute__(k)
-                except AttributeError:
-                    logger.error(f"Couldn't get attribute from pyd: {k}")
-                    value = dict(value=None, missing=True)
-                add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'])
-                if add_widget != None:
-                    self.layout.addWidget(add_widget)
-                if k == "extraction_kit":
-                    add_widget.input.currentTextChanged.connect(self.scrape_reagents)
-            # else:
-            # self.__setattr__(k, v)
-        # self.scrape_reagents(self.extraction_kit['value'])
+            if k in self.ignore:
+                continue
+            try:
+                value = self.pyd.__getattribute__(k)
+            except AttributeError:
+                logger.error(f"Couldn't get attribute from pyd: {k}")
+                value = dict(value=None, missing=True)
+            add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'])
+            if add_widget != None:
+                self.layout.addWidget(add_widget)
+            if k == "extraction_kit":
+                add_widget.input.currentTextChanged.connect(self.scrape_reagents)
         self.scrape_reagents(self.pyd.extraction_kit)
-        # extraction kit must be added last so widget order makes sense.
-        # self.layout.addWidget(self.create_widget(key="extraction_kit", value=self.extraction_kit, submission_type=self.submission_type))
-        # if hasattr(self.pyd, "csv"):
-        #     export_csv_btn = QPushButton("Export CSV")
-        #     export_csv_btn.setObjectName("export_csv_btn")
-        #     self.layout.addWidget(export_csv_btn)
-        #     export_csv_btn.clicked.connect(self.export_csv_function)
-        # submit_btn = QPushButton("Submit")
-        # submit_btn.setObjectName("submit_btn")
-        # self.layout.addWidget(submit_btn)
-        # submit_btn.clicked.connect(self.submit_new_sample_function)
-        # self.setLayout(self.layout)
-        # self.app.report.add_result(self.report)
-        # self.app.result_reporter()
 
     def create_widget(self, key:str, value:dict|PydReagent, submission_type:str|None=None, extraction_kit:str|None=None) -> "self.InfoItem":
         """
@@ -633,6 +617,11 @@ class SubmissionFormWidget(QWidget):
             self.reagent = reagent
             self.extraction_kit = extraction_kit
             layout = QVBoxLayout()
+            # layout = QGridLayout()
+            # self.check_box = QCheckBox(self)
+            # self.check_box.setChecked(True)
+            # self.check_box.stateChanged.connect(self.check_uncheck)
+            # layout.addWidget(self.check_box, 0,0)
             self.label = self.ReagentParsedLabel(reagent=reagent)
             layout.addWidget(self.label)
             self.lot = self.ReagentLot(reagent=reagent, extraction_kit=extraction_kit)
@@ -645,6 +634,14 @@ class SubmissionFormWidget(QWidget):
             # If changed set self.missing to True and update self.label
             self.lot.currentTextChanged.connect(self.updated)
 
+        # def check_uncheck(self):
+        #     if self.check_box.isChecked():
+        #         self.lot.setCurrentIndex(0)
+        #         self.lot.setEnabled(True)
+        #     else:
+        #         self.lot.setCurrentText("Not Applicable")
+        #         self.lot.setEnabled(False)
+
         def parse_form(self) -> Tuple[PydReagent, dict]:
             """
             Pulls form info into PydReagent
@@ -652,6 +649,8 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 Tuple[PydReagent, dict]: PydReagent and Report(?)
             """        
+            # if not self.check_box.isChecked():
+            #     return None, None
             lot = self.lot.currentText()
             logger.debug(f"Using this lot for the reagent {self.reagent}: {lot}")
             wanted_reagent = Reagent.query(lot_number=lot, reagent_type=self.reagent.type)
@@ -671,7 +670,7 @@ class SubmissionFormWidget(QWidget):
                 rt = ReagentType.query(name=self.reagent.type)
                 if rt == None:
                     rt = ReagentType.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
-                return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, parsed=not self.missing), None
+                return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name, expiry=wanted_reagent.expiry, missing=False), None
 
         def updated(self):
             """
@@ -736,8 +735,11 @@ class SubmissionFormWidget(QWidget):
                             looked_up_reg = None
                         # logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
                         if looked_up_reg != None:
-                            relevant_reagents.remove(str(looked_up_reg.lot))
-                            relevant_reagents.insert(0, str(looked_up_reg.lot))
+                            try:
+                                relevant_reagents.remove(str(looked_up_reg.lot))
+                                relevant_reagents.insert(0, str(looked_up_reg.lot))
+                            except ValueError as e:
+                                logger.error(f"Error reordering relevant reagents: {e}")
                 else:
                     if len(relevant_reagents) > 1:
                         # logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")

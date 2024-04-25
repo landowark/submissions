@@ -1,3 +1,7 @@
+## 202404.04
+
+- Storing of default values in db rather than hardcoded.
+
 ## 202404.03
 
 - Package updates.

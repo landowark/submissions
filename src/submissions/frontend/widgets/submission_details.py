@@ -5,12 +5,12 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 
 from backend.db.models import BasicSubmission, BasicSample
-from tools import check_if_app, check_authorization, is_power_user
+from tools import is_power_user, html_to_pdf
 from .functions import select_save_file
 from io import BytesIO
 from tempfile import TemporaryFile, TemporaryDirectory
 from pathlib import Path
-from xhtml2pdf import pisa
+# from xhtml2pdf import pisa
 import logging, base64
 from getpass import getuser
 from datetime import datetime
@@ -54,6 +54,7 @@ class SubmissionDetails(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         self.submission_details(submission=sub)
+        self.rsl_plate_num = sub.rsl_plate_num
         self.webview.page().setWebChannel(self.channel)
 
     @pyqtSlot(str)
@@ -86,9 +87,9 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
         # don't want id
         del self.base_dict['id']
-        logger.debug(f"Creating barcode.")
-        if not check_if_app():
-            self.base_dict['barcode'] = base64.b64encode(submission.make_plate_barcode(width=120, height=30)).decode('utf-8')
+        # logger.debug(f"Creating barcode.")
+        # if not check_if_app():
+        #     self.base_dict['barcode'] = base64.b64encode(submission.make_plate_barcode(width=120, height=30)).decode('utf-8')
         logger.debug(f"Making platemap...")
         self.base_dict['platemap'] = submission.make_plate_map()
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
@@ -103,8 +104,9 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_number=submission)
-        submission.uploaded_by = getuser()
+        submission.signed_by = getuser()
         submission.save()
+        self.submission_details(submission=self.rsl_plate_num)
 
     def export(self):
         """
@@ -113,7 +115,7 @@ class SubmissionDetails(QDialog):
         fname = select_save_file(obj=self, default_name=self.base_dict['Plate Number'], extension="pdf")
         image_io = BytesIO()
         temp_dir = Path(TemporaryDirectory().name)
-        hti = Html2Image(output_path=temp_dir, size=(1200, 750))
+        hti = Html2Image(output_path=temp_dir, size=(2400, 1500))
         temp_file = Path(TemporaryFile(dir=temp_dir, suffix=".png").name)
         screenshot = hti.screenshot(self.base_dict['platemap'], save_as=temp_file.name)
         export_map = Image.open(screenshot[0])
@@ -126,8 +128,9 @@ class SubmissionDetails(QDialog):
         del self.base_dict['platemap']
         self.html2 = self.template.render(sub=self.base_dict)
         try:
-            with open(fname, "w+b") as f:
-                pisa.CreatePDF(self.html2, dest=f)
+            # with open(fname, "w+b") as f:
+            #     pisa.CreatePDF(self.html2, dest=f)
+            html_to_pdf(html=self.html2, output_file=fname)
         except PermissionError as e:
             logger.error(f"Error saving pdf: {e}")
             msg = QMessageBox()

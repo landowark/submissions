@@ -14,6 +14,11 @@ from sqlalchemy import create_engine
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
+from PyQt6.QtGui import QTextDocument, QPageSize
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+
+# from PyQt6 import QtPrintSupport, QtCore, QtWebEngineWidgets
+from PyQt6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -534,6 +539,18 @@ class Report(BaseModel):
     
 def rreplace(s, old, new):
     return (s[::-1].replace(old[::-1],new[::-1], 1))[::-1]
+
+def html_to_pdf(html, output_file:Path|str):
+    if isinstance(output_file, str):
+        output_file = Path(output_file)
+    # document = QTextDocument()
+    document = QWebEngineView()
+    document.setHtml(html) 
+    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
+    printer.setOutputFileName(output_file.absolute().__str__())
+    printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    document.print(printer)
 
 ctx = get_config(None)
 

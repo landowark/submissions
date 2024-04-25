@@ -74,8 +74,8 @@ class RSLNamer(object):
             check = True
         if check:
             # logger.debug("Final option, ask the user for submission type")
-            from frontend.widgets import SubmissionTypeSelector
-            dlg = SubmissionTypeSelector(title="Couldn't parse submission type.", message="Please select submission type from list below.")
+            from frontend.widgets import ObjectSelector
+            dlg = ObjectSelector(title="Couldn't parse submission type.", message="Please select submission type from list below.", obj_type=SubmissionType)
             if dlg.exec():
                 submission_type = dlg.parse_form()
         submission_type = submission_type.replace("_", " ")

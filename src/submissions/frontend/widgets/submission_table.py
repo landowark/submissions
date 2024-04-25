@@ -8,8 +8,8 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor
 from backend.db.models import BasicSubmission
 from backend.excel import make_report_html, make_report_xlsx
-from tools import Report, Result, row_map, get_first_blank_df_row
-from xhtml2pdf import pisa
+from tools import Report, Result, row_map, get_first_blank_df_row, html_to_pdf
+# from xhtml2pdf import pisa
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
 import pandas as pd
@@ -324,8 +324,9 @@ class SubmissionsSheet(QTableView):
             html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
             # get save location of report
             fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf", extension="pdf")
-            with open(fname, "w+b") as f:
-                pisa.CreatePDF(html, dest=f)
+            # with open(fname, "w+b") as f:
+            #     pisa.CreatePDF(html, dest=f)
+            html_to_pdf(html=html, output_file=fname)
             writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
             summary_df.to_excel(writer, sheet_name="Report")
             detailed_df.to_excel(writer, sheet_name="Details", index=False)

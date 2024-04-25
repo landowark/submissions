@@ -85,10 +85,10 @@ class AddReagentForm(QDialog):
         Returns:
             dict: Output info
         """        
-        return dict(name=self.name_input.currentText(), 
-                    lot=self.lot_input.text(), 
+        return dict(name=self.name_input.currentText().strip(), 
+                    lot=self.lot_input.text().strip(), 
                     expiry=self.exp_input.date().toPyDate(),
-                    type=self.type_input.currentText())
+                    type=self.type_input.currentText().strip())
 
     def update_names(self):
         """

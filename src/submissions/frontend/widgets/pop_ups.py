@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from tools import jinja_template_loading
 import logging
-from backend.db.models import KitType, SubmissionType
+from backend.db import models
 from typing import Literal
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -45,16 +45,18 @@ class AlertPop(QMessageBox):
         self.setInformativeText(message)
         self.setWindowTitle(f"{owner} - {status.title()}")
 
-class KitSelector(QDialog):
+class ObjectSelector(QDialog):
     """
-    dialog to input KitType manually
+    dialog to input BaseClass type manually
     """    
-    def __init__(self, title:str, message:str) -> QDialog:
+    def __init__(self, title:str, message:str, obj_type:str|models.BaseClass) -> QDialog:
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        kits = [item.name for item in KitType.query()]
-        self.widget.addItems(kits)
+        if isinstance(obj_type, str):
+            obj_type: models.BaseClass = getattr(models, obj_type)
+        items = [item.name for item in obj_type.query()]
+        self.widget.addItems(items)
         self.widget.setEditable(False)
         # set yes/no buttons
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -78,36 +80,69 @@ class KitSelector(QDialog):
         """        
         return self.widget.currentText()
 
-class SubmissionTypeSelector(QDialog):
-    """
-    dialog to input SubmissionType manually
-    """    
-    def __init__(self, title:str, message:str) -> QDialog:
-        super().__init__()
-        self.setWindowTitle(title)
-        self.widget = QComboBox()
-        # sub_type = [item.name for item in lookup_submission_type(ctx=ctx)]
-        sub_type = [item.name for item in SubmissionType.query()]
-        self.widget.addItems(sub_type)
-        self.widget.setEditable(False)
-        # set yes/no buttons
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.layout = QVBoxLayout()
-        # Text for the yes/no question
-        message = QLabel(message)
-        self.layout.addWidget(message)
-        self.layout.addWidget(self.widget)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
+# class KitSelector(QDialog):
+#     """
+#     dialog to input KitType manually
+#     """    
+#     def __init__(self, title:str, message:str) -> QDialog:
+#         super().__init__()
+#         self.setWindowTitle(title)
+#         self.widget = QComboBox()
+#         kits = [item.name for item in KitType.query()]
+#         self.widget.addItems(kits)
+#         self.widget.setEditable(False)
+#         # set yes/no buttons
+#         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+#         self.buttonBox = QDialogButtonBox(QBtn)
+#         self.buttonBox.accepted.connect(self.accept)
+#         self.buttonBox.rejected.connect(self.reject)
+#         self.layout = QVBoxLayout()
+#         # Text for the yes/no question
+#         message = QLabel(message)
+#         self.layout.addWidget(message)
+#         self.layout.addWidget(self.widget)
+#         self.layout.addWidget(self.buttonBox)
+#         self.setLayout(self.layout)
 
-    def parse_form(self) -> str:
-        """
-        Pulls SubmissionType(str) from widget
+#     def getValues(self) -> str:
+#         """
+#         Get KitType(str) from widget
 
-        Returns:
-            str: SubmissionType as str
-        """
-        return self.widget.currentText()
+#         Returns:
+#             str: KitType as str
+#         """        
+#         return self.widget.currentText()
+
+# class SubmissionTypeSelector(QDialog):
+#     """
+#     dialog to input SubmissionType manually
+#     """    
+#     def __init__(self, title:str, message:str) -> QDialog:
+#         super().__init__()
+#         self.setWindowTitle(title)
+#         self.widget = QComboBox()
+#         # sub_type = [item.name for item in lookup_submission_type(ctx=ctx)]
+#         sub_type = [item.name for item in SubmissionType.query()]
+#         self.widget.addItems(sub_type)
+#         self.widget.setEditable(False)
+#         # set yes/no buttons
+#         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+#         self.buttonBox = QDialogButtonBox(QBtn)
+#         self.buttonBox.accepted.connect(self.accept)
+#         self.buttonBox.rejected.connect(self.reject)
+#         self.layout = QVBoxLayout()
+#         # Text for the yes/no question
+#         message = QLabel(message)
+#         self.layout.addWidget(message)
+#         self.layout.addWidget(self.widget)
+#         self.layout.addWidget(self.buttonBox)
+#         self.setLayout(self.layout)
+
+#     def parse_form(self) -> str:
+#         """
+#         Pulls SubmissionType(str) from widget
+
+#         Returns:
+#             str: SubmissionType as str
+#         """
+#         return self.widget.currentText()
