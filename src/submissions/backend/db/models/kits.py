@@ -382,7 +382,8 @@ class Reagent(BaseClass):
             name=self.name,
             type=rtype,
             lot=self.lot,
-            expiry=place_holder
+            expiry=place_holder,
+            missing=False
         )
     
     def update_last_used(self, kit:KitType) -> Report:
@@ -902,7 +903,7 @@ class SubmissionReagentAssociation(BaseClass):
 
     submission = relationship("BasicSubmission", back_populates="submission_reagent_associations") #: associated submission
 
-    reagent = relationship(Reagent, back_populates="reagent_submission_associations") #: associatied reagent
+    reagent = relationship(Reagent, back_populates="reagent_submission_associations") #: associated reagent
 
     def __repr__(self) -> str:
         """
@@ -941,11 +942,6 @@ class SubmissionReagentAssociation(BaseClass):
                 if isinstance(reagent, str):
                     reagent = Reagent.query(lot_number=reagent)
                 query = query.filter(cls.reagent==reagent)
-            # case str():
-            #     logger.debug(f"Lookup SubmissionReagentAssociation by reagent str {reagent}")
-                
-            #     query = query.filter(cls.reagent==reagent)
-            #     logger.debug(f"Result: {query.all()}")
             case _:
                 pass
         match submission:
@@ -954,11 +950,6 @@ class SubmissionReagentAssociation(BaseClass):
                     submission = BasicSubmission.query(rsl_number=submission)
                 # logger.debug(f"Lookup SubmissionReagentAssociation by submission BasicSubmission {submission}")
                 query = query.filter(cls.submission==submission)
-            # case str():
-            #     logger.debug(f"Lookup SubmissionReagentAssociation by submission str {submission}")
-            #     submission = BasicSubmission.query(rsl_number=submission)
-            #     query = query.filter(cls.submission==submission)
-            #     logger.debug(f"Result: {query.all()}")
             case int():
                 # logger.debug(f"Lookup SubmissionReagentAssociation by submission id {submission}")
                 submission = BasicSubmission.query(id=submission)                
@@ -1141,7 +1132,7 @@ class EquipmentRole(BaseClass):
         cascade="all, delete-orphan",
     ) #: relation to SubmissionTypes
 
-    submission_types = association_proxy("equipmentrole_submission_associations", "submission_type") #: proxy to equipmentrole_submissiontype_associations.submission_type
+    submission_types = association_proxy("equipmentrole_submissiontype_associations", "submission_type") #: proxy to equipmentrole_submissiontype_associations.submission_type
 
     def __repr__(self) -> str:
         """

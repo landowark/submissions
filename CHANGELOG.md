@@ -1,6 +1,9 @@
 ## 202404.04
 
 - Storing of default values in db rather than hardcoded.
+- Removed usage of reportlab. PDF creation handled by PyQt6
+- Reconfigured parsers, forms and reports around new default values.
+- Fixed 'Missing' and 'Parsed' reagents disconnect in forms.
 
 ## 202404.03
 

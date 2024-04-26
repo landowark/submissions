@@ -71,7 +71,7 @@ class ObjectSelector(QDialog):
         self.layout.addWidget(self.buttonBox)
         self.setLayout(self.layout)
 
-    def getValues(self) -> str:
+    def parse_form(self) -> str:
         """
         Get KitType(str) from widget
 

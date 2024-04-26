@@ -3,17 +3,12 @@ Models for the main submission types.
 '''
 from __future__ import annotations
 from getpass import getuser
-import logging, uuid, tempfile, re, yaml, base64, sys
+import logging, uuid, tempfile, re, yaml, base64
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory
-# from reportlab.graphics.barcode import createBarcodeImageInMemory
-# from reportlab.graphics.shapes import Drawing
-# from reportlab.lib.units import mm
 from operator import attrgetter, itemgetter
 from pprint import pformat
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization
-# MutableDict and JSONEncodedDict are custom classes designed to get around JSON columns not being updated.
-# See: https://docs.sqlalchemy.org/en/14/orm/extensions/mutable.html#establishing-mutability-on-scalar-column-values
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -60,6 +55,7 @@ class BasicSubmission(BaseClass):
     comment = Column(JSON) #: user notes
     submission_category = Column(String(64)) #: ["Research", "Diagnostic", "Surveillance", "Validation"], else defaults to submission_type_name
     cost_centre = Column(String(64)) #: Permanent storage of used cost centre in case organization field changed in the future.
+
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -182,30 +178,19 @@ class BasicSubmission(BaseClass):
             ext_kit = None
         # load scraped extraction info
         try:
-            # ext_info = json.loads(self.extraction_info)
             ext_info = self.extraction_info
         except TypeError:
             ext_info = None
-        # except JSONDecodeError as e:
-        #     ext_info = None
-        #     logger.error(f"Json error in {self.rsl_plate_num}: {e}")
         output = {
             "id": self.id,
             "Plate Number": self.rsl_plate_num,
             "Submission Type": self.submission_type_name,
-            # "Submission Category": self.submission_category,
             "Submitter Plate Number": self.submitter_plate_num,
             "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
             "Submitting Lab": sub_lab,
             "Sample Count": self.sample_count,
             "Extraction Kit": ext_kit,
-            # "Technician": self.technician,
             "Cost": self.run_cost,
-            # "reagents": reagents,
-            # "samples": samples,
-            # "extraction_info": ext_info,
-            # "comment": comments,
-            # "equipment": equipment
         }
         if report:
             return output
@@ -347,19 +332,6 @@ class BasicSubmission(BaseClass):
         """        
         return [item.role for item in self.submission_equipment_associations]
 
-    # def make_plate_barcode(self, width:int=100, height:int=25) -> Drawing:
-    #     """
-    #     Creates a barcode image for this BasicSubmission.
-
-    #     Args:
-    #         width (int, optional): Width (pixels) of image. Defaults to 100.
-    #         height (int, optional): Height (pixels) of image. Defaults to 25.
-
-    #     Returns:
-    #         Drawing: image object
-    #     """    
-    #     return createBarcodeImageInMemory('Code128', value=self.rsl_plate_num, width=width*mm, height=height*mm, humanReadable=True, format="png")
-
     @classmethod
     def submissions_to_df(cls, submission_type:str|None=None, limit:int=0) -> pd.DataFrame:
         """
@@ -491,14 +463,17 @@ class BasicSubmission(BaseClass):
         """        
         from backend.validators import PydSubmission, PydSample, PydReagent, PydEquipment
         dicto = self.to_dict(full_data=True, backup=backup)
+        logger.debug("To dict complete")
         new_dict = {}
         for key, value in dicto.items():
+            # start = time()
+            # logger.debug(f"Checking {key}")
             missing = value is None or value in ['', 'None']
             match key:
                 case "reagents":
-                    new_dict[key] = [PydReagent(**reagent, missing=False) for reagent in value]
+                    
+                    new_dict[key] = [PydReagent(**reagent) for reagent in value]
                 case "samples":
-                    # samples = {k.lower().replace(" ", "_"):v for k,v in dicto['samples'].items()}
                     new_dict[key] = [PydSample(**{k.lower().replace(" ", "_"):v for k,v in sample.items()}) for sample in dicto['samples']]
                 case "equipment":
                     try:
@@ -512,7 +487,9 @@ class BasicSubmission(BaseClass):
                 case _:
                     logger.debug(f"Setting dict {key} to {value}")
                     new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=missing)
+            # logger.debug(f"{key} complete after {time()-start}")
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
+        logger.debug("Done converting fields.")
         return PydSubmission(**new_dict)
 
     def save(self, original:bool=True):
@@ -540,63 +517,46 @@ class BasicSubmission(BaseClass):
         rstring =  rf'{"|".join([item.get_regex() for item in cls.__subclasses__()])}'
         regex = re.compile(rstring, flags = re.IGNORECASE | re.VERBOSE)
         return regex
- 
+    
     @classmethod
-    def find_subclasses(cls, attrs:dict|None=None, submission_type:str|SubmissionType|None=None):
+    def find_polymorphic_subclass(cls, attrs: dict|None = None, polymorphic_identity:str|SubmissionType|None = None):
         """
-        Retrieves subclasses of this class matching patterned
+        Find subclass based on polymorphic identity or relevant attributes.
 
         Args:
-            attrs (dict | None, optional): Attributes to look for. Defaults to None.
-            submission_type (str | SubmissionType | None, optional): Submission type. Defaults to None.
-
-        Raises:
-            AttributeError: Raised if attr given, but not found.
+            polymorphic_identity (str | None, optional): String representing polymorphic identity. Defaults to None.
+            attrs (str | SubmissionType | None, optional): Attributes of the relevant class. Defaults to None.
 
         Returns:
             _type_: Subclass of interest.
-        """                
-        match submission_type:
+        """
+        # logger.debug(f"Controlling for dict value")
+        if isinstance(polymorphic_identity, dict):
+            polymorphic_identity = polymorphic_identity['value']
+        if isinstance(polymorphic_identity, SubmissionType):
+            polymorphic_identity = polymorphic_identity.name
+        # if polymorphic_identity != None:
+        model = cls
+        match polymorphic_identity:
             case str():
-                return cls.find_polymorphic_subclass(submission_type)
-            case SubmissionType():
-                return cls.find_polymorphic_subclass(submission_type.name)
+                try:
+                    logger.info(f"Recruiting: {cls}")
+                    model = [item for item in cls.__subclasses__() if
+                           item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                except Exception as e:
+                    logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
             case _:
                 pass
-        if attrs == None or len(attrs) == 0:
-            return cls
+        if attrs is None or len(attrs) == 0:
+            return model
         if any([not hasattr(cls, attr) for attr in attrs]):
             # looks for first model that has all included kwargs
             try:
                 model = [subclass for subclass in cls.__subclasses__() if all([hasattr(subclass, attr) for attr in attrs])][0]
             except IndexError as e:
                 raise AttributeError(f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs)}")
-        else:
-            model = cls
         logger.info(f"Recruiting model: {model}")
         return model
-    
-    @classmethod
-    def find_polymorphic_subclass(cls, polymorphic_identity:str|None=None):
-        """
-        Find subclass based on polymorphic identity.
-
-        Args:
-            polymorphic_identity (str | None, optional): String representing polymorphic identity. Defaults to None.
-
-        Returns:
-            _type_: Subclass of interest.
-        """           
-        # logger.debug(f"Controlling for dict value")
-        if isinstance(polymorphic_identity, dict):
-            polymorphic_identity = polymorphic_identity['value']
-        if polymorphic_identity != None:
-            try:
-                cls = [item for item in cls.__subclasses__() if item.__mapper_args__['polymorphic_identity']==polymorphic_identity][0]
-                logger.info(f"Recruiting: {cls}")
-            except Exception as e:
-                logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
-        return cls
 
 # Child class custom functions
 
@@ -838,17 +798,22 @@ class BasicSubmission(BaseClass):
 
         Returns:
             models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
-        """    
-        
+        """
+        logger.debug(f"Incoming kwargs: {kwargs}")
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
-        if submission_type == None:
+        if submission_type is not None:
+            # if isinstance(submission_type, SubmissionType):
+                # model = cls.find_subclasses(submission_type=submission_type.name)
+            model = cls.find_polymorphic_subclass(polymorphic_identity=submission_type)
+            # else:
+            #     model = cls.find_subclasses(submission_type=submission_type)
+        elif len(kwargs) > 0:
             # find the subclass containing the relevant attributes
-            model = cls.find_subclasses(attrs=kwargs)
+            logger.debug(f"Attributes for search: {kwargs}")
+            # model = cls.find_subclasses(attrs=kwargs)
+            model = cls.find_polymorphic_subclass(attrs=kwargs)
         else:
-            if isinstance(submission_type, SubmissionType):
-                model = cls.find_subclasses(submission_type=submission_type.name)
-            else:
-                model = cls.find_subclasses(submission_type=submission_type)
+            model = cls
         query: Query = cls.__database_session__.query(model)
         if start_date != None and end_date == None:
             logger.warning(f"Start date with no end date, using today.")
@@ -883,23 +848,23 @@ class BasicSubmission(BaseClass):
             # logger.debug(f"Compensating for same date by using time")
             if start_date == end_date:
                 start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
-                query = query.filter(cls.submitted_date==start_date)
+                query = query.filter(model.submitted_date==start_date)
             else:
-                query = query.filter(cls.submitted_date.between(start_date, end_date))
+                query = query.filter(model.submitted_date.between(start_date, end_date))
         # by reagent (for some reason)
         match reagent:
             case str():
                 # logger.debug(f"Looking up BasicSubmission with reagent: {reagent}")
-                query = query.join(cls.reagents).filter(Reagent.lot==reagent)
+                query = query.join(model.submission_reagent_associations).filter(SubmissionSampleAssociation.reagent.lot==reagent)
             case Reagent():
                 # logger.debug(f"Looking up BasicSubmission with reagent: {reagent}")
-                query = query.join(reagents_submissions).filter(reagents_submissions.c.reagent_id==reagent.id)
+                query = query.join(model.submission_reagent_associations).join(SubmissionSampleAssociation.reagent).filter(Reagent.lot==reagent)
             case _:
                 pass
         # by rsl number (returns only a single value)
         match rsl_number:
             case str():
-                query = query.filter(cls.rsl_plate_num==rsl_number)
+                query = query.filter(model.rsl_plate_num==rsl_number)
                 # logger.debug(f"At this point the query gets: {query.all()}")
                 limit = 1
             case _:
@@ -908,20 +873,21 @@ class BasicSubmission(BaseClass):
         match id:
             case int():
                 # logger.debug(f"Looking up BasicSubmission with id: {id}")
-                query = query.filter(cls.id==id)
+                query = query.filter(model.id==id)
                 limit = 1
             case str():
                 # logger.debug(f"Looking up BasicSubmission with id: {id}")
-                query = query.filter(cls.id==int(id))
+                query = query.filter(model.id==int(id))
                 limit = 1
             case _:
                 pass
         for k, v in kwargs.items():
-            attr = getattr(cls, k)
+            logger.debug(f"Looking up attribute: {k}")
+            attr = getattr(model, k)
             logger.debug(f"Got attr: {attr}")
             query = query.filter(attr==v)
-        if len(kwargs) > 0:
-            limit = 1
+        # if len(kwargs) > 0:
+        #     limit = 1
         if chronologic:
             query.order_by(cls.submitted_date)
         return cls.query_return(query=query, limit=limit)
@@ -952,7 +918,7 @@ class BasicSubmission(BaseClass):
         instance = cls.query(submission_type=submission_type, limit=1, **kwargs)
         # logger.debug(f"Retrieved instance: {instance}")
         if instance == None:
-            used_class = cls.find_subclasses(attrs=kwargs, submission_type=submission_type)
+            used_class = cls.find_polymorphic_subclass(attrs=kwargs, polymorphic_identity=submission_type)
             instance = used_class(**kwargs)
             match submission_type:
                 case str():
@@ -1039,12 +1005,6 @@ class BasicSubmission(BaseClass):
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
-            # try:
-            #     # For some reason .append results in new comment being ignored, so have to concatenate lists.
-            #     self.comment = self.comment + comment
-            # except (AttributeError, TypeError) as e:
-            #     logger.error(f"Hit error ({e}) creating comment")
-            #     self.comment = comment
             self.set_attribute(key='comment', value=comment)
             logger.debug(self.comment)
             self.save(original=False)
@@ -1250,7 +1210,6 @@ class Wastewater(BasicSubmission):
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
     ext_technician = Column(String(64)) #: Name of technician doing extraction
     pcr_technician = Column(String(64)) #: Name of technician doing pcr
-    # pcr_info = Column(JSON) 
     pcr_info = Column(JSON)#: unstructured output from pcr table logger or user(Artic)
 
     __mapper_args__ = __mapper_args__ = dict(polymorphic_identity="Wastewater", 
@@ -1268,7 +1227,6 @@ class Wastewater(BasicSubmission):
         if report:
             return output
         try:
-            # output['pcr_info'] = json.loads(self.pcr_info)
             output['pcr_info'] = self.pcr_info
         except TypeError as e:
             pass
@@ -1280,13 +1238,8 @@ class Wastewater(BasicSubmission):
             output["PCR Technician"] = self.technician
         else:
             output['PCR Technician'] = self.pcr_technician
-        # output['Technician'] = self.technician}, Ext: {ext_tech}, PCR: {pcr_tech}"
         return output
     
-    # @classmethod
-    # def get_default_info(cls) -> dict:
-        return dict(abbreviation="WW", submission_type="Wastewater")
-
     @classmethod
     def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
         """
@@ -1444,10 +1397,6 @@ class WastewaterArtic(BasicSubmission):
         output['source_plates'] = self.source_plates
         return output
 
-    # @classmethod
-    # def get_default_info(cls) -> str:
-    #     return dict(abbreviation="AR", submission_type="Wastewater Artic")
-
     @classmethod
     def parse_info(cls, input_dict:dict, xl:pd.ExcelFile|None=None) -> dict:
         """
@@ -1460,15 +1409,12 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             dict: Updated sample dictionary
         """        
-        # from backend.validators import RSLNamer
         input_dict = super().parse_info(input_dict)
         workbook = load_workbook(xl.io, data_only=True)
         ws = workbook['Egel results']
         data = [ws.cell(row=ii,column=jj) for jj in range(15,27) for ii in range(10,18)]
         data = [cell for cell in data if cell.value is not None and "NTC" in cell.value]
         input_dict['gel_controls'] = [dict(sample_id=cell.value, location=f"{row_map[cell.row-9]}{str(cell.column-14).zfill(2)}") for cell in data]
-        # df = xl.parse("Egel results").iloc[7:16, 13:26]
-        # df = df.set_index(df.columns[0])
         ws = workbook['First Strand List']
         data = [dict(plate=ws.cell(row=ii, column=3).value, starting_sample=ws.cell(row=ii, column=4).value) for ii in range(8,11)]
         input_dict['source_plates'] = data
@@ -1615,30 +1561,6 @@ class WastewaterArtic(BasicSubmission):
         worksheet = input_excel["First Strand List"]
         samples = cls.query(rsl_number=info['rsl_plate_num']['value']).submission_sample_associations
         samples = sorted(samples, key=attrgetter('column', 'row'))
-        # try:
-        #     source_plates = [item['plate'] for item in info['source_plates']]
-        #     first_samples = [item['start_sample'] for item in info['source_plates']]
-        # except:
-        #     source_plates = []
-        #     first_samples = []
-        #     for sample in samples:
-        #         sample = sample.sample
-        #         try:
-        #             assoc = [item.submission.rsl_plate_num for item in sample.sample_submission_associations if item.submission.submission_type_name=="Wastewater"][-1]
-        #         except IndexError:
-        #             logger.error(f"Association not found for {sample}")
-        #             continue
-        #         if assoc not in source_plates:
-        #             source_plates.append(assoc)
-        #             first_samples.append(sample.ww_processing_num)
-        # # Pad list to length of 3
-        # source_plates += ['None'] * (3 - len(source_plates))
-        # first_samples += [''] * (3 - len(first_samples))
-        # source_plates = zip(source_plates, first_samples, strict=False)
-        # for iii, plate in enumerate(source_plates, start=8):
-        #     logger.debug(f"Plate: {plate}")
-        #     for jjj, value in enumerate(plate, start=3):
-        #         worksheet.cell(row=iii, column=jjj, value=value)
         logger.debug(f"Info:\n{pformat(info)}")
         check = 'source_plates' in info.keys() and info['source_plates'] is not None
         if check:
@@ -1655,7 +1577,6 @@ class WastewaterArtic(BasicSubmission):
                     worksheet.cell(row=row, column=4, value=plate['starting_sample'])
                 except TypeError:
                     pass
-            # sys.exit(f"Hardcoded stop: backend.models.submissions:1629")
         check = 'gel_info' in info.keys() and info['gel_info']['value'] is not None
         if check:
             # logger.debug(f"Gel info check passed.")
@@ -1726,7 +1647,6 @@ class WastewaterArtic(BasicSubmission):
             List[dict]: Updated dictionaries
         """       
         logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
-        # if backup:
         output = []
         for assoc in self.submission_sample_associations:
             dicto = assoc.to_sub_dict()
@@ -1738,9 +1658,6 @@ class WastewaterArtic(BasicSubmission):
             old_assoc = WastewaterAssociation.query(submission=old_sub, sample=assoc.sample, limit=1)
             dicto['well'] = f"{row_map[old_assoc.row]}{old_assoc.column}"
             output.append(dicto)
-        # else:
-        #     output = super().adjust_to_dict_samples(backup=False)
-        
         return output
 
     def custom_context_events(self) -> dict:
@@ -1846,12 +1763,14 @@ class BasicSample(BaseClass):
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
-        # logger.debug(f"Converting {self} to dict.")
+        logger.debug(f"Converting {self} to dict.")
+        # start = time()
         sample = {}
         sample['Submitter ID'] = self.submitter_id
         sample['Sample Type'] = self.sample_type
         if full_data:
             sample['submissions'] = sorted([item.to_sub_dict() for item in self.sample_submission_associations], key=itemgetter('submitted_date'))
+        # logger.debug(f"Done converting {self} after {time()-start}")
         return sample
 
     def set_attribute(self, name:str, value):
@@ -2093,7 +2012,7 @@ class WastewaterSample(BasicSample):
                     output_dict['collection_date'] = parse(output_dict['collection_date']).date()
                 except ParserError:
                     logger.error(f"Problem parsing collection_date: {output_dict['collection_date']}")
-                    output_dict['collection_date'] = date(1,1,1)
+                    output_dict['collection_date'] = date(1970,1,1)
             case datetime():
                 output_dict['collection_date'] = output_dict['collection_date'].date()
             case date():
@@ -2136,6 +2055,7 @@ class BacterialCultureSample(BasicSample):
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
+        # start = time()
         sample = super().to_sub_dict(full_data=full_data)
         sample['Name'] = self.submitter_id
         sample['Organism'] = self.organism
@@ -2143,6 +2063,7 @@ class BacterialCultureSample(BasicSample):
         if self.control != None:
             sample['colour'] = [0,128,0]
             sample['tooltip'] = f"Control: {self.control.controltype.name} - {self.control.controltype.targets}"
+        # logger.debug(f"Done converting to {self} to dict after {time()-start}")
         return sample
 
 # Submission to Sample Associations
@@ -2201,8 +2122,9 @@ class SubmissionSampleAssociation(BaseClass):
             dict: Updated dictionary with row, column and well updated
         """        
         # Get sample info
-        # logger.debug(f"Running {self.__repr__()}")
+        logger.debug(f"Running {self.__repr__()}")
         sample = self.sample.to_sub_dict()
+        logger.debug("Sample conversion complete.")
         sample['Name'] = self.sample.submitter_id
         sample['Row'] = self.row
         sample['Column'] = self.column
@@ -2450,5 +2372,3 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         except ValueError as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1
-
-       

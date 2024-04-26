@@ -1,17 +1,18 @@
-- [ ] Put "Not applicable" reagents in to_dict() method.
+- [x] Put "Not applicable" reagents in to_dict() method.
     - Currently in to_pydantic().
 - [x] Critical: Convert Json lits to dicts so I can have them update properly without using crashy Sqlalchemy-json
     - Was actually not necessary.
-- [ ] Fix Parsed/Missing mix ups.
+- [x] Fix Parsed/Missing mix ups.
 - [x] Have sample parser check for controls and add to reagents?
 - [x] Update controls to NestedMutableJson
 - [x] Appending of qPCR results to WW not saving. Find out why.
     - Possibly due to immutable JSON? But... it's worked before... Right?
     - Based on research, if a top-level JSON field is not changed, SQLalchemy will not detect changes.
     - Using sqlalchemy-json module seems to have helped.
-- [ ] Add Bead basher and Assist to DB.
+    - found that by using 'flag_modified' this can be fixed
+- [x] Add Bead basher and Assist to DB.
 - [x] Artic not creating right plate name.
-- [ ] Merge BasicSubmission.find_subclasses and BasicSubmission.find_polymorphic_subclass
+- [x] Merge BasicSubmission.find_subclasses and BasicSubmission.find_polymorphic_subclass
 - [x] Fix updating of Extraction Kit in submission form widget.
 - [x] Fix cropping of gel image.
 - [ ] Create Tips ... *sigh*.

@@ -103,7 +103,7 @@ class SheetParser(object):
         if not check_not_nan(self.sub['extraction_kit']['value']):
             dlg = ObjectSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.", obj_type=KitType)
             if dlg.exec():
-                self.sub['extraction_kit'] = dict(value=dlg.getValues(), missing=True)
+                self.sub['extraction_kit'] = dict(value=dlg.parse_form(), missing=True)
             else:
                 raise ValueError("Extraction kit needed.")
         else:

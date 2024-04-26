@@ -363,7 +363,7 @@ class PydSubmission(BaseModel, extra='allow'):
             from frontend.widgets.pop_ups import ObjectSelector
             dlg = ObjectSelector(title="Missing Submitting Lab", message="We need a submitting lab. Please select from the list.", obj_type=Organization)
             if dlg.exec():
-                value['value'] = dlg.getValues()
+                value['value'] = dlg.parse_form()
             else:
                 value['value'] = None
         return value
@@ -714,7 +714,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 # logger.debug(f"Attempting to write lot {reagent['lot']['value']} in: row {reagent['lot']['row']}, column {reagent['lot']['column']}")
                 worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'], value=reagent['lot']['value'])
                 # logger.debug(f"Attempting to write expiry {reagent['expiry']['value']} in: row {reagent['expiry']['row']}, column {reagent['expiry']['column']}")
-                if reagent['expiry']['value'].year == 1970:
+                if isinstance(reagent['expiry']['value'], date) and reagent['expiry']['value'].year == 1970:
                     reagent['expiry']['value'] = "NA"
                 worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'], value=reagent['expiry']['value'])
                 try:

@@ -50,7 +50,10 @@ class AddReagentForm(QDialog):
         if expiry == None:
             self.exp_input.setDate(QDate.currentDate())
         else:
-            self.exp_input.setDate(expiry)
+            try:
+                self.exp_input.setDate(expiry)
+            except TypeError:
+                self.exp_input.setDate(QDate.currentDate())
         # widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
