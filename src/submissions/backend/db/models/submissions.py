@@ -47,7 +47,6 @@ class BasicSubmission(BaseClass):
     submission_type_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL", name="fk_BS_subtype_name")) #: name of joined submission type
     technician = Column(String(64)) #: initials of processing tech(s)
     # Move this into custom types?
-    # reagents = relationship("Reagent", back_populates="submissions", secondary=reagents_submissions) #: relationship to reagents
     reagents_id = Column(String, ForeignKey("_reagent.id", ondelete="SET NULL", name="fk_BS_reagents_id")) #: id of used reagents
     extraction_info = Column(JSON) #: unstructured output from the extraction table logger.
     run_cost = Column(FLOAT(2)) #: total cost of running the plate. Set from constant and mutable kit costs at time of creation.
@@ -127,13 +126,13 @@ class BasicSubmission(BaseClass):
             output = {}
             for k,v in dicto.items():
                 if len(args) > 0 and k not in args:
-                    logger.debug(f"Don't want {k}")
+                    # logger.debug(f"Don't want {k}")
                     continue
                 else:
                     output[k] = v
             for k,v in st.defaults.items():
                 if len(args) > 0 and k not in args:
-                    logger.debug(f"Don't want {k}")
+                    # logger.debug(f"Don't want {k}")
                     continue
                 else:
                     match v:
@@ -410,7 +409,7 @@ class BasicSubmission(BaseClass):
             case item if item in self.jsons():
                 logger.debug(f"Setting JSON attribute.")
                 existing = self.__getattribute__(key)
-                if value == "" or value is None or value == 'null':
+                if value is None or value in ['', 'null']:
                     logger.error(f"No value given, not setting.")
                     return
                 if existing is None:
@@ -422,7 +421,8 @@ class BasicSubmission(BaseClass):
                     if isinstance(value, list):
                         existing += value
                     else:
-                        existing.append(value)
+                        if value is not None:
+                            existing.append(value)
                 self.__setattr__(key, existing)
                 flag_modified(self, key)
                 return
@@ -890,7 +890,7 @@ class BasicSubmission(BaseClass):
         #     limit = 1
         if chronologic:
             query.order_by(cls.submitted_date)
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
 
     @classmethod
     def query_or_create(cls, submission_type:str|SubmissionType|None=None, **kwargs) -> BasicSubmission:
@@ -1421,7 +1421,7 @@ class WastewaterArtic(BasicSubmission):
         return input_dict
 
     @classmethod
-    def enforce_name(cls, instr:str, data:dict|None={}) -> str:
+    def enforce_name(cls, instr:str, data:dict={}) -> str:
         """
         Extends parent
         """        
@@ -1430,16 +1430,12 @@ class WastewaterArtic(BasicSubmission):
             instr = re.sub(r"Artic", "", instr, flags=re.IGNORECASE)
         except (AttributeError, TypeError) as e:
             logger.error(f"Problem using regex: {e}")
-        # try:
-        #     check = instr.startswith("RSL")
-        # except AttributeError:
-        #     check = False
-        # if not check:
-        #     try:
-        #         instr = "RSL" + instr
-        #     except TypeError:
-        #         instr = "RSL"
+        # logger.debug(f"Before RSL addition: {instr}")
+        instr = instr.replace("-", "")
+        instr = re.sub(r"^(\d{6})", f"RSL-AR-\\1", instr)
+        # logger.debug(f"name coming out of Artic namer: {instr}")
         outstr = super().enforce_name(instr=instr, data=data)
+
         return outstr
 
     @classmethod
@@ -1922,7 +1918,7 @@ class BasicSample(BaseClass):
             query = query.filter(attr==v)
         if len(kwargs) > 0:
             limit = 1
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     @classmethod
     def query_or_create(cls, sample_type:str|None=None, **kwargs) -> BasicSample:
@@ -2259,7 +2255,7 @@ class SubmissionSampleAssociation(BaseClass):
                 query = query.order_by(BasicSubmission.submitted_date.desc())
             else:
                 query = query.order_by(BasicSubmission.submitted_date)
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     @classmethod
     def query_or_create(cls,

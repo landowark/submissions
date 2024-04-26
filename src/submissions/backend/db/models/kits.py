@@ -214,7 +214,7 @@ class KitType(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     @check_authorization
     def save(self):
@@ -303,7 +303,7 @@ class ReagentType(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     def to_pydantic(self) -> "PydReagent":
         """
@@ -464,7 +464,7 @@ class Reagent(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
 class Discount(BaseClass):
     """
@@ -533,7 +533,7 @@ class Discount(BaseClass):
             case _:
                 # raise ValueError(f"Invalid value for kit type: {kit_type}")
                 pass
-        return cls.query_return(query=query)
+        return cls.execute_query(query=query)
     
     @check_authorization
     def save(self):
@@ -702,7 +702,7 @@ class SubmissionType(BaseClass):
                 query = query.filter(cls.info_map.op('->')(key)!=None)
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     @check_authorization
     def save(self):
@@ -781,7 +781,7 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
                 # logger.debug(f"Looking up {cls.__name__} by id {kit_type}")
                 query = query.join(KitType).filter(KitType.id==kit_type)
         limit = query.count()
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
 
 class KitTypeReagentTypeAssociation(BaseClass):
     """
@@ -889,7 +889,7 @@ class KitTypeReagentTypeAssociation(BaseClass):
                 pass
         if kit_type != None and reagent_type != None:
             limit = 1
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
 
 class SubmissionReagentAssociation(BaseClass):
     """
@@ -956,7 +956,7 @@ class SubmissionReagentAssociation(BaseClass):
                 query = query.join(BasicSubmission).filter(BasicSubmission.id==submission)
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
 
     def to_sub_dict(self, extraction_kit) -> dict:
         """
@@ -1083,7 +1083,7 @@ class Equipment(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     def to_pydantic(self, submission_type:SubmissionType, extraction_kit:str|KitType|None=None) -> "PydEquipment":
         """
@@ -1206,7 +1206,7 @@ class EquipmentRole(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     def get_processes(self, submission_type:str|SubmissionType|None, extraction_kit:str|KitType|None=None) -> List[Process]:
         """
@@ -1382,5 +1382,5 @@ class Process(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
 

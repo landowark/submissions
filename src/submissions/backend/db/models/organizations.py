@@ -33,10 +33,6 @@ class Organization(BaseClass):
     contacts = relationship("Contact", back_populates="organization", secondary=orgs_contacts) #: contacts involved with this org
 
     def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this Organization
-        """        
         return f"<Organization({self.name})>"
 
     @classmethod
@@ -70,7 +66,7 @@ class Organization(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     
     @check_authorization
     def save(self):
@@ -137,5 +133,5 @@ class Contact(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.query_return(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit)
     

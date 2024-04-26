@@ -482,12 +482,16 @@ def setup_lookup(func):
         func (_type_): _description_
     """    
     def wrapper(*args, **kwargs):
-        for k, v in locals().items():
-            if k == "kwargs":
-                continue
+        sanitized_kwargs = {}
+        for k, v in locals()['kwargs'].items():
             if isinstance(v, dict):
-                raise ValueError("Cannot use dictionary in query. Make sure you parse it first.")
-        return func(*args, **kwargs)
+                try:
+                    sanitized_kwargs[k] = v['value']
+                except KeyError:
+                    raise ValueError("Could not sanitize dictionary in query. Make sure you parse it first.")
+            elif v is not None:
+                sanitized_kwargs[k] = v
+        return func(*args, **sanitized_kwargs)
     return wrapper
 
 class Result(BaseModel):
