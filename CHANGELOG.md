@@ -1,3 +1,7 @@
+## 202404.05
+
+- Addition of default query method using Kwargs.
+
 ## 202404.04
 
 - Storing of default values in db rather than hardcoded.

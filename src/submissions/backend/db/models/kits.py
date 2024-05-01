@@ -947,7 +947,8 @@ class SubmissionReagentAssociation(BaseClass):
         match submission:
             case BasicSubmission() | str():
                 if isinstance(submission, str):
-                    submission = BasicSubmission.query(rsl_number=submission)
+                    # submission = BasicSubmission.query(rsl_number=submission)
+                    submission = BasicSubmission.query(rsl_plate_num=submission)
                 # logger.debug(f"Lookup SubmissionReagentAssociation by submission BasicSubmission {submission}")
                 query = query.filter(cls.submission==submission)
             case int():

@@ -576,6 +576,7 @@ class PydSubmission(BaseModel, extra='allow'):
                             association.save()
                             logger.debug(f"Equipment association SQL object to be added to submission: {association.__dict__}")
                             instance.submission_equipment_associations.append(association)
+                # TODO: case item if item in instance.jsons()
                 case _:
                     try:
                         instance.set_attribute(key=key, value=value)

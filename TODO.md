@@ -1,5 +1,7 @@
+- [ ] Create a default info return function.
+- [ ] Parse comment from excel sheet.
 - [ ] Make reporting better. 
-- [ ] Build master query method?
+- [x] Build master query method?
   - Obviously there will need to be extensions, but I feel the attr method I have in Submissions could work.
 - [x] Fix Artic RSLNamer
 - [x] Put "Not applicable" reagents in to_dict() method.

@@ -166,9 +166,8 @@ class SubmissionsSheet(QTableView):
             for ii in range(6, len(run)):
                 new_run[f"column{str(ii-5)}_vol"] = run[ii]
             # Lookup imported submissions
-            # sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=new_run['rsl_plate_num'])
-            # sub = lookup_submissions(ctx=obj.ctx, rsl_number=new_run['rsl_plate_num'])
-            sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
+            # sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
+            sub = BasicSubmission.query(rsl_plate_num=new_run['rsl_plate_num'])
             # If no such submission exists, move onto the next run
             if sub == None:
                 continue

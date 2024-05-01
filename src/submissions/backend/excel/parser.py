@@ -100,7 +100,7 @@ class SheetParser(object):
         Enforce that the parser has an extraction kit
         """    
         from frontend.widgets.pop_ups import ObjectSelector
-        if not check_not_nan(self.sub['extraction_kit']['value']):
+        if 'extraction_kit' not in self.sub.keys() or not check_not_nan(self.sub['extraction_kit']['value']):
             dlg = ObjectSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.", obj_type=KitType)
             if dlg.exec():
                 self.sub['extraction_kit'] = dict(value=dlg.parse_form(), missing=True)
@@ -192,13 +192,18 @@ class InfoParser(object):
             for k, v in self.map.items():
                 # exclude from generic parsing
                 if k in exclude_from_generic:
+                    logger.warning(f"Key {k} is excluded due to parser_ignore")
                     continue
                 # If the value is hardcoded put it in the dictionary directly.
                 if isinstance(v, str):
                     dicto[k] = dict(value=v, missing=False)
                     continue
                 logger.debug(f"Looking for {k} in self.map")
-                if sheet in self.map[k]['sheets']:
+                try:
+                    check = sheet in self.map[k]['sheets']
+                except TypeError:
+                    continue
+                if check:
                     relevant[k] = v
             logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
@@ -592,7 +597,7 @@ class PCRParser(object):
         self.plate_num = namer.parsed_name
         self.submission_type = namer.submission_type
         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
-        parser = BasicSubmission.find_polymorphic_subclass(self.submission_type)
+        parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.samples = parser.parse_pcr(xl=self.xl, rsl_number=self.plate_num)
         
     def parse_general(self, sheet_name:str):

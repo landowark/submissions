@@ -82,7 +82,8 @@ class SubmissionDetails(QDialog):
         """        
         logger.debug(f"Details for: {submission}")
         if isinstance(submission, str):
-            submission = BasicSubmission.query(rsl_number=submission)
+            # submission = BasicSubmission.query(rsl_number=submission)
+            submission = BasicSubmission.query(rsl_plate_num=submission)
         self.base_dict = submission.to_dict(full_data=True)
         logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
         # don't want id
@@ -103,7 +104,8 @@ class SubmissionDetails(QDialog):
     def sign_off(self, submission:str|BasicSubmission):
         logger.debug(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
-            submission = BasicSubmission.query(rsl_number=submission)
+            # submission = BasicSubmission.query(rsl_number=submission)
+            submission = BasicSubmission.query(rsl_plate_number=submission)
         submission.signed_by = getuser()
         submission.save()
         self.submission_details(submission=self.rsl_plate_num)
