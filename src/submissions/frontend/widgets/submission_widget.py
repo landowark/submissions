@@ -106,8 +106,8 @@ class SubmissionFormContainer(QWidget):
         logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")
         self.form = self.pyd.toForm(parent=self)
         self.layout().addWidget(self.form)
-        if self.prsr.sample_result != None:
-            report.add_result(msg=self.prsr.sample_result, status="Warning")
+        # if self.prsr.sample_result != None:
+        #     report.add_result(msg=self.prsr.sample_result, status="Warning")
         self.report.add_result(report)
         logger.debug(f"Outgoing report: {self.report.results}")
         logger.debug(f"All attributes of submission container:\n{pformat(self.__dict__)}")

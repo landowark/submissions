@@ -113,6 +113,14 @@ class BasicSubmission(BaseClass):
         return output
 
     @classmethod
+    def timestamps(cls) -> List[str]:
+        output = [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        if issubclass(cls, BasicSubmission) and not cls.__name__ == "BasicSubmission":
+            output += BasicSubmission.timestamps()
+        return output
+
+    # TODO: Beef up this to include info_map from DB
+    @classmethod
     def get_default_info(cls, *args):
         # Create defaults for all submission_types
         parent_defs = super().get_default_info()
@@ -121,16 +129,18 @@ class BasicSubmission(BaseClass):
             details_ignore=['excluded', 'reagents', 'samples',
                             'extraction_info', 'comment', 'barcode',
                             'platemap', 'export_map', 'equipment'],
-            form_recover=recover,
+            # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment'] + recover,
-            parser_ignore=['samples', 'signed_by'] + cls.jsons(),
-            excel_ignore=[],
+            # NOTE: Fields not placed in ui form to be moved to pydantic
+            form_recover=recover,
+            # parser_ignore=['samples', 'signed_by'] + [item for item in cls.jsons() if item != "comment"],
+            # excel_ignore=[],
         )
         # logger.debug(dicto['singles'])
-        """Singles tells the query which fields to set limit to 1"""
+        # NOTE: Singles tells the query which fields to set limit to 1
         dicto['singles'] = parent_defs['singles']
         # logger.debug(dicto['singles'])
-        """Grab subtype specific info."""
+        # NOTE: Grab subtype specific info.
         output = {}
         for k, v in dicto.items():
             if len(args) > 0 and k not in args:
@@ -162,6 +172,14 @@ class BasicSubmission(BaseClass):
     def get_submission_type(cls):
         name = cls.__mapper_args__['polymorphic_identity']
         return SubmissionType.query(name=name)
+
+    @classmethod
+    def construct_info_map(cls, mode:Literal['read', 'write']):
+        return cls.get_submission_type().construct_info_map(mode=mode)
+
+    @classmethod
+    def construct_sample_map(cls):
+        return cls.get_submission_type().construct_sample_map()
 
     def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
         """
@@ -492,7 +510,6 @@ class BasicSubmission(BaseClass):
             missing = value is None or value in ['', 'None']
             match key:
                 case "reagents":
-
                     new_dict[key] = [PydReagent(**reagent) for reagent in value]
                 case "samples":
                     new_dict[key] = [PydSample(**{k.lower().replace(" ", "_"): v for k, v in sample.items()}) for sample
@@ -506,6 +523,8 @@ class BasicSubmission(BaseClass):
                     new_dict['rsl_plate_num'] = dict(value=value, missing=missing)
                 case "Submitter Plate Number":
                     new_dict['submitter_plate_num'] = dict(value=value, missing=missing)
+                case "id":
+                    pass
                 case _:
                     logger.debug(f"Setting dict {key} to {value}")
                     new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=missing)
@@ -601,7 +620,7 @@ class BasicSubmission(BaseClass):
         return plate_map
 
     @classmethod
-    def parse_info(cls, input_dict: dict, xl: pd.ExcelFile | None = None) -> dict:
+    def parse_info(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
         """
         Update submission dictionary with type specific information
 
@@ -630,8 +649,7 @@ class BasicSubmission(BaseClass):
         return input_dict
 
     @classmethod
-    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None,
-                       plate_map: dict | None = None) -> dict:
+    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None) -> dict:
         """
         Performs any final custom parsing of the excel file.
 
@@ -999,7 +1017,7 @@ class BasicSubmission(BaseClass):
         fname = self.__backup_path__.joinpath(f"{self.rsl_plate_num}-backup({date.today().strftime('%Y%m%d')})")
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_num}?\n")
         if msg.exec():
-            self.backup(fname=fname, full_backup=True)
+            # self.backup(fname=fname, full_backup=True)
             self.__database_session__.delete(self)
             try:
                 self.__database_session__.commit()
@@ -1083,6 +1101,7 @@ class BasicSubmission(BaseClass):
         if fname.name == "":
             logger.debug(f"export cancelled.")
             return
+        # pyd.filepath = fname
         if full_backup:
             backup = self.to_dict(full_data=True)
             try:
@@ -1090,11 +1109,12 @@ class BasicSubmission(BaseClass):
                     yaml.dump(backup, f)
             except KeyError as e:
                 logger.error(f"Problem saving yml backup file: {e}")
-        wb = pyd.autofill_excel()
-        wb = pyd.autofill_samples(wb)
-        wb = pyd.autofill_equipment(wb)
-        wb.save(filename=fname.with_suffix(".xlsx"))
-
+        # wb = pyd.autofill_excel()
+        # wb = pyd.autofill_samples(wb)
+        # wb = pyd.autofill_equipment(wb)
+        writer = pyd.toWriter()
+        # wb.save(filename=fname.with_suffix(".xlsx"))
+        writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
 # Below are the custom submission types
 
@@ -1186,8 +1206,7 @@ class BacterialCulture(BasicSubmission):
         return template
 
     @classmethod
-    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None,
-                       plate_map: dict | None = None) -> dict:
+    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None) -> dict:
         """
         Extends parent. Currently finds control sample and adds to reagents.
 
@@ -1201,23 +1220,23 @@ class BacterialCulture(BasicSubmission):
             dict: _description_
         """
         from . import ControlType
-        input_dict = super().finalize_parse(input_dict, xl, info_map, plate_map)
+        input_dict = super().finalize_parse(input_dict, xl, info_map)
         # build regex for all control types that have targets
         regex = ControlType.build_positive_regex()
         # search samples for match
         for sample in input_dict['samples']:
-            matched = regex.match(sample.submitter_id)
+            matched = regex.match(sample['submitter_id'])
             if bool(matched):
-                logger.debug(f"Control match found: {sample.submitter_id}")
+                logger.debug(f"Control match found: {sample['submitter_id']}")
                 new_lot = matched.group()
                 try:
                     pos_control_reg = \
-                    [reg for reg in input_dict['reagents'] if reg.type == "Bacterial-Positive Control"][0]
+                    [reg for reg in input_dict['reagents'] if reg['type'] == "Bacterial-Positive Control"][0]
                 except IndexError:
                     logger.error(f"No positive control reagent listed")
                     return input_dict
-                pos_control_reg.lot = new_lot
-                pos_control_reg.missing = False
+                pos_control_reg['lot'] = new_lot
+                pos_control_reg['missing'] = False
         return input_dict
 
     @classmethod
@@ -1278,7 +1297,7 @@ class Wastewater(BasicSubmission):
         return output
 
     @classmethod
-    def parse_info(cls, input_dict: dict, xl: pd.ExcelFile | None = None) -> dict:
+    def parse_info(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
         """
         Update submission dictionary with type specific information. Extends parent
 
@@ -1290,7 +1309,7 @@ class Wastewater(BasicSubmission):
         """
         input_dict = super().parse_info(input_dict)
         if xl != None:
-            input_dict['csv'] = xl.parse("Copy to import file")
+            input_dict['csv'] = xl["Copy to import file"]
         return input_dict
 
     @classmethod
@@ -1567,8 +1586,7 @@ class WastewaterArtic(BasicSubmission):
         return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
 
     @classmethod
-    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None,
-                       plate_map: dict | None = None) -> dict:
+    def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None) -> dict:
         """
         Performs any final custom parsing of the excel file. Extends parent
 
@@ -1581,7 +1599,7 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             dict: Updated parser product.
         """
-        input_dict = super().finalize_parse(input_dict, xl, info_map, plate_map)
+        input_dict = super().finalize_parse(input_dict, xl, info_map)
         input_dict['csv'] = xl.parse("hitpicks_csv_to_export")
         return input_dict
 
@@ -1799,6 +1817,13 @@ class BasicSample(BaseClass):
         except AttributeError:
             return f"<Sample({self.submitter_id})"
 
+    @classmethod
+    def timestamps(cls) -> List[str]:
+        output = [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        if issubclass(cls, BasicSample) and not cls.__name__ == "BasicSample":
+            output += BasicSample.timestamps()
+        return output
+
     def to_sub_dict(self, full_data: bool = False) -> dict:
         """
         gui friendly dictionary, extends parent method.
@@ -1878,6 +1903,7 @@ class BasicSample(BaseClass):
         Returns:
             dict: Updated parser results.
         """
+        logger.debug(f"Hello from {cls.__name__} sample parser!")
         return input_dict
 
     @classmethod
@@ -2053,24 +2079,30 @@ class WastewaterSample(BasicSample):
             dict: Updated parser results.
         """
         output_dict = super().parse_sample(input_dict)
-        if output_dict['rsl_number'] == None:
-            output_dict['rsl_number'] = output_dict['submitter_id']
-        if output_dict['ww_full_sample_id'] != None:
+        logger.debug(f"Initial sample dict: {pformat(output_dict)}")
+        try:
+            check = output_dict['rsl_number'] in [None, "None"]
+        except KeyError:
+            check = True
+        if check:
+            output_dict['rsl_number'] = "RSL-WW-" + output_dict['ww_processing_number']
+        if output_dict['ww_full_sample_id'] is not None:
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
         # Ad hoc repair method for WW (or possibly upstream) not formatting some dates properly.
-        match output_dict['collection_date']:
-            case str():
-                try:
-                    output_dict['collection_date'] = parse(output_dict['collection_date']).date()
-                except ParserError:
-                    logger.error(f"Problem parsing collection_date: {output_dict['collection_date']}")
-                    output_dict['collection_date'] = date(1970, 1, 1)
-            case datetime():
-                output_dict['collection_date'] = output_dict['collection_date'].date()
-            case date():
-                pass
-            case _:
-                del output_dict['collection_date']
+        # NOTE: Should be handled by validator.
+        # match output_dict['collection_date']:
+        #     case str():
+        #         try:
+        #             output_dict['collection_date'] = parse(output_dict['collection_date']).date()
+        #         except ParserError:
+        #             logger.error(f"Problem parsing collection_date: {output_dict['collection_date']}")
+        #             output_dict['collection_date'] = date(1970, 1, 1)
+        #     case datetime():
+        #         output_dict['collection_date'] = output_dict['collection_date'].date()
+        #     case date():
+        #         pass
+        #     case _:
+        #         del output_dict['collection_date']
         return output_dict
 
     def get_previous_ww_submission(self, current_artic_submission: WastewaterArtic):
@@ -2134,6 +2166,7 @@ class SubmissionSampleAssociation(BaseClass):
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
     row = Column(INTEGER, primary_key=True)  #: row on the 96 well plate
     column = Column(INTEGER, primary_key=True)  #: column on the 96 well plate
+    submission_rank = Column(INTEGER, nullable=False, default=1) #: Location in sample list
 
     # reference to the Submission object
     submission = relationship(BasicSubmission,
@@ -2193,6 +2226,7 @@ class SubmissionSampleAssociation(BaseClass):
         sample['Plate Name'] = self.submission.rsl_plate_num
         sample['positive'] = False
         sample['submitted_date'] = self.submission.submitted_date
+        sample['submission_rank'] = self.submission_rank
         return sample
 
     def to_hitpick(self) -> dict | None:

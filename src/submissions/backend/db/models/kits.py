@@ -2,13 +2,16 @@
 All kit and reagent related models
 '''
 from __future__ import annotations
+
+from copy import copy
+
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
 from tools import check_authorization, setup_lookup, Report, Result
-from typing import List
+from typing import List, Literal
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
@@ -129,7 +132,8 @@ class KitType(BaseClass):
             return [item.reagent_type for item in relevant_associations if item.required == 1]
         else:
             return [item.reagent_type for item in relevant_associations]
-    
+
+    # TODO: Move to BasicSubmission?
     def construct_xl_map_for_use(self, submission_type:str|SubmissionType) -> dict:
         """
         Creates map of locations in excel workbook for a SubmissionType
@@ -159,11 +163,12 @@ class KitType(BaseClass):
                 map[assoc.reagent_type.name] = assoc.uses
             except TypeError:
                 continue
-        # Get SubmissionType info map
-        try:
-            map['info'] = st_assoc.info_map
-        except IndexError as e:
-            map['info'] = {}
+        # # Get SubmissionType info map
+        # try:
+        #     # map['info'] = st_assoc.info_map
+        #     map['info'] = st_assoc.construct_info_map(mode="write")
+        # except IndexError as e:
+        #     map['info'] = {}
         return map
 
     @classmethod
@@ -551,7 +556,8 @@ class SubmissionType(BaseClass):
     instances = relationship("BasicSubmission", backref="submission_type") #: Concrete instances of this type.
     template_file = Column(BLOB) #: Blank form for this type stored as binary.
     processes = relationship("Process", back_populates="submission_types", secondary=submissiontypes_processes) #: Relation to equipment processes used for this type.
-    
+    sample_map = Column(JSON) #: Where sample information is found in the excel sheet corresponding to this type.
+
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
         back_populates="submission_type",
@@ -612,24 +618,40 @@ class SubmissionType(BaseClass):
         self.template_file = data
         self.save()        
 
-    def construct_equipment_map(self) -> List[dict]:
+    def construct_info_map(self, mode:Literal['read', 'write']) -> dict:
+        info = self.info_map
+        logger.debug(f"Info map: {info}")
+        output = {}
+        # for k,v in info.items():
+            # info[k]['write'] += info[k]['read']
+        match mode:
+            case "read":
+                output = {k:v[mode] for k,v in info.items() if v[mode]}
+            case "write":
+                output = {k:v[mode] + v['read'] for k,v in info.items() if v[mode] or v['read']}
+        return output
+
+    def construct_sample_map(self):
+        return self.sample_map
+
+    def construct_equipment_map(self) -> dict:
         """
         Constructs map of equipment to excel cells.
 
         Returns:
             List[dict]: List of equipment locations in excel sheet
         """
-        output = []
+        output = {}
         # logger.debug("Iterating through equipment roles")
         for item in self.submissiontype_equipmentrole_associations:
             map = item.uses
-            if map == None:
+            if map is None:
                 map = {}
-            try:
-                map['role'] = item.equipment_role.name
-            except TypeError:
-                pass
-            output.append(map)
+            # try:
+            output[item.equipment_role.name] = map
+            # except TypeError:
+            #     pass
+            # output.append(map)
         return output
 
     def get_equipment(self, extraction_kit:str|KitType|None=None) -> List['PydEquipmentRole']:

@@ -38,6 +38,7 @@ CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
 row_map = {1:"A", 2:"B", 3:"C", 4:"D", 5:"E", 6:"F", 7:"G", 8:"H"}
+row_keys = {v:k for k,v in row_map.items()}
 
 def check_not_nan(cell_contents) -> bool:
     """
@@ -369,10 +370,10 @@ def setup_logger(verbosity:int=3):
         Path(LOGDIR).mkdir(parents=True)
     except FileExistsError:
         pass
-    fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
+    # fh = GroupWriteRotatingFileHandler(LOGDIR.joinpath('submissions.log'), mode='a', maxBytes=100000, backupCount=3, encoding=None, delay=False)
     # file logging will always be debug
-    fh.setLevel(logging.DEBUG)
-    fh.name = "File"
+    # fh.setLevel(logging.DEBUG)
+    # fh.name = "File"
     # create console handler with a higher log level
     # create custom logger with STERR -> log
     ch = logging.StreamHandler(stream=sys.stdout)
@@ -388,10 +389,10 @@ def setup_logger(verbosity:int=3):
     # create formatter and add it to the handlers
     # formatter = logging.Formatter('%(asctime)s - %(levelname)s - {%(pathname)s:%(lineno)d} - %(message)s')
     formatter = CustomFormatter()
-    fh.setFormatter(formatter)
+    # fh.setFormatter(formatter)
     ch.setFormatter(formatter)
     # add the handlers to the logger
-    logger.addHandler(fh)
+    # logger.addHandler(fh)
     logger.addHandler(ch)
     # Output exception and traceback to logger
     def handle_exception(exc_type, exc_value, exc_traceback):
@@ -555,6 +556,11 @@ def html_to_pdf(html, output_file:Path|str):
     printer.setOutputFileName(output_file.absolute().__str__())
     printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
     document.print(printer)
+
+def remove_key_from_list_of_dicts(input:list, key:str):
+    for item in input:
+        del item[key]
+    return input
 
 ctx = get_config(None)
 

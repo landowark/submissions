@@ -1,5 +1,7 @@
+- [ ] Convert Parsers to using openpyxl.
+  - The hardest part of this is going to be the sample parsing. I'm onto using the cell formulas in the plate map to suss out the location in the lookup table, but it could get a little recursive up in here.
 - [ ] Create a default info return function.
-- [ ] Parse comment from excel sheet.
+- [x] Parse comment from excel sheet.
 - [ ] Make reporting better. 
 - [x] Build master query method?
   - Obviously there will need to be extensions, but I feel the attr method I have in Submissions could work.
