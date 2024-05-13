@@ -4,10 +4,9 @@ Contains pydantic models and accompanying validators
 from __future__ import annotations
 from operator import attrgetter
 import uuid, re, logging
-from pydantic import BaseModel, field_validator, Field, model_validator
+from pydantic import BaseModel, field_validator, Field, model_validator, PrivateAttr
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
-# from dateutil.parser._parser import ParserError
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
 from . import RSLNamer
@@ -20,9 +19,6 @@ from openpyxl import load_workbook, Workbook
 from io import BytesIO
 
 logger = logging.getLogger(f"submissions.{__name__}")
-
-
-# class PydMixin(object):
 
 
 class PydReagent(BaseModel):
@@ -125,7 +121,7 @@ class PydReagent(BaseModel):
         #     output[k] = value
         return {k: getattr(self, k) for k in fields}
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, Report]:
+    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, SubmissionReagentAssociation]:
         """
         Converts this instance into a backend.db.models.kit.Reagent instance
 
@@ -139,7 +135,7 @@ class PydReagent(BaseModel):
         logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
         reagent = Reagent.query(lot_number=self.lot, name=self.name)
         logger.debug(f"Result: {reagent}")
-        if reagent == None:
+        if reagent is None:
             reagent = Reagent()
             for key, value in self.__dict__.items():
                 if isinstance(value, dict):
@@ -164,17 +160,22 @@ class PydReagent(BaseModel):
                             reagent.__setattr__(key, value)
                         except AttributeError:
                             logger.error(f"Couldn't set {key} to {value}")
-                if submission != None:
+                if submission is not None and reagent not in submission.reagents:
                     assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
                     assoc.comments = self.comment
-                    reagent.reagent_submission_associations.append(assoc)
-            # add end-of-life extension from reagent type to expiry date
-            # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
-        return reagent, report
-
-    # def improved_dict(self) -> dict:
-    #     fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
-    #     return {k:getattr(self,k) for k in fields}
+                    # reagent.reagent_submission_associations.append(assoc)
+                else:
+                    assoc = None
+        else:
+            if submission is not None and reagent not in submission.reagents:
+                assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
+                assoc.comments = self.comment
+                # reagent.reagent_submission_associations.append(assoc)
+            else:
+                assoc = None
+                # add end-of-life extension from reagent type to expiry date
+                # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
+        return reagent, assoc
 
 
 class PydSample(BaseModel, extra='allow'):
@@ -182,8 +183,8 @@ class PydSample(BaseModel, extra='allow'):
     sample_type: str
     row: int | List[int] | None
     column: int | List[int] | None
-    assoc_id: int | List[int] | None = Field(default=None)
-    submission_rank: int | List[int] | None
+    assoc_id: int | List[int | None] | None = Field(default=None, validate_default=True)
+    submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
 
     @model_validator(mode='after')
     @classmethod
@@ -191,20 +192,23 @@ class PydSample(BaseModel, extra='allow'):
         logger.debug(f"Data for pydsample: {data}")
         model = BasicSample.find_polymorphic_subclass(polymorphic_identity=data.sample_type)
         for k, v in data.model_extra.items():
-            # print(k, v)
+            print(k, v)
             if k in model.timestamps():
                 if isinstance(v, str):
                     v = datetime.strptime(v, "%Y-%m-%d")
                 data.__setattr__(k, v)
                 # print(dir(data))
+        logger.debug(f"Data coming out of validation: {pformat(data)}")
         return data
 
     @field_validator("row", "column", "assoc_id", "submission_rank")
     @classmethod
     def row_int_to_list(cls, value):
-        if isinstance(value, int):
-            return [value]
-        return value
+        match value:
+            case int() | None:
+                return [value]
+            case _:
+                return value
 
     @field_validator("submitter_id", mode="before")
     @classmethod
@@ -230,23 +234,23 @@ class PydSample(BaseModel, extra='allow'):
         logger.debug(f"Here is the incoming sample dict: \n{self.__dict__}")
         instance = BasicSample.query_or_create(sample_type=self.sample_type, submitter_id=self.submitter_id)
         for key, value in self.__dict__.items():
-            # logger.debug(f"Setting sample field {key} to {value}")
             match key:
                 case "row" | "column":
                     continue
                 case _:
-                    # instance.set_attribute(name=key, value=value)
+                    # logger.debug(f"Setting sample field {key} to {value}")
                     instance.__setattr__(key, value)
         out_associations = []
-        if submission != None:
+        if submission is not None:
             assoc_type = self.sample_type.replace("Sample", "").strip()
-            for row, column, id in zip(self.row, self.column, self.assoc_id):
+            for row, column, aid, submission_rank in zip(self.row, self.column, self.assoc_id, self.submission_rank):
                 logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
                 logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
                 association = SubmissionSampleAssociation.query_or_create(association_type=f"{assoc_type} Association",
                                                                           submission=submission,
                                                                           sample=instance,
-                                                                          row=row, column=column, id=id)
+                                                                          row=row, column=column, id=aid,
+                                                                          submission_rank=submission_rank)
                 # logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     # instance.sample_submission_associations.append(association)
@@ -336,7 +340,7 @@ class PydSubmission(BaseModel, extra='allow'):
     submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitted_date: dict | None
     rsl_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    submitted_date: dict | None
+    submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     submitting_lab: dict | None
     sample_count: dict | None
     extraction_kit: dict | None
@@ -387,24 +391,27 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submitted_date")
     @classmethod
     def strip_datetime_string(cls, value):
-
-        if isinstance(value['value'], datetime):
-            return value
-        if isinstance(value['value'], date):
-            return value
-        if isinstance(value['value'], int):
-            return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(),
-                        missing=True)
-        string = re.sub(r"(_|-)\d$", "", value['value'])
-        try:
-            output = dict(value=parse(string).date(), missing=True)
-        except ParserError as e:
-            logger.error(f"Problem parsing date: {e}")
-            try:
-                output = dict(value=parse(string.replace("-", "")).date(), missing=True)
-            except Exception as e:
-                logger.error(f"Problem with parse fallback: {e}")
-        return output
+        match value['value']:
+            case date():
+                return value
+            case datetime():
+                return value.date()
+            case int():
+                return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(),
+                    missing=True)
+            case str():
+                string = re.sub(r"(_|-)\d$", "", value['value'])
+                try:
+                    output = dict(value=parse(string).date(), missing=True)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dict(value=parse(string.replace("-", "")).date(), missing=True)
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                return output
+            case _:
+                raise ValueError(f"Could not get datetime from {value['value']}")
 
     @field_validator("submitting_lab", mode="before")
     @classmethod
@@ -417,6 +424,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def lookup_submitting_lab(cls, value):
         if isinstance(value['value'], str):
+            logger.debug(f"Looking up organization {value['value']}")
             try:
                 value['value'] = Organization.query(name=value['value']).name
             except AttributeError:
@@ -448,6 +456,7 @@ class PydSubmission(BaseModel, extra='allow'):
         if check_not_nan(value['value']):
             return value
         else:
+            logger.debug("Constructing plate name.")
             output = RSLNamer(filename=values.data['filepath'].__str__(), sub_type=sub_type,
                               data=values.data).parsed_name
             return dict(value=output, missing=True)
@@ -549,6 +558,12 @@ class PydSubmission(BaseModel, extra='allow'):
             case _:
                 return value
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        # this could also be done with default_factory
+        self.submission_object = BasicSubmission.find_polymorphic_subclass(
+            polymorphic_identity=self.submission_type['value'])
+
     def set_attribute(self, key, value):
         self.__setattr__(name=key, value=value)
 
@@ -592,7 +607,10 @@ class PydSubmission(BaseModel, extra='allow'):
             output = {k: getattr(self, k) for k in fields}
             output['reagents'] = [item.improved_dict() for item in self.reagents]
             output['samples'] = [item.improved_dict() for item in self.samples]
-            output['equipment'] = [item.improved_dict() for item in self.equipment]
+            try:
+                output['equipment'] = [item.improved_dict() for item in self.equipment]
+            except TypeError:
+                pass
         else:
             # logger.debug("Extracting 'value' from attributes")
             output = {k: (getattr(self, k) if not isinstance(getattr(self, k), dict) else getattr(self, k)['value']) for
@@ -612,7 +630,7 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
 
-    def toSQL(self) -> Tuple[BasicSubmission, Result]:
+    def to_sql(self) -> Tuple[BasicSubmission, Result]:
         """
         Converts this instance into a backend.db.models.submissions.BasicSubmission instance
 
@@ -632,12 +650,19 @@ class PydSubmission(BaseModel, extra='allow'):
                 value = value['value']
             logger.debug(f"Setting {key} to {value}")
             match key:
+                case "reagents":
+                    for reagent in self.reagents:
+                        reagent, assoc = reagent.toSQL(submission=instance)
+                        if assoc is not None and assoc not in instance.submission_reagent_associations:
+                            instance.submission_reagent_associations.append(assoc)
+                        # instance.reagents.append(reagent)
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)
-                        # logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
+                        logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
                         for assoc in associations:
-                            instance.submission_sample_associations.append(assoc)
+                            if assoc is not None and assoc not in instance.submission_sample_associations:
+                                instance.submission_sample_associations.append(assoc)
                 case "equipment":
                     logger.debug(f"Equipment: {pformat(self.equipment)}")
                     try:
@@ -700,7 +725,7 @@ class PydSubmission(BaseModel, extra='allow'):
         logger.debug(f"Constructed submissions message: {msg}")
         return instance, result
 
-    def toForm(self, parent: QWidget):
+    def to_form(self, parent: QWidget):
         """
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
 
@@ -713,211 +738,7 @@ class PydSubmission(BaseModel, extra='allow'):
         from frontend.widgets.submission_widget import SubmissionFormWidget
         return SubmissionFormWidget(parent=parent, submission=self)
 
-    def autofill_excel(self, missing_only: bool = True, backup: bool = False) -> Workbook:
-        """
-        Fills in relevant information/reagent cells in an excel workbook.
-
-        Args:
-            missing_only (bool, optional): Only fill missing items or all. Defaults to True.
-            backup (bool, optional): Do a full backup of the submission (adds samples). Defaults to False.
-
-        Returns:
-            Workbook: Filled in workbook
-        """
-        # open a new workbook using openpyxl
-        if self.filepath.stem.startswith("tmp"):
-            template = SubmissionType.query(name=self.submission_type['value']).template_file
-            workbook = load_workbook(BytesIO(template))
-            missing_only = False
-        else:
-            try:
-                workbook = load_workbook(self.filepath)
-            except Exception as e:
-                logger.error(f"Couldn't open workbook due to {e}")
-                template = SubmissionType.query(name=self.submission_type).template_file
-                workbook = load_workbook(BytesIO(template))
-                missing_only = False
-        if missing_only:
-            info, reagents = self.find_missing()
-        else:
-            info = {k: v for k, v in self.improved_dict().items() if isinstance(v, dict)}
-            reagents = self.reagents
-        if len(reagents + list(info.keys())) == 0:
-            # logger.warning("No info to fill in, returning")
-            return None
-        logger.debug(f"Info: {pformat(info)}")
-        logger.debug(f"We have blank info and/or reagents in the excel sheet.\n\tLet's try to fill them in.")
-        # extraction_kit = lookup_kit_types(ctx=self.ctx, name=self.extraction_kit['value'])
-        extraction_kit = KitType.query(name=self.extraction_kit['value'])
-        logger.debug(f"We have the extraction kit: {extraction_kit.name}")
-        excel_map = extraction_kit.construct_xl_map_for_use(self.submission_type['value'])
-        # logger.debug(f"Extraction kit map:\n\n{pformat(excel_map)}")
-        # logger.debug(f"Missing reagents going into autofile: {pformat(reagents)}")
-        # logger.debug(f"Missing info going into autofile: {pformat(info)}")
-        new_reagents = []
-        # logger.debug("Constructing reagent map and values")
-        for reagent in reagents:
-            new_reagent = {}
-            new_reagent['type'] = reagent.type
-            new_reagent['lot'] = excel_map[new_reagent['type']]['lot']
-            new_reagent['lot']['value'] = reagent.lot or "NA"
-            new_reagent['expiry'] = excel_map[new_reagent['type']]['expiry']
-            new_reagent['expiry']['value'] = reagent.expiry or "NA"
-            new_reagent['sheet'] = excel_map[new_reagent['type']]['sheet']
-            # name is only present for Bacterial Culture
-            try:
-                new_reagent['name'] = excel_map[new_reagent['type']]['name']
-                new_reagent['name']['value'] = reagent.name or "Not Applicable"
-            except Exception as e:
-                logger.error(f"Couldn't get name due to {e}")
-            new_reagents.append(new_reagent)
-        new_info = []
-        # logger.debug("Constructing info map and values")
-        for k, v in info.items():
-            try:
-                new_item = {}
-                new_item['type'] = k
-                new_item['location'] = excel_map['info'][k]
-                match k:
-                    case "comment":
-                        if v['value'] is not None:
-                            new_item['value'] = "--".join([comment['text'] for comment in v['value']])
-                        else:
-                            new_item['value'] = None
-                    case _:
-                        new_item['value'] = v['value']
-                new_info.append(new_item)
-            except KeyError:
-                logger.error(f"Unable to fill in {k}, not found in relevant info.")
-        logger.debug(f"New reagents: {new_reagents}")
-        logger.debug(f"New info: {new_info}")
-        # get list of sheet names
-        for sheet in workbook.sheetnames:
-            # open sheet
-            worksheet = workbook[sheet]
-            # Get relevant reagents for that sheet
-            sheet_reagents = [item for item in new_reagents if sheet in item['sheet']]
-            for reagent in sheet_reagents:
-                # logger.debug(f"Attempting to write lot {reagent['lot']['value']} in: row {reagent['lot']['row']}, column {reagent['lot']['column']}")
-                worksheet.cell(row=reagent['lot']['row'], column=reagent['lot']['column'],
-                               value=reagent['lot']['value'])
-                # logger.debug(f"Attempting to write expiry {reagent['expiry']['value']} in: row {reagent['expiry']['row']}, column {reagent['expiry']['column']}")
-                if isinstance(reagent['expiry']['value'], date) and reagent['expiry']['value'].year == 1970:
-                    reagent['expiry']['value'] = "NA"
-                worksheet.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column'],
-                               value=reagent['expiry']['value'])
-                try:
-                    # logger.debug(f"Attempting to write name {reagent['name']['value']} in: row {reagent['name']['row']}, column {reagent['name']['column']}")
-                    worksheet.cell(row=reagent['name']['row'], column=reagent['name']['column'],
-                                   value=reagent['name']['value'])
-                except Exception as e:
-                    logger.error(f"Could not write name {reagent['name']['value']} due to {e}")
-            # Get relevant info for that sheet
-            new_info = [item for item in new_info if isinstance(item['location'], dict)]
-            logger.debug(f"New info: {pformat(new_info)}")
-            sheet_info = [item for item in new_info if item['location']['sheet'] == sheet]
-            for item in sheet_info:
-                logger.debug(
-                    f"Attempting: {item['type']} in row {item['location']['row']}, column {item['location']['column']}")
-                worksheet.cell(row=item['location']['row'], column=item['location']['column'], value=item['value'])
-            # Hacky way to pop in 'signed by'
-        custom_parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type['value'])
-        workbook = custom_parser.custom_autofill(workbook, info=self.improved_dict(), backup=backup)
-        return workbook
-
-    def autofill_samples(self, workbook: Workbook) -> Workbook:
-        """
-        Fill in sample rows on the excel sheet
-
-        Args:
-            workbook (Workbook): Input excel workbook
-
-        Returns:
-            Workbook: Updated excel workbook
-        """
-        # sample_info = SubmissionType.query(name=self.submission_type['value']).info_map['samples']
-        sample_info = SubmissionType.query(name=self.submission_type['value']).construct_sample_map()
-        logger.debug(f"Sample info: {pformat(sample_info)}")
-        logger.debug(f"Workbook sheets: {workbook.sheetnames}")
-        worksheet = workbook[sample_info["lookup_table"]['sheet']]
-        # logger.debug("Sorting samples by row/column")
-        samples = sorted(self.samples, key=attrgetter('column', 'row'))
-        submission_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-        # custom function to adjust values for writing.
-        samples = submission_obj.adjust_autofill_samples(samples=samples)
-        logger.debug(f"Samples: {pformat(samples)}")
-        # Fail safe against multiple instances of the same sample
-        for iii, sample in enumerate(samples, start=1):
-            logger.debug(f"Sample: {sample}")
-            # custom function to find the row of this sample
-            row = submission_obj.custom_sample_autofill_row(sample, worksheet=worksheet)
-            logger.debug(f"Writing to {row}")
-            if row == None:
-                row = sample_info['lookup_table']['start_row'] + iii
-            fields = [field for field in list(sample.model_fields.keys()) +
-                      list(sample.model_extra.keys()) if field in sample_info['lookup_table']['sample_columns'].keys()]
-            logger.debug(f"Here are the fields we are going to fill:\n\t{fields}")
-            for field in fields:
-                column = sample_info['lookup_table']['sample_columns'][field]
-                value = getattr(sample, field)
-                match value:
-                    case list():
-                        value = value[0]
-                    case _:
-                        value = value
-                if field == "row":
-                    value = row_map[value]
-                worksheet.cell(row=row, column=column, value=value)
-        return workbook
-
-    def autofill_equipment(self, workbook: Workbook) -> Workbook:
-        """
-        Fill in equipment on the excel sheet
-
-        Args:
-            workbook (Workbook): Input excel workbook
-
-        Returns:
-            Workbook: Updated excel workbook
-        """
-        equipment_map = SubmissionType.query(name=self.submission_type['value']).construct_equipment_map()
-        logger.debug(f"Equipment map: {equipment_map}")
-        # See if all equipment has a location map
-        # If not, create a new sheet to store them in.
-        if not all([len(item.keys()) > 1 for item in equipment_map]):
-            logger.warning("Creating 'Equipment' sheet to hold unmapped equipment")
-            workbook.create_sheet("Equipment")
-        equipment = []
-        # logger.debug("Contructing equipment info map/values")
-        for ii, equip in enumerate(self.equipment, start=1):
-            loc = [item for item in equipment_map if item['role'] == equip.role][0]
-            try:
-                loc['name']['value'] = equip.name
-                loc['process']['value'] = equip.processes[0]
-            except KeyError:
-                loc['name'] = dict(row=ii, column=2)
-                loc['process'] = dict(row=ii, column=3)
-                loc['name']['value'] = equip.name
-                loc['process']['value'] = equip.processes[0]
-                loc['sheet'] = "Equipment"
-            equipment.append(loc)
-        logger.debug(f"Using equipment: {equipment}")
-        for sheet in workbook.sheetnames:
-            logger.debug(f"Looking at: {sheet}")
-            worksheet = workbook[sheet]
-            relevant = [item for item in equipment if item['sheet'] == sheet]
-            for rel in relevant:
-                match sheet:
-                    case "Equipment":
-                        worksheet.cell(row=rel['name']['row'], column=1, value=rel['role'])
-                    case _:
-                        pass
-                worksheet.cell(row=rel['name']['row'], column=rel['name']['column'], value=rel['name']['value'])
-                worksheet.cell(row=rel['process']['row'], column=rel['process']['column'],
-                               value=rel['process']['value'])
-        return workbook
-
-    def toWriter(self):
+    def to_writer(self):
         from backend.excel.writer import SheetWriter
         return SheetWriter(self)
 
@@ -928,16 +749,14 @@ class PydSubmission(BaseModel, extra='allow'):
         Returns:
             str: Output filename
         """
-        template = BasicSubmission.find_polymorphic_subclass(
-            polymorphic_identity=self.submission_type).filename_template()
+        template = self.submission_object.filename_template()
         # logger.debug(f"Using template string: {template}")
         render = RSLNamer.construct_export_name(template=template, **self.improved_dict(dictionaries=False)).replace(
             "/", "")
         # logger.debug(f"Template rendered as: {render}")
         return render
 
-    def check_kit_integrity(self, reagenttypes: list = [], extraction_kit: str | dict | None = None) -> Tuple[
-        List[PydReagent], Report]:
+    def check_kit_integrity(self, extraction_kit: str | dict | None = None) -> Tuple[List[PydReagent], Report]:
         """
         Ensures all reagents expected in kit are listed in Submission
        
@@ -953,23 +772,12 @@ class PydSubmission(BaseModel, extra='allow'):
             extraction_kit = dict(value=extraction_kit)
         if extraction_kit is not None and extraction_kit != self.extraction_kit['value']:
             self.extraction_kit['value'] = extraction_kit['value']
-        #         reagenttypes = []
-        #     else:
-        #         reagenttypes = [item.type for item in self.reagents]
-        # else:
-        #     reagenttypes = [item.type for item in self.reagents]
         logger.debug(f"Looking up {self.extraction_kit['value']}")
         ext_kit = KitType.query(name=self.extraction_kit['value'])
         ext_kit_rtypes = [item.to_pydantic() for item in
                           ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
         logger.debug(f"Kit reagents: {ext_kit_rtypes}")
         logger.debug(f"Submission reagents: {self.reagents}")
-        # check if lists are equal
-        # check = set(ext_kit_rtypes) == set(reagenttypes)
-        # logger.debug(f"Checking if reagents match kit contents: {check}")
-        # # what reagent types are in both lists?
-        # missing = list(set(ext_kit_rtypes).difference(reagenttypes))
-        # missing = []
         # Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.type for item in ext_kit_rtypes]
         output_reagents = [rt for rt in self.reagents if rt.type in expected_check]
@@ -977,11 +785,6 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_check = [item.type for item in output_reagents]
         missing_reagents = [rt for rt in ext_kit_rtypes if rt.type not in missing_check]
         missing_reagents += [rt for rt in output_reagents if rt.missing]
-        # for rt in ext_kit_rtypes:
-        #     if rt.type not in [item.type for item in output_reagents]:
-        #         missing.append(rt)
-        #         if rt.type not in [item.type for item in output_reagents]:
-        #             output_reagents.append(rt)
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
         logger.debug(f"Missing reagents types: {missing_reagents}")
         # if lists are equal return no problem
@@ -1026,7 +829,7 @@ class PydOrganization(BaseModel):
         for field in self.model_fields:
             match field:
                 case "contacts":
-                    value = [item.toSQL() for item in getattr(self, field)]
+                    value = [item.to_sql() for item in getattr(self, field)]
                 case _:
                     value = getattr(self, field)
             # instance.set_attribute(name=field, value=value)
@@ -1095,7 +898,7 @@ class PydEquipmentRole(BaseModel):
     equipment: List[PydEquipment]
     processes: List[str] | None
 
-    def toForm(self, parent, used: list) -> "RoleComboBox":
+    def to_form(self, parent, used: list) -> "RoleComboBox":
         """
         Creates a widget for user input into this class.
 

@@ -1,3 +1,5 @@
+import sys
+
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
@@ -7,7 +9,7 @@ from pathlib import Path
 from . import select_open_file, select_save_file
 import logging, difflib, inspect
 from pathlib import Path
-from tools import Report, Result, check_not_nan
+from tools import Report, Result, check_not_nan, workbook_2_csv
 from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
@@ -104,7 +106,7 @@ class SubmissionFormContainer(QWidget):
         logger.debug(f"Submission dictionary:\n{pformat(self.prsr.sub)}")
         self.pyd = self.prsr.to_pydantic()
         logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")
-        self.form = self.pyd.toForm(parent=self)
+        self.form = self.pyd.to_form(parent=self)
         self.layout().addWidget(self.form)
         # if self.prsr.sample_result != None:
         #     report.add_result(msg=self.prsr.sample_result, status="Warning")
@@ -347,7 +349,8 @@ class SubmissionFormWidget(QWidget):
             self.app.result_reporter()
             return
         logger.debug(f"PYD before transformation into SQL:\n\n{self.pyd}\n\n")
-        base_submission, result = self.pyd.toSQL()
+        base_submission, result = self.pyd.to_sql()
+        logger.debug(f"SQL object: {pformat(base_submission.__dict__)}")
         # logger.debug(f"Base submission: {base_submission.to_dict()}")
         # check output message for issues
         match result.code:
@@ -371,6 +374,7 @@ class SubmissionFormWidget(QWidget):
                 return
             case _:
                 pass
+        # assert base_submission.reagents != []
         # add reagents to submission object
         for reagent in base_submission.reagents:
             # logger.debug(f"Updating: {reagent} with {reagent.lot}")
@@ -397,13 +401,18 @@ class SubmissionFormWidget(QWidget):
         Args:
             fname (Path | None, optional): Input filename. Defaults to None.
         """        
-        self.parse_form()
+        # self.parse_form()
         if isinstance(fname, bool) or fname == None:
             fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
         try:
-            self.pyd.csv.to_csv(fname.__str__(), index=False)
+
+            # logger.debug(f'')
+            # self.pyd.csv.to_csv(fname.__str__(), index=False)
+            workbook_2_csv(worksheet=self.pyd.csv, filename=fname)
         except PermissionError:
             logger.debug(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
+        except AttributeError:
+            logger.error(f"No csv file found in the submission at this point.")
 
     def parse_form(self) -> PydSubmission:
         """

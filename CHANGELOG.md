@@ -1,3 +1,7 @@
+## 202405.01
+
+- New Excel writers
+
 ## 202404.05
 
 - Addition of default query method using Kwargs.

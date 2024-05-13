@@ -105,7 +105,7 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
             # submission = BasicSubmission.query(rsl_number=submission)
-            submission = BasicSubmission.query(rsl_plate_number=submission)
+            submission = BasicSubmission.query(rsl_plate_num=submission)
         submission.signed_by = getuser()
         submission.save()
         self.submission_details(submission=self.rsl_plate_num)

@@ -1,11 +1,12 @@
 import logging
 from copy import copy
 from pathlib import Path
+from pprint import pformat
 from typing import List
 
 from openpyxl import load_workbook, Workbook
 from tools import row_keys
-from backend.db.models import SubmissionType, KitType
+from backend.db.models import SubmissionType, KitType, BasicSample, BasicSubmission
 from backend.validators.pydant import PydSubmission
 from io import BytesIO
 from collections import OrderedDict
@@ -32,6 +33,7 @@ class SheetWriter(object):
                     # self.__setattr__('submission_type', submission.submission_type['value'])
                     self.sub[k] = v['value']
                     self.submission_type = SubmissionType.query(name=v['value'])
+                    self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
                 case _:
                     if isinstance(v, dict):
                         self.sub[k] = v['value']
@@ -82,13 +84,17 @@ class SheetWriter(object):
 
 class InfoWriter(object):
 
-    def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict):
+    def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict, sub_object:BasicSubmission|None=None):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
+        if sub_object is None:
+            sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
         self.submission_type = submission_type
+        self.sub_object = sub_object
         self.xl = xl
         map = submission_type.construct_info_map(mode='write')
         self.info = self.reconcile_map(info_dict, map)
+        logger.debug(pformat(self.info))
 
     def reconcile_map(self, info_dict: dict, map: dict) -> dict:
         output = {}
@@ -99,7 +105,8 @@ class InfoWriter(object):
             try:
                 dicto['locations'] = map[k]
             except KeyError:
-                continue
+                # continue
+                pass
             dicto['value'] = v
             if len(dicto) > 0:
                 output[k] = dicto
@@ -113,10 +120,11 @@ class InfoWriter(object):
                 logger.error(f"No locations for {k}, skipping")
                 continue
             for loc in locations:
+
                 logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
                 sheet = self.xl[loc['sheet']]
                 sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
-        return self.xl
+        return self.sub_object.custom_info_writer(self.xl, info=self.info)
 
 
 class ReagentWriter(object):
@@ -143,7 +151,7 @@ class ReagentWriter(object):
                 try:
                     dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
                 except KeyError as e:
-                    logger.error(f"Keyerror: {e}")
+                    # logger.error(f"Keyerror: {e}")
                     dicto = v
                 placeholder[k] = dicto
                 placeholder['sheet'] = mp_info['sheet']
@@ -156,8 +164,8 @@ class ReagentWriter(object):
             for k, v in reagent.items():
                 if not isinstance(v, dict):
                     continue
-                logger.debug(
-                    f"Writing {reagent['type']} {k} to {reagent['sheet']}, row: {v['row']}, column: {v['column']}")
+                # logger.debug(
+                    # f"Writing {reagent['type']} {k} to {reagent['sheet']}, row: {v['row']}, column: {v['column']}")
                 sheet.cell(row=v['row'], column=v['column'], value=v['value'])
         return self.xl
 
@@ -214,18 +222,27 @@ class EquipmentWriter(object):
         output = []
         for ii, equipment in enumerate(equipment_list, start=1):
             mp_info = map[equipment['role']]
+            # logger.debug(f"{equipment['role']} map: {mp_info}")
             placeholder = copy(equipment)
-            for jj, (k, v) in enumerate(equipment.items(), start=1):
-                try:
-                    dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
-                except KeyError as e:
-                    logger.error(f"Keyerror: {e}")
+            if mp_info == {}:
+                for jj, (k, v) in enumerate(equipment.items(), start=1):
                     dicto = dict(value=v, row=ii, column=jj)
-                placeholder[k] = dicto
-                try:
-                    placeholder['sheet'] = mp_info['sheet']
-                except KeyError:
-                    placeholder['sheet'] = "Equipment"
+                    placeholder[k] = dicto
+
+                # output.append(placeholder)
+            else:
+                for jj, (k, v) in enumerate(equipment.items(), start=1):
+                    try:
+                        dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
+                    except KeyError as e:
+                        # logger.error(f"Keyerror: {e}")
+                        continue
+                    placeholder[k] = dicto
+            try:
+                placeholder['sheet'] = mp_info['sheet']
+            except KeyError:
+                placeholder['sheet'] = "Equipment"
+            # logger.debug(f"Final output of {equipment['role']} : {placeholder}")
             output.append(placeholder)
         return output
 
@@ -241,8 +258,12 @@ class EquipmentWriter(object):
                 if not isinstance(v, dict):
                     continue
                 logger.debug(
-                    f"Writing {equipment['role']} {k} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
+                    f"Writing {k}: {v['value']} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
                 if isinstance(v['value'], list):
                     v['value'] = v['value'][0]
-                sheet.cell(row=v['row'], column=v['column'], value=v['value'])
+                try:
+                    sheet.cell(row=v['row'], column=v['column'], value=v['value'])
+                except AttributeError as e:
+                    logger.error(f"Couldn't write to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
+                    logger.error(e)
         return self.xl

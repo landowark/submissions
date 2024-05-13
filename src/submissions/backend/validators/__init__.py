@@ -4,6 +4,8 @@ from openpyxl import load_workbook
 from backend.db.models import BasicSubmission, SubmissionType
 from tools import jinja_template_loading
 from jinja2 import Template
+from dateutil.parser import parse
+from datetime import datetime
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -21,15 +23,15 @@ class RSLNamer(object):
             # logger.debug("Creating submission type because none exists")
             self.submission_type = self.retrieve_submission_type(filename=filename)
         logger.debug(f"got submission type: {self.submission_type}")
-        if self.submission_type != None:
+        if self.submission_type is not None:
             # logger.debug("Retrieving BasicSubmission subclass")
-            enforcer = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=enforcer.get_regex())
+            self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex())
             if data is None:
                 data = dict(submission_type=self.submission_type)
             if "submission_type" not in data.keys():
                 data['submission_type'] = self.submission_type
-            self.parsed_name = enforcer.enforce_name(instr=self.parsed_name, data=data)
+            self.parsed_name = self.sub_object.enforce_name(instr=self.parsed_name, data=data)
 
     @classmethod
     def retrieve_submission_type(cls, filename: str | Path) -> str:

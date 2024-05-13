@@ -4,7 +4,7 @@ Contains miscellaenous functions used by both frontend and backend.
 from __future__ import annotations
 from pathlib import Path
 import numpy as np
-import logging, re, yaml, sys, os, stat, platform, getpass, inspect
+import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
 from PyQt6.QtGui import QTextDocument, QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from openpyxl.worksheet.worksheet import Worksheet
 
 # from PyQt6 import QtPrintSupport, QtCore, QtWebEngineWidgets
 from PyQt6.QtPrintSupport import QPrinter
@@ -561,6 +562,12 @@ def remove_key_from_list_of_dicts(input:list, key:str):
     for item in input:
         del item[key]
     return input
+
+def workbook_2_csv(worksheet: Worksheet, filename:Path):
+    with open(filename, 'w', newline="") as f:
+        c = csv.writer(f)
+        for r in worksheet.rows:
+            c.writerow([cell.value for cell in r])
 
 ctx = get_config(None)
 

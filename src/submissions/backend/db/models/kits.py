@@ -629,6 +629,7 @@ class SubmissionType(BaseClass):
                 output = {k:v[mode] for k,v in info.items() if v[mode]}
             case "write":
                 output = {k:v[mode] + v['read'] for k,v in info.items() if v[mode] or v['read']}
+                output = {k:v for k, v in output.items() if all([isinstance(item, dict) for item in v])}
         return output
 
     def construct_sample_map(self):
@@ -935,6 +936,9 @@ class SubmissionReagentAssociation(BaseClass):
         return f"<{self.submission.rsl_plate_num}&{self.reagent.lot}>"
 
     def __init__(self, reagent=None, submission=None):
+        if isinstance(reagent, list):
+            logger.warning(f"Got list for reagent. Likely no lot was provided. Using {reagent[0]}")
+            reagent = reagent[0]
         self.reagent = reagent
         self.submission = submission
         self.comments = ""

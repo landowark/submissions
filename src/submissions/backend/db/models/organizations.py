@@ -67,7 +67,8 @@ class Organization(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-    
+        # return query.first()
+
     @check_authorization
     def save(self):
         super().save()

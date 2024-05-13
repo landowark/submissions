@@ -36,7 +36,7 @@ class EquipmentUsage(QDialog):
         self.layout.addWidget(label)
         # logger.debug("Creating widgets for equipment")
         for eq in self.opt_equipment:
-            widg = eq.toForm(parent=self, used=self.used_equipment)
+            widg = eq.to_form(parent=self, used=self.used_equipment)
             self.layout.addWidget(widg)
             widg.update_processes()
         self.layout.addWidget(self.buttonBox)
