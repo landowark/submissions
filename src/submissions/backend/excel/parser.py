@@ -732,67 +732,113 @@ class EquipmentParser(object):
         return output
 
 
+# class PCRParser(object):
+#     """
+#     Object to pull data from Design and Analysis PCR export file.
+#     """
+#
+#     def __init__(self, filepath: Path | None = None) -> None:
+#         """
+#         Initializes object.
+#
+#         Args:
+#             filepath (Path | None, optional): file to parse. Defaults to None.
+#         """
+#         logger.debug(f"Parsing {filepath.__str__()}")
+#         if filepath == None:
+#             logger.error(f"No filepath given.")
+#             self.xl = None
+#         else:
+#             try:
+#                 self.xl = pd.ExcelFile(filepath.__str__())
+#             except ValueError as e:
+#                 logger.error(f"Incorrect value: {e}")
+#                 self.xl = None
+#             except PermissionError:
+#                 logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
+#                 return
+#         self.parse_general(sheet_name="Results")
+#         namer = RSLNamer(filename=filepath.__str__())
+#         self.plate_num = namer.parsed_name
+#         self.submission_type = namer.submission_type
+#         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
+#         parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+#         self.samples = parser.parse_pcr(xl=self.xl, rsl_number=self.plate_num)
+#
+#     def parse_general(self, sheet_name: str):
+#         """
+#         Parse general info rows for all types of PCR results
+#
+#         Args:
+#             sheet_name (str): Name of sheet in excel workbook that holds info.
+#         """
+#         self.pcr = {}
+#         df = self.xl.parse(sheet_name=sheet_name, dtype=object).fillna("")
+#         self.pcr['comment'] = df.iloc[0][1]
+#         self.pcr['operator'] = df.iloc[1][1]
+#         self.pcr['barcode'] = df.iloc[2][1]
+#         self.pcr['instrument'] = df.iloc[3][1]
+#         self.pcr['block_type'] = df.iloc[4][1]
+#         self.pcr['instrument_name'] = df.iloc[5][1]
+#         self.pcr['instrument_serial'] = df.iloc[6][1]
+#         self.pcr['heated_cover_serial'] = df.iloc[7][1]
+#         self.pcr['block_serial'] = df.iloc[8][1]
+#         self.pcr['run-start'] = df.iloc[9][1]
+#         self.pcr['run_end'] = df.iloc[10][1]
+#         self.pcr['run_duration'] = df.iloc[11][1]
+#         self.pcr['sample_volume'] = df.iloc[12][1]
+#         self.pcr['cover_temp'] = df.iloc[13][1]
+#         self.pcr['passive_ref'] = df.iloc[14][1]
+#         self.pcr['pcr_step'] = df.iloc[15][1]
+#         self.pcr['quant_cycle_method'] = df.iloc[16][1]
+#         self.pcr['analysis_time'] = df.iloc[17][1]
+#         self.pcr['software'] = df.iloc[18][1]
+#         self.pcr['plugin'] = df.iloc[19][1]
+#         self.pcr['exported_on'] = df.iloc[20][1]
+#         self.pcr['imported_by'] = getuser()
+
 class PCRParser(object):
-    """
-    Object to pull data from Design and Analysis PCR export file.
-    """
+    """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | None = None) -> None:
+    def __init__(self, filepath: Path | None=None, submission: BasicSubmission | None=None) -> None:
         """
-        Initializes object.
+         Initializes object.
 
-        Args:
-            filepath (Path | None, optional): file to parse. Defaults to None.
-        """
-        logger.debug(f"Parsing {filepath.__str__()}")
-        if filepath == None:
-            logger.error(f"No filepath given.")
+         Args:
+             filepath (Path | None, optional): file to parse. Defaults to None.
+         """
+        logger.debug(f'Parsing {filepath.__str__()}')
+        if filepath is None:
+            logger.error('No filepath given.')
             self.xl = None
         else:
             try:
-                self.xl = pd.ExcelFile(filepath.__str__())
+                self.xl = load_workbook(filepath)
             except ValueError as e:
-                logger.error(f"Incorrect value: {e}")
+                logger.error(f'Incorrect value: {e}')
                 self.xl = None
             except PermissionError:
-                logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
-                return
-        self.parse_general(sheet_name="Results")
-        namer = RSLNamer(filename=filepath.__str__())
-        self.plate_num = namer.parsed_name
-        self.submission_type = namer.submission_type
-        logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
-        parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-        self.samples = parser.parse_pcr(xl=self.xl, rsl_number=self.plate_num)
+                logger.error(f'Couldn\'t get permissions for {filepath.__str__()}. Operation might have been cancelled.')
+                return None
+        if submission is None:
+            self.submission_obj = Wastewater
+            rsl_plate_num = None
+        else:
+            self.submission_obj = submission
+            rsl_plate_num = self.submission_obj.rsl_plate_num
+        self.pcr = self.parse_general()
+        self.samples = self.submission_obj.parse_pcr(xl=self.xl, rsl_plate_num=rsl_plate_num)
 
-    def parse_general(self, sheet_name: str):
+    def parse_general(self):
         """
         Parse general info rows for all types of PCR results
 
         Args:
             sheet_name (str): Name of sheet in excel workbook that holds info.
-        """
-        self.pcr = {}
-        df = self.xl.parse(sheet_name=sheet_name, dtype=object).fillna("")
-        self.pcr['comment'] = df.iloc[0][1]
-        self.pcr['operator'] = df.iloc[1][1]
-        self.pcr['barcode'] = df.iloc[2][1]
-        self.pcr['instrument'] = df.iloc[3][1]
-        self.pcr['block_type'] = df.iloc[4][1]
-        self.pcr['instrument_name'] = df.iloc[5][1]
-        self.pcr['instrument_serial'] = df.iloc[6][1]
-        self.pcr['heated_cover_serial'] = df.iloc[7][1]
-        self.pcr['block_serial'] = df.iloc[8][1]
-        self.pcr['run-start'] = df.iloc[9][1]
-        self.pcr['run_end'] = df.iloc[10][1]
-        self.pcr['run_duration'] = df.iloc[11][1]
-        self.pcr['sample_volume'] = df.iloc[12][1]
-        self.pcr['cover_temp'] = df.iloc[13][1]
-        self.pcr['passive_ref'] = df.iloc[14][1]
-        self.pcr['pcr_step'] = df.iloc[15][1]
-        self.pcr['quant_cycle_method'] = df.iloc[16][1]
-        self.pcr['analysis_time'] = df.iloc[17][1]
-        self.pcr['software'] = df.iloc[18][1]
-        self.pcr['plugin'] = df.iloc[19][1]
-        self.pcr['exported_on'] = df.iloc[20][1]
-        self.pcr['imported_by'] = getuser()
+         """
+        info_map = self.submission_obj.get_submission_type().sample_map['pcr_general_info']
+        sheet = self.xl[info_map['sheet']]
+        iter_rows = sheet.iter_rows(min_row=info_map['start_row'], max_row=info_map['end_row'])
+        pcr = {row[0].value.lower().replace(' ', '_'): row[1].value for row in iter_rows}
+        pcr['imported_by'] = getuser()
+        return pcr

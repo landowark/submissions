@@ -156,11 +156,11 @@ class KitType(BaseClass):
                 # logger.debug(f"Constructing xl map with str {submission_type}")
                 assocs = [item for item in self.kit_reagenttype_associations if
                           item.submission_type.name == submission_type]
-                st_assoc = [item for item in self.used_for if submission_type == item.name][0]
+                # st_assoc = [item for item in self.used_for if submission_type == item.name][0]
             case SubmissionType():
                 # logger.debug(f"Constructing xl map with SubmissionType {submission_type}")
                 assocs = [item for item in self.kit_reagenttype_associations if item.submission_type == submission_type]
-                st_assoc = submission_type
+                # st_assoc = submission_type
             case _:
                 raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
         # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
@@ -279,9 +279,9 @@ class ReagentType(BaseClass):
             ReagentType|List[ReagentType]: ReagentType or list of ReagentTypes matching filter.
         """
         query: Query = cls.__database_session__.query(cls)
-        if (kit_type != None and reagent == None) or (reagent != None and kit_type == None):
+        if (kit_type is not None and reagent is None) or (reagent is not None and kit_type is None):
             raise ValueError("Cannot filter without both reagent and kit type.")
-        elif kit_type == None and reagent == None:
+        elif kit_type is None and reagent is None:
             pass
         else:
             match kit_type:
@@ -296,7 +296,7 @@ class ReagentType(BaseClass):
                     reagent = Reagent.query(lot_number=reagent)
                 case _:
                     pass
-            assert reagent.type != []
+            assert reagent.type
             # logger.debug(f"Looking up reagent type for {type(kit_type)} {kit_type} and {type(reagent)} {reagent}")
             # logger.debug(f"Kit reagent types: {kit_type.reagent_types}")
             result = list(set(kit_type.reagent_types).intersection(reagent.type))
@@ -353,7 +353,7 @@ class Reagent(BaseClass):
                                     "submission")  #: Association proxy to SubmissionSampleAssociation.samples
 
     def __repr__(self):
-        if self.name != None:
+        if self.name is not None:
             return f"<Reagent({self.name}-{self.lot})>"
         else:
             return f"<Reagent({self.type.name}-{self.lot})>"
@@ -368,7 +368,7 @@ class Reagent(BaseClass):
         Returns:
             dict: representation of the reagent's attributes
         """
-        if extraction_kit != None:
+        if extraction_kit is not None:
             # Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
             try:
                 reagent_role = list(set(self.type).intersection(extraction_kit.reagent_types))[0]
@@ -412,10 +412,10 @@ class Reagent(BaseClass):
         report = Report()
         logger.debug(f"Attempting update of reagent type at intersection of ({self}), ({kit})")
         rt = ReagentType.query(kit_type=kit, reagent=self, limit=1)
-        if rt != None:
+        if rt is not None:
             logger.debug(f"got reagenttype {rt}")
             assoc = KitTypeReagentTypeAssociation.query(kit_type=kit, reagent_type=rt)
-            if assoc != None:
+            if assoc is not None:
                 if assoc.last_used != self.lot:
                     logger.debug(f"Updating {assoc} last used to {self.lot}")
                     assoc.last_used = self.lot
@@ -658,14 +658,10 @@ class SubmissionType(BaseClass):
         output = {}
         # logger.debug("Iterating through equipment roles")
         for item in self.submissiontype_equipmentrole_associations:
-            map = item.uses
-            if map is None:
-                map = {}
-            # try:
-            output[item.equipment_role.name] = map
-            # except TypeError:
-            #     pass
-            # output.append(map)
+            emap = item.uses
+            if emap is None:
+                emap = {}
+            output[item.equipment_role.name] = emap
         return output
 
     def get_equipment(self, extraction_kit: str | KitType | None = None) -> List['PydEquipmentRole']:
@@ -737,7 +733,7 @@ class SubmissionType(BaseClass):
         match key:
             case str():
                 # logger.debug(f"Looking up submission type by info-map key str: {key}")
-                query = query.filter(cls.info_map.op('->')(key) != None)
+                query = query.filter(cls.info_map.op('->')(key) is not None)
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)

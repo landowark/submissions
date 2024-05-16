@@ -735,20 +735,46 @@ class BasicSubmission(BaseClass):
         return re.sub(rf"{abb}(\d)", rf"{abb}-\1", outstr)
         # return outstr
 
+    # @classmethod
+    # def parse_pcr(cls, xl: pd.DataFrame, rsl_number: str) -> list:
+    #     """
+    #     Perform custom parsing of pcr info.
+    #
+    #     Args:
+    #         xl (pd.DataFrame): pcr info form
+    #         rsl_number (str): rsl plate num of interest
+    #
+    #     Returns:
+    #         list: _description_
+    #     """
+    #     logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
+    #     return []
     @classmethod
-    def parse_pcr(cls, xl: pd.DataFrame, rsl_number: str) -> list:
+    def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> list:
         """
         Perform custom parsing of pcr info.
 
         Args:
             xl (pd.DataFrame): pcr info form
-            rsl_number (str): rsl plate num of interest
+            rsl_plate_number (str): rsl plate num of interest
 
         Returns:
             list: _description_
         """
         logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
-        return []
+        pcr_sample_map = cls.get_submission_type().sample_map['pcr_samples']
+        logger.debug(f'sample map: {pcr_sample_map}')
+        main_sheet = xl[pcr_sample_map['main_sheet']]
+        samples = []
+        fields = {k: v for k, v in pcr_sample_map.items() if k not in ['main_sheet', 'start_row']}
+        for row in main_sheet.iter_rows(min_row=pcr_sample_map['start_row']):
+            idx = row[0].row
+            sample = {}
+            for k, v in fields.items():
+                sheet = xl[v['sheet']]
+                sample[k] = sheet.cell(row=idx, column=v['column']).value
+            samples.append(sample)
+        return samples
 
     @classmethod
     def filename_template(cls) -> str:
@@ -1314,46 +1340,74 @@ class Wastewater(BasicSubmission):
             input_dict['csv'] = xl["Copy to import file"]
         return input_dict
 
+    # @classmethod
+    # def parse_pcr(cls, xl: pd.ExcelFile, rsl_number: str) -> list:
+    #     """
+    #     Parse specific to wastewater samples.
+    #     """
+    #     samples = super().parse_pcr(xl=xl, rsl_number=rsl_number)
+    #     df = xl.parse(sheet_name="Results", dtype=object).fillna("")
+    #     column_names = ["Well", "Well Position", "Omit", "Sample", "Target", "Task", " Reporter", "Quencher",
+    #                     "Amp Status", "Amp Score", "Curve Quality", "Result Quality Issues", "Cq", "Cq Confidence",
+    #                     "Cq Mean", "Cq SD", "Auto Threshold", "Threshold", "Auto Baseline", "Baseline Start",
+    #                     "Baseline End"]
+    #     samples_df = df.iloc[23:][0:]
+    #     logger.debug(f"Dataframe of PCR results:\n\t{samples_df}")
+    #     samples_df.columns = column_names
+    #     logger.debug(f"Samples columns: {samples_df.columns}")
+    #     well_call_df = xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:, -1:]
+    #     try:
+    #         samples_df['Assessment'] = well_call_df.values
+    #     except ValueError:
+    #         logger.error("Well call number doesn't match sample number")
+    #     logger.debug(f"Well call df: {well_call_df}")
+    #     for _, row in samples_df.iterrows():
+    #         try:
+    #             sample_obj = [sample for sample in samples if sample['sample'] == row[3]][0]
+    #         except IndexError:
+    #             sample_obj = dict(
+    #                 sample=row['Sample'],
+    #                 plate_rsl=rsl_number,
+    #             )
+    #         logger.debug(f"Got sample obj: {sample_obj}")
+    #         if isinstance(row['Cq'], float):
+    #             sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
+    #         else:
+    #             sample_obj[f"ct_{row['Target'].lower()}"] = 0.0
+    #         try:
+    #             sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
+    #         except KeyError:
+    #             logger.error(f"No assessment for {sample_obj['sample']}")
+    #         samples.append(sample_obj)
+    #     return samples
     @classmethod
-    def parse_pcr(cls, xl: pd.ExcelFile, rsl_number: str) -> list:
+    def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> list:
         """
         Parse specific to wastewater samples.
         """
-        samples = super().parse_pcr(xl=xl, rsl_number=rsl_number)
-        df = xl.parse(sheet_name="Results", dtype=object).fillna("")
-        column_names = ["Well", "Well Position", "Omit", "Sample", "Target", "Task", " Reporter", "Quencher",
-                        "Amp Status", "Amp Score", "Curve Quality", "Result Quality Issues", "Cq", "Cq Confidence",
-                        "Cq Mean", "Cq SD", "Auto Threshold", "Threshold", "Auto Baseline", "Baseline Start",
-                        "Baseline End"]
-        samples_df = df.iloc[23:][0:]
-        logger.debug(f"Dataframe of PCR results:\n\t{samples_df}")
-        samples_df.columns = column_names
-        logger.debug(f"Samples columns: {samples_df.columns}")
-        well_call_df = xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:, -1:]
-        try:
-            samples_df['Assessment'] = well_call_df.values
-        except ValueError:
-            logger.error("Well call number doesn't match sample number")
-        logger.debug(f"Well call df: {well_call_df}")
-        for _, row in samples_df.iterrows():
+        samples = super().parse_pcr(xl=xl, rsl_plate_num=rsl_plate_num)
+        logger.debug(f'Samples from parent pcr parser: {pformat(samples)}')
+        output = []
+        for sample in samples:
+            sample['sample'] = re.sub('-N\\d$', '', sample['sample'])
+            if sample['sample'] in [item['sample'] for item in output]:
+                continue
+            sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
+            sample[f"{sample['target'].lower()}_status"] = sample['assessment']
+            other_targets = [s for s in samples if re.sub('-N\\d$', '', s['sample']) == sample['sample']]
+            for s in other_targets:
+                sample[f"ct_{s['target'].lower()}"] = s['ct'] if isinstance(s['ct'], float) else 0.0
+                sample[f"{s['target'].lower()}_status"] = s['assessment']
             try:
-                sample_obj = [sample for sample in samples if sample['sample'] == row[3]][0]
-            except IndexError:
-                sample_obj = dict(
-                    sample=row['Sample'],
-                    plate_rsl=rsl_number,
-                )
-            logger.debug(f"Got sample obj: {sample_obj}")
-            if isinstance(row['Cq'], float):
-                sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
-            else:
-                sample_obj[f"ct_{row['Target'].lower()}"] = 0.0
-            try:
-                sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
+                del sample['ct']
             except KeyError:
-                logger.error(f"No assessment for {sample_obj['sample']}")
-            samples.append(sample_obj)
-        return samples
+                pass
+            try:
+                del sample['assessment']
+            except KeyError:
+                pass
+            output.append(sample)
+        return output
 
     @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:
