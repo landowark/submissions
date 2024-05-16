@@ -1,3 +1,9 @@
+## 202405.03
+
+- Settings can now pull values from the db.
+- Improved generic and WW specific PCR parsers.
+- Various bug fixes.
+
 ## 202405.01
 
 - New Excel writers

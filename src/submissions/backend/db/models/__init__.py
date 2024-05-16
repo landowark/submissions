@@ -3,6 +3,8 @@ Contains all models for sqlalchemy
 '''
 from __future__ import annotations
 import sys, logging
+
+from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
@@ -11,8 +13,6 @@ from pathlib import Path
 
 # Load testing environment
 if 'pytest' in sys.modules:
-    from pathlib import Path
-
     sys.path.append(Path(__file__).parents[4].absolute().joinpath("tests").__str__())
 
 Base: DeclarativeMeta = declarative_base()
@@ -46,7 +46,7 @@ class BaseClass(Base):
         Returns:
             Session: DB session from ctx settings.
         """
-        if not 'pytest' in sys.modules:
+        if 'pytest' not in sys.modules:
             from tools import ctx
         else:
             from test_settings import ctx
@@ -60,7 +60,7 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions directory in Settings object
         """
-        if not 'pytest' in sys.modules:
+        if 'pytest' not in sys.modules:
             from tools import ctx
         else:
             from test_settings import ctx
@@ -74,7 +74,7 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions backup directory in Settings object
         """
-        if not 'pytest' in sys.modules:
+        if 'pytest' not in sys.modules:
             from tools import ctx
         else:
             from test_settings import ctx
@@ -104,8 +104,9 @@ class BaseClass(Base):
         Execute sqlalchemy query.
 
         Args:
-            query (Query): input query object
-            limit (int): Maximum number of results. (0 = all)
+            model (Any, optional): model to be queried. Defaults to None
+            query (Query, optional): input query object. Defaults to None
+            limit (int): Maximum number of results. (0 = all). Defaults to 0
 
         Returns:
             Any | List[Any]: Single result if limit = 1 or List if other.
@@ -151,6 +152,19 @@ class BaseClass(Base):
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             self.__database_session__.rollback()
+
+
+class ConfigItem(BaseClass):
+    id = Column(INTEGER, primary_key=True)
+    key = Column(String(32))
+    value = Column(JSON)
+
+    def __repr__(self):
+        return f"ConfigItem({self.key} : {self.value})"
+
+    @classmethod
+    def get_config_items(cls):
+        return cls.__database_session__.query(cls).all()
 
 
 from .controls import *

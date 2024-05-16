@@ -2,6 +2,8 @@
 Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
+
+import json
 from pathlib import Path
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
@@ -10,7 +12,7 @@ from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
@@ -137,7 +139,7 @@ def get_first_blank_df_row(df:pd.DataFrame) -> int:
 
 # Settings
 
-class Settings(BaseSettings):
+class Settings(BaseSettings, extra="allow"):
     """
     Pydantic model to hold settings
 
@@ -147,21 +149,26 @@ class Settings(BaseSettings):
     """    
     directory_path: Path
     database_path: Path|str|None = None
-    backup_path: Path
-    super_users: list|None = None
-    power_users: list|None = None
-    rerun_regex: str
+    backup_path: Path|str|None = None
+    # super_users: list|None = None
+    # power_users: list|None = None
+    # rerun_regex: str
     submission_types: dict|None = None
     database_session: Session|None = None
     package: Any|None = None
 
     model_config = SettingsConfigDict(env_file_encoding='utf-8')
 
-    @field_validator('backup_path')
+    @field_validator('backup_path', mode="before")
     @classmethod
-    def set_backup_path(cls, value):
-        if isinstance(value, str):
-            value = Path(value)
+    def set_backup_path(cls, value, values):
+        match value:
+            case str():
+                value = Path(value)
+            case None:
+                value = values.data['directory_path'].joinpath("Database backups")
+        if not value.exists():
+            value.mkdir(parents=True)
         # metadata.backup_path = value
         return value
 
@@ -177,11 +184,14 @@ class Settings(BaseSettings):
         
     @field_validator('database_path', mode="before")
     @classmethod
-    def ensure_database_exists(cls, value):
+    def ensure_database_exists(cls, value, values):
         if value == ":memory:":
             return value
-        if isinstance(value, str):
-            value = Path(value)
+        match value:
+            case str():
+                value = Path(value)
+            case None:
+                value = values.data['directory_path'].joinpath("submissions.db")
         if value.exists():
             return value
         else:
@@ -224,6 +234,20 @@ class Settings(BaseSettings):
         import __init__ as package
         if value == None:
             return package
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+        # self.set_from_db(db_path=kwargs['database_path'])
+
+    def set_from_db(self, db_path:Path):
+        session = Session(create_engine(f"sqlite:///{db_path}"))
+        config_items = session.execute(text("SELECT * FROM _configitem")).all()
+        session.close()
+        config_items = {item[1]:json.loads(item[2]) for item in config_items}
+        for k, v in config_items.items():
+            if not hasattr(self, k):
+                self.__setattr__(k, v)
 
 def get_config(settings_path: Path|str|None=None) -> Settings:
     """

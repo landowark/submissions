@@ -43,7 +43,7 @@ class ControlType(BaseClass):
 
         Returns:
             ControlType | List[ControlType]: Single result if the limit = 1, else a list.
-        """        
+        """
         query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -83,7 +83,7 @@ class ControlType(BaseClass):
 
         Returns:
             List[ControlType]: Control types that have targets
-        """        
+        """
         return [item for item in cls.query() if item.targets != []]
 
     @classmethod
@@ -93,7 +93,7 @@ class ControlType(BaseClass):
 
         Returns:
             Pattern: Constructed pattern
-        """        
+        """
         strings = list(set([item.name.split("-")[0] for item in cls.get_positive_control_types()]))
         return re.compile(rf"(^{'|^'.join(strings)})-.*", flags=re.IGNORECASE)
 
@@ -175,19 +175,19 @@ class Control(BaseClass):
         output = []
         # logger.debug("load json string for mode (i.e. contains, matches, kraken2)")
         try:
-            # data = json.loads(getattr(self, mode))
             data = self.__getattribute__(mode)
         except TypeError:
             data = {}
         logger.debug(f"Length of data: {len(data)}")
         # logger.debug("dict keys are genera of bacteria, e.g. 'Streptococcus'")
         for genus in data:
-            _dict = {}
-            _dict['name'] = self.name
-            _dict['submitted_date'] = self.submitted_date
-            _dict['genus'] = genus
+            _dict = dict(
+                name=self.name,
+                submitted_date=self.submitted_date,
+                genus=genus,
+                target='Target' if genus.strip("*") in self.controltype.targets else "Off-target"
+            )
             # logger.debug("get Target or Off-target of genus")
-            _dict['target'] = 'Target' if genus.strip("*") in self.controltype.targets else "Off-target"
             # logger.debug("set 'contains_hashes', etc for genus")
             for key in data[genus]:
                 _dict[key] = data[genus][key]
@@ -247,13 +247,13 @@ class Control(BaseClass):
             case _:
                 pass
         # by date range
-        if start_date != None and end_date == None:
+        if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
             end_date = date.today()
-        if end_date != None and start_date == None:
+        if end_date is not None and start_date is None:
             logger.warning(f"End date with no start date, using Jan 1, 2023")
             start_date = date(2023, 1, 1)
-        if start_date != None:
+        if start_date is not None:
             match start_date:
                 case date():
                     # logger.debug(f"Lookup control by start date({start_date})")
