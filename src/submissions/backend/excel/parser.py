@@ -19,6 +19,7 @@ from datetime import date
 from dateutil.parser import parse, ParserError
 from tools import check_not_nan, convert_nans_to_nones, row_map, row_keys, is_missing, remove_key_from_list_of_dicts
 
+
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -44,26 +45,24 @@ class SheetParser(object):
                 logger.error(f"No filepath given.")
                 raise ValueError("No filepath given.")
         try:
-            # self.xl = pd.ExcelFile(filepath)
             self.xl = load_workbook(filepath, data_only=True)
         except ValueError as e:
             logger.error(f"Incorrect value: {e}")
             raise FileNotFoundError(f"Couldn't parse file {self.filepath}")
         self.sub = OrderedDict()
-        # make decision about type of sample we have
+        # NOTE: make decision about type of sample we have
         self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(filename=self.filepath),
                                            missing=True)
         self.submission_type = SubmissionType.query(name=self.sub['submission_type'])
         self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-        # grab the info map from the submission type in database
+        # NOTE: grab the info map from the submission type in database
         self.parse_info()
         self.import_kit_validation_check()
         self.parse_reagents()
-        # self.import_reagent_validation_check()
         self.parse_samples()
         self.parse_equipment()
         self.finalize_parse()
-        logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
+        # logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
 
     def parse_info(self):
         """
@@ -141,7 +140,7 @@ class SheetParser(object):
         pyd_dict = copy(self.sub)
         pyd_dict['samples'] = [PydSample(**sample) for sample in self.sub['samples']]
         pyd_dict['reagents'] = [PydReagent(**reagent) for reagent in self.sub['reagents']]
-        logger.debug(f"Equipment: {self.sub['equipment']}")
+        # logger.debug(f"Equipment: {self.sub['equipment']}")
         try:
             check = len(self.sub['equipment']) == 0
         except TypeError:
@@ -157,7 +156,7 @@ class SheetParser(object):
 class InfoParser(object):
 
     def __init__(self, xl: Workbook, submission_type: str|SubmissionType, sub_object: BasicSubmission|None=None):
-        logger.info(f"\n\Hello from InfoParser!\n\n")
+        logger.info(f"\n\nHello from InfoParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
@@ -166,7 +165,7 @@ class InfoParser(object):
         self.sub_object = sub_object
         self.map = self.fetch_submission_info_map()
         self.xl = xl
-        logger.debug(f"Info map for InfoParser: {pformat(self.map)}")
+        # logger.debug(f"Info map for InfoParser: {pformat(self.map)}")
 
     def fetch_submission_info_map(self) -> dict:
         """
@@ -179,13 +178,9 @@ class InfoParser(object):
             dict: Location map of all info for this submission type
         """
         self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
-        logger.debug(f"Looking up submission type: {self.submission_type['value']}")
-        # submission_type = SubmissionType.query(name=self.submission_type['value'])
-        # info_map = submission_type.info_map
-        # self.sub_object: BasicSubmission = \
-        #     BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type['value'])
+        # logger.debug(f"Looking up submission type: {self.submission_type['value']}")
         info_map = self.sub_object.construct_info_map("read")
-        # Get the parse_info method from the submission type specified
+        # NOTE: Get the parse_info method from the submission type specified
         return info_map
 
     def parse_info(self) -> dict:
@@ -195,30 +190,19 @@ class InfoParser(object):
         Returns:
             dict: key:value of basic info
         """
-        # if isinstance(self.submission_type, str):
-        #     self.submission_type = dict(value=self.submission_type, missing=True)
         dicto = {}
-        # exclude_from_generic = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type['value']).get_default_info("parser_ignore")
-        # This loop parses generic info
-        logger.debug(f"Map: {self.map}")
-        # for sheet in self.xl.sheet_names:
+        # NOTE: This loop parses generic info
+        # logger.debug(f"Map: {self.map}")
         for sheet in self.xl.sheetnames:
-            # df = self.xl.parse(sheet, header=None)
             ws = self.xl[sheet]
             relevant = []
             for k, v in self.map.items():
-                # If the value is hardcoded put it in the dictionary directly.
+                # NOTE: If the value is hardcoded put it in the dictionary directly.
                 if isinstance(v, str):
                     dicto[k] = dict(value=v, missing=False)
                     continue
-                logger.debug(f"Looking for {k} in self.map")
-                logger.debug(f"Locations: {v}")
-                # try:
-                #     check = sheet in self.map[k]['sheets']
-                # except TypeError:
-                #     continue
-                # if check:
-                #     relevant[k] = v
+                # logger.debug(f"Looking for {k} in self.map")
+                # logger.debug(f"Locations: {v}")
                 for location in v:
                     try:
                         check = location['sheet'] == sheet
@@ -235,7 +219,6 @@ class InfoParser(object):
                 continue
             for item in relevant:
                 # NOTE: Get cell contents at this location
-                # value = df.iat[item['row']-1, item['column']-1]
                 value = ws.cell(row=item['row'], column=item['column']).value
                 logger.debug(f"Value for {item['name']} = {value}")
                 match item['name']:
@@ -250,10 +233,10 @@ class InfoParser(object):
                             dicto[item['name']]['value'] += value
                             continue
                         except KeyError:
-                            logger.debug(f"New value for {item['name']}")
+                            logger.error(f"New value for {item['name']}")
                     case _:
                         value, missing = is_missing(value)
-                logger.debug(f"Setting {item} on {sheet} to {value}")
+                # logger.debug(f"Setting {item} on {sheet} to {value}")
                 if item['name'] not in dicto.keys():
                     try:
                         dicto[item['name']] = dict(value=value, missing=missing)
@@ -265,14 +248,14 @@ class InfoParser(object):
 class ReagentParser(object):
 
     def __init__(self, xl: Workbook, submission_type: str, extraction_kit: str, sub_object:BasicSubmission|None=None):
-        logger.debug("\n\nHello from ReagentParser!\n\n")
+        # logger.debug("\n\nHello from ReagentParser!\n\n")
         self.submission_type_obj = submission_type
         self.sub_object = sub_object
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
         self.map = self.fetch_kit_info_map(extraction_kit=extraction_kit, submission_type=submission_type)
-        logger.debug(f"Reagent Parser map: {self.map}")
+        # logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
     def fetch_kit_info_map(self, extraction_kit: dict, submission_type: str) -> dict:
@@ -305,45 +288,40 @@ class ReagentParser(object):
         """
         listo = []
         for sheet in self.xl.sheetnames:
-            # df = self.xl.parse(sheet, header=None, dtype=object)
             ws = self.xl[sheet]
-            # df.replace({np.nan: None}, inplace = True)
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
+            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
-                logger.debug(f"Attempting to scrape: {item}")
+                # logger.debug(f"Attempting to scrape: {item}")
                 try:
                     reagent = relevant[item]
-                    # name = df.iat[relevant[item]['name']['row']-1, relevant[item]['name']['column']-1]
-                    # lot = df.iat[relevant[item]['lot']['row']-1, relevant[item]['lot']['column']-1]
-                    # expiry = df.iat[relevant[item]['expiry']['row']-1, relevant[item]['expiry']['column']-1]
                     name = ws.cell(row=reagent['name']['row'], column=reagent['name']['column']).value
                     lot = ws.cell(row=reagent['lot']['row'], column=reagent['lot']['column']).value
                     expiry = ws.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column']).value
                     if 'comment' in relevant[item].keys():
-                        logger.debug(f"looking for {relevant[item]} comment.")
-                        # comment = df.iat[relevant[item]['comment']['row']-1, relevant[item]['comment']['column']-1]
-                        expiry = ws.cell(row=reagent['comment']['row'], column=reagent['comment']['column']).value
+                        # logger.debug(f"looking for {relevant[item]} comment.")
+                        comment = ws.cell(row=reagent['comment']['row'], column=reagent['comment']['column']).value
                     else:
                         comment = ""
                 except (KeyError, IndexError):
                     listo.append(
                         PydReagent(type=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True))
                     continue
-                # If the cell is blank tell the PydReagent
+                # NOTE: If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
                     missing = False
                 else:
                     missing = True
                 # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                logger.debug(
-                    f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
+                # logger.debug(
+                #     f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
                 try:
                     check = name.lower() != "not applicable"
                 except AttributeError:
+                    logger.warning(f"name is not a string.")
                     check = True
                 if check:
                     listo.append(dict(type=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
@@ -364,26 +342,20 @@ class SampleParser(object):
             df (pd.DataFrame): input sample dataframe
             elution_map (pd.DataFrame | None, optional): optional map of elution plate. Defaults to None.
         """
-        logger.debug("\n\nHello from SampleParser!\n\n")
+        # logger.debug("\n\nHello from SampleParser!\n\n")
         self.samples = []
         self.xl = xl
+        if isinstance(submission_type, str):
+            submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type.name
         self.submission_type_obj = submission_type
         if sub_object is None:
             sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type_obj.name)
         self.sub_object = sub_object
         self.sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
-        logger.debug(f"sample_info_map: {self.sample_info_map}")
-        # self.plate_map = self.construct_plate_map(plate_map_location=sample_info_map['plate_map'])
-        # logger.debug(f"plate_map: {self.plate_map}")
-        # self.lookup_table = self.construct_lookup_table(lookup_table_location=sample_info_map['lookup_table'])
-        # if "plates" in sample_info_map:
-        #     self.plates = sample_info_map['plates']
-        # self.excel_to_db_map = sample_info_map['xl_db_translation']
+        # logger.debug(f"sample_info_map: {self.sample_info_map}")
         self.plate_map_samples = self.parse_plate_map()
         self.lookup_samples = self.parse_lookup_table()
-        # if isinstance(self.lookup_table, pd.DataFrame):
-        #     self.parse_lookup_table()
 
     def fetch_sample_info_map(self, submission_type: str, sample_map: dict | None = None) -> dict:
         """
@@ -395,17 +367,12 @@ class SampleParser(object):
         Returns:
             dict: Info locations.
         """
-        logger.debug(f"Looking up submission type: {submission_type}")
-        # submission_type = SubmissionType.query(name=submission_type)
-        # self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type)
-        # self.custom_sub_parser = .parse_samples
+        # logger.debug(f"Looking up submission type: {submission_type}")
         self.sample_type = self.sub_object.get_default_info("sample_type")
         self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
-        logger.debug(f"Got sample class: {self.samp_object.__name__}")
-        # self.custom_sample_parser = .parse_sample
+        # logger.debug(f"Got sample class: {self.samp_object.__name__}")
         # logger.debug(f"info_map: {pformat(se)}")
         if sample_map is None:
-            # sample_info_map = submission_type.info_map['samples']
             sample_info_map = self.sub_object.construct_sample_map()
         else:
             sample_info_map = sample_map
@@ -459,22 +426,6 @@ class SampleParser(object):
         invalids = [0, "0", "EMPTY"]
         smap = self.sample_info_map['plate_map']
         ws = self.xl[smap['sheet']]
-        # ws.protection = SheetProtection()
-        # new_df = self.plate_map.dropna(axis=1, how='all')
-        # columns = new_df.columns.tolist()
-        # for _, iii in new_df.iterrows():
-        #     for c in columns:
-        #         if check_not_nan(iii[c]):
-        #             if iii[c] in invalids:
-        #                 logger.debug(f"Invalid sample name: {iii[c]}, skipping.")
-        #                 continue
-        #             id = iii[c]
-        #             logger.debug(f"Adding sample {iii[c]}")
-        #             try:
-        #                 c = self.plate_map.columns.get_loc(c) + 1
-        #             except Exception as e:
-        #                 logger.error(f"Unable to get column index of {c} due to {e}")
-        #             self.samples.append(dict(submitter_id=id, row=row_keys[iii._name], column=c))
         plate_map_samples = []
         for ii, row in enumerate(range(smap['start_row'], smap['end_row'] + 1), start=1):
             # logger.debug(f"Parsing row: {row}")
@@ -494,42 +445,12 @@ class SampleParser(object):
                     pass
         return plate_map_samples
 
-    def parse_lookup_table(self) -> dict:
+    def parse_lookup_table(self) -> List[dict]:
         """
         Parse misc info from lookup table.
         """
         lmap = self.sample_info_map['lookup_table']
         ws = self.xl[lmap['sheet']]
-        # for sample in self.samples:
-        #     addition = self.lookup_table[self.lookup_table.isin([sample['submitter_id']]).any(axis=1)].squeeze()
-        #     # logger.debug(addition)
-        #     if isinstance(addition, pd.DataFrame) and not addition.empty:
-        #         addition = addition.iloc[0]
-        #     # logger.debug(f"Lookuptable info: {addition.to_dict()}")
-        #     for k,v in addition.to_dict().items():
-        #         # logger.debug(f"Checking {k} in lookup table.")
-        #         if check_not_nan(k) and isinstance(k, str):
-        #             if k.lower() not in sample:
-        #                 k = k.replace(" ", "_").replace("#","num").lower()
-        #                 # logger.debug(f"Adding {type(v)} - {k}, {v} to the lookuptable output dict")
-        #                 match v:
-        #                     case pd.Timestamp():
-        #                         sample[k] = v.date()
-        #                     case str():
-        #                         sample[k] = determine_if_date(v)
-        #                     case _:
-        #                         sample[k] = v
-        #     # Set row in lookup table to blank values to prevent multipe lookups.
-        #     try:
-        #         self.lookup_table.loc[self.lookup_table['Sample #']==addition['Sample #']] = np.nan
-        #     except (ValueError, KeyError):
-        #         pass
-        #     try:
-        #         self.lookup_table.loc[self.lookup_table['Well']==addition['Well']] = np.nan
-        #     except (ValueError, KeyError):
-        #         pass
-        #     # logger.debug(f"Output sample dict: {sample}")
-        # logger.debug(f"Final lookup_table: \n\n {self.lookup_table}")
         lookup_samples = []
         for ii, row in enumerate(range(lmap['start_row'], lmap['end_row']+1), start=1):
             row_dict = {k:ws.cell(row=row, column=v).value for k, v in lmap['sample_columns'].items()}
@@ -549,7 +470,7 @@ class SampleParser(object):
 
     def parse_samples(self) -> Tuple[Report | None, List[dict] | List[PydSample]]:
         """
-        Parse merged platemap\lookup info into dicts/samples
+        Parse merged platemap/lookup info into dicts/samples
 
         Returns:
             List[dict]|List[models.BasicSample]: List of samples
@@ -567,35 +488,13 @@ class SampleParser(object):
                         v = convert_nans_to_nones(v)
                     case _:
                         v = v
-                # try:
-                #     translated_dict[self.excel_to_db_map[k]] = convert_nans_to_nones(v)
-                # except KeyError:
                 translated_dict[k] = convert_nans_to_nones(v)
             translated_dict['sample_type'] = f"{self.submission_type} Sample"
-            # translated_dict = self.custom_sub_parser(translated_dict)
             translated_dict = self.sub_object.parse_samples(translated_dict)
-            # translated_dict = self.custom_sample_parser(translated_dict)
             translated_dict = self.samp_object.parse_sample(translated_dict)
             # logger.debug(f"Here is the output of the custom parser:\n{translated_dict}")
             new_samples.append(PydSample(**translated_dict))
         return result, new_samples
-
-    # def grab_plates(self) -> List[str]:
-    #     """
-    #     Parse plate names from
-    #
-    #     Returns:
-    #         List[str]: list of plate names.
-    #     """
-    #     plates = []
-    #     for plate in self.plates:
-    #         df = self.xl.parse(plate['sheet'], header=None)
-    #         if isinstance(df.iat[plate['row'] - 1, plate['column'] - 1], str):
-    #             output = RSLNamer.retrieve_rsl_number(filename=df.iat[plate['row'] - 1, plate['column'] - 1])
-    #         else:
-    #             continue
-    #         plates.append(output)
-    #     return plates
 
     def reconcile_samples(self):
         # TODO: Move to pydantic validator?
@@ -606,29 +505,17 @@ class SampleParser(object):
         merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
         plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
         lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
-        # try:
-        #     assert len(plate_map_samples) == len(lookup_samples)
-        # except AssertionError:
-        #     if len(plate_map_samples) > len(lookup_samples):
-        #         logger.error(
-        #             f"Plate samples ({len(plate_map_samples)}) is longer than Lookup samples: ({len(lookup_samples)})")
-        #         return plate_map_samples
-        #     else:
-        #         logger.error(
-        #             f"Lookup samples ({len(lookup_samples)}) is longer than Plate samples: ({len(plate_map_samples)})")
-        #         return lookup_samples
         for ii, psample in enumerate(plate_map_samples):
             try:
                 check = psample['id'] == lookup_samples[ii][merge_on_id]
             except (KeyError, IndexError):
                 check = False
             if check:
-                logger.debug(f"Direct match found for {psample['id']}")
+                # logger.debug(f"Direct match found for {psample['id']}")
                 new = lookup_samples[ii] | psample
                 lookup_samples[ii] = {}
-                # samples.append(new)
             else:
-                logger.warning(f"Match for {psample['id']} not direct, running search.")
+                # logger.warning(f"Match for {psample['id']} not direct, running search.")
                 for jj, lsample in enumerate(lookup_samples):
                     try:
                         check = lsample[merge_on_id] == psample['id']
@@ -637,13 +524,9 @@ class SampleParser(object):
                     if check:
                         new = lsample | psample
                         lookup_samples[jj] = {}
-                        # self.samples.append(new)
-                        # samples.append(new)
                         break
                     else:
                         new = psample
-                        # samples.append(psample)
-            # new['sample_type'] = f"{self.submission_type} Sample"
             try:
                 check = new['submitter_id'] is None
             except KeyError:

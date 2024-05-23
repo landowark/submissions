@@ -238,13 +238,16 @@ class Settings(BaseSettings, extra="allow"):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-        # self.set_from_db(db_path=kwargs['database_path'])
+        self.set_from_db(db_path=kwargs['database_path'])
 
     def set_from_db(self, db_path:Path):
-        session = Session(create_engine(f"sqlite:///{db_path}"))
-        config_items = session.execute(text("SELECT * FROM _configitem")).all()
-        session.close()
-        config_items = {item[1]:json.loads(item[2]) for item in config_items}
+        if 'pytest' in sys.modules:
+            config_items = dict(power_users=['lwark', 'styson', 'ruwang'])
+        else:
+            session = Session(create_engine(f"sqlite:///{db_path}"))
+            config_items = session.execute(text("SELECT * FROM _configitem")).all()
+            session.close()
+            config_items = {item[1]:json.loads(item[2]) for item in config_items}
         for k, v in config_items.items():
             if not hasattr(self, k):
                 self.__setattr__(k, v)

@@ -3,7 +3,6 @@ Contains all models for sqlalchemy
 '''
 from __future__ import annotations
 import sys, logging
-
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
@@ -81,7 +80,13 @@ class BaseClass(Base):
         return ctx.backup_path
 
     @classmethod
-    def get_default_info(cls, *args) -> dict | List[str]:
+    def get_default_info(cls, *args) -> dict | list | str:
+        """
+        Returns default info for a model
+
+        Returns:
+            dict | list | str: Output of key:value dict or single (list, str) desired variable
+        """        
         dicto = dict(singles=['id'])
         output = {}
         for k, v in dicto.items():
@@ -95,7 +100,13 @@ class BaseClass(Base):
         return output
 
     @classmethod
-    def query(cls, **kwargs):
+    def query(cls, **kwargs) -> Any | List[Any]:
+        """
+        Default query function for models
+
+        Returns:
+            Any | List[Any]: Result of query execution.
+        """           
         return cls.execute_query(**kwargs)
 
     @classmethod
@@ -119,13 +130,12 @@ class BaseClass(Base):
         singles = model.get_default_info('singles')
         logger.debug(f"Querying: {model}, with kwargs: {kwargs}")
         for k, v in kwargs.items():
-            logger.debug(f"Using key: {k} with value: {v}")
-            # logger.debug(f"That key found attribute: {attr} with type: {attr}")
+            # logger.debug(f"Using key: {k} with value: {v}")
             try:
                 attr = getattr(model, k)
                 query = query.filter(attr == v)
             except (ArgumentError, AttributeError) as e:
-                logger.error(f"Attribute {k} available due to:\n\t{e}\nSkipping.")
+                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
             if k in singles:
                 limit = 1
         with query.session.no_autoflush:
@@ -155,6 +165,9 @@ class BaseClass(Base):
 
 
 class ConfigItem(BaseClass):
+    """
+    Key:JSON objects to store config settings in database. 
+    """    
     id = Column(INTEGER, primary_key=True)
     key = Column(String(32))
     value = Column(JSON)
@@ -163,8 +176,18 @@ class ConfigItem(BaseClass):
         return f"ConfigItem({self.key} : {self.value})"
 
     @classmethod
-    def get_config_items(cls):
-        return cls.__database_session__.query(cls).all()
+    def get_config_items(cls, *args) -> ConfigItem|List[ConfigItem]:
+        """
+        Get desired config items from database
+
+        Returns:
+            ConfigItem|List[ConfigItem]: Config item(s)
+        """        
+        config_items = cls.__database_session__.query(cls).all()
+        config_items = [item for item in config_items if item.key in args]
+        if len(args) == 1:
+            config_items = config_items[0]
+        return config_items
 
 
 from .controls import *

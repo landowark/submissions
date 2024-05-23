@@ -13,6 +13,8 @@ from typing import List, Literal
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
+from io import BytesIO
+
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -300,7 +302,7 @@ class ReagentType(BaseClass):
             # logger.debug(f"Looking up reagent type for {type(kit_type)} {kit_type} and {type(reagent)} {reagent}")
             # logger.debug(f"Kit reagent types: {kit_type.reagent_types}")
             result = list(set(kit_type.reagent_types).intersection(reagent.type))
-            logger.debug(f"Result: {result}")
+            # logger.debug(f"Result: {result}")
             try:
                 return result[0]
             except IndexError:
@@ -386,7 +388,7 @@ class Reagent(BaseClass):
             place_holder = self.expiry + reagent_role.eol_ext
         except (TypeError, AttributeError) as e:
             place_holder = date.today()
-            logger.debug(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
+            logger.error(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
         if self.expiry.year == 1970:
             place_holder = "NA"
         else:
@@ -410,14 +412,14 @@ class Reagent(BaseClass):
             Report: Result of operation
         """
         report = Report()
-        logger.debug(f"Attempting update of reagent type at intersection of ({self}), ({kit})")
+        # logger.debug(f"Attempting update of last used reagent type at intersection of ({self}), ({kit})")
         rt = ReagentType.query(kit_type=kit, reagent=self, limit=1)
         if rt is not None:
-            logger.debug(f"got reagenttype {rt}")
+            # logger.debug(f"got reagenttype {rt}")
             assoc = KitTypeReagentTypeAssociation.query(kit_type=kit, reagent_type=rt)
             if assoc is not None:
                 if assoc.last_used != self.lot:
-                    logger.debug(f"Updating {assoc} last used to {self.lot}")
+                    # logger.debug(f"Updating {assoc} last used to {self.lot}")
                     assoc.last_used = self.lot
                     result = assoc.save()
                     report.add_result(result)
@@ -607,7 +609,7 @@ class SubmissionType(BaseClass):
         Returns:
             List[str]: List of sheet names
         """
-        return ExcelFile(self.template_file).sheet_names
+        return ExcelFile(BytesIO(self.template_file)).sheet_names
 
     def set_template_file(self, filepath: Path | str):
         """
@@ -633,7 +635,7 @@ class SubmissionType(BaseClass):
 
     def construct_info_map(self, mode: Literal['read', 'write']) -> dict:
         info = self.info_map
-        logger.debug(f"Info map: {info}")
+        # logger.debug(f"Info map: {info}")
         output = {}
         # for k,v in info.items():
         # info[k]['write'] += info[k]['read']
@@ -956,7 +958,7 @@ class SubmissionReagentAssociation(BaseClass):
         Returns:
             str: Representation of this SubmissionReagentAssociation
         """
-        return f"<{self.submission.rsl_plate_num}&{self.reagent.lot}>"
+        return f"<{self.submission.rsl_plate_num} & {self.reagent.lot}>"
 
     def __init__(self, reagent=None, submission=None):
         if isinstance(reagent, list):

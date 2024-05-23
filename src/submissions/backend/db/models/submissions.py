@@ -226,7 +226,7 @@ class BasicSubmission(BaseClass):
         if report:
             return output
         if full_data:
-            logger.debug(f"Attempting reagents.")
+            # logger.debug(f"Attempting reagents.")
             try:
                 reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in
                             self.submission_reagent_associations]
@@ -240,9 +240,9 @@ class BasicSubmission(BaseClass):
             except Exception as e:
                 logger.error(f"We got an error retrieving reagents: {e}")
                 reagents = None
-            logger.debug(f"Running samples.")
+            # logger.debug(f"Running samples.")
             samples = self.adjust_to_dict_samples(backup=backup)
-            logger.debug("Running equipment")
+            # logger.debug("Running equipment")
             try:
                 equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
                 if len(equipment) == 0:
@@ -297,7 +297,7 @@ class BasicSubmission(BaseClass):
         # Get kit associated with this submission
         assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if
                  item.submission_type == self.submission_type][0]
-        logger.debug(f"Came up with association: {assoc}")
+        # logger.debug(f"Came up with association: {assoc}")
         # If every individual cost is 0 this is probably an old plate.
         if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
             try:
@@ -369,7 +369,7 @@ class BasicSubmission(BaseClass):
         return [item.role for item in self.submission_equipment_associations]
 
     @classmethod
-    def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0) -> pd.DataFrame:
+    def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0, chronologic:bool=True) -> pd.DataFrame:
         """
         Convert all submissions to dataframe
 
@@ -380,11 +380,11 @@ class BasicSubmission(BaseClass):
         Returns:
             pd.DataFrame: Pandas Dataframe of all relevant submissions
         """
-        logger.debug(f"Querying Type: {submission_type}")
-        logger.debug(f"Using limit: {limit}")
+        # logger.debug(f"Querying Type: {submission_type}")
+        # logger.debug(f"Using limit: {limit}")
         # use lookup function to create list of dicts
-        subs = [item.to_dict() for item in cls.query(submission_type=submission_type, limit=limit)]
-        logger.debug(f"Got {len(subs)} submissions.")
+        subs = [item.to_dict() for item in cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic)]
+        # logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # Exclude sub information
         for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
@@ -393,6 +393,8 @@ class BasicSubmission(BaseClass):
                 df = df.drop(item, axis=1)
             except:
                 logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
+        if chronologic:
+            df.sort_values(by="Submitted Date", axis=0, inplace=True, ascending=False)
         return df
 
     def set_attribute(self, key: str, value):
@@ -466,7 +468,10 @@ class BasicSubmission(BaseClass):
                 flag_modified(self, key)
                 return
             case _:
-                field_value = value
+                try:
+                    field_value = value.strip()
+                except AttributeError:
+                    field_value = value
         # insert into field
         try:
             self.__setattr__(key, field_value)
@@ -502,7 +507,7 @@ class BasicSubmission(BaseClass):
         """
         from backend.validators import PydSubmission, PydSample, PydReagent, PydEquipment
         dicto = self.to_dict(full_data=True, backup=backup)
-        logger.debug("To dict complete")
+        # logger.debug("To dict complete")
         new_dict = {}
         for key, value in dicto.items():
             # start = time()
@@ -526,11 +531,11 @@ class BasicSubmission(BaseClass):
                 case "id":
                     pass
                 case _:
-                    logger.debug(f"Setting dict {key} to {value}")
+                    # logger.debug(f"Setting dict {key} to {value}")
                     new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=missing)
             # logger.debug(f"{key} complete after {time()-start}")
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
-        logger.debug("Done converting fields.")
+        # logger.debug("Done converting fields.")
         return PydSubmission(**new_dict)
 
     def save(self, original: bool = True):
@@ -604,20 +609,20 @@ class BasicSubmission(BaseClass):
 
     # Child class custom functions
 
-    @classmethod
-    def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
-        """
-        Stupid stopgap solution to there being an issue with the Bacterial Culture plate map
-
-        Args:
-            xl (pd.ExcelFile): original xl workbook, used for child classes mostly
-            plate_map (pd.DataFrame): original plate map
-
-        Returns:
-            pd.DataFrame: updated plate map.
-        """
-        logger.info(f"Calling {cls.__mapper_args__['polymorphic_identity']} plate mapper.")
-        return plate_map
+    # @classmethod
+    # def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
+    #     """
+    #     Stupid stopgap solution to there being an issue with the Bacterial Culture plate map
+    #
+    #     Args:
+    #         xl (pd.ExcelFile): original xl workbook, used for child classes mostly
+    #         plate_map (pd.DataFrame): original plate map
+    #
+    #     Returns:
+    #         pd.DataFrame: updated plate map.
+    #     """
+    #     logger.info(f"Calling {cls.__mapper_args__['polymorphic_identity']} plate mapper.")
+    #     return plate_map
 
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
@@ -696,15 +701,15 @@ class BasicSubmission(BaseClass):
         # logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} Enforcer!")
         # return instr
         from backend.validators import RSLNamer
-        logger.debug(f"instr coming into {cls}: {instr}")
-        logger.debug(f"data coming into {cls}: {data}")
+        # logger.debug(f"instr coming into {cls}: {instr}")
+        # logger.debug(f"data coming into {cls}: {data}")
         defaults = cls.get_default_info("abbreviation", "submission_type")
         data['abbreviation'] = defaults['abbreviation']
         if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
             data['submission_type'] = defaults['submission_type']
         # outstr = super().enforce_name(instr=instr, data=data)
         if instr in [None, ""]:
-            logger.debug("Sending to RSLNamer to make new plate name.")
+            # logger.debug("Sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
         else:
             outstr = instr
@@ -761,9 +766,9 @@ class BasicSubmission(BaseClass):
         Returns:
             list: _description_
         """
-        logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
+        # logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
         pcr_sample_map = cls.get_submission_type().sample_map['pcr_samples']
-        logger.debug(f'sample map: {pcr_sample_map}')
+        # logger.debug(f'sample map: {pcr_sample_map}')
         main_sheet = xl[pcr_sample_map['main_sheet']]
         samples = []
         fields = {k: v for k, v in pcr_sample_map.items() if k not in ['main_sheet', 'start_row']}
@@ -816,7 +821,7 @@ class BasicSubmission(BaseClass):
         Returns:
             List[dict]: Updated dictionaries
         """
-        logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
+        # logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
         return [item.to_sub_dict() for item in self.submission_sample_associations]
 
     @classmethod
@@ -833,7 +838,7 @@ class BasicSubmission(BaseClass):
         base_dict['excluded'] = cls.get_default_info('details_ignore')
         env = jinja_template_loading()
         temp_name = f"{cls.__name__.lower()}_details.html"
-        logger.debug(f"Returning template: {temp_name}")
+        # logger.debug(f"Returning template: {temp_name}")
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
@@ -872,7 +877,7 @@ class BasicSubmission(BaseClass):
         Returns:
             models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
         """
-        logger.debug(f"Incoming kwargs: {kwargs}")
+        # logger.debug(f"Incoming kwargs: {kwargs}")
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         if submission_type is not None:
             # if isinstance(submission_type, SubmissionType):
@@ -882,7 +887,7 @@ class BasicSubmission(BaseClass):
             #     model = cls.find_subclasses(submission_type=submission_type)
         elif len(kwargs) > 0:
             # find the subclass containing the relevant attributes
-            logger.debug(f"Attributes for search: {kwargs}")
+            # logger.debug(f"Attributes for search: {kwargs}")
             # model = cls.find_subclasses(attrs=kwargs)
             model = cls.find_polymorphic_subclass(attrs=kwargs)
         else:
@@ -895,7 +900,7 @@ class BasicSubmission(BaseClass):
             logger.warning(f"End date with no start date, using Jan 1, 2023")
             start_date = date(2023, 1, 1)
         if start_date is not None:
-            logger.debug(f"Querying with start date: {start_date} and end date: {end_date}")
+            # logger.debug(f"Querying with start date: {start_date} and end date: {end_date}")
             match start_date:
                 case date():
                     # logger.debug(f"Lookup BasicSubmission by start_date({start_date})")
@@ -919,7 +924,7 @@ class BasicSubmission(BaseClass):
                     # logger.debug(f"Lookup BasicSubmission by parsed str end_date {end_date}")
                     end_date = parse(end_date).strftime("%Y-%m-%d")
             # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
-            logger.debug(f"Start date {start_date} == End date {end_date}: {start_date == end_date}")
+            # logger.debug(f"Start date {start_date} == End date {end_date}: {start_date == end_date}")
             # logger.debug(f"Compensating for same date by using time")
             if start_date == end_date:
                 start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -999,7 +1004,7 @@ class BasicSubmission(BaseClass):
                     f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects. Use .query() instead.")
         instance = cls.query(submission_type=submission_type, limit=1, **kwargs)
         # logger.debug(f"Retrieved instance: {instance}")
-        if instance == None:
+        if instance is None:
             used_class = cls.find_polymorphic_subclass(attrs=kwargs, polymorphic_identity=submission_type)
             instance = used_class(**kwargs)
             match submission_type:
@@ -1041,11 +1046,11 @@ class BasicSubmission(BaseClass):
             e: _description_
         """
         from frontend.widgets.pop_ups import QuestionAsker
-        logger.debug("Hello from delete")
+        # logger.debug("Hello from delete")
         fname = self.__backup_path__.joinpath(f"{self.rsl_plate_num}-backup({date.today().strftime('%Y%m%d')})")
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_num}?\n")
         if msg.exec():
-            # self.backup(fname=fname, full_backup=True)
+            self.backup(fname=fname, full_backup=True)
             self.__database_session__.delete(self)
             try:
                 self.__database_session__.commit()
@@ -1061,7 +1066,7 @@ class BasicSubmission(BaseClass):
         Args:
             obj (_type_): parent widget
         """
-        logger.debug("Hello from details")
+        # logger.debug("Hello from details")
         from frontend.widgets.submission_details import SubmissionDetails
         dlg = SubmissionDetails(parent=obj, sub=self)
         if dlg.exec():
@@ -1070,7 +1075,7 @@ class BasicSubmission(BaseClass):
     def edit(self, obj):
         from frontend.widgets.submission_widget import SubmissionFormWidget
         for widg in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
-            logger.debug(widg)
+            # logger.debug(widg)
             widg.setParent(None)
         pyd = self.to_pydantic(backup=True)
         form = pyd.to_form(parent=obj)
@@ -1088,7 +1093,7 @@ class BasicSubmission(BaseClass):
         if dlg.exec():
             comment = dlg.parse_form()
             self.set_attribute(key='comment', value=comment)
-            logger.debug(self.comment)
+            # logger.debug(self.comment)
             self.save(original=False)
 
     def add_equipment(self, obj):
@@ -1102,11 +1107,11 @@ class BasicSubmission(BaseClass):
         dlg = EquipmentUsage(parent=obj, submission=self)
         if dlg.exec():
             equipment = dlg.parse_form()
-            logger.debug(f"We've got equipment: {equipment}")
+            # logger.debug(f"We've got equipment: {equipment}")
             for equip in equipment:
-                logger.debug(f"Processing: {equip}")
+                # logger.debug(f"Processing: {equip}")
                 _, assoc = equip.toSQL(submission=self)
-                logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
+                # logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
                 assoc.save()
         else:
             pass
@@ -1120,14 +1125,14 @@ class BasicSubmission(BaseClass):
             fname (Path | None, optional): Filename of xlsx file. Defaults to None.
             full_backup (bool, optional): Whether or not to make yaml file. Defaults to False.
         """
-        logger.debug("Hello from backup.")
+        # logger.debug("Hello from backup.")
         pyd = self.to_pydantic(backup=True)
-        if fname == None:
+        if fname is None:
             from frontend.widgets.functions import select_save_file
             fname = select_save_file(default_name=pyd.construct_filename(), extension="xlsx", obj=obj)
-        logger.debug(fname.name)
+        # logger.debug(fname.name)
         if fname.name == "":
-            logger.debug(f"export cancelled.")
+            # logger.debug(f"export cancelled.")
             return
         # pyd.filepath = fname
         if full_backup:
@@ -1171,28 +1176,28 @@ class BacterialCulture(BasicSubmission):
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
 
-    @classmethod
-    def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
-        """
-        Stupid stopgap solution to there being an issue with the Bacterial Culture plate map. Extends parent.
-
-        Args:
-            xl (pd.ExcelFile): original xl workbook
-            plate_map (pd.DataFrame): original plate map
-
-        Returns:
-            pd.DataFrame: updated plate map.
-        """
-        plate_map = super().custom_platemap(xl, plate_map)
-        num1 = xl.parse("Sample List").iloc[40, 1]
-        num2 = xl.parse("Sample List").iloc[41, 1]
-        logger.debug(f"Broken: {plate_map.iloc[5, 0]}, {plate_map.iloc[6, 0]}")
-        logger.debug(f"Replace: {num1}, {num2}")
-        if not check_not_nan(plate_map.iloc[5, 0]):
-            plate_map.iloc[5, 0] = num1
-        if not check_not_nan(plate_map.iloc[6, 0]):
-            plate_map.iloc[6, 0] = num2
-        return plate_map
+    # @classmethod
+    # def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
+    #     """
+    #     Stupid stopgap solution to there being an issue with the Bacterial Culture plate map. Extends parent.
+    #
+    #     Args:
+    #         xl (pd.ExcelFile): original xl workbook
+    #         plate_map (pd.DataFrame): original plate map
+    #
+    #     Returns:
+    #         pd.DataFrame: updated plate map.
+    #     """
+    #     plate_map = super().custom_platemap(xl, plate_map)
+    #     num1 = xl.parse("Sample List").iloc[40, 1]
+    #     num2 = xl.parse("Sample List").iloc[41, 1]
+    #     # logger.debug(f"Broken: {plate_map.iloc[5, 0]}, {plate_map.iloc[6, 0]}")
+    #     # logger.debug(f"Replace: {num1}, {num2}")
+    #     if not check_not_nan(plate_map.iloc[5, 0]):
+    #         plate_map.iloc[5, 0] = num1
+    #     if not check_not_nan(plate_map.iloc[6, 0]):
+    #         plate_map.iloc[6, 0] = num2
+    #     return plate_map
 
     # @classmethod
     # def custom_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False) -> Workbook:
@@ -1255,7 +1260,7 @@ class BacterialCulture(BasicSubmission):
         for sample in input_dict['samples']:
             matched = regex.match(sample['submitter_id'])
             if bool(matched):
-                logger.debug(f"Control match found: {sample['submitter_id']}")
+                # logger.debug(f"Control match found: {sample['submitter_id']}")
                 new_lot = matched.group()
                 try:
                     pos_control_reg = \
@@ -1272,8 +1277,8 @@ class BacterialCulture(BasicSubmission):
         """
         Extends parent
         """
-        logger.debug(f"Checking {sample.well}")
-        logger.debug(f"here's the worksheet: {worksheet}")
+        # logger.debug(f"Checking {sample.well}")
+        # logger.debug(f"here's the worksheet: {worksheet}")
         row = super().custom_sample_autofill_row(sample, worksheet)
         df = pd.DataFrame(list(worksheet.values))
         # logger.debug(f"Here's the dataframe: {df}")
@@ -1282,7 +1287,7 @@ class BacterialCulture(BasicSubmission):
             new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
             logger.debug(f"Checking: {new}")
             idx = df[df[0] == new]
-        logger.debug(f"Here is the row: {idx}")
+        # logger.debug(f"Here is the row: {idx}")
         row = idx.index.to_list()[0]
         return row + 1
 
@@ -1386,14 +1391,19 @@ class Wastewater(BasicSubmission):
         Parse specific to wastewater samples.
         """
         samples = super().parse_pcr(xl=xl, rsl_plate_num=rsl_plate_num)
-        logger.debug(f'Samples from parent pcr parser: {pformat(samples)}')
+        # logger.debug(f'Samples from parent pcr parser: {pformat(samples)}')
         output = []
         for sample in samples:
+            # NOTE: remove '-{target}' from controls
             sample['sample'] = re.sub('-N\\d$', '', sample['sample'])
+            # NOTE: if sample is already in output skip
             if sample['sample'] in [item['sample'] for item in output]:
                 continue
+            # NOTE: Set ct values
             sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
+            # NOTE: Set assessment
             sample[f"{sample['target'].lower()}_status"] = sample['assessment']
+            # NOTE: Get sample having other target
             other_targets = [s for s in samples if re.sub('-N\\d$', '', s['sample']) == sample['sample']]
             for s in other_targets:
                 sample[f"ct_{s['target'].lower()}"] = s['ct'] if isinstance(s['ct'], float) else 0.0
@@ -1446,13 +1456,13 @@ class Wastewater(BasicSubmission):
         """
         Extends parent
         """
-        logger.debug(f"Checking {sample.well}")
-        logger.debug(f"here's the worksheet: {worksheet}")
+        # logger.debug(f"Checking {sample.well}")
+        # logger.debug(f"here's the worksheet: {worksheet}")
         row = super().custom_sample_autofill_row(sample, worksheet)
         df = pd.DataFrame(list(worksheet.values))
-        logger.debug(f"Here's the dataframe: {df}")
+        # logger.debug(f"Here's the dataframe: {df}")
         idx = df[df[1] == sample.sample_location]
-        logger.debug(f"Here is the row: {idx}")
+        # logger.debug(f"Here is the row: {idx}")
         row = idx.index.to_list()[0]
         return row + 1
 
@@ -1468,10 +1478,10 @@ class Wastewater(BasicSubmission):
         parser = PCRParser(filepath=fname)
         self.set_attribute("pcr_info", parser.pcr)
         self.save(original=False)
-        logger.debug(f"Got {len(parser.samples)} samples to update!")
-        logger.debug(f"Parser samples: {parser.samples}")
+        # logger.debug(f"Got {len(parser.samples)} samples to update!")
+        # logger.debug(f"Parser samples: {parser.samples}")
         for sample in self.samples:
-            logger.debug(f"Running update on: {sample}")
+            # logger.debug(f"Running update on: {sample}")
             try:
                 sample_dict = [item for item in parser.samples if item['sample'] == sample.rsl_number][0]
             except IndexError:
@@ -1551,19 +1561,18 @@ class WastewaterArtic(BasicSubmission):
         Extends parent
         """
         try:
-            # Deal with PCR file.
+            # NOTE: Deal with PCR file.
             instr = re.sub(r"Artic", "", instr, flags=re.IGNORECASE)
         except (AttributeError, TypeError) as e:
             logger.error(f"Problem using regex: {e}")
-        logger.debug(f"Before RSL addition: {instr}")
+        # logger.debug(f"Before RSL addition: {instr}")
         try:
             instr = instr.replace("-", "")
         except AttributeError:
             instr = date.today().strftime("%Y%m%d")
         instr = re.sub(r"^(\d{6})", f"RSL-AR-\\1", instr)
-        logger.debug(f"name coming out of Artic namer: {instr}")
+        # logger.debug(f"name coming out of Artic namer: {instr}")
         outstr = super().enforce_name(instr=instr, data=data)
-
         return outstr
 
     @classmethod
@@ -1611,39 +1620,39 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             str: output name
         """
-        logger.debug(f"input string raw: {input_str}")
+        # logger.debug(f"input string raw: {input_str}")
         # Remove letters.
         processed = input_str.replace("RSL", "")
         processed = re.sub(r"\(.*\)$", "", processed).strip()
         processed = re.sub(r"[A-QS-Z]+\d*", "", processed)
         # Remove trailing '-' if any
         processed = processed.strip("-")
-        logger.debug(f"Processed after stripping letters: {processed}")
+        # logger.debug(f"Processed after stripping letters: {processed}")
         try:
             en_num = re.search(r"\-\d{1}$", processed).group()
             processed = rreplace(processed, en_num, "")
         except AttributeError:
             en_num = "1"
         en_num = en_num.strip("-")
-        logger.debug(f"Processed after en_num: {processed}")
+        # logger.debug(f"Processed after en_num: {processed}")
         try:
             plate_num = re.search(r"\-\d{1}R?\d?$", processed).group()
             processed = rreplace(processed, plate_num, "")
         except AttributeError:
             plate_num = "1"
         plate_num = plate_num.strip("-")
-        logger.debug(f"Processed after plate-num: {processed}")
+        # logger.debug(f"Processed after plate-num: {processed}")
         day = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, day, "")
-        logger.debug(f"Processed after day: {processed}")
+        # logger.debug(f"Processed after day: {processed}")
         month = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, month, "")
         processed = processed.replace("--", "")
-        logger.debug(f"Processed after month: {processed}")
+        # logger.debug(f"Processed after month: {processed}")
         year = re.search(r'^(?:\d{2})?\d{2}', processed).group()
         year = f"20{year}"
         final_en_name = f"EN{en_num}-{year}{month}{day}"
-        logger.debug(f"Final EN name: {final_en_name}")
+        # logger.debug(f"Final EN name: {final_en_name}")
         return final_en_name
 
     @classmethod
@@ -1657,14 +1666,14 @@ class WastewaterArtic(BasicSubmission):
                 Returns:
                     str: output name
                 """
-        logger.debug(f"input string raw: {input_str}")
+        # logger.debug(f"input string raw: {input_str}")
         # Remove letters.
         processed = input_str.replace("RSL", "")
         processed = re.sub(r"\(.*\)$", "", processed).strip()
         processed = re.sub(r"[A-QS-Z]+\d*", "", processed)
         # Remove trailing '-' if any
         processed = processed.strip("-")
-        logger.debug(f"Processed after stripping letters: {processed}")
+        # logger.debug(f"Processed after stripping letters: {processed}")
         # try:
         #     en_num = re.search(r"\-\d{1}$", processed).group()
         #     processed = rreplace(processed, en_num, "")
@@ -1678,23 +1687,23 @@ class WastewaterArtic(BasicSubmission):
         except AttributeError:
             plate_num = "1"
         plate_num = plate_num.strip("-")
-        logger.debug(f"Plate num: {plate_num}")
+        # logger.debug(f"Plate num: {plate_num}")
         repeat_num = re.search(r"R(?P<repeat>\d)?$", "PBS20240426-2R").groups()[0]
         if repeat_num is None and "R" in plate_num:
             repeat_num = "1"
         plate_num = re.sub(r"R", rf"R{repeat_num}", plate_num)
-        logger.debug(f"Processed after plate-num: {processed}")
+        # logger.debug(f"Processed after plate-num: {processed}")
         day = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, day, "")
-        logger.debug(f"Processed after day: {processed}")
+        # logger.debug(f"Processed after day: {processed}")
         month = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, month, "")
         processed = processed.replace("--", "")
-        logger.debug(f"Processed after month: {processed}")
+        # logger.debug(f"Processed after month: {processed}")
         year = re.search(r'^(?:\d{2})?\d{2}', processed).group()
         year = f"20{year}"
         final_en_name = f"PBS{year}{month}{day}-{plate_num}"
-        logger.debug(f"Final EN name: {final_en_name}")
+        # logger.debug(f"Final EN name: {final_en_name}")
         return final_en_name
 
     @classmethod
@@ -1722,12 +1731,12 @@ class WastewaterArtic(BasicSubmission):
             dict: Updated parser product.
         """
         input_dict = super().finalize_parse(input_dict, xl, info_map)
-        logger.debug(f"Incoming input_dict: {pformat(input_dict)}")
+        # logger.debug(f"Incoming input_dict: {pformat(input_dict)}")
         # TODO: Move to validator?
         for sample in input_dict['samples']:
-            logger.debug(f"Sample: {sample}")
+            # logger.debug(f"Sample: {sample}")
             if re.search(r"^NTC", sample['submitter_id']):
-                sample['submitter_id'] = sample['submitter_id'] + "-WWG-" + input_dict['rsl_plate_num']['value']
+                sample['submitter_id'] = f"{sample['submitter_id']}-WWG-{input_dict['rsl_plate_num']['value']}"
         input_dict['csv'] = xl["hitpicks_csv_to_export"]
         return input_dict
 
@@ -1748,13 +1757,13 @@ class WastewaterArtic(BasicSubmission):
         # worksheet = input_excel["First Strand List"]
         # samples = cls.query(rsl_number=info['rsl_plate_num']['value']).submission_sample_associations
         # samples = sorted(samples, key=attrgetter('column', 'row'))
-        logger.debug(f"Info:\n{pformat(info)}")
+        # logger.debug(f"Info:\n{pformat(info)}")
         check = 'source_plates' in info.keys() and info['source_plates'] is not None
         if check:
             worksheet = input_excel['First Strand List']
             start_row = 8
             for iii, plate in enumerate(info['source_plates']['value']):
-                logger.debug(f"Plate: {plate}")
+                # logger.debug(f"Plate: {plate}")
                 row = start_row + iii
                 try:
                     worksheet.cell(row=row, column=3, value=plate['plate'])
@@ -1782,12 +1791,16 @@ class WastewaterArtic(BasicSubmission):
                         # logger.debug(f"vj: {vj}")
                         column = start_column + 2 + jjj
                         worksheet.cell(row=start_row, column=column, value=kj['name'])
-                        worksheet.cell(row=row, column=column, value=kj['value'])
+                        # logger.debug(f"Writing {kj['name']} with value {kj['value']} to row {row}, column {column}")
+                        try:
+                            worksheet.cell(row=row, column=column, value=kj['value'])
+                        except AttributeError:
+                            logger.error(f"Failed {kj['name']} with value {kj['value']} to row {row}, column {column}")
         check = 'gel_image' in info.keys() and info['gel_image']['value'] is not None
         if check:
             if info['gel_image'] != None:
                 worksheet = input_excel['Egel results']
-                logger.debug(f"We got an image: {info['gel_image']}")
+                # logger.debug(f"We got an image: {info['gel_image']}")
                 with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
                     z = zipped.extract(info['gel_image']['value'], Path(TemporaryDirectory().name))
                     img = OpenpyxlImage(z)
@@ -1817,7 +1830,7 @@ class WastewaterArtic(BasicSubmission):
             headers = [item['name'] for item in base_dict['gel_info'][0]['values']]
             base_dict['headers'] = [''] * (4 - len(headers))
             base_dict['headers'] += headers
-            logger.debug(f"Gel info: {pformat(base_dict['headers'])}")
+            # logger.debug(f"Gel info: {pformat(base_dict['headers'])}")
         check = 'gel_image' in base_dict.keys() and base_dict['gel_image'] != None
         if check:
             with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
@@ -1834,7 +1847,7 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             List[dict]: Updated dictionaries
         """
-        logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
+        # logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
         output = []
         set_plate = None
         for assoc in self.submission_sample_associations:
@@ -1888,7 +1901,7 @@ class WastewaterArtic(BasicSubmission):
                     self.comment.append(com)
                 else:
                     self.comment = [com]
-            logger.debug(pformat(self.gel_info))
+            # logger.debug(pformat(self.gel_info))
             with ZipFile(self.__directory_path__.joinpath("submission_imgs.zip"), 'a') as zipf:
                 # Add a file located at the source_path to the destination within the zip
                 # file. It will overwrite existing files if the names collide, but it
@@ -1966,7 +1979,7 @@ class BasicSample(BaseClass):
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
-        logger.debug(f"Converting {self} to dict.")
+        # logger.debug(f"Converting {self} to dict.")
         # start = time()
         sample = {}
         sample['Submitter ID'] = self.submitter_id
@@ -2042,7 +2055,7 @@ class BasicSample(BaseClass):
         Returns:
             dict: Updated parser results.
         """
-        logger.debug(f"Hello from {cls.__name__} sample parser!")
+        # logger.debug(f"Hello from {cls.__name__} sample parser!")
         return input_dict
 
     @classmethod
@@ -2059,7 +2072,7 @@ class BasicSample(BaseClass):
         base_dict['excluded'] = ['submissions', 'excluded', 'colour', 'tooltip']
         env = jinja_template_loading()
         temp_name = f"{cls.__name__.lower()}_details.html"
-        logger.debug(f"Returning template: {temp_name}")
+        # logger.debug(f"Returning template: {temp_name}")
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
@@ -2091,7 +2104,7 @@ class BasicSample(BaseClass):
             model = cls.find_polymorphic_subclass(attrs=kwargs)
         else:
             model = cls.find_polymorphic_subclass(polymorphic_identity=sample_type)
-        logger.debug(f"Length of kwargs: {len(kwargs)}")
+        # logger.debug(f"Length of kwargs: {len(kwargs)}")
         # model = models.BasicSample.find_subclasses(ctx=ctx, attrs=kwargs)
         # query: Query = setup_lookup(ctx=ctx, locals=locals()).query(model)
         query: Query = cls.__database_session__.query(model)
@@ -2141,7 +2154,7 @@ class BasicSample(BaseClass):
         #             f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects.")
         sanitized_kwargs = {k:v for k,v in kwargs.items() if k not in disallowed}
         instance = cls.query(sample_type=sample_type, limit=1, **kwargs)
-        logger.debug(f"Retrieved instance: {instance}")
+        # logger.debug(f"Retrieved instance: {instance}")
         if instance is None:
             used_class = cls.find_polymorphic_subclass(attrs=sanitized_kwargs, polymorphic_identity=sample_type)
             instance = used_class(**sanitized_kwargs)
@@ -2219,7 +2232,7 @@ class WastewaterSample(BasicSample):
             dict: Updated parser results.
         """
         output_dict = super().parse_sample(input_dict)
-        logger.debug(f"Initial sample dict: {pformat(output_dict)}")
+        # logger.debug(f"Initial sample dict: {pformat(output_dict)}")
         disallowed = ["", None, "None"]
         try:
             check = output_dict['rsl_number'] in [None, "None"]
@@ -2258,7 +2271,7 @@ class WastewaterSample(BasicSample):
             plates = [item.rsl_plate_num for item in
                       self.submissions[:self.submissions.index(current_artic_submission)]]
         subs = [sub for sub in self.submissions if sub.rsl_plate_num in plates]
-        logger.debug(f"Submissions: {subs}")
+        # logger.debug(f"Submissions: {subs}")
         try:
             return subs[-1]
         except IndexError:
@@ -2339,7 +2352,7 @@ class SubmissionSampleAssociation(BaseClass):
             self.id = id
         else:
             self.id = self.__class__.autoincrement_id()
-        logger.debug(f"Using id: {self.id}")
+        # logger.debug(f"Using submission sample association id: {self.id}")
 
     def __repr__(self) -> str:
         try:
@@ -2356,9 +2369,9 @@ class SubmissionSampleAssociation(BaseClass):
             dict: Updated dictionary with row, column and well updated
         """
         # Get sample info
-        logger.debug(f"Running {self.__repr__()}")
+        # logger.debug(f"Running {self.__repr__()}")
         sample = self.sample.to_sub_dict()
-        logger.debug("Sample conversion complete.")
+        # logger.debug("Sample conversion complete.")
         sample['Name'] = self.sample.submitter_id
         sample['Row'] = self.row
         sample['Column'] = self.column
@@ -2382,7 +2395,7 @@ class SubmissionSampleAssociation(BaseClass):
         """
         # Since there is no PCR, negliable result is necessary.
         sample = self.to_sub_dict()
-        logger.debug(f"Sample dict to hitpick: {sample}")
+        # logger.debug(f"Sample dict to hitpick: {sample}")
         env = jinja_template_loading()
         template = env.get_template("tooltip.html")
         tooltip_text = template.render(fields=sample)
@@ -2430,7 +2443,7 @@ class SubmissionSampleAssociation(BaseClass):
             except Exception as e:
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
                 output = cls
-        logger.debug(f"Using SubmissionSampleAssociation subclass: {output}")
+        # logger.debug(f"Using SubmissionSampleAssociation subclass: {output}")
         return output
 
     @classmethod
@@ -2519,7 +2532,7 @@ class SubmissionSampleAssociation(BaseClass):
        Returns:
             SubmissionSampleAssociation: Queried or new association.
         """
-        logger.debug(f"Attempting create or query with {kwargs}")
+        # logger.debug(f"Attempting create or query with {kwargs}")
         match submission:
             case BasicSubmission():
                 pass

@@ -263,45 +263,45 @@ class SubmissionFormWidget(QWidget):
         self.app.report.add_result(report)
         self.app.result_reporter()
 
-    def kit_integrity_completion_function(self, extraction_kit:str|None=None):
-        """
-        Compare kit contents to parsed contents and creates widgets.
-
-        Args:
-            obj (QMainWindow): The original app window
-
-        Returns:
-            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
-        report = Report()
-        missing_reagents = []
-        # logger.debug(inspect.currentframe().f_back.f_code.co_name)
-        # find the widget that contains kit info
-        if extraction_kit is None:
-            kit_widget = self.find_widgets(object_name="extraction_kit")[0].input
-            logger.debug(f"Kit selector: {kit_widget}")
-            # get current kit being used
-            self.ext_kit = kit_widget.currentText()
-        else:
-            self.ext_kit = extraction_kit
-        for reagent in self.reagents:
-            logger.debug(f"Creating widget for {reagent}")
-            add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
-            # self.form.layout().addWidget(add_widget)
-            self.layout.addWidget(add_widget)
-            if reagent.missing:
-                missing_reagents.append(reagent)
-        logger.debug(f"Checking integrity of {self.ext_kit}")
-        # TODO: put check_kit_integrity here instead of what's here?
-        # see if there are any missing reagents
-        if len(missing_reagents) > 0:
-            result = Result(msg=f"""The submission you are importing is missing some reagents expected by the kit.\n\n 
-                            It looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\n 
-                            Alternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents. 
-                            \n\nPlease make sure you check the lots carefully!""".replace("  ", ""), status="Warning")
-            report.add_result(result)
-        self.report.add_result(report)
-        logger.debug(f"Outgoing report: {self.report.results}")
+    # def kit_integrity_completion_function(self, extraction_kit:str|None=None):
+    #     """
+    #     Compare kit contents to parsed contents and creates widgets.
+    #
+    #     Args:
+    #         obj (QMainWindow): The original app window
+    #
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    #     """
+    #     report = Report()
+    #     missing_reagents = []
+    #     # logger.debug(inspect.currentframe().f_back.f_code.co_name)
+    #     # find the widget that contains kit info
+    #     if extraction_kit is None:
+    #         kit_widget = self.find_widgets(object_name="extraction_kit")[0].input
+    #         logger.debug(f"Kit selector: {kit_widget}")
+    #         # get current kit being used
+    #         self.ext_kit = kit_widget.currentText()
+    #     else:
+    #         self.ext_kit = extraction_kit
+    #     for reagent in self.reagents:
+    #         logger.debug(f"Creating widget for {reagent}")
+    #         add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.ext_kit)
+    #         # self.form.layout().addWidget(add_widget)
+    #         self.layout.addWidget(add_widget)
+    #         if reagent.missing:
+    #             missing_reagents.append(reagent)
+    #     logger.debug(f"Checking integrity of {self.ext_kit}")
+    #     # TODO: put check_kit_integrity here instead of what's here?
+    #     # see if there are any missing reagents
+    #     if len(missing_reagents) > 0:
+    #         result = Result(msg=f"""The submission you are importing is missing some reagents expected by the kit.\n\n
+    #                         It looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\n
+    #                         Alternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.
+    #                         \n\nPlease make sure you check the lots carefully!""".replace("  ", ""), status="Warning")
+    #         report.add_result(result)
+    #     self.report.add_result(report)
+    #     logger.debug(f"Outgoing report: {self.report.results}")
         
     def clear_form(self):
         """
@@ -374,17 +374,12 @@ class SubmissionFormWidget(QWidget):
                 return
             case _:
                 pass
-        # assert base_submission.reagents != []
-        # add reagents to submission object
+        # NOTE: add reagents to submission object
         for reagent in base_submission.reagents:
             # logger.debug(f"Updating: {reagent} with {reagent.lot}")
             reagent.update_last_used(kit=base_submission.extraction_kit)
-        # logger.debug(f"Here is the final submission: {pformat(base_submission.__dict__)}")
-        # logger.debug(f"Parsed reagents: {pformat(base_submission.reagents)}")    
-        # logger.debug(f"Sending submission: {base_submission.rsl_plate_num} to database.")
-        # logger.debug(f"Samples from pyd: {pformat(self.pyd.samples)}")
-        # logger.debug(f"Samples SQL: {pformat([item.__dict__ for item in base_submission.samples])}")
-        # logger.debug(f"")
+        # logger.debug(f"Final reagents: {pformat(base_submission.reagents)}")
+        # sys.exit("Programmed stop submission_widget.py, line 381")
         base_submission.save()
         # update summary sheet
         self.app.table_widget.sub_wid.setData()
@@ -414,12 +409,12 @@ class SubmissionFormWidget(QWidget):
         except AttributeError:
             logger.error(f"No csv file found in the submission at this point.")
 
-    def parse_form(self) -> PydSubmission:
+    def parse_form(self) -> Report:
         """
         Transforms form info into PydSubmission
 
         Returns:
-            PydSubmission: Pydantic submission object 
+            Report: Report on status of parse.
         """        
         report = Report()
         logger.debug(f"Hello from form parser!")
@@ -430,15 +425,16 @@ class SubmissionFormWidget(QWidget):
             match widget:
                 case self.ReagentFormWidget():
                     reagent, _ = widget.parse_form()
-                    if reagent != None:
+                    if reagent is not None:
                         reagents.append(reagent)
                 case self.InfoItem():
                     field, value = widget.parse_form()
-                    if field != None:
+                    if field is not None:
                         info[field] = value
         logger.debug(f"Info: {pformat(info)}")
-        logger.debug(f"Reagents: {pformat(reagents)}")
+        logger.debug(f"Reagents going into pyd: {pformat(reagents)}")
         self.pyd.reagents = reagents
+
         # logger.debug(f"Attrs not in info: {[k for k, v in self.__dict__.items() if k not in info.keys()]}")
         for item in self.recover:
             logger.debug(f"Attempting to recover: {item}")

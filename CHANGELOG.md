@@ -1,3 +1,10 @@
+## 202405.04
+
+## 202405.04
+
+- Fixed Reagents not being updated on edit.
+- Fixed data resorting after submitting new run.
+
 ## 202405.03
 
 - Settings can now pull values from the db.
