@@ -58,7 +58,7 @@ class AddReagentForm(QDialog):
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
         self.type_input.addItems([item.name for item in ReagentType.query()])
-        logger.debug(f"Trying to find index of {reagent_type}")
+        # logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
         try:
             reagent_type = reagent_type.replace("_", " ").title()
@@ -97,7 +97,7 @@ class AddReagentForm(QDialog):
         """
         Updates reagent names form field with examples from reagent type
         """        
-        logger.debug(self.type_input.currentText())
+        # logger.debug(self.type_input.currentText())
         self.name_input.clear()
         lookup = Reagent.query(reagent_type=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
@@ -210,7 +210,7 @@ class LogParser(QDialog):
         """        
         count: int = 0
         total: int = 0
-        logger.debug(f"Current search term: {self.phrase_looker.currentText()}")
+        # logger.debug(f"Current search term: {self.phrase_looker.currentText()}")
         try:
             with open(self.fname, "r") as f:
                 for chunk in readInChunks(fileObj=f):

@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (QDialog, QScrollArea, QPushButton, QVBoxLayout, QMessageBox,
+from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout, QMessageBox,
                              QDialogButtonBox, QTextEdit)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
@@ -10,7 +10,6 @@ from .functions import select_save_file
 from io import BytesIO
 from tempfile import TemporaryFile, TemporaryDirectory
 from pathlib import Path
-# from xhtml2pdf import pisa
 import logging, base64
 from getpass import getuser
 from datetime import datetime
@@ -33,24 +32,19 @@ class SubmissionDetails(QDialog):
             self.app = parent.parent().parent().parent().parent().parent().parent()
         except AttributeError:
             self.app = None
-        # self.setWindowTitle(f"Submission Details - {sub.rsl_plate_num}")
-        # create scrollable interior
-        interior = QScrollArea()
-        interior.setParent(self)
         self.webview = QWebEngineView(parent=self)
         self.webview.setMinimumSize(900, 500)
         self.webview.setMaximumSize(900, 500)
-        # self.webview.setHtml(self.html)
         self.layout = QVBoxLayout()
-        interior.resize(900, 500)
-        interior.setWidget(self.webview)
         self.setFixedSize(900, 500)
-        # button to export a pdf version
+        # NOTE: button to export a pdf version
         btn = QPushButton("Export PDF")
-        btn.setParent(self)
-        btn.setFixedWidth(900)
+        btn.setFixedWidth(875)
         btn.clicked.connect(self.export)
-        # setup channel
+        self.layout.addWidget(btn)
+        self.layout.addWidget(self.webview)
+        self.setLayout(self.layout)
+        # NOTE: setup channel
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         self.submission_details(submission=sub)
@@ -80,31 +74,25 @@ class SubmissionDetails(QDialog):
         Args:
             submission (str | BasicSubmission): Submission of interest.
         """        
-        logger.debug(f"Details for: {submission}")
+        # logger.debug(f"Details for: {submission}")
         if isinstance(submission, str):
-            # submission = BasicSubmission.query(rsl_number=submission)
             submission = BasicSubmission.query(rsl_plate_num=submission)
         self.base_dict = submission.to_dict(full_data=True)
-        logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
-        # don't want id
+        # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
+        # NOTE: don't want id
         del self.base_dict['id']
         # logger.debug(f"Creating barcode.")
-        # if not check_if_app():
-        #     self.base_dict['barcode'] = base64.b64encode(submission.make_plate_barcode(width=120, height=30)).decode('utf-8')
-        logger.debug(f"Making platemap...")
+        # logger.debug(f"Making platemap...")
         self.base_dict['platemap'] = submission.make_plate_map()
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
-        # with open("details.html", "w") as f:
-        #     f.write(self.html)
 
     @pyqtSlot(str)
     def sign_off(self, submission:str|BasicSubmission):
-        logger.debug(f"Signing off on {submission} - ({getuser()})")
+        # logger.debug(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
-            # submission = BasicSubmission.query(rsl_number=submission)
             submission = BasicSubmission.query(rsl_plate_num=submission)
         submission.signed_by = getuser()
         submission.save()
@@ -177,6 +165,6 @@ class SubmissionComment(QDialog):
         comment = self.txt_editor.toPlainText()
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
         full_comment = {"name":commenter, "time": dt, "text": comment}
-        logger.debug(f"Full comment: {full_comment}")
+        # logger.debug(f"Full comment: {full_comment}")
         return full_comment
 

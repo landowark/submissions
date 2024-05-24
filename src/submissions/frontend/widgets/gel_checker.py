@@ -145,5 +145,5 @@ class ControlsForm(QWidget):
             dicto['values'].append(dict(name=label[1], value=le.text()))
             if label[0] not in [item['name'] for item in output]:
                 output.append(dicto)
-        logger.debug(pformat(output))
+        # logger.debug(pformat(output))
         return output, self.comment_field.toPlainText()

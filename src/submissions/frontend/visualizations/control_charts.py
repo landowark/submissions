@@ -48,7 +48,7 @@ def create_charts(ctx:Settings, df:pd.DataFrame, ytitle:str|None=None) -> Figure
     # Set descending for any columns that have "{mode}" in the header.
     ascending = [False if item == "target" else True for item in sorts]
     df = df.sort_values(by=sorts, ascending=ascending)
-    logger.debug(df[df.isna().any(axis=1)])
+    # logger.debug(df[df.isna().any(axis=1)])
     # actual chart construction is done by
     fig = construct_chart(df=df, modes=modes, ytitle=ytitle)
     return fig

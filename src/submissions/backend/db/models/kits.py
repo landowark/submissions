@@ -120,8 +120,8 @@ class KitType(BaseClass):
             submission_type (str | Submissiontype | None, optional): Submission type to narrow results. Defaults to None.
 
         Returns:
-            list: List of reagent types
-        """
+            List[ReagentType]: List of reagents linked to this kit.
+        """       
         match submission_type:
             case SubmissionType():
                 # logger.debug(f"Getting reagents by SubmissionType {submission_type}")
@@ -152,17 +152,15 @@ class KitType(BaseClass):
             dict: Dictionary containing information locations.
         """
         info_map = {}
-        # Account for submission_type variable type.
+        # NOTE: Account for submission_type variable type.
         match submission_type:
             case str():
                 # logger.debug(f"Constructing xl map with str {submission_type}")
                 assocs = [item for item in self.kit_reagenttype_associations if
                           item.submission_type.name == submission_type]
-                # st_assoc = [item for item in self.used_for if submission_type == item.name][0]
             case SubmissionType():
                 # logger.debug(f"Constructing xl map with SubmissionType {submission_type}")
                 assocs = [item for item in self.kit_reagenttype_associations if item.submission_type == submission_type]
-                # st_assoc = submission_type
             case _:
                 raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
         # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
@@ -371,10 +369,10 @@ class Reagent(BaseClass):
             dict: representation of the reagent's attributes
         """
         if extraction_kit is not None:
-            # Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
+            # NOTE: Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
             try:
                 reagent_role = list(set(self.type).intersection(extraction_kit.reagent_types))[0]
-            # Most will be able to fall back to first ReagentType in itself because most will only have 1.
+            # NOTE: Most will be able to fall back to first ReagentType in itself because most will only have 1.
             except:
                 reagent_role = self.type[0]
         else:
@@ -383,7 +381,7 @@ class Reagent(BaseClass):
             rtype = reagent_role.name.replace("_", " ")
         except AttributeError:
             rtype = "Unknown"
-        # Calculate expiry with EOL from ReagentType
+        # NOTE: Calculate expiry with EOL from ReagentType
         try:
             place_holder = self.expiry + reagent_role.eol_ext
         except (TypeError, AttributeError) as e:
@@ -467,7 +465,7 @@ class Reagent(BaseClass):
         match name:
             case str():
                 # logger.debug(f"Looking up reagent by name str: {name}")
-                # Not limited due to multiple reagents having same name.
+                # NOTE: Not limited due to multiple reagents having same name.
                 query = query.filter(cls.name == name)
             case _:
                 pass
@@ -475,7 +473,7 @@ class Reagent(BaseClass):
             case str():
                 # logger.debug(f"Looking up reagent by lot number str: {lot_number}")
                 query = query.filter(cls.lot == lot_number)
-                # In this case limit number returned.
+                # NOTE: In this case limit number returned.
                 limit = 1
             case _:
                 pass
@@ -516,10 +514,6 @@ class Discount(BaseClass):
             organization (models.Organization | str | int): Organization receiving discount.
             kit_type (models.KitType | str | int): Kit discount received on.
 
-        Raises:
-            ValueError: Invalid Organization
-            ValueError: Invalid kit.
-
         Returns:
             models.Discount|List[models.Discount]: Discount(s) of interest.
         """
@@ -535,7 +529,6 @@ class Discount(BaseClass):
                 # logger.debug(f"Looking up discount with organization id: {organization}")
                 query = query.join(Organization).filter(Organization.id == organization)
             case _:
-                # raise ValueError(f"Invalid value for organization: {organization}")
                 pass
         match kit_type:
             case KitType():
@@ -548,7 +541,6 @@ class Discount(BaseClass):
                 # logger.debug(f"Looking up discount with kit type id: {kit_type}")
                 query = query.join(KitType).filter(KitType.id == kit_type)
             case _:
-                # raise ValueError(f"Invalid value for kit type: {kit_type}")
                 pass
         return cls.execute_query(query=query)
 
@@ -634,11 +626,18 @@ class SubmissionType(BaseClass):
         self.save()
 
     def construct_info_map(self, mode: Literal['read', 'write']) -> dict:
+        """
+        Make of map of where all fields are located in excel sheet
+
+        Args:
+            mode (Literal["read", "write"]): Which mode to get locations for
+
+        Returns:
+            dict: Map of locations
+        """        
         info = self.info_map
         # logger.debug(f"Info map: {info}")
         output = {}
-        # for k,v in info.items():
-        # info[k]['write'] += info[k]['read']
         match mode:
             case "read":
                 output = {k: v[mode] for k, v in info.items() if v[mode]}
@@ -647,7 +646,13 @@ class SubmissionType(BaseClass):
                 output = {k: v for k, v in output.items() if all([isinstance(item, dict) for item in v])}
         return output
 
-    def construct_sample_map(self):
+    def construct_sample_map(self) -> dict:
+        """
+        Returns sample map
+
+        Returns:
+            dict: sample location map
+        """        
         return self.sample_map
 
     def construct_equipment_map(self) -> dict:
@@ -655,7 +660,7 @@ class SubmissionType(BaseClass):
         Constructs map of equipment to excel cells.
 
         Returns:
-            List[dict]: List of equipment locations in excel sheet
+            dict: Map equipment locations in excel sheet
         """
         output = {}
         # logger.debug("Iterating through equipment roles")
@@ -671,7 +676,7 @@ class SubmissionType(BaseClass):
         Returns PydEquipmentRole of all equipment associated with this SubmissionType
 
         Returns:
-            List['PydEquipmentRole']: List of equipment roles
+            List[PydEquipmentRole]: List of equipment roles
         """
         return [item.to_pydantic(submission_type=self, extraction_kit=extraction_kit) for item in self.equipment]
 
@@ -702,7 +707,13 @@ class SubmissionType(BaseClass):
                 raise TypeError(f"Type {type(equipment_role)} is not allowed")
         return list(set([item for items in relevant for item in items if item != None]))
 
-    def get_submission_class(self):
+    def get_submission_class(self) -> "BasicSubmission":
+        """
+        Gets submission class associated with this submission type.
+
+        Returns:
+            BasicSubmission: Submission class
+        """                
         from .submissions import BasicSubmission
         return BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.name)
 
@@ -1063,7 +1074,7 @@ class Equipment(BaseClass):
             processes (bool, optional): Whether to include processes. Defaults to False.
 
         Returns:
-            dict: _description_
+            dict: Dictionary representation of this equipment
         """
         if not processes:
             return {k: v for k, v in self.__dict__.items() if k != 'processes'}
@@ -1152,7 +1163,7 @@ class Equipment(BaseClass):
             extraction_kit (str | KitType | None, optional): Relevant KitType. Defaults to None.
 
         Returns:
-            PydEquipment: _description_
+            PydEquipment: pydantic equipment object
         """
         from backend.validators.pydant import PydEquipment
         return PydEquipment(
@@ -1179,7 +1190,6 @@ class Equipment(BaseClass):
 class EquipmentRole(BaseClass):
     """
     Abstract roles for equipment
-
     """
 
     id = Column(INTEGER, primary_key=True)  #: Role id, primary key
@@ -1331,7 +1341,7 @@ class SubmissionEquipmentAssociation(BaseClass):
     equipment = relationship(Equipment, back_populates="equipment_submission_associations")  #: associated equipment
 
     def __repr__(self):
-        return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num}&{self.equipment.name})>"
+        return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num} & {self.equipment.name})>"
 
     def __init__(self, submission, equipment, role: str = "None"):
         self.submission = submission

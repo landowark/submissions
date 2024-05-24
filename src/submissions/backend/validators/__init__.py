@@ -23,7 +23,7 @@ class RSLNamer(object):
         if self.submission_type is None:
             # logger.debug("Creating submission type because none exists")
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        logger.debug(f"got submission type: {self.submission_type}")
+        # logger.debug(f"got submission type: {self.submission_type}")
         if self.submission_type is not None:
             # logger.debug("Retrieving BasicSubmission subclass")
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
@@ -47,7 +47,7 @@ class RSLNamer(object):
         """
         match filename:
             case Path():
-                logger.debug(f"Using path method for {filename}.")
+                # logger.debug(f"Using path method for {filename}.")
                 if filename.exists():
                     wb = load_workbook(filename)
                     try:
@@ -67,7 +67,7 @@ class RSLNamer(object):
                     submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
             case str():
                 regex = BasicSubmission.construct_regex()
-                logger.debug(f"Using string method for {filename}.")
+                # logger.debug(f"Using string method for {filename}.")
                 m = regex.search(filename)
                 try:
                     submission_type = m.lastgroup
@@ -100,17 +100,17 @@ class RSLNamer(object):
             regex (str): string to construct pattern
             filename (str): string to be parsed
         """
-        logger.debug(f"Input string to be parsed: {filename}")
+        # logger.debug(f"Input string to be parsed: {filename}")
         if regex is None:
             regex = BasicSubmission.construct_regex()
         else:
             regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
-        logger.debug(f"Using regex: {regex}")
+        # logger.debug(f"Using regex: {regex}")
         match filename:
             case Path():
                 m = regex.search(filename.stem)
             case str():
-                logger.debug(f"Using string method.")
+                # logger.debug(f"Using string method.")
                 m = regex.search(filename)
             case _:
                 m = None
@@ -121,7 +121,7 @@ class RSLNamer(object):
                 parsed_name = None
         else:
             parsed_name = None
-        logger.debug(f"Got parsed submission name: {parsed_name}")
+        # logger.debug(f"Got parsed submission name: {parsed_name}")
         return parsed_name
 
     @classmethod
@@ -167,8 +167,8 @@ class RSLNamer(object):
         Returns:
             str: output file name.
         """
-        logger.debug(f"Kwargs: {kwargs}")
-        logger.debug(f"Template: {template}")
+        # logger.debug(f"Kwargs: {kwargs}")
+        # logger.debug(f"Template: {template}")
         environment = jinja_template_loading()
         template = environment.from_string(template)
         return template.render(**kwargs)

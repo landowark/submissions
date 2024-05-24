@@ -134,15 +134,15 @@ class PydReagent(BaseModel):
         # logger.debug("Adding extra fields.")
         if self.model_extra != None:
             self.__dict__.update(self.model_extra)
-        logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
+        # logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
         reagent = Reagent.query(lot_number=self.lot, name=self.name)
-        logger.debug(f"Result: {reagent}")
+        # logger.debug(f"Result: {reagent}")
         if reagent is None:
             reagent = Reagent()
             for key, value in self.__dict__.items():
                 if isinstance(value, dict):
                     value = value['value']
-                logger.debug(f"Reagent info item for {key}: {value}")
+                # logger.debug(f"Reagent info item for {key}: {value}")
                 # set fields based on keys in dictionary
                 match key:
                     case "lot":
@@ -191,7 +191,7 @@ class PydSample(BaseModel, extra='allow'):
     @model_validator(mode='after')
     @classmethod
     def validate_model(cls, data):
-        logger.debug(f"Data for pydsample: {data}")
+        # logger.debug(f"Data for pydsample: {data}")
         model = BasicSample.find_polymorphic_subclass(polymorphic_identity=data.sample_type)
         for k, v in data.model_extra.items():
             print(k, v)
@@ -200,7 +200,7 @@ class PydSample(BaseModel, extra='allow'):
                     v = datetime.strptime(v, "%Y-%m-%d")
                 data.__setattr__(k, v)
                 # print(dir(data))
-        logger.debug(f"Data coming out of validation: {pformat(data)}")
+        # logger.debug(f"Data coming out of validation: {pformat(data)}")
         return data
 
     @field_validator("row", "column", "assoc_id", "submission_rank")
@@ -233,7 +233,7 @@ class PydSample(BaseModel, extra='allow'):
         """
         report = None
         self.__dict__.update(self.model_extra)
-        logger.debug(f"Here is the incoming sample dict: \n{self.__dict__}")
+        # logger.debug(f"Here is the incoming sample dict: \n{self.__dict__}")
         instance = BasicSample.query_or_create(sample_type=self.sample_type, submitter_id=self.submitter_id)
         for key, value in self.__dict__.items():
             match key:
@@ -246,8 +246,8 @@ class PydSample(BaseModel, extra='allow'):
         if submission is not None:
             assoc_type = self.sample_type.replace("Sample", "").strip()
             for row, column, aid, submission_rank in zip(self.row, self.column, self.assoc_id, self.submission_rank):
-                logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
-                logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
+                # logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
+                # logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
                 association = SubmissionSampleAssociation.query_or_create(association_type=f"{assoc_type} Association",
                                                                           submission=submission,
                                                                           sample=instance,
@@ -357,7 +357,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator('equipment', mode='before')
     @classmethod
     def convert_equipment_dict(cls, value):
-        logger.debug(f"Equipment: {value}")
+        # logger.debug(f"Equipment: {value}")
         if isinstance(value, dict):
             return value['value']
         return value
@@ -381,7 +381,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submitted_date", mode="before")
     @classmethod
     def rescue_date(cls, value):
-        logger.debug(f"\n\nDate coming into pydantic: {value}\n\n")
+        # logger.debug(f"\n\nDate coming into pydantic: {value}\n\n")
         try:
             check = value['value'] == None
         except TypeError:
@@ -426,7 +426,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def lookup_submitting_lab(cls, value):
         if isinstance(value['value'], str):
-            logger.debug(f"Looking up organization {value['value']}")
+            # logger.debug(f"Looking up organization {value['value']}")
             try:
                 value['value'] = Organization.query(name=value['value']).name
             except AttributeError:
@@ -457,12 +457,12 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("rsl_plate_num")
     @classmethod
     def rsl_from_file(cls, value, values):
-        logger.debug(f"RSL-plate initial value: {value['value']} and other values: {values.data}")
+        # logger.debug(f"RSL-plate initial value: {value['value']} and other values: {values.data}")
         sub_type = values.data['submission_type']['value']
         if check_not_nan(value['value']):
             return value
         else:
-            logger.debug("Constructing plate name.")
+            # logger.debug("Constructing plate name.")
             output = RSLNamer(filename=values.data['filepath'].__str__(), sub_type=sub_type,
                               data=values.data).parsed_name
             return dict(value=output, missing=True)
@@ -649,32 +649,32 @@ class PydSubmission(BaseModel, extra='allow'):
                                                               rsl_plate_num=self.rsl_plate_num['value'])
         result = Result(msg=msg, code=code)
         self.handle_duplicate_samples()
-        logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
+        # logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
         # for key, value in self.__dict__.items():
         for key, value in dicto.items():
             if isinstance(value, dict):
                 value = value['value']
-            logger.debug(f"Setting {key} to {value}")
+            # logger.debug(f"Setting {key} to {value}")
             match key:
                 case "reagents":
                     if code == 1:
                         instance.submission_reagent_associations = []
-                    logger.debug(f"Looking through {self.reagents}")
+                    # logger.debug(f"Looking through {self.reagents}")
                     for reagent in self.reagents:
                         reagent, assoc = reagent.toSQL(submission=instance)
-                        logger.debug(f"Association: {assoc}")
+                        # logger.debug(f"Association: {assoc}")
                         if assoc is not None:# and assoc not in instance.submission_reagent_associations:
                             instance.submission_reagent_associations.append(assoc)
                         # instance.reagents.append(reagent)
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)
-                        logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
+                        # logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
                         for assoc in associations:
                             if assoc is not None and assoc not in instance.submission_sample_associations:
                                 instance.submission_sample_associations.append(assoc)
                 case "equipment":
-                    logger.debug(f"Equipment: {pformat(self.equipment)}")
+                    # logger.debug(f"Equipment: {pformat(self.equipment)}")
                     try:
                         if equip is None:
                             continue
@@ -684,11 +684,11 @@ class PydSubmission(BaseModel, extra='allow'):
                         equip, association = equip.toSQL(submission=instance)
                         if association is not None:
                             association.save()
-                            logger.debug(
-                                f"Equipment association SQL object to be added to submission: {association.__dict__}")
+                            # logger.debug(
+                            #     f"Equipment association SQL object to be added to submission: {association.__dict__}")
                             instance.submission_equipment_associations.append(association)
                 case item if item in instance.jsons():
-                    logger.debug(f"{item} is a json.")
+                    # logger.debug(f"{item} is a json.")
                     try:
                         ii = value.items()
                     except AttributeError:
@@ -701,38 +701,38 @@ class PydSubmission(BaseModel, extra='allow'):
                     try:
                         instance.set_attribute(key=key, value=value)
                     except AttributeError as e:
-                        logger.debug(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
+                        logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
                         continue
                     except KeyError:
                         continue
         try:
-            logger.debug(f"Calculating costs for procedure...")
+            # logger.debug(f"Calculating costs for procedure...")
             instance.calculate_base_cost()
         except (TypeError, AttributeError) as e:
-            logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
+            # logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
             try:
                 instance.run_cost = instance.extraction_kit.cost_per_run
             except AttributeError:
                 instance.run_cost = 0
-        logger.debug(f"Calculated base run cost of: {instance.run_cost}")
+        # logger.debug(f"Calculated base run cost of: {instance.run_cost}")
         # Apply any discounts that are applicable for client and kit.
         try:
-            logger.debug("Checking and applying discounts...")
+            # logger.debug("Checking and applying discounts...")
             discounts = [item.amount for item in
                          Discount.query(kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
-            logger.debug(f"We got discounts: {discounts}")
+            # logger.debug(f"We got discounts: {discounts}")
             if len(discounts) > 0:
                 discounts = sum(discounts)
                 instance.run_cost = instance.run_cost - discounts
         except Exception as e:
             logger.error(f"An unknown exception occurred when calculating discounts: {e}")
         # We need to make sure there's a proper rsl plate number
-        logger.debug(f"We've got a total cost of {instance.run_cost}")
-        try:
-            logger.debug(f"Constructed instance: {instance}")
-        except AttributeError as e:
-            logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
-        logger.debug(f"Constructed submissions message: {msg}")
+        # logger.debug(f"We've got a total cost of {instance.run_cost}")
+        # try:
+        #     logger.debug(f"Constructed instance: {instance}")
+        # except AttributeError as e:
+        #     logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
+        # logger.debug(f"Constructed submissions message: {msg}")
         return instance, result
 
     def to_form(self, parent: QWidget):
@@ -777,26 +777,26 @@ class PydSubmission(BaseModel, extra='allow'):
             Report: Result object containing a message and any missing components.
         """
         report = Report()
-        logger.debug(f"Extraction kit: {extraction_kit}. Is it a string? {isinstance(extraction_kit, str)}")
+        # logger.debug(f"Extraction kit: {extraction_kit}. Is it a string? {isinstance(extraction_kit, str)}")
         if isinstance(extraction_kit, str):
             extraction_kit = dict(value=extraction_kit)
         if extraction_kit is not None and extraction_kit != self.extraction_kit['value']:
             self.extraction_kit['value'] = extraction_kit['value']
-        logger.debug(f"Looking up {self.extraction_kit['value']}")
+        # logger.debug(f"Looking up {self.extraction_kit['value']}")
         ext_kit = KitType.query(name=self.extraction_kit['value'])
         ext_kit_rtypes = [item.to_pydantic() for item in
                           ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
-        logger.debug(f"Kit reagents: {ext_kit_rtypes}")
-        logger.debug(f"Submission reagents: {self.reagents}")
+        # logger.debug(f"Kit reagents: {ext_kit_rtypes}")
+        # logger.debug(f"Submission reagents: {self.reagents}")
         # Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.type for item in ext_kit_rtypes]
         output_reagents = [rt for rt in self.reagents if rt.type in expected_check]
-        logger.debug(f"Already have these reagent types: {output_reagents}")
+        # logger.debug(f"Already have these reagent types: {output_reagents}")
         missing_check = [item.type for item in output_reagents]
         missing_reagents = [rt for rt in ext_kit_rtypes if rt.type not in missing_check]
         missing_reagents += [rt for rt in output_reagents if rt.missing]
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
-        logger.debug(f"Missing reagents types: {missing_reagents}")
+        # logger.debug(f"Missing reagents types: {missing_reagents}")
         # if lists are equal return no problem
         if len(missing_reagents) == 0:
             result = None
@@ -873,7 +873,7 @@ class PydReagentType(BaseModel):
         instance: ReagentType = ReagentType.query(name=self.name)
         if instance == None:
             instance = ReagentType(name=self.name, eol_ext=self.eol_ext)
-        logger.debug(f"This is the reagent type instance: {instance.__dict__}")
+        # logger.debug(f"This is the reagent type instance: {instance.__dict__}")
         try:
             assoc = KitTypeReagentTypeAssociation.query(reagent_type=instance, kit_type=kit)
         except StatementError:

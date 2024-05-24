@@ -112,13 +112,13 @@ class ControlsViewer(QWidget):
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """    
         report = Report()
-        logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
+        # logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
         # set the subtype for kraken
         if self.sub_typer.currentText() == "":
             self.subtype = None
         else:
             self.subtype = self.sub_typer.currentText()
-        logger.debug(f"Subtype: {self.subtype}")
+        # logger.debug(f"Subtype: {self.subtype}")
         # query all controls using the type/start and end dates from the gui
         controls = Control.query(control_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
         # if no data found from query set fig to none for reporting in webview
@@ -129,7 +129,7 @@ class ControlsViewer(QWidget):
             data = [control.convert_by_mode(mode=self.mode) for control in controls]
             # flatten data to one dimensional list
             data = [item for sublist in data for item in sublist]
-            logger.debug(f"Control objects going into df conversion: {type(data)}")
+            # logger.debug(f"Control objects going into df conversion: {type(data)}")
             if data == []:
                 self.report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
                 return
@@ -141,13 +141,13 @@ class ControlsViewer(QWidget):
                 title = f"{self.mode} - {self.subtype}"
             # send dataframe to chart maker
             fig = create_charts(ctx=self.app.ctx, df=df, ytitle=title)
-        logger.debug(f"Updating figure...")
+        # logger.debug(f"Updating figure...")
         # construct html for webview
         html = construct_html(figure=fig)
-        logger.debug(f"The length of html code is: {len(html)}")
+        # logger.debug(f"The length of html code is: {len(html)}")
         self.webengineview.setHtml(html)
         self.webengineview.update()
-        logger.debug("Figure updated... I hope.")
+        # logger.debug("Figure updated... I hope.")
         self.report.add_result(report)
 
 class ControlsDatePicker(QWidget):

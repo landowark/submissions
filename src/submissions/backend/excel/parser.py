@@ -543,7 +543,6 @@ class EquipmentParser(object):
     def __init__(self, xl: Workbook, submission_type: str|SubmissionType) -> None:
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
-
         self.submission_type = submission_type
         self.xl = xl
         self.map = self.fetch_equipment_map()
@@ -555,7 +554,6 @@ class EquipmentParser(object):
         Returns:
             List[dict]: List of locations
         """
-        # submission_type = SubmissionType.query(name=self.submission_type)
         return self.submission_type.construct_equipment_map()
 
     def get_asset_number(self, input: str) -> str:
@@ -569,7 +567,7 @@ class EquipmentParser(object):
             str: asset number
         """
         regex = Equipment.get_regex()
-        logger.debug(f"Using equipment regex: {regex} on {input}")
+        # logger.debug(f"Using equipment regex: {regex} on {input}")
         try:
             return regex.search(input).group().strip("-")
         except AttributeError:
@@ -582,11 +580,10 @@ class EquipmentParser(object):
         Returns:
             List[PydEquipment]: list of equipment
         """
-        logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
+        # logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
         output = []
         # logger.debug(f"Sheets: {sheets}")
         for sheet in self.xl.sheetnames:
-            # df = self.xl.parse(sheet, header=None, dtype=object)
             ws = self.xl[sheet]
             try:
                 relevant = [item for item in self.map if item['sheet'] == sheet]
@@ -595,7 +592,6 @@ class EquipmentParser(object):
             # logger.debug(f"Relevant equipment: {pformat(relevant)}")
             previous_asset = ""
             for equipment in relevant:
-                # asset = df.iat[equipment['name']['row']-1, equipment['name']['column']-1]
                 asset = ws.cell(equipment['name']['row'], equipment['name']['column'])
                 if not check_not_nan(asset):
                     asset = previous_asset
@@ -603,7 +599,6 @@ class EquipmentParser(object):
                     previous_asset = asset
                 asset = self.get_asset_number(input=asset)
                 eq = Equipment.query(asset_number=asset)
-                # process = df.iat[equipment['process']['row']-1, equipment['process']['column']-1]
                 process = ws.cell(row=equipment['process']['row'], column=equipment['process']['column'])
                 try:
                     output.append(
@@ -613,72 +608,6 @@ class EquipmentParser(object):
                     logger.error(f"Unable to add {eq} to PydEquipment list.")
                 # logger.debug(f"Here is the output so far: {pformat(output)}")
         return output
-
-
-# class PCRParser(object):
-#     """
-#     Object to pull data from Design and Analysis PCR export file.
-#     """
-#
-#     def __init__(self, filepath: Path | None = None) -> None:
-#         """
-#         Initializes object.
-#
-#         Args:
-#             filepath (Path | None, optional): file to parse. Defaults to None.
-#         """
-#         logger.debug(f"Parsing {filepath.__str__()}")
-#         if filepath == None:
-#             logger.error(f"No filepath given.")
-#             self.xl = None
-#         else:
-#             try:
-#                 self.xl = pd.ExcelFile(filepath.__str__())
-#             except ValueError as e:
-#                 logger.error(f"Incorrect value: {e}")
-#                 self.xl = None
-#             except PermissionError:
-#                 logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
-#                 return
-#         self.parse_general(sheet_name="Results")
-#         namer = RSLNamer(filename=filepath.__str__())
-#         self.plate_num = namer.parsed_name
-#         self.submission_type = namer.submission_type
-#         logger.debug(f"Set plate number to {self.plate_num} and type to {self.submission_type}")
-#         parser = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-#         self.samples = parser.parse_pcr(xl=self.xl, rsl_number=self.plate_num)
-#
-#     def parse_general(self, sheet_name: str):
-#         """
-#         Parse general info rows for all types of PCR results
-#
-#         Args:
-#             sheet_name (str): Name of sheet in excel workbook that holds info.
-#         """
-#         self.pcr = {}
-#         df = self.xl.parse(sheet_name=sheet_name, dtype=object).fillna("")
-#         self.pcr['comment'] = df.iloc[0][1]
-#         self.pcr['operator'] = df.iloc[1][1]
-#         self.pcr['barcode'] = df.iloc[2][1]
-#         self.pcr['instrument'] = df.iloc[3][1]
-#         self.pcr['block_type'] = df.iloc[4][1]
-#         self.pcr['instrument_name'] = df.iloc[5][1]
-#         self.pcr['instrument_serial'] = df.iloc[6][1]
-#         self.pcr['heated_cover_serial'] = df.iloc[7][1]
-#         self.pcr['block_serial'] = df.iloc[8][1]
-#         self.pcr['run-start'] = df.iloc[9][1]
-#         self.pcr['run_end'] = df.iloc[10][1]
-#         self.pcr['run_duration'] = df.iloc[11][1]
-#         self.pcr['sample_volume'] = df.iloc[12][1]
-#         self.pcr['cover_temp'] = df.iloc[13][1]
-#         self.pcr['passive_ref'] = df.iloc[14][1]
-#         self.pcr['pcr_step'] = df.iloc[15][1]
-#         self.pcr['quant_cycle_method'] = df.iloc[16][1]
-#         self.pcr['analysis_time'] = df.iloc[17][1]
-#         self.pcr['software'] = df.iloc[18][1]
-#         self.pcr['plugin'] = df.iloc[19][1]
-#         self.pcr['exported_on'] = df.iloc[20][1]
-#         self.pcr['imported_by'] = getuser()
 
 class PCRParser(object):
     """Object to pull data from Design and Analysis PCR export file."""
@@ -690,7 +619,7 @@ class PCRParser(object):
          Args:
              filepath (Path | None, optional): file to parse. Defaults to None.
          """
-        logger.debug(f'Parsing {filepath.__str__()}')
+        # logger.debug(f'Parsing {filepath.__str__()}')
         if filepath is None:
             logger.error('No filepath given.')
             self.xl = None

@@ -17,9 +17,9 @@ class EquipmentUsage(QDialog):
         self.setWindowTitle("Equipment Checklist")
         self.used_equipment = self.submission.get_used_equipment()
         self.kit = self.submission.extraction_kit
-        logger.debug(f"Existing equipment: {self.used_equipment}")
+        # logger.debug(f"Existing equipment: {self.used_equipment}")
         self.opt_equipment = submission.submission_type.get_equipment()
-        logger.debug(f"EquipmentRoles: {self.opt_equipment}")
+        # logger.debug(f"EquipmentRoles: {self.opt_equipment}")
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self.populate_form()
@@ -115,9 +115,9 @@ class RoleComboBox(QWidget):
         Changes processes when equipment is changed
         """        
         equip = self.box.currentText()
-        logger.debug(f"Updating equipment: {equip}")
+        # logger.debug(f"Updating equipment: {equip}")
         equip2 = [item for item in self.role.equipment if item.name==equip][0]
-        logger.debug(f"Using: {equip2}")
+        # logger.debug(f"Using: {equip2}")
         self.process.clear()
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])
 

@@ -25,7 +25,7 @@ logger.info("Hello, I am a logger")
 class App(QMainWindow):
 
     def __init__(self, ctx: Settings = None):
-        logger.debug(f"Initializing main window...")
+        # logger.debug(f"Initializing main window...")
         super().__init__()
         self.ctx = ctx
         self.last_dir = ctx.directory_path
@@ -58,7 +58,7 @@ class App(QMainWindow):
         """
         adds items to menu bar
         """        
-        logger.debug(f"Creating menu bar...")
+        # logger.debug(f"Creating menu bar...")
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         # Creating menus using a title
@@ -79,7 +79,7 @@ class App(QMainWindow):
         """
         adds items to toolbar
         """        
-        logger.debug(f"Creating toolbar...")
+        # logger.debug(f"Creating toolbar...")
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
         toolbar.addAction(self.addReagentAction)
@@ -90,7 +90,7 @@ class App(QMainWindow):
         """
         creates actions
         """        
-        logger.debug(f"Creating actions...")
+        # logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
         # self.importPCRAction = QAction("&Import PCR Results", self)
         self.addReagentAction = QAction("Add Reagent", self)
@@ -107,7 +107,7 @@ class App(QMainWindow):
         """
         connect menu and tool bar item to functions
         """
-        logger.debug(f"Connecting actions...")
+        # logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
         # self.importPCRAction.triggered.connect(self.table_widget.formwidget.import_pcr_results)
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
@@ -134,7 +134,7 @@ class App(QMainWindow):
             url = Path(sys._MEIPASS).joinpath("files", "docs", "index.html")
         else:
             url = Path("docs\\build\\index.html").absolute()
-        logger.debug(f"Attempting to open {url}")
+        # logger.debug(f"Attempting to open {url}")
         webbrowser.get('windows-default').open(f"file://{url.__str__()}")
 
     def result_reporter(self):
@@ -144,11 +144,11 @@ class App(QMainWindow):
         Args:
             result (dict | None, optional): The result from a function. Defaults to None.
         """        
-        logger.debug(f"Running results reporter for: {self.report.results}")
+        # logger.debug(f"Running results reporter for: {self.report.results}")
         if len(self.report.results) > 0:
-            logger.debug(f"We've got some results!")
+            # logger.debug(f"We've got some results!")
             for result in self.report.results:
-                logger.debug(f"Showing result: {result}")
+                # logger.debug(f"Showing result: {result}")
                 if result != None:
                     alert = result.report()
                     if alert.exec():
@@ -164,17 +164,17 @@ class App(QMainWindow):
     def backup_database(self):
         month = date.today().strftime("%Y-%m")
         # day = date.today().strftime("%Y-%m-%d")
-        logger.debug(f"Here is the db directory: {self.ctx.database_path}")
-        logger.debug(f"Here is the backup directory: {self.ctx.backup_path}")
+        # logger.debug(f"Here is the db directory: {self.ctx.database_path}")
+        # logger.debug(f"Here is the backup directory: {self.ctx.backup_path}")
         current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve().with_suffix(".db")
         if not current_month_bak.exists() and "demo" not in self.ctx.database_path.__str__():
-            logger.debug("No backup found for this month, backing up database.")
+            logger.info("No backup found for this month, backing up database.")
             shutil.copyfile(self.ctx.database_path, current_month_bak)
 
 class AddSubForm(QWidget):
     
     def __init__(self, parent:QWidget):
-        logger.debug(f"Initializating subform...")
+        # logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
         # Initialize tab screen

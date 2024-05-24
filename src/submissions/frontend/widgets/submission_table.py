@@ -110,7 +110,7 @@ class SubmissionsSheet(QTableView):
         self.menu = QMenu(self)
         self.con_actions = submission.custom_context_events()
         for k in self.con_actions.keys():
-            logger.debug(f"Adding {k}")
+            # logger.debug(f"Adding {k}")
             action = QAction(k, self)
             action.triggered.connect(lambda _, action_name=k: self.triggered_action(action_name=action_name))
             self.menu.addAction(action)
@@ -124,8 +124,8 @@ class SubmissionsSheet(QTableView):
         Args:
             action_name (str): name of the action from the menu
         """        
-        logger.debug(f"Action: {action_name}")
-        logger.debug(f"Responding with {self.con_actions[action_name]}")
+        # logger.debug(f"Action: {action_name}")
+        # logger.debug(f"Responding with {self.con_actions[action_name]}")
         func = self.con_actions[action_name]
         func(obj=self)
 
@@ -162,50 +162,20 @@ class SubmissionsSheet(QTableView):
                     experiment_name=run[4].strip(),
                     end_time=run[5].strip()
                 )
-            # elution columns are item 6 in the comma split list to the end
+            # NOTE: elution columns are item 6 in the comma split list to the end
             for ii in range(6, len(run)):
                 new_run[f"column{str(ii-5)}_vol"] = run[ii]
-            # Lookup imported submissions
-            # sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
+            # NOTE: Lookup imported submissions
             sub = BasicSubmission.query(rsl_plate_num=new_run['rsl_plate_num'])
-            # If no such submission exists, move onto the next run
+            # NOTE: If no such submission exists, move onto the next run
             if sub == None:
                 continue
             try:
-                logger.debug(f"Found submission: {sub.rsl_plate_num}")
+                # logger.debug(f"Found submission: {sub.rsl_plate_num}")
                 count += 1
             except AttributeError:
                 continue
             sub.set_attribute('extraction_info', new_run)
-            # if sub.extraction_info != None:
-            #     # existing = json.loads(sub.extraction_info)
-            #     existing = sub.extraction_info
-            # else:
-            #     existing = None
-            # # Check if the new info already exists in the imported submission
-            # try:
-            #     # if json.dumps(new_run) in sub.extraction_info:
-            #     if new_run in sub.extraction_info:
-            #         logger.debug(f"Looks like we already have that info.")
-            #         continue
-            # except TypeError:
-            #     pass
-            # # Update or create the extraction info
-            # if existing != None:
-            #     try:
-            #         logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
-            #         existing.append(new_run)
-            #         logger.debug(f"Setting: {existing}")
-            #         # sub.extraction_info = json.dumps(existing)
-            #         sub.extraction_info = existing
-            #     except TypeError:
-            #         logger.error(f"Error updating!")
-            #         # sub.extraction_info = json.dumps([new_run])
-            #         sub.extraction_info = [new_run]
-            #     logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.extraction_info}")
-            # else:
-            #     # sub.extraction_info = json.dumps([new_run])
-            #     sub.extraction_info = [new_run]
             sub.save()
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
 
@@ -230,7 +200,7 @@ class SubmissionsSheet(QTableView):
         """    
         fname = select_open_file(self, file_extension="csv")
         with open(fname.__str__(), 'r') as f:
-            # split csv rows on comma
+            # NOTE: split csv rows on comma
             runs = [col.strip().split(",") for col in f.readlines()]
         count = 0
         for run in runs:
@@ -242,49 +212,17 @@ class SubmissionsSheet(QTableView):
                     experiment_name=run[4].strip(),
                     end_time=run[5].strip()
                 )
-            # lookup imported submission
-            # sub = lookup_submission_by_rsl_num(ctx=obj.ctx, rsl_num=new_run['rsl_plate_num'])
-            # sub = lookup_submissions(ctx=obj.ctx, rsl_number=new_run['rsl_plate_num'])
+            # NOTE: lookup imported submission
             sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
-            # if imported submission doesn't exist move on to next run
+            # NOTE: if imported submission doesn't exist move on to next run
             if sub == None:
                 continue
-            try:
-                logger.debug(f"Found submission: {sub.rsl_plate_num}")
-            except AttributeError:
-                continue
-            sub.set_attribute('pcr_info', new_run)
-            # # check if pcr_info already exists
-            # if hasattr(sub, 'pcr_info') and sub.pcr_info != None:
-            #     # existing = json.loads(sub.pcr_info)
-            #     existing = sub.pcr_info
-            # else:
-            #     existing = None
-            # # check if this entry already exists in imported submission
             # try:
-            #     # if json.dumps(new_run) in sub.pcr_info:
-            #     if new_run in sub.pcr_info:
-            #         logger.debug(f"Looks like we already have that info.")
-            #         continue
-            #     else:
-            #         count += 1
-            # except TypeError:
-            #     logger.error(f"No json to dump")
-            # if existing is not None:
-            #     try:
-            #         logger.debug(f"Updating {type(existing)}: {existing} with {type(new_run)}: {new_run}")
-            #         existing.append(new_run)
-            #         logger.debug(f"Setting: {existing}")
-            #         # sub.pcr_info = json.dumps(existing)
-            #         sub.pcr_info = existing
-            #     except TypeError:
-            #         logger.error(f"Error updating!")
-            #         # sub.pcr_info = json.dumps([new_run])
-            #         sub.pcr_info = [new_run]
-            #     logger.debug(f"Final ext info for {sub.rsl_plate_num}: {sub.pcr_info}")
-            # else:
-            #     # sub.pcr_info = json.dumps([new_run])
-            #     sub.pcr_info = [new_run]
+            #     logger.debug(f"Found submission: {sub.rsl_plate_num}")
+            # except AttributeError:
+            #     continue
+            sub.set_attribute('pcr_info', new_run)
+            # NOTE: check if pcr_info already exists
             sub.save()
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         
@@ -308,23 +246,21 @@ class SubmissionsSheet(QTableView):
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """    
         report = Report()
-        # ask for date ranges
+        # NOTE: ask for date ranges
         dlg = ReportDatePicker()
         if dlg.exec():
             info = dlg.parse_form()
-            logger.debug(f"Report info: {info}")
-            # find submissions based on date range
+            # logger.debug(f"Report info: {info}")
+            # NOTE: find submissions based on date range
             subs = BasicSubmission.query(start_date=info['start_date'], end_date=info['end_date'])
-            # convert each object to dict
+            # NOTE: convert each object to dict
             records = [item.to_dict(report=True) for item in subs]
             logger.debug(f"Records: {pformat(records)}")
-            # make dataframe from record dictionaries
+            # NOTE: make dataframe from record dictionaries
             detailed_df, summary_df = make_report_xlsx(records=records)
             html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
-            # get save location of report
+            # NOTE: get save location of report
             fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf", extension="pdf")
-            # with open(fname, "w+b") as f:
-            #     pisa.CreatePDF(html, dest=f)
             html_to_pdf(html=html, output_file=fname)
             writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
             summary_df.to_excel(writer, sheet_name="Report")
@@ -337,14 +273,13 @@ class SubmissionsSheet(QTableView):
                     len(str(series.name))  # len of column name/header
                     )) + 20  # adding a little extra space
                 try:
-                    # worksheet.column_dimensions[get_column_letter(idx=idx)].width = max_len
-                    # Convert idx to letter
+                    # NOTE: Convert idx to letter
                     col_letter = chr(ord('@') + idx)
                     worksheet.column_dimensions[col_letter].width = max_len
                 except ValueError:
                     pass
             blank_row = get_first_blank_df_row(summary_df) + 1
-            logger.debug(f"Blank row index = {blank_row}")
+            # logger.debug(f"Blank row index = {blank_row}")
             for col in range(3,6):
                 col_letter = row_map[col]
                 worksheet.cell(row=blank_row, column=col, value=f"=SUM({col_letter}2:{col_letter}{str(blank_row-1)})")

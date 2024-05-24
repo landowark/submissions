@@ -63,16 +63,16 @@ class ControlType(BaseClass):
         Returns:
             List[str]: list of subtypes available
         """
-        # Get first instance since all should have same subtypes
-        # Get mode of instance
+        # NOTE: Get first instance since all should have same subtypes
+        # NOTE: Get mode of instance
         jsoner = getattr(self.instances[0], mode)
         # logger.debug(f"JSON out: {jsoner.keys()}")
         try:
-            # Pick genera (all should have same subtypes)
+            # NOTE: Pick genera (all should have same subtypes)
             genera = list(jsoner.keys())[0]
         except IndexError:
             return []
-        # remove items that don't have relevant data
+        # NOTE: remove items that don't have relevant data
         subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
         return subtypes
 
@@ -135,7 +135,6 @@ class Control(BaseClass):
         """
         # logger.debug("loading json string into dict")
         try:
-            # kraken = json.loads(self.kraken)
             kraken = self.kraken
         except TypeError:
             kraken = {}
@@ -178,7 +177,7 @@ class Control(BaseClass):
             data = self.__getattribute__(mode)
         except TypeError:
             data = {}
-        logger.debug(f"Length of data: {len(data)}")
+        # logger.debug(f"Length of data: {len(data)}")
         # logger.debug("dict keys are genera of bacteria, e.g. 'Streptococcus'")
         for genus in data:
             _dict = dict(
@@ -236,7 +235,7 @@ class Control(BaseClass):
             models.Control|List[models.Control]: Control object of interest.
         """
         query: Query = cls.__database_session__.query(cls)
-        # by control type
+        # NOTE: by control type
         match control_type:
             case ControlType():
                 # logger.debug(f"Looking up control by control type: {control_type}")
@@ -246,7 +245,7 @@ class Control(BaseClass):
                 query = query.join(ControlType).filter(ControlType.name == control_type)
             case _:
                 pass
-        # by date range
+        # NOTE: by date range
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
             end_date = date.today()

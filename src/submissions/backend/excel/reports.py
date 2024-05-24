@@ -27,7 +27,7 @@ def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
     # aggregate cost and sample count columns
     df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Extraction Kit':'count', 'Cost': 'sum', 'Sample Count':'sum'})
     df2 = df2.rename(columns={"Extraction Kit": 'Run Count'})
-    logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
+    # logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
     df = df.drop('id', axis=1)
     df = df.sort_values(['Submitting Lab', "Submitted Date"])
     return df, df2
@@ -47,13 +47,13 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
     """    
     old_lab = ""
     output = []
-    logger.debug(f"Report DataFrame: {df}")
+    # logger.debug(f"Report DataFrame: {df}")
     for ii, row in enumerate(df.iterrows()):
-        logger.debug(f"Row {ii}: {row}")
+        # logger.debug(f"Row {ii}: {row}")
         lab = row[0][0]
-        logger.debug(type(row))
-        logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
-        logger.debug(f"Name: {row[0][1]}")
+        # logger.debug(type(row))
+        # logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
+        # logger.debug(f"Name: {row[0][1]}")
         data = [item for item in row[1]]
         kit = dict(name=row[0][1], cost=data[1], run_count=int(data[0]), sample_count=int(data[2]))
         # if this is the same lab as before add together
@@ -67,7 +67,7 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
             adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'], total_runs=kit['run_count'])
             output.append(adder)
         old_lab = lab
-    logger.debug(output)
+    # logger.debug(output)
     dicto = {'start_date':start_date, 'end_date':end_date, 'labs':output}#, "table":table}
     temp = env.get_template('summary_report.html')
     html = temp.render(input=dicto)
@@ -91,14 +91,14 @@ def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFram
     for column in df.columns:
         if "percent" in column:
             count_col = [item for item in df.columns if "count" in item][0]
-            # The actual percentage from kraken was off due to exclusion of NaN, recalculating.
+            # NOTE: The actual percentage from kraken was off due to exclusion of NaN, recalculating.
             df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
         if column not in safe:
             if subtype != None and column != subtype:
                 del df[column]
-    # move date of sample submitted on same date as previous ahead one.
+    # NOTE: move date of sample submitted on same date as previous ahead one.
     df = displace_date(df)
-    # ad hoc method to make data labels more accurate.
+    # NOTE: ad hoc method to make data labels more accurate.
     df = df_column_renamer(df=df)
     return df
 
@@ -131,8 +131,8 @@ def displace_date(df:DataFrame) -> DataFrame:
     Returns:
         DataFrame: output dataframe with dates incremented.
     """    
-    logger.debug(f"Unique items: {df['name'].unique()}")
-    # get submitted dates for each control
+    # logger.debug(f"Unique items: {df['name'].unique()}")
+    # NOTE: get submitted dates for each control
     dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
     previous_dates = []
     for _, item in enumerate(dict_list):
@@ -157,10 +157,10 @@ def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame,
         check = False
     previous_dates.append(item['date'])
     if check:
-        logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
-        # get df locations where name == item name
+        # logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
+        # NOTE: get df locations where name == item name
         mask = df['name'] == item['name']
-        # increment date in dataframe
+        # NOTE: increment date in dataframe
         df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
         item['date'] += timedelta(days=1)
         passed = False
@@ -170,9 +170,9 @@ def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame,
     # logger.debug(f"DF: {type(df)}, previous_dates: {type(previous_dates)}")
     # if run didn't lead to changed date, return values
     if passed:
-        logger.debug(f"Date check passed, returning.")
+        # logger.debug(f"Date check passed, returning.")
         return df, previous_dates
-    # if date was changed, rerun with new date
+    # NOTE: if date was changed, rerun with new date
     else:
         logger.warning(f"Date check failed, running recursion")
         df, previous_dates = check_date(df, item, previous_dates)

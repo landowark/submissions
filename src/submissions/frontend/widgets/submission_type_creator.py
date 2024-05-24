@@ -26,11 +26,11 @@ class SubmissionTypeAdder(QWidget):
         scrollContent = QWidget(scroll)
         self.grid = QGridLayout()
         scrollContent.setLayout(self.grid)
-        # insert submit button at top
+        # NOTE: insert submit button at top
         self.submit_btn = QPushButton("Submit")
         self.grid.addWidget(self.submit_btn,0,0,1,1)
         self.grid.addWidget(QLabel("Submission Type Name:"),2,0)
-        # widget to get kit name
+        # NOTE: widget to get kit name
         self.st_name = QLineEdit()
         self.st_name.setObjectName("submission_type_name")
         self.grid.addWidget(self.st_name,2,1,1,2)
@@ -39,7 +39,7 @@ class SubmissionTypeAdder(QWidget):
         self.grid.addWidget(template_selector,3,1)
         self.template_label = QLabel("None")
         self.grid.addWidget(self.template_label,3,2)
-        # widget to get uses of kit
+        # NOTE: widget to get uses of kit
         exclude = ['id', 'submitting_lab_id', 'extraction_kit_id', 'reagents_id', 'extraction_info', 'pcr_info', 'run_cost']
         self.columns = {key:value for key, value in BasicSubmission.__dict__.items() if isinstance(value, InstrumentedAttribute)}
         self.columns = {key:value for key, value in self.columns.items() if hasattr(value, "type") and key not in exclude}

@@ -1,7 +1,6 @@
 ## 202405.04
 
-## 202405.04
-
+- Improved Webview of submission details.
 - Fixed Reagents not being updated on edit.
 - Fixed data resorting after submitting new run.
 

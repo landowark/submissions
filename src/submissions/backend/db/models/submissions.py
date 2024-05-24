@@ -107,6 +107,12 @@ class BasicSubmission(BaseClass):
 
     @classmethod
     def jsons(cls) -> List[str]:
+        """
+        Get list of JSON db columns
+
+        Returns:
+            List[str]: List of column names
+        """        
         output = [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
         if issubclass(cls, BasicSubmission) and not cls.__name__ == "BasicSubmission":
             output += BasicSubmission.jsons()
@@ -114,6 +120,12 @@ class BasicSubmission(BaseClass):
 
     @classmethod
     def timestamps(cls) -> List[str]:
+        """
+        Get list of TIMESTAMP columns
+
+        Returns:
+            List[str]: List of column names
+        """        
         output = [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         if issubclass(cls, BasicSubmission) and not cls.__name__ == "BasicSubmission":
             output += BasicSubmission.timestamps()
@@ -122,7 +134,7 @@ class BasicSubmission(BaseClass):
     # TODO: Beef up this to include info_map from DB
     @classmethod
     def get_default_info(cls, *args):
-        # Create defaults for all submission_types
+        # NOTE: Create defaults for all submission_types
         parent_defs = super().get_default_info()
         recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
         dicto = dict(
@@ -132,9 +144,7 @@ class BasicSubmission(BaseClass):
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment'] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
-            form_recover=recover,
-            # parser_ignore=['samples', 'signed_by'] + [item for item in cls.jsons() if item != "comment"],
-            # excel_ignore=[],
+            form_recover=recover
         )
         # logger.debug(dicto['singles'])
         # NOTE: Singles tells the query which fields to set limit to 1
@@ -151,7 +161,6 @@ class BasicSubmission(BaseClass):
         st = cls.get_submission_type()
         if st is None:
             logger.error("No default info for BasicSubmission.")
-            # return output
         else:
             output['submission_type'] = st.name
             for k, v in st.defaults.items():
@@ -169,16 +178,37 @@ class BasicSubmission(BaseClass):
         return output
 
     @classmethod
-    def get_submission_type(cls):
+    def get_submission_type(cls) -> SubmissionType:
+        """
+        Gets the SubmissionType associated with this class
+
+        Returns:
+            SubmissionType: SubmissionType with name equal to this polymorphic identity
+        """        
         name = cls.__mapper_args__['polymorphic_identity']
         return SubmissionType.query(name=name)
 
     @classmethod
-    def construct_info_map(cls, mode:Literal['read', 'write']):
+    def construct_info_map(cls, mode:Literal["read", "write"]) -> dict:
+        """
+        Method to call submission type's construct info map.
+
+        Args:
+            mode (Literal["read", "write"]): Which map to construct.
+
+        Returns:
+            dict: Map of info locations.
+        """        
         return cls.get_submission_type().construct_info_map(mode=mode)
 
     @classmethod
-    def construct_sample_map(cls):
+    def construct_sample_map(cls) -> dict:
+        """
+        Method to call submission type's construct_sample_map
+
+        Returns:
+            dict: sample location map
+        """        
         return cls.get_submission_type().construct_sample_map()
 
     def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
@@ -192,7 +222,7 @@ class BasicSubmission(BaseClass):
         Returns:
             dict: dictionary used in submissions summary and details
         """
-        # get lab from nested organization object
+        # NOTE: get lab from nested organization object
         # logger.debug(f"Converting {self.rsl_plate_num} to dict...")
         try:
             sub_lab = self.submitting_lab.name
@@ -202,12 +232,12 @@ class BasicSubmission(BaseClass):
             sub_lab = sub_lab.replace("_", " ").title()
         except AttributeError:
             pass
-        # get extraction kit name from nested kit object
+        # NOTE: get extraction kit name from nested kit object
         try:
             ext_kit = self.extraction_kit.name
         except AttributeError:
             ext_kit = None
-        # load scraped extraction info
+        # NOTE: load scraped extraction info
         try:
             ext_info = self.extraction_info
         except TypeError:
@@ -324,7 +354,7 @@ class BasicSubmission(BaseClass):
 
     def make_plate_map(self, plate_rows: int = 8, plate_columns=12) -> str:
         """
-        Constructs an html based plate map.
+        Constructs an html based plate map for submission details.
 
         Args:
             sample_list (list): List of submission samples
@@ -386,7 +416,7 @@ class BasicSubmission(BaseClass):
         subs = [item.to_dict() for item in cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic)]
         # logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
-        # Exclude sub information
+        # NOTE: Exclude sub information
         for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
                      'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']:
             try:
@@ -414,9 +444,6 @@ class BasicSubmission(BaseClass):
                 # logger.debug(f"Looking up organization: {value}")
                 field_value = Organization.query(name=value)
                 # logger.debug(f"Got {field_value} for organization {value}")
-            # case "submitter_plate_num":
-            #     # logger.debug(f"Submitter plate id: {value}")
-            #     field_value = value
             case "samples":
                 for sample in value:
                     # logger.debug(f"Parsing {sample} to sql.")
@@ -436,17 +463,6 @@ class BasicSubmission(BaseClass):
                     field_value = value
             case "ctx" | "csv" | "filepath" | "equipment":
                 return
-            # case "comment":
-            #     if value == "" or value == None or value == 'null':
-            #         field_value = None
-            #     else:
-            #         field_value = dict(name=getuser(), text=value, time=datetime.now())
-            #         # if self.comment is None:
-            #         #     self.comment = [field_value]
-            #         # else:
-            #         #     self.comment.append(field_value)
-            #         self.update_json(field=key, value=field_value)
-            #     return
             case item if item in self.jsons():
                 logger.debug(f"Setting JSON attribute.")
                 existing = self.__getattribute__(key)
@@ -1852,13 +1868,6 @@ class WastewaterArtic(BasicSubmission):
         set_plate = None
         for assoc in self.submission_sample_associations:
             dicto = assoc.to_sub_dict()
-            # old_sub = assoc.sample.get_previous_ww_submission(current_artic_submission=self)
-            # try:
-            #     dicto['plate_name'] = old_sub.rsl_plate_num
-            # except AttributeError:
-            #     dicto['plate_name'] = ""
-            # old_assoc = WastewaterAssociation.query(submission=old_sub, sample=assoc.sample, limit=1)
-            # dicto['well'] = f"{row_map[old_assoc.row]}{old_assoc.column}"
             for item in self.source_plates:
                 old_plate = WastewaterAssociation.query(submission=item['plate'], sample=assoc.sample, limit=1)
                 if old_plate is not None:
@@ -1878,6 +1887,12 @@ class WastewaterArtic(BasicSubmission):
         events = super().custom_context_events()
         events['Gel Box'] = self.gel_box
         return events
+
+    def set_attribute(self, key: str, value):
+        super().set_attribute(key=key, value=value)
+        if key == 'gel_info':
+            if len(self.gel_info) > 3:
+                self.gel_info = self.gel_info[-3:]
 
     def gel_box(self, obj):
         """

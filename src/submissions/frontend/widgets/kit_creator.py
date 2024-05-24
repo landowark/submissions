@@ -93,10 +93,10 @@ class KitAdder(QWidget):
         # get form info
         info, reagents = self.parse_form()
         info = {k:v for k,v in info.items() if k in [column.name for column in self.columns] + ['kit_name', 'used_for']}
-        logger.debug(f"kit info: {pformat(info)}")
-        logger.debug(f"kit reagents: {pformat(reagents)}")
+        # logger.debug(f"kit info: {pformat(info)}")
+        # logger.debug(f"kit reagents: {pformat(reagents)}")
         info['reagent_types'] = reagents
-        logger.debug(pformat(info))
+        # logger.debug(pformat(info))
         # send to kit constructor
         kit = PydKit(name=info['kit_name'])
         for reagent in info['reagent_types']:
@@ -108,7 +108,7 @@ class KitAdder(QWidget):
                      'expiry':reagent['expiry']
                     }}
             kit.reagent_types.append(PydReagentType(name=reagent['rtname'], eol_ext=reagent['eol'], uses=uses))
-        logger.debug(f"Output pyd object: {kit.__dict__}")
+        # logger.debug(f"Output pyd object: {kit.__dict__}")
         sqlobj, result = kit.toSQL(self.ctx)
         report.add_result(result=result)
         sqlobj.save()
@@ -122,7 +122,7 @@ class KitAdder(QWidget):
         Returns:
             Tuple[dict, list]: dict=info, list=reagents
         """        
-        logger.debug(f"Hello from {self.__class__} parser!")
+        # logger.debug(f"Hello from {self.__class__} parser!")
         info = {}
         reagents = []
         widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore and not isinstance(widget.parent(), ReagentTypeForm)]
@@ -153,7 +153,7 @@ class ReagentTypeForm(QWidget):
         self.reagent_getter.setObjectName("rtname")
         # lookup all reagent type names from db
         lookup = ReagentType.query()
-        logger.debug(f"Looked up ReagentType names: {lookup}")
+        # logger.debug(f"Looked up ReagentType names: {lookup}")
         self.reagent_getter.addItems([item.name for item in lookup])
         self.reagent_getter.setEditable(True)
         grid.addWidget(self.reagent_getter,0,1)
@@ -205,14 +205,14 @@ class ReagentTypeForm(QWidget):
         Returns:
             dict: _description_
         """        
-        logger.debug(f"Hello from {self.__class__} parser!")
+        # logger.debug(f"Hello from {self.__class__} parser!")
         info = {}
         info['eol'] = self.eol.value()
         info['sheet'] = self.location_sheet_name.text()
         info['rtname'] = self.reagent_getter.currentText()
         widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore]
         for widget in widgets:
-            logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)} with parent {widget.parent()}")
+            # logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)} with parent {widget.parent()}")
             match widget:
                 case QLineEdit():
                     info[widget.objectName()] = widget.text()
@@ -225,7 +225,7 @@ class ReagentTypeForm(QWidget):
                         key, sub_key = widget.objectName().split("_")
                         if key not in info.keys():
                             info[key] = {}
-                            logger.debug(f"Adding key {key}, {sub_key} and value {widget.value()} to {info}")
+                            # logger.debug(f"Adding key {key}, {sub_key} and value {widget.value()} to {info}")
                         info[key][sub_key] = widget.value()        
         return info
 

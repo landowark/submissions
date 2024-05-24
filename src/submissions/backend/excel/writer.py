@@ -31,7 +31,6 @@ class SheetWriter(object):
                 case 'filepath':
                     self.__setattr__(k, v)
                 case 'submission_type':
-                    # self.__setattr__('submission_type', submission.submission_type['value'])
                     self.sub[k] = v['value']
                     self.submission_type = SubmissionType.query(name=v['value'])
                     self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
@@ -40,7 +39,7 @@ class SheetWriter(object):
                         self.sub[k] = v['value']
                     else:
                         self.sub[k] = v
-        logger.debug(f"\n\nWriting to {submission.filepath.__str__()}\n\n")
+        # logger.debug(f"\n\nWriting to {submission.filepath.__str__()}\n\n")
 
         if self.filepath.stem.startswith("tmp"):
             template = self.submission_type.template_file
@@ -95,7 +94,7 @@ class InfoWriter(object):
         self.xl = xl
         map = submission_type.construct_info_map(mode='write')
         self.info = self.reconcile_map(info_dict, map)
-        logger.debug(pformat(self.info))
+        # logger.debug(pformat(self.info))
 
     def reconcile_map(self, info_dict: dict, map: dict) -> dict:
         output = {}
@@ -121,8 +120,7 @@ class InfoWriter(object):
                 logger.error(f"No locations for {k}, skipping")
                 continue
             for loc in locations:
-
-                logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
+                # logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
                 sheet = self.xl[loc['sheet']]
                 sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
         return self.sub_object.custom_info_writer(self.xl, info=self.info)
@@ -152,7 +150,7 @@ class ReagentWriter(object):
                 try:
                     dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
                 except KeyError as e:
-                    # logger.error(f"Keyerror: {e}")
+                    logger.error(f"KeyError: {e}")
                     dicto = v
                 placeholder[k] = dicto
                 placeholder['sheet'] = mp_info['sheet']
@@ -197,7 +195,6 @@ class SampleWriter(object):
     def write_samples(self):
         sheet = self.xl[self.map['sheet']]
         columns = self.map['sample_columns']
-        # rows = range(self.map['start_row'], self.map['end_row']+1)
         for ii, sample in enumerate(self.samples):
             row = self.map['start_row'] + (sample['submission_rank'] - 1)
             for k, v in sample.items():
@@ -229,8 +226,6 @@ class EquipmentWriter(object):
                 for jj, (k, v) in enumerate(equipment.items(), start=1):
                     dicto = dict(value=v, row=ii, column=jj)
                     placeholder[k] = dicto
-
-                # output.append(placeholder)
             else:
                 for jj, (k, v) in enumerate(equipment.items(), start=1):
                     try:
@@ -258,8 +253,8 @@ class EquipmentWriter(object):
             for k, v in equipment.items():
                 if not isinstance(v, dict):
                     continue
-                logger.debug(
-                    f"Writing {k}: {v['value']} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
+                # logger.debug(
+                #     f"Writing {k}: {v['value']} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
                 if isinstance(v['value'], list):
                     v['value'] = v['value'][0]
                 try:

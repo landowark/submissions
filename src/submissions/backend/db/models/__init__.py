@@ -102,7 +102,7 @@ class BaseClass(Base):
     @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:
         """
-        Default query function for models
+        Default query function for models. Overridden in most models.
 
         Returns:
             Any | List[Any]: Result of query execution.
@@ -128,7 +128,7 @@ class BaseClass(Base):
             query: Query = cls.__database_session__.query(model)
         # logger.debug(f"Grabbing singles using {model.get_default_info}")
         singles = model.get_default_info('singles')
-        logger.debug(f"Querying: {model}, with kwargs: {kwargs}")
+        logger.info(f"Querying: {model}, with kwargs: {kwargs}")
         for k, v in kwargs.items():
             # logger.debug(f"Using key: {k} with value: {v}")
             try:
