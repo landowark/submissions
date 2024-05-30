@@ -18,7 +18,7 @@ class ControlsViewer(QWidget):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.app = self.parent().parent()
-        print(f"\n\n{self.app}\n\n")
+        # logger.debug(f"\n\n{self.app}\n\n")
         self.report = Report()
         self.datepicker = ControlsDatePicker()
         self.webengineview = QWebEngineView()

@@ -25,7 +25,7 @@ class SubmissionDetails(QDialog):
     """
     a window showing text details of submission
     """    
-    def __init__(self, parent, sub:BasicSubmission) -> None:
+    def __init__(self, parent, sub:BasicSubmission|BasicSample) -> None:
 
         super().__init__(parent)
         try:
@@ -47,19 +47,24 @@ class SubmissionDetails(QDialog):
         # NOTE: setup channel
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
-        self.submission_details(submission=sub)
-        self.rsl_plate_num = sub.rsl_plate_num
+        match sub:
+            case BasicSubmission():
+                self.submission_details(submission=sub)
+                self.rsl_plate_num = sub.rsl_plate_num
+            case BasicSample():
+                self.sample_details(sample=sub)
         self.webview.page().setWebChannel(self.channel)
 
     @pyqtSlot(str)
-    def sample_details(self, sample:str):
+    def sample_details(self, sample:str|BasicSample):
         """
         Changes details view to summary of Sample
 
         Args:
             sample (str): Submitter Id of the sample.
-        """        
-        sample = BasicSample.query(submitter_id=sample)
+        """
+        if isinstance(sample, str):
+            sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
         base_dict, template = sample.get_details_template(base_dict=base_dict)
         html = template.render(sample=base_dict)
@@ -87,6 +92,8 @@ class SubmissionDetails(QDialog):
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
+        with open("test.html", "w") as f:
+            f.write(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
 
     @pyqtSlot(str)
@@ -138,7 +145,7 @@ class SubmissionComment(QDialog):
         super().__init__(parent)
         try:
             self.app = parent.parent().parent().parent().parent().parent().parent
-            print(f"App: {self.app}")
+            # logger.debug(f"App: {self.app}")
         except AttributeError:
             pass
         self.submission = submission

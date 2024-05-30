@@ -86,7 +86,7 @@ def check_not_nan(cell_contents) -> bool:
     except TypeError:
         return True
     except Exception as e:
-        logger.debug(f"Check encountered unknown error: {type(e).__name__} - {e}")
+        logger.error(f"Check encountered unknown error: {type(e).__name__} - {e}")
         return False
 
 
@@ -228,7 +228,7 @@ class Settings(BaseSettings, extra="allow"):
                     database_path = database_path
                 else:
                     raise FileNotFoundError("No database file found. Exiting program.")
-            logger.debug(f"Using {database_path} for database file.")
+            logger.info(f"Using {database_path} for database file.")
             engine = create_engine(f"sqlite:///{database_path}")  #, echo=True, future=True)
             session = Session(engine)
             # metadata.session = session

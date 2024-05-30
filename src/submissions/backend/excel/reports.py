@@ -23,13 +23,13 @@ def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
     """    
     df = DataFrame.from_records(records)
     # put submissions with the same lab together
-    df = df.sort_values("Submitting Lab")
+    df = df.sort_values("submitting_lab")
     # aggregate cost and sample count columns
-    df2 = df.groupby(["Submitting Lab", "Extraction Kit"]).agg({'Extraction Kit':'count', 'Cost': 'sum', 'Sample Count':'sum'})
-    df2 = df2.rename(columns={"Extraction Kit": 'Run Count'})
+    df2 = df.groupby(["submitting_lab", "extraction_kit"]).agg({'extraction_kit':'count', 'cost': 'sum', 'sample_count':'sum'})
+    df2 = df2.rename(columns={"extraction_kit": 'run_count'})
     # logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
     df = df.drop('id', axis=1)
-    df = df.sort_values(['Submitting Lab', "Submitted Date"])
+    df = df.sort_values(['submitting_lab', "submitted_date"])
     return df, df2
 
 def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:

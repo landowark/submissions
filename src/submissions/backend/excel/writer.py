@@ -85,6 +85,7 @@ class SheetWriter(object):
 class InfoWriter(object):
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict, sub_object:BasicSubmission|None=None):
+        logger.debug(f"Info_dict coming into InfoWriter: {pformat(info_dict)}")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
@@ -110,10 +111,15 @@ class InfoWriter(object):
             dicto['value'] = v
             if len(dicto) > 0:
                 output[k] = dicto
+        # logger.debug(f"Reconciled info: {pformat(output)}")
         return output
 
     def write_info(self):
         for k, v in self.info.items():
+            # NOTE: merge all comments to fit in single cell.
+            if k == "comment" and isinstance(v['value'], list):
+                json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
+                v['value'] = "\n".join(json_join)
             try:
                 locations = v['locations']
             except KeyError:
@@ -183,6 +189,7 @@ class SampleWriter(object):
         output = []
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
+            # logger.debug(f"Writing sample: {sample}")
             for assoc in zip(sample['row'], sample['column'], sample['submission_rank']):
                 new = dict(row=assoc[0], column=assoc[1], submission_rank=assoc[2])
                 for k, v in sample.items():

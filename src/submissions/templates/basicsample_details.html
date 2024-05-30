@@ -42,11 +42,11 @@
         {% block body %}
         <h2><u>Sample Details for {{ sample['Submitter ID'] }}</u></h2>
         <p>{% for key, value in sample.items() if key not in sample['excluded'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key }}: </b>{{ value }}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
         {% endfor %}</p>
         {% if sample['submissions'] %}<h2>Submissions:</h2>
             {% for submission in sample['submissions'] %}
-            <p id="{{ submission['Plate Name'] }}"><b>{{ submission['Plate Name'] }}:</b> {{ submission['Well'] }}</p>
+            <p id="{{ submission['plate_name'] }}"><b>{{ submission['plate_name'] }}:</b> {{ submission['well'] }}</p>
             {% endfor %}
         {% endif %}
         {% endblock %}
@@ -57,8 +57,8 @@
           backend = channel.objects.backend;
       });
       {% for submission in sample['submissions'] %}
-      document.getElementById("{{ submission['Plate Name'] }}").addEventListener("dblclick", function(){
-          backend.submission_details("{{ submission['Plate Name'] }}");
+      document.getElementById("{{ submission['plate_name'] }}").addEventListener("dblclick", function(){
+          backend.submission_details("{{ submission['plate_name'] }}");
       });
       {% endfor %}
   </script>

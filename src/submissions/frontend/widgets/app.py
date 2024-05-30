@@ -18,6 +18,7 @@ from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .kit_creator import KitAdder
 from .submission_type_creator import SubmissionTypeAdder
+from .sample_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -71,6 +72,7 @@ class App(QMainWindow):
         fileMenu.addAction(self.importAction)
         # fileMenu.addAction(self.importPCRAction)
         methodsMenu.addAction(self.searchLog)
+        methodsMenu.addAction(self.searchSample)
         reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
@@ -102,6 +104,7 @@ class App(QMainWindow):
         self.helpAction = QAction("&About", self)
         self.docsAction = QAction("&Docs", self)
         self.searchLog = QAction("Search Log", self)
+        self.searchSample = QAction("Search Sample", self)
 
     def _connectActions(self):
         """
@@ -117,6 +120,7 @@ class App(QMainWindow):
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
         self.searchLog.triggered.connect(self.runSearch)
+        self.searchSample.triggered.connect(self.runSampleSearch)
 
     def showAbout(self):
         """
@@ -161,6 +165,10 @@ class App(QMainWindow):
         dlg = LogParser(self)
         dlg.exec()
 
+    def runSampleSearch(self):
+        dlg = SearchBox(self)
+        dlg.exec()
+
     def backup_database(self):
         month = date.today().strftime("%Y-%m")
         # day = date.today().strftime("%Y-%m-%d")
@@ -170,6 +178,7 @@ class App(QMainWindow):
         if not current_month_bak.exists() and "demo" not in self.ctx.database_path.__str__():
             logger.info("No backup found for this month, backing up database.")
             shutil.copyfile(self.ctx.database_path, current_month_bak)
+
 
 class AddSubForm(QWidget):
     

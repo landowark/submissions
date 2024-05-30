@@ -177,6 +177,8 @@ class Control(BaseClass):
             data = self.__getattribute__(mode)
         except TypeError:
             data = {}
+        if data is None:
+            data = {}
         # logger.debug(f"Length of data: {len(data)}")
         # logger.debug("dict keys are genera of bacteria, e.g. 'Streptococcus'")
         for genus in data:

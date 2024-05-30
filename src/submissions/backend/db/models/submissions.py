@@ -2,6 +2,8 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
+
+import sys
 from getpass import getuser
 import logging, uuid, tempfile, re, yaml, base64
 from zipfile import ZipFile
@@ -13,7 +15,8 @@ from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLO
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError, \
+    ArgumentError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 import pandas as pd
 from openpyxl import Workbook, load_workbook
@@ -244,14 +247,22 @@ class BasicSubmission(BaseClass):
             ext_info = None
         output = {
             "id": self.id,
-            "Plate Number": self.rsl_plate_num,
-            "Submission Type": self.submission_type_name,
-            "Submitter Plate Number": self.submitter_plate_num,
-            "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
-            "Submitting Lab": sub_lab,
-            "Sample Count": self.sample_count,
-            "Extraction Kit": ext_kit,
-            "Cost": self.run_cost,
+            # "Plate Number": self.rsl_plate_num,
+            # "Submission Type": self.submission_type_name,
+            # "Submitter Plate Number": self.submitter_plate_num,
+            # "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
+            # "Submitting Lab": sub_lab,
+            # "Sample Count": self.sample_count,
+            # "Extraction Kit": ext_kit,
+            # "Cost": self.run_cost,
+            "plate_number": self.rsl_plate_num,
+            "submission_type": self.submission_type_name,
+            "submitter_plate_number": self.submitter_plate_num,
+            "submitted_date": self.submitted_date.strftime("%Y-%m-%d"),
+            "submitting_lab": sub_lab,
+            "sample_count": self.sample_count,
+            "extraction_kit": ext_kit,
+            "cost": self.run_cost,
         }
         if report:
             return output
@@ -290,17 +301,26 @@ class BasicSubmission(BaseClass):
         try:
             comments = self.comment
         except Exception as e:
-            logger.error(f"Error setting comment: {self.comment}")
+            logger.error(f"Error setting comment: {self.comment}, {e}")
             comments = None
-        output["Submission Category"] = self.submission_category
-        output["Technician"] = self.technician
+        # output["Submission Category"] = self.submission_category
+        # output["Technician"] = self.technician
+        # output["reagents"] = reagents
+        # output["samples"] = samples
+        # output["extraction_info"] = ext_info
+        # output["comment"] = comments
+        # output["equipment"] = equipment
+        # output["Cost Centre"] = cost_centre
+        # output["Signed By"] = self.signed_by
+        output["submission_category"] = self.submission_category
+        output["technician"] = self.technician
         output["reagents"] = reagents
         output["samples"] = samples
         output["extraction_info"] = ext_info
         output["comment"] = comments
         output["equipment"] = equipment
-        output["Cost Centre"] = cost_centre
-        output["Signed By"] = self.signed_by
+        output["cost_centre"] = cost_centre
+        output["signed_by"] = self.signed_by
         return output
 
     def calculate_column_count(self) -> int:
@@ -380,7 +400,7 @@ class BasicSubmission(BaseClass):
         for column in range(1, plate_columns + 1):
             for row in range(1, plate_rows + 1):
                 try:
-                    well = [item for item in sample_list if item['Row'] == row and item['Column'] == column][0]
+                    well = [item for item in sample_list if item['row'] == row and item['column'] == column][0]
                 except IndexError:
                     well = dict(name="", row=row, column=column, background_color="#ffffff")
                 output_samples.append(well)
@@ -416,15 +436,21 @@ class BasicSubmission(BaseClass):
         subs = [item.to_dict() for item in cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic)]
         # logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
+        # logger.debug(f"Column names: {df.columns}")
         # NOTE: Exclude sub information
-        for item in ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
-                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']:
+        excluded = ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
+                    'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
+                    'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
+                    'signed_by']
+        for item in excluded:
             try:
                 df = df.drop(item, axis=1)
             except:
                 logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
         if chronologic:
-            df.sort_values(by="Submitted Date", axis=0, inplace=True, ascending=False)
+            df.sort_values(by="id", axis=0, inplace=True, ascending=False)
+        # NOTE: Human friendly column labels
+        df.columns = [item.replace("_", " ").title() for item in df.columns]
         return df
 
     def set_attribute(self, key: str, value):
@@ -540,9 +566,9 @@ class BasicSubmission(BaseClass):
                         new_dict[key] = [PydEquipment(**equipment) for equipment in dicto['equipment']]
                     except TypeError as e:
                         logger.error(f"Possible no equipment error: {e}")
-                case "Plate Number":
+                case "plate_number":
                     new_dict['rsl_plate_num'] = dict(value=value, missing=missing)
-                case "Submitter Plate Number":
+                case "submitter_plate_number":
                     new_dict['submitter_plate_num'] = dict(value=value, missing=missing)
                 case "id":
                     pass
@@ -565,6 +591,10 @@ class BasicSubmission(BaseClass):
         if original:
             self.uploaded_by = getuser()
         super().save()
+
+    @classmethod
+    def get_regex(cls):
+        return cls.construct_regex()
 
     # Polymorphic functions
 
@@ -598,7 +628,6 @@ class BasicSubmission(BaseClass):
             polymorphic_identity = polymorphic_identity['value']
         if isinstance(polymorphic_identity, SubmissionType):
             polymorphic_identity = polymorphic_identity.name
-        # if polymorphic_identity != None:
         model = cls
         match polymorphic_identity:
             case str():
@@ -624,22 +653,6 @@ class BasicSubmission(BaseClass):
         return model
 
     # Child class custom functions
-
-    # @classmethod
-    # def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
-    #     """
-    #     Stupid stopgap solution to there being an issue with the Bacterial Culture plate map
-    #
-    #     Args:
-    #         xl (pd.ExcelFile): original xl workbook, used for child classes mostly
-    #         plate_map (pd.DataFrame): original plate map
-    #
-    #     Returns:
-    #         pd.DataFrame: updated plate map.
-    #     """
-    #     logger.info(f"Calling {cls.__mapper_args__['polymorphic_identity']} plate mapper.")
-    #     return plate_map
-
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
         """
@@ -723,7 +736,6 @@ class BasicSubmission(BaseClass):
         data['abbreviation'] = defaults['abbreviation']
         if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
             data['submission_type'] = defaults['submission_type']
-        # outstr = super().enforce_name(instr=instr, data=data)
         if instr in [None, ""]:
             # logger.debug("Sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
@@ -754,22 +766,7 @@ class BasicSubmission(BaseClass):
         outstr = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", outstr).replace(" ", "")
         abb = cls.get_default_info('abbreviation')
         return re.sub(rf"{abb}(\d)", rf"{abb}-\1", outstr)
-        # return outstr
 
-    # @classmethod
-    # def parse_pcr(cls, xl: pd.DataFrame, rsl_number: str) -> list:
-    #     """
-    #     Perform custom parsing of pcr info.
-    #
-    #     Args:
-    #         xl (pd.DataFrame): pcr info form
-    #         rsl_number (str): rsl plate num of interest
-    #
-    #     Returns:
-    #         list: _description_
-    #     """
-    #     logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
-    #     return []
     @classmethod
     def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> list:
         """
@@ -896,15 +893,10 @@ class BasicSubmission(BaseClass):
         # logger.debug(f"Incoming kwargs: {kwargs}")
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         if submission_type is not None:
-            # if isinstance(submission_type, SubmissionType):
-            # model = cls.find_subclasses(submission_type=submission_type.name)
             model = cls.find_polymorphic_subclass(polymorphic_identity=submission_type)
-            # else:
-            #     model = cls.find_subclasses(submission_type=submission_type)
         elif len(kwargs) > 0:
             # find the subclass containing the relevant attributes
             # logger.debug(f"Attributes for search: {kwargs}")
-            # model = cls.find_subclasses(attrs=kwargs)
             model = cls.find_polymorphic_subclass(attrs=kwargs)
         else:
             model = cls
@@ -979,17 +971,6 @@ class BasicSubmission(BaseClass):
                 limit = 1
             case _:
                 pass
-        # for k, v in kwargs.items():
-        #     logger.debug(f"Looking up attribute: {k}")
-        #     attr = getattr(model, k)
-        #     logger.debug(f"Got attr: {attr}")
-        #     query = query.filter(attr==v)
-        # if len(kwargs) > 0:
-        #     limit = 1
-        # query = cls.query_by_keywords(query=query, model=model, **kwargs)
-        # if any(x in kwargs.keys() for x in cls.get_default_info('singles')):
-        #     logger.debug(f"There's a singled out item in kwargs")
-        #     limit = 1
         if chronologic:
             query.order_by(cls.submitted_date)
         return cls.execute_query(query=query, model=model, limit=limit, **kwargs)
@@ -1150,7 +1131,6 @@ class BasicSubmission(BaseClass):
         if fname.name == "":
             # logger.debug(f"export cancelled.")
             return
-        # pyd.filepath = fname
         if full_backup:
             backup = self.to_dict(full_data=True)
             try:
@@ -1158,11 +1138,7 @@ class BasicSubmission(BaseClass):
                     yaml.dump(backup, f)
             except KeyError as e:
                 logger.error(f"Problem saving yml backup file: {e}")
-        # wb = pyd.autofill_excel()
-        # wb = pyd.autofill_samples(wb)
-        # wb = pyd.autofill_equipment(wb)
         writer = pyd.to_writer()
-        # wb.save(filename=fname.with_suffix(".xlsx"))
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
 # Below are the custom submission types
@@ -1191,49 +1167,6 @@ class BacterialCulture(BasicSubmission):
         if full_data:
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
-
-    # @classmethod
-    # def custom_platemap(cls, xl: pd.ExcelFile, plate_map: pd.DataFrame) -> pd.DataFrame:
-    #     """
-    #     Stupid stopgap solution to there being an issue with the Bacterial Culture plate map. Extends parent.
-    #
-    #     Args:
-    #         xl (pd.ExcelFile): original xl workbook
-    #         plate_map (pd.DataFrame): original plate map
-    #
-    #     Returns:
-    #         pd.DataFrame: updated plate map.
-    #     """
-    #     plate_map = super().custom_platemap(xl, plate_map)
-    #     num1 = xl.parse("Sample List").iloc[40, 1]
-    #     num2 = xl.parse("Sample List").iloc[41, 1]
-    #     # logger.debug(f"Broken: {plate_map.iloc[5, 0]}, {plate_map.iloc[6, 0]}")
-    #     # logger.debug(f"Replace: {num1}, {num2}")
-    #     if not check_not_nan(plate_map.iloc[5, 0]):
-    #         plate_map.iloc[5, 0] = num1
-    #     if not check_not_nan(plate_map.iloc[6, 0]):
-    #         plate_map.iloc[6, 0] = num2
-    #     return plate_map
-
-    # @classmethod
-    # def custom_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False) -> Workbook:
-    #     """
-    #     Stupid stopgap solution to there being an issue with the Bacterial Culture plate map. Extends parent.
-    #
-    #     Args:
-    #         input_excel (Workbook): Input openpyxl workbook
-    #
-    #     Returns:
-    #         Workbook: Updated openpyxl workbook
-    #     """
-    #     input_excel = super().custom_writer(input_excel)
-    #     sheet = input_excel['Plate Map']
-    #     if sheet.cell(12, 2).value == None:
-    #         sheet.cell(row=12, column=2, value="=IF(ISBLANK('Sample List'!$B42),\"\",'Sample List'!$B42)")
-    #     if sheet.cell(13, 2).value == None:
-    #         sheet.cell(row=13, column=2, value="=IF(ISBLANK('Sample List'!$B43),\"\",'Sample List'!$B43)")
-    #     input_excel["Sample List"].cell(row=15, column=2, value=getuser())
-    #     return input_excel
 
     @classmethod
     def get_regex(cls) -> str:
@@ -1336,13 +1269,13 @@ class Wastewater(BasicSubmission):
         except TypeError as e:
             pass
         if self.ext_technician is None or self.ext_technician == "None":
-            output['Ext Technician'] = self.technician
+            output['ext_technician'] = self.technician
         else:
-            output["Ext Technician"] = self.ext_technician
+            output["ext_technician"] = self.ext_technician
         if self.pcr_technician is None or self.pcr_technician == "None":
-            output["PCR Technician"] = self.technician
+            output["pcr_technician"] = self.technician
         else:
-            output['PCR Technician'] = self.pcr_technician
+            output['pcr_technician'] = self.pcr_technician
         return output
 
     @classmethod
@@ -1361,46 +1294,6 @@ class Wastewater(BasicSubmission):
             input_dict['csv'] = xl["Copy to import file"]
         return input_dict
 
-    # @classmethod
-    # def parse_pcr(cls, xl: pd.ExcelFile, rsl_number: str) -> list:
-    #     """
-    #     Parse specific to wastewater samples.
-    #     """
-    #     samples = super().parse_pcr(xl=xl, rsl_number=rsl_number)
-    #     df = xl.parse(sheet_name="Results", dtype=object).fillna("")
-    #     column_names = ["Well", "Well Position", "Omit", "Sample", "Target", "Task", " Reporter", "Quencher",
-    #                     "Amp Status", "Amp Score", "Curve Quality", "Result Quality Issues", "Cq", "Cq Confidence",
-    #                     "Cq Mean", "Cq SD", "Auto Threshold", "Threshold", "Auto Baseline", "Baseline Start",
-    #                     "Baseline End"]
-    #     samples_df = df.iloc[23:][0:]
-    #     logger.debug(f"Dataframe of PCR results:\n\t{samples_df}")
-    #     samples_df.columns = column_names
-    #     logger.debug(f"Samples columns: {samples_df.columns}")
-    #     well_call_df = xl.parse(sheet_name="Well Call").iloc[24:][0:].iloc[:, -1:]
-    #     try:
-    #         samples_df['Assessment'] = well_call_df.values
-    #     except ValueError:
-    #         logger.error("Well call number doesn't match sample number")
-    #     logger.debug(f"Well call df: {well_call_df}")
-    #     for _, row in samples_df.iterrows():
-    #         try:
-    #             sample_obj = [sample for sample in samples if sample['sample'] == row[3]][0]
-    #         except IndexError:
-    #             sample_obj = dict(
-    #                 sample=row['Sample'],
-    #                 plate_rsl=rsl_number,
-    #             )
-    #         logger.debug(f"Got sample obj: {sample_obj}")
-    #         if isinstance(row['Cq'], float):
-    #             sample_obj[f"ct_{row['Target'].lower()}"] = row['Cq']
-    #         else:
-    #             sample_obj[f"ct_{row['Target'].lower()}"] = 0.0
-    #         try:
-    #             sample_obj[f"{row['Target'].lower()}_status"] = row['Assessment']
-    #         except KeyError:
-    #             logger.error(f"No assessment for {sample_obj['sample']}")
-    #         samples.append(sample_obj)
-    #     return samples
     @classmethod
     def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> list:
         """
@@ -1531,6 +1424,8 @@ class WastewaterArtic(BasicSubmission):
             dict: dictionary used in submissions summary
         """
         output = super().to_dict(full_data=full_data, backup=backup, report=report)
+        if self.artic_technician in [None, "None"]:
+            output['artic_technician'] = self.technician
         if report:
             return output
         output['gel_info'] = self.gel_info
@@ -1770,16 +1665,13 @@ class WastewaterArtic(BasicSubmission):
             Workbook: Updated workbook
         """
         input_excel = super().custom_info_writer(input_excel, info, backup)
-        # worksheet = input_excel["First Strand List"]
-        # samples = cls.query(rsl_number=info['rsl_plate_num']['value']).submission_sample_associations
-        # samples = sorted(samples, key=attrgetter('column', 'row'))
-        # logger.debug(f"Info:\n{pformat(info)}")
+        logger.debug(f"Info:\n{pformat(info)}")
         check = 'source_plates' in info.keys() and info['source_plates'] is not None
         if check:
             worksheet = input_excel['First Strand List']
             start_row = 8
             for iii, plate in enumerate(info['source_plates']['value']):
-                # logger.debug(f"Plate: {plate}")
+                logger.debug(f"Plate: {plate}")
                 row = start_row + iii
                 try:
                     worksheet.cell(row=row, column=3, value=plate['plate'])
@@ -1868,12 +1760,23 @@ class WastewaterArtic(BasicSubmission):
         set_plate = None
         for assoc in self.submission_sample_associations:
             dicto = assoc.to_sub_dict()
+            if self.source_plates is None:
+                output.append(dicto)
+                continue
             for item in self.source_plates:
                 old_plate = WastewaterAssociation.query(submission=item['plate'], sample=assoc.sample, limit=1)
                 if old_plate is not None:
                     set_plate = old_plate.submission.rsl_plate_num
+                    logger.debug(dicto['WW Processing Num'])
+                    if dicto['WW Processing Num'].startswith("NTC"):
+                        dicto['Well'] = dicto['WW Processing Num']
+                    else:
+                        dicto['Well'] = f"{row_map[old_plate.row]}{old_plate.column}"
                     break
+                elif dicto['WW Processing Num'].startswith("NTC"):
+                    dicto['Well'] = dicto['WW Processing Num']
             dicto['plate_name'] = set_plate
+            logger.debug(f"Here is our raw sample: {pformat(dicto)}")
             output.append(dicto)
         return output
 
@@ -1997,8 +1900,8 @@ class BasicSample(BaseClass):
         # logger.debug(f"Converting {self} to dict.")
         # start = time()
         sample = {}
-        sample['Submitter ID'] = self.submitter_id
-        sample['Sample Type'] = self.sample_type
+        sample['submitter_id'] = self.submitter_id
+        sample['sample_type'] = self.sample_type
         if full_data:
             sample['submissions'] = sorted([item.to_sub_dict() for item in self.sample_submission_associations],
                                            key=itemgetter('submitted_date'))
@@ -2099,7 +2002,7 @@ class BasicSample(BaseClass):
     @setup_lookup
     def query(cls,
               submitter_id: str | None = None,
-              sample_type: str | None = None,
+              sample_type: str | BasicSample | None = None,
               limit: int = 0,
               **kwargs
               ) -> BasicSample | List[BasicSample]:
@@ -2114,14 +2017,14 @@ class BasicSample(BaseClass):
         Returns:
             models.BasicSample|List[models.BasicSample]: Sample(s) of interest.
         """
-        if sample_type is None:
-            # model = cls.find_subclasses(attrs=kwargs)
-            model = cls.find_polymorphic_subclass(attrs=kwargs)
-        else:
-            model = cls.find_polymorphic_subclass(polymorphic_identity=sample_type)
+        match sample_type:
+            case str():
+                model = cls.find_polymorphic_subclass(polymorphic_identity=sample_type)
+            case BasicSample():
+                model = sample_type
+            case _:
+                model = cls.find_polymorphic_subclass(attrs=kwargs)
         # logger.debug(f"Length of kwargs: {len(kwargs)}")
-        # model = models.BasicSample.find_subclasses(ctx=ctx, attrs=kwargs)
-        # query: Query = setup_lookup(ctx=ctx, locals=locals()).query(model)
         query: Query = cls.__database_session__.query(model)
         match submitter_id:
             case str():
@@ -2130,20 +2033,7 @@ class BasicSample(BaseClass):
                 limit = 1
             case _:
                 pass
-        # match sample_type:
-        #     case str():
-        #         logger.warning(f"Looking up samples with sample_type is disabled.")
-        #         # query = query.filter(models.BasicSample.sample_type==sample_type)
-        #     case _:
-        #         pass
-        # for k, v in kwargs.items():
-        #     attr = getattr(model, k)
-        #     # logger.debug(f"Got attr: {attr}")
-        #     query = query.filter(attr==v)
-        # if len(kwargs) > 0:
-        #     limit = 1
         return cls.execute_query(query=query, model=model, limit=limit, **kwargs)
-        # return cls.execute_query(query=query, limit=limit)
 
     @classmethod
     def query_or_create(cls, sample_type: str | None = None, **kwargs) -> BasicSample:
@@ -2163,10 +2053,6 @@ class BasicSample(BaseClass):
         disallowed = ["id"]
         if kwargs == {}:
             raise ValueError("Need to narrow down query or the first available instance will be returned.")
-        # for key in kwargs.keys():
-        #     if key in disallowed:
-        #         raise ValueError(
-        #             f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects.")
         sanitized_kwargs = {k:v for k,v in kwargs.items() if k not in disallowed}
         instance = cls.query(sample_type=sample_type, limit=1, **kwargs)
         # logger.debug(f"Retrieved instance: {instance}")
@@ -2177,9 +2063,85 @@ class BasicSample(BaseClass):
             logger.debug(f"Creating instance: {instance}")
         return instance
 
+    @classmethod
+    def fuzzy_search(cls,
+              # submitter_id: str | None = None,
+              sample_type: str | BasicSample | None = None,
+              # limit: int = 0,
+              **kwargs
+              ) -> List[BasicSample]:
+        match sample_type:
+            case str():
+                model = cls.find_polymorphic_subclass(polymorphic_identity=sample_type)
+            case BasicSample():
+                model = sample_type
+            case _:
+                model = cls.find_polymorphic_subclass(attrs=kwargs)
+            # logger.debug(f"Length of kwargs: {len(kwargs)}")
+        query: Query = cls.__database_session__.query(model)
+        for k, v in kwargs.items():
+            search = f"%{v}%"
+            try:
+                attr = getattr(model, k)
+                query = query.filter(attr.like(search))
+            except (ArgumentError, AttributeError) as e:
+                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
+        return query.all()
+
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
+    @classmethod
+    def get_searchables(cls):
+        return [dict(label="Submitter ID", field="submitter_id")]
+
+
+    @classmethod
+    def samples_to_df(cls, sample_type: str | None | BasicSample = None, **kwargs):
+    # def samples_to_df(cls, sample_type:str|None|BasicSample=None, searchables:dict={}):
+        logger.debug(f"Checking {sample_type} with type {type(sample_type)}")
+        match sample_type:
+            case str():
+                model = BasicSample.find_polymorphic_subclass(polymorphic_identity=sample_type)
+            case _:
+                try:
+                    check = issubclass(sample_type, BasicSample)
+                except TypeError:
+                    check = False
+                if check:
+                    model = sample_type
+                else:
+                    model = cls
+        q_out = model.fuzzy_search(sample_type=sample_type, **kwargs)
+        if not isinstance(q_out, list):
+            q_out = [q_out]
+        try:
+            samples = [sample.to_sub_dict() for sample in q_out]
+        except TypeError as e:
+            logger.error(f"Couldn't find any samples with data: {kwargs}\nDue to {e}")
+            return None
+        df = pd.DataFrame.from_records(samples)
+        # NOTE: Exclude sub information
+        for item in ['concentration', 'organism', 'colour', 'tooltip', 'comments', 'samples', 'reagents',
+                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']:
+            try:
+                df = df.drop(item, axis=1)
+            except:
+                logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
+        return df
+
+    def show_details(self, obj):
+        """
+        Creates Widget for showing submission details.
+
+        Args:
+            obj (_type_): parent widget
+        """
+        # logger.debug("Hello from details")
+        from frontend.widgets.submission_details import SubmissionDetails
+        dlg = SubmissionDetails(parent=obj, sub=self)
+        if dlg.exec():
+            pass
 
 #Below are the custom sample types
 
@@ -2229,10 +2191,10 @@ class WastewaterSample(BasicSample):
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
         sample = super().to_sub_dict(full_data=full_data)
-        sample['WW Processing Num'] = self.ww_processing_num
-        sample['Sample Location'] = self.sample_location
-        sample['Received Date'] = self.received_date
-        sample['Collection Date'] = self.collection_date
+        sample['ww_processing_num'] = self.ww_processing_num
+        sample['sample_location'] = self.sample_location
+        sample['received_date'] = self.received_date
+        sample['collection_date'] = self.collection_date
         return sample
 
     @classmethod
@@ -2257,28 +2219,9 @@ class WastewaterSample(BasicSample):
             output_dict['rsl_number'] = "RSL-WW-" + output_dict['ww_processing_num']
         if output_dict['ww_full_sample_id'] is not None and output_dict["submitter_id"] in disallowed:
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
-        # if re.search(r"^NTC", output_dict['submitter_id']):
-        #     output_dict['submitter_id'] = "Artic-" + output_dict['submitter_id']
-        # Ad hoc repair method for WW (or possibly upstream) not formatting some dates properly.
-        # NOTE: Should be handled by validator.
-        # match output_dict['collection_date']:
-        #     case str():
-        #         try:
-        #             output_dict['collection_date'] = parse(output_dict['collection_date']).date()
-        #         except ParserError:
-        #             logger.error(f"Problem parsing collection_date: {output_dict['collection_date']}")
-        #             output_dict['collection_date'] = date(1970, 1, 1)
-        #     case datetime():
-        #         output_dict['collection_date'] = output_dict['collection_date'].date()
-        #     case date():
-        #         pass
-        #     case _:
-        #         del output_dict['collection_date']
         return output_dict
 
     def get_previous_ww_submission(self, current_artic_submission: WastewaterArtic):
-        # assocs = [assoc for assoc in self.sample_submission_associations if assoc.submission.submission_type_name=="Wastewater"]
-        # subs = self.submissions[:self.submissions.index(current_artic_submission)]
         try:
             plates = [item['plate'] for item in current_artic_submission.source_plates]
         except TypeError as e:
@@ -2292,6 +2235,13 @@ class WastewaterSample(BasicSample):
         except IndexError:
             return None
 
+    @classmethod
+    def get_searchables(cls):
+        searchables = super().get_searchables()
+        for item in ["ww_processing_num", "ww_full_sample_id", "rsl_number"]:
+            label = item.strip("ww_").replace("_", " ").replace("rsl", "RSL").title()
+            searchables.append(dict(label=label, field=item))
+        return searchables
 
 class BacterialCultureSample(BasicSample):
     """
@@ -2314,15 +2264,14 @@ class BacterialCultureSample(BasicSample):
         """
         # start = time()
         sample = super().to_sub_dict(full_data=full_data)
-        sample['Name'] = self.submitter_id
-        sample['Organism'] = self.organism
-        sample['Concentration'] = self.concentration
+        sample['name'] = self.submitter_id
+        sample['organism'] = self.organism
+        sample['concentration'] = self.concentration
         if self.control != None:
             sample['colour'] = [0, 128, 0]
             sample['tooltip'] = f"Control: {self.control.controltype.name} - {self.control.controltype.targets}"
         # logger.debug(f"Done converting to {self} to dict after {time()-start}")
         return sample
-
 
 # Submission to Sample Associations
 
@@ -2387,15 +2336,15 @@ class SubmissionSampleAssociation(BaseClass):
         # logger.debug(f"Running {self.__repr__()}")
         sample = self.sample.to_sub_dict()
         # logger.debug("Sample conversion complete.")
-        sample['Name'] = self.sample.submitter_id
-        sample['Row'] = self.row
-        sample['Column'] = self.column
+        sample['name'] = self.sample.submitter_id
+        sample['row'] = self.row
+        sample['column'] = self.column
         try:
-            sample['Well'] = f"{row_map[self.row]}{self.column}"
+            sample['well'] = f"{row_map[self.row]}{self.column}"
         except KeyError as e:
             logger.error(f"Unable to find row {self.row} in row_map.")
             sample['Well'] = None
-        sample['Plate Name'] = self.submission.rsl_plate_num
+        sample['plate_name'] = self.submission.rsl_plate_num
         sample['positive'] = False
         sample['submitted_date'] = self.submission.submitted_date
         sample['submission_rank'] = self.submission_rank

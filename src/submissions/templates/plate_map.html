@@ -1,15 +1,15 @@
         <div class="gallery" style="display: grid;grid-template-columns: repeat({{ PLATE_COLUMNS }}, 7.5vw);grid-template-rows: repeat({{ PLATE_ROWS }}, 7.5vw);grid-gap: 2px;">
             {% for sample in samples %}
-                <div class="well" id="{{sample['Submitter ID']}}" style="background-color: {{sample['background_color']}};
+                <div class="well" id="{{sample['submitter_id']}}" style="background-color: {{sample['background_color']}};
                 border: 1px solid #000;
                 padding: 20px;
-                grid-column-start: {{sample['Column']}};
-                grid-column-end: {{sample['Column']}};
-                grid-row-start: {{sample['Row']}};
-                grid-row-end: {{sample['Row']}};
+                grid-column-start: {{sample['column']}};
+                grid-column-end: {{sample['column']}};
+                grid-row-start: {{sample['row']}};
+                grid-row-end: {{sample['row']}};
                 display: flex;
                 ">
-                    <div class="tooltip" style="font-size: 0.5em; text-align: center; word-wrap: break-word;">{{ sample['Name'] }}
+                    <div class="tooltip" style="font-size: 0.5em; text-align: center; word-wrap: break-word;">{{ sample['name'] }}
                         <span class="tooltiptext">{{ sample['tooltip'] }}</span>
                     </div>
                 </div>

@@ -35,7 +35,7 @@ class SheetParser(object):
         Args:
             filepath (Path | None, optional): file path to excel sheet. Defaults to None.
         """
-        logger.debug(f"\n\nParsing {filepath.__str__()}\n\n")
+        logger.info(f"\n\nParsing {filepath.__str__()}\n\n")
         match filepath:
             case Path():
                 self.filepath = filepath
@@ -651,6 +651,15 @@ class PCRParser(object):
         info_map = self.submission_obj.get_submission_type().sample_map['pcr_general_info']
         sheet = self.xl[info_map['sheet']]
         iter_rows = sheet.iter_rows(min_row=info_map['start_row'], max_row=info_map['end_row'])
-        pcr = {row[0].value.lower().replace(' ', '_'): row[1].value for row in iter_rows}
+        pcr = {}
+        for row in iter_rows:
+            try:
+                key = row[0].value.lower().replace(' ', '_')
+            except AttributeError as e:
+                logger.error(f"No key: {row[0].value} due to {e}")
+                continue
+            value = row[1].value or ""
+            pcr[key] = value
         pcr['imported_by'] = getuser()
+        # logger.debug(f"PCR: {pformat(pcr)}")
         return pcr
