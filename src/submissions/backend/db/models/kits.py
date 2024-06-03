@@ -1476,3 +1476,6 @@ class Process(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+
+
+# class Tips(Reagent):

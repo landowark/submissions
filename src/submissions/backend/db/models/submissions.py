@@ -93,7 +93,7 @@ class BasicSubmission(BaseClass):
     equipment = association_proxy("submission_equipment_associations",
                                   "equipment")  #: Association proxy to SubmissionEquipmentAssociation.equipment
 
-    # Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
+    # NOTE: Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
         "polymorphic_identity": "Basic Submission",
         "polymorphic_on": submission_type_name,
@@ -247,14 +247,6 @@ class BasicSubmission(BaseClass):
             ext_info = None
         output = {
             "id": self.id,
-            # "Plate Number": self.rsl_plate_num,
-            # "Submission Type": self.submission_type_name,
-            # "Submitter Plate Number": self.submitter_plate_num,
-            # "Submitted Date": self.submitted_date.strftime("%Y-%m-%d"),
-            # "Submitting Lab": sub_lab,
-            # "Sample Count": self.sample_count,
-            # "Extraction Kit": ext_kit,
-            # "Cost": self.run_cost,
             "plate_number": self.rsl_plate_num,
             "submission_type": self.submission_type_name,
             "submitter_plate_number": self.submitter_plate_num,
@@ -303,15 +295,6 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}, {e}")
             comments = None
-        # output["Submission Category"] = self.submission_category
-        # output["Technician"] = self.technician
-        # output["reagents"] = reagents
-        # output["samples"] = samples
-        # output["extraction_info"] = ext_info
-        # output["comment"] = comments
-        # output["equipment"] = equipment
-        # output["Cost Centre"] = cost_centre
-        # output["Signed By"] = self.signed_by
         output["submission_category"] = self.submission_category
         output["technician"] = self.technician
         output["reagents"] = reagents
