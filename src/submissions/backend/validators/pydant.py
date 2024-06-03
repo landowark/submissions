@@ -25,7 +25,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class PydReagent(BaseModel):
     lot: str | None
-    type: str | None
+    role: str | None
     expiry: date | Literal['NA'] | None
     name: str | None
     missing: bool = Field(default=True)
@@ -38,7 +38,7 @@ class PydReagent(BaseModel):
             return ""
         return value
 
-    @field_validator("type", mode='before')
+    @field_validator("role", mode='before')
     @classmethod
     def remove_undesired_types(cls, value):
         match value:
@@ -47,7 +47,7 @@ class PydReagent(BaseModel):
             case _:
                 return value
 
-    @field_validator("type")
+    @field_validator("role")
     @classmethod
     def rescue_type_with_lookup(cls, value, values):
         if value == None and values.data['lot'] != None:
@@ -147,10 +147,10 @@ class PydReagent(BaseModel):
                 match key:
                     case "lot":
                         reagent.lot = value.upper()
-                    case "type":
-                        reagent_type = ReagentType.query(name=value)
-                        if reagent_type != None:
-                            reagent.type.append(reagent_type)
+                    case "role":
+                        reagent_role = ReagentRole.query(name=value)
+                        if reagent_role is not None:
+                            reagent.role.append(reagent_role)
                     case "comment":
                         continue
                     case "expiry":
@@ -792,11 +792,11 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Kit reagents: {ext_kit_rtypes}")
         # logger.debug(f"Submission reagents: {self.reagents}")
         # Exclude any reagenttype found in this pyd not expected in kit.
-        expected_check = [item.type for item in ext_kit_rtypes]
-        output_reagents = [rt for rt in self.reagents if rt.type in expected_check]
+        expected_check = [item.role for item in ext_kit_rtypes]
+        output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
         # logger.debug(f"Already have these reagent types: {output_reagents}")
-        missing_check = [item.type for item in output_reagents]
-        missing_reagents = [rt for rt in ext_kit_rtypes if rt.type not in missing_check]
+        missing_check = [item.role for item in output_reagents]
+        missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check]
         missing_reagents += [rt for rt in output_reagents if rt.missing]
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
         # logger.debug(f"Missing reagents types: {missing_reagents}")
@@ -805,7 +805,7 @@ class PydSubmission(BaseModel, extra='allow'):
             result = None
         else:
             result = Result(
-                msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.type.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
+                msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.role.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
                 status="Warning")
         report.add_result(result)
         return output_reagents, report
@@ -850,7 +850,7 @@ class PydOrganization(BaseModel):
         return instance
 
 
-class PydReagentType(BaseModel):
+class PydReagentRole(BaseModel):
     name: str
     eol_ext: timedelta | int | None
     uses: dict | None
@@ -863,33 +863,33 @@ class PydReagentType(BaseModel):
             return timedelta(days=value)
         return value
 
-    def toSQL(self, kit: KitType) -> ReagentType:
+    def toSQL(self, kit: KitType) -> ReagentRole:
         """
         Converts this instance into a backend.db.models.ReagentType instance
 
         Args:
-            kit (KitType): KitType joined to the reagenttype
+            kit (KitType): KitType joined to the reagentrole
 
         Returns:
-            ReagentType: ReagentType instance
+            ReagentRole: ReagentType instance
         """
-        instance: ReagentType = ReagentType.query(name=self.name)
+        instance: ReagentRole = ReagentRole.query(name=self.name)
         if instance == None:
-            instance = ReagentType(name=self.name, eol_ext=self.eol_ext)
+            instance = ReagentRole(name=self.name, eol_ext=self.eol_ext)
         # logger.debug(f"This is the reagent type instance: {instance.__dict__}")
         try:
-            assoc = KitTypeReagentTypeAssociation.query(reagent_type=instance, kit_type=kit)
+            assoc = KitTypeReagentRoleAssociation.query(reagent_role=instance, kit_type=kit)
         except StatementError:
             assoc = None
         if assoc == None:
-            assoc = KitTypeReagentTypeAssociation(kit_type=kit, reagent_type=instance, uses=self.uses,
+            assoc = KitTypeReagentRoleAssociation(kit_type=kit, reagent_role=instance, uses=self.uses,
                                                   required=self.required)
         return instance
 
 
 class PydKit(BaseModel):
     name: str
-    reagent_types: List[PydReagentType] = []
+    reagent_roles: List[PydReagentRole] = []
 
     def toSQL(self) -> Tuple[KitType, Report]:
         """
@@ -902,7 +902,7 @@ class PydKit(BaseModel):
         instance = KitType.query(name=self.name)
         if instance == None:
             instance = KitType(name=self.name)
-            [item.toSQL(instance) for item in self.reagent_types]
+            [item.toSQL(instance) for item in self.reagent_roles]
         return instance, report
 
 

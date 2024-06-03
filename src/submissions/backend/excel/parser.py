@@ -139,6 +139,7 @@ class SheetParser(object):
         # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
         pyd_dict = copy(self.sub)
         pyd_dict['samples'] = [PydSample(**sample) for sample in self.sub['samples']]
+        logger.debug(f"Reagents: {pformat(self.sub['reagents'])}")
         pyd_dict['reagents'] = [PydReagent(**reagent) for reagent in self.sub['reagents']]
         # logger.debug(f"Equipment: {self.sub['equipment']}")
         try:
@@ -307,7 +308,7 @@ class ReagentParser(object):
                         comment = ""
                 except (KeyError, IndexError):
                     listo.append(
-                        PydReagent(type=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True))
+                        PydReagent(role=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True))
                     continue
                 # NOTE: If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
@@ -324,7 +325,7 @@ class ReagentParser(object):
                     logger.warning(f"name is not a string.")
                     check = True
                 if check:
-                    listo.append(dict(type=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
+                    listo.append(dict(role=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
                                             missing=missing))
         return listo
 

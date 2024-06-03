@@ -23,10 +23,10 @@ class AddReagentForm(QDialog):
     """
     dialog to add gather info about new reagent
     """    
-    def __init__(self, reagent_lot:str|None=None, reagent_type:str|None=None, expiry:date|None=None, reagent_name:str|None=None) -> None:
+    def __init__(self, reagent_lot:str|None=None, reagent_role: str | None=None, expiry: date | None=None, reagent_name: str | None=None) -> None:
         super().__init__()
         if reagent_lot == None:
-            reagent_lot = reagent_type
+            reagent_lot = reagent_role
 
         self.setWindowTitle("Add Reagent")
 
@@ -57,15 +57,15 @@ class AddReagentForm(QDialog):
         # widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
-        self.type_input.addItems([item.name for item in ReagentType.query()])
+        self.type_input.addItems([item.name for item in ReagentRole.query()])
         # logger.debug(f"Trying to find index of {reagent_type}")
         # convert input to user friendly string?
         try:
-            reagent_type = reagent_type.replace("_", " ").title()
+            reagent_role = reagent_role.replace("_", " ").title()
         except AttributeError:
-            reagent_type = None
+            reagent_role = None
         # set parsed reagent type to top of list
-        index = self.type_input.findText(reagent_type, Qt.MatchFlag.MatchEndsWith)
+        index = self.type_input.findText(reagent_role, Qt.MatchFlag.MatchEndsWith)
         if index >= 0:
             self.type_input.setCurrentIndex(index)
         self.layout = QVBoxLayout()
@@ -91,7 +91,7 @@ class AddReagentForm(QDialog):
         return dict(name=self.name_input.currentText().strip(), 
                     lot=self.lot_input.text().strip(), 
                     expiry=self.exp_input.date().toPyDate(),
-                    type=self.type_input.currentText().strip())
+                    role=self.type_input.currentText().strip())
 
     def update_names(self):
         """
@@ -99,7 +99,7 @@ class AddReagentForm(QDialog):
         """        
         # logger.debug(self.type_input.currentText())
         self.name_input.clear()
-        lookup = Reagent.query(reagent_type=self.type_input.currentText())
+        lookup = Reagent.query(reagent_role=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
 class ReportDatePicker(QDialog):

@@ -266,9 +266,9 @@ class BasicSubmission(BaseClass):
                 for k in self.extraction_kit.construct_xl_map_for_use(self.submission_type):
                     if k == 'info':
                         continue
-                    if not any([item['type'] == k for item in reagents]):
+                    if not any([item['role'] == k for item in reagents]):
                         reagents.append(
-                            dict(type=k, name="Not Applicable", lot="NA", expiry=date(year=1970, month=1, day=1),
+                            dict(role=k, name="Not Applicable", lot="NA", expiry=date(year=1970, month=1, day=1),
                                  missing=True))
             except Exception as e:
                 logger.error(f"We got an error retrieving reagents: {e}")

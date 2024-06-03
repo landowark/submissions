@@ -5,8 +5,8 @@ from PyQt6.QtWidgets import (
     QSpinBox, QDateEdit
 )
 from sqlalchemy import FLOAT, INTEGER
-from backend.db import SubmissionTypeKitTypeAssociation, SubmissionType, ReagentType
-from backend.validators import PydReagentType, PydKit
+from backend.db import SubmissionTypeKitTypeAssociation, SubmissionType, ReagentRole
+from backend.validators import PydReagentRole, PydKit
 import logging
 from pprint import pformat
 from tools import Report
@@ -81,7 +81,7 @@ class KitAdder(QWidget):
         """        
         # get bottommost row
         maxrow = self.grid.rowCount()
-        reg_form = ReagentTypeForm(parent=self)
+        reg_form = ReagentRoleForm(parent=self)
         reg_form.setObjectName(f"ReagentForm_{maxrow}")
         self.grid.addWidget(reg_form, maxrow,0,1,4)
         
@@ -95,11 +95,11 @@ class KitAdder(QWidget):
         info = {k:v for k,v in info.items() if k in [column.name for column in self.columns] + ['kit_name', 'used_for']}
         # logger.debug(f"kit info: {pformat(info)}")
         # logger.debug(f"kit reagents: {pformat(reagents)}")
-        info['reagent_types'] = reagents
+        info['reagent_roles'] = reagents
         # logger.debug(pformat(info))
         # send to kit constructor
         kit = PydKit(name=info['kit_name'])
-        for reagent in info['reagent_types']:
+        for reagent in info['reagent_roles']:
             uses = {
                 info['used_for']:
                     {'sheet':reagent['sheet'],
@@ -107,7 +107,7 @@ class KitAdder(QWidget):
                      'lot':reagent['lot'],
                      'expiry':reagent['expiry']
                     }}
-            kit.reagent_types.append(PydReagentType(name=reagent['rtname'], eol_ext=reagent['eol'], uses=uses))
+            kit.reagent_roles.append(PydReagentRole(name=reagent['rtname'], eol_ext=reagent['eol'], uses=uses))
         # logger.debug(f"Output pyd object: {kit.__dict__}")
         sqlobj, result = kit.toSQL(self.ctx)
         report.add_result(result=result)
@@ -125,11 +125,11 @@ class KitAdder(QWidget):
         # logger.debug(f"Hello from {self.__class__} parser!")
         info = {}
         reagents = []
-        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore and not isinstance(widget.parent(), ReagentTypeForm)]
+        widgets = [widget for widget in self.findChildren(QWidget) if widget.objectName() not in self.ignore and not isinstance(widget.parent(), ReagentRoleForm)]
         for widget in widgets:
             # logger.debug(f"Parsed widget: {widget.objectName()} of type {type(widget)} with parent {widget.parent()}")
             match widget:
-                case ReagentTypeForm():
+                case ReagentRoleForm():
                     reagents.append(widget.parse_form())
                 case QLineEdit():
                     info[widget.objectName()] = widget.text()
@@ -139,7 +139,7 @@ class KitAdder(QWidget):
                     info[widget.objectName()] = widget.date().toPyDate()
         return info, reagents
         
-class ReagentTypeForm(QWidget):
+class ReagentRoleForm(QWidget):
     """
     custom widget to add information about a new reagenttype
     """    
@@ -152,13 +152,13 @@ class ReagentTypeForm(QWidget):
         self.reagent_getter = QComboBox()
         self.reagent_getter.setObjectName("rtname")
         # lookup all reagent type names from db
-        lookup = ReagentType.query()
+        lookup = ReagentRole.query()
         # logger.debug(f"Looked up ReagentType names: {lookup}")
         self.reagent_getter.addItems([item.name for item in lookup])
         self.reagent_getter.setEditable(True)
         grid.addWidget(self.reagent_getter,0,1)
         grid.addWidget(QLabel("Extension of Life (months):"),0,2)
-        # widget to get extension of life
+        # NOTE: widget to get extension of life
         self.eol = QSpinBox()
         self.eol.setObjectName('eol')
         self.eol.setMinimum(0)

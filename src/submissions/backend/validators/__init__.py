@@ -178,5 +178,5 @@ class RSLNamer(object):
         return template.render(**kwargs)
 
 
-from .pydant import PydSubmission, PydKit, PydContact, PydOrganization, PydSample, PydReagent, PydReagentType, \
+from .pydant import PydSubmission, PydKit, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
     PydEquipment, PydEquipmentRole

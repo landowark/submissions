@@ -47,7 +47,7 @@
         {% endfor %}</p>
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['type'] }}</b>: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}</b>: {{ item['lot'] }} (EXP: {{ item['expiry'] }})<br>
         {% endfor %}</p>
         {% if sub['equipment'] %}
         <h3><u>Equipment:</u></h3>

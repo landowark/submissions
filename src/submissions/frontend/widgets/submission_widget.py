@@ -14,7 +14,7 @@ from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
     KitType, Organization, SubmissionType, Reagent,
-    ReagentType, KitTypeReagentTypeAssociation
+    ReagentRole, KitTypeReagentRoleAssociation
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
@@ -112,14 +112,14 @@ class SubmissionFormContainer(QWidget):
         # logger.debug(f"Outgoing report: {self.report.results}")
         # logger.debug(f"All attributes of submission container:\n{pformat(self.__dict__)}")
 
-    def add_reagent(self, reagent_lot: str | None = None, reagent_type: str | None = None, expiry: date | None = None,
+    def add_reagent(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
                     name: str | None = None):
         """
         Action to create new reagent in DB.
 
         Args:
             reagent_lot (str | None, optional): Parsed reagent from import form. Defaults to None.
-            reagent_type (str | None, optional): Parsed reagent type from import form. Defaults to None.
+            reagent_role (str | None, optional): Parsed reagent type from import form. Defaults to None.
             expiry (date | None, optional): Parsed reagent expiry data. Defaults to None.
             name (str | None, optional): Parsed reagent name. Defaults to None.
 
@@ -130,7 +130,7 @@ class SubmissionFormContainer(QWidget):
         if isinstance(reagent_lot, bool):
             reagent_lot = ""
         # NOTE: create form
-        dlg = AddReagentForm(reagent_lot=reagent_lot, reagent_type=reagent_type, expiry=expiry, reagent_name=name)
+        dlg = AddReagentForm(reagent_lot=reagent_lot, reagent_role=reagent_role, expiry=expiry, reagent_name=name)
         if dlg.exec():
             # extract form info
             info = dlg.parse_form()
@@ -581,13 +581,13 @@ class SubmissionFormWidget(QWidget):
             """
             lot = self.lot.currentText()
             # logger.debug(f"Using this lot for the reagent {self.reagent}: {lot}")
-            wanted_reagent = Reagent.query(lot_number=lot, reagent_type=self.reagent.type)
+            wanted_reagent = Reagent.query(lot_number=lot, reagent_role=self.reagent.role)
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
             if wanted_reagent == None:
                 dlg = QuestionAsker(title=f"Add {lot}?",
                                     message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
                 if dlg.exec():
-                    wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot, reagent_type=self.reagent.type,
+                    wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot, reagent_role=self.reagent.role,
                                                                         expiry=self.reagent.expiry,
                                                                         name=self.reagent.name)
                     return wanted_reagent, None
@@ -598,10 +598,10 @@ class SubmissionFormWidget(QWidget):
             else:
                 # NOTE: Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name
                 # from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
-                rt = ReagentType.query(name=self.reagent.type)
+                rt = ReagentRole.query(name=self.reagent.role)
                 if rt == None:
-                    rt = ReagentType.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
-                return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, type=rt.name,
+                    rt = ReagentRole.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
+                return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
                                   expiry=wanted_reagent.expiry, missing=False), None
 
         def updated(self):
@@ -619,20 +619,20 @@ class SubmissionFormWidget(QWidget):
                     check = not reagent.missing
                 except:
                     check = False
-                self.setObjectName(f"{reagent.type}_label")
+                self.setObjectName(f"{reagent.role}_label")
                 if check:
-                    self.setText(f"Parsed {reagent.type}")
+                    self.setText(f"Parsed {reagent.role}")
                 else:
-                    self.setText(f"MISSING {reagent.type}")
+                    self.setText(f"MISSING {reagent.role}")
 
-            def updated(self, reagent_type: str):
+            def updated(self, reagent_role: str):
                 """
                 Marks widget as updated
 
                 Args:
-                    reagent_type (str): _description_
+                    reagent_role (str): _description_
                 """
-                self.setText(f"UPDATED {reagent_type}")
+                self.setText(f"UPDATED {reagent_role}")
 
         class ReagentLot(QComboBox):
 
@@ -641,7 +641,7 @@ class SubmissionFormWidget(QWidget):
                 self.setEditable(True)
                 # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
                 # NOTE: below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
-                lookup = Reagent.query(reagent_type=reagent.type)
+                lookup = Reagent.query(reagent_role=reagent.role)
                 relevant_reagents = [str(item.lot) for item in lookup]
                 output_reg = []
                 for rel_reagent in relevant_reagents:
@@ -658,7 +658,7 @@ class SubmissionFormWidget(QWidget):
                     if check_not_nan(reagent.lot):
                         relevant_reagents.insert(0, str(reagent.lot))
                     else:
-                        looked_up_rt = KitTypeReagentTypeAssociation.query(reagent_type=reagent.type,
+                        looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
                                                                            kit_type=extraction_kit)
                         try:
                             looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
@@ -684,5 +684,5 @@ class SubmissionFormWidget(QWidget):
                         # logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
                         pass
                 # logger.debug(f"New relevant reagents: {relevant_reagents}")
-                self.setObjectName(f"lot_{reagent.type}")
+                self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)

@@ -19,11 +19,11 @@ from io import BytesIO
 logger = logging.getLogger(f'submissions.{__name__}')
 
 # logger.debug("Table for ReagentType/Reagent relations")
-reagenttypes_reagents = Table(
-    "_reagenttypes_reagents",
+reagentroles_reagents = Table(
+    "_reagentroles_reagents",
     Base.metadata,
     Column("reagent_id", INTEGER, ForeignKey("_reagent.id")),
-    Column("reagenttype_id", INTEGER, ForeignKey("_reagenttype.id")),
+    Column("reagentrole_id", INTEGER, ForeignKey("_reagentrole.id")),
     extend_existing=True
 )
 
@@ -84,16 +84,16 @@ class KitType(BaseClass):
     processes = relationship("Process", back_populates="kit_types",
                              secondary=kittypes_processes)  #: equipment processes used by this kit
 
-    kit_reagenttype_associations = relationship(
-        "KitTypeReagentTypeAssociation",
+    kit_reagentrole_associations = relationship(
+        "KitTypeReagentRoleAssociation",
         back_populates="kit_type",
         cascade="all, delete-orphan",
     )
 
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    reagent_types = association_proxy("kit_reagenttype_associations", "reagent_type",
-                                      creator=lambda RT: KitTypeReagentTypeAssociation(
-                                          reagent_type=RT))  #: Association proxy to KitTypeReagentTypeAssociation
+    reagent_roles = association_proxy("kit_reagentrole_associations", "reagent_role",
+                                      creator=lambda RT: KitTypeReagentRoleAssociation(
+                                          reagent_role=RT))  #: Association proxy to KitTypeReagentRoleAssociation
 
     kit_submissiontype_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -111,7 +111,7 @@ class KitType(BaseClass):
         """
         return f"<KitType({self.name})>"
 
-    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> List[ReagentType]:
+    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> List[ReagentRole]:
         """
         Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
 
@@ -120,25 +120,25 @@ class KitType(BaseClass):
             submission_type (str | Submissiontype | None, optional): Submission type to narrow results. Defaults to None.
 
         Returns:
-            List[ReagentType]: List of reagents linked to this kit.
+            List[ReagentRole]: List of reagents linked to this kit.
         """       
         match submission_type:
             case SubmissionType():
                 # logger.debug(f"Getting reagents by SubmissionType {submission_type}")
-                relevant_associations = [item for item in self.kit_reagenttype_associations if
+                relevant_associations = [item for item in self.kit_reagentrole_associations if
                                          item.submission_type == submission_type]
             case str():
                 # logger.debug(f"Getting reagents by str {submission_type}")
-                relevant_associations = [item for item in self.kit_reagenttype_associations if
+                relevant_associations = [item for item in self.kit_reagentrole_associations if
                                          item.submission_type.name == submission_type]
             case _:
                 # logger.debug(f"Getting reagents")
-                relevant_associations = [item for item in self.kit_reagenttype_associations]
+                relevant_associations = [item for item in self.kit_reagentrole_associations]
         if required:
             # logger.debug(f"Filtering by required.")
-            return [item.reagent_type for item in relevant_associations if item.required == 1]
+            return [item.reagent_role for item in relevant_associations if item.required == 1]
         else:
-            return [item.reagent_type for item in relevant_associations]
+            return [item.reagent_role for item in relevant_associations]
 
     # TODO: Move to BasicSubmission?
     def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> dict:
@@ -156,17 +156,17 @@ class KitType(BaseClass):
         match submission_type:
             case str():
                 # logger.debug(f"Constructing xl map with str {submission_type}")
-                assocs = [item for item in self.kit_reagenttype_associations if
+                assocs = [item for item in self.kit_reagentrole_associations if
                           item.submission_type.name == submission_type]
             case SubmissionType():
                 # logger.debug(f"Constructing xl map with SubmissionType {submission_type}")
-                assocs = [item for item in self.kit_reagenttype_associations if item.submission_type == submission_type]
+                assocs = [item for item in self.kit_reagentrole_associations if item.submission_type == submission_type]
             case _:
                 raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
         # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
         for assoc in assocs:
             try:
-                info_map[assoc.reagent_type.name] = assoc.uses
+                info_map[assoc.reagent_role.name] = assoc.uses
             except TypeError:
                 continue
         return info_map
@@ -226,34 +226,34 @@ class KitType(BaseClass):
         super().save()
 
 
-class ReagentType(BaseClass):
+class ReagentRole(BaseClass):
     """
     Base of reagent type abstract
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of reagent type
-    instances = relationship("Reagent", back_populates="type",
-                             secondary=reagenttypes_reagents)  #: concrete instances of this reagent type
+    instances = relationship("Reagent", back_populates="role",
+                             secondary=reagentroles_reagents)  #: concrete instances of this reagent type
     eol_ext = Column(Interval())  #: extension of life interval
 
-    reagenttype_kit_associations = relationship(
-        "KitTypeReagentTypeAssociation",
-        back_populates="reagent_type",
+    reagentrole_kit_associations = relationship(
+        "KitTypeReagentRoleAssociation",
+        back_populates="reagent_role",
         cascade="all, delete-orphan",
     )  #: Relation to KitTypeReagentTypeAssociation
 
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    kit_types = association_proxy("reagenttype_kit_associations", "kit_type",
-                                  creator=lambda kit: KitTypeReagentTypeAssociation(
-                                      kit_type=kit))  #: Association proxy to KitTypeReagentTypeAssociation
+    kit_types = association_proxy("reagentrole_kit_associations", "kit_type",
+                                  creator=lambda kit: KitTypeReagentRoleAssociation(
+                                      kit_type=kit))  #: Association proxy to KitTypeReagentRoleAssociation
 
     def __repr__(self) -> str:
         """
         Returns:
             str: Representation of object
         """
-        return f"<ReagentType({self.name})>"
+        return f"<ReagentRole({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -262,7 +262,7 @@ class ReagentType(BaseClass):
               kit_type: KitType | str | None = None,
               reagent: Reagent | str | None = None,
               limit: int = 0,
-              ) -> ReagentType | List[ReagentType]:
+              ) -> ReagentRole | List[ReagentRole]:
         """
         Lookup reagent types in the database.
 
@@ -276,7 +276,7 @@ class ReagentType(BaseClass):
             ValueError: Raised if only kit_type or reagent, not both, given.
 
         Returns:
-            ReagentType|List[ReagentType]: ReagentType or list of ReagentTypes matching filter.
+            ReagentRole|List[ReagentRole]: ReagentRole or list of ReagentRoles matching filter.
         """
         query: Query = cls.__database_session__.query(cls)
         if (kit_type is not None and reagent is None) or (reagent is not None and kit_type is None):
@@ -296,10 +296,10 @@ class ReagentType(BaseClass):
                     reagent = Reagent.query(lot_number=reagent)
                 case _:
                     pass
-            assert reagent.type
+            assert reagent.role
             # logger.debug(f"Looking up reagent type for {type(kit_type)} {kit_type} and {type(reagent)} {reagent}")
             # logger.debug(f"Kit reagent types: {kit_type.reagent_types}")
-            result = list(set(kit_type.reagent_types).intersection(reagent.type))
+            result = list(set(kit_type.reagent_roles).intersection(reagent.role))
             # logger.debug(f"Result: {result}")
             try:
                 return result[0]
@@ -322,7 +322,7 @@ class ReagentType(BaseClass):
             PydReagent: PydReagent representation of this object.
         """
         from backend.validators.pydant import PydReagent
-        return PydReagent(lot=None, type=self.name, name=self.name, expiry=date.today())
+        return PydReagent(lot=None, role=self.name, name=self.name, expiry=date.today())
 
     @check_authorization
     def save(self):
@@ -335,10 +335,10 @@ class Reagent(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    type = relationship("ReagentType", back_populates="instances",
-                        secondary=reagenttypes_reagents)  #: joined parent reagent type
-    type_id = Column(INTEGER, ForeignKey("_reagenttype.id", ondelete='SET NULL',
-                                         name="fk_reagent_type_id"))  #: id of parent reagent type
+    role = relationship("ReagentRole", back_populates="instances",
+                        secondary=reagentroles_reagents)  #: joined parent reagent type
+    role_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete='SET NULL',
+                                         name="fk_reagent_role_id"))  #: id of parent reagent type
     name = Column(String(64))  #: reagent name
     lot = Column(String(64))  #: lot number of reagent
     expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
@@ -356,7 +356,7 @@ class Reagent(BaseClass):
         if self.name is not None:
             return f"<Reagent({self.name}-{self.lot})>"
         else:
-            return f"<Reagent({self.type.name}-{self.lot})>"
+            return f"<Reagent({self.role.name}-{self.lot})>"
 
     def to_sub_dict(self, extraction_kit: KitType = None) -> dict:
         """
@@ -371,12 +371,12 @@ class Reagent(BaseClass):
         if extraction_kit is not None:
             # NOTE: Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
             try:
-                reagent_role = list(set(self.type).intersection(extraction_kit.reagent_types))[0]
+                reagent_role = list(set(self.role).intersection(extraction_kit.reagent_roles))[0]
             # NOTE: Most will be able to fall back to first ReagentType in itself because most will only have 1.
             except:
-                reagent_role = self.type[0]
+                reagent_role = self.role[0]
         else:
-            reagent_role = self.type[0]
+            reagent_role = self.role[0]
         try:
             rtype = reagent_role.name.replace("_", " ")
         except AttributeError:
@@ -393,7 +393,7 @@ class Reagent(BaseClass):
             place_holder = place_holder.strftime("%Y-%m-%d")
         return dict(
             name=self.name,
-            type=rtype,
+            role=rtype,
             lot=self.lot,
             expiry=place_holder,
             missing=False
@@ -411,10 +411,10 @@ class Reagent(BaseClass):
         """
         report = Report()
         # logger.debug(f"Attempting update of last used reagent type at intersection of ({self}), ({kit})")
-        rt = ReagentType.query(kit_type=kit, reagent=self, limit=1)
+        rt = ReagentRole.query(kit_type=kit, reagent=self, limit=1)
         if rt is not None:
             # logger.debug(f"got reagenttype {rt}")
-            assoc = KitTypeReagentTypeAssociation.query(kit_type=kit, reagent_type=rt)
+            assoc = KitTypeReagentRoleAssociation.query(kit_type=kit, reagent_role=rt)
             if assoc is not None:
                 if assoc.last_used != self.lot:
                     # logger.debug(f"Updating {assoc} last used to {self.lot}")
@@ -429,7 +429,7 @@ class Reagent(BaseClass):
     @setup_lookup
     def query(cls,
               id: int | None = None,
-              reagent_type: str | ReagentType | None = None,
+              reagent_role: str | ReagentRole | None = None,
               lot_number: str | None = None,
               name: str | None = None,
               limit: int = 0
@@ -438,7 +438,7 @@ class Reagent(BaseClass):
         Lookup a list of reagents from the database.
 
         Args:
-            reagent_type (str | models.ReagentType | None, optional): Reagent type. Defaults to None.
+            reagent_role (str | models.ReagentType | None, optional): Reagent type. Defaults to None.
             lot_number (str | None, optional): Reagent lot number. Defaults to None.
             name (str | None, optional): Reagent name. Defaults to None.
             limit (int, optional): limit of results returned. Defaults to 0.
@@ -453,13 +453,13 @@ class Reagent(BaseClass):
                 limit = 1
             case _:
                 pass
-        match reagent_type:
+        match reagent_role:
             case str():
                 # logger.debug(f"Looking up reagents by reagent type str: {reagent_type}")
-                query = query.join(cls.type).filter(ReagentType.name == reagent_type)
-            case ReagentType():
+                query = query.join(cls.role).filter(ReagentRole.name == reagent_role)
+            case ReagentRole():
                 # logger.debug(f"Looking up reagents by reagent type ReagentType: {reagent_type}")
-                query = query.filter(cls.type.contains(reagent_type))
+                query = query.filter(cls.role.contains(reagent_role))
             case _:
                 pass
         match name:
@@ -582,7 +582,7 @@ class SubmissionType(BaseClass):
                                   "equipment_role")  #: Proxy of equipmentrole associations
 
     submissiontype_kit_rt_associations = relationship(
-        "KitTypeReagentTypeAssociation",
+        "KitTypeReagentRoleAssociation",
         back_populates="submission_type",
         cascade="all, delete-orphan"
     )  #: triple association of KitTypes, ReagentTypes, SubmissionTypes
@@ -617,7 +617,7 @@ class SubmissionType(BaseClass):
         if isinstance(filepath, str):
             filepath = Path(filepath)
         try:
-            xl = ExcelFile(filepath)
+            ExcelFile(filepath)
         except ValueError:
             raise ValueError(f"File {filepath} is not of appropriate type.")
         with open(filepath, "rb") as f:
@@ -836,13 +836,13 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
 
-class KitTypeReagentTypeAssociation(BaseClass):
+class KitTypeReagentRoleAssociation(BaseClass):
     """
     table containing reagenttype/kittype associations
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
-    reagent_types_id = Column(INTEGER, ForeignKey("_reagenttype.id"),
+    reagent_roles_id = Column(INTEGER, ForeignKey("_reagentrole.id"),
                               primary_key=True)  #: id of associated reagent type
     kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True)  #: id of associated reagent type
     submission_type_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True)
@@ -851,23 +851,23 @@ class KitTypeReagentTypeAssociation(BaseClass):
     last_used = Column(String(32))  #: last used lot number of this type of reagent
 
     kit_type = relationship(KitType,
-                            back_populates="kit_reagenttype_associations")  #: relationship to associated KitType
+                            back_populates="kit_reagentrole_associations")  #: relationship to associated KitType
 
     # reference to the "ReagentType" object
-    reagent_type = relationship(ReagentType,
-                                back_populates="reagenttype_kit_associations")  #: relationship to associated ReagentType
+    reagent_role = relationship(ReagentRole,
+                                back_populates="reagentrole_kit_associations")  #: relationship to associated ReagentType
 
     submission_type = relationship(SubmissionType,
                                    back_populates="submissiontype_kit_rt_associations")  #: relationship to associated SubmissionType
 
-    def __init__(self, kit_type=None, reagent_type=None, uses=None, required=1):
+    def __init__(self, kit_type=None, reagent_role=None, uses=None, required=1):
         self.kit_type = kit_type
-        self.reagent_type = reagent_type
+        self.reagent_role = reagent_role
         self.uses = uses
         self.required = required
 
     def __repr__(self) -> str:
-        return f"<KitTypeReagentTypeAssociation({self.kit_type} & {self.reagent_type})>"
+        return f"<KitTypeReagentRoleAssociation({self.kit_type} & {self.reagent_role})>"
 
     @validates('required')
     def validate_age(self, key, value):
@@ -888,8 +888,8 @@ class KitTypeReagentTypeAssociation(BaseClass):
             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
         return value
 
-    @validates('reagenttype')
-    def validate_reagenttype(self, key, value):
+    @validates('reagentrole')
+    def validate_reagentrole(self, key, value):
         """
         Ensures reagenttype is an actual ReagentType
 
@@ -903,23 +903,23 @@ class KitTypeReagentTypeAssociation(BaseClass):
         Returns:
             _type_: ReagentType
         """
-        if not isinstance(value, ReagentType):
-            raise ValueError(f'{value} is not a reagenttype')
+        if not isinstance(value, ReagentRole):
+            raise ValueError(f'{value} is not a reagentrole')
         return value
 
     @classmethod
     @setup_lookup
     def query(cls,
               kit_type: KitType | str | None = None,
-              reagent_type: ReagentType | str | None = None,
+              reagent_role: ReagentRole | str | None = None,
               limit: int = 0
-              ) -> KitTypeReagentTypeAssociation | List[KitTypeReagentTypeAssociation]:
+              ) -> KitTypeReagentRoleAssociation | List[KitTypeReagentRoleAssociation]:
         """
         Lookup junction of ReagentType and KitType
 
         Args:
             kit_type (models.KitType | str | None): KitType of interest.
-            reagent_type (models.ReagentType | str | None): ReagentType of interest.
+            reagent_role (models.ReagentType | str | None): ReagentType of interest.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
@@ -935,16 +935,16 @@ class KitTypeReagentTypeAssociation(BaseClass):
                 query = query.join(KitType).filter(KitType.name == kit_type)
             case _:
                 pass
-        match reagent_type:
-            case ReagentType():
+        match reagent_role:
+            case ReagentRole():
                 # logger.debug(f"Lookup KitTypeReagentTypeAssociation by reagent_type ReagentType {reagent_type}")
-                query = query.filter(cls.reagent_type == reagent_type)
+                query = query.filter(cls.reagent_role == reagent_role)
             case str():
                 # logger.debug(f"Lookup KitTypeReagentTypeAssociation by reagent_type ReagentType {reagent_type}")
-                query = query.join(ReagentType).filter(ReagentType.name == reagent_type)
+                query = query.join(ReagentRole).filter(ReagentRole.name == reagent_role)
             case _:
                 pass
-        if kit_type != None and reagent_type != None:
+        if kit_type != None and reagent_role != None:
             limit = 1
         return cls.execute_query(query=query, limit=limit)
 
@@ -1478,4 +1478,45 @@ class Process(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
 
-# class Tips(Reagent):
+# class TipRole(BaseClass):
+#
+#     id = Column(INTEGER, primary_key=True)  #: primary key
+#     name = Column(String(64))  #: name of reagent type
+#     instances = relationship("Tips", back_populates="role",
+#                              secondary=reagenttypes_reagents)  #: concrete instances of this reagent type
+#
+#     tiprole_kit_associations = relationship(
+#         "KitTypeTipRoleAssociation",
+#         back_populates="tip_role",
+#         cascade="all, delete-orphan",
+#     )  #: Relation to KitTypeReagentTypeAssociation
+#
+#     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
+#     kit_types = association_proxy("tiprole_kit_associations", "kit_type",
+#                                   creator=lambda kit: KitTypeReagentTypeAssociation(
+#                                       kit_type=kit))  #: Association proxy to KitTypeReagentTypeAssociation
+#
+#     def __repr__(self):
+#         return f"<TipRole({self.name})>"
+#
+# class Tips(BaseClass):
+#
+#     id = Column(INTEGER, primary_key=True)  #: primary key
+#     role = relationship("TipRole", back_populates="instances",
+#                         secondary=reagenttypes_reagents)  #: joined parent reagent type
+#     role_id = Column(INTEGER, ForeignKey("_tiprole.id", ondelete='SET NULL',
+#                                          name="fk_tip_role_id"))  #: id of parent reagent type
+#     name = Column(String(64))  #: tip common name
+#     lot = Column(String(64))  #: lot number of tips
+#
+#     tips_submission_associations = relationship(
+#         "SubmissionTipsAssociation",
+#         back_populates="tips",
+#         cascade="all, delete-orphan",
+#     )  #: Relation to SubmissionSampleAssociation
+#
+#     submissions = association_proxy("tips_submission_associations",
+#                                     "submission")  #: Association proxy to SubmissionSampleAssociation.samples
+#
+#     def __repr__(self):
+#         return f"<Tips({self.name})>"
