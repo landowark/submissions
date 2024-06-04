@@ -104,7 +104,7 @@ class PydReagent(BaseModel):
         if value != None:
             return convert_nans_to_nones(str(value))
         else:
-            return values.data['type']
+            return values.data['role']
 
     def improved_dict(self) -> dict:
         try:
@@ -123,7 +123,7 @@ class PydReagent(BaseModel):
         #     output[k] = value
         return {k: getattr(self, k) for k in fields}
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, SubmissionReagentAssociation]:
+    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, SubmissionReagentAssociation, Report]:
         """
         Converts this instance into a backend.db.models.kit.Reagent instance
 
@@ -168,6 +168,7 @@ class PydReagent(BaseModel):
                     # reagent.reagent_submission_associations.append(assoc)
                 else:
                     assoc = None
+            report.add_result(Result(owner = __name__, code=0, msg="New reagent created.", status="Information"))
         else:
             if submission is not None and reagent not in submission.reagents:
                 assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
@@ -177,7 +178,8 @@ class PydReagent(BaseModel):
                 assoc = None
                 # add end-of-life extension from reagent type to expiry date
                 # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
-        return reagent, assoc
+
+        return reagent, assoc, report
 
 
 class PydSample(BaseModel, extra='allow'):
@@ -353,6 +355,7 @@ class PydSubmission(BaseModel, extra='allow'):
     samples: List[PydSample]
     equipment: List[PydEquipment] | None = []
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
 
     @field_validator('equipment', mode='before')
     @classmethod
@@ -567,6 +570,17 @@ class PydSubmission(BaseModel, extra='allow'):
             case _:
                 return value
 
+    @field_validator("contact")
+    @classmethod
+    def get_contact_from_org(cls, value, values):
+        check = Contact.query(name=value['value'])
+        if check is None:
+            org = Organization.query(name=values.data['submitting_lab']['value'])
+            contact = org.contacts[0].name
+            return dict(value=contact, missing=True)
+        else:
+            return value
+
     def __init__(self, **data):
         super().__init__(**data)
         # this could also be done with default_factory
@@ -664,7 +678,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         instance.submission_reagent_associations = []
                     # logger.debug(f"Looking through {self.reagents}")
                     for reagent in self.reagents:
-                        reagent, assoc = reagent.toSQL(submission=instance)
+                        reagent, assoc, _ = reagent.toSQL(submission=instance)
                         # logger.debug(f"Association: {assoc}")
                         if assoc is not None:# and assoc not in instance.submission_reagent_associations:
                             instance.submission_reagent_associations.append(assoc)

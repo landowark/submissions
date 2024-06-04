@@ -33,9 +33,10 @@ class SubmissionFormContainer(QWidget):
         # logger.debug(f"Setting form widget...")
         super().__init__(parent)
         self.app = self.parent().parent()
+        # logger.debug(f"App: {self.app}")
         self.report = Report()
         self.setAcceptDrops(True)
-        # if import_drag is emitted, importSubmission will fire
+        # NOTE: if import_drag is emitted, importSubmission will fire
         self.import_drag.connect(self.importSubmission)
 
     def dragEnterEvent(self, event):
@@ -138,9 +139,10 @@ class SubmissionFormContainer(QWidget):
             # NOTE: create reagent object
             reagent = PydReagent(ctx=self.app.ctx, **info, missing=False)
             # NOTE: send reagent to db
-            sqlobj, result = reagent.toSQL()
+            sqlobj, assoc, result = reagent.toSQL()
             sqlobj.save()
             report.add_result(result)
+            self.app.report.add_result(report)
             self.app.result_reporter()
             return reagent
 
@@ -310,10 +312,14 @@ class SubmissionFormWidget(QWidget):
                 else:
                     self.app.ctx.database_session.rollback()
                     report.add_result(Result(msg="Overwrite cancelled", status="Information"))
+                    self.app.report.add_result(report)
+                    self.app.result_reporter()
                     return
             # code 2: No RSL plate number given
             case 2:
                 report.add_result(result)
+                self.app.report.add_result(report)
+                self.app.result_reporter()
                 return
             case _:
                 pass
@@ -585,7 +591,7 @@ class SubmissionFormWidget(QWidget):
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
             if wanted_reagent == None:
                 dlg = QuestionAsker(title=f"Add {lot}?",
-                                    message=f"Couldn't find reagent type {self.reagent.type}: {lot} in the database.\n\nWould you like to add it?")
+                                    message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
                 if dlg.exec():
                     wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot, reagent_role=self.reagent.role,
                                                                         expiry=self.reagent.expiry,
@@ -686,3 +692,4 @@ class SubmissionFormWidget(QWidget):
                 # logger.debug(f"New relevant reagents: {relevant_reagents}")
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
+                self.setStyleSheet("{ background-color: white }")

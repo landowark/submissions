@@ -375,7 +375,10 @@ class CustomFormatter(logging.Formatter):
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
+        if check_if_app():
+            return record
+        else:
+            return formatter.format(record)
 
 
 class StreamToLogger(object):
@@ -473,7 +476,7 @@ def jinja_template_loading() -> Environment:
     Returns jinja2 template environment.
 
     Returns:
-        _type_: _description_
+        Environment: jinja2 environment object
     """
     # NOTE: determine if pyinstaller launcher is being used
     if check_if_app():
@@ -577,7 +580,7 @@ class Report(BaseModel):
     def add_result(self, result: Result | Report | None):
         match result:
             case Result():
-                logger.debug(f"Adding {result} to results.")
+                logger.info(f"Adding {result} to results.")
                 try:
                     self.results.append(result)
                 except AttributeError:
@@ -585,11 +588,13 @@ class Report(BaseModel):
             case Report():
                 # logger.debug(f"Adding all results in report to new report")
                 for res in result.results:
-                    logger.debug(f"Adding {res} from to results.")
+                    logger.info(f"Adding {res} from {result} to results.")
                     self.results.append(res)
             case _:
                 logger.error(f"Unknown variable type: {type(result)}")
 
+    def is_empty(self):
+        return bool(self.results)
 
 def rreplace(s, old, new):
     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]

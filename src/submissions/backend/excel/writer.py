@@ -148,7 +148,7 @@ class ReagentWriter(object):
         output = []
         for reagent in reagent_list:
             try:
-                mp_info = map[reagent['type']]
+                mp_info = map[reagent['role']]
             except KeyError:
                 continue
             placeholder = copy(reagent)

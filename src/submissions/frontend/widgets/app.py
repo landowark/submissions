@@ -153,7 +153,7 @@ class App(QMainWindow):
             # logger.debug(f"We've got some results!")
             for result in self.report.results:
                 # logger.debug(f"Showing result: {result}")
-                if result != None:
+                if result is not None:
                     alert = result.report()
                     if alert.exec():
                         pass

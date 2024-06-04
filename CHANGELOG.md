@@ -1,3 +1,8 @@
+## 202406.02
+
+- Attached Contact to Submission.
+- Renamed ReagentType to ReagentRole to prevent confusion.
+
 ## 202405.04
 
 - Improved Webview of submission details.

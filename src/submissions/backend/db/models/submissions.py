@@ -10,7 +10,7 @@ from zipfile import ZipFile
 from tempfile import TemporaryDirectory
 from operator import attrgetter, itemgetter
 from pprint import pformat
-from . import BaseClass, Reagent, SubmissionType, KitType, Organization
+from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -65,6 +65,9 @@ class BasicSubmission(BaseClass):
         String(64))  #: ["Research", "Diagnostic", "Surveillance", "Validation"], else defaults to submission_type_name
     cost_centre = Column(
         String(64))  #: Permanent storage of used cost centre in case organization field changed in the future.
+    contact = relationship("Contact", back_populates="submissions")  #: client org
+    contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
+                                                   name="fk_BS_contact_id"))  #: client lab id from _organizations
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -255,6 +258,7 @@ class BasicSubmission(BaseClass):
             "sample_count": self.sample_count,
             "extraction_kit": ext_kit,
             "cost": self.run_cost,
+
         }
         if report:
             return output
@@ -304,6 +308,9 @@ class BasicSubmission(BaseClass):
         output["equipment"] = equipment
         output["cost_centre"] = cost_centre
         output["signed_by"] = self.signed_by
+        output["contact"] = self.contact.name
+        output["contact_phone"] = self.contact.phone
+
         return output
 
     def calculate_column_count(self) -> int:
@@ -453,6 +460,8 @@ class BasicSubmission(BaseClass):
                 # logger.debug(f"Looking up organization: {value}")
                 field_value = Organization.query(name=value)
                 # logger.debug(f"Got {field_value} for organization {value}")
+            case "contact":
+                field_value = Contact.query(name=value)
             case "samples":
                 for sample in value:
                     # logger.debug(f"Parsing {sample} to sql.")
@@ -1196,7 +1205,7 @@ class BacterialCulture(BasicSubmission):
                 new_lot = matched.group()
                 try:
                     pos_control_reg = \
-                    [reg for reg in input_dict['reagents'] if reg['type'] == "Bacterial-Positive Control"][0]
+                    [reg for reg in input_dict['reagents'] if reg['role'] == "Bacterial-Positive Control"][0]
                 except IndexError:
                     logger.error(f"No positive control reagent listed")
                     return input_dict
