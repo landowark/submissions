@@ -248,6 +248,7 @@ class BasicSubmission(BaseClass):
             ext_info = self.extraction_info
         except TypeError:
             ext_info = None
+
         output = {
             "id": self.id,
             "plate_number": self.rsl_plate_num,
@@ -257,8 +258,7 @@ class BasicSubmission(BaseClass):
             "submitting_lab": sub_lab,
             "sample_count": self.sample_count,
             "extraction_kit": ext_kit,
-            "cost": self.run_cost,
-
+            "cost": self.run_cost
         }
         if report:
             return output
@@ -299,6 +299,15 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}, {e}")
             comments = None
+        try:
+            contact = self.contact.name
+        except AttributeError as e:
+            logger.error(f"Problem setting contact: {e}")
+            contact = "NA"
+        try:
+            contact_phone = self.contact.phone
+        except AttributeError:
+            contact_phone = "NA"
         output["submission_category"] = self.submission_category
         output["technician"] = self.technician
         output["reagents"] = reagents
@@ -308,9 +317,9 @@ class BasicSubmission(BaseClass):
         output["equipment"] = equipment
         output["cost_centre"] = cost_centre
         output["signed_by"] = self.signed_by
-        output["contact"] = self.contact.name
-        output["contact_phone"] = self.contact.phone
-
+        # logger.debug(f"Setting contact to: {contact} of type: {type(contact)}")
+        output["contact"] = contact
+        output["contact_phone"] = contact_phone
         return output
 
     def calculate_column_count(self) -> int:
@@ -431,7 +440,7 @@ class BasicSubmission(BaseClass):
         excluded = ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
                     'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
-                    'signed_by']
+                    'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact']
         for item in excluded:
             try:
                 df = df.drop(item, axis=1)
@@ -544,7 +553,6 @@ class BasicSubmission(BaseClass):
         # logger.debug("To dict complete")
         new_dict = {}
         for key, value in dicto.items():
-            # start = time()
             # logger.debug(f"Checking {key}")
             missing = value is None or value in ['', 'None']
             match key:
@@ -1403,6 +1411,10 @@ class WastewaterArtic(BasicSubmission):
     gel_info = Column(JSON)  #: unstructured data from gel.
     gel_controls = Column(JSON)  #: locations of controls on the gel
     source_plates = Column(JSON)  #: wastewater plates that samples come from
+    artic_date = Column(TIMESTAMP)  #: Date Artic Performed
+    ngs_date = Column(TIMESTAMP)  #: Date submission received
+    gel_date = Column(TIMESTAMP)  #: Date submission received
+    gel_barcode = Column(String(16))
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic",
                            polymorphic_load="inline",
@@ -1418,12 +1430,18 @@ class WastewaterArtic(BasicSubmission):
         output = super().to_dict(full_data=full_data, backup=backup, report=report)
         if self.artic_technician in [None, "None"]:
             output['artic_technician'] = self.technician
+        else:
+            output['artic_technician'] = self.artic_technician
         if report:
             return output
         output['gel_info'] = self.gel_info
         output['gel_image'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
         output['source_plates'] = self.source_plates
+        output['artic_date'] = self.artic_date or self.submitted_date
+        output['ngs_date'] = self.ngs_date or self.submitted_date
+        output['gel_date'] = self.gel_date or self.submitted_date
+        output['gel_barcode'] = self.gel_barcode
         return output
 
     @classmethod
@@ -1756,19 +1774,22 @@ class WastewaterArtic(BasicSubmission):
                 output.append(dicto)
                 continue
             for item in self.source_plates:
-                old_plate = WastewaterAssociation.query(submission=item['plate'], sample=assoc.sample, limit=1)
+                if assoc.sample.id is None:
+                    old_plate = None
+                else:
+                    old_plate = WastewaterAssociation.query(submission=item['plate'], sample=assoc.sample, limit=1)
                 if old_plate is not None:
                     set_plate = old_plate.submission.rsl_plate_num
-                    logger.debug(dicto['WW Processing Num'])
-                    if dicto['WW Processing Num'].startswith("NTC"):
-                        dicto['Well'] = dicto['WW Processing Num']
+                    # logger.debug(f"Dictionary: {pformat(dicto)}")
+                    if dicto['ww_processing_num'].startswith("NTC"):
+                        dicto['well'] = dicto['ww_processing_num']
                     else:
-                        dicto['Well'] = f"{row_map[old_plate.row]}{old_plate.column}"
+                        dicto['well'] = f"{row_map[old_plate.row]}{old_plate.column}"
                     break
-                elif dicto['WW Processing Num'].startswith("NTC"):
-                    dicto['Well'] = dicto['WW Processing Num']
+                elif dicto['ww_processing_num'].startswith("NTC"):
+                    dicto['well'] = dicto['ww_processing_num']
             dicto['plate_name'] = set_plate
-            logger.debug(f"Here is our raw sample: {pformat(dicto)}")
+            # logger.debug(f"Here is our raw sample: {pformat(dicto)}")
             output.append(dicto)
         return output
 
@@ -1801,7 +1822,7 @@ class WastewaterArtic(BasicSubmission):
         fname = select_open_file(obj=obj, file_extension="jpg")
         dlg = GelBox(parent=obj, img_path=fname, submission=self)
         if dlg.exec():
-            self.dna_core_submission_number, img_path, output, comment = dlg.parse_form()
+            self.dna_core_submission_number, self.gel_barcode, img_path, output, comment = dlg.parse_form()
             self.gel_image = img_path.name
             self.gel_info = output
             dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
@@ -2135,7 +2156,7 @@ class BasicSample(BaseClass):
         if dlg.exec():
             pass
 
-#Below are the custom sample types
+# Below are the custom sample types
 
 class WastewaterSample(BasicSample):
     """
@@ -2234,6 +2255,7 @@ class WastewaterSample(BasicSample):
             label = item.strip("ww_").replace("_", " ").replace("rsl", "RSL").title()
             searchables.append(dict(label=label, field=item))
         return searchables
+
 
 class BacterialCultureSample(BasicSample):
     """

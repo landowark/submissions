@@ -43,6 +43,13 @@ LOGDIR = main_aux_dir.joinpath("logs")
 row_map = {1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G", 8: "H"}
 row_keys = {v: k for k, v in row_map.items()}
 
+main_form_style = '''
+                        QComboBox:!editable, QDateEdit {
+                            background-color:light gray;
+                        }
+                        
+                '''
+
 
 def check_not_nan(cell_contents) -> bool:
     """
@@ -329,6 +336,19 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
     return Settings(**settings)
 
 
+def check_if_app() -> bool:
+    """
+    Checks if the program is running from pyinstaller compiled
+
+    Returns:
+        bool: True if running from pyinstaller. Else False.
+    """
+    if getattr(sys, 'frozen', False):
+        return True
+    else:
+        return False
+
+
 # Logging formatters
 
 class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
@@ -362,23 +382,23 @@ class CustomFormatter(logging.Formatter):
         BOLD = '\033[1m'
         UNDERLINE = '\033[4m'
 
-    format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(message)s"
+    log_format = "%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(message)s"
 
     FORMATS = {
-        logging.DEBUG: bcolors.ENDC + format + bcolors.ENDC,
-        logging.INFO: bcolors.ENDC + format + bcolors.ENDC,
-        logging.WARNING: bcolors.WARNING + format + bcolors.ENDC,
-        logging.ERROR: bcolors.FAIL + format + bcolors.ENDC,
-        logging.CRITICAL: bcolors.FAIL + format + bcolors.ENDC
+        logging.DEBUG: bcolors.ENDC + log_format + bcolors.ENDC,
+        logging.INFO: bcolors.ENDC + log_format + bcolors.ENDC,
+        logging.WARNING: bcolors.WARNING + log_format + bcolors.ENDC,
+        logging.ERROR: bcolors.FAIL + log_format + bcolors.ENDC,
+        logging.CRITICAL: bcolors.FAIL + log_format + bcolors.ENDC
     }
 
     def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
         if check_if_app():
-            return record
+            log_fmt = self.log_format
         else:
-            return formatter.format(record)
+            log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
 
 
 class StreamToLogger(object):
@@ -490,19 +510,6 @@ def jinja_template_loading() -> Environment:
     return env
 
 
-def check_if_app() -> bool:
-    """
-    Checks if the program is running from pyinstaller compiled
-
-    Returns:
-        bool: True if running from pyinstaller. Else False.
-    """
-    if getattr(sys, 'frozen', False):
-        return True
-    else:
-        return False
-
-
 def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     """
     Converts typical alphanumeric (i.e. "A2") to row, column
@@ -591,7 +598,7 @@ class Report(BaseModel):
                     logger.info(f"Adding {res} from {result} to results.")
                     self.results.append(res)
             case _:
-                logger.error(f"Unknown variable type: {type(result)}")
+                logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
 
     def is_empty(self):
         return bool(self.results)

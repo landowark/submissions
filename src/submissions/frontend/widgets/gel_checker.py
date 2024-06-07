@@ -55,6 +55,9 @@ class GelBox(QDialog):
         layout.addWidget(QLabel("DNA Core Submission Number"),0,1)
         self.core_number = QLineEdit()
         layout.addWidget(self.core_number, 0,2)
+        layout.addWidget(QLabel("Gel Barcode"),0,3)
+        self.gel_barcode = QLineEdit()
+        layout.addWidget(self.gel_barcode, 0, 4)
         # setting this layout to the widget
         # plot window goes on right side, spanning 3 rows
         layout.addWidget(self.imv, 1, 1,20,20)
@@ -80,8 +83,9 @@ class GelBox(QDialog):
             Tuple[str, str|Path, list]: output values
         """        
         dna_core_submission_number = self.core_number.text()
+        gel_barcode = self.gel_barcode.text()
         values, comment = self.form.parse_form()
-        return dna_core_submission_number, self.img_path, values, comment
+        return dna_core_submission_number, gel_barcode, self.img_path, values, comment
         
 class ControlsForm(QWidget):
 

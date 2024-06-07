@@ -9,12 +9,12 @@ from pathlib import Path
 from . import select_open_file, select_save_file
 import logging, difflib, inspect
 from pathlib import Path
-from tools import Report, Result, check_not_nan, workbook_2_csv
+from tools import Report, Result, check_not_nan, workbook_2_csv, main_form_style
 from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
     KitType, Organization, SubmissionType, Reagent,
-    ReagentRole, KitTypeReagentRoleAssociation
+    ReagentRole, KitTypeReagentRoleAssociation, BasicSubmission
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
@@ -149,6 +149,8 @@ class SubmissionFormContainer(QWidget):
 
 class SubmissionFormWidget(QWidget):
 
+
+
     def __init__(self, parent: QWidget, submission: PydSubmission) -> None:
         super().__init__(parent)
         # self.report = Report()
@@ -169,15 +171,16 @@ class SubmissionFormWidget(QWidget):
             except AttributeError:
                 logger.error(f"Couldn't get attribute from pyd: {k}")
                 value = dict(value=None, missing=True)
-            add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'])
+            add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'], sub_obj=st)
             if add_widget != None:
                 self.layout.addWidget(add_widget)
             if k == "extraction_kit":
                 add_widget.input.currentTextChanged.connect(self.scrape_reagents)
+        self.setStyleSheet(main_form_style)
         self.scrape_reagents(self.pyd.extraction_kit)
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | None = None,
-                      extraction_kit: str | None = None) -> "self.InfoItem":
+                      extraction_kit: str | None = None, sub_obj:BasicSubmission|None=None) -> "self.InfoItem":
         """
         Make an InfoItem widget to hold a field
 
@@ -197,13 +200,13 @@ class SubmissionFormWidget(QWidget):
                     else:
                         widget = None
                 case _:
-                    widget = self.InfoItem(self, key=key, value=value, submission_type=submission_type)
+                    widget = self.InfoItem(self, key=key, value=value, submission_type=submission_type, sub_obj=sub_obj)
             return widget
         return None
 
     def scrape_reagents(self, *args, **kwargs):  #extraction_kit:str, caller:str|None=None):
         """
-        Extracted scrape reagents function that will run when 
+        Extracted scrape reagents function that will run when
         form 'extraction_kit' widget is updated.
 
         Args:
@@ -395,11 +398,11 @@ class SubmissionFormWidget(QWidget):
 
     class InfoItem(QWidget):
 
-        def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | None = None) -> None:
+        def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | None = None, sub_obj:BasicSubmission|None=None) -> None:
             super().__init__(parent)
             layout = QVBoxLayout()
             self.label = self.ParsedQLabel(key=key, value=value)
-            self.input: QWidget = self.set_widget(parent=self, key=key, value=value, submission_type=submission_type)
+            self.input: QWidget = self.set_widget(parent=self, key=key, value=value, submission_type=submission_type, sub_obj=sub_obj)
             self.setObjectName(key)
             try:
                 self.missing: bool = value['missing']
@@ -436,7 +439,7 @@ class SubmissionFormWidget(QWidget):
                     return None, None
             return self.input.objectName(), dict(value=value, missing=self.missing)
 
-        def set_widget(self, parent: QWidget, key: str, value: dict, submission_type: str | None = None) -> QWidget:
+        def set_widget(self, parent: QWidget, key: str, value: dict, submission_type: str | None = None, sub_obj:BasicSubmission|None=None) -> QWidget:
             """
             Creates form widget
 
@@ -449,6 +452,8 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 QWidget: Form object
             """
+            if sub_obj is None:
+                sub_obj = SubmissionType.query(name=submission_type).get_submission_class()
             try:
                 value = value['value']
             except (TypeError, KeyError):
@@ -488,15 +493,15 @@ class SubmissionFormWidget(QWidget):
                         logger.error(f"Couldn't find {obj.prsr.sub['extraction_kit']}")
                         obj.ext_kit = uses[0]
                     add_widget.addItems(uses)
-                case 'submitted_date':
-                    # NOTE: uses base calendar
-                    add_widget = QDateEdit(calendarPopup=True)
-                    # NOTE: sets submitted date based on date found in excel sheet
-                    try:
-                        add_widget.setDate(value)
-                    # NOTE: if not found, use today
-                    except:
-                        add_widget.setDate(date.today())
+                # case 'submitted_date':
+                #     # NOTE: uses base calendar
+                #     add_widget = QDateEdit(calendarPopup=True)
+                #     # NOTE: sets submitted date based on date found in excel sheet
+                #     try:
+                #         add_widget.setDate(value)
+                #     # NOTE: if not found, use today
+                #     except:
+                #         add_widget.setDate(date.today())
                 case 'submission_category':
                     add_widget = QComboBox()
                     cats = ['Diagnostic', "Surveillance", "Research"]
@@ -507,13 +512,23 @@ class SubmissionFormWidget(QWidget):
                         cats.insert(0, cats.pop(cats.index(submission_type)))
                     add_widget.addItems(cats)
                 case _:
-                    # NOTE: anything else gets added in as a line edit
-                    add_widget = QLineEdit()
-                    # logger.debug(f"Setting widget text to {str(value).replace('_', ' ')}")
-                    add_widget.setText(str(value).replace("_", " "))
+                    if key in sub_obj.timestamps():
+                        add_widget = QDateEdit(calendarPopup=True)
+                        # NOTE: sets submitted date based on date found in excel sheet
+                        try:
+                            add_widget.setDate(value)
+                        # NOTE: if not found, use today
+                        except:
+                            add_widget.setDate(date.today())
+                    else:
+                        # NOTE: anything else gets added in as a line edit
+                        add_widget = QLineEdit()
+                        # logger.debug(f"Setting widget text to {str(value).replace('_', ' ')}")
+                        add_widget.setText(str(value).replace("_", " "))
             if add_widget is not None:
                 add_widget.setObjectName(key)
                 add_widget.setParent(parent)
+                # add_widget.setStyleSheet(main_form_style)
             return add_widget
 
         def update_missing(self):
@@ -569,6 +584,7 @@ class SubmissionFormWidget(QWidget):
             self.label = self.ReagentParsedLabel(reagent=reagent)
             layout.addWidget(self.label)
             self.lot = self.ReagentLot(reagent=reagent, extraction_kit=extraction_kit)
+            # self.lot.setStyleSheet(main_form_style)
             layout.addWidget(self.lot)
             # NOTE: Remove spacing between reagents
             layout.setContentsMargins(0, 0, 0, 0)
@@ -615,7 +631,7 @@ class SubmissionFormWidget(QWidget):
             Set widget status to updated
             """
             self.missing = True
-            self.label.updated(self.reagent.type)
+            self.label.updated(self.reagent.role)
 
         class ReagentParsedLabel(QLabel):
 
@@ -692,4 +708,4 @@ class SubmissionFormWidget(QWidget):
                 # logger.debug(f"New relevant reagents: {relevant_reagents}")
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
-                self.setStyleSheet("{ background-color: white }")
+                # self.setStyleSheet(main_form_style)

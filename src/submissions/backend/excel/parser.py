@@ -139,7 +139,7 @@ class SheetParser(object):
         # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
         pyd_dict = copy(self.sub)
         pyd_dict['samples'] = [PydSample(**sample) for sample in self.sub['samples']]
-        logger.debug(f"Reagents: {pformat(self.sub['reagents'])}")
+        # logger.debug(f"Reagents: {pformat(self.sub['reagents'])}")
         pyd_dict['reagents'] = [PydReagent(**reagent) for reagent in self.sub['reagents']]
         # logger.debug(f"Equipment: {self.sub['equipment']}")
         try:
@@ -215,13 +215,13 @@ class InfoParser(object):
                         new = location
                         new['name'] = k
                         relevant.append(new)
-            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
+            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if not relevant:
                 continue
             for item in relevant:
                 # NOTE: Get cell contents at this location
                 value = ws.cell(row=item['row'], column=item['column']).value
-                logger.debug(f"Value for {item['name']} = {value}")
+                # logger.debug(f"Value for {item['name']} = {value}")
                 match item['name']:
                     case "submission_type":
                         value, missing = is_missing(value)

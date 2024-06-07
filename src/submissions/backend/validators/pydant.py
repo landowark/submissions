@@ -573,10 +573,22 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("contact")
     @classmethod
     def get_contact_from_org(cls, value, values):
+        logger.debug(f"Checking on value: {value}")
+        match value:
+            case dict():
+                if isinstance(value['value'], tuple):
+                    value['value'] = value['value'][0]
+            case tuple():
+                value = dict(value=value[0], missing=False)
+            case _:
+                value = dict(value=value, missing=False)
         check = Contact.query(name=value['value'])
         if check is None:
             org = Organization.query(name=values.data['submitting_lab']['value'])
             contact = org.contacts[0].name
+            logger.debug(f"Pulled: {contact}")
+            if isinstance(contact, tuple):
+                contact = contact[0]
             return dict(value=contact, missing=True)
         else:
             return value

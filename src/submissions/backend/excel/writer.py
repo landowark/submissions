@@ -53,7 +53,8 @@ class SheetWriter(object):
                 template = self.submission_type.template_file
                 workbook = load_workbook(BytesIO(template))
                 missing_only = False
-        self.workbook = workbook
+        # self.workbook = workbook
+        self.xl = workbook
         self.write_info()
         self.write_reagents()
         self.write_samples()
@@ -62,23 +63,23 @@ class SheetWriter(object):
     def write_info(self):
         disallowed = ['filepath', 'reagents', 'samples', 'equipment', 'controls']
         info_dict = {k: v for k, v in self.sub.items() if k not in disallowed}
-        writer = InfoWriter(xl=self.workbook, submission_type=self.submission_type, info_dict=info_dict)
+        writer = InfoWriter(xl=self.xl, submission_type=self.submission_type, info_dict=info_dict)
         self.xl = writer.write_info()
 
     def write_reagents(self):
         reagent_list = self.sub['reagents']
-        writer = ReagentWriter(xl=self.workbook, submission_type=self.submission_type,
+        writer = ReagentWriter(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=self.sub['extraction_kit'], reagent_list=reagent_list)
         self.xl = writer.write_reagents()
 
     def write_samples(self):
         sample_list = self.sub['samples']
-        writer = SampleWriter(xl=self.workbook, submission_type=self.submission_type, sample_list=sample_list)
+        writer = SampleWriter(xl=self.xl, submission_type=self.submission_type, sample_list=sample_list)
         self.xl = writer.write_samples()
 
     def write_equipment(self):
         equipment_list = self.sub['equipment']
-        writer = EquipmentWriter(xl=self.workbook, submission_type=self.submission_type, equipment_list=equipment_list)
+        writer = EquipmentWriter(xl=self.xl, submission_type=self.submission_type, equipment_list=equipment_list)
         self.xl = writer.write_equipment()
 
 
@@ -93,18 +94,18 @@ class InfoWriter(object):
         self.submission_type = submission_type
         self.sub_object = sub_object
         self.xl = xl
-        map = submission_type.construct_info_map(mode='write')
-        self.info = self.reconcile_map(info_dict, map)
+        info_map = submission_type.construct_info_map(mode='write')
+        self.info = self.reconcile_map(info_dict, info_map)
         # logger.debug(pformat(self.info))
 
-    def reconcile_map(self, info_dict: dict, map: dict) -> dict:
+    def reconcile_map(self, info_dict: dict, info_map: dict) -> dict:
         output = {}
         for k, v in info_dict.items():
             if v is None:
                 continue
             dicto = {}
             try:
-                dicto['locations'] = map[k]
+                dicto['locations'] = info_map[k]
             except KeyError:
                 # continue
                 pass
@@ -126,7 +127,7 @@ class InfoWriter(object):
                 logger.error(f"No locations for {k}, skipping")
                 continue
             for loc in locations:
-                # logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
+                logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
                 sheet = self.xl[loc['sheet']]
                 sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
         return self.sub_object.custom_info_writer(self.xl, info=self.info)
@@ -141,14 +142,14 @@ class ReagentWriter(object):
             submission_type = SubmissionType.query(name=submission_type)
         if isinstance(extraction_kit, str):
             kit_type = KitType.query(name=extraction_kit)
-        map = kit_type.construct_xl_map_for_use(submission_type)
-        self.reagents = self.reconcile_map(reagent_list=reagent_list, map=map)
+        reagent_map = kit_type.construct_xl_map_for_use(submission_type)
+        self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
-    def reconcile_map(self, reagent_list, map) -> List[dict]:
+    def reconcile_map(self, reagent_list, reagent_map) -> List[dict]:
         output = []
         for reagent in reagent_list:
             try:
-                mp_info = map[reagent['role']]
+                mp_info = reagent_map[reagent['role']]
             except KeyError:
                 continue
             placeholder = copy(reagent)
@@ -182,7 +183,7 @@ class SampleWriter(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        self.map = submission_type.construct_sample_map()['lookup_table']
+        self.sample_map = submission_type.construct_sample_map()['lookup_table']
         self.samples = self.reconcile_map(sample_list)
 
     def reconcile_map(self, sample_list: list):
@@ -200,10 +201,10 @@ class SampleWriter(object):
         return sorted(output, key=lambda k: k['submission_rank'])
 
     def write_samples(self):
-        sheet = self.xl[self.map['sheet']]
-        columns = self.map['sample_columns']
+        sheet = self.xl[self.sample_map['sheet']]
+        columns = self.sample_map['sample_columns']
         for ii, sample in enumerate(self.samples):
-            row = self.map['start_row'] + (sample['submission_rank'] - 1)
+            row = self.sample_map['start_row'] + (sample['submission_rank'] - 1)
             for k, v in sample.items():
                 try:
                     column = columns[k]
@@ -220,13 +221,15 @@ class EquipmentWriter(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        map = self.submission_type.construct_equipment_map()
-        self.equipment = self.reconcile_map(equipment_list=equipment_list, map=map)
+        equipment_map = self.submission_type.construct_equipment_map()
+        self.equipment = self.reconcile_map(equipment_list=equipment_list, equipment_map=equipment_map)
 
-    def reconcile_map(self, equipment_list: list, map: list):
+    def reconcile_map(self, equipment_list: list, equipment_map: list):
         output = []
+        if equipment_list is None:
+            return output
         for ii, equipment in enumerate(equipment_list, start=1):
-            mp_info = map[equipment['role']]
+            mp_info = equipment_map[equipment['role']]
             # logger.debug(f"{equipment['role']} map: {mp_info}")
             placeholder = copy(equipment)
             if mp_info == {}:
