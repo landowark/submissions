@@ -71,6 +71,29 @@ kittypes_processes = Table(
     extend_existing=True
 )
 
+tiproles_tips = Table(
+    "_tiproles_tips",
+    Base.metadata,
+    Column("tiprole_id", INTEGER, ForeignKey("_tiprole.id")),
+    Column("tips_id", INTEGER, ForeignKey("_tips.id")),
+    extend_existing=True
+)
+
+submissions_tips = Table(
+    "_submissions_tips",
+    Base.metadata,
+    Column("submission_id", INTEGER, ForeignKey("_basicsubmissions.id")),
+    Column("tips_id", INTEGER, ForeignKey("_tips.id")),
+    extend_existing=True
+)
+
+process_tiprole = Table(
+    "_process_tiprole",
+    Base.metadata,
+    Column("process_id", INTEGER, ForeignKey("_process.id")),
+    Column("tiprole_id", INTEGER, ForeignKey("_tiprole.id")),
+    extend_existing=True
+)
 
 class KitType(BaseClass):
     """
@@ -1048,7 +1071,6 @@ class Equipment(BaseClass):
                          secondary=equipmentroles_equipment)  #: relation to EquipmentRoles
     processes = relationship("Process", back_populates="equipment",
                              secondary=equipment_processes)  #: relation to Processes
-
     equipment_submission_associations = relationship(
         "SubmissionEquipmentAssociation",
         back_populates="equipment",
@@ -1445,6 +1467,8 @@ class Process(BaseClass):
                                backref='process')  #: relation to SubmissionEquipmentAssociation
     kit_types = relationship("KitType", back_populates='processes',
                              secondary=kittypes_processes)  #: relation to KitType
+    tip_roles = relationship("TipRoles", back_populates='processes',
+                             secondary=process_tiprole)  #: relation to KitType
 
     def __repr__(self) -> str:
         """
@@ -1477,45 +1501,31 @@ class Process(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
 
-# class TipRole(BaseClass):
-#
-#     id = Column(INTEGER, primary_key=True)  #: primary key
-#     name = Column(String(64))  #: name of reagent type
-#     instances = relationship("Tips", back_populates="role",
-#                              secondary=reagenttypes_reagents)  #: concrete instances of this reagent type
-#
-#     tiprole_kit_associations = relationship(
-#         "KitTypeTipRoleAssociation",
-#         back_populates="tip_role",
-#         cascade="all, delete-orphan",
-#     )  #: Relation to KitTypeReagentTypeAssociation
-#
-#     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-#     kit_types = association_proxy("tiprole_kit_associations", "kit_type",
-#                                   creator=lambda kit: KitTypeReagentTypeAssociation(
-#                                       kit_type=kit))  #: Association proxy to KitTypeReagentTypeAssociation
-#
-#     def __repr__(self):
-#         return f"<TipRole({self.name})>"
-#
-# class Tips(BaseClass):
-#
-#     id = Column(INTEGER, primary_key=True)  #: primary key
-#     role = relationship("TipRole", back_populates="instances",
-#                         secondary=reagenttypes_reagents)  #: joined parent reagent type
-#     role_id = Column(INTEGER, ForeignKey("_tiprole.id", ondelete='SET NULL',
-#                                          name="fk_tip_role_id"))  #: id of parent reagent type
-#     name = Column(String(64))  #: tip common name
-#     lot = Column(String(64))  #: lot number of tips
-#
-#     tips_submission_associations = relationship(
-#         "SubmissionTipsAssociation",
-#         back_populates="tips",
-#         cascade="all, delete-orphan",
-#     )  #: Relation to SubmissionSampleAssociation
-#
-#     submissions = association_proxy("tips_submission_associations",
-#                                     "submission")  #: Association proxy to SubmissionSampleAssociation.samples
-#
-#     def __repr__(self):
-#         return f"<Tips({self.name})>"
+class TipRole(BaseClass):
+
+    id = Column(INTEGER, primary_key=True)  #: primary key
+    name = Column(String(64))  #: name of reagent type
+    instances = relationship("Tips", back_populates="role",
+                             secondary=tiproles_tips)  #: concrete instances of this reagent type
+    processes = relationship("Process", back_populates="tip_roles", secondary=process_tiprole)
+
+
+    def __repr__(self):
+        return f"<TipRole({self.name})>"
+
+class Tips(BaseClass):
+
+    id = Column(INTEGER, primary_key=True)  #: primary key
+    role = relationship("TipRole", back_populates="instances",
+                        secondary=tiproles_tips)  #: joined parent reagent type
+    role_id = Column(INTEGER, ForeignKey("_tiprole.id", ondelete='SET NULL',
+                                         name="fk_tip_role_id"))  #: id of parent reagent type
+    name = Column(String(64))  #: tip common name
+    lot = Column(String(64))  #: lot number of tips
+    submissions = relationship("BasicSubmission", back_populates="tips",
+                              secondary=submissions_tips)  #: associated submission
+
+    def __repr__(self):
+        return f"<Tips({self.name})>"
+
+
