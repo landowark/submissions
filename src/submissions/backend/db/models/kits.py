@@ -2,7 +2,6 @@
 All kit and reagent related models
 """
 from __future__ import annotations
-from copy import copy
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy

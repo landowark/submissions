@@ -21,6 +21,7 @@ from typing import List
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 class SubmissionDetails(QDialog):
     """
     a window showing text details of submission
@@ -92,8 +93,8 @@ class SubmissionDetails(QDialog):
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
-        with open("test.html", "w") as f:
-            f.write(self.html)
+        # with open("test.html", "w") as f:
+        #     f.write(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
 
     @pyqtSlot(str)
@@ -125,8 +126,6 @@ class SubmissionDetails(QDialog):
         del self.base_dict['platemap']
         self.html2 = self.template.render(sub=self.base_dict)
         try:
-            # with open(fname, "w+b") as f:
-            #     pisa.CreatePDF(self.html2, dest=f)
             html_to_pdf(html=self.html2, output_file=fname)
         except PermissionError as e:
             logger.error(f"Error saving pdf: {e}")
@@ -135,7 +134,8 @@ class SubmissionDetails(QDialog):
             msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
             msg.setWindowTitle("Permission Error")
             msg.exec()
-        
+
+
 class SubmissionComment(QDialog):
     """
     a window for adding comment text to a submission
@@ -174,4 +174,3 @@ class SubmissionComment(QDialog):
         full_comment = {"name":commenter, "time": dt, "text": comment}
         # logger.debug(f"Full comment: {full_comment}")
         return full_comment
-

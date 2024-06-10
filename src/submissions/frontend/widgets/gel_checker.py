@@ -5,9 +5,8 @@ from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
                              QLabel, QLineEdit, QDialogButtonBox,
                              QTextEdit
                              )
-import numpy as np
 import pyqtgraph as pg
-from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtGui import QIcon
 from PIL import Image
 import numpy as np
 import logging
@@ -17,6 +16,7 @@ from pathlib import Path
 from backend.db.models import WastewaterArtic
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
 
 # Main window class
 class GelBox(QDialog):
@@ -86,7 +86,8 @@ class GelBox(QDialog):
         gel_barcode = self.gel_barcode.text()
         values, comment = self.form.parse_form()
         return dna_core_submission_number, gel_barcode, self.img_path, values, comment
-        
+
+
 class ControlsForm(QWidget):
 
     def __init__(self, parent, control_info:List=None) -> None:

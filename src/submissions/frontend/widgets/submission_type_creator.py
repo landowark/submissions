@@ -12,6 +12,7 @@ from .functions import select_open_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 class SubmissionTypeAdder(QWidget):
 
     def __init__(self, parent) -> None:
@@ -79,6 +80,7 @@ class SubmissionTypeAdder(QWidget):
         """        
         self.template_path = select_open_file(obj=self, file_extension="xlsx")
         self.template_label.setText(self.template_path.__str__())
+
 
 class InfoWidget(QWidget):
 

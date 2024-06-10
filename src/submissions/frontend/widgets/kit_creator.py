@@ -138,7 +138,8 @@ class KitAdder(QWidget):
                 case QDateEdit():
                     info[widget.objectName()] = widget.date().toPyDate()
         return info, reagents
-        
+
+
 class ReagentRoleForm(QWidget):
     """
     custom widget to add information about a new reagenttype

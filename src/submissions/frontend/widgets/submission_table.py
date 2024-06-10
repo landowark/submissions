@@ -9,13 +9,13 @@ from PyQt6.QtGui import QAction, QCursor
 from backend.db.models import BasicSubmission
 from backend.excel import make_report_html, make_report_xlsx
 from tools import Report, Result, row_map, get_first_blank_df_row, html_to_pdf
-# from xhtml2pdf import pisa
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
 import pandas as pd
 from openpyxl.worksheet.worksheet import Worksheet
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
 
 class pandasModel(QAbstractTableModel):
     """
@@ -60,7 +60,8 @@ class pandasModel(QAbstractTableModel):
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return self._data.columns[col]
         return None
-        
+
+
 class SubmissionsSheet(QTableView):
     """
     presents submission summary to user in tab1

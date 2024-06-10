@@ -4,7 +4,6 @@ Contains miscellaenous functions used by both frontend and backend.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
 import pandas as pd
@@ -16,7 +15,7 @@ from sqlalchemy import create_engine, text
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
-from PyQt6.QtGui import QTextDocument, QPageSize
+from PyQt6.QtGui import QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from openpyxl.worksheet.worksheet import Worksheet
 

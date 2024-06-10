@@ -1,14 +1,13 @@
 from pprint import pformat
 from typing import Tuple
 from pandas import DataFrame
-from PyQt6.QtCore import QAbstractTableModel, Qt, QEvent, QSortFilterProxyModel
+from PyQt6.QtCore import QSortFilterProxyModel
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
-    QDialogButtonBox, QMessageBox, QComboBox, QTableView, QWidget, QLineEdit, QGridLayout
+    QComboBox, QTableView, QWidget, QLineEdit, QGridLayout
 )
 from backend.db.models import BasicSample
 from .submission_table import pandasModel
-from .submission_details import SubmissionDetails
 import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")

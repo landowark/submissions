@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QMainWindow, QFileDialog
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 def select_open_file(obj:QMainWindow, file_extension:str) -> Path:
     """
     File dialog to select a file to read from
@@ -28,6 +29,7 @@ def select_open_file(obj:QMainWindow, file_extension:str) -> Path:
     fname = Path(QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter = f"{file_extension}(*.{file_extension})")[0])
     obj.last_dir = fname.parent
     return fname
+
 
 def select_save_file(obj:QMainWindow, default_name:str, extension:str) -> Path:
     """

@@ -8,8 +8,6 @@ from pprint import pformat
 from typing import List
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from openpyxl.worksheet.protection import SheetProtection
-import numpy as np
 from pathlib import Path
 from backend.db.models import *
 from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample, PydEquipment
@@ -17,13 +15,11 @@ import logging, re
 from collections import OrderedDict
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, convert_nans_to_nones, row_map, row_keys, is_missing, remove_key_from_list_of_dicts
+from tools import check_not_nan, convert_nans_to_nones, is_missing, remove_key_from_list_of_dicts
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-
-# row_keys = {v:k for k,v in row_map.items()}
 
 class SheetParser(object):
     """

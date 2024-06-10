@@ -13,11 +13,11 @@ from backend.db.models import *
 import logging
 from .pop_ups import AlertPop
 from .functions import select_open_file
-from tools import Settings
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 env = jinja_template_loading()
+
 
 class AddReagentForm(QDialog):
     """
@@ -102,6 +102,7 @@ class AddReagentForm(QDialog):
         lookup = Reagent.query(reagent_role=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
+
 class ReportDatePicker(QDialog):
     """
     custom dialog to ask for report start/stop dates
@@ -137,6 +138,7 @@ class ReportDatePicker(QDialog):
             dict: output dict.
         """        
         return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
+
 
 class FirstStrandSalvage(QDialog):
 
@@ -178,6 +180,7 @@ class FirstStrandSalvage(QDialog):
         """              
         return dict(plate=self.rsl_plate_num.text(), submitter_id=self.submitter_id_input.text(), well=f"{self.row_letter.currentText()}{self.column_number.currentText()}")
 
+
 class LogParser(QDialog):
 
     def __init__(self, parent):
@@ -196,7 +199,6 @@ class LogParser(QDialog):
         self.filebutton.clicked.connect(self.filelookup)
         self.btn.clicked.connect(self.runsearch)
         self.setMinimumWidth(400)
-
 
     def filelookup(self):
         """

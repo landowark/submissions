@@ -2,7 +2,6 @@
 Contains pydantic models and accompanying validators
 '''
 from __future__ import annotations
-
 import sys
 from operator import attrgetter
 import uuid, re, logging
