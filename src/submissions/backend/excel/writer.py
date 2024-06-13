@@ -57,6 +57,7 @@ class SheetWriter(object):
         self.write_reagents()
         self.write_samples()
         self.write_equipment()
+        self.write_tips()
 
     def write_info(self):
         disallowed = ['filepath', 'reagents', 'samples', 'equipment', 'controls']
@@ -79,6 +80,11 @@ class SheetWriter(object):
         equipment_list = self.sub['equipment']
         writer = EquipmentWriter(xl=self.xl, submission_type=self.submission_type, equipment_list=equipment_list)
         self.xl = writer.write_equipment()
+
+    def write_tips(self):
+        tips_list = self.sub['tips']
+        writer = TipWriter(xl=self.xl, submission_type=self.submission_type, tips_list=tips_list)
+        self.xl = writer.write_tips()
 
 
 class InfoWriter(object):
@@ -269,5 +275,66 @@ class EquipmentWriter(object):
                     sheet.cell(row=v['row'], column=v['column'], value=v['value'])
                 except AttributeError as e:
                     logger.error(f"Couldn't write to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
+                    logger.error(e)
+        return self.xl
+
+
+class TipWriter(object):
+
+    def __init__(self, xl: Workbook, submission_type: SubmissionType | str, tips_list: list):
+        if isinstance(submission_type, str):
+            submission_type = SubmissionType.query(name=submission_type)
+        self.submission_type = submission_type
+        self.xl = xl
+        tips_map = self.submission_type.construct_tips_map()
+        self.tips = self.reconcile_map(tips_list=tips_list, tips_map=tips_map)
+
+    def reconcile_map(self, tips_list: list, tips_map: list):
+        output = []
+        if tips_list is None:
+            return output
+        for ii, tips in enumerate(tips_list, start=1):
+            mp_info = tips_map[tips['role']]
+            # logger.debug(f"{tips['role']} map: {mp_info}")
+            placeholder = copy(tips)
+            if mp_info == {}:
+                for jj, (k, v) in enumerate(tips.items(), start=1):
+                    dicto = dict(value=v, row=ii, column=jj)
+                    placeholder[k] = dicto
+            else:
+                for jj, (k, v) in enumerate(tips.items(), start=1):
+                    try:
+                        dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
+                    except KeyError as e:
+                        # logger.error(f"Keyerror: {e}")
+                        continue
+                    placeholder[k] = dicto
+            try:
+                placeholder['sheet'] = mp_info['sheet']
+            except KeyError:
+                placeholder['sheet'] = "Tips"
+            # logger.debug(f"Final output of {tips['role']} : {placeholder}")
+            output.append(placeholder)
+        return output
+
+    def write_tips(self):
+        for tips in self.tips:
+            try:
+                sheet = self.xl[tips['sheet']]
+            except KeyError:
+                self.xl.create_sheet("Tips")
+            finally:
+                sheet = self.xl[tips['sheet']]
+            for k, v in tips.items():
+                if not isinstance(v, dict):
+                    continue
+                # logger.debug(
+                #     f"Writing {k}: {v['value']} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
+                if isinstance(v['value'], list):
+                    v['value'] = v['value'][0]
+                try:
+                    sheet.cell(row=v['row'], column=v['column'], value=v['value'])
+                except AttributeError as e:
+                    logger.error(f"Couldn't write to {tips['sheet']}, row: {v['row']}, column: {v['column']}")
                     logger.error(e)
         return self.xl

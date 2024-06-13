@@ -154,7 +154,7 @@ class BasicSubmission(BaseClass):
         dicto = dict(
             details_ignore=['excluded', 'reagents', 'samples',
                             'extraction_info', 'comment', 'barcode',
-                            'platemap', 'export_map', 'equipment'],
+                            'platemap', 'export_map', 'equipment', 'tips'],
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment'] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic

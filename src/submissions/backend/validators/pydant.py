@@ -731,7 +731,7 @@ class PydSubmission(BaseModel, extra='allow'):
                     for tips in self.tips:
                         if tips is None:
                             continue
-                        association = tips.to_sql()
+                        association = tips.to_sql(submission=instance)
                         if association is not None:
                             # association.save()
                             instance.submission_tips_associations.append(association)
