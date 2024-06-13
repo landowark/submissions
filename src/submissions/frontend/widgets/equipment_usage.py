@@ -1,9 +1,11 @@
+import sys
+from pprint import pformat
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox, 
-                             QLabel, QWidget, QHBoxLayout, 
-                             QVBoxLayout, QDialogButtonBox)
-from backend.db.models import Equipment, BasicSubmission
-from backend.validators.pydant import PydEquipment, PydEquipmentRole
+from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,
+                             QLabel, QWidget, QHBoxLayout,
+                             QVBoxLayout, QDialogButtonBox, QGridLayout)
+from backend.db.models import Equipment, BasicSubmission, Process
+from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
 import logging
 from typing import List
 
@@ -56,7 +58,8 @@ class EquipmentUsage(QDialog):
                         output.append(widget.parse_form())
                 case _:
                     pass
-        return [item for item in output if item != None]
+        logger.debug(f"parsed output of Equsage form: {pformat(output)}")
+        return [item for item in output if item is not None]
     
     class LabelRow(QWidget):
 
@@ -66,7 +69,7 @@ class EquipmentUsage(QDialog):
             self.check = QCheckBox()
             self.layout.addWidget(self.check)
             self.check.stateChanged.connect(self.check_all)
-            for item in ["Role", "Equipment", "Process"]:
+            for item in ["Role", "Equipment", "Process", "Tips"]:
                 l = QLabel(item)
                 l.setMaximumWidth(200)
                 l.setMinimumWidth(200)
@@ -84,7 +87,8 @@ class RoleComboBox(QWidget):
 
     def __init__(self, parent, role:PydEquipmentRole, used:list) -> None:
         super().__init__(parent)
-        self.layout = QHBoxLayout()
+        # self.layout = QHBoxLayout()
+        self.layout = QGridLayout()
         self.role = role
         self.check = QCheckBox()
         if role.name in used:
@@ -99,15 +103,20 @@ class RoleComboBox(QWidget):
         self.process = QComboBox()
         self.process.setMaximumWidth(200)
         self.process.setMinimumWidth(200)
-        self.process.setEditable(True)
-        self.layout.addWidget(self.check)
+        self.process.setEditable(False)
+        self.process.currentTextChanged.connect(self.update_tips)
+        # self.tips = QComboBox()
+        # self.tips.setMaximumWidth(200)
+        # self.tips.setMinimumWidth(200)
+        # self.tips.setEditable(True)
+        self.layout.addWidget(self.check,0,0)
         label = QLabel(f"{role.name}:")
         label.setMinimumWidth(200)
         label.setMaximumWidth(200)
         label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.layout.addWidget(label)
-        self.layout.addWidget(self.box)
-        self.layout.addWidget(self.process)
+        self.layout.addWidget(label,0,1)
+        self.layout.addWidget(self.box,0,2)
+        self.layout.addWidget(self.process,0,3)
         self.setLayout(self.layout)
         
     def update_processes(self):
@@ -121,6 +130,28 @@ class RoleComboBox(QWidget):
         self.process.clear()
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])
 
+    def update_tips(self):
+
+        process = self.process.currentText()
+        logger.debug(f"Checking process: {process}")
+        process = Process.query(name=process)
+        if process.tip_roles:
+            for iii, tip_role in enumerate(process.tip_roles):
+                widget = QComboBox()
+                tip_choices = [item.name for item in tip_role.instances]
+                widget.setEditable(False)
+                widget.addItems(tip_choices)
+                # logger.debug(f"Tiprole: {tip_role.__dict__}")
+                widget.setObjectName(f"tips_{tip_role.name}")
+                widget.setMinimumWidth(100)
+                widget.setMaximumWidth(100)
+                self.layout.addWidget(widget, iii, 4)
+        else:
+            widget = QLabel("")
+            widget.setMinimumWidth(100)
+            widget.setMaximumWidth(100)
+            self.layout.addWidget(widget,0,4)
+
     def parse_form(self) -> PydEquipment|None:
         """
         Creates PydEquipment for values in form
@@ -129,8 +160,17 @@ class RoleComboBox(QWidget):
             PydEquipment|None: PydEquipment matching form
         """        
         eq = Equipment.query(name=self.box.currentText())
+        tips = [PydTips(name=item.currentText(), role=item.objectName().lstrip("tips").lstrip("_")) for item in self.findChildren(QComboBox) if item.objectName().startswith("tips")]
+        logger.debug(tips)
         try:
-            return PydEquipment(name=eq.name, processes=[self.process.currentText()], role=self.role.name, asset_number=eq.asset_number, nickname=eq.nickname)
+            return PydEquipment(
+                name=eq.name,
+                processes=[self.process.currentText()],
+                role=self.role.name,
+                asset_number=eq.asset_number,
+                nickname=eq.nickname,
+                tips=tips
+            )
         except Exception as e:
             logger.error(f"Could create PydEquipment due to: {e}")
         

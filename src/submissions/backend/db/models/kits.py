@@ -8,12 +8,11 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
 from tools import check_authorization, setup_lookup, Report, Result
-from typing import List, Literal
+from typing import List, Literal, Any
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
 from io import BytesIO
-
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -79,14 +78,6 @@ tiproles_tips = Table(
     extend_existing=True
 )
 
-submissions_tips = Table(
-    "_submissions_tips",
-    Base.metadata,
-    Column("submission_id", INTEGER, ForeignKey("_basicsubmissions.id")),
-    Column("tips_id", INTEGER, ForeignKey("_tips.id")),
-    extend_existing=True
-)
-
 process_tiprole = Table(
     "_process_tiprole",
     Base.metadata,
@@ -94,6 +85,15 @@ process_tiprole = Table(
     Column("tiprole_id", INTEGER, ForeignKey("_tiprole.id")),
     extend_existing=True
 )
+
+equipment_tips = Table(
+    "_equipment_tips",
+    Base.metadata,
+    Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
+    Column("tips_id", INTEGER, ForeignKey("_tips.id")),
+    extend_existing=True
+)
+
 
 class KitType(BaseClass):
     """
@@ -133,7 +133,8 @@ class KitType(BaseClass):
         """
         return f"<KitType({self.name})>"
 
-    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> List[ReagentRole]:
+    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> List[
+        ReagentRole]:
         """
         Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
 
@@ -143,7 +144,7 @@ class KitType(BaseClass):
 
         Returns:
             List[ReagentRole]: List of reagents linked to this kit.
-        """       
+        """
         match submission_type:
             case SubmissionType():
                 # logger.debug(f"Getting reagents by SubmissionType {submission_type}")
@@ -609,6 +610,12 @@ class SubmissionType(BaseClass):
         cascade="all, delete-orphan"
     )  #: triple association of KitTypes, ReagentTypes, SubmissionTypes
 
+    submissiontype_tiprole_associations = relationship(
+        "SubmissionTypeTipRoleAssociation",
+        back_populates="submission_type",
+        cascade="all, delete-orphan"
+    )
+
     def __repr__(self) -> str:
         """
         Returns:
@@ -656,7 +663,7 @@ class SubmissionType(BaseClass):
 
         Returns:
             dict: Map of locations
-        """        
+        """
         info = self.info_map
         # logger.debug(f"Info map: {info}")
         output = {}
@@ -674,7 +681,7 @@ class SubmissionType(BaseClass):
 
         Returns:
             dict: sample location map
-        """        
+        """
         return self.sample_map
 
     def construct_equipment_map(self) -> dict:
@@ -691,6 +698,15 @@ class SubmissionType(BaseClass):
             if emap is None:
                 emap = {}
             output[item.equipment_role.name] = emap
+        return output
+
+    def construct_tips_map(self):
+        output = {}
+        for item in self.submissiontype_tiprole_associations:
+            tmap = item.uses
+            if tmap is None:
+                tmap = {}
+            output[item.tip_role.name] = tmap
         return output
 
     def get_equipment(self, extraction_kit: str | KitType | None = None) -> List['PydEquipmentRole']:
@@ -735,7 +751,7 @@ class SubmissionType(BaseClass):
 
         Returns:
             BasicSubmission: Submission class
-        """                
+        """
         from .submissions import BasicSubmission
         return BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.name)
 
@@ -1071,6 +1087,8 @@ class Equipment(BaseClass):
                          secondary=equipmentroles_equipment)  #: relation to EquipmentRoles
     processes = relationship("Process", back_populates="equipment",
                              secondary=equipment_processes)  #: relation to Processes
+    tips = relationship("Tips", back_populates="equipment",
+                        secondary=equipment_tips)  #: relation to Processes
     equipment_submission_associations = relationship(
         "SubmissionEquipmentAssociation",
         back_populates="equipment",
@@ -1467,7 +1485,7 @@ class Process(BaseClass):
                                backref='process')  #: relation to SubmissionEquipmentAssociation
     kit_types = relationship("KitType", back_populates='processes',
                              secondary=kittypes_processes)  #: relation to KitType
-    tip_roles = relationship("TipRoles", back_populates='processes',
+    tip_roles = relationship("TipRole", back_populates='processes',
                              secondary=process_tiprole)  #: relation to KitType
 
     def __repr__(self) -> str:
@@ -1502,19 +1520,25 @@ class Process(BaseClass):
 
 
 class TipRole(BaseClass):
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of reagent type
     instances = relationship("Tips", back_populates="role",
                              secondary=tiproles_tips)  #: concrete instances of this reagent type
     processes = relationship("Process", back_populates="tip_roles", secondary=process_tiprole)
 
+    tiprole_submissiontype_associations = relationship(
+        "SubmissionTypeTipRoleAssociation",
+        back_populates="tip_role",
+        cascade="all, delete-orphan"
+    )  #: associated submission
+
+    submission_types = association_proxy("tiprole_submissiontype_associations", "submission_type")
 
     def __repr__(self):
         return f"<TipRole({self.name})>"
 
-class Tips(BaseClass):
 
+class Tips(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     role = relationship("TipRole", back_populates="instances",
                         secondary=tiproles_tips)  #: joined parent reagent type
@@ -1522,10 +1546,64 @@ class Tips(BaseClass):
                                          name="fk_tip_role_id"))  #: id of parent reagent type
     name = Column(String(64))  #: tip common name
     lot = Column(String(64))  #: lot number of tips
-    submissions = relationship("BasicSubmission", back_populates="tips",
-                              secondary=submissions_tips)  #: associated submission
+    equipment = relationship("Equipment", back_populates="tips",
+                             secondary=equipment_tips)  #: associated submission
+    tips_submission_associations = relationship(
+        "SubmissionTipsAssociation",
+        back_populates="tips",
+        cascade="all, delete-orphan"
+    )  #: associated submission
+
+    submissions = association_proxy("tips_submission_associations", 'submission')
 
     def __repr__(self):
         return f"<Tips({self.name})>"
 
+    @classmethod
+    def query(cls, name: str | None = None, lot: str | None = None, limit: int = 0, **kwargs) -> Any | List[Any]:
+        query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                # logger.debug(f"Lookup Equipment by name str {name}")
+                query = query.filter(cls.name == name)
+            case _:
+                pass
+        match lot:
+            case str():
+                # logger.debug(f"Lookup Equipment by nickname str {nickname}")
+                query = query.filter(cls.lot == lot)
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
+
+class SubmissionTypeTipRoleAssociation(BaseClass):
+    """
+   Abstract association between SubmissionType and TipRole
+   """
+    tiprole_id = Column(INTEGER, ForeignKey("_tiprole.id"), primary_key=True)  #: id of associated equipment
+    submissiontype_id = Column(INTEGER, ForeignKey("_submissiontype.id"),
+                               primary_key=True)  #: id of associated submission
+    uses = Column(JSON)  #: locations of equipment on the submission type excel sheet.
+    static = Column(INTEGER,
+                    default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+    submission_type = relationship(SubmissionType,
+                                   back_populates="submissiontype_tiprole_associations")  #: associated submission
+    tip_role = relationship(TipRole,
+                            back_populates="tiprole_submissiontype_associations")  #: associated equipment
+
+
+class SubmissionTipsAssociation(BaseClass):
+    tip_id = Column(INTEGER, ForeignKey("_tips.id"), primary_key=True)  #: id of associated equipment
+    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
+    submission = relationship("BasicSubmission",
+                              back_populates="submission_tips_associations")  #: associated submission
+    tips = relationship(Tips,
+                        back_populates="tips_submission_associations")  #: associated equipment
+    role_name = Column(String(32))  #, ForeignKey("_tiprole.name"))
+
+    # role = relationship(TipRole)
+
+    def to_sub_dict(self):
+        return dict(role=self.role_name, name=self.tips.name, lot=self.tips.lot)

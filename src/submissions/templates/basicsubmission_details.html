@@ -55,6 +55,12 @@
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> {{ item['name'] }} ({{ item['asset_number'] }}): {{ item['processes'][0]|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}<br>
         {% endfor %}</p>
         {% endif %}
+        {% if sub['tips'] %}
+        <h3><u>Tips:</u></h3>
+        <p>{% for item in sub['tips'] %}
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> {{ item['name'] }} ({{ item['lot'] }})<br>
+        {% endfor %}</p>
+        {% endif %}
         {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}

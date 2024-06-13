@@ -10,7 +10,7 @@ from zipfile import ZipFile
 from tempfile import TemporaryDirectory
 from operator import attrgetter, itemgetter
 from pprint import pformat
-from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact
+from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, Tips, TipRole, SubmissionTipsAssociation
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -95,6 +95,14 @@ class BasicSubmission(BaseClass):
 
     equipment = association_proxy("submission_equipment_associations",
                                   "equipment")  #: Association proxy to SubmissionEquipmentAssociation.equipment
+
+    submission_tips_associations = relationship(
+        "SubmissionTipsAssociation",
+        back_populates="submission",
+        cascade="all, delete-orphan")
+
+    tips = association_proxy("submission_tips_associations",
+                             "tips")
 
     # NOTE: Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
@@ -248,7 +256,6 @@ class BasicSubmission(BaseClass):
             ext_info = self.extraction_info
         except TypeError:
             ext_info = None
-
         output = {
             "id": self.id,
             "plate_number": self.rsl_plate_num,
@@ -282,16 +289,24 @@ class BasicSubmission(BaseClass):
             # logger.debug("Running equipment")
             try:
                 equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
-                if len(equipment) == 0:
+                if not equipment:
                     equipment = None
             except Exception as e:
                 logger.error(f"Error setting equipment: {e}")
                 equipment = None
+            try:
+                tips = [item.to_sub_dict() for item in self.submission_tips_associations]
+                if not tips:
+                    tips = None
+            except Exception as e:
+                logger.error(f"Error setting tips: {e}")
+                tips = None
             cost_centre = self.cost_centre
         else:
             reagents = None
             samples = None
             equipment = None
+            tips = None
             cost_centre = None
         # logger.debug("Getting comments")
         try:
@@ -315,6 +330,7 @@ class BasicSubmission(BaseClass):
         output["extraction_info"] = ext_info
         output["comment"] = comments
         output["equipment"] = equipment
+        output["tips"] = tips
         output["cost_centre"] = cost_centre
         output["signed_by"] = self.signed_by
         # logger.debug(f"Setting contact to: {contact} of type: {type(contact)}")
@@ -440,7 +456,7 @@ class BasicSubmission(BaseClass):
         excluded = ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
                     'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
-                    'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact']
+                    'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact', 'tips']
         for item in excluded:
             try:
                 df = df.drop(item, axis=1)
@@ -1110,6 +1126,12 @@ class BasicSubmission(BaseClass):
                 _, assoc = equip.toSQL(submission=self)
                 # logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
                 assoc.save()
+                if equip.tips:
+                    logger.debug("We have tips in this equipment")
+                    for tips in equip.tips:
+                        tassoc = tips.to_sql(submission=self)
+                        tassoc.save()
+
         else:
             pass
 

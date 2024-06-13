@@ -245,7 +245,10 @@ class PydSample(BaseModel, extra='allow'):
                     instance.__setattr__(key, value)
         out_associations = []
         if submission is not None:
-            assoc_type = self.sample_type.replace("Sample", "").strip()
+            if isinstance(submission, str):
+                submission = BasicSubmission.query(rsl_plate_num=submission)
+            assoc_type = submission.submission_type_name
+            # assoc_type = self.sample_type.replace("Sample", "").strip()
             for row, column, aid, submission_rank in zip(self.row, self.column, self.assoc_id, self.submission_rank):
                 # logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
                 # logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
@@ -254,7 +257,7 @@ class PydSample(BaseModel, extra='allow'):
                                                                           sample=instance,
                                                                           row=row, column=column, id=aid,
                                                                           submission_rank=submission_rank)
-                # logger.debug(f"Using submission_sample_association: {association}")
+                logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     # instance.sample_submission_associations.append(association)
                     out_associations.append(association)
@@ -272,12 +275,24 @@ class PydSample(BaseModel, extra='allow'):
         return {k: getattr(self, k) for k in fields}
 
 
+class PydTips(BaseModel):
+    name: str
+    lot: str|None = Field(default=None)
+    role: str
+
+    def to_sql(self, submission:BasicSubmission):
+        tips = Tips.query(name=self.name, lot=self.lot, limit=1)
+        assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
+        return assoc
+
+
 class PydEquipment(BaseModel, extra='ignore'):
     asset_number: str
     name: str
     nickname: str | None
     processes: List[str] | None
     role: str | None
+    tips: List[PydTips]|None = Field(default=None)
 
     @field_validator('processes', mode='before')
     @classmethod
@@ -703,18 +718,23 @@ class PydSubmission(BaseModel, extra='allow'):
                                 instance.submission_sample_associations.append(assoc)
                 case "equipment":
                     # logger.debug(f"Equipment: {pformat(self.equipment)}")
-                    try:
+                    for equip in self.equipment:
                         if equip is None:
                             continue
-                    except UnboundLocalError:
-                        continue
-                    for equip in self.equipment:
                         equip, association = equip.toSQL(submission=instance)
                         if association is not None:
-                            association.save()
+                            # association.save()
                             # logger.debug(
                             #     f"Equipment association SQL object to be added to submission: {association.__dict__}")
                             instance.submission_equipment_associations.append(association)
+                case "tips":
+                    for tips in self.tips:
+                        if tips is None:
+                            continue
+                        association = tips.to_sql()
+                        if association is not None:
+                            # association.save()
+                            instance.submission_tips_associations.append(association)
                 case item if item in instance.jsons():
                     # logger.debug(f"{item} is a json.")
                     try:
@@ -949,3 +969,4 @@ class PydEquipmentRole(BaseModel):
         """
         from frontend.widgets.equipment_usage import RoleComboBox
         return RoleComboBox(parent=parent, role=self, used=used)
+
