@@ -1789,28 +1789,28 @@ class WastewaterArtic(BasicSubmission):
         """
         # logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
         output = []
-        set_plate = None
+        # set_plate = None
         for assoc in self.submission_sample_associations:
             dicto = assoc.to_sub_dict()
-            if self.source_plates is None:
-                output.append(dicto)
-                continue
-            for item in self.source_plates:
-                if assoc.sample.id is None:
-                    old_plate = None
-                else:
-                    old_plate = WastewaterAssociation.query(submission=item['plate'], sample=assoc.sample, limit=1)
-                if old_plate is not None:
-                    set_plate = old_plate.submission.rsl_plate_num
-                    # logger.debug(f"Dictionary: {pformat(dicto)}")
-                    if dicto['ww_processing_num'].startswith("NTC"):
-                        dicto['well'] = dicto['ww_processing_num']
-                    else:
-                        dicto['well'] = f"{row_map[old_plate.row]}{old_plate.column}"
-                    break
-                elif dicto['ww_processing_num'].startswith("NTC"):
-                    dicto['well'] = dicto['ww_processing_num']
-            dicto['plate_name'] = set_plate
+            # if self.source_plates is None:
+            #     output.append(dicto)
+            #     continue
+            # for item in self.source_plates:
+            #     if assoc.sample.id is None:
+            #         old_plate = None
+            #     else:
+            #         old_plate = WastewaterAssociation.query(submission=item['plate'], sample=assoc.sample, limit=1)
+            #     if old_plate is not None:
+            #         set_plate = old_plate.submission.rsl_plate_num
+            #         # logger.debug(f"Dictionary: {pformat(dicto)}")
+            #         if dicto['ww_processing_num'].startswith("NTC"):
+            #             dicto['well'] = dicto['ww_processing_num']
+            #         else:
+            #             dicto['well'] = f"{row_map[old_plate.row]}{old_plate.column}"
+            #         break
+            #     elif dicto['ww_processing_num'].startswith("NTC"):
+            #         dicto['well'] = dicto['ww_processing_num']
+            # dicto['plate_name'] = set_plate
             # logger.debug(f"Here is our raw sample: {pformat(dicto)}")
             output.append(dicto)
         return output
@@ -2342,7 +2342,7 @@ class SubmissionSampleAssociation(BaseClass):
     }
 
     def __init__(self, submission: BasicSubmission = None, sample: BasicSample = None, row: int = 1, column: int = 1,
-                 id: int | None = None, submission_rank: int = 0):
+                 id: int | None = None, submission_rank: int = 0, **kwargs):
         self.submission = submission
         self.sample = sample
         self.row = row
@@ -2352,6 +2352,12 @@ class SubmissionSampleAssociation(BaseClass):
             self.id = id
         else:
             self.id = self.__class__.autoincrement_id()
+        logger.debug(f"Looking at kwargs: {pformat(kwargs)}")
+        for k,v in kwargs.items():
+            try:
+                self.__setattr__(k, v)
+            except AttributeError:
+                logger.error(f"Couldn't set {k} to {v}")
         # logger.debug(f"Using submission sample association id: {self.id}")
 
     def __repr__(self) -> str:
@@ -2532,7 +2538,7 @@ class SubmissionSampleAssociation(BaseClass):
        Returns:
             SubmissionSampleAssociation: Queried or new association.
         """
-        # logger.debug(f"Attempting create or query with {kwargs}")
+        logger.debug(f"Attempting create or query with {kwargs}")
         match submission:
             case BasicSubmission():
                 pass
@@ -2562,7 +2568,6 @@ class SubmissionSampleAssociation(BaseClass):
         if instance is None:
             # sanitized_kwargs = {k:v for k,v in kwargs.items() if k not in ['id']}
             used_cls = cls.find_polymorphic_subclass(polymorphic_identity=association_type)
-            # instance = used_cls(submission=submission, sample=sample, id=id, **kwargs)
             instance = used_cls(submission=submission, sample=sample, id=id, **kwargs)
         return instance
 
@@ -2627,3 +2632,48 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         except ValueError as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1
+
+
+class WastewaterArticAssociation(SubmissionSampleAssociation):
+
+    id = Column(INTEGER, ForeignKey("_submissionsampleassociation.id"), primary_key=True)
+    source_plate = Column(String(16))
+    source_plate_number = Column(INTEGER)
+    source_well = Column(String(8))
+    ct = Column(String(8))  #: AKA ct for N1
+
+    __mapper_args__ = dict(polymorphic_identity="Wastewater Artic Association",
+                           polymorphic_load="inline",
+                           inherit_condition=(id == SubmissionSampleAssociation.id))
+
+    def to_sub_dict(self) -> dict:
+        """
+        Returns a sample dictionary updated with instance information. Extends parent
+
+        Returns:
+            dict: Updated dictionary with row, column and well updated
+        """
+
+        sample = super().to_sub_dict()
+        sample['ct'] = self.ct
+        sample['source_plate'] = self.source_plate
+        sample['source_plate_number'] = self.source_plate_number
+        sample['source_well'] = self.source_well
+        return sample
+
+    @classmethod
+    def autoincrement_id(cls) -> int:
+        """
+        Increments the association id automatically. Overrides parent
+
+        Returns:
+            int: incremented id
+        """
+        try:
+            parent = [base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"][0]
+            return max([item.id for item in parent.query()]) + 1
+        except ValueError as e:
+            logger.error(f"Problem incrementing id: {e}")
+            return 1
+
+

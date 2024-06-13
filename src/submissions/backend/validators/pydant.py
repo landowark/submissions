@@ -256,7 +256,7 @@ class PydSample(BaseModel, extra='allow'):
                                                                           submission=submission,
                                                                           sample=instance,
                                                                           row=row, column=column, id=aid,
-                                                                          submission_rank=submission_rank)
+                                                                          submission_rank=submission_rank, **self.model_extra)
                 logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     # instance.sample_submission_associations.append(association)
@@ -375,6 +375,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def convert_equipment_dict(cls, value):
         # logger.debug(f"Equipment: {value}")
+
         if isinstance(value, dict):
             return value['value']
         return value
@@ -697,6 +698,8 @@ class PydSubmission(BaseModel, extra='allow'):
         for key, value in dicto.items():
             if isinstance(value, dict):
                 value = value['value']
+            if value is None:
+                continue
             # logger.debug(f"Setting {key} to {value}")
             match key:
                 case "reagents":
