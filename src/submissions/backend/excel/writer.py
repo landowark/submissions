@@ -15,7 +15,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class SheetWriter(object):
     """
-    object to pull and contain data from excel file
+    object to manage data placement into excel file
     """
 
     def __init__(self, submission: PydSubmission, missing_only: bool = False):
@@ -60,35 +60,52 @@ class SheetWriter(object):
         self.write_tips()
 
     def write_info(self):
+        """
+        Calls info writer
+        """        
         disallowed = ['filepath', 'reagents', 'samples', 'equipment', 'controls']
         info_dict = {k: v for k, v in self.sub.items() if k not in disallowed}
         writer = InfoWriter(xl=self.xl, submission_type=self.submission_type, info_dict=info_dict)
         self.xl = writer.write_info()
 
     def write_reagents(self):
+        """
+        Calls reagent writer
+        """        
         reagent_list = self.sub['reagents']
         writer = ReagentWriter(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=self.sub['extraction_kit'], reagent_list=reagent_list)
         self.xl = writer.write_reagents()
 
     def write_samples(self):
+        """
+        Calls sample writer
+        """        
         sample_list = self.sub['samples']
         writer = SampleWriter(xl=self.xl, submission_type=self.submission_type, sample_list=sample_list)
         self.xl = writer.write_samples()
 
     def write_equipment(self):
+        """
+        Calls equipment writer
+        """        
         equipment_list = self.sub['equipment']
         writer = EquipmentWriter(xl=self.xl, submission_type=self.submission_type, equipment_list=equipment_list)
         self.xl = writer.write_equipment()
 
     def write_tips(self):
+        """
+        Calls tip writer
+        """        
         tips_list = self.sub['tips']
         writer = TipWriter(xl=self.xl, submission_type=self.submission_type, tips_list=tips_list)
         self.xl = writer.write_tips()
 
 
 class InfoWriter(object):
-
+    """
+    object to write general submission info into excel file
+    """
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict, sub_object:BasicSubmission|None=None):
         logger.debug(f"Info_dict coming into InfoWriter: {pformat(info_dict)}")
         if isinstance(submission_type, str):
@@ -103,6 +120,16 @@ class InfoWriter(object):
         # logger.debug(pformat(self.info))
 
     def reconcile_map(self, info_dict: dict, info_map: dict) -> dict:
+        """
+        Merge info with its locations
+
+        Args:
+            info_dict (dict): dictionary of info items
+            info_map (dict): dictionary of info locations
+
+        Returns:
+            dict: merged dictionary
+        """        
         output = {}
         for k, v in info_dict.items():
             if v is None:
@@ -119,7 +146,13 @@ class InfoWriter(object):
         # logger.debug(f"Reconciled info: {pformat(output)}")
         return output
 
-    def write_info(self):
+    def write_info(self) -> Workbook:
+        """
+        Performs write operations
+
+        Returns:
+            Workbook: workbook with info written.
+        """           
         for k, v in self.info.items():
             # NOTE: merge all comments to fit in single cell.
             if k == "comment" and isinstance(v['value'], list):
@@ -138,7 +171,9 @@ class InfoWriter(object):
 
 
 class ReagentWriter(object):
-
+    """
+    object to write reagent data into excel file
+    """
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, extraction_kit: KitType | str,
                  reagent_list: list):
         self.xl = xl
@@ -149,7 +184,17 @@ class ReagentWriter(object):
         reagent_map = kit_type.construct_xl_map_for_use(submission_type)
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
-    def reconcile_map(self, reagent_list, reagent_map) -> List[dict]:
+    def reconcile_map(self, reagent_list:List[dict], reagent_map:dict) -> List[dict]:
+        """
+        Merge reagents with their locations
+
+        Args:
+            reagent_list (List[dict]): List of reagent dictionaries
+            reagent_map (dict): Reagent locations
+
+        Returns:
+            List[dict]: merged dictionary
+        """        
         output = []
         for reagent in reagent_list:
             try:
@@ -168,7 +213,13 @@ class ReagentWriter(object):
             output.append(placeholder)
         return output
 
-    def write_reagents(self):
+    def write_reagents(self) -> Workbook:
+        """
+        Performs write operations
+
+        Returns:
+            Workbook: Workbook with reagents written
+        """        
         for reagent in self.reagents:
             sheet = self.xl[reagent['sheet']]
             for k, v in reagent.items():
@@ -181,7 +232,9 @@ class ReagentWriter(object):
 
 
 class SampleWriter(object):
-
+    """
+    object to write sample data into excel file
+    """
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, sample_list: list):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -190,7 +243,16 @@ class SampleWriter(object):
         self.sample_map = submission_type.construct_sample_map()['lookup_table']
         self.samples = self.reconcile_map(sample_list)
 
-    def reconcile_map(self, sample_list: list):
+    def reconcile_map(self, sample_list: list) -> List[dict]:
+        """
+        Merge sample info with locations
+
+        Args:
+            sample_list (list): List of sample information
+
+        Returns:
+            List[dict]: List of merged dictionaries
+        """        
         output = []
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
@@ -204,10 +266,16 @@ class SampleWriter(object):
                 output.append(new)
         return sorted(output, key=lambda k: k['submission_rank'])
 
-    def write_samples(self):
+    def write_samples(self) -> Workbook:
+        """
+        Performs writing operations.
+
+        Returns:
+            Workbook: Workbook with samples written
+        """        
         sheet = self.xl[self.sample_map['sheet']]
         columns = self.sample_map['sample_columns']
-        for ii, sample in enumerate(self.samples):
+        for sample in self.samples:
             row = self.sample_map['start_row'] + (sample['submission_rank'] - 1)
             for k, v in sample.items():
                 try:
@@ -219,7 +287,9 @@ class SampleWriter(object):
 
 
 class EquipmentWriter(object):
-
+    """
+    object to write equipment data into excel file
+    """
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, equipment_list: list):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -228,7 +298,17 @@ class EquipmentWriter(object):
         equipment_map = self.submission_type.construct_equipment_map()
         self.equipment = self.reconcile_map(equipment_list=equipment_list, equipment_map=equipment_map)
 
-    def reconcile_map(self, equipment_list: list, equipment_map: list):
+    def reconcile_map(self, equipment_list: list, equipment_map: dict) -> List[dict]:
+        """
+        Merges equipment with location data
+
+        Args:
+            equipment_list (list): List of equipment
+            equipment_map (dict): Dictionary of equipment locations
+
+        Returns:
+            List[dict]: List of merged dictionaries 
+        """        
         output = []
         if equipment_list is None:
             return output
@@ -248,6 +328,8 @@ class EquipmentWriter(object):
                         # logger.error(f"Keyerror: {e}")
                         continue
                     placeholder[k] = dicto
+                if "asset_number" not in mp_info.keys():
+                    placeholder['name']['value'] = f"{equipment['name']} - {equipment['asset_number']}"
             try:
                 placeholder['sheet'] = mp_info['sheet']
             except KeyError:
@@ -256,7 +338,13 @@ class EquipmentWriter(object):
             output.append(placeholder)
         return output
 
-    def write_equipment(self):
+    def write_equipment(self) -> Workbook:
+        """
+        Performs write operations
+
+        Returns:
+            Workbook: Workbook with equipment written
+        """        
         for equipment in self.equipment:
             try:
                 sheet = self.xl[equipment['sheet']]
@@ -280,7 +368,9 @@ class EquipmentWriter(object):
 
 
 class TipWriter(object):
-
+    """
+    object to write tips data into excel file
+    """
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, tips_list: list):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -289,7 +379,17 @@ class TipWriter(object):
         tips_map = self.submission_type.construct_tips_map()
         self.tips = self.reconcile_map(tips_list=tips_list, tips_map=tips_map)
 
-    def reconcile_map(self, tips_list: list, tips_map: list):
+    def reconcile_map(self, tips_list: List[dict], tips_map: dict) -> List[dict]:
+        """
+        Merges tips with location data
+
+        Args:
+            tips_list (List[dict]): List of tips
+            tips_map (dict): Tips locations
+
+        Returns:
+            List[dict]: List of merged dictionaries
+        """        
         output = []
         if tips_list is None:
             return output
@@ -317,7 +417,13 @@ class TipWriter(object):
             output.append(placeholder)
         return output
 
-    def write_tips(self):
+    def write_tips(self) -> Workbook:
+        """
+        Performs write operations
+
+        Returns:
+            Workbook: Workbook with tips written
+        """        
         for tips in self.tips:
             try:
                 sheet = self.xl[tips['sheet']]

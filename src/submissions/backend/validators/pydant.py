@@ -257,7 +257,7 @@ class PydSample(BaseModel, extra='allow'):
                                                                           sample=instance,
                                                                           row=row, column=column, id=aid,
                                                                           submission_rank=submission_rank, **self.model_extra)
-                logger.debug(f"Using submission_sample_association: {association}")
+                # logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     # instance.sample_submission_associations.append(association)
                     out_associations.append(association)
@@ -734,6 +734,7 @@ class PydSubmission(BaseModel, extra='allow'):
                     for tips in self.tips:
                         if tips is None:
                             continue
+                        logger.debug(f"Converting tips: {tips} to sql.")
                         association = tips.to_sql(submission=instance)
                         if association is not None:
                             # association.save()

@@ -2095,7 +2095,7 @@ class BasicSample(BaseClass):
             used_class = cls.find_polymorphic_subclass(attrs=sanitized_kwargs, polymorphic_identity=sample_type)
             instance = used_class(**sanitized_kwargs)
             instance.sample_type = sample_type
-            logger.debug(f"Creating instance: {instance}")
+            # logger.debug(f"Creating instance: {instance}")
         return instance
 
     @classmethod
@@ -2352,7 +2352,7 @@ class SubmissionSampleAssociation(BaseClass):
             self.id = id
         else:
             self.id = self.__class__.autoincrement_id()
-        logger.debug(f"Looking at kwargs: {pformat(kwargs)}")
+        # logger.debug(f"Looking at kwargs: {pformat(kwargs)}")
         for k,v in kwargs.items():
             try:
                 self.__setattr__(k, v)
@@ -2538,7 +2538,7 @@ class SubmissionSampleAssociation(BaseClass):
        Returns:
             SubmissionSampleAssociation: Queried or new association.
         """
-        logger.debug(f"Attempting create or query with {kwargs}")
+        # logger.debug(f"Attempting create or query with {kwargs}")
         match submission:
             case BasicSubmission():
                 pass

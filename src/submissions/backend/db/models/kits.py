@@ -1601,7 +1601,7 @@ class SubmissionTipsAssociation(BaseClass):
                               back_populates="submission_tips_associations")  #: associated submission
     tips = relationship(Tips,
                         back_populates="tips_submission_associations")  #: associated equipment
-    role_name = Column(String(32))  #, ForeignKey("_tiprole.name"))
+    role_name = Column(String(32), primary_key=True)  #, ForeignKey("_tiprole.name"))
 
     # role = relationship(TipRole)
 

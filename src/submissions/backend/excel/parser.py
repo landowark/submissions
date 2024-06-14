@@ -613,7 +613,7 @@ class EquipmentParser(object):
                     previous_asset = asset
                 asset = self.get_asset_number(input=asset)
                 logger.debug(f"asset: {asset}")
-                eq = Equipment.query(name=asset)
+                eq = Equipment.query(asset_number=asset)
                 process = ws.cell(row=v['process']['row'], column=v['process']['column']).value
                 try:
                     output.append(

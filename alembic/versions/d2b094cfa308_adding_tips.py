@@ -55,11 +55,11 @@ def upgrade() -> None:
     op.create_table('_submissiontipsassociation',
     sa.Column('tip_id', sa.INTEGER(), nullable=False),
     sa.Column('submission_id', sa.INTEGER(), nullable=False),
-    sa.Column('role_name', sa.String(), nullable=True),
-    sa.ForeignKeyConstraint(['role_name'], ['_tiprole.name'], ),
-    sa.ForeignKeyConstraint(['submission_id'], ['_submissiontype.id'], ),
+    sa.Column('role_name', sa.String(), nullable=False),
+    # sa.ForeignKeyConstraint(['role_name'], ['_tiprole.name'], ),
+    sa.ForeignKeyConstraint(['submission_id'], ['_basicsubmission.id'], ),
     sa.ForeignKeyConstraint(['tip_id'], ['_tips.id'], ),
-    sa.PrimaryKeyConstraint('tip_id', 'submission_id')
+    sa.PrimaryKeyConstraint('tip_id', 'submission_id', 'role_name')
     )
     op.create_table('_tiproles_tips',
     sa.Column('tiprole_id', sa.INTEGER(), nullable=True),
