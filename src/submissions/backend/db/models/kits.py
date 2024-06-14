@@ -1520,6 +1520,9 @@ class Process(BaseClass):
 
 
 class TipRole(BaseClass):
+    """
+    An abstract role that a tip fills during a process
+    """    
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of reagent type
     instances = relationship("Tips", back_populates="role",
@@ -1539,6 +1542,9 @@ class TipRole(BaseClass):
 
 
 class Tips(BaseClass):
+    """
+    A concrete instance of tips.
+    """    
     id = Column(INTEGER, primary_key=True)  #: primary key
     role = relationship("TipRole", back_populates="instances",
                         secondary=tiproles_tips)  #: joined parent reagent type
@@ -1560,7 +1566,18 @@ class Tips(BaseClass):
         return f"<Tips({self.name})>"
 
     @classmethod
-    def query(cls, name: str | None = None, lot: str | None = None, limit: int = 0, **kwargs) -> Any | List[Any]:
+    def query(cls, name: str | None = None, lot: str | None = None, limit: int = 0, **kwargs) -> Tips | List[Tips]:
+        """
+        Lookup tips
+
+        Args:
+            name (str | None, optional): Informal name of tips. Defaults to None.
+            lot (str | None, optional): Lot number. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
+
+        Returns:
+            Tips | List[Tips]: Tips matching criteria
+        """        
         query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -1595,6 +1612,9 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
 
 
 class SubmissionTipsAssociation(BaseClass):
+    """
+    Association between a concrete submission instance and concrete tips
+    """    
     tip_id = Column(INTEGER, ForeignKey("_tips.id"), primary_key=True)  #: id of associated equipment
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
     submission = relationship("BasicSubmission",
@@ -1605,5 +1625,11 @@ class SubmissionTipsAssociation(BaseClass):
 
     # role = relationship(TipRole)
 
-    def to_sub_dict(self):
+    def to_sub_dict(self) -> dict:
+        """
+        This item as a dictionary
+
+        Returns:
+            dict: Values of this object
+        """        
         return dict(role=self.role_name, name=self.tips.name, lot=self.tips.lot)

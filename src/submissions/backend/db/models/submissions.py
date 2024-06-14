@@ -2576,6 +2576,10 @@ class SubmissionSampleAssociation(BaseClass):
 
 
 class WastewaterAssociation(SubmissionSampleAssociation):
+    """
+    table containing wastewater specific submission/sample associations
+    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    """
     id = Column(INTEGER, ForeignKey("_submissionsampleassociation.id"), primary_key=True)
     ct_n1 = Column(FLOAT(2))  #: AKA ct for N1
     ct_n2 = Column(FLOAT(2))  #: AKA ct for N2
@@ -2635,7 +2639,10 @@ class WastewaterAssociation(SubmissionSampleAssociation):
 
 
 class WastewaterArticAssociation(SubmissionSampleAssociation):
-
+    """
+    table containing wastewater artic specific submission/sample associations
+    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    """
     id = Column(INTEGER, ForeignKey("_submissionsampleassociation.id"), primary_key=True)
     source_plate = Column(String(16))
     source_plate_number = Column(INTEGER)

@@ -128,7 +128,9 @@ class RoleComboBox(QWidget):
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])
 
     def update_tips(self):
-
+        """
+        Changes what tips are available when process is changed
+        """        
         process = self.process.currentText()
         logger.debug(f"Checking process: {process}")
         process = Process.query(name=process)

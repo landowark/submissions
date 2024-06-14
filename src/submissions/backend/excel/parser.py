@@ -68,7 +68,6 @@ class SheetParser(object):
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
         info = parser.parse_info()
         self.info_map = parser.map
-        # exclude_from_info = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.sub['submission_type']).exclude_from_info_parser()
         for k, v in info.items():
             match k:
                 case "sample":
@@ -96,7 +95,6 @@ class SheetParser(object):
         """
         parser = SampleParser(xl=self.xl, submission_type=self.submission_type)
         self.sub['samples'] = parser.reconcile_samples()
-        # self.plate_map = parser.plate_map
 
     def parse_equipment(self):
         parser = EquipmentParser(xl=self.xl, submission_type=self.submission_type)
@@ -126,8 +124,6 @@ class SheetParser(object):
         """
         Run custom final validations of data for submission subclasses.
         """
-        # finisher = BasicSubmission.find_polymorphic_subclass(
-        #     polymorphic_identity=self.sub['submission_type']).finalize_parse
         self.sub = self.sub_object.finalize_parse(input_dict=self.sub, xl=self.xl, info_map=self.info_map)
 
     def to_pydantic(self) -> PydSubmission:
@@ -264,16 +260,15 @@ class ReagentParser(object):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
-        self.map = self.fetch_kit_info_map(extraction_kit=extraction_kit, submission_type=submission_type)
+        self.map = self.fetch_kit_info_map(submission_type=submission_type)
         # logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
-    def fetch_kit_info_map(self, extraction_kit: dict, submission_type: str) -> dict:
+    def fetch_kit_info_map(self, submission_type: str) -> dict:
         """
         Gets location of kit reagents from database
 
         Args:
-            extraction_kit (dict): Relevant kit information.
             submission_type (str): Name of submission type.
 
         Returns:
@@ -387,47 +382,6 @@ class SampleParser(object):
         else:
             sample_info_map = sample_map
         return sample_info_map
-
-    # def construct_plate_map(self, plate_map_location: dict) -> pd.DataFrame:
-    #     """
-    #     Gets location of samples from plate map grid in excel sheet.
-    #
-    #     Args:
-    #         plate_map_location (dict): sheet name, start/end row/column
-    #
-    #     Returns:
-    #         pd.DataFrame: Plate map grid
-    #     """
-    #     logger.debug(f"Plate map location: {plate_map_location}")
-    #     df = self.xl.parse(plate_map_location['sheet'], header=None, dtype=object)
-    #     df = df.iloc[plate_map_location['start_row'] - 1:plate_map_location['end_row'],
-    #          plate_map_location['start_column'] - 1:plate_map_location['end_column']]
-    #     df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
-    #     df = df.set_index(df.columns[0])
-    #     logger.debug(f"Vanilla platemap: {df}")
-    #     # custom_mapper = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-    #     df = self.sub_object.custom_platemap(self.xl, df)
-    #     # logger.debug(f"Custom platemap:\n{df}")
-    #     return df
-    #
-    # def construct_lookup_table(self, lookup_table_location: dict) -> pd.DataFrame:
-    #     """
-    #     Gets table of misc information from excel book
-    #
-    #     Args:
-    #         lookup_table_location (dict): sheet name, start/end row
-    #
-    #     Returns:
-    #         pd.DataFrame: _description_
-    #     """
-    #     try:
-    #         df = self.xl.parse(lookup_table_location['sheet'], header=None, dtype=object)
-    #     except KeyError:
-    #         return None
-    #     df = df.iloc[lookup_table_location['start_row'] - 1:lookup_table_location['end_row']]
-    #     df = pd.DataFrame(df.values[1:], columns=df.iloc[0])
-    #     df = df.reset_index(drop=True)
-    #     return df
 
     def parse_plate_map(self):
         """
@@ -614,6 +568,8 @@ class EquipmentParser(object):
                 asset = self.get_asset_number(input=asset)
                 logger.debug(f"asset: {asset}")
                 eq = Equipment.query(asset_number=asset)
+                if eq is None:
+                    eq = Equipment.query(name=asset)
                 process = ws.cell(row=v['process']['row'], column=v['process']['column']).value
                 try:
                     output.append(
@@ -674,7 +630,6 @@ class TipParser(object):
                     previous_asset = asset
                 logger.debug(f"asset: {asset}")
                 eq = Tips.query(lot=lot, name=asset, limit=1)
-                # process = ws.cell(row=v['process']['row'], column=v['process']['column']).value
                 try:
                     output.append(
                         dict(name=eq.name, role=k, lot=lot))
@@ -705,7 +660,7 @@ class PCRParser(object):
                 logger.error(f'Incorrect value: {e}')
                 self.xl = None
             except PermissionError:
-                logger.error(f'Couldn\'t get permissions for {filepath.__str__()}. Operation might have been cancelled.')
+                logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
                 return None
         if submission is None:
             self.submission_obj = Wastewater
