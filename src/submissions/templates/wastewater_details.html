@@ -1,0 +1,18 @@
+{% extends "basicsubmission_details.html" %}
+
+<head>
+    {% block head %}
+    {{ super() }}
+    {% endblock %}
+</head>
+
+<body>
+    {% block body %}
+    {{ super() }}
+     {% if sub['origin_plate'] %}
+    <br/>
+    <h3><u>24 Well Plate:</u></h3>
+    {{ sub['origin_plate'] }}
+    {% endif %}
+    {% endblock %}
+</body>

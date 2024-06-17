@@ -86,10 +86,11 @@ class SubmissionDetails(QDialog):
         self.base_dict = submission.to_dict(full_data=True)
         # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
         # NOTE: don't want id
-        del self.base_dict['id']
+        self.base_dict = submission.finalize_details(self.base_dict)
+        # del self.base_dict['id']
         # logger.debug(f"Creating barcode.")
         # logger.debug(f"Making platemap...")
-        self.base_dict['platemap'] = submission.make_plate_map()
+        self.base_dict['platemap'] = BasicSubmission.make_plate_map(sample_list=submission.hitpick_plate())
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)

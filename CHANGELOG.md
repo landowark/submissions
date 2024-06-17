@@ -1,3 +1,8 @@
+## 202406.04
+
+- Adding in tips to Equipment usage.
+- New WastewaterArticAssociation will track previously missed sample info.
+
 ## 202406.02
 
 - Attached Contact to Submission.
