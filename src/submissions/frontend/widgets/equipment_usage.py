@@ -59,7 +59,7 @@ class EquipmentUsage(QDialog):
                 case _:
                     pass
         logger.debug(f"parsed output of Equsage form: {pformat(output)}")
-        return [item for item in output if item is not None]
+        return [item.strip() for item in output if item is not None]
 
     class LabelRow(QWidget):
 
@@ -165,7 +165,7 @@ class RoleComboBox(QWidget):
         try:
             return PydEquipment(
                 name=eq.name,
-                processes=[self.process.currentText()],
+                processes=[self.process.currentText().strip()],
                 role=self.role.name,
                 asset_number=eq.asset_number,
                 nickname=eq.nickname,

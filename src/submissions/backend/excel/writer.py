@@ -1,10 +1,11 @@
 import logging
 from copy import copy
+from operator import itemgetter
 from pathlib import Path
 # from pathlib import Path
 from pprint import pformat
 from typing import List
-
+from collections import OrderedDict
 from jinja2 import TemplateNotFound
 from openpyxl import load_workbook, Workbook
 from backend.db.models import SubmissionType, KitType, BasicSubmission
@@ -13,6 +14,7 @@ from io import BytesIO
 from collections import OrderedDict
 from tools import jinja_template_loading
 from docxtpl import DocxTemplate
+from docx import Document
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -460,14 +462,65 @@ class TipWriter(object):
 class DocxWriter(object):
 
     def __init__(self, base_dict: dict):
+        self.sub_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=base_dict['submission_type'])
         env = jinja_template_loading()
-        temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_document.docx"
-        path = Path(env.loader.__getattribute__("searchpath")[0]).joinpath(temp_name)
-        template = DocxTemplate(path)
+        temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_subdocument.docx"
+        path = Path(env.loader.__getattribute__("searchpath")[0])
+        main_template = path.joinpath("basicsubmission_document.docx")
+        subdocument = path.joinpath(temp_name)
+        if subdocument.exists():
+            main_template = self.create_merged_template(main_template, subdocument)
+        self.template = DocxTemplate(main_template)
+        base_dict['platemap'] = self.create_plate_map(base_dict['samples'], rows=8, columns=12)
+        # logger.debug(pformat(base_dict['plate_map']))
         try:
-            template.render(base_dict)
-        except FileNotFoundError:
-            template = DocxTemplate(
-                Path(env.loader.__getattribute__("searchpath")[0]).joinpath("basicsubmission_document.docx"))
-            template.render({"sub": base_dict})
-        template.save("test.docx")
+            base_dict['excluded'] += ["platemap"]
+        except KeyError:
+            base_dict['excluded'] = ["platemap"]
+        base_dict = self.sub_obj.custom_docx_writer(base_dict)
+        # logger.debug(f"Base dict: {pformat(base_dict)}")
+        self.template.render({"sub": base_dict})
+
+    @classmethod
+    def create_plate_map(self, sample_list: List[dict], rows: int = 0, columns: int = 0) -> List[list]:
+        sample_list = sorted(sample_list, key=itemgetter('column', 'row'))
+        if rows == 0:
+            rows = max([sample['row'] for sample in sample_list])
+        if columns == 0:
+            columns = max([sample['column'] for sample in sample_list])
+        output = []
+        for row in range(0, rows):
+            contents = [''] * columns
+            for column in range(0, columns):
+                try:
+                    ooi = [item for item in sample_list if item['row']==row+1 and item['column']==column+1][0]
+                except IndexError:
+                    continue
+                contents[column] = ooi['submitter_id']
+            # contents = [sample['submitter_id'] for sample in sample_list if sample['row'] == row + 1]
+            # contents = [f"{sample['row']},{sample['column']}" for sample in sample_list if sample['row'] == row + 1]
+            if len(contents) < columns:
+                contents += [''] * (columns - len(contents))
+            if not contents:
+                contents = [''] * columns
+            output.append(contents)
+        return output
+
+    def create_merged_template(self, *args):
+        merged_document = Document()
+        output = BytesIO()
+        for index, file in enumerate(args):
+            sub_doc = Document(file)
+            # Don't add a page break if you've reached the last file.
+            # if index < len(args) - 1:
+            #     sub_doc.add_page_break()
+            for element in sub_doc.element.body:
+                merged_document.element.body.append(element)
+        merged_document.save(output)
+        return output
+
+
+    def save(self, filename: Path | str):
+        if isinstance(filename, str):
+            filename = Path(filename)
+        self.template.save(filename)

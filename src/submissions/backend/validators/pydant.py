@@ -327,17 +327,17 @@ class PydEquipment(BaseModel, extra='ignore'):
             process = Process.query(name=self.processes[0])
             if process is None:
                 logger.error(f"Found unknown process: {process}.")
-                from frontend.widgets.pop_ups import QuestionAsker
-                dlg = QuestionAsker(title="Add Process?",
-                                    message=f"Unable to find {self.processes[0]} in the database.\nWould you like to add it?")
-                if dlg.exec():
-                    kit = submission.extraction_kit
-                    submission_type = submission.submission_type
-                    process = Process(name=self.processes[0])
-                    process.kit_types.append(kit)
-                    process.submission_types.append(submission_type)
-                    process.equipment.append(equipment)
-                    process.save()
+                # from frontend.widgets.pop_ups import QuestionAsker
+                # dlg = QuestionAsker(title="Add Process?",
+                #                     message=f"Unable to find {self.processes[0]} in the database.\nWould you like to add it?")
+                # if dlg.exec():
+                #     kit = submission.extraction_kit
+                #     submission_type = submission.submission_type
+                #     process = Process(name=self.processes[0])
+                #     process.kit_types.append(kit)
+                #     process.submission_types.append(submission_type)
+                #     process.equipment.append(equipment)
+                #     process.save()
             assoc.process = process
             assoc.role = self.role
         else:
@@ -727,7 +727,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         if equip is None:
                             continue
                         equip, association = equip.toSQL(submission=instance)
-                        if association is not None:
+                        if association is not None and association not in instance.submission_equipment_associations:
                             # association.save()
                             # logger.debug(
                             #     f"Equipment association SQL object to be added to submission: {association.__dict__}")
@@ -738,7 +738,7 @@ class PydSubmission(BaseModel, extra='allow'):
                             continue
                         logger.debug(f"Converting tips: {tips} to sql.")
                         association = tips.to_sql(submission=instance)
-                        if association is not None:
+                        if association is not None and association not in instance.submission_tips_associations:
                             # association.save()
                             instance.submission_tips_associations.append(association)
                 case item if item in instance.jsons():

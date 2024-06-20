@@ -312,6 +312,7 @@ class SubmissionFormWidget(QWidget):
                 if dlg.exec():
                     # NOTE: Do not add duplicate reagents.
                     result = None
+
                 else:
                     self.app.ctx.database_session.rollback()
                     report.add_result(Result(msg="Overwrite cancelled", status="Information"))

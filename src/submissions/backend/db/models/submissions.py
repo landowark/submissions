@@ -4,6 +4,7 @@ Models for the main submission and sample types.
 from __future__ import annotations
 
 import sys
+from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, yaml, base64
 from zipfile import ZipFile
@@ -729,6 +730,11 @@ class BasicSubmission(BaseClass):
         return input_excel
 
     @classmethod
+    def custom_docx_writer(cls, input_dict):
+
+        return input_dict
+
+    @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:
         """
         Custom naming method for this class.
@@ -1439,7 +1445,7 @@ class Wastewater(BasicSubmission):
         dummy_samples = []
         for item in input_dict['samples']:
             # logger.debug(f"Sample dict: {item}")
-            thing = item
+            thing = deepcopy(item)
             try:
                 thing['row'] = thing['source_row']
                 thing['column'] = thing['source_column']
@@ -1485,6 +1491,28 @@ class Wastewater(BasicSubmission):
                 continue
             self.update_subsampassoc(sample=sample, input_dict=sample_dict)
         # self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
+
+    @classmethod
+    def custom_docx_writer(cls, input_dict):
+        from backend.excel.writer import DocxWriter
+        input_dict = super().custom_docx_writer(input_dict)
+        well_24 = []
+        samples_copy = deepcopy(input_dict['samples'])
+        for sample in sorted(samples_copy, key=itemgetter('column', 'row')):
+        # for sample in input_dict['samples']:
+            try:
+                row = sample['source_row']
+            except KeyError:
+                continue
+            try:
+                column = sample['source_column']
+            except KeyError:
+                continue
+            copy = dict(submitter_id=sample['submitter_id'], row=row, column=column)
+            well_24.append(copy)
+        input_dict['origin_plate'] = DocxWriter.create_plate_map(sample_list=well_24, rows=4, columns=6)
+        return input_dict
+
 
 
 class WastewaterArtic(BasicSubmission):
