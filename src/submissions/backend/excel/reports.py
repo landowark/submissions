@@ -1,17 +1,138 @@
 '''
 Contains functions for generating summary reports
 '''
-from pandas import DataFrame
+from pandas import DataFrame, ExcelWriter
 import logging, re
+from pathlib import Path
 from datetime import date, timedelta
-from typing import List, Tuple
-from tools import jinja_template_loading, Settings
+from typing import List, Tuple, Any
+from backend.db.models import BasicSubmission
+from tools import jinja_template_loading, Settings, get_unique_values_in_df_column, html_to_pdf, get_first_blank_df_row, \
+    row_map
+from PyQt6.QtWidgets import QWidget
+from openpyxl.worksheet.worksheet import Worksheet
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 env = jinja_template_loading()
 
-def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
+
+class ReportMaker(object):
+
+    def __init__(self, start_date: date, end_date: date):
+        subs = BasicSubmission.query(start_date=start_date, end_date=end_date)
+        records = [item.to_dict(report=True) for item in subs]
+        self.detailed_df, self.summary_df = self.make_report_xlsx(records=records)
+        self.html = self.make_report_html(df=self.summary_df, start_date=start_date, end_date=end_date)
+
+    def make_report_xlsx(self, records: list[dict]) -> Tuple[DataFrame, DataFrame]:
+        """
+        create the dataframe for a report
+
+        Args:
+            records (list[dict]): list of dictionaries created from submissions
+
+        Returns:
+            DataFrame: output dataframe
+        """
+        df = DataFrame.from_records(records)
+        # NOTE: put submissions with the same lab together
+        df = df.sort_values("submitting_lab")
+        # NOTE: aggregate cost and sample count columns
+        df2 = df.groupby(["submitting_lab", "extraction_kit"]).agg(
+            {'extraction_kit': 'count', 'cost': 'sum', 'sample_count': 'sum'})
+        df2 = df2.rename(columns={"extraction_kit": 'run_count'})
+        # logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
+        df = df.drop('id', axis=1)
+        df = df.sort_values(['submitting_lab', "submitted_date"])
+        return df, df2
+
+    def make_report_html(self, df: DataFrame, start_date: date, end_date: date) -> str:
+
+        """
+        generates html from the report dataframe
+
+        Args:
+            df (DataFrame): input dataframe generated from 'make_report_xlsx' above
+            start_date (date): starting date of the report period
+            end_date (date): ending date of the report period
+
+        Returns:
+            str: html string
+        """
+        old_lab = ""
+        output = []
+        # logger.debug(f"Report DataFrame: {df}")
+        for ii, row in enumerate(df.iterrows()):
+            # logger.debug(f"Row {ii}: {row}")
+            lab = row[0][0]
+            # logger.debug(type(row))
+            # logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
+            # logger.debug(f"Name: {row[0][1]}")
+            data = [item for item in row[1]]
+            kit = dict(name=row[0][1], cost=data[1], run_count=int(data[0]), sample_count=int(data[2]))
+            # if this is the same lab as before add together
+            if lab == old_lab:
+                output[-1]['kits'].append(kit)
+                output[-1]['total_cost'] += kit['cost']
+                output[-1]['total_samples'] += kit['sample_count']
+                output[-1]['total_runs'] += kit['run_count']
+            # if not the same lab, make a new one
+            else:
+                adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'],
+                             total_runs=kit['run_count'])
+                output.append(adder)
+            old_lab = lab
+        # logger.debug(output)
+        dicto = {'start_date': start_date, 'end_date': end_date, 'labs': output}  # , "table":table}
+        temp = env.get_template('summary_report.html')
+        html = temp.render(input=dicto)
+        return html
+
+    def write_report(self, filename: Path | str, obj: QWidget | None = None):
+        if isinstance(filename, str):
+            filename = Path(filename)
+        filename = filename.absolute()
+        # NOTE: html_to_pdf doesn't function without a PyQt6 app
+        if isinstance(obj, QWidget):
+            logger.info(f"We're in PyQt environment, writing PDF to: {filename}")
+            html_to_pdf(html=self.html, output_file=filename)
+        else:
+            logger.info("Not in PyQt. Skipping PDF writing.")
+        # logger.debug("Finished writing.")
+        self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
+        self.summary_df.to_excel(self.writer, sheet_name="Report")
+        self.detailed_df.to_excel(self.writer, sheet_name="Details", index=False)
+        self.fix_up_xl()
+        # logger.debug(f"Writing report to: {filename}")
+        self.writer.close()
+
+    def fix_up_xl(self):
+        # logger.debug(f"Updating worksheet")
+        worksheet: Worksheet = self.writer.sheets['Report']
+        for idx, col in enumerate(self.summary_df, start=1):  # loop through all columns
+            series = self.summary_df[col]
+            max_len = max((
+                series.astype(str).map(len).max(),  # len of largest item
+                len(str(series.name))  # len of column name/header
+            )) + 20  # NOTE: adding a little extra space
+            try:
+                # NOTE: Convert idx to letter
+                col_letter = chr(ord('@') + idx)
+                worksheet.column_dimensions[col_letter].width = max_len
+            except ValueError as e:
+                logger.error(f"Couldn't resize column {col} due to {e}")
+        blank_row = get_first_blank_df_row(self.summary_df) + 1
+        # logger.debug(f"Blank row index = {blank_row}")
+        for col in range(3, 6):
+            col_letter = row_map[col]
+            worksheet.cell(row=blank_row, column=col, value=f"=SUM({col_letter}2:{col_letter}{str(blank_row - 1)})")
+        for cell in worksheet['D']:
+            if cell.row > 1:
+                cell.style = 'Currency'
+
+
+def make_report_xlsx(records: list[dict]) -> Tuple[DataFrame, DataFrame]:
     """
     create the dataframe for a report
 
@@ -20,20 +141,21 @@ def make_report_xlsx(records:list[dict]) -> Tuple[DataFrame, DataFrame]:
 
     Returns:
         DataFrame: output dataframe
-    """    
+    """
     df = DataFrame.from_records(records)
-    # put submissions with the same lab together
+    # NOTE: put submissions with the same lab together
     df = df.sort_values("submitting_lab")
-    # aggregate cost and sample count columns
-    df2 = df.groupby(["submitting_lab", "extraction_kit"]).agg({'extraction_kit':'count', 'cost': 'sum', 'sample_count':'sum'})
+    # NOTE: aggregate cost and sample count columns
+    df2 = df.groupby(["submitting_lab", "extraction_kit"]).agg(
+        {'extraction_kit': 'count', 'cost': 'sum', 'sample_count': 'sum'})
     df2 = df2.rename(columns={"extraction_kit": 'run_count'})
     # logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
     df = df.drop('id', axis=1)
     df = df.sort_values(['submitting_lab', "submitted_date"])
     return df, df2
 
-def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
-    
+
+def make_report_html(df: DataFrame, start_date: date, end_date: date) -> str:
     """
     generates html from the report dataframe
 
@@ -44,7 +166,7 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
 
     Returns:
         str: html string
-    """    
+    """
     old_lab = ""
     output = []
     # logger.debug(f"Report DataFrame: {df}")
@@ -64,16 +186,19 @@ def make_report_html(df:DataFrame, start_date:date, end_date:date) -> str:
             output[-1]['total_runs'] += kit['run_count']
         # if not the same lab, make a new one
         else:
-            adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'], total_runs=kit['run_count'])
+            adder = dict(lab=lab, kits=[kit], total_cost=kit['cost'], total_samples=kit['sample_count'],
+                         total_runs=kit['run_count'])
             output.append(adder)
         old_lab = lab
     # logger.debug(output)
-    dicto = {'start_date':start_date, 'end_date':end_date, 'labs':output}#, "table":table}
+    dicto = {'start_date': start_date, 'end_date': end_date, 'labs': output}  #, "table":table}
     temp = env.get_template('summary_report.html')
     html = temp.render(input=dicto)
     return html
 
-def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFrame:
+
+# TODO: move this into a classmethod of Controls?
+def convert_data_list_to_df(input: list[dict], subtype: str | None = None) -> DataFrame:
     """
     Convert list of control records to dataframe
 
@@ -84,8 +209,8 @@ def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFram
 
     Returns:
         DataFrame: dataframe of controls
-    """    
-    
+    """
+
     df = DataFrame.from_records(input)
     safe = ['name', 'submitted_date', 'genus', 'target']
     for column in df.columns:
@@ -94,7 +219,7 @@ def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFram
             # NOTE: The actual percentage from kraken was off due to exclusion of NaN, recalculating.
             df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
         if column not in safe:
-            if subtype != None and column != subtype:
+            if subtype is not None and column != subtype:
                 del df[column]
     # NOTE: move date of sample submitted on same date as previous ahead one.
     df = displace_date(df)
@@ -102,7 +227,8 @@ def convert_data_list_to_df(input:list[dict], subtype:str|None=None) -> DataFram
     df = df_column_renamer(df=df)
     return df
 
-def df_column_renamer(df:DataFrame) -> DataFrame:
+
+def df_column_renamer(df: DataFrame) -> DataFrame:
     """
     Ad hoc function I created to clarify some fields
 
@@ -111,16 +237,17 @@ def df_column_renamer(df:DataFrame) -> DataFrame:
 
     Returns:
         DataFrame: dataframe with 'clarified' column names
-    """  
-    df = df[df.columns.drop(list(df.filter(regex='_hashes')))]  
-    return df.rename(columns = {
-        "contains_ratio":"contains_shared_hashes_ratio",
-        "matches_ratio":"matches_shared_hashes_ratio",
-        "kraken_count":"kraken2_read_count_(top_50)",
-        "kraken_percent":"kraken2_read_percent_(top_50)"
+    """
+    df = df[df.columns.drop(list(df.filter(regex='_hashes')))]
+    return df.rename(columns={
+        "contains_ratio": "contains_shared_hashes_ratio",
+        "matches_ratio": "matches_shared_hashes_ratio",
+        "kraken_count": "kraken2_read_count_(top_50)",
+        "kraken_percent": "kraken2_read_percent_(top_50)"
     })
 
-def displace_date(df:DataFrame) -> DataFrame:
+
+def displace_date(df: DataFrame) -> DataFrame:
     """
     This function serves to split samples that were submitted on the same date by incrementing dates.
     It will shift the date forward by one day if it is the same day as an existing date in a list.
@@ -130,16 +257,18 @@ def displace_date(df:DataFrame) -> DataFrame:
 
     Returns:
         DataFrame: output dataframe with dates incremented.
-    """    
+    """
     # logger.debug(f"Unique items: {df['name'].unique()}")
     # NOTE: get submitted dates for each control
-    dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in sorted(df['name'].unique())]
+    dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in
+                 sorted(df['name'].unique())]
     previous_dates = []
     for _, item in enumerate(dict_list):
         df, previous_dates = check_date(df=df, item=item, previous_dates=previous_dates)
     return df
 
-def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame, list]:
+
+def check_date(df: DataFrame, item: dict, previous_dates: list) -> Tuple[DataFrame, list]:
     """
     Checks if an items date is already present in df and adjusts df accordingly
 
@@ -150,7 +279,7 @@ def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame,
 
     Returns:
         Tuple[DataFrame, list]: Output dataframe and appended list of previous dates
-    """    
+    """
     try:
         check = item['date'] in previous_dates
     except IndexError:
@@ -177,21 +306,23 @@ def check_date(df:DataFrame, item:dict, previous_dates:list) -> Tuple[DataFrame,
         logger.warning(f"Date check failed, running recursion")
         df, previous_dates = check_date(df, item, previous_dates)
         return df, previous_dates
-                
-def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
-    """
-    get all unique values in a dataframe column by name
 
-    Args:
-        df (DataFrame): input dataframe
-        column_name (str): name of column of interest
 
-    Returns:
-        list: sorted list of unique values
-    """    
-    return sorted(df[column_name].unique())
+# def get_unique_values_in_df_column(df: DataFrame, column_name: str) -> list:
+#     """
+#     get all unique values in a dataframe column by name
+#
+#     Args:
+#         df (DataFrame): input dataframe
+#         column_name (str): name of column of interest
+#
+#     Returns:
+#         list: sorted list of unique values
+#     """
+#     return sorted(df[column_name].unique())
 
-def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
+
+def drop_reruns_from_df(ctx: Settings, df: DataFrame) -> DataFrame:
     """
     Removes semi-duplicates from dataframe after finding sequencing repeats.
 
@@ -201,7 +332,7 @@ def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
 
     Returns:
         DataFrame: dataframe with originals removed in favour of repeats.
-    """    
+    """
     if 'rerun_regex' in ctx:
         sample_names = get_unique_values_in_df_column(df, column_name="name")
         rerun_regex = re.compile(fr"{ctx.rerun_regex}")
@@ -210,15 +341,15 @@ def drop_reruns_from_df(ctx:Settings, df: DataFrame) -> DataFrame:
                 first_run = re.sub(rerun_regex, "", sample)
                 df = df.drop(df[df.name == first_run].index)
     return df
-    
-def make_hitpicks(input:List[dict]) -> DataFrame:
-    """
-    Converts list of dictionaries constructed by hitpicking to dataframe
 
-    Args:
-        input (List[dict]): list of hitpicked dictionaries
-
-    Returns:
-        DataFrame: constructed dataframe.
-    """    
-    return DataFrame.from_records(input)
+# def make_hitpicks(input:List[dict]) -> DataFrame:
+#     """
+#     Converts list of dictionaries constructed by hitpicking to dataframe
+#
+#     Args:
+#         input (List[dict]): list of hitpicked dictionaries
+#
+#     Returns:
+#         DataFrame: constructed dataframe.
+#     """
+#     return DataFrame.from_records(input)

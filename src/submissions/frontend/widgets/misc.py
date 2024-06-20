@@ -25,7 +25,7 @@ class AddReagentForm(QDialog):
     """    
     def __init__(self, reagent_lot:str|None=None, reagent_role: str | None=None, expiry: date | None=None, reagent_name: str | None=None) -> None:
         super().__init__()
-        if reagent_lot == None:
+        if reagent_lot is None:
             reagent_lot = reagent_role
 
         self.setWindowTitle("Add Reagent")
@@ -47,7 +47,7 @@ class AddReagentForm(QDialog):
         self.exp_input = QDateEdit(calendarPopup=True)
         self.exp_input.setObjectName('expiry')
         # if expiry is not passed in from gui, use today
-        if expiry == None:
+        if expiry is None:
             self.exp_input.setDate(QDate.currentDate())
         else:
             try:
@@ -144,7 +144,7 @@ class FirstStrandSalvage(QDialog):
 
     def __init__(self, ctx:Settings, submitter_id:str, rsl_plate_num:str|None=None) -> None:
         super().__init__()
-        if rsl_plate_num == None:
+        if rsl_plate_num is None:
             rsl_plate_num = ""
         self.setWindowTitle("Add Reagent")
 

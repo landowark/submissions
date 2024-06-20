@@ -84,7 +84,7 @@ class ControlType(BaseClass):
         Returns:
             List[ControlType]: Control types that have targets
         """
-        return [item for item in cls.query() if item.targets != []]
+        return [item for item in cls.query() if item.targets]# != []]
 
     @classmethod
     def build_positive_regex(cls) -> Pattern:

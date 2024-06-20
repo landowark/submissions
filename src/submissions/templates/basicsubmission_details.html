@@ -40,10 +40,9 @@
     </head>
     <body>
         {% block body %}
-        <!-- {% set excluded = ['reagents', 'samples', 'controls', 'extraction_info', 'pcr_info', 'comment', 'barcode', 'platemap', 'export_map', 'equipment'] %} -->
-        <h2><u>Submission Details for {{ sub['Plate Number'] }}</u></h2>&nbsp;&nbsp;&nbsp;{% if sub['barcode'] %}<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">{% endif %}
+        <h2><u>Submission Details for {{ sub['plate_number'] }}</u></h2>&nbsp;&nbsp;&nbsp;{% if sub['barcode'] %}<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">{% endif %}
         <p>{% for key, value in sub.items() if key not in sub['excluded'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: </b>{% if key=='Cost' %}{% if sub['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: </b>{% if key=='cost' %}{% if sub['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br>
         {% endfor %}</p>
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
@@ -67,18 +66,7 @@
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b> {% if item['organism'] %} {{ item['name'] }} - ({{ item['organism']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}){% else %} {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}{% endif %}<br>
         {% endfor %}</p>
         {% endif %}
-        {% if sub['controls'] %}
-        <h3><u>Attached Controls:</u></h3>
-        {% for item in sub['controls'] %}
-            <p>&nbsp;&nbsp;&nbsp;<b>{{ item['name'] }}:</b> {{ item['type'] }} (Targets: {{ item['targets'] }})</p>
-            {% if item['kraken'] %}
-            <p>&nbsp;&nbsp;&nbsp;{{ item['name'] }} Top 5 Kraken Results:</p>
-            <p>{% for genera in item['kraken'] %}
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br>
-            {% endfor %}</p>
-            {% endif %}
-        {% endfor %}
-        {% endif %}
+
         {% if sub['ext_info'] %}
         {% for entry in sub['ext_info'] %}
         <h3><u>Extraction Status:</u></h3>
@@ -91,22 +79,7 @@
         {% endfor %}</p>
         {% endfor %}
         {% endif %}
-        {% if sub['pcr_info'] %}
-        {% for entry in sub['pcr_info'] %}
-        {% if 'comment' not in entry.keys() %}
-            <h3><u>qPCR Momentum Status:</u></h3>
-        {% else %}
-            <h3><u>qPCR Status:</u></h3>
-        {% endif %}
-        <p>{% for key, value in entry.items() if key != 'imported_by'%}
-            {% if "column" in key %}
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
-            {% else %}
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
-            {% endif %}
-        {% endfor %}</p>
-        {% endfor %}
-        {% endif %}
+
         {% if sub['comment'] %}
         <h3><u>Comments:</u></h3>
         <p>{% for entry in sub['comment'] %}

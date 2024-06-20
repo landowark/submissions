@@ -33,7 +33,7 @@ class PydReagent(BaseModel):
     @field_validator('comment', mode='before')
     @classmethod
     def create_comment(cls, value):
-        if value == None:
+        if value is None:
             return ""
         return value
 
@@ -49,7 +49,7 @@ class PydReagent(BaseModel):
     @field_validator("role")
     @classmethod
     def rescue_type_with_lookup(cls, value, values):
-        if value == None and values.data['lot'] != None:
+        if value is None and values.data['lot'] is not None:
             try:
                 # return lookup_reagents(ctx=values.data['ctx'], lot_number=values.data['lot']).name
                 return Reagent.query(lot_number=values.data['lot'].name)
@@ -60,21 +60,21 @@ class PydReagent(BaseModel):
     @field_validator("lot", mode='before')
     @classmethod
     def rescue_lot_string(cls, value):
-        if value != None:
+        if value is not None:
             return convert_nans_to_nones(str(value))
         return value
 
     @field_validator("lot")
     @classmethod
     def enforce_lot_string(cls, value):
-        if value != None:
+        if value is not None:
             return value.upper()
         return value
 
     @field_validator("expiry", mode="before")
     @classmethod
     def enforce_date(cls, value):
-        if value != None:
+        if value is not None:
             match value:
                 case int():
                     return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2).date()
@@ -86,7 +86,7 @@ class PydReagent(BaseModel):
                     return value
                 case _:
                     return convert_nans_to_nones(str(value))
-        if value == None:
+        if value is None:
             value = date.today()
         return value
 
@@ -100,7 +100,7 @@ class PydReagent(BaseModel):
     @field_validator("name", mode="before")
     @classmethod
     def enforce_name(cls, value, values):
-        if value != None:
+        if value is not None:
             return convert_nans_to_nones(str(value))
         else:
             return values.data['role']
@@ -131,7 +131,7 @@ class PydReagent(BaseModel):
         """
         report = Report()
         # logger.debug("Adding extra fields.")
-        if self.model_extra != None:
+        if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
         # logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
         reagent = Reagent.query(lot_number=self.lot, name=self.name)
@@ -179,6 +179,7 @@ class PydReagent(BaseModel):
                 # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
 
         return reagent, assoc, report
+
 
 
 class PydSample(BaseModel, extra='allow'):
@@ -299,10 +300,11 @@ class PydEquipment(BaseModel, extra='ignore'):
     def make_empty_list(cls, value):
         # logger.debug(f"Pydantic value: {value}")
         value = convert_nans_to_nones(value)
-        if value == None:
+        if value is None:
             value = ['']
         if len(value) == 0:
             value = ['']
+        value = [item.strip() for item in value]
         return value
 
     def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Equipment, SubmissionEquipmentAssociation]:
@@ -318,13 +320,13 @@ class PydEquipment(BaseModel, extra='ignore'):
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_number=submission)
         equipment = Equipment.query(asset_number=self.asset_number)
-        if equipment == None:
+        if equipment is None:
             return
-        if submission != None:
+        if submission is not None:
             assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
             process = Process.query(name=self.processes[0])
-            if process == None:
-                # logger.debug("Adding in unknown process.")
+            if process is None:
+                logger.error(f"Found unknown process: {process}.")
                 from frontend.widgets.pop_ups import QuestionAsker
                 dlg = QuestionAsker(title="Add Process?",
                                     message=f"Unable to find {self.processes[0]} in the database.\nWould you like to add it?")
@@ -383,7 +385,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator('comment', mode='before')
     @classmethod
     def create_comment(cls, value):
-        if value == None:
+        if value is None:
             return ""
         return value
 
@@ -391,7 +393,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def enforce_with_uuid(cls, value):
         # logger.debug(f"submitter_plate_num coming into pydantic: {value}")
-        if value['value'] == None or value['value'] == "None":
+        if value['value'] in [None, "None"]:
             return dict(value=uuid.uuid4().hex.upper(), missing=True)
         else:
             return value
@@ -401,7 +403,7 @@ class PydSubmission(BaseModel, extra='allow'):
     def rescue_date(cls, value):
         # logger.debug(f"\n\nDate coming into pydantic: {value}\n\n")
         try:
-            check = value['value'] == None
+            check = value['value'] is None
         except TypeError:
             check = True
         if check:
@@ -468,7 +470,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("rsl_plate_num", mode='before')
     @classmethod
     def rescue_rsl_number(cls, value):
-        if value == None:
+        if value is None:
             return dict(value=None, missing=True)
         return value
 
@@ -491,7 +493,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("technician", mode="before")
     @classmethod
     def rescue_tech(cls, value):
-        if value == None:
+        if value is None:
             return dict(value=None, missing=True)
         return value
 
@@ -507,7 +509,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("sample_count", mode='before')
     @classmethod
     def rescue_sample_count(cls, value):
-        if value == None:
+        if value is None:
             return dict(value=None, missing=True)
         return value
 
@@ -521,7 +523,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 return value
         else:
             raise ValueError(f"No extraction kit found.")
-        if value == None:
+        if value is None:
             return dict(value=None, missing=True)
         return value
 
@@ -923,14 +925,14 @@ class PydReagentRole(BaseModel):
             ReagentRole: ReagentType instance
         """
         instance: ReagentRole = ReagentRole.query(name=self.name)
-        if instance == None:
+        if instance is None:
             instance = ReagentRole(name=self.name, eol_ext=self.eol_ext)
         # logger.debug(f"This is the reagent type instance: {instance.__dict__}")
         try:
             assoc = KitTypeReagentRoleAssociation.query(reagent_role=instance, kit_type=kit)
         except StatementError:
             assoc = None
-        if assoc == None:
+        if assoc is None:
             assoc = KitTypeReagentRoleAssociation(kit_type=kit, reagent_role=instance, uses=self.uses,
                                                   required=self.required)
         return instance
@@ -949,7 +951,7 @@ class PydKit(BaseModel):
         """
         report = Report()
         instance = KitType.query(name=self.name)
-        if instance == None:
+        if instance is None:
             instance = KitType(name=self.name)
             [item.toSQL(instance) for item in self.reagent_roles]
         return instance, report

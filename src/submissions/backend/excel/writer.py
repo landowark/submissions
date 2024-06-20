@@ -1,14 +1,18 @@
 import logging
 from copy import copy
+from pathlib import Path
 # from pathlib import Path
 from pprint import pformat
 from typing import List
+
+from jinja2 import TemplateNotFound
 from openpyxl import load_workbook, Workbook
 from backend.db.models import SubmissionType, KitType, BasicSubmission
 from backend.validators.pydant import PydSubmission
 from io import BytesIO
 from collections import OrderedDict
-
+from tools import jinja_template_loading
+from docxtpl import DocxTemplate
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -31,7 +35,8 @@ class SheetWriter(object):
                 case 'submission_type':
                     self.sub[k] = v['value']
                     self.submission_type = SubmissionType.query(name=v['value'])
-                    self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+                    self.sub_object = BasicSubmission.find_polymorphic_subclass(
+                        polymorphic_identity=self.submission_type)
                 case _:
                     if isinstance(v, dict):
                         self.sub[k] = v['value']
@@ -62,7 +67,7 @@ class SheetWriter(object):
     def write_info(self):
         """
         Calls info writer
-        """        
+        """
         disallowed = ['filepath', 'reagents', 'samples', 'equipment', 'controls']
         info_dict = {k: v for k, v in self.sub.items() if k not in disallowed}
         writer = InfoWriter(xl=self.xl, submission_type=self.submission_type, info_dict=info_dict)
@@ -71,7 +76,7 @@ class SheetWriter(object):
     def write_reagents(self):
         """
         Calls reagent writer
-        """        
+        """
         reagent_list = self.sub['reagents']
         writer = ReagentWriter(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=self.sub['extraction_kit'], reagent_list=reagent_list)
@@ -80,7 +85,7 @@ class SheetWriter(object):
     def write_samples(self):
         """
         Calls sample writer
-        """        
+        """
         sample_list = self.sub['samples']
         writer = SampleWriter(xl=self.xl, submission_type=self.submission_type, sample_list=sample_list)
         self.xl = writer.write_samples()
@@ -88,7 +93,7 @@ class SheetWriter(object):
     def write_equipment(self):
         """
         Calls equipment writer
-        """        
+        """
         equipment_list = self.sub['equipment']
         writer = EquipmentWriter(xl=self.xl, submission_type=self.submission_type, equipment_list=equipment_list)
         self.xl = writer.write_equipment()
@@ -96,7 +101,7 @@ class SheetWriter(object):
     def write_tips(self):
         """
         Calls tip writer
-        """        
+        """
         tips_list = self.sub['tips']
         writer = TipWriter(xl=self.xl, submission_type=self.submission_type, tips_list=tips_list)
         self.xl = writer.write_tips()
@@ -106,7 +111,9 @@ class InfoWriter(object):
     """
     object to write general submission info into excel file
     """
-    def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict, sub_object:BasicSubmission|None=None):
+
+    def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict,
+                 sub_object: BasicSubmission | None = None):
         logger.debug(f"Info_dict coming into InfoWriter: {pformat(info_dict)}")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -129,7 +136,7 @@ class InfoWriter(object):
 
         Returns:
             dict: merged dictionary
-        """        
+        """
         output = {}
         for k, v in info_dict.items():
             if v is None:
@@ -152,7 +159,7 @@ class InfoWriter(object):
 
         Returns:
             Workbook: workbook with info written.
-        """           
+        """
         for k, v in self.info.items():
             # NOTE: merge all comments to fit in single cell.
             if k == "comment" and isinstance(v['value'], list):
@@ -174,6 +181,7 @@ class ReagentWriter(object):
     """
     object to write reagent data into excel file
     """
+
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, extraction_kit: KitType | str,
                  reagent_list: list):
         self.xl = xl
@@ -184,7 +192,7 @@ class ReagentWriter(object):
         reagent_map = kit_type.construct_xl_map_for_use(submission_type)
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
-    def reconcile_map(self, reagent_list:List[dict], reagent_map:dict) -> List[dict]:
+    def reconcile_map(self, reagent_list: List[dict], reagent_map: dict) -> List[dict]:
         """
         Merge reagents with their locations
 
@@ -194,7 +202,7 @@ class ReagentWriter(object):
 
         Returns:
             List[dict]: merged dictionary
-        """        
+        """
         output = []
         for reagent in reagent_list:
             try:
@@ -219,14 +227,14 @@ class ReagentWriter(object):
 
         Returns:
             Workbook: Workbook with reagents written
-        """        
+        """
         for reagent in self.reagents:
             sheet = self.xl[reagent['sheet']]
             for k, v in reagent.items():
                 if not isinstance(v, dict):
                     continue
                 # logger.debug(
-                    # f"Writing {reagent['type']} {k} to {reagent['sheet']}, row: {v['row']}, column: {v['column']}")
+                # f"Writing {reagent['type']} {k} to {reagent['sheet']}, row: {v['row']}, column: {v['column']}")
                 sheet.cell(row=v['row'], column=v['column'], value=v['value'])
         return self.xl
 
@@ -235,6 +243,7 @@ class SampleWriter(object):
     """
     object to write sample data into excel file
     """
+
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, sample_list: list):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -252,7 +261,7 @@ class SampleWriter(object):
 
         Returns:
             List[dict]: List of merged dictionaries
-        """        
+        """
         output = []
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
@@ -272,7 +281,7 @@ class SampleWriter(object):
 
         Returns:
             Workbook: Workbook with samples written
-        """        
+        """
         sheet = self.xl[self.sample_map['sheet']]
         columns = self.sample_map['sample_columns']
         for sample in self.samples:
@@ -290,6 +299,7 @@ class EquipmentWriter(object):
     """
     object to write equipment data into excel file
     """
+
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, equipment_list: list):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -308,7 +318,7 @@ class EquipmentWriter(object):
 
         Returns:
             List[dict]: List of merged dictionaries 
-        """        
+        """
         output = []
         if equipment_list is None:
             return output
@@ -344,7 +354,7 @@ class EquipmentWriter(object):
 
         Returns:
             Workbook: Workbook with equipment written
-        """        
+        """
         for equipment in self.equipment:
             try:
                 sheet = self.xl[equipment['sheet']]
@@ -371,6 +381,7 @@ class TipWriter(object):
     """
     object to write tips data into excel file
     """
+
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, tips_list: list):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -389,7 +400,7 @@ class TipWriter(object):
 
         Returns:
             List[dict]: List of merged dictionaries
-        """        
+        """
         output = []
         if tips_list is None:
             return output
@@ -423,7 +434,7 @@ class TipWriter(object):
 
         Returns:
             Workbook: Workbook with tips written
-        """        
+        """
         for tips in self.tips:
             try:
                 sheet = self.xl[tips['sheet']]
@@ -444,3 +455,19 @@ class TipWriter(object):
                     logger.error(f"Couldn't write to {tips['sheet']}, row: {v['row']}, column: {v['column']}")
                     logger.error(e)
         return self.xl
+
+
+class DocxWriter(object):
+
+    def __init__(self, base_dict: dict):
+        env = jinja_template_loading()
+        temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_document.docx"
+        path = Path(env.loader.__getattribute__("searchpath")[0]).joinpath(temp_name)
+        template = DocxTemplate(path)
+        try:
+            template.render(base_dict)
+        except FileNotFoundError:
+            template = DocxTemplate(
+                Path(env.loader.__getattribute__("searchpath")[0]).joinpath("basicsubmission_document.docx"))
+            template.render({"sub": base_dict})
+        template.save("test.docx")

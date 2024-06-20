@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import QTableView, QMenu
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor
 from backend.db.models import BasicSubmission
-from backend.excel import make_report_html, make_report_xlsx
+from backend.excel import make_report_html, make_report_xlsx, ReportMaker
 from tools import Report, Result, row_map, get_first_blank_df_row, html_to_pdf
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
@@ -168,7 +168,7 @@ class SubmissionsSheet(QTableView):
             # NOTE: Lookup imported submissions
             sub = BasicSubmission.query(rsl_plate_num=new_run['rsl_plate_num'])
             # NOTE: If no such submission exists, move onto the next run
-            if sub == None:
+            if sub is None:
                 continue
             try:
                 # logger.debug(f"Found submission: {sub.rsl_plate_num}")
@@ -215,7 +215,7 @@ class SubmissionsSheet(QTableView):
             # NOTE: lookup imported submission
             sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
             # NOTE: if imported submission doesn't exist move on to next run
-            if sub == None:
+            if sub is None:
                 continue
             # try:
             #     logger.debug(f"Found submission: {sub.rsl_plate_num}")
@@ -255,12 +255,12 @@ class SubmissionsSheet(QTableView):
             subs = BasicSubmission.query(start_date=info['start_date'], end_date=info['end_date'])
             # NOTE: convert each object to dict
             records = [item.to_dict(report=True) for item in subs]
-            logger.debug(f"Records: {pformat(records)}")
+            # logger.debug(f"Records: {pformat(records)}")
             # NOTE: make dataframe from record dictionaries
             detailed_df, summary_df = make_report_xlsx(records=records)
             html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
             # NOTE: get save location of report
-            fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.pdf", extension="pdf")
+            fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.docx", extension="docx")
             html_to_pdf(html=html, output_file=fname)
             writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
             summary_df.to_excel(writer, sheet_name="Report")
@@ -287,4 +287,6 @@ class SubmissionsSheet(QTableView):
                 if cell.row > 1:
                     cell.style = 'Currency'
             writer.close()
+            # rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
+            # rp.write_report(filename=fname, obj=self)
         self.report.add_result(report)

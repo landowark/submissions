@@ -743,7 +743,7 @@ class SubmissionType(BaseClass):
                             item.equipment_role == equipment_role]
             case _:
                 raise TypeError(f"Type {type(equipment_role)} is not allowed")
-        return list(set([item for items in relevant for item in items if item != None]))
+        return list(set([item for items in relevant for item in items if item is not None]))
 
     def get_submission_class(self) -> "BasicSubmission":
         """
@@ -982,7 +982,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
                 query = query.join(ReagentRole).filter(ReagentRole.name == reagent_role)
             case _:
                 pass
-        if kit_type != None and reagent_role != None:
+        if kit_type is not None and reagent_role is not None:
             limit = 1
         return cls.execute_query(query=query, limit=limit)
 
@@ -1339,7 +1339,7 @@ class EquipmentRole(BaseClass):
         if isinstance(submission_type, str):
             # logger.debug(f"Checking if str {submission_type} exists")
             submission_type = SubmissionType.query(name=submission_type)
-        if submission_type != None:
+        if submission_type is not None:
             # logger.debug("Getting all processes for this EquipmentRole")
             processes = [process for process in self.processes if submission_type in process.submission_types]
         else:
@@ -1421,7 +1421,7 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
                                   back_populates="equipmentrole_submissiontype_associations")  #: associated equipment
 
     @validates('static')
-    def validate_age(self, key, value):
+    def validate_static(self, key, value):
         """
         Ensures only 1 & 0 used in 'static'
 
@@ -1451,7 +1451,7 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
         """
         processes = [equipment.get_processes(self.submission_type) for equipment in self.equipment_role.instances]
         # flatten list
-        processes = [item for items in processes for item in items if item != None]
+        processes = [item for items in processes for item in items if item is not None]
         match extraction_kit:
             case str():
                 # logger.debug(f"Filtering Processes by extraction_kit str {extraction_kit}")
@@ -1474,7 +1474,7 @@ class Process(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
-    name = Column(String(64))  #: Process name
+    name = Column(String(64), unique=True)  #: Process name
     submission_types = relationship("SubmissionType", back_populates='processes',
                                     secondary=submissiontypes_processes)  #: relation to SubmissionType
     equipment = relationship("Equipment", back_populates='processes',
@@ -1497,7 +1497,10 @@ class Process(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, name: str | None = None, limit: int = 0) -> Process | List[Process]:
+    def query(cls,
+              name: str | None = None,
+              id: int = 1,
+              limit: int = 0) -> Process | List[Process]:
         """
         Lookup Processes
 
@@ -1516,8 +1519,18 @@ class Process(BaseClass):
                 limit = 1
             case _:
                 pass
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case _:
+                pass
         return cls.execute_query(query=query, limit=limit)
 
+
+    @check_authorization
+    def save(self):
+        super().save()
 
 class TipRole(BaseClass):
     """
@@ -1539,6 +1552,10 @@ class TipRole(BaseClass):
 
     def __repr__(self):
         return f"<TipRole({self.name})>"
+    
+    @check_authorization
+    def save(self):
+        super().save()
 
 
 class Tips(BaseClass):
@@ -1593,6 +1610,10 @@ class Tips(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+    
+    @check_authorization
+    def save(self):
+        super().save()
 
 
 class SubmissionTypeTipRoleAssociation(BaseClass):
@@ -1609,6 +1630,10 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
                                    back_populates="submissiontype_tiprole_associations")  #: associated submission
     tip_role = relationship(TipRole,
                             back_populates="tiprole_submissiontype_associations")  #: associated equipment
+    
+    @check_authorization
+    def save(self):
+        super().save()
 
 
 class SubmissionTipsAssociation(BaseClass):

@@ -15,7 +15,7 @@ import logging, re
 from collections import OrderedDict
 from datetime import date
 from dateutil.parser import parse, ParserError
-from tools import check_not_nan, convert_nans_to_nones, is_missing, remove_key_from_list_of_dicts
+from tools import check_not_nan, convert_nans_to_nones, is_missing, remove_key_from_list_of_dicts, check_key_or_attr
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -83,7 +83,7 @@ class SheetParser(object):
         Args:
             extraction_kit (str | None, optional): Relevant extraction kit for reagent map. Defaults to None.
         """
-        if extraction_kit == None:
+        if extraction_kit is None:
             extraction_kit = self.sub['extraction_kit']
         # logger.debug(f"Parsing reagents for {extraction_kit}")
         self.sub['reagents'] = ReagentParser(xl=self.xl, submission_type=self.submission_type,
@@ -491,11 +491,11 @@ class SampleParser(object):
                         break
                     else:
                         new = psample
-            try:
-                check = new['submitter_id'] is None
-            except KeyError:
-                check = True
-            if check:
+            # try:
+            #     check = new['submitter_id'] is None
+            # except KeyError:
+            #     check = True
+            if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
                 new['submitter_id'] = psample['id']
             new = self.sub_object.parse_samples(new)
             samples.append(new)

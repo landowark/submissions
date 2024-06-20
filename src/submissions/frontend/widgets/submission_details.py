@@ -92,6 +92,7 @@ class SubmissionDetails(QDialog):
         # logger.debug(f"Making platemap...")
         self.base_dict['platemap'] = BasicSubmission.make_plate_map(sample_list=submission.hitpick_plate())
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
+        logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user())
         self.webview.setHtml(self.html)
         # with open("test.html", "w") as f:
@@ -110,8 +111,9 @@ class SubmissionDetails(QDialog):
     def export(self):
         """
         Renders submission to html, then creates and saves .pdf file to user selected file.
-        """        
-        fname = select_save_file(obj=self, default_name=self.base_dict['Plate Number'], extension="pdf")
+        """
+        logger.debug(f"Base dict: {pformat(self.base_dict)}")
+        fname = select_save_file(obj=self, default_name=self.base_dict['plate_number'], extension="docx")
         image_io = BytesIO()
         temp_dir = Path(TemporaryDirectory().name)
         hti = Html2Image(output_path=temp_dir, size=(2400, 1500))

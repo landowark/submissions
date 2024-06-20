@@ -147,10 +147,6 @@ class BaseClass(Base):
                 case _:
                     return query.limit(limit).all()
 
-    @classmethod
-    def default_info_return(cls, info, *args):
-        return info
-
     def save(self):
         """
         Add the object to the database and commit
@@ -191,7 +187,7 @@ class ConfigItem(BaseClass):
 
 
 from .controls import *
-# import order must go: orgs, kit, subs due to circular import issues
+# NOTE: import order must go: orgs, kit, subs due to circular import issues
 from .organizations import *
 from .kits import *
 from .submissions import *

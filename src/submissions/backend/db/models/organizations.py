@@ -70,7 +70,6 @@ class Organization(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-        # return query.first()
 
     @check_authorization
     def save(self):
@@ -117,7 +116,6 @@ class Contact(BaseClass):
         Returns:
             Contact|List[Contact]: Contact(s) of interest.
         """
-        # super().query(session)
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():

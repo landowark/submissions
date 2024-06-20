@@ -113,7 +113,7 @@ class ControlsViewer(QWidget):
         """    
         report = Report()
         # logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
-        # set the subtype for kraken
+        # NOTE: set the subtype for kraken
         if self.sub_typer.currentText() == "":
             self.subtype = None
         else:
@@ -121,28 +121,28 @@ class ControlsViewer(QWidget):
         # logger.debug(f"Subtype: {self.subtype}")
         # query all controls using the type/start and end dates from the gui
         controls = Control.query(control_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
-        # if no data found from query set fig to none for reporting in webview
-        if controls == None:
+        # NOTE: if no data found from query set fig to none for reporting in webview
+        if controls is None:
             fig = None
         else:
-            # change each control to list of dictionaries
+            # NOTE: change each control to list of dictionaries
             data = [control.convert_by_mode(mode=self.mode) for control in controls]
-            # flatten data to one dimensional list
+            # NOTE: flatten data to one dimensional list
             data = [item for sublist in data for item in sublist]
             # logger.debug(f"Control objects going into df conversion: {type(data)}")
-            if data == []:
+            if not data:
                 self.report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
                 return
-            # send to dataframe creator
+            # NOTE send to dataframe creator
             df = convert_data_list_to_df(input=data, subtype=self.subtype)
-            if self.subtype == None:
+            if self.subtype is None:
                 title = self.mode
             else:
                 title = f"{self.mode} - {self.subtype}"
             # send dataframe to chart maker
             fig = create_charts(ctx=self.app.ctx, df=df, ytitle=title)
         # logger.debug(f"Updating figure...")
-        # construct html for webview
+        # NOTE: construct html for webview
         html = construct_html(figure=fig)
         # logger.debug(f"The length of html code is: {len(html)}")
         self.webengineview.setHtml(html)

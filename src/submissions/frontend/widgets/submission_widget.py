@@ -89,7 +89,7 @@ class SubmissionFormContainer(QWidget):
         self.samples = []
         self.missing_info = []
         # NOTE: set file dialog
-        if isinstance(fname, bool) or fname == None:
+        if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
         # logger.debug(f"Attempting to parse file: {fname}")
         if not fname.exists():
@@ -172,7 +172,7 @@ class SubmissionFormWidget(QWidget):
                 logger.error(f"Couldn't get attribute from pyd: {k}")
                 value = dict(value=None, missing=True)
             add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'], sub_obj=st)
-            if add_widget != None:
+            if add_widget is not None:
                 self.layout.addWidget(add_widget)
             if k == "extraction_kit":
                 add_widget.input.currentTextChanged.connect(self.scrape_reagents)
@@ -347,7 +347,7 @@ class SubmissionFormWidget(QWidget):
         Args:
             fname (Path | None, optional): Input filename. Defaults to None.
         """
-        if isinstance(fname, bool) or fname == None:
+        if isinstance(fname, bool) or fname is None:
             fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
         try:
 
@@ -546,7 +546,7 @@ class SubmissionFormWidget(QWidget):
                     check = not value['missing']
                 except:
                     check = True
-                if label_name != None:
+                if label_name is not None:
                     self.setObjectName(label_name)
                 else:
                     self.setObjectName(f"{key}_label")
@@ -605,7 +605,7 @@ class SubmissionFormWidget(QWidget):
             # logger.debug(f"Using this lot for the reagent {self.reagent}: {lot}")
             wanted_reagent = Reagent.query(lot_number=lot, reagent_role=self.reagent.role)
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
-            if wanted_reagent == None:
+            if wanted_reagent is None:
                 dlg = QuestionAsker(title=f"Add {lot}?",
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
                 if dlg.exec():
@@ -621,7 +621,7 @@ class SubmissionFormWidget(QWidget):
                 # NOTE: Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name
                 # from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
                 rt = ReagentRole.query(name=self.reagent.role)
-                if rt == None:
+                if rt is None:
                     rt = ReagentRole.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
                 return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
                                   expiry=wanted_reagent.expiry, missing=False), None
@@ -689,7 +689,7 @@ class SubmissionFormWidget(QWidget):
                         if isinstance(looked_up_reg, list):
                             looked_up_reg = None
                         # logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
-                        if looked_up_reg != None:
+                        if looked_up_reg is not None:
                             try:
                                 relevant_reagents.remove(str(looked_up_reg.lot))
                                 relevant_reagents.insert(0, str(looked_up_reg.lot))

@@ -6,11 +6,12 @@ import plotly.express as px
 import pandas as pd
 from plotly.graph_objects import Figure
 import logging
-from backend.excel import get_unique_values_in_df_column
-from tools import Settings
+# from backend.excel import get_unique_values_in_df_column
+from tools import Settings, get_unique_values_in_df_column
 from frontend.widgets.functions import select_save_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
 
 def create_charts(ctx:Settings, df:pd.DataFrame, ytitle:str|None=None) -> Figure:
     """
@@ -217,7 +218,7 @@ def construct_html(figure:Figure) -> str:
         str: html string
     """    
     html = '<html><body>'
-    if figure != None:
+    if figure is not None:
         html += plotly.offline.plot(figure, output_type='div', include_plotlyjs='cdn')#, image = 'png', auto_open=True, image_filename='plot_image')
     else:
         html += "<h1>No data was retrieved for the given parameters.</h1>"

@@ -9,6 +9,22 @@
 <body>
     {% block body %}
     {{ super() }}
+    {% if sub['pcr_info'] %}
+        {% for entry in sub['pcr_info'] %}
+        {% if 'comment' not in entry.keys() %}
+            <h3><u>qPCR Momentum Status:</u></h3>
+        {% else %}
+            <h3><u>qPCR Status:</u></h3>
+        {% endif %}
+        <p>{% for key, value in entry.items() if key != 'imported_by'%}
+            {% if "column" in key %}
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
+            {% else %}
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
+            {% endif %}
+        {% endfor %}</p>
+        {% endfor %}
+        {% endif %}
      {% if sub['origin_plate'] %}
     <br/>
     <h3><u>24 Well Plate:</u></h3>

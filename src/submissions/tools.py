@@ -7,6 +7,7 @@ import json
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
 import pandas as pd
+from PyQt6.QtWidgets import QWidget
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
@@ -18,7 +19,6 @@ from typing import Any, Tuple, Literal, List
 from PyQt6.QtGui import QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from openpyxl.worksheet.worksheet import Worksheet
-
 # from PyQt6 import QtPrintSupport, QtCore, QtWebEngineWidgets
 from PyQt6.QtPrintSupport import QPrinter
 
@@ -50,6 +50,51 @@ main_form_style = '''
                 '''
 
 
+def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
+    """
+    get all unique values in a dataframe column by name
+
+    Args:
+        df (DataFrame): input dataframe
+        column_name (str): name of column of interest
+
+    Returns:
+        list: sorted list of unique values
+    """
+    return sorted(df[column_name].unique())
+
+
+def check_key_or_attr(key: str, interest: dict | object, check_none: bool = False) -> bool:
+    match interest:
+        case dict():
+            if key in interest.keys():
+                if check_none:
+                    match interest[key]:
+                        case dict():
+                            if interest[key]['value'] is None:
+                                return False
+                            else:
+                                return True
+                        case _:
+                            if interest[key] is None:
+                                return False
+                            else:
+                                return True
+                else:
+                    return True
+            return False
+        case object():
+            if hasattr(interest, key):
+                if check_none:
+                    if interest.__getattribute__(key) is None:
+                        return False
+                    else:
+                        return True
+                else:
+                    return True
+            return False
+
+
 def check_not_nan(cell_contents) -> bool:
     """
     Check to ensure excel sheet cell contents are not blank.
@@ -78,7 +123,7 @@ def check_not_nan(cell_contents) -> bool:
         cell_contents = np.nan
     if cell_contents == 'nan':
         cell_contents = np.nan
-    if cell_contents == None:
+    if cell_contents is None:
         cell_contents = np.nan
     if str(cell_contents).lower() == "none":
         cell_contents = np.nan
@@ -212,11 +257,11 @@ class Settings(BaseSettings, extra="allow"):
     @field_validator('database_session', mode="before")
     @classmethod
     def create_database_session(cls, value, values):
-        if value != None:
+        if value is not None:
             return value
         else:
             database_path = values.data['database_path']
-            if database_path == None:
+            if database_path is None:
                 # check in user's .submissions directory for submissions.db
                 if Path.home().joinpath(".submissions", "submissions.db").exists():
                     database_path = Path.home().joinpath(".submissions", "submissions.db")
@@ -244,7 +289,7 @@ class Settings(BaseSettings, extra="allow"):
     @classmethod
     def import_package(cls, value):
         import __init__ as package
-        if value == None:
+        if value is None:
             return package
 
     def __init__(self, *args, **kwargs):
@@ -299,7 +344,7 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
     except FileExistsError:
         logger.warning(f"Logging directory {LOGDIR} already exists.")
     # NOTE: if user hasn't defined config path in cli args
-    if settings_path == None:
+    if settings_path is None:
         # NOTE: Check user .config/submissions directory
         if CONFIGDIR.joinpath("config.yml").exists():
             settings_path = CONFIGDIR.joinpath("config.yml")
@@ -602,6 +647,7 @@ class Report(BaseModel):
     def is_empty(self):
         return bool(self.results)
 
+
 def rreplace(s, old, new):
     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
 
@@ -609,6 +655,7 @@ def rreplace(s, old, new):
 def html_to_pdf(html, output_file: Path | str):
     if isinstance(output_file, str):
         output_file = Path(output_file)
+    logger.debug(f"Printing PDF to {output_file}")
     document = QWebEngineView()
     document.setHtml(html)
     printer = QPrinter(QPrinter.PrinterMode.HighResolution)
@@ -616,9 +663,23 @@ def html_to_pdf(html, output_file: Path | str):
     printer.setOutputFileName(output_file.absolute().__str__())
     printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
     document.print(printer)
+    # HTML(string=html).write_pdf(output_file)
+    # new_parser = HtmlToDocx()
+    # docx = new_parser.parse_html_string(html)
+    # docx.save(output_file)
 
 
-def remove_key_from_list_of_dicts(input: list, key: str):
+def remove_key_from_list_of_dicts(input: list, key: str) -> list:
+    """
+    Removes a key from all dictionaries in a list
+
+    Args:
+        input (list): Input list of dicts
+        key (str): Name of key to remove.
+
+    Returns:
+        list: List of updated dictionaries
+    """
     for item in input:
         del item[key]
     return input
@@ -649,6 +710,7 @@ def check_authorization(func):
     Args:
         func (_type_): Function to be used.
     """
+
     def wrapper(*args, **kwargs):
         logger.debug(f"Checking authorization")
         if is_power_user():
@@ -656,4 +718,5 @@ def check_authorization(func):
         else:
             logger.error(f"User {getpass.getuser()} is not authorized for this function.")
             return dict(code=1, message="This user does not have permission for this function.", status="warning")
+
     return wrapper

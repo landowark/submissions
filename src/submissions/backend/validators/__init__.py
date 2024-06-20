@@ -141,7 +141,7 @@ class RSLNamer(object):
         """
         if "submitted_date" in data.keys():
             if isinstance(data['submitted_date'], dict):
-                if data['submitted_date']['value'] != None:
+                if data['submitted_date']['value'] is not None:
                     today = data['submitted_date']['value']
                 else:
                     today = datetime.now()
