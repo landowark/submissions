@@ -59,7 +59,10 @@ class EquipmentUsage(QDialog):
                 case _:
                     pass
         logger.debug(f"parsed output of Equsage form: {pformat(output)}")
-        return [item.strip() for item in output if item is not None]
+        try:
+            return [item.strip() for item in output if item is not None]
+        except AttributeError:
+            return [item for item in output if item is not None]
 
     class LabelRow(QWidget):
 
@@ -131,8 +134,8 @@ class RoleComboBox(QWidget):
         """
         Changes what tips are available when process is changed
         """        
-        process = self.process.currentText()
-        logger.debug(f"Checking process: {process}")
+        process = self.process.currentText().strip()
+        logger.debug(f"Checking process: {process} for equipment {self.role.name}")
         process = Process.query(name=process)
         if process.tip_roles:
             for iii, tip_role in enumerate(process.tip_roles):

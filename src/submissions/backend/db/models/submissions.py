@@ -31,6 +31,8 @@ from dateutil.parser import parse
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
+from docxtpl import InlineImage
+from io import BytesIO
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -730,7 +732,7 @@ class BasicSubmission(BaseClass):
         return input_excel
 
     @classmethod
-    def custom_docx_writer(cls, input_dict):
+    def custom_docx_writer(cls, input_dict:dict, tpl_obj=None):
 
         return input_dict
 
@@ -1493,7 +1495,7 @@ class Wastewater(BasicSubmission):
         # self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
 
     @classmethod
-    def custom_docx_writer(cls, input_dict):
+    def custom_docx_writer(cls, input_dict:dict, tpl_obj=None):
         from backend.excel.writer import DocxWriter
         input_dict = super().custom_docx_writer(input_dict)
         well_24 = []
@@ -1551,7 +1553,7 @@ class WastewaterArtic(BasicSubmission):
         if report:
             return output
         output['gel_info'] = self.gel_info
-        output['gel_image'] = self.gel_image
+        output['gel_image_path'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
         output['source_plates'] = self.source_plates
         output['artic_date'] = self.artic_date or self.submitted_date
@@ -1856,7 +1858,7 @@ class WastewaterArtic(BasicSubmission):
         """
         base_dict, template = super().get_details_template(base_dict=base_dict)
         base_dict['excluded'] += ['gel_info', 'gel_image', 'headers', "dna_core_submission_number", "source_plates",
-                                  "gel_controls"]
+                                  "gel_controls, gel_image_path"]
         base_dict['DNA Core ID'] = base_dict['dna_core_submission_number']
         # check = 'gel_info' in base_dict.keys() and base_dict['gel_info'] is not None
         if check_key_or_attr(key='gel_info', interest=base_dict, check_none=True):
@@ -1865,9 +1867,9 @@ class WastewaterArtic(BasicSubmission):
             base_dict['headers'] += headers
             # logger.debug(f"Gel info: {pformat(base_dict['headers'])}")
         # check = 'gel_image' in base_dict.keys() and base_dict['gel_image'] is not None
-        if check_key_or_attr(key='gel_image', interest=base_dict, check_none=True):
+        if check_key_or_attr(key='gel_image_path', interest=base_dict, check_none=True):
             with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
-                base_dict['gel_image'] = base64.b64encode(zipped.read(base_dict['gel_image'])).decode('utf-8')
+                base_dict['gel_image'] = base64.b64encode(zipped.read(base_dict['gel_image_path'])).decode('utf-8')
         return base_dict, template
 
     # def adjust_to_dict_samples(self, backup: bool = False) -> List[dict]:
@@ -1934,6 +1936,20 @@ class WastewaterArtic(BasicSubmission):
                 # will give a warning
                 zipf.write(img_path, self.gel_image)
             self.save()
+
+    @classmethod
+    def custom_docx_writer(cls, input_dict:dict, tpl_obj=None):
+        input_dict = super().custom_docx_writer(input_dict)
+        if check_key_or_attr(key='gel_image_path', interest=input_dict, check_none=True):
+            with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
+                img = zipped.read(input_dict['gel_image_path'])
+            with tempfile.TemporaryFile(mode="wb", suffix=".jpg", delete=False) as tmp:
+                tmp.write(img)
+            logger.debug(f"Tempfile: {tmp.name}")
+        img = InlineImage(tpl_obj, image_descriptor=tmp.name)#, width=5.5)#, height=400)
+        input_dict['gel_image'] = img
+        return input_dict
+
 
 
 # Sample Classes

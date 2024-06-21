@@ -1499,7 +1499,7 @@ class Process(BaseClass):
     @setup_lookup
     def query(cls,
               name: str | None = None,
-              id: int = 1,
+              id: int | None = None,
               limit: int = 0) -> Process | List[Process]:
         """
         Lookup Processes
@@ -1514,7 +1514,7 @@ class Process(BaseClass):
         query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Lookup Process with name str {name}")
+                logger.debug(f"Lookup Process with name str {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:

@@ -304,7 +304,10 @@ class PydEquipment(BaseModel, extra='ignore'):
             value = ['']
         if len(value) == 0:
             value = ['']
-        value = [item.strip() for item in value]
+        try:
+            value = [item.strip() for item in value]
+        except AttributeError:
+            pass
         return value
 
     def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Equipment, SubmissionEquipmentAssociation]:

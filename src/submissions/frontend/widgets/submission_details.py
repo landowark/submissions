@@ -10,7 +10,6 @@ from backend.db.models import BasicSubmission, BasicSample
 from tools import is_power_user, html_to_pdf
 from .functions import select_save_file
 from io import BytesIO
-from tempfile import TemporaryFile, TemporaryDirectory
 from pathlib import Path
 import logging, base64
 from getpass import getuser
@@ -43,7 +42,7 @@ class SubmissionDetails(QDialog):
         self.layout = QVBoxLayout()
         self.setFixedSize(900, 500)
         # NOTE: button to export a pdf version
-        btn = QPushButton("Export PDF")
+        btn = QPushButton("Export DOCX")
         btn.setFixedWidth(875)
         btn.clicked.connect(self.export)
         self.layout.addWidget(btn)
@@ -103,8 +102,6 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
-        with open("test.html", "w") as f:
-            f.write(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
 
     @pyqtSlot(str)

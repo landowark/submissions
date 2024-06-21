@@ -477,7 +477,7 @@ class DocxWriter(object):
             base_dict['excluded'] += ["platemap"]
         except KeyError:
             base_dict['excluded'] = ["platemap"]
-        base_dict = self.sub_obj.custom_docx_writer(base_dict)
+        base_dict = self.sub_obj.custom_docx_writer(base_dict, tpl_obj=self.template)
         # logger.debug(f"Base dict: {pformat(base_dict)}")
         self.template.render({"sub": base_dict})
 

@@ -54,9 +54,11 @@ class GelBox(QDialog):
         layout = QGridLayout()
         layout.addWidget(QLabel("DNA Core Submission Number"),0,1)
         self.core_number = QLineEdit()
+        self.core_number.setText(self.submission.dna_core_submission_number)
         layout.addWidget(self.core_number, 0,2)
         layout.addWidget(QLabel("Gel Barcode"),0,3)
         self.gel_barcode = QLineEdit()
+        self.gel_barcode.setText(self.submission.gel_barcode)
         layout.addWidget(self.gel_barcode, 0, 4)
         # setting this layout to the widget
         # plot window goes on right side, spanning 3 rows
