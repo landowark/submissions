@@ -740,7 +740,10 @@ class PydSubmission(BaseModel, extra='allow'):
                         if tips is None:
                             continue
                         logger.debug(f"Converting tips: {tips} to sql.")
-                        association = tips.to_sql(submission=instance)
+                        try:
+                            association = tips.to_sql(submission=instance)
+                        except AttributeError:
+                            continue
                         if association is not None and association not in instance.submission_tips_associations:
                             # association.save()
                             instance.submission_tips_associations.append(association)

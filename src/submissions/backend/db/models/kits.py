@@ -70,6 +70,7 @@ kittypes_processes = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for TipRole/Tips relations")
 tiproles_tips = Table(
     "_tiproles_tips",
     Base.metadata,
@@ -78,6 +79,7 @@ tiproles_tips = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for Process/TipRole relations")
 process_tiprole = Table(
     "_process_tiprole",
     Base.metadata,
@@ -86,6 +88,7 @@ process_tiprole = Table(
     extend_existing=True
 )
 
+# logger.debug("Table for Equipment/Tips relations")
 equipment_tips = Table(
     "_equipment_tips",
     Base.metadata,
@@ -410,6 +413,7 @@ class Reagent(BaseClass):
         except (TypeError, AttributeError) as e:
             place_holder = date.today()
             logger.error(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
+        # NOTE: The notation for not having an expiry is 1970.1.1
         if self.expiry.year == 1970:
             place_holder = "NA"
         else:
@@ -700,7 +704,13 @@ class SubmissionType(BaseClass):
             output[item.equipment_role.name] = emap
         return output
 
-    def construct_tips_map(self):
+    def construct_tips_map(self) -> dict:
+        """
+        Constructs map of tips to excel cells.
+
+        Returns:
+            dict: Tip locations in the excel sheet.
+        """        
         output = {}
         for item in self.submissiontype_tiprole_associations:
             tmap = item.uses
@@ -1142,6 +1152,7 @@ class Equipment(BaseClass):
                 processes = [process for process in processes if extraction_kit in process.kit_types]
             case _:
                 pass
+        # NOTE: Convert to strings
         processes = [process.name for process in processes]
         assert all([isinstance(process, str) for process in processes])
         if len(processes) == 0:
@@ -1193,7 +1204,8 @@ class Equipment(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     def to_pydantic(self, submission_type: SubmissionType,
-                    extraction_kit: str | KitType | None = None) -> "PydEquipment":
+                    extraction_kit: str | KitType | None = None,
+                    role: str = None) -> "PydEquipment":
         """
         Creates PydEquipment of this Equipment
 
@@ -1206,7 +1218,7 @@ class Equipment(BaseClass):
         """
         from backend.validators.pydant import PydEquipment
         return PydEquipment(
-            processes=self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit), role=None,
+            processes=self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit), role=role,
             **self.to_dict(processes=False))
 
     @classmethod

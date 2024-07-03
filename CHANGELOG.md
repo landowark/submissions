@@ -1,5 +1,6 @@
 ## 202406.04
 
+- Exported submission details will now be in docx format.
 - Adding in tips to Equipment usage.
 - New WastewaterArticAssociation will track previously missed sample info.
 

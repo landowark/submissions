@@ -20,8 +20,6 @@ from PIL import Image
 from typing import List
 from backend.excel.writer import DocxWriter
 
-
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -97,7 +95,7 @@ class SubmissionDetails(QDialog):
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        logger.debug(f"Submission_details: {pformat(self.base_dict)}")
+        # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
         self.setWindowTitle(f"Submission Details - {submission.rsl_plate_num}")
@@ -118,30 +116,10 @@ class SubmissionDetails(QDialog):
         writer = DocxWriter(base_dict=self.base_dict)
         fname = select_save_file(obj=self, default_name=self.base_dict['plate_number'], extension="docx")
         writer.save(fname)
-        # image_io = BytesIO()
-        # temp_dir = Path(TemporaryDirectory().name)
-        # hti = Html2Image(output_path=temp_dir, size=(2400, 1500))
-        # temp_file = Path(TemporaryFile(dir=temp_dir, suffix=".png").name)
-        # screenshot = hti.screenshot(self.base_dict['platemap'], save_as=temp_file.name)
-        # export_map = Image.open(screenshot[0])
-        # export_map = export_map.convert('RGB')
-        # try:
-        #     export_map.save(image_io, 'JPEG')
-        # except AttributeError:
-        #     logger.error(f"No plate map found")
-        # self.base_dict['export_map'] = base64.b64encode(image_io.getvalue()).decode('utf-8')
-        # del self.base_dict['platemap']
-        # self.html2 = self.template.render(sub=self.base_dict)
         try:
             html_to_pdf(html=self.html, output_file=fname)
         except PermissionError as e:
             logger.error(f"Error saving pdf: {e}")
-        #     msg = QMessageBox()
-        #     msg.setText("Permission Error")
-        #     msg.setInformativeText(f"Looks like {fname.__str__()} is open.\nPlease close it and try again.")
-        #     msg.setWindowTitle("Permission Error")
-        #     msg.exec()
-
 
 class SubmissionComment(QDialog):
     """

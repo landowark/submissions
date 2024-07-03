@@ -55,7 +55,7 @@ class ControlType(BaseClass):
 
     def get_subtypes(self, mode: str) -> List[str]:
         """
-        Get subtypes associated with this controltype
+        Get subtypes associated with this controltype (currently used only for Kraken)
 
         Args:
             mode (str): analysis mode name
@@ -140,15 +140,11 @@ class Control(BaseClass):
             kraken = {}
         # logger.debug("calculating kraken count total to use in percentage")
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
-        new_kraken = []
-        for item in kraken:
-            # logger.debug("calculating kraken percent (overwrites what's already been scraped)")
-            kraken_percent = kraken[item]['kraken_count'] / kraken_cnt_total
-            new_kraken.append({'name': item, 'kraken_count': kraken[item]['kraken_count'],
-                               'kraken_percent': "{0:.0%}".format(kraken_percent)})
+        # logger.debug("Creating new kraken.")
+        new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'], kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total)) for item in kraken]
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
         # logger.debug("setting targets")
-        if self.controltype.targets == []:
+        if not self.controltype.targets:
             targets = ["None"]
         else:
             targets = self.controltype.targets

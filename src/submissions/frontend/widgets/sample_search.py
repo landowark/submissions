@@ -51,7 +51,9 @@ class SearchBox(QDialog):
 
     def update_data(self):
         fields = self.parse_form()
-        data = self.type.samples_to_df(sample_type=self.type, **fields)
+        # data = self.type.samples_to_df(sample_type=self.type, **fields)
+        data = self.type.fuzzy_search(sample_type=self.type, **fields)
+        data = self.type.samples_to_df(sample_list=data)
         # logger.debug(f"Data: {data}")
         self.results.setData(df=data)
 

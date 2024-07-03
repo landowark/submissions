@@ -99,6 +99,7 @@ class RoleComboBox(QWidget):
             self.check.setChecked(False)
         else:
             self.check.setChecked(True)
+        self.check.stateChanged.connect(self.toggle_checked)
         self.box = QComboBox()
         self.box.setMaximumWidth(200)
         self.box.setMinimumWidth(200)
@@ -118,6 +119,7 @@ class RoleComboBox(QWidget):
         self.layout.addWidget(self.box, 0, 2)
         self.layout.addWidget(self.process, 0, 3)
         self.setLayout(self.layout)
+        self.toggle_checked()
 
     def update_processes(self):
         """
@@ -176,3 +178,14 @@ class RoleComboBox(QWidget):
             )
         except Exception as e:
             logger.error(f"Could create PydEquipment due to: {e}")
+
+    def toggle_checked(self):
+        for widget in self.findChildren(QWidget):
+            match widget:
+                case QCheckBox():
+                    continue
+                case _:
+                    if self.check.isChecked():
+                        widget.setEnabled(True)
+                    else:
+                        widget.setEnabled(False)

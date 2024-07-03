@@ -17,7 +17,6 @@ orgs_contacts = Table(
     Base.metadata,
     Column("org_id", INTEGER, ForeignKey("_organization.id")),
     Column("contact_id", INTEGER, ForeignKey("_contact.id")),
-    # __table_args__ = {'extend_existing': True}
     extend_existing=True
 )
 

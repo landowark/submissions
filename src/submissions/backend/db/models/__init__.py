@@ -112,7 +112,7 @@ class BaseClass(Base):
     @classmethod
     def execute_query(cls, query: Query = None, model=None, limit: int = 0, **kwargs) -> Any | List[Any]:
         """
-        Execute sqlalchemy query.
+        Execute sqlalchemy query with relevant defaults.
 
         Args:
             model (Any, optional): model to be queried. Defaults to None
@@ -137,6 +137,7 @@ class BaseClass(Base):
             except (ArgumentError, AttributeError) as e:
                 logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
             if k in singles:
+                logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
         with query.session.no_autoflush:
             match limit:
@@ -165,8 +166,8 @@ class ConfigItem(BaseClass):
     Key:JSON objects to store config settings in database. 
     """    
     id = Column(INTEGER, primary_key=True)
-    key = Column(String(32))
-    value = Column(JSON)
+    key = Column(String(32)) #: Name of the configuration item.
+    value = Column(JSON) #: Value associated with the config item.
 
     def __repr__(self):
         return f"ConfigItem({self.key} : {self.value})"
