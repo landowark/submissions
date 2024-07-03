@@ -23,32 +23,32 @@ class GelBox(QDialog):
 
     def __init__(self, parent, img_path:str|Path, submission:WastewaterArtic):
         super().__init__(parent)
-        # setting title
+        # NOTE: setting title
         self.setWindowTitle("PyQtGraph")
         self.img_path = img_path
         self.submission = submission
-        # setting geometry
+        # NOTE: setting geometry
         self.setGeometry(50, 50, 1200, 900)
-        # icon
+        # NOTE: icon
         icon = QIcon("skin.png")
-        # setting icon to the window
+        # NOTE: setting icon to the window
         self.setWindowIcon(icon)
-        # calling method
+        # NOTE: calling method
         self.UiComponents()
-        # showing all the widgets
+        # NOTE: showing all the widgets
 
     # method for components
     def UiComponents(self):
         """
         Create widgets in ui
         """        
-        # setting configuration options
+        # NOTE: setting configuration options
         pg.setConfigOptions(antialias=True)
-        # creating image view object
+        # NOTE: creating image view object
         self.imv = pg.ImageView()
-        # Create image.
-        # For some reason, ImageView wants to flip the image, so we have to rotate and flip the array first.
-        # Using the Image.rotate function results in cropped image.
+        # NOTE: Create image.
+        # NOTE: For some reason, ImageView wants to flip the image, so we have to rotate and flip the array first.
+        # NOTE: Using the Image.rotate function results in cropped image, so using np.
         img = np.flip(np.rot90(np.array(Image.open(self.img_path)),1),0)
         self.imv.setImage(img)
         layout = QGridLayout()
@@ -60,10 +60,10 @@ class GelBox(QDialog):
         self.gel_barcode = QLineEdit()
         self.gel_barcode.setText(self.submission.gel_barcode)
         layout.addWidget(self.gel_barcode, 0, 4)
-        # setting this layout to the widget
-        # plot window goes on right side, spanning 3 rows
+        # NOTE: setting this layout to the widget
+        # NOTE: plot window goes on right side, spanning 3 rows
         layout.addWidget(self.imv, 1, 1,20,20)
-        # setting this widget as central widget of the main window
+        # NOTE: setting this widget as central widget of the main window
         try:
             control_info = sorted(self.submission.gel_controls, key=lambda d: d['location'])
         except KeyError:
@@ -123,16 +123,10 @@ class ControlsForm(QWidget):
                 widge.setText("Neg")
                 widge.setObjectName(f"{rows[iii]} : {columns[jjj]}")
                 self.layout.addWidget(widge, iii+1, jjj+2, 1, 1)
-        # try:
-        #     for iii, item in enumerate(control_info, start=1):
-        #         self.layout.addWidget(QLabel(f"{item['sample_id']} - {item['location']}"), iii+4, 1)
-        # except TypeError:
-        #     pass
         self.layout.addWidget(QLabel("Comments:"), 0,5,1,1)
         self.comment_field = QTextEdit(self)
         self.comment_field.setFixedHeight(50)
         self.layout.addWidget(self.comment_field, 1,5,4,1)
-        
         self.setLayout(self.layout)
 
     def parse_form(self) -> List[dict]:

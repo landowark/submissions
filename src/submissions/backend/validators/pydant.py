@@ -3,21 +3,18 @@ Contains pydantic models and accompanying validators
 '''
 from __future__ import annotations
 import sys
-from operator import attrgetter
-import uuid, re, logging
-from pydantic import BaseModel, field_validator, Field, model_validator, PrivateAttr
+import uuid, re, logging, csv
+from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
 from . import RSLNamer
 from pathlib import Path
-from tools import check_not_nan, convert_nans_to_nones, Report, Result, row_map
+from tools import check_not_nan, convert_nans_to_nones, Report, Result
 from backend.db.models import *
 from sqlalchemy.exc import StatementError, IntegrityError
 from PyQt6.QtWidgets import QWidget
-from openpyxl import load_workbook, Workbook
-from io import BytesIO
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -106,20 +103,17 @@ class PydReagent(BaseModel):
             return values.data['role']
 
     def improved_dict(self) -> dict:
+        """
+        Constructs a dictionary consisting of model.fields and model.extras
+
+        Returns:
+            dict: Information dictionary
+        """        
         try:
             extras = list(self.model_extra.keys())
         except AttributeError:
             extras = []
         fields = list(self.model_fields.keys()) + extras
-        # output = {}
-        # for k in fields:
-        #     value = getattr(self, k)
-        #     match value:
-        #         case date():
-        #             value = value.strftime("%Y-%m-%d")
-        #         case _:
-        #             pass
-        #     output[k] = value
         return {k: getattr(self, k) for k in fields}
 
     def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, SubmissionReagentAssociation, Report]:
@@ -142,7 +136,7 @@ class PydReagent(BaseModel):
                 if isinstance(value, dict):
                     value = value['value']
                 # logger.debug(f"Reagent info item for {key}: {value}")
-                # set fields based on keys in dictionary
+                # NOTE: set fields based on keys in dictionary
                 match key:
                     case "lot":
                         reagent.lot = value.upper()
@@ -177,9 +171,7 @@ class PydReagent(BaseModel):
                 assoc = None
                 # add end-of-life extension from reagent type to expiry date
                 # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
-
         return reagent, assoc, report
-
 
 
 class PydSample(BaseModel, extra='allow'):
@@ -220,6 +212,12 @@ class PydSample(BaseModel, extra='allow'):
         return str(value)
 
     def improved_dict(self) -> dict:
+        """
+        Constructs a dictionary consisting of model.fields and model.extras
+
+        Returns:
+            dict: Information dictionary
+        """        
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         return {k: getattr(self, k) for k in fields}
 
@@ -249,7 +247,6 @@ class PydSample(BaseModel, extra='allow'):
             if isinstance(submission, str):
                 submission = BasicSubmission.query(rsl_plate_num=submission)
             assoc_type = submission.submission_type_name
-            # assoc_type = self.sample_type.replace("Sample", "").strip()
             for row, column, aid, submission_rank in zip(self.row, self.column, self.assoc_id, self.submission_rank):
                 # logger.debug(f"Looking up association with identity: ({submission.submission_type_name} Association)")
                 # logger.debug(f"Looking up association with identity: ({assoc_type} Association)")
@@ -268,6 +265,12 @@ class PydSample(BaseModel, extra='allow'):
         return instance, out_associations, report
 
     def improved_dict(self) -> dict:
+        """
+        Constructs a dictionary consisting of model.fields and model.extras
+
+        Returns:
+            dict: Information dictionary
+        """        
         try:
             extras = list(self.model_extra.keys())
         except AttributeError:
@@ -281,7 +284,16 @@ class PydTips(BaseModel):
     lot: str|None = Field(default=None)
     role: str
 
-    def to_sql(self, submission:BasicSubmission):
+    def to_sql(self, submission:BasicSubmission) -> SubmissionTipsAssociation:
+        """
+        Con
+
+        Args:
+            submission (BasicSubmission): A submission object to associate tips represented here.
+
+        Returns:
+            SubmissionTipsAssociation: Association between queried tips and submission
+        """        
         tips = Tips.query(name=self.name, lot=self.lot, limit=1)
         assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
         return assoc
@@ -348,6 +360,12 @@ class PydEquipment(BaseModel, extra='ignore'):
         return equipment, assoc
 
     def improved_dict(self) -> dict:
+        """
+        Constructs a dictionary consisting of model.fields and model.extras
+
+        Returns:
+            dict: Information dictionary
+        """        
         try:
             extras = list(self.model_extra.keys())
         except AttributeError:
@@ -619,7 +637,14 @@ class PydSubmission(BaseModel, extra='allow'):
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
 
-    def set_attribute(self, key, value):
+    def set_attribute(self, key:str, value):
+        """
+        Better handling of attribute setting.
+
+        Args:
+            key (str): Name of field to set
+            value (_type_): Value to set field to.
+        """        
         self.__setattr__(name=key, value=value)
 
     def handle_duplicate_samples(self):
@@ -775,15 +800,14 @@ class PydSubmission(BaseModel, extra='allow'):
             except AttributeError:
                 instance.run_cost = 0
         # logger.debug(f"Calculated base run cost of: {instance.run_cost}")
-        # Apply any discounts that are applicable for client and kit.
+        # NOTE: Apply any discounts that are applicable for client and kit.
         try:
             # logger.debug("Checking and applying discounts...")
             discounts = [item.amount for item in
                          Discount.query(kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
             # logger.debug(f"We got discounts: {discounts}")
             if len(discounts) > 0:
-                discounts = sum(discounts)
-                instance.run_cost = instance.run_cost - discounts
+                instance.run_cost = instance.run_cost - sum(discounts)
         except Exception as e:
             logger.error(f"An unknown exception occurred when calculating discounts: {e}")
         # We need to make sure there's a proper rsl plate number
@@ -808,7 +832,13 @@ class PydSubmission(BaseModel, extra='allow'):
         from frontend.widgets.submission_widget import SubmissionFormWidget
         return SubmissionFormWidget(parent=parent, submission=self)
 
-    def to_writer(self):
+    def to_writer(self) -> "SheetWriter":
+        """
+        Sends data here to the sheet writer.
+
+        Returns:
+            SheetWriter: Sheetwriter object that will perform writing.
+        """        
         from backend.excel.writer import SheetWriter
         return SheetWriter(self)
 
@@ -866,6 +896,19 @@ class PydSubmission(BaseModel, extra='allow'):
                 status="Warning")
         report.add_result(result)
         return output_reagents, report
+    
+    def export_csv(self, filename:Path|str):
+        try:
+            worksheet = self.csv
+        except AttributeError:
+            logger.error("No csv found.")
+            return
+        if isinstance(filename, str):
+            filename = Path(filename)
+        with open(filename, 'w', newline="") as f:
+            c = csv.writer(f)
+            for r in worksheet.rows:
+                c.writerow([cell.value for cell in r])
 
 
 class PydContact(BaseModel):

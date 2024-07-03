@@ -115,3 +115,4 @@ class InfoWidget(QWidget):
             row = self.row.value(),
             column = self.column.value()
         )
+    

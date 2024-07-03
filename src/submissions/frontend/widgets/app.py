@@ -62,7 +62,7 @@ class App(QMainWindow):
         # logger.debug(f"Creating menu bar...")
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
-        # Creating menus using a title
+        # NOTE: Creating menus using a title
         methodsMenu = menuBar.addMenu("&Methods")
         reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
@@ -70,7 +70,6 @@ class App(QMainWindow):
         helpMenu.addAction(self.helpAction)
         helpMenu.addAction(self.docsAction)
         fileMenu.addAction(self.importAction)
-        # fileMenu.addAction(self.importPCRAction)
         methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
         reportMenu.addAction(self.generateReportAction)
@@ -94,7 +93,6 @@ class App(QMainWindow):
         """        
         # logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
-        # self.importPCRAction = QAction("&Import PCR Results", self)
         self.addReagentAction = QAction("Add Reagent", self)
         self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Import Kit", self)
@@ -112,7 +110,6 @@ class App(QMainWindow):
         """
         # logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
-        # self.importPCRAction.triggered.connect(self.table_widget.formwidget.import_pcr_results)
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.generateReportAction.triggered.connect(self.table_widget.sub_wid.generate_report)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
@@ -166,12 +163,17 @@ class App(QMainWindow):
         dlg.exec()
 
     def runSampleSearch(self):
+        """
+        Create a search for samples.
+        """        
         dlg = SearchBox(self)
         dlg.exec()
 
     def backup_database(self):
+        """
+        Copies the database into the backup directory the first time it is opened every month.
+        """        
         month = date.today().strftime("%Y-%m")
-        # day = date.today().strftime("%Y-%m-%d")
         # logger.debug(f"Here is the db directory: {self.ctx.database_path}")
         # logger.debug(f"Here is the backup directory: {self.ctx.backup_path}")
         current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve().with_suffix(".db")

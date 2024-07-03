@@ -30,27 +30,27 @@ class KitAdder(QWidget):
         scrollContent = QWidget(scroll)
         self.grid = QGridLayout()
         scrollContent.setLayout(self.grid)
-        # insert submit button at top
+        # NOTE: insert submit button at top
         self.submit_btn = QPushButton("Submit")
         self.grid.addWidget(self.submit_btn,0,0,1,1)
         self.grid.addWidget(QLabel("Kit Name:"),2,0)
-        # widget to get kit name
+        # NOTE: widget to get kit name
         kit_name = QLineEdit()
         kit_name.setObjectName("kit_name")
         self.grid.addWidget(kit_name,2,1)
         self.grid.addWidget(QLabel("Used For Submission Type:"),3,0)
-        # widget to get uses of kit
+        # NOTE: widget to get uses of kit
         used_for = QComboBox()
         used_for.setObjectName("used_for")
-        # Insert all existing sample types
+        # NOTE: Insert all existing sample types
         used_for.addItems([item.name for item in SubmissionType.query()])
         used_for.setEditable(True)
         self.grid.addWidget(used_for,3,1)
-        # Get all fields in SubmissionTypeKitTypeAssociation
+        # NOTE: Get all fields in SubmissionTypeKitTypeAssociation
         self.columns = [item for item in SubmissionTypeKitTypeAssociation.__table__.columns if len(item.foreign_keys) == 0]
         for iii, column in enumerate(self.columns):
             idx = iii + 4
-            # convert field name to human readable.
+            # NOTE: convert field name to human readable.
             field_name = column.name.replace("_", " ").title()
             self.grid.addWidget(QLabel(field_name),idx,0)
             match column.type:
@@ -79,7 +79,7 @@ class KitAdder(QWidget):
         """
         insert new reagent type row
         """        
-        # get bottommost row
+        # NOTE: get bottommost row
         maxrow = self.grid.rowCount()
         reg_form = ReagentRoleForm(parent=self)
         reg_form.setObjectName(f"ReagentForm_{maxrow}")
@@ -90,14 +90,14 @@ class KitAdder(QWidget):
         send kit to database
         """        
         report = Report()
-        # get form info
+        # NOTE: get form info
         info, reagents = self.parse_form()
         info = {k:v for k,v in info.items() if k in [column.name for column in self.columns] + ['kit_name', 'used_for']}
         # logger.debug(f"kit info: {pformat(info)}")
         # logger.debug(f"kit reagents: {pformat(reagents)}")
         info['reagent_roles'] = reagents
         # logger.debug(pformat(info))
-        # send to kit constructor
+        # NOTE: send to kit constructor
         kit = PydKit(name=info['kit_name'])
         for reagent in info['reagent_roles']:
             uses = {

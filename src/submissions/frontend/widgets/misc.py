@@ -27,15 +27,12 @@ class AddReagentForm(QDialog):
         super().__init__()
         if reagent_lot is None:
             reagent_lot = reagent_role
-
         self.setWindowTitle("Add Reagent")
-
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        # widget to get lot info
+        # NOTE: widget to get lot info
         self.name_input = QComboBox()
         self.name_input.setObjectName("name")
         self.name_input.setEditable(True)
@@ -43,10 +40,10 @@ class AddReagentForm(QDialog):
         self.lot_input = QLineEdit()
         self.lot_input.setObjectName("lot")
         self.lot_input.setText(reagent_lot)
-        # widget to get expiry info
+        # NOTE: widget to get expiry info
         self.exp_input = QDateEdit(calendarPopup=True)
         self.exp_input.setObjectName('expiry')
-        # if expiry is not passed in from gui, use today
+        # NOTE: if expiry is not passed in from gui, use today
         if expiry is None:
             self.exp_input.setDate(QDate.currentDate())
         else:
@@ -54,17 +51,17 @@ class AddReagentForm(QDialog):
                 self.exp_input.setDate(expiry)
             except TypeError:
                 self.exp_input.setDate(QDate.currentDate())
-        # widget to get reagent type info
+        # NOTE: widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
         self.type_input.addItems([item.name for item in ReagentRole.query()])
         # logger.debug(f"Trying to find index of {reagent_type}")
-        # convert input to user friendly string?
+        # NOTE: convert input to user friendly string?
         try:
             reagent_role = reagent_role.replace("_", " ").title()
         except AttributeError:
             reagent_role = None
-        # set parsed reagent type to top of list
+        # NOTE: set parsed reagent type to top of list
         index = self.type_input.findText(reagent_role, Qt.MatchFlag.MatchEndsWith)
         if index >= 0:
             self.type_input.setCurrentIndex(index)
@@ -110,12 +107,12 @@ class ReportDatePicker(QDialog):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Select Report Date Range")
-        # make confirm/reject buttons
+        # NOTE: make confirm/reject buttons
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        # widgets to ask for dates 
+        # NOTE: widgets to ask for dates 
         self.start_date = QDateEdit(calendarPopup=True)
         self.start_date.setObjectName("start_date")
         self.start_date.setDate(QDate.currentDate())
@@ -138,48 +135,6 @@ class ReportDatePicker(QDialog):
             dict: output dict.
         """        
         return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
-
-
-class FirstStrandSalvage(QDialog):
-
-    def __init__(self, ctx:Settings, submitter_id:str, rsl_plate_num:str|None=None) -> None:
-        super().__init__()
-        if rsl_plate_num is None:
-            rsl_plate_num = ""
-        self.setWindowTitle("Add Reagent")
-
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.submitter_id_input = QLineEdit()
-        self.submitter_id_input.setText(submitter_id)
-        self.rsl_plate_num = QLineEdit()
-        self.rsl_plate_num.setText(rsl_plate_num)
-        self.row_letter = QComboBox()
-        self.row_letter.addItems(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'])
-        self.row_letter.setEditable(False)
-        self.column_number = QComboBox()
-        self.column_number.addItems(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'])
-        self.column_number.setEditable(False)
-        self.layout = QFormLayout()
-        self.layout.addRow(self.tr("&Sample Number:"), self.submitter_id_input)
-        self.layout.addRow(self.tr("&Plate Number:"), self.rsl_plate_num)
-        self.layout.addRow(self.tr("&Source Row:"), self.row_letter)
-        self.layout.addRow(self.tr("&Source Column:"), self.column_number)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
-
-    def parse_form(self) -> dict:
-        """
-        Pulls first strand info from form.
-
-        Returns:
-            dict: Output info
-        """              
-        return dict(plate=self.rsl_plate_num.text(), submitter_id=self.submitter_id_input.text(), well=f"{self.row_letter.currentText()}{self.column_number.currentText()}")
-
 
 class LogParser(QDialog):
 

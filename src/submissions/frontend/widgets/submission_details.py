@@ -1,6 +1,7 @@
-from PyQt6.QtGui import QPageSize
-from PyQt6.QtPrintSupport import QPrinter
-from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout, QMessageBox,
+'''
+Webview to show submission and sample details.
+'''
+from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout, 
                              QDialogButtonBox, QTextEdit)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
@@ -9,14 +10,12 @@ from PyQt6.QtCore import Qt, pyqtSlot
 from backend.db.models import BasicSubmission, BasicSample
 from tools import is_power_user, html_to_pdf
 from .functions import select_save_file
-from io import BytesIO
 from pathlib import Path
-import logging, base64
+import logging
 from getpass import getuser
 from datetime import datetime
 from pprint import pformat
-from html2image import Html2Image
-from PIL import Image
+
 from typing import List
 from backend.excel.writer import DocxWriter
 
@@ -135,7 +134,7 @@ class SubmissionComment(QDialog):
             pass
         self.submission = submission
         self.setWindowTitle(f"{self.submission.rsl_plate_num} Submission Comment")
-        # create text field
+        # NOTE: create text field
         self.txt_editor = QTextEdit(self)
         self.txt_editor.setReadOnly(False)
         self.txt_editor.setText("Add Comment")

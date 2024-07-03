@@ -7,7 +7,6 @@ import json
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
 import pandas as pd
-from PyQt6.QtWidgets import QWidget
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
@@ -65,6 +64,17 @@ def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
 
 
 def check_key_or_attr(key: str, interest: dict | object, check_none: bool = False) -> bool:
+    """
+    Checks if key exists in dict or object has attribute.
+
+    Args:
+        key (str): key or attribute name
+        interest (dict | object): Dictionary or object to be checked.
+        check_none (bool, optional): Return false if value exists, but is None. Defaults to False.
+
+    Returns:
+        bool: True if exists, else False
+    """    
     match interest:
         case dict():
             if key in interest.keys():
@@ -105,10 +115,9 @@ def check_not_nan(cell_contents) -> bool:
     Returns:
         bool: True if cell has value, else, false.
     """
-    # check for nan as a string first
+    # NOTE: check for nan as a string first
     exclude = ['unnamed:', 'blank', 'void']
     try:
-        # if "Unnamed:" in cell_contents or "blank" in cell_contents.lower():
         if cell_contents.lower() in exclude:
             cell_contents = np.nan
         cell_contents = cell_contents.lower()
@@ -158,6 +167,15 @@ def convert_nans_to_nones(input_str) -> str | None:
 
 
 def is_missing(value: Any) -> Tuple[Any, bool]:
+    """
+    Checks if a parsed value is missing.
+
+    Args:
+        value (Any): Incoming value
+
+    Returns:
+        Tuple[Any, bool]: Value, True if nan, else False
+    """    
     if check_not_nan(value):
         return value, False
     else:
@@ -262,19 +280,19 @@ class Settings(BaseSettings, extra="allow"):
         else:
             database_path = values.data['database_path']
             if database_path is None:
-                # check in user's .submissions directory for submissions.db
+                # NOTE: check in user's .submissions directory for submissions.db
                 if Path.home().joinpath(".submissions", "submissions.db").exists():
                     database_path = Path.home().joinpath(".submissions", "submissions.db")
-                # finally, look in the local dir
+                # NOTE: finally, look in the local dir
                 else:
                     database_path = package_dir.joinpath("submissions.db")
             else:
                 if database_path == ":memory:":
                     pass
-                # check if user defined path is directory
+                # NOTE: check if user defined path is directory
                 elif database_path.is_dir():
                     database_path = database_path.joinpath("submissions.db")
-                # check if user defined path is a file
+                # NOTE: check if user defined path is a file
                 elif database_path.is_file():
                     database_path = database_path
                 else:
@@ -282,7 +300,6 @@ class Settings(BaseSettings, extra="allow"):
             logger.info(f"Using {database_path} for database file.")
             engine = create_engine(f"sqlite:///{database_path}")  #, echo=True, future=True)
             session = Session(engine)
-            # metadata.session = session
             return session
 
     @field_validator('package', mode="before")
@@ -403,7 +420,7 @@ class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
         """
         # Rotate the file first.
         handlers.RotatingFileHandler.doRollover(self)
-        # Add group write to the current permissions.
+        # NOTE: Add group write to the current permissions.
         currMode = os.stat(self.baseFilename).st_mode
         os.chmod(self.baseFilename, currMode | stat.S_IWGRP)
 
@@ -629,6 +646,12 @@ class Report(BaseModel):
         return f"Report(result_count:{len(self.results)})"
 
     def add_result(self, result: Result | Report | None):
+        """
+        Takes a result object or all results in another report and adds them to this one.
+
+        Args:
+            result (Result | Report | None): Results to be added.
+        """        
         match result:
             case Result():
                 logger.info(f"Adding {result} to results.")
@@ -644,15 +667,30 @@ class Report(BaseModel):
             case _:
                 logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
 
-    def is_empty(self):
-        return bool(self.results)
 
+def rreplace(s:str, old:str, new:str) -> str:
+    """
+    Removes rightmost occurence of a substring
 
-def rreplace(s, old, new):
+    Args:
+        s (str): input string
+        old (str): original substring
+        new (str): new substring
+
+    Returns:
+        str: updated string
+    """    
     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
 
 
-def html_to_pdf(html, output_file: Path | str):
+def html_to_pdf(html:str, output_file: Path | str):
+    """
+    Attempts to print an html string as a PDF. (currently not working)
+
+    Args:
+        html (str): Input html string.
+        output_file (Path | str): Output PDF file path.
+    """    
     if isinstance(output_file, str):
         output_file = Path(output_file)
     logger.debug(f"Printing PDF to {output_file}")
@@ -688,6 +726,13 @@ def remove_key_from_list_of_dicts(input: list, key: str) -> list:
 
 
 def workbook_2_csv(worksheet: Worksheet, filename: Path):
+    """
+    Export an excel worksheet (workbook is not correct) to csv file.
+
+    Args:
+        worksheet (Worksheet): Incoming worksheet
+        filename (Path): Output csv filepath.
+    """    
     with open(filename, 'w', newline="") as f:
         c = csv.writer(f)
         for r in worksheet.rows:
@@ -698,6 +743,12 @@ ctx = get_config(None)
 
 
 def is_power_user() -> bool:
+    """
+    Checks if user is in list of power users
+
+    Returns:
+        bool: True if yes, False if no.
+    """    
     try:
         check = getpass.getuser() in ctx.power_users
     except:

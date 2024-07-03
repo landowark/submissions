@@ -1,3 +1,6 @@
+'''
+Handles display of control charts
+'''
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
@@ -54,43 +57,37 @@ class ControlsViewer(QWidget):
         """    
         self.controls_getter_function()
         
-    def chart_maker(self):
-        """
-        Creates plotly charts for webview
-        """   
-        self.chart_maker_function()     
-
     def controls_getter_function(self):
         """
         Get controls based on start/end dates
         """    
         report = Report()
-        # subtype defaults to disabled  
+        # NOTE: subtype defaults to disabled  
         try:
             self.sub_typer.disconnect()
         except TypeError:
             pass
-        # correct start date being more recent than end date and rerun
+        # NOTE: correct start date being more recent than end date and rerun
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():
             logger.warning("Start date after end date is not allowed!")
             threemonthsago = self.datepicker.end_date.date().addDays(-60)
-            # block signal that will rerun controls getter and set start date
+            # NOTE: block signal that will rerun controls getter and set start date
             # Without triggering this function again
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(threemonthsago)
             self.controls_getter()
             self.report.add_result(report)
             return
-        # convert to python useable date objects
+        # NOTE: convert to python useable date objects
         self.start_date = self.datepicker.start_date.date().toPyDate()
         self.end_date = self.datepicker.end_date.date().toPyDate()
         self.con_type = self.control_typer.currentText()
         self.mode = self.mode_typer.currentText()
         self.sub_typer.clear()
-        # lookup subtypes
+        # NOTE: lookup subtypes
         sub_types = ControlType.query(name=self.con_type).get_subtypes(mode=self.mode)
         if sub_types != []:
-            # block signal that will rerun controls getter and update sub_typer
+            # NOTE: block signal that will rerun controls getter and update sub_typer
             with QSignalBlocker(self.sub_typer) as blocker: 
                 self.sub_typer.addItems(sub_types)
             self.sub_typer.setEnabled(True)
@@ -100,7 +97,13 @@ class ControlsViewer(QWidget):
             self.sub_typer.setEnabled(False)
         self.chart_maker()
         self.report.add_result(report)
-        
+
+    def chart_maker(self):
+        """
+        Creates plotly charts for webview
+        """   
+        self.chart_maker_function()     
+
     def chart_maker_function(self):
         """
         Create html chart for controls reporting
@@ -119,7 +122,7 @@ class ControlsViewer(QWidget):
         else:
             self.subtype = self.sub_typer.currentText()
         # logger.debug(f"Subtype: {self.subtype}")
-        # query all controls using the type/start and end dates from the gui
+        # NOTE: query all controls using the type/start and end dates from the gui
         controls = Control.query(control_type=self.con_type, start_date=self.start_date, end_date=self.end_date)
         # NOTE: if no data found from query set fig to none for reporting in webview
         if controls is None:
@@ -139,7 +142,7 @@ class ControlsViewer(QWidget):
                 title = self.mode
             else:
                 title = f"{self.mode} - {self.subtype}"
-            # send dataframe to chart maker
+            # NOTE: send dataframe to chart maker
             fig = create_charts(ctx=self.app.ctx, df=df, ytitle=title)
         # logger.debug(f"Updating figure...")
         # NOTE: construct html for webview
@@ -157,7 +160,7 @@ class ControlsDatePicker(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.start_date = QDateEdit(calendarPopup=True)
-        # start date is two months prior to end date by default
+        # NOTE: start date is two months prior to end date by default
         twomonthsago = QDate.currentDate().addDays(-60)
         self.start_date.setDate(twomonthsago)
         self.end_date = QDateEdit(calendarPopup=True)

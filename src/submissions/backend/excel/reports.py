@@ -90,6 +90,13 @@ class ReportMaker(object):
         return html
 
     def write_report(self, filename: Path | str, obj: QWidget | None = None):
+        """
+        Writes info to files.
+
+        Args:
+            filename (Path | str): Basename of output file
+            obj (QWidget | None, optional): Parent object. Defaults to None.
+        """        
         if isinstance(filename, str):
             filename = Path(filename)
         filename = filename.absolute()
@@ -108,6 +115,9 @@ class ReportMaker(object):
         self.writer.close()
 
     def fix_up_xl(self):
+        """
+        Handles formatting of xl file.
+        """        
         # logger.debug(f"Updating worksheet")
         worksheet: Worksheet = self.writer.sheets['Report']
         for idx, col in enumerate(self.summary_df, start=1):  # loop through all columns

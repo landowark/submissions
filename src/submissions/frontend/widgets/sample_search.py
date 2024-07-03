@@ -1,3 +1,6 @@
+'''
+Search box that performs fuzzy search for samples
+'''
 from pprint import pformat
 from typing import Tuple
 from pandas import DataFrame
@@ -33,6 +36,9 @@ class SearchBox(QDialog):
         self.update_widgets()
 
     def update_widgets(self):
+        """
+        Changes form inputs based on sample type
+        """        
         deletes = [item for item in self.findChildren(FieldSearch)]
         # logger.debug(deletes)
         for item in deletes:
@@ -45,13 +51,21 @@ class SearchBox(QDialog):
             widget = FieldSearch(parent=self, label=item['label'], field_name=item['field'])
             self.layout.addWidget(widget, start_row+iii, 0)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Converts form into dictionary.
+
+        Returns:
+            dict: Fields dictionary
+        """        
         fields = [item.parse_form() for item in self.findChildren(FieldSearch)]
         return {item[0]:item[1] for item in fields if item[1] is not None}
 
     def update_data(self):
+        """
+        Shows dataframe of relevant samples.
+        """        
         fields = self.parse_form()
-        # data = self.type.samples_to_df(sample_type=self.type, **fields)
         data = self.type.fuzzy_search(sample_type=self.type, **fields)
         data = self.type.samples_to_df(sample_list=data)
         # logger.debug(f"Data: {data}")
@@ -72,6 +86,9 @@ class FieldSearch(QWidget):
         self.search_widget.returnPressed.connect(self.enter_pressed)
 
     def enter_pressed(self):
+        """
+        Triggered when enter is pressed on this input field.
+        """        
         self.parent().update_data()
 
     def parse_form(self) -> Tuple:
@@ -100,3 +117,4 @@ class SearchResults(QTableView):
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(pandasModel(self.data))
         self.setModel(proxy_model)
+        

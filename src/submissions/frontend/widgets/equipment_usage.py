@@ -1,4 +1,6 @@
-import sys
+'''
+Creates forms that the user can enter equipment info into.
+'''
 from pprint import pformat
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,
@@ -180,6 +182,9 @@ class RoleComboBox(QWidget):
             logger.error(f"Could create PydEquipment due to: {e}")
 
     def toggle_checked(self):
+        """
+        If this equipment is disabled, the input fields will be disabled.
+        """        
         for widget in self.findChildren(QWidget):
             match widget:
                 case QCheckBox():

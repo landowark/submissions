@@ -9,6 +9,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     """
     *should* allow automatic creation of foreign keys in the database
     I have no idea how it actually works.
+    Listens for connect and then turns on foreign keys?
 
     Args:
         dbapi_connection (_type_): _description_

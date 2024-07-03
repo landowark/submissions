@@ -261,32 +261,32 @@ class SubmissionsSheet(QTableView):
             html = make_report_html(df=summary_df, start_date=info['start_date'], end_date=info['end_date'])
             # NOTE: get save location of report
             fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.docx", extension="docx")
-            html_to_pdf(html=html, output_file=fname)
-            writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
-            summary_df.to_excel(writer, sheet_name="Report")
-            detailed_df.to_excel(writer, sheet_name="Details", index=False)
-            worksheet: Worksheet = writer.sheets['Report']
-            for idx, col in enumerate(summary_df, start=1):  # loop through all columns
-                series = summary_df[col]
-                max_len = max((
-                    series.astype(str).map(len).max(),  # len of largest item
-                    len(str(series.name))  # len of column name/header
-                    )) + 20  # adding a little extra space
-                try:
-                    # NOTE: Convert idx to letter
-                    col_letter = chr(ord('@') + idx)
-                    worksheet.column_dimensions[col_letter].width = max_len
-                except ValueError:
-                    pass
-            blank_row = get_first_blank_df_row(summary_df) + 1
-            # logger.debug(f"Blank row index = {blank_row}")
-            for col in range(3,6):
-                col_letter = row_map[col]
-                worksheet.cell(row=blank_row, column=col, value=f"=SUM({col_letter}2:{col_letter}{str(blank_row-1)})")
-            for cell in worksheet['D']:
-                if cell.row > 1:
-                    cell.style = 'Currency'
-            writer.close()
-            # rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
-            # rp.write_report(filename=fname, obj=self)
+            # html_to_pdf(html=html, output_file=fname)
+            # writer = pd.ExcelWriter(fname.with_suffix(".xlsx"), engine='openpyxl')
+            # summary_df.to_excel(writer, sheet_name="Report")
+            # detailed_df.to_excel(writer, sheet_name="Details", index=False)
+            # worksheet: Worksheet = writer.sheets['Report']
+            # for idx, col in enumerate(summary_df, start=1):  # loop through all columns
+            #     series = summary_df[col]
+            #     max_len = max((
+            #         series.astype(str).map(len).max(),  # len of largest item
+            #         len(str(series.name))  # len of column name/header
+            #         )) + 20  # adding a little extra space
+            #     try:
+            #         # NOTE: Convert idx to letter
+            #         col_letter = chr(ord('@') + idx)
+            #         worksheet.column_dimensions[col_letter].width = max_len
+            #     except ValueError:
+            #         pass
+            # blank_row = get_first_blank_df_row(summary_df) + 1
+            # # logger.debug(f"Blank row index = {blank_row}")
+            # for col in range(3,6):
+            #     col_letter = row_map[col]
+            #     worksheet.cell(row=blank_row, column=col, value=f"=SUM({col_letter}2:{col_letter}{str(blank_row-1)})")
+            # for cell in worksheet['D']:
+            #     if cell.row > 1:
+            #         cell.style = 'Currency'
+            # writer.close()
+            rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
+            rp.write_report(filename=fname, obj=self)
         self.report.add_result(report)

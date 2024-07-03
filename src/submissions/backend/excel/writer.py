@@ -1,3 +1,6 @@
+'''
+contains writer objects for pushing values to submission sheet templates. 
+'''
 import logging
 from copy import copy
 from operator import itemgetter
@@ -27,8 +30,9 @@ class SheetWriter(object):
     def __init__(self, submission: PydSubmission, missing_only: bool = False):
         """
         Args:
-            filepath (Path | None, optional): file path to excel sheet. Defaults to None.
-        """
+            submission (PydSubmission): Object containing submission information.
+            missing_only (bool, optional): Whether to only fill in missing values. Defaults to False.
+        """        
         self.sub = OrderedDict(submission.improved_dict())
         for k, v in self.sub.items():
             match k:
@@ -116,6 +120,13 @@ class InfoWriter(object):
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict,
                  sub_object: BasicSubmission | None = None):
+        """
+        Args:
+            xl (Workbook): Openpyxl workbook from submitted excel file.
+            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            info_dict (dict): Dictionary of information to write.
+            sub_object (BasicSubmission | None, optional): Submission object containing methods. Defaults to None.
+        """        
         logger.debug(f"Info_dict coming into InfoWriter: {pformat(info_dict)}")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -186,6 +197,13 @@ class ReagentWriter(object):
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, extraction_kit: KitType | str,
                  reagent_list: list):
+        """
+        Args:
+            xl (Workbook): Openpyxl workbook from submitted excel file.
+            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            extraction_kit (KitType | str): Extraction kit used.
+            reagent_list (list): List of reagent dicts to be written to excel.
+        """        
         self.xl = xl
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -245,8 +263,13 @@ class SampleWriter(object):
     """
     object to write sample data into excel file
     """
-
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, sample_list: list):
+        """
+        Args:
+            xl (Workbook): Openpyxl workbook from submitted excel file.
+            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            sample_list (list): List of sample dictionaries to be written to excel file.
+        """        
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -303,6 +326,12 @@ class EquipmentWriter(object):
     """
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, equipment_list: list):
+        """
+        Args:
+            xl (Workbook): Openpyxl workbook from submitted excel file.
+            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            equipment_list (list): List of equipment dictionaries to write to excel file.
+        """        
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -385,6 +414,12 @@ class TipWriter(object):
     """
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, tips_list: list):
+        """
+        Args:
+            xl (Workbook): Openpyxl workbook from submitted excel file.
+            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            tips_list (list): List of tip dictionaries to write to the excel file.
+        """        
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -460,8 +495,15 @@ class TipWriter(object):
 
 
 class DocxWriter(object):
+    """
+    Object to render 
+    """    
 
     def __init__(self, base_dict: dict):
+        """
+        Args:
+            base_dict (dict): dictionary of info to be written to template.
+        """        
         self.sub_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=base_dict['submission_type'])
         env = jinja_template_loading()
         temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_subdocument.docx"
@@ -506,7 +548,13 @@ class DocxWriter(object):
             output.append(contents)
         return output
 
-    def create_merged_template(self, *args):
+    def create_merged_template(self, *args) -> BytesIO:
+        """
+        Appends submission specific information
+
+        Returns:
+            BytesIO: Merged docx template
+        """        
         merged_document = Document()
         output = BytesIO()
         for index, file in enumerate(args):

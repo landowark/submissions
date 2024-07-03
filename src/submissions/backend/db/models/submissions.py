@@ -1581,12 +1581,12 @@ class WastewaterArtic(BasicSubmission):
             dict: dictionary used in submissions summary
         """
         output = super().to_dict(full_data=full_data, backup=backup, report=report)
+        if report:
+            return output
         if self.artic_technician in [None, "None"]:
             output['artic_technician'] = self.technician
         else:
             output['artic_technician'] = self.artic_technician
-        if report:
-            return output
         output['gel_info'] = self.gel_info
         output['gel_image_path'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
@@ -2253,6 +2253,12 @@ class BasicSample(BaseClass):
 
     @classmethod
     def get_searchables(cls):
+        """
+        Delivers a list of fields that can be used in fuzzy search.
+
+        Returns:
+            List[str]: List of fields.
+        """        
         return [dict(label="Submitter ID", field="submitter_id")]
 
     @classmethod
@@ -2381,22 +2387,14 @@ class WastewaterSample(BasicSample):
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
         return output_dict
 
-    def get_previous_ww_submission(self, current_artic_submission: WastewaterArtic):
-        try:
-            plates = [item['plate'] for item in current_artic_submission.source_plates]
-        except TypeError as e:
-            logger.error(f"source_plates must not be present")
-            plates = [item.rsl_plate_num for item in
-                      self.submissions[:self.submissions.index(current_artic_submission)]]
-        subs = [sub for sub in self.submissions if sub.rsl_plate_num in plates]
-        # logger.debug(f"Submissions: {subs}")
-        try:
-            return subs[-1]
-        except IndexError:
-            return None
-
     @classmethod
-    def get_searchables(cls):
+    def get_searchables(cls) -> List[str]:
+        """
+        Delivers a list of fields that can be used in fuzzy search. Extends parent.
+
+        Returns:
+            List[str]: List of fields.
+        """        
         searchables = super().get_searchables()
         for item in ["ww_processing_num", "ww_full_sample_id", "rsl_number"]:
             label = item.strip("ww_").replace("_", " ").replace("rsl", "RSL").title()

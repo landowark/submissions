@@ -1,5 +1,7 @@
+'''
+Contains all submission related frontend functions
+'''
 import sys
-
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
@@ -148,8 +150,6 @@ class SubmissionFormContainer(QWidget):
 
 
 class SubmissionFormWidget(QWidget):
-
-
 
     def __init__(self, parent: QWidget, submission: PydSubmission) -> None:
         super().__init__(parent)
@@ -303,10 +303,10 @@ class SubmissionFormWidget(QWidget):
         # logger.debug(f"Base submission: {base_submission.to_dict()}")
         # NOTE: check output message for issues
         match result.code:
-            # code 0: everything is fine.
+            # NOTE: code 0: everything is fine.
             case 0:
                 report.add_result(None)
-            # code 1: ask for overwrite
+            # NOTE: code 1: ask for overwrite
             case 1:
                 dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
                 if dlg.exec():
@@ -319,7 +319,7 @@ class SubmissionFormWidget(QWidget):
                     self.app.report.add_result(report)
                     self.app.result_reporter()
                     return
-            # code 2: No RSL plate number given
+            # NOTE: code 2: No RSL plate number given
             case 2:
                 report.add_result(result)
                 self.app.report.add_result(report)
@@ -351,9 +351,8 @@ class SubmissionFormWidget(QWidget):
         if isinstance(fname, bool) or fname is None:
             fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
         try:
-
-            # self.pyd.csv.to_csv(fname.__str__(), index=False)
-            workbook_2_csv(worksheet=self.pyd.csv, filename=fname)
+            self.pyd.export_csv(fname)
+            # workbook_2_csv(worksheet=self.pyd.csv, filename=fname)
         except PermissionError:
             logger.warning(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
         except AttributeError:

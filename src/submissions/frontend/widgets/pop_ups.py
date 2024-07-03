@@ -22,13 +22,13 @@ class QuestionAsker(QDialog):
     def __init__(self, title:str, message:str) -> QDialog:
         super().__init__()
         self.setWindowTitle(title)
-        # set yes/no buttons
+        # NOTE: set yes/no buttons
         QBtn = QDialogButtonBox.StandardButton.Yes | QDialogButtonBox.StandardButton.No
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.layout = QVBoxLayout()
-        # Text for the yes/no question
+        # NOTE: Text for the yes/no question
         self.message = QLabel(message)
         self.layout.addWidget(self.message)
         self.layout.addWidget(self.buttonBox)
@@ -41,7 +41,7 @@ class AlertPop(QMessageBox):
     """    
     def __init__(self, message:str, status:Literal['Information', 'Question', 'Warning', 'Critical'], owner:str|None=None) -> QMessageBox:
         super().__init__()
-        # select icon by string
+        # NOTE: select icon by string
         icon = getattr(QMessageBox.Icon, status)
         self.setIcon(icon)
         self.setInformativeText(message)
@@ -61,13 +61,13 @@ class ObjectSelector(QDialog):
         items = [item.name for item in obj_type.query()]
         self.widget.addItems(items)
         self.widget.setEditable(False)
-        # set yes/no buttons
+        # NOTE: set yes/no buttons
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.layout = QVBoxLayout()
-        # Text for the yes/no question
+        # NOTE: Text for the yes/no question
         message = QLabel(message)
         self.layout.addWidget(message)
         self.layout.addWidget(self.widget)

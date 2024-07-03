@@ -1,3 +1,6 @@
+'''
+Contains all validators
+'''
 import logging, re
 import sys
 from pathlib import Path
