@@ -9,20 +9,57 @@
 1. Ensure a properly formatted Submission Excel form has been filled out. 
     a. The program can fill in reagent fields and some other information automatically, but should be checked for accuracy afterwards.
 2. Click on 'File' in the menu bar, followed by 'Import Submission' and use the file dialog to locate the form.
+   1.  The excel file may also be dragged into the grey area on the left hand side of the screen from Windows File Explorer. If so, skip step 3. 
 3. Click 'Ok'.
 4. Most of the fields in the form should be automatically filled in from the form area to the left of the screen.
 5. You may need to maximize the app to ensure you can see all the info.
 6. Any fields that are not automatically filled in can be filled in manually from the drop down menus.
-	a. Any reagent lots not found in the drop downs can be typed in manually.
+	1. Any reagent lots not found in the drop downs can be typed in manually.
 7. Once you are certain all the information is correct, click 'Submit' at the bottom of the form.
 8. Add in any new reagents the app doesn't have in the database.
 9. Once the new run shows up at the bottom of the Submissions, everything is fine.
 10. In case of any mistakes, the run can be overwritten by a reimport.
 
+## Adding Equipment to a Run:
+
+1. Right click on the run in the Submissions Table to access the context menu.
+2. Click on “Add Equipment”.
+3. Select equipment used for each equipment role from the drop down menu.
+   1. Any tips associated with a liquid handler will also be available in a separate drop down menu.
+5. Select (or input) the process used on with the equipment.
+   1. Equipment that is not necessary may disabled using the check boxes to the left of each entry.
+
+## Importing PCR results (Wastewater only):
+
+This is meant to import .xslx files created from the Design & Analysis Software
+1. Click on 'File' -> 'Import PCR Results'.
+2. Use the file dialog to locate the .xlsx file you want to import.
+3. Click 'Okay'.
+
+## Using the Gel Box (Wastewater Artic only):
+
+1. Right click on the run in the Submissions Table to access the context menu.
+2. Click on “Gel Box”.
+3.	Choose the .jpg file exported from the Egel reader.
+4.	Click “Okay”.
+5.	If none exists, eEnter the DNA Core Submission Number and gel barcode at the top of the window.
+6.	Use the histogram slide on the right side of the window to adjust the image contrast.
+7.	Use the mouse scroll to zoom in on relevant areas of the image.
+8.	Enter the control status in the grid at the bottom of the window.
+9.	Add any relevant comments.
+10.	Click “Okay”.
+
 ## Check existing Run:
 
 1. Details of existing runs can be checked by double clicking on the row of interest in the summary sheet on the right of the 'Submissions' tab.
-2. All information available on the run should be available in the resulting text window. This information can be exported by clicking 'Export PDF' at the top.
+2. All information available on the run should be available in the resulting text window. 
+   1. This information can be exported by clicking 'Export DOCX' at the top.
+
+## Signing Off on a run:
+
+1.	Open the “Submission Details” window (see 7.6 above).
+2.	Scroll down to bottom of the details window.
+3.	If the current user is authorized a button marked “Sign Off” will appear at the bottom of the page. Click it.
 
 ## Generating a report:
 
@@ -31,20 +68,22 @@
 3. Use the file dialog to select a location to save the report.
 	a. Both an excel sheet and a pdf should be generated containing summary information for submissions made by each client lab.
 
-## Importing PCR results:
+## Exporting a run as an Excel file:
 
-This is meant to import .xslx files created from the Design & Analysis Software
-1. Click on 'File' -> 'Import PCR Results'.
-2. Use the file dialog to locate the .xlsx file you want to import.
-3. Click 'Okay'.
+1.	Right click on the run in the Submissions Table to access the context menu.
+2.	Select “Export” from the context menu.
+3.	Select the folder and input the filename in the “Save File” dialog.
+4.	Click “Okay”.
+5.	Ensure the resulting Excel workbook contains all the relevant information.
+
 	
 ## Checking Controls:
 
 1. Controls for bacterial runs are now incorporated directly into the submissions database using webview. (Admittedly this performance is not as good as with a browser, so you will have to triage your data)
 2. Click on the "Controls" tab.
 3. Range of dates for controls can be selected from the date pickers at the top.
-	a. If start date is set after end date, the start date will default back to 3 months before end date.
-	b. Recommendation is to use less than 6 month date range keeping in mind that higher data density will affect performance (with kraken being the worst so far)
+	1. If start date is set after end date, the start date will default back to 3 months before end date.
+	2. Recommendation is to use less than 6 month date range keeping in mind that higher data density will affect performance (with kraken being the worst so far)
 4. Analysis type and subtype can be set using the drop down menus. (Only kraken has a subtype so far).
 
 ## Adding new Kit:
@@ -69,7 +108,3 @@ This is meant to import .xslx files created from the Design & Analysis Software
 1. Click "Monthly" -> "Link PCR Logs".
 2. Chose the .csv file taken from the PCR table runlogs folder.
 
-## Hitpicking:
-1. Select all submissions you wish to hitpick using "Ctrl + click". All must have PCR results.
-2. Right click on the last sample and select "Hitpick" from the contex menu.
-3. Select location to save csv file.

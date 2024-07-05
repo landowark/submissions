@@ -69,6 +69,7 @@ class App(QMainWindow):
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
         helpMenu.addAction(self.docsAction)
+        helpMenu.addAction(self.githubAction)
         fileMenu.addAction(self.importAction)
         methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
@@ -103,6 +104,7 @@ class App(QMainWindow):
         self.docsAction = QAction("&Docs", self)
         self.searchLog = QAction("Search Log", self)
         self.searchSample = QAction("Search Sample", self)
+        self.githubAction = QAction("Github", self)
 
     def _connectActions(self):
         """
@@ -118,6 +120,7 @@ class App(QMainWindow):
         self.docsAction.triggered.connect(self.openDocs)
         self.searchLog.triggered.connect(self.runSearch)
         self.searchSample.triggered.connect(self.runSampleSearch)
+        self.githubAction.triggered.connect(self.openGithub)
 
     def showAbout(self):
         """
@@ -137,6 +140,14 @@ class App(QMainWindow):
             url = Path("docs\\build\\index.html").absolute()
         # logger.debug(f"Attempting to open {url}")
         webbrowser.get('windows-default').open(f"file://{url.__str__()}")
+
+    def openGithub(self):
+        """
+        Opens the instructions html page
+        """
+        url = "https://github.com/landowark/submissions"
+        webbrowser.get('windows-default').open(url)
+
 
     def result_reporter(self):
         """

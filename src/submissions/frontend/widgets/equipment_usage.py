@@ -18,7 +18,7 @@ class EquipmentUsage(QDialog):
     def __init__(self, parent, submission: BasicSubmission) -> QDialog:
         super().__init__(parent)
         self.submission = submission
-        self.setWindowTitle("Equipment Checklist")
+        self.setWindowTitle(f"Equipment Checklist - {submission.rsl_plate_num}")
         self.used_equipment = self.submission.get_used_equipment()
         self.kit = self.submission.extraction_kit
         # logger.debug(f"Existing equipment: {self.used_equipment}")

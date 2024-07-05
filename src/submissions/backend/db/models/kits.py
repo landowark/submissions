@@ -8,7 +8,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
 from tools import check_authorization, setup_lookup, Report, Result
-from typing import List, Literal, Any
+from typing import List, Literal
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
@@ -126,8 +126,9 @@ class KitType(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to SubmissionType
 
-    used_for = association_proxy("kit_submissiontype_associations",
-                                 "submission_type")  #: Association proxy to SubmissionTypeKitTypeAssociation
+    used_for = association_proxy("kit_submissiontype_associations", "submission_type",
+                                 creator=lambda ST: SubmissionTypeKitTypeAssociation(
+                                     submission_type=ST))  #: Association proxy to SubmissionTypeKitTypeAssociation
 
     def __repr__(self) -> str:
         """
@@ -375,8 +376,9 @@ class Reagent(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to SubmissionSampleAssociation
 
-    submissions = association_proxy("reagent_submission_associations",
-                                    "submission")  #: Association proxy to SubmissionSampleAssociation.samples
+    submissions = association_proxy("reagent_submission_associations", "submission",
+                                    creator=lambda sub: SubmissionReagentAssociation(
+                                        submission=sub))  #: Association proxy to SubmissionSampleAssociation.samples
 
     def __repr__(self):
         if self.name is not None:
@@ -597,7 +599,9 @@ class SubmissionType(BaseClass):
         cascade="all, delete-orphan",
     )  #: Association of kittypes
 
-    kit_types = association_proxy("submissiontype_kit_associations", "kit_type")  #: Proxy of kittype association
+    kit_types = association_proxy("submissiontype_kit_associations", "kit_type",
+                                  creator=lambda kit: SubmissionTypeKitTypeAssociation(
+                                      kit_type=kit))  #: Proxy of kittype association
 
     submissiontype_equipmentrole_associations = relationship(
         "SubmissionTypeEquipmentRoleAssociation",
@@ -605,8 +609,8 @@ class SubmissionType(BaseClass):
         cascade="all, delete-orphan"
     )  #: Association of equipmentroles
 
-    equipment = association_proxy("submissiontype_equipmentrole_associations",
-                                  "equipment_role")  #: Proxy of equipmentrole associations
+    equipment = association_proxy("submissiontype_equipmentrole_associations", "equipment_role",
+                                  creator=lambda eq: SubmissionTypeEquipmentRoleAssociation(equipment_role=eq))  #: Proxy of equipmentrole associations
 
     submissiontype_kit_rt_associations = relationship(
         "KitTypeReagentRoleAssociation",
@@ -710,7 +714,7 @@ class SubmissionType(BaseClass):
 
         Returns:
             dict: Tip locations in the excel sheet.
-        """        
+        """
         output = {}
         for item in self.submissiontype_tiprole_associations:
             tmap = item.uses
@@ -827,12 +831,13 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
     submission_type = relationship(SubmissionType,
                                    back_populates="submissiontype_kit_associations")  #: joined submission type
 
-    def __init__(self, kit_type=None, submission_type=None):
+    def __init__(self, kit_type=None, submission_type=None,
+                 mutable_cost_column: int = 0.00, mutable_cost_sample: int = 0.00, constant_cost: int = 0.00):
         self.kit_type = kit_type
         self.submission_type = submission_type
-        self.mutable_cost_column = 0.00
-        self.mutable_cost_sample = 0.00
-        self.constant_cost = 0.00
+        self.mutable_cost_column = mutable_cost_column
+        self.mutable_cost_sample = mutable_cost_sample
+        self.constant_cost = constant_cost
 
     def __repr__(self) -> str:
         """
@@ -1539,15 +1544,15 @@ class Process(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-
     @check_authorization
     def save(self):
         super().save()
 
+
 class TipRole(BaseClass):
     """
     An abstract role that a tip fills during a process
-    """    
+    """
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of reagent type
     instances = relationship("Tips", back_populates="role",
@@ -1564,7 +1569,7 @@ class TipRole(BaseClass):
 
     def __repr__(self):
         return f"<TipRole({self.name})>"
-    
+
     @check_authorization
     def save(self):
         super().save()
@@ -1573,7 +1578,7 @@ class TipRole(BaseClass):
 class Tips(BaseClass):
     """
     A concrete instance of tips.
-    """    
+    """
     id = Column(INTEGER, primary_key=True)  #: primary key
     role = relationship("TipRole", back_populates="instances",
                         secondary=tiproles_tips)  #: joined parent reagent type
@@ -1606,7 +1611,7 @@ class Tips(BaseClass):
 
         Returns:
             Tips | List[Tips]: Tips matching criteria
-        """        
+        """
         query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -1622,7 +1627,7 @@ class Tips(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-    
+
     @check_authorization
     def save(self):
         super().save()
@@ -1642,7 +1647,7 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
                                    back_populates="submissiontype_tiprole_associations")  #: associated submission
     tip_role = relationship(TipRole,
                             back_populates="tiprole_submissiontype_associations")  #: associated equipment
-    
+
     @check_authorization
     def save(self):
         super().save()
@@ -1651,7 +1656,7 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
 class SubmissionTipsAssociation(BaseClass):
     """
     Association between a concrete submission instance and concrete tips
-    """    
+    """
     tip_id = Column(INTEGER, ForeignKey("_tips.id"), primary_key=True)  #: id of associated equipment
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
     submission = relationship("BasicSubmission",
@@ -1668,5 +1673,5 @@ class SubmissionTipsAssociation(BaseClass):
 
         Returns:
             dict: Values of this object
-        """        
+        """
         return dict(role=self.role_name, name=self.tips.name, lot=self.tips.lot)

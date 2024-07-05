@@ -1,6 +1,6 @@
-'''
+"""
 Contains all models for sqlalchemy
-'''
+"""
 from __future__ import annotations
 import sys, logging
 from sqlalchemy import Column, INTEGER, String, JSON
@@ -27,6 +27,7 @@ class BaseClass(Base):
 
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
+    @classmethod
     @declared_attr
     def __tablename__(cls) -> str:
         """
@@ -37,6 +38,7 @@ class BaseClass(Base):
         """
         return f"_{cls.__name__.lower()}"
 
+    @classmethod
     @declared_attr
     def __database_session__(cls) -> Session:
         """
@@ -51,6 +53,7 @@ class BaseClass(Base):
             from test_settings import ctx
         return ctx.database_session
 
+    @classmethod
     @declared_attr
     def __directory_path__(cls) -> Path:
         """
@@ -65,6 +68,7 @@ class BaseClass(Base):
             from test_settings import ctx
         return ctx.directory_path
 
+    @classmethod
     @declared_attr
     def __backup_path__(cls) -> Path:
         """
@@ -192,3 +196,4 @@ from .controls import *
 from .organizations import *
 from .kits import *
 from .submissions import *
+BasicSubmission.reagents.creator = lambda reg: SubmissionReagentAssociation(reagent=reg)

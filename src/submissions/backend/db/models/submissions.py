@@ -79,7 +79,7 @@ class BasicSubmission(BaseClass):
     )  #: Relation to SubmissionSampleAssociation
 
     samples = association_proxy("submission_sample_associations",
-                                "sample")  #: Association proxy to SubmissionSampleAssociation.samples
+                                "sample", creator=lambda sample: SubmissionSampleAssociation(sample=sample))  #: Association proxy to SubmissionSampleAssociation.samples
 
     submission_reagent_associations = relationship(
         "SubmissionReagentAssociation",
@@ -853,14 +853,14 @@ class BasicSubmission(BaseClass):
     @classmethod
     def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
         """
-        _summary_
+        Updates row information
 
         Args:
             sample (_type_): _description_
             worksheet (Workbook): _description_
 
         Returns:
-            int: _description_
+            int: New row number
         """
         return None
 
@@ -1306,7 +1306,6 @@ class BacterialCulture(BasicSubmission):
         # logger.debug(f"Here is the row: {idx}")
         row = idx.index.to_list()[0]
         return row + 1
-
 
 class Wastewater(BasicSubmission):
     """
@@ -2053,7 +2052,6 @@ class BasicSample(BaseClass):
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
         # logger.debug(f"Converting {self} to dict.")
-        # start = time()
         sample = {}
         sample['submitter_id'] = self.submitter_id
         sample['sample_type'] = self.sample_type
