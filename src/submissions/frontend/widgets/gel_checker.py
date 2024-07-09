@@ -3,7 +3,7 @@ Gel box for artic quality control
 """
 from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
                              QLabel, QLineEdit, QDialogButtonBox,
-                             QTextEdit
+                             QTextEdit, QComboBox
                              )
 import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
@@ -119,8 +119,11 @@ class ControlsForm(QWidget):
             self.layout.addWidget(label, iii, 1, 1, 1)
         for iii in range(3):
             for jjj in range(3):
-                widge = QLineEdit()
-                widge.setText("Neg")
+                # widge = QLineEdit()
+                widge = QComboBox()
+                widge.addItems(['Neg', 'Pos'])
+                widge.setCurrentIndex(0)
+                widge.setEditable(True)
                 widge.setObjectName(f"{rows[iii]} : {columns[jjj]}")
                 self.layout.addWidget(widge, iii+1, jjj+2, 1, 1)
         self.layout.addWidget(QLabel("Comments:"), 0,5,1,1)
@@ -137,13 +140,13 @@ class ControlsForm(QWidget):
             List[dict]: output of values
         """        
         output = []
-        for le in self.findChildren(QLineEdit):
+        for le in self.findChildren(QComboBox):
             label = [item.strip() for item in le.objectName().split(" : ")]
             try:
                 dicto = [item for item in output if item['name']==label[0]][0]
             except IndexError:
                 dicto = dict(name=label[0], values=[])
-            dicto['values'].append(dict(name=label[1], value=le.text()))
+            dicto['values'].append(dict(name=label[1], value=le.currentText()))
             if label[0] not in [item['name'] for item in output]:
                 output.append(dicto)
         # logger.debug(pformat(output))

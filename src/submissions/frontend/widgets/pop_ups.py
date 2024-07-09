@@ -5,6 +5,8 @@ from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog, 
     QDialogButtonBox, QMessageBox, QComboBox
 )
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtCore import Qt
 from tools import jinja_template_loading
 import logging
 from backend.db import models
@@ -19,7 +21,7 @@ class QuestionAsker(QDialog):
     """
     dialog to ask yes/no questions
     """    
-    def __init__(self, title:str, message:str) -> QDialog:
+    def __init__(self, title:str, message:str):
         super().__init__()
         self.setWindowTitle(title)
         # NOTE: set yes/no buttons
@@ -39,7 +41,7 @@ class AlertPop(QMessageBox):
     """
     Dialog to show an alert.
     """    
-    def __init__(self, message:str, status:Literal['Information', 'Question', 'Warning', 'Critical'], owner:str|None=None) -> QMessageBox:
+    def __init__(self, message:str, status:Literal['Information', 'Question', 'Warning', 'Critical'], owner:str|None=None):
         super().__init__()
         # NOTE: select icon by string
         icon = getattr(QMessageBox.Icon, status)
@@ -47,12 +49,25 @@ class AlertPop(QMessageBox):
         self.setInformativeText(message)
         self.setWindowTitle(f"{owner} - {status.title()}")
 
+class HTMLPop(QDialog):
+
+    def __init__(self, html:str, owner:str|None=None, title:str="python"):
+        super().__init__()
+
+        self.webview = QWebEngineView(parent=self)
+        self.layout = QVBoxLayout()
+        self.setWindowTitle(title)
+        self.webview.setHtml(html)
+        self.webview.setMinimumSize(600, 500)
+        self.webview.setMaximumSize(600, 500)
+        self.layout.addWidget(self.webview)
+
 
 class ObjectSelector(QDialog):
     """
     dialog to input BaseClass type manually
     """    
-    def __init__(self, title:str, message:str, obj_type:str|models.BaseClass) -> QDialog:
+    def __init__(self, title:str, message:str, obj_type:str|models.BaseClass):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()

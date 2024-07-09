@@ -685,7 +685,7 @@ class BasicSubmission(BaseClass):
 
     # Child class custom functions
     @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields:dict={}) -> dict:
         """
         Update submission dictionary with type specific information
 
@@ -731,7 +731,7 @@ class BasicSubmission(BaseClass):
         return input_dict
 
     @classmethod
-    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False) -> Workbook:
+    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False, custom_fields:dict={}) -> Workbook:
         """
         Adds custom autofill methods for submission
 
@@ -1307,6 +1307,7 @@ class BacterialCulture(BasicSubmission):
         row = idx.index.to_list()[0]
         return row + 1
 
+
 class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
@@ -1345,7 +1346,7 @@ class Wastewater(BasicSubmission):
         return output
 
     @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields:dict={}) -> dict:
         """
         Update submission dictionary with type specific information. Extends parent
 
@@ -1550,7 +1551,6 @@ class Wastewater(BasicSubmission):
         return input_dict
 
 
-
 class WastewaterArtic(BasicSubmission):
     """
     derivative submission type for artic wastewater
@@ -1597,7 +1597,7 @@ class WastewaterArtic(BasicSubmission):
         return output
 
     @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None) -> dict:
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields:dict={}) -> dict:
         """
         Update submission dictionary with type specific information
 
@@ -1608,16 +1608,20 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             dict: Updated sample dictionary
         """
+        # TODO: Clean up and move range start/stops to db somehow.
         input_dict = super().custom_info_parser(input_dict)
-        ws = xl['Egel results']
-        data = [ws.cell(row=ii, column=jj) for jj in range(15, 27) for ii in range(10, 18)]
+        egel_section = custom_fields['egel_results']
+        ws = xl[egel_section['sheet']]
+        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column']) for ii in range(egel_section['start_row'], egel_section['end_row'])]
         data = [cell for cell in data if cell.value is not None and "NTC" in cell.value]
         input_dict['gel_controls'] = [
             dict(sample_id=cell.value, location=f"{row_map[cell.row - 9]}{str(cell.column - 14).zfill(2)}") for cell in
             data]
-        ws = xl['First Strand List']
-        data = [dict(plate=ws.cell(row=ii, column=3).value, starting_sample=ws.cell(row=ii, column=4).value) for ii in
-                range(8, 11)]
+        # NOTE: Get source plate information
+        source_plates_section = custom_fields['source_plates']
+        ws = xl[source_plates_section['sheet']]
+        data = [dict(plate=ws.cell(row=ii, column=source_plates_section['plate_column']).value, starting_sample=ws.cell(row=ii, column=source_plates_section['starting_sample_column']).value) for ii in
+                range(source_plates_section['start_row'], source_plates_section['end_row'])]
         for datum in data:
             if datum['plate'] in ["None", None, ""]:
                 continue
@@ -1808,7 +1812,7 @@ class WastewaterArtic(BasicSubmission):
         return input_dict
 
     @classmethod
-    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False) -> Workbook:
+    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False, custom_fields:dict={}) -> Workbook:
         """
         Adds custom autofill methods for submission. Extends Parent
 
@@ -1822,30 +1826,33 @@ class WastewaterArtic(BasicSubmission):
         """
         input_excel = super().custom_info_writer(input_excel, info, backup)
         # logger.debug(f"Info:\n{pformat(info)}")
+        # logger.debug(f"Custom fields:\n{pformat(custom_fields)}")
         # NOTE: check for source plate information
+        source_plates_section = custom_fields['source_plates']
         if check_key_or_attr(key='source_plates', interest=info, check_none=True):
-            worksheet = input_excel['First Strand List']
-            start_row = 8
+            worksheet = input_excel[source_plates_section['sheet']]
+            start_row = source_plates_section['start_row']
             # NOTE: write source plates to First strand list
             for iii, plate in enumerate(info['source_plates']['value']):
                 # logger.debug(f"Plate: {plate}")
                 row = start_row + iii
                 try:
-                    worksheet.cell(row=row, column=3, value=plate['plate'])
+                    worksheet.cell(row=row, column=source_plates_section['plate_column'], value=plate['plate'])
                 except TypeError:
                     pass
                 try:
-                    worksheet.cell(row=row, column=4, value=plate['starting_sample'])
+                    worksheet.cell(row=row, column=source_plates_section['starting_sample_column'], value=plate['starting_sample'])
                 except TypeError:
                     pass
         # NOTE: check for gel information
+        egel_section = custom_fields['egel_results']
         if check_key_or_attr(key='gel_info', interest=info, check_none=True):
             # logger.debug(f"Gel info check passed.")
             # NOTE: print json field gel results to Egel results
-            worksheet = input_excel['Egel results']
+            worksheet = input_excel[egel_section['sheet']]
             # TODO: Move all this into a seperate function?
-            start_row = 21
-            start_column = 15
+            start_row = egel_section['start_row']
+            start_column = egel_section['start_column']
             for row, ki in enumerate(info['gel_info']['value'], start=1):
                 # logger.debug(f"ki: {ki}")
                 # logger.debug(f"vi: {vi}")
@@ -1862,14 +1869,14 @@ class WastewaterArtic(BasicSubmission):
                     except AttributeError:
                         logger.error(f"Failed {kj['name']} with value {kj['value']} to row {row}, column {column}")
         if check_key_or_attr(key='gel_image_path', interest=info, check_none=True):
-            worksheet = input_excel['Egel results']
+            worksheet = input_excel[egel_section['sheet']]
             # logger.debug(f"We got an image: {info['gel_image']}")
             with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
                 z = zipped.extract(info['gel_image_path']['value'], Path(TemporaryDirectory().name))
                 img = OpenpyxlImage(z)
                 img.height = 400  # insert image height in pixels as float or int (e.g. 305.5)
                 img.width = 600
-                img.anchor = 'B9'
+                img.anchor = egel_section['img_anchor']
                 worksheet.add_image(img)
         return input_excel
 

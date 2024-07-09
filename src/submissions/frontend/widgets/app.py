@@ -8,9 +8,12 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from pathlib import Path
-from tools import check_if_app, Settings, Report
+
+from markdown import markdown
+
+from tools import check_if_app, Settings, Report, jinja_template_loading
 from datetime import date
-from .pop_ups import  AlertPop
+from .pop_ups import AlertPop, HTMLPop
 from .misc import LogParser
 import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
@@ -31,22 +34,22 @@ class App(QMainWindow):
         self.ctx = ctx
         self.last_dir = ctx.directory_path
         self.report = Report()
-        # indicate version and connected database in title bar
+        # NOTE: indicate version and connected database in title bar
         try:
             self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
-        # set initial app position and size
+        # NOTE: set initial app position and size
         self.left = 0
         self.top = 0
         self.width = 1300
         self.height = 1000
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        # insert tabs into main app
+        # NOTE: insert tabs into main app
         self.table_widget = AddSubForm(self)
         self.setCentralWidget(self.table_widget)
-        # run initial setups
+        # NOTE: run initial setups
         self._createActions()
         self._createMenuBar()
         self._createToolBar()
@@ -126,8 +129,11 @@ class App(QMainWindow):
         """
         Show the 'about' message
         """        
-        output = f"Version: {self.ctx.package.__version__}\n\nAuthor: {self.ctx.package.__author__['name']} - {self.ctx.package.__author__['email']}\n\nCopyright: {self.ctx.package.__copyright__}"
-        about = AlertPop(message=output, status="Information")
+        j_env = jinja_template_loading()
+        template = j_env.get_template("project.html")
+        html = template.render(info=self.ctx.package.__dict__)
+        # logger.debug(html)
+        about = HTMLPop(html=html, title="About")
         about.exec()
 
     def openDocs(self):
@@ -143,10 +149,20 @@ class App(QMainWindow):
 
     def openGithub(self):
         """
-        Opens the instructions html page
+        Opens the github page
         """
         url = "https://github.com/landowark/submissions"
         webbrowser.get('windows-default').open(url)
+
+    def openInstructions(self):
+        if check_if_app():
+            url = Path(sys._MEIPASS).joinpath("files", "README.md")
+        else:
+            url = Path("README.md")
+        with open(url, "r", encoding="utf-8") as f:
+            html = markdown(f.read())
+        instr = HTMLPop(html=html, title="Instructions")
+        instr.exec()
 
 
     def result_reporter(self):
@@ -199,35 +215,35 @@ class AddSubForm(QWidget):
         # logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
-        # Initialize tab screen
+        # NOTE: Initialize tab screen
         self.tabs = QTabWidget()
         self.tab1 = QWidget()
         self.tab2 = QWidget()
         self.tab3 = QWidget()
         self.tab4 = QWidget()
         self.tabs.resize(300,200)
-        # Add tabs
+        # NOTE: Add tabs
         self.tabs.addTab(self.tab1,"Submissions")
         self.tabs.addTab(self.tab2,"Controls")
         self.tabs.addTab(self.tab3, "Add SubmissionType")
         self.tabs.addTab(self.tab4, "Add Kit")
-        # Create submission adder form
+        # NOTE: Create submission adder form
         self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
         self.formwidget.setLayout(self.formlayout)
         self.formwidget.setFixedWidth(300)
-        # Make scrollable interior for form
+        # NOTE: Make scrollable interior for form
         self.interior = QScrollArea(self.tab1)
         self.interior.setWidgetResizable(True)
         self.interior.setFixedWidth(325)
         self.interior.setWidget(self.formwidget)
-        # Create sheet to hold existing submissions
+        # NOTE: Create sheet to hold existing submissions
         self.sheetwidget = QWidget(self)
         self.sheetlayout = QVBoxLayout(self)
         self.sheetwidget.setLayout(self.sheetlayout)
         self.sub_wid = SubmissionsSheet(parent=parent)
         self.sheetlayout.addWidget(self.sub_wid)
-        # Create layout of first tab to hold form and sheet
+        # NOTE: Create layout of first tab to hold form and sheet
         self.tab1.layout = QHBoxLayout(self)
         self.tab1.setLayout(self.tab1.layout)
         self.tab1.layout.addWidget(self.interior)
@@ -236,7 +252,7 @@ class AddSubForm(QWidget):
         self.controls_viewer = ControlsViewer(self)
         self.tab2.layout.addWidget(self.controls_viewer)
         self.tab2.setLayout(self.tab2.layout)
-        # create custom widget to add new tabs
+        # NOTE: create custom widget to add new tabs
         ST_adder = SubmissionTypeAdder(self)
         self.tab3.layout = QVBoxLayout(self)
         self.tab3.layout.addWidget(ST_adder)
@@ -245,6 +261,6 @@ class AddSubForm(QWidget):
         self.tab4.layout = QVBoxLayout(self)
         self.tab4.layout.addWidget(kit_adder)
         self.tab4.setLayout(self.tab4.layout)
-        # add tabs to main widget
+        # NOTE: add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)

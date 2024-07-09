@@ -212,12 +212,14 @@ class InfoParser(object):
         """
         dicto = {}
         # NOTE: This loop parses generic info
-        # logger.debug(f"Map: {self.map}")
+        logger.debug(f"Map: {self.map}")
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = []
             for k, v in self.map.items():
                 # NOTE: If the value is hardcoded put it in the dictionary directly.
+                if k == "custom":
+                    continue
                 if isinstance(v, str):
                     dicto[k] = dict(value=v, missing=False)
                     continue
@@ -265,7 +267,7 @@ class InfoParser(object):
                     except (KeyError, IndexError):
                         continue
         # Return after running the parser components held in submission object.
-        return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl)
+        return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl, custom_fields=self.map['custom'])
 
 
 class ReagentParser(object):

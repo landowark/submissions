@@ -8,8 +8,6 @@ from pathlib import Path
 # from pathlib import Path
 from pprint import pformat
 from typing import List
-from collections import OrderedDict
-from jinja2 import TemplateNotFound
 from openpyxl import load_workbook, Workbook
 from backend.db.models import SubmissionType, KitType, BasicSubmission
 from backend.validators.pydant import PydSubmission
@@ -135,8 +133,8 @@ class InfoWriter(object):
         self.submission_type = submission_type
         self.sub_object = sub_object
         self.xl = xl
-        info_map = submission_type.construct_info_map(mode='write')
-        self.info = self.reconcile_map(info_dict, info_map)
+        self.info_map = submission_type.construct_info_map(mode='write')
+        self.info = self.reconcile_map(info_dict, self.info_map)
         # logger.debug(pformat(self.info))
 
     def reconcile_map(self, info_dict: dict, info_map: dict) -> dict:
@@ -153,6 +151,8 @@ class InfoWriter(object):
         output = {}
         for k, v in info_dict.items():
             if v is None:
+                continue
+            if k == "custom":
                 continue
             dicto = {}
             try:
@@ -187,7 +187,7 @@ class InfoWriter(object):
                 logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
                 sheet = self.xl[loc['sheet']]
                 sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
-        return self.sub_object.custom_info_writer(self.xl, info=self.info)
+        return self.sub_object.custom_info_writer(self.xl, info=self.info, custom_fields=self.info_map['custom'])
 
 
 class ReagentWriter(object):

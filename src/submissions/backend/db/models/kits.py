@@ -672,8 +672,8 @@ class SubmissionType(BaseClass):
         Returns:
             dict: Map of locations
         """
-        info = self.info_map
-        # logger.debug(f"Info map: {info}")
+        info = {k:v for k,v in self.info_map.items() if k != "custom"}
+        logger.debug(f"Info map: {info}")
         output = {}
         match mode:
             case "read":
@@ -681,6 +681,7 @@ class SubmissionType(BaseClass):
             case "write":
                 output = {k: v[mode] + v['read'] for k, v in info.items() if v[mode] or v['read']}
                 output = {k: v for k, v in output.items() if all([isinstance(item, dict) for item in v])}
+        output['custom'] = self.info_map['custom']
         return output
 
     def construct_sample_map(self) -> dict:

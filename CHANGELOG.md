@@ -1,3 +1,8 @@
+## 202407.02
+
+- HTML template for 'About'.
+- More flexible custom parsers/writers due to custom info items.
+
 ## 202407.01
 
 - Better documentation. 

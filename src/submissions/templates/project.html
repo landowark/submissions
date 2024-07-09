@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <title>{{ title }}</title>
+</head>
+<body>
+    <p>Version: {{ info['__version__'] }}</p>
+    <p>Author: {{ info['__author__']['name'] }} - <a href="mailto:{{ info['__author__']['email' ] }}">{{ info['__author__']['email'] }}</a></p>
+    <p>Copyright: {{ info['__copyright__'] }}</p>
+    <p>Github: <a id="link" href="{{ info['__github__'] }}">{{ info['__github__'] }}</a></p>
+</body>
+</html>

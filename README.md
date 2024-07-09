@@ -1,7 +1,7 @@
 ## Startup:
 1. Open the app using the shortcut in the Submissions folder. For example: L:\\Robotics Laboratory Support\\Submissions\\submissions_v122b.exe - Shortcut.lnk (Version may have changed).
-	a. Ignore the large black window of fast scrolling text, it is there for debugging purposes.
-	b. The 'Submissions' tab should be open by default.
+   1. Ignore the large black window of fast scrolling text, it is there for debugging purposes.
+   2. The 'Submissions' tab should be open by default.
 
 ## Logging in New Run:
 *should fit 90% of usage cases*
@@ -32,6 +32,7 @@
 ## Importing PCR results (Wastewater only):
 
 This is meant to import .xslx files created from the Design & Analysis Software
+
 1. Click on 'File' -> 'Import PCR Results'.
 2. Use the file dialog to locate the .xlsx file you want to import.
 3. Click 'Okay'.

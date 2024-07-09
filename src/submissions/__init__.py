@@ -15,10 +15,12 @@ def get_week_of_month() -> int:
         if day in week:
             return ii + 1
 
+# Automatically completes project info for help menu and compiling.
 __project__ = "submissions"
 __version__ = f"{year}{str(month).zfill(2)}.{get_week_of_month()}b"
 __author__ = {"name":"Landon Wark", "email":"Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = f"2022-{date.today().year}, Government of Canada"
+__github__ = "https://github.com/landowark/submissions"
 
 project_path = Path(__file__).parents[2].absolute()
 
