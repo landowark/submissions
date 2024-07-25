@@ -4,6 +4,8 @@ Contains miscellaenous functions used by both frontend and backend.
 from __future__ import annotations
 
 import json
+import pprint
+import weakref
 from json import JSONDecodeError
 import jinja2
 import numpy as np
@@ -21,11 +23,14 @@ from PyQt6.QtGui import QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from openpyxl.worksheet.worksheet import Worksheet
 from PyQt6.QtPrintSupport import QPrinter
+from __init__ import project_path
+from configparser import ConfigParser
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-package_dir = Path(__file__).parents[2].resolve()
-logger.debug(f"Package dir: {package_dir}")
+# package_dir = Path(__file__).parents[2].resolve()
+# package_dir = project_path
+logger.debug(f"Package dir: {project_path}")
 
 if platform.system() == "Windows":
     os_config_dir = "AppData/local"
@@ -224,7 +229,7 @@ class Settings(BaseSettings, extra="allow"):
 
     """
     database_schema: str
-    directory_path: Path
+    directory_path: Path | None = None
     database_user: str | None = None
     database_password: str | None = None
     database_name: str
@@ -255,11 +260,27 @@ class Settings(BaseSettings, extra="allow"):
     @field_validator('directory_path', mode="before")
     @classmethod
     def ensure_directory_exists(cls, value):
+        if value is None:
+            print("No value for dir path")
+            if check_if_app():
+                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+            else:
+                alembic_path = project_path.joinpath("alembic.ini")
+            print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path)
+            print(f"Using {value}")
         if isinstance(value, str):
             value = Path(value)
-        if not value.exists():
-            value = Path().home()
-            # metadata.directory_path = value
+        try:
+            check = value.exists()
+        except AttributeError:
+            check = False
+        if not check:
+            print(f"No directory found, using Documents/submissions")
+            value = Path.home().joinpath("Documents", "submissions")
+            value.mkdir()
+        # metadata.directory_path = value
+        print(f"Final return of directory_path: {value}")
         return value
 
     @field_validator('database_path', mode="before")
@@ -267,12 +288,14 @@ class Settings(BaseSettings, extra="allow"):
     def ensure_database_exists(cls, value, values):
         # if value == ":memory:":
         #     return value
+        if value is None:
+            value = values.data['directory_path']
         match values.data['database_schema']:
             case "sqlite":
-                value = f"/{Path(value).absolute().__str__()}/{values.data['database_name']}.db"
+                value = Path(f"{Path(value).absolute().__str__()}/{values.data['database_name']}.db")
                 # db_name = f"{values.data['database_name']}.db"
             case _:
-                value = f"@{value}/{values.data['database_name']}"
+                value = f"{value}/{values.data['database_name']}"
                 # db_name = values.data['database_name']
         # match value:
         #     case str():
@@ -283,7 +306,6 @@ class Settings(BaseSettings, extra="allow"):
         #     return value
         # else:
         #     raise FileNotFoundError(f"Couldn't find database at {value}")
-
         return value
 
     @field_validator('database_session', mode="before")
@@ -292,9 +314,15 @@ class Settings(BaseSettings, extra="allow"):
         if value is not None:
             return value
         else:
+            match values.data['database_schema']:
+                case "sqlite":
+                    value = f"/{values.data['database_path']}"
+                    # db_name = f"{values.data['database_name']}.db"
+                case _:
+                    value = f"@{values.data['database_path']}"
             template = jinja_template_loading().from_string(
-                "{{ values['database_schema'] }}://{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}{{ values['database_path'] }}")
-            database_path = template.render(values=values.data)
+                "{{ values['database_schema'] }}://{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}{{ value }}")
+            database_path = template.render(values=values.data, value=value)
             # print(f"Using {database_path} for database path")
             # database_path = values.data['database_path']
             # if database_path is None:
@@ -303,7 +331,7 @@ class Settings(BaseSettings, extra="allow"):
             #         database_path = Path.home().joinpath(".submissions", "submissions.db")
             #     # NOTE: finally, look in the local dir
             #     else:
-            #         database_path = package_dir.joinpath("submissions.db")
+            #         database_path = project_path.joinpath("submissions.db")
             # else:
             #     if database_path == ":memory:":
             #         pass
@@ -315,7 +343,7 @@ class Settings(BaseSettings, extra="allow"):
             #         database_path = database_path
             #     else:
             #         raise FileNotFoundError("No database file found. Exiting program.")
-            logger.info(f"Using {database_path} for database file.")
+            print(f"Using {database_path} for database file.")
             # engine = create_engine(f"sqlite:///{database_path}")  #, echo=True, future=True)
             # engine = create_engine("postgresql+psycopg2://postgres:RE,4321q@localhost:5432/submissions")
             engine = create_engine(database_path)
@@ -334,11 +362,13 @@ class Settings(BaseSettings, extra="allow"):
         super().__init__(*args, **kwargs)
         self.set_from_db(db_path=kwargs['database_path'])
 
+
     def set_from_db(self, db_path: Path):
         if 'pytest' in sys.modules:
             output = dict(power_users=['lwark', 'styson', 'ruwang'])
         else:
             # session = Session(create_engine(f"sqlite:///{db_path}"))
+            logger.debug(self.__dict__)
             session = self.database_session
             config_items = session.execute(text("SELECT * FROM _configitem")).all()
             session.close()
@@ -353,6 +383,36 @@ class Settings(BaseSettings, extra="allow"):
         for k, v in output.items():
             if not hasattr(self, k):
                 self.__setattr__(k, v)
+
+    @classmethod
+    def get_alembic_db_path(cls, alembic_path) -> Path:
+        c = ConfigParser()
+        c.read(alembic_path)
+        path = c['alembic']['sqlalchemy.url'].replace("sqlite:///", "")
+        return Path(path).parent
+
+    def save(self, settings_path:Path):
+        if not settings_path.exists():
+            dicto = {}
+            for k,v in self.__dict__.items():
+                if k in ['package', 'database_session']:
+                    continue
+                match v:
+                    case Path():
+                        print("Path")
+                        if v.is_dir():
+                            print("dir")
+                            v = v.absolute().__str__()
+                        elif v.is_file():
+                            print("file")
+                            v = v.parent.absolute().__str__()
+                    case _:
+                        pass
+                print(f"Key: {k}, Value: {v}")
+                dicto[k] = v
+            with open(settings_path, 'w') as f:
+                yaml.dump(dicto, f)
+        # return settings
 
 
 def get_config(settings_path: Path | str | None = None) -> Settings:
@@ -400,12 +460,17 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
             if check_if_app():
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
-                settings_path = package_dir.joinpath('src', 'config.yml')
+                settings_path = project_path.joinpath('src', 'config.yml')
             with open(settings_path, "r") as dset:
                 default_settings = yaml.load(dset, Loader=yaml.Loader)
+
             # NOTE: Tell program we need to copy the config.yml to the user directory
             # NOTE: copy settings to config directory
-            return Settings(**copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=default_settings))
+            # settings = Settings(**copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=default_settings))
+            settings = Settings(**default_settings)
+            settings.save(settings_path=CONFIGDIR.joinpath("config.yml"))
+            print(f"Default settings: {pprint.pprint(settings.__dict__)}")
+            return settings
     else:
         # NOTE: check if user defined path is directory
         if settings_path.is_dir():
@@ -417,7 +482,9 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
             logger.error("No config.yml file found. Writing to directory.")
             with open(settings_path, "r") as dset:
                 default_settings = yaml.load(dset, Loader=yaml.Loader)
-            return Settings(**copy_settings(settings_path=settings_path, settings=default_settings))
+            # return Settings(**copy_settings(settings_path=settings_path, settings=default_settings))
+            settings = Settings(**default_settings)
+            settings.save(settings_path=settings_path)
     # logger.debug(f"Using {settings_path} for config file.")
     with open(settings_path, "r") as stream:
         settings = yaml.load(stream, Loader=yaml.Loader)

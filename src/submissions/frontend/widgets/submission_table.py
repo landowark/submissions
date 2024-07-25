@@ -229,7 +229,7 @@ class SubmissionsSheet(QTableView):
         self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
 
     @report_result
-    def generate_report(self):
+    def generate_report(self, *args):
         """
         Make a report
         """
