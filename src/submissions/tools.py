@@ -4,6 +4,8 @@ Contains miscellaenous functions used by both frontend and backend.
 from __future__ import annotations
 
 import json
+from json import JSONDecodeError
+import jinja2
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
 import pandas as pd
@@ -18,7 +20,6 @@ from typing import Any, Tuple, Literal, List
 from PyQt6.QtGui import QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from openpyxl.worksheet.worksheet import Worksheet
-# from PyQt6 import QtPrintSupport, QtCore, QtWebEngineWidgets
 from PyQt6.QtPrintSupport import QPrinter
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -74,7 +75,7 @@ def check_key_or_attr(key: str, interest: dict | object, check_none: bool = Fals
 
     Returns:
         bool: True if exists, else False
-    """    
+    """
     match interest:
         case dict():
             if key in interest.keys():
@@ -175,7 +176,7 @@ def is_missing(value: Any) -> Tuple[Any, bool]:
 
     Returns:
         Tuple[Any, bool]: Value, True if nan, else False
-    """    
+    """
     if check_not_nan(value):
         return value, False
     else:
@@ -222,7 +223,11 @@ class Settings(BaseSettings, extra="allow"):
         FileNotFoundError: Error if database not found.
 
     """
+    database_schema: str
     directory_path: Path
+    database_user: str | None = None
+    database_password: str | None = None
+    database_name: str
     database_path: Path | str | None = None
     backup_path: Path | str | None = None
     # super_users: list|None = None
@@ -260,17 +265,26 @@ class Settings(BaseSettings, extra="allow"):
     @field_validator('database_path', mode="before")
     @classmethod
     def ensure_database_exists(cls, value, values):
-        if value == ":memory:":
-            return value
-        match value:
-            case str():
-                value = Path(value)
-            case None:
-                value = values.data['directory_path'].joinpath("submissions.db")
-        if value.exists():
-            return value
-        else:
-            raise FileNotFoundError(f"Couldn't find database at {value}")
+        # if value == ":memory:":
+        #     return value
+        match values.data['database_schema']:
+            case "sqlite":
+                value = f"/{Path(value).absolute().__str__()}/{values.data['database_name']}.db"
+                # db_name = f"{values.data['database_name']}.db"
+            case _:
+                value = f"@{value}/{values.data['database_name']}"
+                # db_name = values.data['database_name']
+        # match value:
+        #     case str():
+        #         value = Path(value)
+        #     case None:
+        #         value = values.data['directory_path'].joinpath("submissions.db")
+        # if value.exists():
+        #     return value
+        # else:
+        #     raise FileNotFoundError(f"Couldn't find database at {value}")
+
+        return value
 
     @field_validator('database_session', mode="before")
     @classmethod
@@ -278,27 +292,33 @@ class Settings(BaseSettings, extra="allow"):
         if value is not None:
             return value
         else:
-            database_path = values.data['database_path']
-            if database_path is None:
-                # NOTE: check in user's .submissions directory for submissions.db
-                if Path.home().joinpath(".submissions", "submissions.db").exists():
-                    database_path = Path.home().joinpath(".submissions", "submissions.db")
-                # NOTE: finally, look in the local dir
-                else:
-                    database_path = package_dir.joinpath("submissions.db")
-            else:
-                if database_path == ":memory:":
-                    pass
-                # NOTE: check if user defined path is directory
-                elif database_path.is_dir():
-                    database_path = database_path.joinpath("submissions.db")
-                # NOTE: check if user defined path is a file
-                elif database_path.is_file():
-                    database_path = database_path
-                else:
-                    raise FileNotFoundError("No database file found. Exiting program.")
+            template = jinja_template_loading().from_string(
+                "{{ values['database_schema'] }}://{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}{{ values['database_path'] }}")
+            database_path = template.render(values=values.data)
+            # print(f"Using {database_path} for database path")
+            # database_path = values.data['database_path']
+            # if database_path is None:
+            #     # NOTE: check in user's .submissions directory for submissions.db
+            #     if Path.home().joinpath(".submissions", "submissions.db").exists():
+            #         database_path = Path.home().joinpath(".submissions", "submissions.db")
+            #     # NOTE: finally, look in the local dir
+            #     else:
+            #         database_path = package_dir.joinpath("submissions.db")
+            # else:
+            #     if database_path == ":memory:":
+            #         pass
+            #     # NOTE: check if user defined path is directory
+            #     elif database_path.is_dir():
+            #         database_path = database_path.joinpath("submissions.db")
+            #     # NOTE: check if user defined path is a file
+            #     elif database_path.is_file():
+            #         database_path = database_path
+            #     else:
+            #         raise FileNotFoundError("No database file found. Exiting program.")
             logger.info(f"Using {database_path} for database file.")
-            engine = create_engine(f"sqlite:///{database_path}")  #, echo=True, future=True)
+            # engine = create_engine(f"sqlite:///{database_path}")  #, echo=True, future=True)
+            # engine = create_engine("postgresql+psycopg2://postgres:RE,4321q@localhost:5432/submissions")
+            engine = create_engine(database_path)
             session = Session(engine)
             return session
 
@@ -316,13 +336,21 @@ class Settings(BaseSettings, extra="allow"):
 
     def set_from_db(self, db_path: Path):
         if 'pytest' in sys.modules:
-            config_items = dict(power_users=['lwark', 'styson', 'ruwang'])
+            output = dict(power_users=['lwark', 'styson', 'ruwang'])
         else:
-            session = Session(create_engine(f"sqlite:///{db_path}"))
+            # session = Session(create_engine(f"sqlite:///{db_path}"))
+            session = self.database_session
             config_items = session.execute(text("SELECT * FROM _configitem")).all()
             session.close()
-            config_items = {item[1]: json.loads(item[2]) for item in config_items}
-        for k, v in config_items.items():
+            # print(config_items)
+            output = {}
+            for item in config_items:
+                try:
+                    output[item[1]] = json.loads(item[2])
+                except (JSONDecodeError, TypeError):
+                    output[item[1]] = item[2]
+            # config_items = {item[1]: json.loads(item[2]) for item in config_items}
+        for k, v in output.items():
             if not hasattr(self, k):
                 self.__setattr__(k, v)
 
@@ -355,7 +383,6 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
         CONFIGDIR.mkdir(parents=True)
     except FileExistsError:
         logger.warning(f"Config directory {CONFIGDIR} already exists.")
-
     try:
         LOGDIR.mkdir(parents=True)
     except FileExistsError:
@@ -373,7 +400,7 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
             if check_if_app():
                 settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
             else:
-                settings_path = package_dir.joinpath('config.yml')
+                settings_path = package_dir.joinpath('src', 'config.yml')
             with open(settings_path, "r") as dset:
                 default_settings = yaml.load(dset, Loader=yaml.Loader)
             # NOTE: Tell program we need to copy the config.yml to the user directory
@@ -502,7 +529,7 @@ def setup_logger(verbosity: int = 3):
     # NOTE: create console handler with a higher log level
     # NOTE: create custom logger with STERR -> log
     ch = logging.StreamHandler(stream=sys.stdout)
-    # NOTE: set looging level based on verbosity
+    # NOTE: set logging level based on verbosity
     match verbosity:
         case 3:
             ch.setLevel(logging.DEBUG)
@@ -542,10 +569,10 @@ def copy_settings(settings_path: Path, settings: dict) -> dict:
         dict: output dictionary for use in first run
     """
     # NOTE: if the current user is not a superuser remove the superusers entry
-    if not getpass.getuser() in settings['super_users']:
-        del settings['super_users']
-    if not getpass.getuser() in settings['power_users']:
-        del settings['power_users']
+    # if not getpass.getuser() in settings['super_users']:
+    #     del settings['super_users']
+    # if not getpass.getuser() in settings['power_users']:
+    #     del settings['power_users']
     if not settings_path.exists():
         with open(settings_path, 'w') as f:
             yaml.dump(settings, f)
@@ -651,7 +678,7 @@ class Report(BaseModel):
 
         Args:
             result (Result | Report | None): Results to be added.
-        """        
+        """
         match result:
             case Result():
                 logger.info(f"Adding {result} to results.")
@@ -668,7 +695,7 @@ class Report(BaseModel):
                 logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
 
 
-def rreplace(s:str, old:str, new:str) -> str:
+def rreplace(s: str, old: str, new: str) -> str:
     """
     Removes rightmost occurence of a substring
 
@@ -679,18 +706,18 @@ def rreplace(s:str, old:str, new:str) -> str:
 
     Returns:
         str: updated string
-    """    
+    """
     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
 
 
-def html_to_pdf(html:str, output_file: Path | str):
+def html_to_pdf(html: str, output_file: Path | str):
     """
     Attempts to print an html string as a PDF. (currently not working)
 
     Args:
         html (str): Input html string.
         output_file (Path | str): Output PDF file path.
-    """    
+    """
     if isinstance(output_file, str):
         output_file = Path(output_file)
     logger.debug(f"Printing PDF to {output_file}")
@@ -732,7 +759,7 @@ def workbook_2_csv(worksheet: Worksheet, filename: Path):
     Args:
         worksheet (Worksheet): Incoming worksheet
         filename (Path): Output csv filepath.
-    """    
+    """
     with open(filename, 'w', newline="") as f:
         c = csv.writer(f)
         for r in worksheet.rows:
@@ -748,7 +775,7 @@ def is_power_user() -> bool:
 
     Returns:
         bool: True if yes, False if no.
-    """    
+    """
     try:
         check = getpass.getuser() in ctx.power_users
     except:
@@ -771,5 +798,34 @@ def check_authorization(func):
         else:
             logger.error(f"User {getpass.getuser()} is not authorized for this function.")
             return dict(code=1, message="This user does not have permission for this function.", status="warning")
+
+    return wrapper
+
+
+def report_result(func):
+    def wrapper(*args, **kwargs):
+        logger.debug(f"Arguments: {args}")
+        logger.debug(f"Keyword arguments: {kwargs}")
+        output = func(*args, **kwargs)
+        if isinstance(output, tuple):
+            report = [item for item in output if isinstance(item, Report)][0]
+        else:
+            report = None
+        logger.debug(f"Got report: {report}")
+        try:
+            results = report.results
+        except AttributeError:
+            logger.error("No results available")
+            results = []
+        for iii, result in enumerate(results):
+            logger.debug(f"Result {iii}: {result}")
+            try:
+                dlg = result.report()
+                dlg.exec()
+            except Exception as e:
+                logger.error(f"Problem reporting due to {e}")
+                logger.error(result.msg)
+        logger.debug(f"Returning: {output}")
+        return output
 
     return wrapper

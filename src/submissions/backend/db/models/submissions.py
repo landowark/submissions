@@ -23,7 +23,7 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
-from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr
+from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report
 from datetime import datetime, date
 from typing import List, Any, Tuple, Literal
 from dateutil.parser import parse
@@ -691,7 +691,8 @@ class BasicSubmission(BaseClass):
 
         Args:
             input_dict (dict): Input sample dictionary
-            xl (pd.ExcelFile): original xl workbook, used for child classes mostly
+            xl (Workbook): original xl workbook, used for child classes mostly
+            custom_fields: Dictionary of locations, ranges, etc to be used by this function
 
         Returns:
             dict: Updated sample dictionary
@@ -739,6 +740,7 @@ class BasicSubmission(BaseClass):
             input_excel (Workbook): initial workbook.
             info (dict | None, optional): dictionary of additional info. Defaults to None.
             backup (bool, optional): Whether this is part of a backup operation. Defaults to False.
+            custom_fields: Dictionary of locations, ranges, etc to be used by this function
 
         Returns:
             Workbook: Updated workbook
@@ -1046,14 +1048,16 @@ class BasicSubmission(BaseClass):
         """
         code = 0
         msg = ""
+        report = Report()
         disallowed = ["id"]
         if kwargs == {}:
             raise ValueError("Need to narrow down query or the first available instance will be returned.")
-        for key in kwargs.keys():
-            if key in disallowed:
-                raise ValueError(
-                    f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects. Use .query() instead.")
-        instance = cls.query(submission_type=submission_type, limit=1, **kwargs)
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        # for key in kwargs.keys():
+        #     if key in disallowed:
+        #         raise ValueError(
+        #             f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects. Use .query() instead.")
+        instance = cls.query(submission_type=submission_type, limit=1, **sanitized_kwargs)
         # logger.debug(f"Retrieved instance: {instance}")
         if instance is None:
             used_class = cls.find_polymorphic_subclass(attrs=kwargs, polymorphic_identity=submission_type)
@@ -1070,7 +1074,8 @@ class BasicSubmission(BaseClass):
         else:
             code = 1
             msg = "This submission already exists.\nWould you like to overwrite?"
-        return instance, code, msg
+        report.add_result(Result(msg=msg, code=code))
+        return instance, report
 
     # Custom context events for the ui
 
@@ -1135,7 +1140,7 @@ class BasicSubmission(BaseClass):
             # logger.debug(widg)
             widg.setParent(None)
         pyd = self.to_pydantic(backup=True)
-        form = pyd.to_form(parent=obj)
+        form = pyd.to_form(parent=obj, disable=['rsl_plate_num'])
         obj.app.table_widget.formwidget.layout().addWidget(form)
 
     def add_comment(self, obj):
@@ -1352,13 +1357,29 @@ class Wastewater(BasicSubmission):
 
         Args:
             input_dict (dict): Input sample dictionary
+            xl (Workbook): xl (Workbook): original xl workbook, used for child classes mostly.
+            custom_fields: Dictionary of locations, ranges, etc to be used by this function
 
         Returns:
             dict: Updated sample dictionary
         """
         input_dict = super().custom_info_parser(input_dict)
+        logger.debug(f"Input dict: {pformat(input_dict)}")
         if xl is not None:
-            input_dict['csv'] = xl["Copy to import file"]
+            try:
+                input_dict['csv'] = xl["Copy to import file"]
+            except KeyError as e:
+                logger.error(e)
+                try:
+                    match input_dict['rsl_plate_num']:
+                        case dict():
+                            input_dict['csv'] = xl[input_dict['rsl_plate_num']['value']]
+                        case str():
+                            input_dict['csv'] = xl[input_dict['rsl_plate_num']]
+                        case _:
+                            pass
+                except Exception as e:
+                    logger.error(f"Error handling couldn't get csv due to: {e}")
         return input_dict
 
     @classmethod
@@ -1604,11 +1625,12 @@ class WastewaterArtic(BasicSubmission):
         Args:
             input_dict (dict): Input sample dictionary
             xl (pd.ExcelFile): original xl workbook, used for child classes mostly
+            custom_fields: Dictionary of locations, ranges, etc to be used by this function
 
         Returns:
             dict: Updated sample dictionary
         """
-        # TODO: Clean up and move range start/stops to db somehow.
+        from backend.validators import RSLNamer
         input_dict = super().custom_info_parser(input_dict)
         egel_section = custom_fields['egel_results']
         ws = xl[egel_section['sheet']]
@@ -1621,12 +1643,11 @@ class WastewaterArtic(BasicSubmission):
         source_plates_section = custom_fields['source_plates']
         ws = xl[source_plates_section['sheet']]
         data = [dict(plate=ws.cell(row=ii, column=source_plates_section['plate_column']).value, starting_sample=ws.cell(row=ii, column=source_plates_section['starting_sample_column']).value) for ii in
-                range(source_plates_section['start_row'], source_plates_section['end_row'])]
+                range(source_plates_section['start_row'], source_plates_section['end_row']+1)]
         for datum in data:
             if datum['plate'] in ["None", None, ""]:
                 continue
             else:
-                from backend.validators import RSLNamer
                 datum['plate'] = RSLNamer(filename=datum['plate'], sub_type="Wastewater").parsed_name
         input_dict['source_plates'] = data
         return input_dict
@@ -1820,6 +1841,7 @@ class WastewaterArtic(BasicSubmission):
             input_excel (Workbook): initial workbook.
             info (dict | None, optional): dictionary of additional info. Defaults to None.
             backup (bool, optional): Whether this is part of a backup operation. Defaults to False.
+            custom_fields: Dictionary of locations, ranges, etc to be used by this function
 
         Returns:
             Workbook: Updated workbook
@@ -2798,7 +2820,7 @@ class WastewaterArticAssociation(SubmissionSampleAssociation):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
     id = Column(INTEGER, ForeignKey("_submissionsampleassociation.id"), primary_key=True)
-    source_plate = Column(String(16))
+    source_plate = Column(String(32))
     source_plate_number = Column(INTEGER)
     source_well = Column(String(8))
     ct = Column(String(8))  #: AKA ct for N1

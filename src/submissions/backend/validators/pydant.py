@@ -108,7 +108,7 @@ class PydReagent(BaseModel):
 
         Returns:
             dict: Information dictionary
-        """        
+        """
         try:
             extras = list(self.model_extra.keys())
         except AttributeError:
@@ -161,7 +161,7 @@ class PydReagent(BaseModel):
                     # reagent.reagent_submission_associations.append(assoc)
                 else:
                     assoc = None
-            report.add_result(Result(owner = __name__, code=0, msg="New reagent created.", status="Information"))
+            report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
         else:
             if submission is not None and reagent not in submission.reagents:
                 assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
@@ -217,7 +217,7 @@ class PydSample(BaseModel, extra='allow'):
 
         Returns:
             dict: Information dictionary
-        """        
+        """
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         return {k: getattr(self, k) for k in fields}
 
@@ -254,7 +254,8 @@ class PydSample(BaseModel, extra='allow'):
                                                                           submission=submission,
                                                                           sample=instance,
                                                                           row=row, column=column, id=aid,
-                                                                          submission_rank=submission_rank, **self.model_extra)
+                                                                          submission_rank=submission_rank,
+                                                                          **self.model_extra)
                 # logger.debug(f"Using submission_sample_association: {association}")
                 try:
                     # instance.sample_submission_associations.append(association)
@@ -270,7 +271,7 @@ class PydSample(BaseModel, extra='allow'):
 
         Returns:
             dict: Information dictionary
-        """        
+        """
         try:
             extras = list(self.model_extra.keys())
         except AttributeError:
@@ -281,10 +282,10 @@ class PydSample(BaseModel, extra='allow'):
 
 class PydTips(BaseModel):
     name: str
-    lot: str|None = Field(default=None)
+    lot: str | None = Field(default=None)
     role: str
 
-    def to_sql(self, submission:BasicSubmission) -> SubmissionTipsAssociation:
+    def to_sql(self, submission: BasicSubmission) -> SubmissionTipsAssociation:
         """
         Con
 
@@ -293,7 +294,7 @@ class PydTips(BaseModel):
 
         Returns:
             SubmissionTipsAssociation: Association between queried tips and submission
-        """        
+        """
         tips = Tips.query(name=self.name, lot=self.lot, limit=1)
         assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
         return assoc
@@ -305,7 +306,7 @@ class PydEquipment(BaseModel, extra='ignore'):
     nickname: str | None
     processes: List[str] | None
     role: str | None
-    tips: List[PydTips]|None = Field(default=None)
+    tips: List[PydTips] | None = Field(default=None)
 
     @field_validator('processes', mode='before')
     @classmethod
@@ -338,23 +339,19 @@ class PydEquipment(BaseModel, extra='ignore'):
         if equipment is None:
             return
         if submission is not None:
-            assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
-            process = Process.query(name=self.processes[0])
-            if process is None:
-                logger.error(f"Found unknown process: {process}.")
-                # from frontend.widgets.pop_ups import QuestionAsker
-                # dlg = QuestionAsker(title="Add Process?",
-                #                     message=f"Unable to find {self.processes[0]} in the database.\nWould you like to add it?")
-                # if dlg.exec():
-                #     kit = submission.extraction_kit
-                #     submission_type = submission.submission_type
-                #     process = Process(name=self.processes[0])
-                #     process.kit_types.append(kit)
-                #     process.submission_types.append(submission_type)
-                #     process.equipment.append(equipment)
-                #     process.save()
-            assoc.process = process
-            assoc.role = self.role
+            # NOTE: Need to make sure the same association is not added to the submission
+
+            assoc = SubmissionEquipmentAssociation.query(equipment_id=equipment.id, submission_id=submission.id,
+                                                         role=self.role, limit=1)
+            if assoc is None:
+                assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
+                process = Process.query(name=self.processes[0])
+                if process is None:
+                    logger.error(f"Found unknown process: {process}.")
+                assoc.process = process
+                assoc.role = self.role
+            else:
+                assoc = None
         else:
             assoc = None
         return equipment, assoc
@@ -365,7 +362,7 @@ class PydEquipment(BaseModel, extra='ignore'):
 
         Returns:
             dict: Information dictionary
-        """        
+        """
         try:
             extras = list(self.model_extra.keys())
         except AttributeError:
@@ -441,7 +438,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 return value.date()
             case int():
                 return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(),
-                    missing=True)
+                            missing=True)
             case str():
                 string = re.sub(r"(_|-)\d$", "", value['value'])
                 try:
@@ -508,7 +505,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 output = "RSL-BS-Test001"
             else:
                 output = RSLNamer(filename=values.data['filepath'].__str__(), sub_type=sub_type,
-                              data=values.data).parsed_name
+                                  data=values.data).parsed_name
             return dict(value=output, missing=True)
 
     @field_validator("technician", mode="before")
@@ -637,14 +634,14 @@ class PydSubmission(BaseModel, extra='allow'):
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
 
-    def set_attribute(self, key:str, value):
+    def set_attribute(self, key: str, value):
         """
         Better handling of attribute setting.
 
         Args:
             key (str): Name of field to set
             value (_type_): Value to set field to.
-        """        
+        """
         self.__setattr__(name=key, value=value)
 
     def handle_duplicate_samples(self):
@@ -710,7 +707,7 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
 
-    def to_sql(self) -> Tuple[BasicSubmission, Result]:
+    def to_sql(self) -> Tuple[BasicSubmission, Report]:
         """
         Converts this instance into a backend.db.models.submissions.BasicSubmission instance
 
@@ -718,13 +715,13 @@ class PydSubmission(BaseModel, extra='allow'):
             Tuple[BasicSubmission, Result]: BasicSubmission instance, result object
         """
         # self.__dict__.update(self.model_extra)
+        report = Report()
         dicto = self.improved_dict()
-        instance, code, msg = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
-                                                              rsl_plate_num=self.rsl_plate_num['value'])
-        result = Result(msg=msg, code=code)
+        instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
+                                                           rsl_plate_num=self.rsl_plate_num['value'])
+        report.add_result(result)
         self.handle_duplicate_samples()
         # logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
-        # for key, value in self.__dict__.items():
         for key, value in dicto.items():
             if isinstance(value, dict):
                 value = value['value']
@@ -733,13 +730,13 @@ class PydSubmission(BaseModel, extra='allow'):
             # logger.debug(f"Setting {key} to {value}")
             match key:
                 case "reagents":
-                    if code == 1:
+                    if report.results[0].code == 1:
                         instance.submission_reagent_associations = []
                     # logger.debug(f"Looking through {self.reagents}")
                     for reagent in self.reagents:
                         reagent, assoc, _ = reagent.toSQL(submission=instance)
                         # logger.debug(f"Association: {assoc}")
-                        if assoc is not None:# and assoc not in instance.submission_reagent_associations:
+                        if assoc is not None:  # and assoc not in instance.submission_reagent_associations:
                             instance.submission_reagent_associations.append(assoc)
                         # instance.reagents.append(reagent)
                 case "samples":
@@ -755,10 +752,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         if equip is None:
                             continue
                         equip, association = equip.toSQL(submission=instance)
-                        if association is not None and association not in instance.submission_equipment_associations:
-                            # association.save()
-                            # logger.debug(
-                            #     f"Equipment association SQL object to be added to submission: {association.__dict__}")
+                        if association is not None:
                             instance.submission_equipment_associations.append(association)
                 case "tips":
                     for tips in self.tips:
@@ -817,9 +811,9 @@ class PydSubmission(BaseModel, extra='allow'):
         # except AttributeError as e:
         #     logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
         # logger.debug(f"Constructed submissions message: {msg}")
-        return instance, result
+        return instance, report
 
-    def to_form(self, parent: QWidget):
+    def to_form(self, parent: QWidget, disable:list|None=None):
         """
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
 
@@ -830,7 +824,8 @@ class PydSubmission(BaseModel, extra='allow'):
             SubmissionFormWidget: Submission form widget
         """
         from frontend.widgets.submission_widget import SubmissionFormWidget
-        return SubmissionFormWidget(parent=parent, submission=self)
+        logger.debug(f"Disbable: {disable}")
+        return SubmissionFormWidget(parent=parent, submission=self, disable=disable)
 
     def to_writer(self) -> "SheetWriter":
         """
@@ -838,7 +833,7 @@ class PydSubmission(BaseModel, extra='allow'):
 
         Returns:
             SheetWriter: Sheetwriter object that will perform writing.
-        """        
+        """
         from backend.excel.writer import SheetWriter
         return SheetWriter(self)
 
@@ -896,8 +891,8 @@ class PydSubmission(BaseModel, extra='allow'):
                 status="Warning")
         report.add_result(result)
         return output_reagents, report
-    
-    def export_csv(self, filename:Path|str):
+
+    def export_csv(self, filename: Path | str):
         try:
             worksheet = self.csv
         except AttributeError:
@@ -1024,4 +1019,3 @@ class PydEquipmentRole(BaseModel):
         """
         from frontend.widgets.equipment_usage import RoleComboBox
         return RoleComboBox(parent=parent, role=self, used=used)
-

@@ -2,7 +2,7 @@
   - The hardest part of this is going to be the sample parsing. I'm onto using the cell formulas in the plate map to suss out the location in the lookup table, but it could get a little recursive up in here.
 - [ ] Create a default info return function.
 - [x] Parse comment from excel sheet.
-- [ ] Make reporting better. 
+- [x] Make reporting better. 
 - [x] Build master query method?
   - Obviously there will need to be extensions, but I feel the attr method I have in Submissions could work.
 - [x] Fix Artic RSLNamer
@@ -23,7 +23,7 @@
 - [x] Merge BasicSubmission.find_subclasses and BasicSubmission.find_polymorphic_subclass
 - [x] Fix updating of Extraction Kit in submission form widget.
 - [x] Fix cropping of gel image.
-- [ ] Create Tips ... *sigh*.
+- [x] Create Tips ... *sigh*.
 - [x] Create platemap image from html for export to pdf.
 - [x] Move plate map maker to submission.
 - [x] Finish Equipment Parser (add in regex to id asset_number)

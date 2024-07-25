@@ -1,7 +1,8 @@
 ## Startup:
-1. Open the app using the shortcut in the Submissions folder. For example: L:\\Robotics Laboratory Support\\Submissions\\submissions_v122b.exe - Shortcut.lnk (Version may have changed).
+1. Open the app using the shortcut in the Submissions folder: L:\Robotics Laboratory Support\Submissions\Submissions App.lnk.
    1. Ignore the large black window of fast scrolling text, it is there for debugging purposes.
    2. The 'Submissions' tab should be open by default.
+   3. Default settings (config.yml) will be copied to C:\Users\{YOUR USERNAME}\AppData\Local\submissions\config
 
 ## Logging in New Run:
 *should fit 90% of usage cases*
@@ -109,3 +110,16 @@ This is meant to import .xslx files created from the Design & Analysis Software
 1. Click "Monthly" -> "Link PCR Logs".
 2. Chose the .csv file taken from the PCR table runlogs folder.
 
+## SETUP:
+
+## Download:
+
+1. Clone or download from github.
+2. Enter the downloaded folder.
+
+## Database:
+
+1. Copy 'alembic_default.ini' to 'alembic.ini' in the same folder.
+2. Open 'alembic.ini' and edit 'sqlalchemy.url' to the desired path of the database.
+   1. The path by default is sqlite based. Postgresql support is available.
+   2. Postgres path

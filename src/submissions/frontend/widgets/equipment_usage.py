@@ -15,7 +15,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class EquipmentUsage(QDialog):
 
-    def __init__(self, parent, submission: BasicSubmission) -> QDialog:
+    def __init__(self, parent, submission: BasicSubmission):
         super().__init__(parent)
         self.submission = submission
         self.setWindowTitle(f"Equipment Checklist - {submission.rsl_plate_num}")
@@ -139,7 +139,7 @@ class RoleComboBox(QWidget):
         Changes what tips are available when process is changed
         """        
         process = self.process.currentText().strip()
-        logger.debug(f"Checking process: {process} for equipment {self.role.name}")
+        # logger.debug(f"Checking process: {process} for equipment {self.role.name}")
         process = Process.query(name=process)
         if process.tip_roles:
             for iii, tip_role in enumerate(process.tip_roles):

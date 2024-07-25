@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox, QDateEdit, QPushButton, QFormLayout
 )
 from PyQt6.QtCore import Qt, QDate
-from tools import jinja_template_loading, Settings
+from tools import jinja_template_loading
 from backend.db.models import *
 import logging
 from .pop_ups import AlertPop
@@ -45,18 +45,19 @@ class AddReagentForm(QDialog):
         self.exp_input.setObjectName('expiry')
         # NOTE: if expiry is not passed in from gui, use today
         if expiry is None:
-            self.exp_input.setDate(QDate.currentDate())
+            # self.exp_input.setDate(QDate.currentDate())
+            self.exp_input.setDate(QDate(1970, 1, 1))
         else:
             try:
                 self.exp_input.setDate(expiry)
             except TypeError:
-                self.exp_input.setDate(QDate.currentDate())
+                self.exp_input.setDate(QDate(1970, 1, 1))
         # NOTE: widget to get reagent type info
         self.type_input = QComboBox()
         self.type_input.setObjectName('type')
         self.type_input.addItems([item.name for item in ReagentRole.query()])
         # logger.debug(f"Trying to find index of {reagent_type}")
-        # NOTE: convert input to user friendly string?
+        # NOTE: convert input to user-friendly string?
         try:
             reagent_role = reagent_role.replace("_", " ").title()
         except AttributeError:

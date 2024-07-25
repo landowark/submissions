@@ -3,12 +3,13 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging
-from sqlalchemy import Column, INTEGER, String, JSON
+from sqlalchemy import Column, INTEGER, String, JSON, inspect
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List
 from pathlib import Path
+from tools import report_result
 
 # Load testing environment
 if 'pytest' in sys.modules:
@@ -90,7 +91,7 @@ class BaseClass(Base):
 
         Returns:
             dict | list | str: Output of key:value dict or single (list, str) desired variable
-        """        
+        """
         dicto = dict(singles=['id'])
         output = {}
         for k, v in dicto.items():
@@ -110,7 +111,7 @@ class BaseClass(Base):
 
         Returns:
             Any | List[Any]: Result of query execution.
-        """           
+        """
         return cls.execute_query(**kwargs)
 
     @classmethod
@@ -152,38 +153,43 @@ class BaseClass(Base):
                 case _:
                     return query.limit(limit).all()
 
+    @report_result
     def save(self):
         """
         Add the object to the database and commit
         """
         # logger.debug(f"Saving object: {pformat(self.__dict__)}")
+        report = Report()
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
+            # self.__database_session__.merge(self)
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             self.__database_session__.rollback()
+            report.add_result(Result(msg=f"Problem saving object {e}", status="Critical"))
+            return report
 
 
 class ConfigItem(BaseClass):
     """
     Key:JSON objects to store config settings in database. 
-    """    
+    """
     id = Column(INTEGER, primary_key=True)
-    key = Column(String(32)) #: Name of the configuration item.
-    value = Column(JSON) #: Value associated with the config item.
+    key = Column(String(32))  #: Name of the configuration item.
+    value = Column(JSON)  #: Value associated with the config item.
 
     def __repr__(self):
         return f"ConfigItem({self.key} : {self.value})"
 
     @classmethod
-    def get_config_items(cls, *args) -> ConfigItem|List[ConfigItem]:
+    def get_config_items(cls, *args) -> ConfigItem | List[ConfigItem]:
         """
         Get desired config items from database
 
         Returns:
             ConfigItem|List[ConfigItem]: Config item(s)
-        """        
+        """
         config_items = cls.__database_session__.query(cls).all()
         config_items = [item for item in config_items if item.key in args]
         if len(args) == 1:
@@ -196,4 +202,5 @@ from .controls import *
 from .organizations import *
 from .kits import *
 from .submissions import *
+
 BasicSubmission.reagents.creator = lambda reg: SubmissionReagentAssociation(reagent=reg)

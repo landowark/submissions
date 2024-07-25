@@ -1,6 +1,6 @@
-'''
+"""
 Constructs main application.
-'''
+"""
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow, 
@@ -13,7 +13,7 @@ from markdown import markdown
 
 from tools import check_if_app, Settings, Report, jinja_template_loading
 from datetime import date
-from .pop_ups import AlertPop, HTMLPop
+from .pop_ups import HTMLPop
 from .misc import LogParser
 import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
@@ -36,7 +36,7 @@ class App(QMainWindow):
         self.report = Report()
         # NOTE: indicate version and connected database in title bar
         try:
-            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}"
+            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_session.get_bind().url}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
         # NOTE: set initial app position and size
@@ -164,27 +164,6 @@ class App(QMainWindow):
         instr = HTMLPop(html=html, title="Instructions")
         instr.exec()
 
-
-    def result_reporter(self):
-        """
-        Report any anomolous results - if any - to the user
-
-        Args:
-            result (dict | None, optional): The result from a function. Defaults to None.
-        """        
-        # logger.debug(f"Running results reporter for: {self.report.results}")
-        if len(self.report.results) > 0:
-            # logger.debug(f"We've got some results!")
-            for result in self.report.results:
-                # logger.debug(f"Showing result: {result}")
-                if result is not None:
-                    alert = result.report()
-                    if alert.exec():
-                        pass
-            self.report = Report()
-        else:
-            self.statusBar().showMessage("Action completed sucessfully.", 5000)
-
     def runSearch(self):
         dlg = LogParser(self)
         dlg.exec()
@@ -201,12 +180,19 @@ class App(QMainWindow):
         Copies the database into the backup directory the first time it is opened every month.
         """        
         month = date.today().strftime("%Y-%m")
+        current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve()
         # logger.debug(f"Here is the db directory: {self.ctx.database_path}")
         # logger.debug(f"Here is the backup directory: {self.ctx.backup_path}")
-        current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve().with_suffix(".db")
-        if not current_month_bak.exists() and "demo" not in self.ctx.database_path.__str__():
-            logger.info("No backup found for this month, backing up database.")
-            shutil.copyfile(self.ctx.database_path, current_month_bak)
+        match self.ctx.database_schema:
+            case "sqlite":
+                current_month_bak = current_month_bak.with_suffix(".db")
+                if not current_month_bak.exists() and "demo" not in self.ctx.database_path.__str__():
+                    logger.info("No backup found for this month, backing up database.")
+                    shutil.copyfile(self.ctx.database_path, current_month_bak)
+            case "postgresql+psycopg2":
+                logger.warning(f"Backup function not yet implemented for psql")
+                current_month_bak = current_month_bak.with_suffix(".psql")
+
 
 
 class AddSubForm(QWidget):

@@ -1,8 +1,8 @@
-"""First Commit
+"""rebuild 20240723
 
-Revision ID: e3f6770ef515
+Revision ID: 0746f7e2c10e
 Revises: 
-Create Date: 2024-01-22 14:01:02.958292
+Create Date: 2024-07-23 14:08:37.436400
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e3f6770ef515'
+revision = '0746f7e2c10e'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -24,6 +24,12 @@ def upgrade() -> None:
     sa.Column('sample_type', sa.String(length=32), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('submitter_id')
+    )
+    op.create_table('_configitem',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('key', sa.String(length=32), nullable=True),
+    sa.Column('value', sa.JSON(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_contact',
     sa.Column('id', sa.INTEGER(), nullable=False),
@@ -66,9 +72,10 @@ def upgrade() -> None:
     op.create_table('_process',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('name', sa.String(length=64), nullable=True),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('name')
     )
-    op.create_table('_reagenttype',
+    op.create_table('_reagentrole',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('name', sa.String(length=64), nullable=True),
     sa.Column('eol_ext', sa.Interval(), nullable=True),
@@ -78,9 +85,16 @@ def upgrade() -> None:
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=True),
     sa.Column('info_map', sa.JSON(), nullable=True),
-    sa.Column('template_file', sa.BLOB(), nullable=True),
+    sa.Column('defaults', sa.JSON(), nullable=True),
+    sa.Column('template_file', sa.LargeBinary(), nullable=True),
+    sa.Column('sample_map', sa.JSON(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
+    )
+    op.create_table('_tiprole',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_bacterialculturesample',
     sa.Column('id', sa.INTEGER(), nullable=False),
@@ -117,17 +131,17 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['equipmentrole_id'], ['_equipmentrole.id'], ),
     sa.ForeignKeyConstraint(['process_id'], ['_process.id'], )
     )
-    op.create_table('_kittypereagenttypeassociation',
-    sa.Column('reagent_types_id', sa.INTEGER(), nullable=False),
+    op.create_table('_kittypereagentroleassociation',
+    sa.Column('reagent_roles_id', sa.INTEGER(), nullable=False),
     sa.Column('kits_id', sa.INTEGER(), nullable=False),
     sa.Column('submission_type_id', sa.INTEGER(), nullable=False),
     sa.Column('uses', sa.JSON(), nullable=True),
     sa.Column('required', sa.INTEGER(), nullable=True),
     sa.Column('last_used', sa.String(length=32), nullable=True),
     sa.ForeignKeyConstraint(['kits_id'], ['_kittype.id'], ),
-    sa.ForeignKeyConstraint(['reagent_types_id'], ['_reagenttype.id'], ),
+    sa.ForeignKeyConstraint(['reagent_roles_id'], ['_reagentrole.id'], ),
     sa.ForeignKeyConstraint(['submission_type_id'], ['_submissiontype.id'], ),
-    sa.PrimaryKeyConstraint('reagent_types_id', 'kits_id', 'submission_type_id')
+    sa.PrimaryKeyConstraint('reagent_roles_id', 'kits_id', 'submission_type_id')
     )
     op.create_table('_kittypes_processes',
     sa.Column('process_id', sa.INTEGER(), nullable=True),
@@ -141,13 +155,19 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['contact_id'], ['_contact.id'], ),
     sa.ForeignKeyConstraint(['org_id'], ['_organization.id'], )
     )
+    op.create_table('_process_tiprole',
+    sa.Column('process_id', sa.INTEGER(), nullable=True),
+    sa.Column('tiprole_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['process_id'], ['_process.id'], ),
+    sa.ForeignKeyConstraint(['tiprole_id'], ['_tiprole.id'], )
+    )
     op.create_table('_reagent',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('type_id', sa.INTEGER(), nullable=True),
+    sa.Column('role_id', sa.INTEGER(), nullable=True),
     sa.Column('name', sa.String(length=64), nullable=True),
     sa.Column('lot', sa.String(length=64), nullable=True),
     sa.Column('expiry', sa.TIMESTAMP(), nullable=True),
-    sa.ForeignKeyConstraint(['type_id'], ['_reagenttype.id'], name='fk_reagent_type_id', ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['role_id'], ['_reagentrole.id'], name='fk_reagent_role_id', ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_submissiontypeequipmentroleassociation',
@@ -175,6 +195,23 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['equipmentroles_id'], ['_submissiontype.id'], ),
     sa.ForeignKeyConstraint(['process_id'], ['_process.id'], )
     )
+    op.create_table('_submissiontypetiproleassociation',
+    sa.Column('tiprole_id', sa.INTEGER(), nullable=False),
+    sa.Column('submissiontype_id', sa.INTEGER(), nullable=False),
+    sa.Column('uses', sa.JSON(), nullable=True),
+    sa.Column('static', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['submissiontype_id'], ['_submissiontype.id'], ),
+    sa.ForeignKeyConstraint(['tiprole_id'], ['_tiprole.id'], ),
+    sa.PrimaryKeyConstraint('tiprole_id', 'submissiontype_id')
+    )
+    op.create_table('_tips',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('role_id', sa.INTEGER(), nullable=True),
+    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('lot', sa.String(length=64), nullable=True),
+    sa.ForeignKeyConstraint(['role_id'], ['_tiprole.id'], name='fk_tip_role_id', ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('_wastewatersample',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('ww_processing_num', sa.String(length=64), nullable=True),
@@ -197,13 +234,15 @@ def upgrade() -> None:
     sa.Column('extraction_kit_id', sa.INTEGER(), nullable=True),
     sa.Column('submission_type_name', sa.String(), nullable=True),
     sa.Column('technician', sa.String(length=64), nullable=True),
-    sa.Column('reagents_id', sa.String(), nullable=True),
+    sa.Column('reagents_id', sa.INTEGER(), nullable=True),
     sa.Column('extraction_info', sa.JSON(), nullable=True),
-    sa.Column('pcr_info', sa.JSON(), nullable=True),
     sa.Column('run_cost', sa.FLOAT(precision=2), nullable=True),
-    sa.Column('uploaded_by', sa.String(length=32), nullable=True),
+    sa.Column('signed_by', sa.String(length=32), nullable=True),
     sa.Column('comment', sa.JSON(), nullable=True),
     sa.Column('submission_category', sa.String(length=64), nullable=True),
+    sa.Column('cost_centre', sa.String(length=64), nullable=True),
+    sa.Column('contact_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['contact_id'], ['_contact.id'], name='fk_BS_contact_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['extraction_kit_id'], ['_kittype.id'], name='fk_BS_extkit_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['reagents_id'], ['_reagent.id'], name='fk_BS_reagents_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['submission_type_name'], ['_submissiontype.name'], name='fk_BS_subtype_name', ondelete='SET NULL'),
@@ -212,11 +251,23 @@ def upgrade() -> None:
     sa.UniqueConstraint('rsl_plate_num'),
     sa.UniqueConstraint('submitter_plate_num')
     )
-    op.create_table('_reagenttypes_reagents',
+    op.create_table('_equipment_tips',
+    sa.Column('equipment_id', sa.INTEGER(), nullable=True),
+    sa.Column('tips_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['equipment_id'], ['_equipment.id'], ),
+    sa.ForeignKeyConstraint(['tips_id'], ['_tips.id'], )
+    )
+    op.create_table('_reagentroles_reagents',
     sa.Column('reagent_id', sa.INTEGER(), nullable=True),
-    sa.Column('reagenttype_id', sa.INTEGER(), nullable=True),
+    sa.Column('reagentrole_id', sa.INTEGER(), nullable=True),
     sa.ForeignKeyConstraint(['reagent_id'], ['_reagent.id'], ),
-    sa.ForeignKeyConstraint(['reagenttype_id'], ['_reagenttype.id'], )
+    sa.ForeignKeyConstraint(['reagentrole_id'], ['_reagentrole.id'], )
+    )
+    op.create_table('_tiproles_tips',
+    sa.Column('tiprole_id', sa.INTEGER(), nullable=True),
+    sa.Column('tips_id', sa.INTEGER(), nullable=True),
+    sa.ForeignKeyConstraint(['tiprole_id'], ['_tiprole.id'], ),
+    sa.ForeignKeyConstraint(['tips_id'], ['_tips.id'], )
     )
     op.create_table('_bacterialculture',
     sa.Column('id', sa.INTEGER(), nullable=False),
@@ -225,7 +276,7 @@ def upgrade() -> None:
     )
     op.create_table('_control',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('parent_id', sa.String(), nullable=True),
+    sa.Column('parent_id', sa.INTEGER(), nullable=True),
     sa.Column('name', sa.String(length=255), nullable=True),
     sa.Column('submitted_date', sa.TIMESTAMP(), nullable=True),
     sa.Column('contains', sa.JSON(), nullable=True),
@@ -264,19 +315,31 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('reagent_id', 'submission_id')
     )
     op.create_table('_submissionsampleassociation',
+    sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('sample_id', sa.INTEGER(), nullable=False),
     sa.Column('submission_id', sa.INTEGER(), nullable=False),
     sa.Column('row', sa.INTEGER(), nullable=False),
     sa.Column('column', sa.INTEGER(), nullable=False),
+    sa.Column('submission_rank', sa.INTEGER(), nullable=False),
     sa.Column('base_sub_type', sa.String(), nullable=True),
     sa.ForeignKeyConstraint(['sample_id'], ['_basicsample.id'], ),
     sa.ForeignKeyConstraint(['submission_id'], ['_basicsubmission.id'], ),
-    sa.PrimaryKeyConstraint('submission_id', 'row', 'column')
+    sa.PrimaryKeyConstraint('submission_id', 'row', 'column'),
+    sa.UniqueConstraint('id')
+    )
+    op.create_table('_submissiontipsassociation',
+    sa.Column('tip_id', sa.INTEGER(), nullable=False),
+    sa.Column('submission_id', sa.INTEGER(), nullable=False),
+    sa.Column('role_name', sa.String(length=32), nullable=False),
+    sa.ForeignKeyConstraint(['submission_id'], ['_basicsubmission.id'], ),
+    sa.ForeignKeyConstraint(['tip_id'], ['_tips.id'], ),
+    sa.PrimaryKeyConstraint('tip_id', 'submission_id', 'role_name')
     )
     op.create_table('_wastewater',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('ext_technician', sa.String(length=64), nullable=True),
     sa.Column('pcr_technician', sa.String(length=64), nullable=True),
+    sa.Column('pcr_info', sa.JSON(), nullable=True),
     sa.ForeignKeyConstraint(['id'], ['_basicsubmission.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -284,20 +347,36 @@ def upgrade() -> None:
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('artic_technician', sa.String(length=64), nullable=True),
     sa.Column('dna_core_submission_number', sa.String(length=64), nullable=True),
+    sa.Column('pcr_info', sa.JSON(), nullable=True),
+    sa.Column('gel_image', sa.String(length=64), nullable=True),
+    sa.Column('gel_info', sa.JSON(), nullable=True),
+    sa.Column('gel_controls', sa.JSON(), nullable=True),
+    sa.Column('source_plates', sa.JSON(), nullable=True),
+    sa.Column('artic_date', sa.TIMESTAMP(), nullable=True),
+    sa.Column('ngs_date', sa.TIMESTAMP(), nullable=True),
+    sa.Column('gel_date', sa.TIMESTAMP(), nullable=True),
+    sa.Column('gel_barcode', sa.String(length=16), nullable=True),
     sa.ForeignKeyConstraint(['id'], ['_basicsubmission.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('_wastewaterarticassociation',
+    sa.Column('id', sa.INTEGER(), nullable=False),
+    sa.Column('source_plate', sa.String(length=16), nullable=True),
+    sa.Column('source_plate_number', sa.INTEGER(), nullable=True),
+    sa.Column('source_well', sa.String(length=8), nullable=True),
+    sa.Column('ct', sa.String(length=8), nullable=True),
+    sa.ForeignKeyConstraint(['id'], ['_submissionsampleassociation.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('_wastewaterassociation',
-    sa.Column('sample_id', sa.INTEGER(), nullable=False),
-    sa.Column('submission_id', sa.INTEGER(), nullable=False),
+    sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('ct_n1', sa.FLOAT(precision=2), nullable=True),
     sa.Column('ct_n2', sa.FLOAT(precision=2), nullable=True),
     sa.Column('n1_status', sa.String(length=32), nullable=True),
     sa.Column('n2_status', sa.String(length=32), nullable=True),
     sa.Column('pcr_results', sa.JSON(), nullable=True),
-    sa.ForeignKeyConstraint(['sample_id'], ['_submissionsampleassociation.sample_id'], ),
-    sa.ForeignKeyConstraint(['submission_id'], ['_submissionsampleassociation.submission_id'], ),
-    sa.PrimaryKeyConstraint('sample_id', 'submission_id')
+    sa.ForeignKeyConstraint(['id'], ['_submissionsampleassociation.id'], ),
+    sa.PrimaryKeyConstraint('id')
     )
     # ### end Alembic commands ###
 
@@ -305,30 +384,38 @@ def upgrade() -> None:
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('_wastewaterassociation')
+    op.drop_table('_wastewaterarticassociation')
     op.drop_table('_wastewaterartic')
     op.drop_table('_wastewater')
+    op.drop_table('_submissiontipsassociation')
     op.drop_table('_submissionsampleassociation')
     op.drop_table('_submissionreagentassociation')
     op.drop_table('_submissionequipmentassociation')
     op.drop_table('_control')
     op.drop_table('_bacterialculture')
-    op.drop_table('_reagenttypes_reagents')
+    op.drop_table('_tiproles_tips')
+    op.drop_table('_reagentroles_reagents')
+    op.drop_table('_equipment_tips')
     op.drop_table('_basicsubmission')
     op.drop_table('_wastewatersample')
+    op.drop_table('_tips')
+    op.drop_table('_submissiontypetiproleassociation')
     op.drop_table('_submissiontypes_processes')
     op.drop_table('_submissiontypekittypeassociation')
     op.drop_table('_submissiontypeequipmentroleassociation')
     op.drop_table('_reagent')
+    op.drop_table('_process_tiprole')
     op.drop_table('_orgs_contacts')
     op.drop_table('_kittypes_processes')
-    op.drop_table('_kittypereagenttypeassociation')
+    op.drop_table('_kittypereagentroleassociation')
     op.drop_table('_equipmentroles_processes')
     op.drop_table('_equipmentroles_equipment')
     op.drop_table('_equipment_processes')
     op.drop_table('_discount')
     op.drop_table('_bacterialculturesample')
+    op.drop_table('_tiprole')
     op.drop_table('_submissiontype')
-    op.drop_table('_reagenttype')
+    op.drop_table('_reagentrole')
     op.drop_table('_process')
     op.drop_table('_organization')
     op.drop_table('_kittype')
@@ -336,5 +423,6 @@ def downgrade() -> None:
     op.drop_table('_equipment')
     op.drop_table('_controltype')
     op.drop_table('_contact')
+    op.drop_table('_configitem')
     op.drop_table('_basicsample')
     # ### end Alembic commands ###

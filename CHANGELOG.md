@@ -1,7 +1,12 @@
+## 202407.04
+
+- Added support for postgresql databases (auto backup not functional).
+
 ## 202407.02
 
 - HTML template for 'About'.
 - More flexible custom parsers/writers due to custom info items.
+- Vastly increased portability of the reporting functions.
 
 ## 202407.01
 

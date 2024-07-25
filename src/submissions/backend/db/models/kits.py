@@ -1532,7 +1532,7 @@ class Process(BaseClass):
         query = cls.__database_session__.query(cls)
         match name:
             case str():
-                logger.debug(f"Lookup Process with name str {name}")
+                # logger.debug(f"Lookup Process with name str {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
