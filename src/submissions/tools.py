@@ -25,6 +25,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 from PyQt6.QtPrintSupport import QPrinter
 from __init__ import project_path
 from configparser import ConfigParser
+from tkinter import Tk     # from tkinter import Tk for Python 3.x
+from tkinter.filedialog import askdirectory
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -261,14 +263,14 @@ class Settings(BaseSettings, extra="allow"):
     @classmethod
     def ensure_directory_exists(cls, value):
         if value is None:
-            print("No value for dir path")
+            # print("No value for dir path")
             if check_if_app():
                 alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
             else:
                 alembic_path = project_path.joinpath("alembic.ini")
-            print(f"Getting alembic path: {alembic_path}")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path)
-            print(f"Using {value}")
+            # print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path).parent
+            # print(f"Using {value}")
         if isinstance(value, str):
             value = Path(value)
         try:
@@ -276,11 +278,12 @@ class Settings(BaseSettings, extra="allow"):
         except AttributeError:
             check = False
         if not check:
-            print(f"No directory found, using Documents/submissions")
-            value = Path.home().joinpath("Documents", "submissions")
-            value.mkdir()
-        # metadata.directory_path = value
-        print(f"Final return of directory_path: {value}")
+            # print(f"No directory found, using Documents/submissions")
+            # value = Path.home().joinpath("Documents", "submissions")
+            Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
+            value = Path(askdirectory(title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
+            value.mkdir(exist_ok=True)
+        # print(f"Final return of directory_path: {value}")
         return value
 
     @field_validator('database_path', mode="before")
@@ -357,6 +360,18 @@ class Settings(BaseSettings, extra="allow"):
         if value is None:
             return package
 
+    @field_validator('database_name', mode='before')
+    @classmethod
+    def get_database_name(cls, value, values):
+        if value is None:
+            if check_if_app():
+                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+            else:
+                alembic_path = project_path.joinpath("alembic.ini")
+            # print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path).stem
+        return value
+
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
@@ -389,13 +404,13 @@ class Settings(BaseSettings, extra="allow"):
         c = ConfigParser()
         c.read(alembic_path)
         path = c['alembic']['sqlalchemy.url'].replace("sqlite:///", "")
-        return Path(path).parent
+        return Path(path)
 
     def save(self, settings_path:Path):
         if not settings_path.exists():
             dicto = {}
             for k,v in self.__dict__.items():
-                if k in ['package', 'database_session']:
+                if k in ['package', 'database_session', 'submission_types']:
                     continue
                 match v:
                     case Path():

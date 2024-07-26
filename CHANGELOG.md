@@ -1,6 +1,7 @@
 ## 202407.04
 
 - Added support for postgresql databases (auto backup not functional).
+- Improved portability and folder obscuring.
 
 ## 202407.02
 

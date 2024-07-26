@@ -472,7 +472,10 @@ class BasicSubmission(BaseClass):
             except:
                 logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
         if chronologic:
-            df.sort_values(by="id", axis=0, inplace=True, ascending=False)
+            try:
+                df.sort_values(by="id", axis=0, inplace=True, ascending=False)
+            except KeyError:
+                logger.error("No column named 'id'")
         # NOTE: Human friendly column labels
         df.columns = [item.replace("_", " ").title() for item in df.columns]
         return df
