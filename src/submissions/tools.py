@@ -25,7 +25,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from PyQt6.QtPrintSupport import QPrinter
 from __init__ import project_path
 from configparser import ConfigParser
-from tkinter import Tk     # from tkinter import Tk for Python 3.x
+from tkinter import Tk  # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askdirectory
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -230,11 +230,11 @@ class Settings(BaseSettings, extra="allow"):
         FileNotFoundError: Error if database not found.
 
     """
-    database_schema: str
+    database_schema: str | None = None
     directory_path: Path | None = None
     database_user: str | None = None
     database_password: str | None = None
-    database_name: str
+    database_name: str | None = None
     database_path: Path | str | None = None
     backup_path: Path | str | None = None
     # super_users: list|None = None
@@ -246,6 +246,21 @@ class Settings(BaseSettings, extra="allow"):
 
     model_config = SettingsConfigDict(env_file_encoding='utf-8')
 
+    @field_validator('database_schema', mode="before")
+    @classmethod
+    def set_schema(cls, value):
+        if value is None:
+            # print("No value for dir path")
+            if check_if_app():
+                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+            else:
+                alembic_path = project_path.joinpath("alembic.ini")
+            # print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='schema')
+        if value is None:
+            value = "sqlite"
+        return value
+
     @field_validator('backup_path', mode="before")
     @classmethod
     def set_backup_path(cls, value, values):
@@ -255,35 +270,43 @@ class Settings(BaseSettings, extra="allow"):
             case None:
                 value = values.data['directory_path'].joinpath("Database backups")
         if not value.exists():
-            value.mkdir(parents=True)
+            try:
+                value.mkdir(parents=True)
+            except OSError:
+                value = Path(askdirectory(title="Directory for backups."))
+                # value.mkdir(parents=True)
         # metadata.backup_path = value
         return value
 
     @field_validator('directory_path', mode="before")
     @classmethod
-    def ensure_directory_exists(cls, value):
+    def ensure_directory_exists(cls, value, values):
         if value is None:
-            # print("No value for dir path")
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            # print(f"Getting alembic path: {alembic_path}")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path).parent
-            # print(f"Using {value}")
+            match values.data['database_schema']:
+                case "sqlite":
+                    # print("No value for dir path")
+                    if check_if_app():
+                        alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+                    else:
+                        alembic_path = project_path.joinpath("alembic.ini")
+                    # print(f"Getting alembic path: {alembic_path}")
+                    value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
+                    # print(f"Using {value}")
+                case _:
+                    Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
+                    value = Path(askdirectory(
+                        title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
         if isinstance(value, str):
             value = Path(value)
         try:
             check = value.exists()
         except AttributeError:
             check = False
-        if not check:
+        if not check:  #and values.data['database_schema'] == "sqlite":
             # print(f"No directory found, using Documents/submissions")
             # value = Path.home().joinpath("Documents", "submissions")
-            Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
-            value = Path(askdirectory(title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
             value.mkdir(exist_ok=True)
-        # print(f"Final return of directory_path: {value}")
+        print(f"Final return of directory_path: {value}")
         return value
 
     @field_validator('database_path', mode="before")
@@ -291,14 +314,24 @@ class Settings(BaseSettings, extra="allow"):
     def ensure_database_exists(cls, value, values):
         # if value == ":memory:":
         #     return value
-        if value is None:
-            value = values.data['directory_path']
+          # and values.data['database_schema'] == "sqlite":
+            # value = values.data['directory_path']
         match values.data['database_schema']:
             case "sqlite":
-                value = Path(f"{Path(value).absolute().__str__()}/{values.data['database_name']}.db")
+                if value is None:
+                    value = values.data['directory_path']
+                if isinstance(value, str):
+                    value = Path(value)
                 # db_name = f"{values.data['database_name']}.db"
             case _:
-                value = f"{value}/{values.data['database_name']}"
+                if value is None:
+                    if check_if_app():
+                        alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+                    else:
+                        alembic_path = project_path.joinpath("alembic.ini")
+                    # print(f"Getting alembic path: {alembic_path}")
+                    value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
+                # value = f"{value}/{values.data['database_name']}"
                 # db_name = values.data['database_name']
         # match value:
         #     case str():
@@ -311,21 +344,64 @@ class Settings(BaseSettings, extra="allow"):
         #     raise FileNotFoundError(f"Couldn't find database at {value}")
         return value
 
+    @field_validator('database_name', mode='before')
+    @classmethod
+    def get_database_name(cls, value):
+        if value is None:
+            if check_if_app():
+                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+            else:
+                alembic_path = project_path.joinpath("alembic.ini")
+            # print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').stem
+        return value
+
+    @field_validator("database_user", mode='before')
+    @classmethod
+    def get_user(cls, value):
+        if value is None:
+            if check_if_app():
+                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+            else:
+                alembic_path = project_path.joinpath("alembic.ini")
+            # print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='user')
+            print(f"Got {value} for user")
+        return value
+
+    @field_validator("database_password", mode='before')
+    @classmethod
+    def get_pass(cls, value):
+        if value is None:
+            if check_if_app():
+                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+            else:
+                alembic_path = project_path.joinpath("alembic.ini")
+            # print(f"Getting alembic path: {alembic_path}")
+            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='pass')
+            print(f"Got {value} for pass")
+        return value
+
+
     @field_validator('database_session', mode="before")
     @classmethod
     def create_database_session(cls, value, values):
+
         if value is not None:
             return value
         else:
             match values.data['database_schema']:
                 case "sqlite":
                     value = f"/{values.data['database_path']}"
-                    # db_name = f"{values.data['database_name']}.db"
+                    db_name = f"{values.data['database_name']}.db"
                 case _:
-                    value = f"@{values.data['database_path']}"
+                    print(pprint.pprint(values.data))
+                    tmp = jinja_template_loading().from_string("{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}@{{ values['database_path'] }}")
+                    value = tmp.render(values=values.data)
+                    db_name = values.data['database_name']
             template = jinja_template_loading().from_string(
-                "{{ values['database_schema'] }}://{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}{{ value }}")
-            database_path = template.render(values=values.data, value=value)
+                "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}")
+            database_path = template.render(values=values.data, value=value, db_name=db_name)
             # print(f"Using {database_path} for database path")
             # database_path = values.data['database_path']
             # if database_path is None:
@@ -360,23 +436,10 @@ class Settings(BaseSettings, extra="allow"):
         if value is None:
             return package
 
-    @field_validator('database_name', mode='before')
-    @classmethod
-    def get_database_name(cls, value, values):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            # print(f"Getting alembic path: {alembic_path}")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path).stem
-        return value
-
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
         self.set_from_db(db_path=kwargs['database_path'])
-
 
     def set_from_db(self, db_path: Path):
         if 'pytest' in sys.modules:
@@ -400,16 +463,37 @@ class Settings(BaseSettings, extra="allow"):
                 self.__setattr__(k, v)
 
     @classmethod
-    def get_alembic_db_path(cls, alembic_path) -> Path:
+    def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
         c = ConfigParser()
         c.read(alembic_path)
-        path = c['alembic']['sqlalchemy.url'].replace("sqlite:///", "")
-        return Path(path)
+        url = c['alembic']['sqlalchemy.url']
+        match mode:
+            case 'path':
+                # path = url.replace("sqlite:///", "")
+                path = re.sub(r"^.*//", "", url)
+                path = re.sub(r"^.*@", "", path)
+                return Path(path)
+            case "schema":
+                return url[:url.index(":")]
+            case "user":
+                url = re.sub(r"^.*//", "", url)
+                try:
+                    return url[:url.index("@")].split(":")[0]
+                except (IndexError, ValueError) as e:
+                    print(f"Error on user: {e}")
+                    return None
+            case "pass":
+                url = re.sub(r"^.*//", "", url)
+                try:
+                    return url[:url.index("@")].split(":")[1]
+                except (IndexError, ValueError) as e:
+                    print(f"Error on user: {e}")
+                    return None
 
-    def save(self, settings_path:Path):
+    def save(self, settings_path: Path):
         if not settings_path.exists():
             dicto = {}
-            for k,v in self.__dict__.items():
+            for k, v in self.__dict__.items():
                 if k in ['package', 'database_session', 'submission_types']:
                     continue
                 match v:
@@ -421,6 +505,8 @@ class Settings(BaseSettings, extra="allow"):
                         elif v.is_file():
                             print("file")
                             v = v.parent.absolute().__str__()
+                        else:
+                            v = v.__str__()
                     case _:
                         pass
                 print(f"Key: {k}, Value: {v}")
