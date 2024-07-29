@@ -7,14 +7,16 @@ import sys, subprocess
 from pathlib import Path
 sys.path.append(Path(".").parent.joinpath('src').absolute().__str__())
 from submissions import __version__, __project__, bcolors, project_path
-
+print(f"Using {project_path} as project path.")
 doc_path = project_path.joinpath("docs").absolute()
 build_path = project_path.joinpath(".venv", "Scripts", "sphinx-build").absolute().__str__()
 print(bcolors.BOLD + "Running Sphinx subprocess to generate rst files..." + bcolors.ENDC)
 api_path = project_path.joinpath(".venv", "Scripts", "sphinx-apidoc").absolute().__str__()
 subprocess.run([api_path, "-o", doc_path.joinpath("source").__str__(), project_path.joinpath("src", "submissions").__str__(), "-f"])
 print(bcolors.BOLD + "Running Sphinx subprocess to generate html docs..." + bcolors.ENDC)
-subprocess.run([build_path, doc_path.joinpath("source").__str__(), doc_path.joinpath("build").__str__(), "-a"])
+docs_build = doc_path.joinpath("build")
+#docs_build.mkdir(exist_ok=True, parents=True)
+subprocess.run([build_path, doc_path.joinpath("source").__str__(), docs_build.__str__(), "-a"])
 #########################################################
 
 a = Analysis(

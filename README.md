@@ -112,14 +112,14 @@ This is meant to import .xslx files created from the Design & Analysis Software
 
 ## SETUP:
 
-## Download:
+## Download and Setup:
 *Python v3.11 or greater must be installed on your system for this.*
 
 1. Clone or download from github.
 2. Enter the downloaded folder.
 3. Open a terminal in the folder with the 'src' folder.
-4. Create a new virtual environment: ```python -m venv venv```
-5. Activate the virtual environment: (Windows) ```venv\Scripts\activate.bat```
+4. Create a new virtual environment: ```python -m venv .venv```
+5. Activate the virtual environment: (Windows) ```.venv\Scripts\activate.bat```
 6. Install dependencies: ```pip install -r requirements.txt```
 
 ## Database:
@@ -133,6 +133,14 @@ This is meant to import .xslx files created from the Design & Analysis Software
 ## First Run:
 
 1. On first run, the application copies src/config.yml to C:\Users\{USERNAME}\Local\submissions\config
-2. Initially, the 'directory_path' variable is set to the 'sqlalchemy.url' variable in alembic.ini
-3. If this folder cannot be found, C:\Users\{USERNAME}\Documents\submissions will be used.
+2. If this folder cannot be found, C:\Users\{USERNAME}\Documents\submissions will be used.
    1. If using Postgres, the 'database_path' and other variables will have to be updated manually.
+3. Initially, the config variables are set parsing the 'sqlalchemy.url' variable in alembic.ini
+
+## Building Portable Application:
+*Download and Setup must have been performed beforehand*
+
+1. Using pyinstaller, an exe can be created.
+2. Open a terminal in the folder with the 'src' folder.
+3. Activate the virtual environment: (Windows) ```.venv\Scripts\activate.bat```
+4. Enter the following command: ```pyinstaller .\submissions.spec --noconfirm```

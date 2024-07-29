@@ -5,9 +5,7 @@ from __future__ import annotations
 
 import json
 import pprint
-import weakref
 from json import JSONDecodeError
-import jinja2
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
 import pandas as pd
@@ -15,7 +13,7 @@ from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
@@ -53,7 +51,7 @@ main_form_style = '''
                         QComboBox:!editable, QDateEdit {
                             background-color:light gray;
                         }
-                        
+
                 '''
 
 
@@ -302,11 +300,11 @@ class Settings(BaseSettings, extra="allow"):
             check = value.exists()
         except AttributeError:
             check = False
-        if not check:  #and values.data['database_schema'] == "sqlite":
+        if not check:  # and values.data['database_schema'] == "sqlite":
             # print(f"No directory found, using Documents/submissions")
             # value = Path.home().joinpath("Documents", "submissions")
             value.mkdir(exist_ok=True)
-        print(f"Final return of directory_path: {value}")
+        # print(f"Final return of directory_path: {value}")
         return value
 
     @field_validator('database_path', mode="before")
@@ -314,8 +312,8 @@ class Settings(BaseSettings, extra="allow"):
     def ensure_database_exists(cls, value, values):
         # if value == ":memory:":
         #     return value
-          # and values.data['database_schema'] == "sqlite":
-            # value = values.data['directory_path']
+        # and values.data['database_schema'] == "sqlite":
+        # value = values.data['directory_path']
         match values.data['database_schema']:
             case "sqlite":
                 if value is None:
@@ -366,7 +364,7 @@ class Settings(BaseSettings, extra="allow"):
                 alembic_path = project_path.joinpath("alembic.ini")
             # print(f"Getting alembic path: {alembic_path}")
             value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='user')
-            print(f"Got {value} for user")
+            # print(f"Got {value} for user")
         return value
 
     @field_validator("database_password", mode='before')
@@ -379,9 +377,8 @@ class Settings(BaseSettings, extra="allow"):
                 alembic_path = project_path.joinpath("alembic.ini")
             # print(f"Getting alembic path: {alembic_path}")
             value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='pass')
-            print(f"Got {value} for pass")
+            # print(f"Got {value} for pass")
         return value
-
 
     @field_validator('database_session', mode="before")
     @classmethod
@@ -395,8 +392,9 @@ class Settings(BaseSettings, extra="allow"):
                     value = f"/{values.data['database_path']}"
                     db_name = f"{values.data['database_name']}.db"
                 case _:
-                    print(pprint.pprint(values.data))
-                    tmp = jinja_template_loading().from_string("{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}@{{ values['database_path'] }}")
+                    # print(pprint.pprint(values.data))
+                    tmp = jinja_template_loading().from_string(
+                        "{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}@{{ values['database_path'] }}")
                     value = tmp.render(values=values.data)
                     db_name = values.data['database_name']
             template = jinja_template_loading().from_string(
@@ -422,7 +420,7 @@ class Settings(BaseSettings, extra="allow"):
             #         database_path = database_path
             #     else:
             #         raise FileNotFoundError("No database file found. Exiting program.")
-            print(f"Using {database_path} for database file.")
+            # print(f"Using {database_path} for database file.")
             # engine = create_engine(f"sqlite:///{database_path}")  #, echo=True, future=True)
             # engine = create_engine("postgresql+psycopg2://postgres:RE,4321q@localhost:5432/submissions")
             engine = create_engine(database_path)
@@ -439,15 +437,22 @@ class Settings(BaseSettings, extra="allow"):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-        self.set_from_db(db_path=kwargs['database_path'])
+        self.set_from_db()
 
-    def set_from_db(self, db_path: Path):
+    def set_from_db(self):
         if 'pytest' in sys.modules:
             output = dict(power_users=['lwark', 'styson', 'ruwang'])
         else:
             # session = Session(create_engine(f"sqlite:///{db_path}"))
             logger.debug(self.__dict__)
             session = self.database_session
+            metadata = MetaData()
+            try:
+                tables = metadata.reflect(bind=session.get_bind()).tables.keys()
+            except AttributeError:
+                return
+            if "_configitem" not in tables:
+                return
             config_items = session.execute(text("SELECT * FROM _configitem")).all()
             session.close()
             # print(config_items)
@@ -480,14 +485,14 @@ class Settings(BaseSettings, extra="allow"):
                 try:
                     return url[:url.index("@")].split(":")[0]
                 except (IndexError, ValueError) as e:
-                    print(f"Error on user: {e}")
+                    # print(f"Error on user: {e}")
                     return None
             case "pass":
                 url = re.sub(r"^.*//", "", url)
                 try:
                     return url[:url.index("@")].split(":")[1]
                 except (IndexError, ValueError) as e:
-                    print(f"Error on user: {e}")
+                    # print(f"Error on user: {e}")
                     return None
 
     def save(self, settings_path: Path):
@@ -498,18 +503,18 @@ class Settings(BaseSettings, extra="allow"):
                     continue
                 match v:
                     case Path():
-                        print("Path")
+                        # print("Path")
                         if v.is_dir():
-                            print("dir")
+                            # print("dir")
                             v = v.absolute().__str__()
                         elif v.is_file():
-                            print("file")
+                            # print("file")
                             v = v.parent.absolute().__str__()
                         else:
                             v = v.__str__()
                     case _:
                         pass
-                print(f"Key: {k}, Value: {v}")
+                # print(f"Key: {k}, Value: {v}")
                 dicto[k] = v
             with open(settings_path, 'w') as f:
                 yaml.dump(dicto, f)
@@ -570,7 +575,7 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
             # settings = Settings(**copy_settings(settings_path=CONFIGDIR.joinpath("config.yml"), settings=default_settings))
             settings = Settings(**default_settings)
             settings.save(settings_path=CONFIGDIR.joinpath("config.yml"))
-            print(f"Default settings: {pprint.pprint(settings.__dict__)}")
+            # print(f"Default settings: {pprint.pprint(settings.__dict__)}")
             return settings
     else:
         # NOTE: check if user defined path is directory
@@ -758,7 +763,7 @@ def jinja_template_loading() -> Environment:
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
     else:
-        loader_path = Path(__file__).parent.joinpath('templates').absolute()  #.__str__()
+        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()  # .__str__()
     # NOTE: jinja template loading
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)

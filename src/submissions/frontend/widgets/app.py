@@ -188,7 +188,10 @@ class App(QMainWindow):
                 current_month_bak = current_month_bak.with_suffix(".db")
                 if not current_month_bak.exists() and "demo" not in self.ctx.database_path.__str__():
                     logger.info("No backup found for this month, backing up database.")
-                    shutil.copyfile(self.ctx.database_path, current_month_bak)
+                    try:
+                        shutil.copyfile(self.ctx.backup_path, current_month_bak)
+                    except PermissionError as e:
+                        logger.error(f"Couldn't backup database due to: {e}")
             case "postgresql+psycopg2":
                 logger.warning(f"Backup function not yet implemented for psql")
                 current_month_bak = current_month_bak.with_suffix(".psql")

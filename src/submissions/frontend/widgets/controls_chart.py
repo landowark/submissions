@@ -85,7 +85,10 @@ class ControlsViewer(QWidget):
         self.mode = self.mode_typer.currentText()
         self.sub_typer.clear()
         # NOTE: lookup subtypes
-        sub_types = ControlType.query(name=self.con_type).get_subtypes(mode=self.mode)
+        try:
+            sub_types = ControlType.query(name=self.con_type).get_subtypes(mode=self.mode)
+        except AttributeError:
+            sub_types = []
         if sub_types != []:
             # NOTE: block signal that will rerun controls getter and update sub_typer
             with QSignalBlocker(self.sub_typer) as blocker: 
