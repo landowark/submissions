@@ -8,14 +8,14 @@
 *should fit 90% of usage cases*
 
 1. Ensure a properly formatted Submission Excel form has been filled out. 
-    a. The program can fill in reagent fields and some other information automatically, but should be checked for accuracy afterwards.
+    a. The program can fill in reagent fields and some other information automatically, but should be checked for accuracy afterward.
 2. Click on 'File' in the menu bar, followed by 'Import Submission' and use the file dialog to locate the form.
-   1.  The excel file may also be dragged into the grey area on the left hand side of the screen from Windows File Explorer. If so, skip step 3. 
+   1.  The Excel file may also be dragged into the grey area on the left hand side of the screen from Windows File Explorer. If so, skip step 3. 
 3. Click 'Ok'.
 4. Most of the fields in the form should be automatically filled in from the form area to the left of the screen.
 5. You may need to maximize the app to ensure you can see all the info.
-6. Any fields that are not automatically filled in can be filled in manually from the drop down menus.
-	1. Any reagent lots not found in the drop downs can be typed in manually.
+6. Any fields that are not automatically filled in can be filled in manually from the drop-down menus.
+	1. Any reagent lots not found in the drop-downs can be typed in manually.
 7. Once you are certain all the information is correct, click 'Submit' at the bottom of the form.
 8. Add in any new reagents the app doesn't have in the database.
 9. Once the new run shows up at the bottom of the Submissions, everything is fine.
@@ -23,16 +23,16 @@
 
 ## Adding Equipment to a Run:
 
-1. Right click on the run in the Submissions Table to access the context menu.
+1. Right-click on the run in the Submissions Table to access the context menu.
 2. Click on “Add Equipment”.
-3. Select equipment used for each equipment role from the drop down menu.
-   1. Any tips associated with a liquid handler will also be available in a separate drop down menu.
+3. Select equipment used for each equipment role from the drop-down menu.
+   1. Any tips associated with a liquid handler will also be available in a separate drop-down menu.
 4. Select (or input) the process used on with the equipment.
-   1. Equipment that is not necessary may disabled using the check boxes to the left of each entry.
+   1. Equipment that is not necessary may be disabled using the checkboxes to the left of each entry.
 
 ## Importing PCR results (Wastewater only):
 
-This is meant to import .xslx files created from the Design & Analysis Software
+This is meant to import .xlsx files created from the Design & Analysis Software
 
 1. Click on 'File' -> 'Import PCR Results'.
 2. Use the file dialog to locate the .xlsx file you want to import.
@@ -40,7 +40,7 @@ This is meant to import .xslx files created from the Design & Analysis Software
 
 ## Using the Gel Box (Wastewater Artic only):
 
-1.  Right click on the run in the Submissions Table to access the context menu.
+1.  Right-click on the run in the Submissions Table to access the context menu.
 2.  Click on “Gel Box”.
 3.  Choose the .jpg file exported from the Egel reader.
 4.  Click “Okay”.
@@ -53,7 +53,7 @@ This is meant to import .xslx files created from the Design & Analysis Software
 
 ## Check existing Run:
 
-1. Details of existing runs can be checked by double clicking on the row of interest in the summary sheet on the right of the 'Submissions' tab.
+1. Details of existing runs can be checked by double-clicking on the row of interest in the summary sheet on the right of the 'Submissions' tab.
 2. All information available on the run should be available in the resulting text window. 
    1. This information can be exported by clicking 'Export DOCX' at the top.
 
@@ -68,11 +68,11 @@ This is meant to import .xslx files created from the Design & Analysis Software
 1. Click on 'Reports' -> 'Make Report' in the menu bar.
 2. Select the start date and the end date you want for the report. Click 'ok'.
 3. Use the file dialog to select a location to save the report.
-	a. Both an excel sheet and a pdf should be generated containing summary information for submissions made by each client lab.
+	a. Both an Excel sheet and a pdf should be generated containing summary information for submissions made by each client lab.
 
 ## Exporting a run as an Excel file:
 
-1.	Right click on the run in the Submissions Table to access the context menu.
+1.	Right-click on the run in the Submissions Table to access the context menu.
 2.	Select “Export” from the context menu.
 3.	Select the folder and input the filename in the “Save File” dialog.
 4.	Click “Okay”.
@@ -86,16 +86,16 @@ This is meant to import .xslx files created from the Design & Analysis Software
 3. Range of dates for controls can be selected from the date pickers at the top.
 	1. If start date is set after end date, the start date will default back to 3 months before end date.
 	2. Recommendation is to use less than 6 month date range keeping in mind that higher data density will affect performance (with kraken being the worst so far)
-4. Analysis type and subtype can be set using the drop down menus. (Only kraken has a subtype so far).
+4. Analysis type and subtype can be set using the drop-down menus. (Only kraken has a subtype so far).
 
 ## Adding new Kit:
 
 1. Click "Add Kit" tab in the tab bar.
-2. Select the Submission type from the drop down menu.
+2. Select the Submission type from the drop-down menu.
 3. Fill in the kit name (required) and other fields (optional).
 4. For each reagent type in the kit click the "Add Reagent Type" button.
-5. Fill in the name of the reagent type. Alternatively select from already existing types in the drop down.
-6. Fill in the reagent location in the excel submission sheet.
+5. Fill in the name of the reagent type. Alternatively select from already existing types in the drop-down.
+6. Fill in the reagent location in the Excel submission sheet.
 	a. For example if the reagent name is in a sheet called "Reagent Info" in row 12, column 1, type "Reagent Info" in the "Excel Location Sheet Name" field. 
 	b. Set 12 in the "Name Row" and 1 in the "Name Column".
 	c. Repeat 6b for the Lot and the Expiry row and columns.
@@ -104,18 +104,18 @@ This is meant to import .xslx files created from the Design & Analysis Software
 ## Linking Extraction Logs:
 
 1. Click "Monthly" -> "Link Extraction Logs".
-2. Chose the .csv file taken from the extraction table runlogs folder.
+2. Chose the .csv file taken from the extraction table run logs folder.
 
 ## Linking PCR Logs:
 1. Click "Monthly" -> "Link PCR Logs".
-2. Chose the .csv file taken from the PCR table runlogs folder.
+2. Chose the .csv file taken from the PCR table run logs folder.
 
 ## SETUP:
 
 ## Download and Setup:
 *Python v3.11 or greater must be installed on your system for this.*
 
-1. Clone or download from github.
+1. Clone or download from GitHub.
 2. Enter the downloaded folder.
 3. Open a terminal in the folder with the 'src' folder.
 4. Create a new virtual environment: ```python -m venv .venv```
