@@ -139,7 +139,7 @@ This is meant to import .xlsx files created from the Design & Analysis Software
 3. Initially, the config variables are set parsing the 'sqlalchemy.url' variable in alembic.ini
 
 ## Building Portable Application:
-*Download and Setup must have been performed beforehand*
+*Download and Setup must have been performed beforehand.*
 
 1. Using pyinstaller, an exe can be created.
 2. Open a terminal in the folder with the 'src' folder.
