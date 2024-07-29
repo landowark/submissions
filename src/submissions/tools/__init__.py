@@ -443,19 +443,23 @@ class Settings(BaseSettings, extra="allow"):
         if 'pytest' in sys.modules:
             output = dict(power_users=['lwark', 'styson', 'ruwang'])
         else:
+            print(f"Hello from database settings getter.")
+
             # session = Session(create_engine(f"sqlite:///{db_path}"))
-            logger.debug(self.__dict__)
+            # print(self.__dict__)
             session = self.database_session
             metadata = MetaData()
+            # print(self.database_session.get_bind())
             try:
-                tables = metadata.reflect(bind=session.get_bind()).tables.keys()
-            except AttributeError:
+                metadata.reflect(bind=session.get_bind())
+            except AttributeError as e:
+                print(f"Error getting tables: {e}")
                 return
-            if "_configitem" not in tables:
+            if "_configitem" not in metadata.tables.keys():
+                print(f"Couldn't find _configitems in {metadata.tables.keys()}.")
                 return
             config_items = session.execute(text("SELECT * FROM _configitem")).all()
-            session.close()
-            # print(config_items)
+            # print(f"Config: {pprint.pprint(config_items)}")
             output = {}
             for item in config_items:
                 try:
@@ -466,6 +470,7 @@ class Settings(BaseSettings, extra="allow"):
         for k, v in output.items():
             if not hasattr(self, k):
                 self.__setattr__(k, v)
+
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:

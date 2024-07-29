@@ -123,6 +123,7 @@ This is meant to import .xslx files created from the Design & Analysis Software
 6. Install dependencies: ```pip install -r requirements.txt```
 
 ## Database:
+*If using a pre-existing database, skip this.*
 
 1. Copy 'alembic_default.ini' to 'alembic.ini' in the same folder.
 2. Open 'alembic.ini' and edit 'sqlalchemy.url' to the desired path of the database.
