@@ -824,7 +824,7 @@ class PydSubmission(BaseModel, extra='allow'):
             SubmissionFormWidget: Submission form widget
         """
         from frontend.widgets.submission_widget import SubmissionFormWidget
-        logger.debug(f"Disbable: {disable}")
+        # logger.debug(f"Disable: {disable}")
         return SubmissionFormWidget(parent=parent, submission=self, disable=disable)
 
     def to_writer(self) -> "SheetWriter":

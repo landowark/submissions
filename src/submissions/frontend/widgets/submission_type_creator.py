@@ -2,7 +2,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QScrollArea,
     QGridLayout, QPushButton, QLabel,
-    QLineEdit, QSpinBox
+    QLineEdit, QSpinBox, QCheckBox
 )
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from backend.db import SubmissionType, BasicSubmission
@@ -62,7 +62,7 @@ class SubmissionTypeAdder(QWidget):
                 ST.template_file = f.read()
         except FileNotFoundError:
             logger.error(f"Could not find template file: {self.template_path}")
-        ST.save(ctx=self.app.ctx)
+        ST.save()
 
     def parse_form(self) -> dict:
         """
@@ -88,7 +88,10 @@ class InfoWidget(QWidget):
         super().__init__(parent)
         grid = QGridLayout()
         self.setLayout(grid)
-        grid.addWidget(QLabel(key.replace("_", " ").title()),0,0,1,4)
+        self.active = QCheckBox()
+        self.active.setChecked(True)
+        grid.addWidget(self.active, 0,0,1,1)
+        grid.addWidget(QLabel(key.replace("_", " ").title()),0,1,1,4)
         self.setObjectName(key)
         grid.addWidget(QLabel("Sheet Names (comma seperated):"),1,0)
         self.sheet = QLineEdit()
@@ -103,16 +106,19 @@ class InfoWidget(QWidget):
         self.column.setObjectName("column")
         grid.addWidget(self.column,2,3)
 
-    def parse_form(self) -> dict:
+    def parse_form(self) -> dict|None:
         """
         Pulls info from the Info form.
 
         Returns:
             dict: sheets, row, column
-        """        
-        return dict(
-            sheets = self.sheet.text().split(","),
-            row = self.row.value(),
-            column = self.column.value()
-        )
+        """
+        if self.active.isChecked():
+            return dict(
+                sheets = self.sheet.text().split(","),
+                row = self.row.value(),
+                column = self.column.value()
+            )
+        else:
+            return None
     

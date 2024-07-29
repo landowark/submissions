@@ -6,12 +6,12 @@ from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
 )
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 from pathlib import Path
 from . import select_open_file, select_save_file
 import logging, difflib, inspect
 from pathlib import Path
-from tools import Report, Result, check_not_nan, workbook_2_csv, main_form_style, report_result
+from tools import Report, Result, check_not_nan, main_form_style, report_result
 from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
@@ -26,6 +26,31 @@ from datetime import date
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+class MyQComboBox(QComboBox):
+    def __init__(self, scrollWidget=None, *args, **kwargs):
+        super(MyQComboBox, self).__init__(*args, **kwargs)
+        self.scrollWidget=scrollWidget
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        logger.debug(f"Scrollwidget: {scrollWidget}")
+
+    def wheelEvent(self, *args, **kwargs):
+        if self.hasFocus():
+            return QComboBox.wheelEvent(self, *args, **kwargs)
+        else:
+            return self.scrollWidget.wheelEvent(*args, **kwargs)
+
+class MyQDateEdit(QDateEdit):
+    def __init__(self, scrollWidget=None, *args, **kwargs):
+        super(MyQDateEdit, self).__init__(*args, **kwargs)
+        self.scrollWidget=scrollWidget
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def wheelEvent(self, *args, **kwargs):
+        if self.hasFocus():
+            return QDateEdit.wheelEvent(self, *args, **kwargs)
+        else:
+            return self.scrollWidget.wheelEvent(*args, **kwargs)
+
 
 class SubmissionFormContainer(QWidget):
     # A signal carrying a path
@@ -37,6 +62,7 @@ class SubmissionFormContainer(QWidget):
         self.app = self.parent().parent()
         # logger.debug(f"App: {self.app}")
         self.report = Report()
+        self.setStyleSheet('background-color: light grey;')
         self.setAcceptDrops(True)
         # NOTE: if import_drag is emitted, importSubmission will fire
         self.import_drag.connect(self.importSubmission)
@@ -208,12 +234,11 @@ class SubmissionFormWidget(QWidget):
             match value:
                 case PydReagent():
                     if value.name.lower() != "not applicable":
-                        widget = self.ReagentFormWidget(self, reagent=value, extraction_kit=extraction_kit)
-
+                        widget = self.ReagentFormWidget(parent=self, reagent=value, extraction_kit=extraction_kit)
                     else:
                         widget = None
                 case _:
-                    widget = self.InfoItem(self, key=key, value=value, submission_type=submission_type, sub_obj=sub_obj)
+                    widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type, sub_obj=sub_obj)
             # logger.debug(f"Setting widget enabled to: {not disable}")
             if disable:
                 widget.input.setEnabled(False)
@@ -422,7 +447,7 @@ class SubmissionFormWidget(QWidget):
             super().__init__(parent)
             layout = QVBoxLayout()
             self.label = self.ParsedQLabel(key=key, value=value)
-            self.input: QWidget = self.set_widget(parent=self, key=key, value=value, submission_type=submission_type,
+            self.input: QWidget = self.set_widget(parent=parent, key=key, value=value, submission_type=submission_type,
                                                   sub_obj=sub_obj)
             self.setObjectName(key)
             try:
@@ -481,10 +506,12 @@ class SubmissionFormWidget(QWidget):
             except (TypeError, KeyError):
                 pass
             obj = parent.parent().parent()
+            logger.debug(f"Object: {obj}")
+            logger.debug(f"Parent: {parent.parent()}")
             # logger.debug(f"Creating widget for: {key}")
             match key:
                 case 'submitting_lab':
-                    add_widget = QComboBox()
+                    add_widget = MyQComboBox(scrollWidget=parent)
                     # lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
                     labs = [item.name for item in Organization.query()]
                     # try to set closest match to top of list
@@ -502,7 +529,7 @@ class SubmissionFormWidget(QWidget):
                                        status="warning")
                         msg.exec()
                     # NOTE: create combobox to hold looked up kits
-                    add_widget = QComboBox()
+                    add_widget = MyQComboBox(scrollWidget=parent)
                     # NOTE: lookup existing kits by 'submission_type' decided on by sheetparser
                     # logger.debug(f"Looking up kits used for {submission_type}")
                     uses = [item.name for item in KitType.query(used_for=submission_type)]
@@ -518,7 +545,7 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(uses)
                     add_widget.setToolTip("Select extraction kit.")
                 case 'submission_category':
-                    add_widget = QComboBox()
+                    add_widget = MyQComboBox(scrollWidget=parent)
                     cats = ['Diagnostic', "Surveillance", "Research"]
                     cats += [item.name for item in SubmissionType.query()]
                     try:
@@ -529,7 +556,7 @@ class SubmissionFormWidget(QWidget):
                     add_widget.setToolTip("Enter submission category or select from list.")
                 case _:
                     if key in sub_obj.timestamps():
-                        add_widget = QDateEdit(calendarPopup=True)
+                        add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
                         # NOTE: sets submitted date based on date found in excel sheet
                         try:
                             add_widget.setDate(value)
@@ -601,7 +628,7 @@ class SubmissionFormWidget(QWidget):
             layout = QVBoxLayout()
             self.label = self.ReagentParsedLabel(reagent=reagent)
             layout.addWidget(self.label)
-            self.lot = self.ReagentLot(reagent=reagent, extraction_kit=extraction_kit)
+            self.lot = self.ReagentLot(scrollWidget=parent, reagent=reagent, extraction_kit=extraction_kit)
             # self.lot.setStyleSheet(main_form_style)
             layout.addWidget(self.lot)
             # NOTE: Remove spacing between reagents
@@ -677,10 +704,10 @@ class SubmissionFormWidget(QWidget):
                 """
                 self.setText(f"UPDATED {reagent_role}")
 
-        class ReagentLot(QComboBox):
+        class ReagentLot(MyQComboBox):
 
-            def __init__(self, reagent, extraction_kit: str) -> None:
-                super().__init__()
+            def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
+                super().__init__(scrollWidget=scrollWidget)
                 self.setEditable(True)
                 # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
                 # NOTE: below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
@@ -731,3 +758,6 @@ class SubmissionFormWidget(QWidget):
                 self.addItems(relevant_reagents)
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")
                 # self.setStyleSheet(main_form_style)
+
+
+

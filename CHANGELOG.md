@@ -1,3 +1,7 @@
+## 202407.05
+
+- Ui updates.
+
 ## 202407.04
 
 - Added support for postgresql databases (auto backup not functional).
