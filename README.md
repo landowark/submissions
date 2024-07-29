@@ -27,7 +27,7 @@
 2. Click on “Add Equipment”.
 3. Select equipment used for each equipment role from the drop down menu.
    1. Any tips associated with a liquid handler will also be available in a separate drop down menu.
-5. Select (or input) the process used on with the equipment.
+4. Select (or input) the process used on with the equipment.
    1. Equipment that is not necessary may disabled using the check boxes to the left of each entry.
 
 ## Importing PCR results (Wastewater only):
@@ -40,15 +40,15 @@ This is meant to import .xslx files created from the Design & Analysis Software
 
 ## Using the Gel Box (Wastewater Artic only):
 
-1. Right click on the run in the Submissions Table to access the context menu.
-2. Click on “Gel Box”.
-3.	Choose the .jpg file exported from the Egel reader.
-4.	Click “Okay”.
-5.	If none exists, eEnter the DNA Core Submission Number and gel barcode at the top of the window.
-6.	Use the histogram slide on the right side of the window to adjust the image contrast.
-7.	Use the mouse scroll to zoom in on relevant areas of the image.
-8.	Enter the control status in the grid at the bottom of the window.
-9.	Add any relevant comments.
+1.  Right click on the run in the Submissions Table to access the context menu.
+2.  Click on “Gel Box”.
+3.  Choose the .jpg file exported from the Egel reader.
+4.  Click “Okay”.
+5.  If none exists, Enter the DNA Core Submission Number and gel barcode at the top of the window.
+6.  Use the histogram slide on the right side of the window to adjust the image contrast.
+7.  Use the mouse scroll to zoom in on relevant areas of the image.
+8.  Enter the control status in the grid at the bottom of the window.
+9.  Add any relevant comments.
 10.	Click “Okay”.
 
 ## Check existing Run:
