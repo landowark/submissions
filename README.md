@@ -133,8 +133,8 @@ This is meant to import .xslx files created from the Design & Analysis Software
 
 ## First Run:
 
-1. On first run, the application copies src/config.yml to C:\Users\{USERNAME}\AppData\Local\submissions\config
-2. If this folder cannot be found, C:\Users\{USERNAME}\Documents\submissions will be used.
+1. On first run, the application copies src/config.yml to C:\Users\\{USERNAME}\AppData\Local\submissions\config
+2. If this folder cannot be found, C:\Users\\{USERNAME}\Documents\submissions will be used.
    1. If using Postgres, the 'database_path' and other variables will have to be updated manually.
 3. Initially, the config variables are set parsing the 'sqlalchemy.url' variable in alembic.ini
 
