@@ -2,7 +2,7 @@
 1. Open the app using the shortcut in the Submissions folder: L:\Robotics Laboratory Support\Submissions\Submissions App.lnk.
    1. Ignore the large black window of fast scrolling text, it is there for debugging purposes.
    2. The 'Submissions' tab should be open by default.
-   3. Default settings (config.yml) will be copied to C:\Users\{YOUR USERNAME}\AppData\Local\submissions\config
+   3. Default settings (config.yml) will be copied to C:\Users\\{USERNAME}\AppData\Local\submissions\config
 
 ## Logging in New Run:
 *should fit 90% of usage cases*
