@@ -142,6 +142,6 @@ This is meant to import .xlsx files created from the Design & Analysis Software
 *Download and Setup must have been performed beforehand.*
 
 1. Using pyinstaller, an exe can be created.
-2. Open a terminal in the folder with the 'src' folder.
+2. Open a terminal in the folder containing the 'src' folder.
 3. Activate the virtual environment: (Windows) ```.venv\Scripts\activate.bat```
 4. Enter the following command: ```pyinstaller .\submissions.spec --noconfirm```

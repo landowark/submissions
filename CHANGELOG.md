@@ -1,6 +1,6 @@
 ## 202407.05
 
-- Ui updates.
+- Fixed issue with scrolling form potentially altering combobox values.
 
 ## 202407.04
 
@@ -74,7 +74,7 @@
 ## 202403.02
 
 - Moved functions out of submission container to submission form
-- Added submission editting functionality.
+- Added submission editing functionality.
 
 ## 202403.01
 
@@ -174,7 +174,7 @@
 
 ## 202307.03
 
-- Auto-filling of some empty cells in excel file.
+- Auto-filling of some empty cells in Excel file.
 - Better pydantic validations of missing data.
 
 ## 202307.02
@@ -211,7 +211,7 @@
 ## 202305.04
 
 - Added in hitpicking for plates with PCR results
-- Fixed error when expiry date stored as int in excel sheet.
+- Fixed error when expiry date stored as int in Excel sheet.
 
 ## 202305.03
 
