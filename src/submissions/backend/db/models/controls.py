@@ -84,7 +84,7 @@ class ControlType(BaseClass):
         Returns:
             List[ControlType]: Control types that have targets
         """
-        return [item for item in cls.query() if item.targets]# != []]
+        return [item for item in cls.query() if item.targets]
 
     @classmethod
     def build_positive_regex(cls) -> Pattern:
@@ -141,7 +141,9 @@ class Control(BaseClass):
         # logger.debug("calculating kraken count total to use in percentage")
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
         # logger.debug("Creating new kraken.")
-        new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'], kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total)) for item in kraken]
+        new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'],
+                           kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total)) for item in
+                      kraken]
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
         # logger.debug("setting targets")
         if not self.controltype.targets:

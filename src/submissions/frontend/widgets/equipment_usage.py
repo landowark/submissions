@@ -97,10 +97,10 @@ class RoleComboBox(QWidget):
         self.layout = QGridLayout()
         self.role = role
         self.check = QCheckBox()
-        if role.name in used:
-            self.check.setChecked(False)
-        else:
-            self.check.setChecked(True)
+        # if role.name in used:
+        self.check.setChecked(False)
+        # else:
+        #     self.check.setChecked(True)
         self.check.stateChanged.connect(self.toggle_checked)
         self.box = QComboBox()
         self.box.setMaximumWidth(200)
@@ -157,6 +157,7 @@ class RoleComboBox(QWidget):
             widget.setMinimumWidth(200)
             widget.setMaximumWidth(200)
             self.layout.addWidget(widget, 0, 4)
+        widget.setEnabled(self.check.isChecked())
 
     def parse_form(self) -> PydEquipment | None:
         """
@@ -190,7 +191,4 @@ class RoleComboBox(QWidget):
                 case QCheckBox():
                     continue
                 case _:
-                    if self.check.isChecked():
-                        widget.setEnabled(True)
-                    else:
-                        widget.setEnabled(False)
+                    widget.setEnabled(self.check.isChecked())

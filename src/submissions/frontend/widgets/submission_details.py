@@ -1,6 +1,6 @@
-'''
+"""
 Webview to show submission and sample details.
-'''
+"""
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout, 
                              QDialogButtonBox, QTextEdit)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -84,7 +84,7 @@ class SubmissionDetails(QDialog):
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         self.base_dict = submission.to_dict(full_data=True)
-        # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k != 'samples'})}")
+        logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k == 'reagents'})}")
         # NOTE: don't want id
         self.base_dict = submission.finalize_details(self.base_dict)
         # logger.debug(f"Creating barcode.")

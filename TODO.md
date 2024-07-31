@@ -1,4 +1,5 @@
-- [ ] Revamp frontend.widgets.controls_chart to include visualizations?
+- [ ] Upgrade to generators when returning lists.
+- [x] Revamp frontend.widgets.controls_chart to include visualizations?
 - [x] Convert Parsers to using openpyxl.
   - The hardest part of this is going to be the sample parsing. I'm onto using the cell formulas in the plate map to suss out the location in the lookup table, but it could get a little recursive up in here.
 - [ ] Create a default info return function.

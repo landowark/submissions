@@ -20,22 +20,20 @@ env = jinja_template_loading()
 class ReportMaker(object):
 
     def __init__(self, start_date: date, end_date: date):
-        subs = BasicSubmission.query(start_date=start_date, end_date=end_date)
-        records = [item.to_dict(report=True) for item in subs]
-        self.detailed_df, self.summary_df = self.make_report_xlsx(records=records)
-        self.html = self.make_report_html(df=self.summary_df, start_date=start_date, end_date=end_date)
+        self.start_date = start_date
+        self.end_date = end_date
+        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date)
+        self.detailed_df, self.summary_df = self.make_report_xlsx()
+        self.html = self.make_report_html(df=self.summary_df)
 
-    def make_report_xlsx(self, records: list[dict]) -> Tuple[DataFrame, DataFrame]:
+    def make_report_xlsx(self) -> Tuple[DataFrame, DataFrame]:
         """
         create the dataframe for a report
-
-        Args:
-            records (list[dict]): list of dictionaries created from submissions
 
         Returns:
             DataFrame: output dataframe
         """
-        df = DataFrame.from_records(records)
+        df = DataFrame.from_records([item.to_dict(report=True) for item in self.subs])
         # NOTE: put submissions with the same lab together
         df = df.sort_values("submitting_lab")
         # NOTE: aggregate cost and sample count columns
@@ -47,7 +45,7 @@ class ReportMaker(object):
         df = df.sort_values(['submitting_lab', "submitted_date"])
         return df, df2
 
-    def make_report_html(self, df: DataFrame, start_date: date, end_date: date) -> str:
+    def make_report_html(self, df: DataFrame) -> str:
 
         """
         generates html from the report dataframe
@@ -84,7 +82,7 @@ class ReportMaker(object):
                 output.append(adder)
             old_lab = lab
         # logger.debug(output)
-        dicto = {'start_date': start_date, 'end_date': end_date, 'labs': output}
+        dicto = {'start_date': self.start_date, 'end_date': self.end_date, 'labs': output}
         temp = env.get_template('summary_report.html')
         html = temp.render(input=dicto)
         return html

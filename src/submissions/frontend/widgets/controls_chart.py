@@ -1,9 +1,9 @@
 """
 Handles display of control charts
 """
+import re
 from datetime import timedelta
 from typing import Tuple
-
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
@@ -14,9 +14,9 @@ from backend.db import ControlType, Control
 from PyQt6.QtCore import QDate, QSize
 import logging
 from pandas import DataFrame
-from tools import Report, Result
+from tools import Report, Result, get_unique_values_in_df_column, Settings, report_result
 # from backend.excel.reports import convert_data_list_to_df
-from frontend.visualizations.control_charts import create_charts, construct_html
+from frontend.visualizations.control_charts import CustomFigure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -60,7 +60,8 @@ class ControlsViewer(QWidget):
         Lookup controls from database and send to chartmaker
         """    
         self.controls_getter_function()
-        
+
+    @report_result
     def controls_getter_function(self):
         """
         Get controls based on start/end dates
@@ -103,7 +104,7 @@ class ControlsViewer(QWidget):
             self.sub_typer.clear()
             self.sub_typer.setEnabled(False)
         self.chart_maker()
-        self.report.add_result(report)
+        return report
 
     def chart_maker(self):
         """
@@ -111,6 +112,7 @@ class ControlsViewer(QWidget):
         """   
         self.chart_maker_function()     
 
+    @report_result
     def chart_maker_function(self):
         """
         Create html chart for controls reporting
@@ -141,7 +143,7 @@ class ControlsViewer(QWidget):
             data = [item for sublist in data for item in sublist]
             # logger.debug(f"Control objects going into df conversion: {type(data)}")
             if not data:
-                self.report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
+                report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
                 return
             # NOTE send to dataframe creator
             df = self.convert_data_list_to_df(input_df=data)
@@ -150,15 +152,16 @@ class ControlsViewer(QWidget):
             else:
                 title = f"{self.mode} - {self.subtype}"
             # NOTE: send dataframe to chart maker
-            fig = create_charts(ctx=self.app.ctx, df=df, ytitle=title)
+            df, modes = self.prep_df(ctx=self.app.ctx, df=df)
+            fig = CustomFigure(df=df, ytitle=title, modes=modes)
         # logger.debug(f"Updating figure...")
         # NOTE: construct html for webview
-        html = construct_html(figure=fig)
+        html = fig.to_html()
         # logger.debug(f"The length of html code is: {len(html)}")
         self.webengineview.setHtml(html)
         self.webengineview.update()
         # logger.debug("Figure updated... I hope.")
-        self.report.add_result(report)
+        return report
 
     def convert_data_list_to_df(self, input_df: list[dict]) -> DataFrame:
         """
@@ -266,8 +269,65 @@ class ControlsViewer(QWidget):
             df, previous_dates = self.check_date(df, item, previous_dates)
             return df, previous_dates
 
+    def prep_df(self, ctx: Settings, df: DataFrame) -> DataFrame:
+        """
+        Constructs figures based on parsed pandas dataframe.
 
+        Args:
+            ctx (Settings): settings passed down from gui
+            df (pd.DataFrame): input dataframe
+            ytitle (str | None, optional): title for the y-axis. Defaults to None.
 
+        Returns:
+            Figure: Plotly figure
+        """
+        # from backend.excel import drop_reruns_from_df
+        # converts starred genera to normal and splits off list of starred
+        genera = []
+        if df.empty:
+            return None
+        for item in df['genus'].to_list():
+            try:
+                if item[-1] == "*":
+                    genera.append(item[-1])
+                else:
+                    genera.append("")
+            except IndexError:
+                genera.append("")
+        df['genus'] = df['genus'].replace({'\*': ''}, regex=True).replace({"NaN": "Unknown"})
+        df['genera'] = genera
+        # NOTE: remove original runs, using reruns if applicable
+        df = self.drop_reruns_from_df(ctx=ctx, df=df)
+        # NOTE: sort by and exclude from
+        sorts = ['submitted_date', "target", "genus"]
+        exclude = ['name', 'genera']
+        modes = [item for item in df.columns if item not in sorts and item not in exclude]  # and "_hashes" not in item]
+        # NOTE: Set descending for any columns that have "{mode}" in the header.
+        ascending = [False if item == "target" else True for item in sorts]
+        df = df.sort_values(by=sorts, ascending=ascending)
+        # logger.debug(df[df.isna().any(axis=1)])
+        # NOTE: actual chart construction is done by
+        return df, modes
+
+    def drop_reruns_from_df(self, ctx: Settings, df: DataFrame) -> DataFrame:
+        """
+        Removes semi-duplicates from dataframe after finding sequencing repeats.
+
+        Args:
+            settings (dict): settings passed from gui
+            df (DataFrame): initial dataframe
+
+        Returns:
+            DataFrame: dataframe with originals removed in favour of repeats.
+        """
+        if 'rerun_regex' in ctx:
+            sample_names = get_unique_values_in_df_column(df, column_name="name")
+            rerun_regex = re.compile(fr"{ctx.rerun_regex}")
+            for sample in sample_names:
+                if rerun_regex.search(sample):
+                    first_run = re.sub(rerun_regex, "", sample)
+                    df = df.drop(df[df.name == first_run].index)
+        return df
 
 
 class ControlsDatePicker(QWidget):

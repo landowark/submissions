@@ -851,6 +851,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Template rendered as: {render}")
         return render
 
+    @report_result
     def check_kit_integrity(self, extraction_kit: str | dict | None = None) -> Tuple[List[PydReagent], Report]:
         """
         Ensures all reagents expected in kit are listed in Submission
@@ -873,7 +874,7 @@ class PydSubmission(BaseModel, extra='allow'):
                           ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
         # logger.debug(f"Kit reagents: {ext_kit_rtypes}")
         # logger.debug(f"Submission reagents: {self.reagents}")
-        # Exclude any reagenttype found in this pyd not expected in kit.
+        # NOTE: Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.role for item in ext_kit_rtypes]
         output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
         # logger.debug(f"Already have these reagent types: {output_reagents}")
@@ -882,7 +883,7 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_reagents += [rt for rt in output_reagents if rt.missing]
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
         # logger.debug(f"Missing reagents types: {missing_reagents}")
-        # if lists are equal return no problem
+        # NOTE: if lists are equal return no problem
         if len(missing_reagents) == 0:
             result = None
         else:

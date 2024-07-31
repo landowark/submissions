@@ -134,10 +134,10 @@ class SubmissionsSheet(QTableView):
         """
         Pull extraction logs into the db
         """
-        self.report = Report()
-        self.link_extractions_function()
-        self.report.add_result(self.report)
-        return self.report
+        report = Report()
+        result = self.link_extractions_function()
+        report.add_result(result)
+        return report
 
     def link_extractions_function(self):
         """
@@ -148,7 +148,8 @@ class SubmissionsSheet(QTableView):
 
         Returns:
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
+        """
+        report = Report()
         fname = select_open_file(self, file_extension="csv")
         with open(fname.__str__(), 'r') as f:
             # split csv on commas
@@ -178,17 +179,18 @@ class SubmissionsSheet(QTableView):
                 continue
             sub.set_attribute('extraction_info', new_run)
             sub.save()
-        self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
+        report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
+        return report
 
     @report_result
     def link_pcr(self):
         """
         Pull pcr logs into the db
-        """        
-        self.link_pcr_function()
-        self.app.report.add_result(self.report)
-        self.report = Report()
-        return self.report
+        """
+        report = Report()
+        result = self.link_pcr_function()
+        report.add_result(result)
+        return report
 
     def link_pcr_function(self):
         """
@@ -199,7 +201,8 @@ class SubmissionsSheet(QTableView):
 
         Returns:
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
+        """
+        report = Report()
         fname = select_open_file(self, file_extension="csv")
         with open(fname.__str__(), 'r') as f:
             # NOTE: split csv rows on comma
@@ -226,16 +229,18 @@ class SubmissionsSheet(QTableView):
             sub.set_attribute('pcr_info', new_run)
             # NOTE: check if pcr_info already exists
             sub.save()
-        self.report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
+        report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
+        return report
 
     @report_result
     def generate_report(self, *args):
         """
         Make a report
         """
-        self.report = Report()
-        self.generate_report_function()
-        return self.report
+        report = Report()
+        result = self.generate_report_function()
+        report.add_result(result)
+        return report
 
     def generate_report_function(self):
         """
@@ -255,4 +260,4 @@ class SubmissionsSheet(QTableView):
             fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.docx", extension="docx")
             rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
             rp.write_report(filename=fname, obj=self)
-        self.report.add_result(report)
+        return report

@@ -8,7 +8,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
 from tools import check_authorization, setup_lookup, Report, Result
-from typing import List, Literal
+from typing import List, Literal, Generator
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
@@ -168,9 +168,9 @@ class KitType(BaseClass):
             return [item.reagent_role for item in relevant_associations]
 
     # TODO: Move to BasicSubmission?
-    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> dict:
+    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[str, str]:
         """
-        Creates map of locations in excel workbook for a SubmissionType
+        Creates map of locations in Excel workbook for a SubmissionType
 
         Args:
             submission_type (str | SubmissionType): Submissiontype.name
@@ -178,7 +178,7 @@ class KitType(BaseClass):
         Returns:
             dict: Dictionary containing information locations.
         """
-        info_map = {}
+        # info_map = {}
         # NOTE: Account for submission_type variable type.
         match submission_type:
             case str():
@@ -193,10 +193,10 @@ class KitType(BaseClass):
         # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
         for assoc in assocs:
             try:
-                info_map[assoc.reagent_role.name] = assoc.uses
+                yield assoc.reagent_role.name, assoc.uses
             except TypeError:
                 continue
-        return info_map
+        # return info_map
 
     @classmethod
     @setup_lookup
@@ -409,6 +409,7 @@ class Reagent(BaseClass):
             rtype = reagent_role.name.replace("_", " ")
         except AttributeError:
             rtype = "Unknown"
+        # logger.debug(f"Role for {self.name}: {rtype}")
         # NOTE: Calculate expiry with EOL from ReagentType
         try:
             place_holder = self.expiry + reagent_role.eol_ext
@@ -611,7 +612,8 @@ class SubmissionType(BaseClass):
     )  #: Association of equipmentroles
 
     equipment = association_proxy("submissiontype_equipmentrole_associations", "equipment_role",
-                                  creator=lambda eq: SubmissionTypeEquipmentRoleAssociation(equipment_role=eq))  #: Proxy of equipmentrole associations
+                                  creator=lambda eq: SubmissionTypeEquipmentRoleAssociation(
+                                      equipment_role=eq))  #: Proxy of equipmentrole associations
 
     submissiontype_kit_rt_associations = relationship(
         "KitTypeReagentRoleAssociation",
@@ -665,7 +667,7 @@ class SubmissionType(BaseClass):
 
     def construct_info_map(self, mode: Literal['read', 'write']) -> dict:
         """
-        Make of map of where all fields are located in excel sheet
+        Make of map of where all fields are located in Excel sheet
 
         Args:
             mode (Literal["read", "write"]): Which mode to get locations for
@@ -673,15 +675,16 @@ class SubmissionType(BaseClass):
         Returns:
             dict: Map of locations
         """
-        info = {k:v for k,v in self.info_map.items() if k != "custom"}
+        info = {k: v for k, v in self.info_map.items() if k != "custom"}
         logger.debug(f"Info map: {info}")
-        output = {}
         match mode:
             case "read":
                 output = {k: v[mode] for k, v in info.items() if v[mode]}
             case "write":
                 output = {k: v[mode] + v['read'] for k, v in info.items() if v[mode] or v['read']}
                 output = {k: v for k, v in output.items() if all([isinstance(item, dict) for item in v])}
+            case _:
+                output = {}
         output['custom'] = self.info_map['custom']
         return output
 
@@ -694,36 +697,38 @@ class SubmissionType(BaseClass):
         """
         return self.sample_map
 
-    def construct_equipment_map(self) -> dict:
+    def construct_equipment_map(self) -> Generator[str, dict]:
         """
         Constructs map of equipment to excel cells.
 
         Returns:
             dict: Map equipment locations in excel sheet
         """
-        output = {}
+        # output = {}
         # logger.debug("Iterating through equipment roles")
         for item in self.submissiontype_equipmentrole_associations:
             emap = item.uses
             if emap is None:
                 emap = {}
-            output[item.equipment_role.name] = emap
-        return output
+            # output[item.equipment_role.name] = emap
+            yield item.equipment_role.name, emap
+        # return output
 
-    def construct_tips_map(self) -> dict:
+    def construct_tips_map(self) -> Generator[str, dict]:
         """
         Constructs map of tips to excel cells.
 
         Returns:
             dict: Tip locations in the excel sheet.
         """
-        output = {}
+        # output = {}
         for item in self.submissiontype_tiprole_associations:
             tmap = item.uses
             if tmap is None:
                 tmap = {}
-            output[item.tip_role.name] = tmap
-        return output
+            # output[item.tip_role.name] = tmap
+            yield item.tip_role.name, tmap
+        # return output
 
     def get_equipment(self, extraction_kit: str | KitType | None = None) -> List['PydEquipmentRole']:
         """
@@ -1280,15 +1285,16 @@ class EquipmentRole(BaseClass):
         Returns:
             dict: This EquipmentRole dict
         """
-        output = {}
-        for key, value in self.__dict__.items():
-            match key:
-                case "processes":
-                    pass
-                case _:
-                    value = value
-            output[key] = value
-        return output
+        # output = {}
+        return {key: value for key, value in self.__dict__.items() if key != "processes"}
+        #     match key:
+        #         case "processes":
+        #             pass
+        #         case _:
+        #             value = value
+        #     yield key, value
+        # #     output[key] = value
+        # return output
 
     def to_pydantic(self, submission_type: SubmissionType,
                     extraction_kit: str | KitType | None = None) -> "PydEquipmentRole":
@@ -1667,7 +1673,6 @@ class SubmissionTipsAssociation(BaseClass):
     tips = relationship(Tips,
                         back_populates="tips_submission_associations")  #: associated equipment
     role_name = Column(String(32), primary_key=True)  #, ForeignKey("_tiprole.name"))
-
 
     def to_sub_dict(self) -> dict:
         """

@@ -1,13 +1,13 @@
-'''
-contains writer objects for pushing values to submission sheet templates. 
-'''
+"""
+contains writer objects for pushing values to submission sheet templates.
+"""
 import logging
 from copy import copy
 from operator import itemgetter
 from pathlib import Path
 # from pathlib import Path
 from pprint import pformat
-from typing import List
+from typing import List, Generator
 from openpyxl import load_workbook, Workbook
 from backend.db.models import SubmissionType, KitType, BasicSubmission
 from backend.validators.pydant import PydSubmission
@@ -30,7 +30,7 @@ class SheetWriter(object):
         Args:
             submission (PydSubmission): Object containing submission information.
             missing_only (bool, optional): Whether to only fill in missing values. Defaults to False.
-        """        
+        """
         self.sub = OrderedDict(submission.improved_dict())
         for k, v in self.sub.items():
             match k:
@@ -47,7 +47,6 @@ class SheetWriter(object):
                     else:
                         self.sub[k] = v
         # logger.debug(f"\n\nWriting to {submission.filepath.__str__()}\n\n")
-
         if self.filepath.stem.startswith("tmp"):
             template = self.submission_type.template_file
             workbook = load_workbook(BytesIO(template))
@@ -124,7 +123,7 @@ class InfoWriter(object):
             submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             info_dict (dict): Dictionary of information to write.
             sub_object (BasicSubmission | None, optional): Submission object containing methods. Defaults to None.
-        """        
+        """
         logger.debug(f"Info_dict coming into InfoWriter: {pformat(info_dict)}")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -148,7 +147,7 @@ class InfoWriter(object):
         Returns:
             dict: merged dictionary
         """
-        output = {}
+        # output = {}
         for k, v in info_dict.items():
             if v is None:
                 continue
@@ -162,9 +161,10 @@ class InfoWriter(object):
                 pass
             dicto['value'] = v
             if len(dicto) > 0:
-                output[k] = dicto
+                # output[k] = dicto
+                yield k, dicto
         # logger.debug(f"Reconciled info: {pformat(output)}")
-        return output
+        # return output
 
     def write_info(self) -> Workbook:
         """
@@ -173,7 +173,7 @@ class InfoWriter(object):
         Returns:
             Workbook: workbook with info written.
         """
-        for k, v in self.info.items():
+        for k, v in self.info:
             # NOTE: merge all comments to fit in single cell.
             if k == "comment" and isinstance(v['value'], list):
                 json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
@@ -203,16 +203,17 @@ class ReagentWriter(object):
             submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             extraction_kit (KitType | str): Extraction kit used.
             reagent_list (list): List of reagent dicts to be written to excel.
-        """        
+        """
         self.xl = xl
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if isinstance(extraction_kit, str):
             kit_type = KitType.query(name=extraction_kit)
-        reagent_map = kit_type.construct_xl_map_for_use(submission_type)
+        reagent_map = {k: v for k, v in kit_type.construct_xl_map_for_use(submission_type)}
+        # self.reagents = {k: v for k, v in self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)}
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
-    def reconcile_map(self, reagent_list: List[dict], reagent_map: dict) -> List[dict]:
+    def reconcile_map(self, reagent_list: List[dict], reagent_map: dict) -> Generator[dict, None, None]:
         """
         Merge reagents with their locations
 
@@ -223,7 +224,7 @@ class ReagentWriter(object):
         Returns:
             List[dict]: merged dictionary
         """
-        output = []
+        # output = []
         for reagent in reagent_list:
             try:
                 mp_info = reagent_map[reagent['role']]
@@ -238,8 +239,9 @@ class ReagentWriter(object):
                     dicto = v
                 placeholder[k] = dicto
                 placeholder['sheet'] = mp_info['sheet']
-            output.append(placeholder)
-        return output
+            # output.append(placeholder)
+            yield placeholder
+        # return output
 
     def write_reagents(self) -> Workbook:
         """
@@ -263,21 +265,24 @@ class SampleWriter(object):
     """
     object to write sample data into excel file
     """
+
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, sample_list: list):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             sample_list (list): List of sample dictionaries to be written to excel file.
-        """        
+        """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
         self.sample_map = submission_type.construct_sample_map()['lookup_table']
-        self.samples = self.reconcile_map(sample_list)
+        # self.samples = self.reconcile_map(sample_list)
+        samples = [item for item in self.reconcile_map(sample_list)]
+        self.samples = sorted(samples, key=lambda k: k['submission_rank'])
 
-    def reconcile_map(self, sample_list: list) -> List[dict]:
+    def reconcile_map(self, sample_list: list) -> Generator[dict, None, None]:
         """
         Merge sample info with locations
 
@@ -287,7 +292,7 @@ class SampleWriter(object):
         Returns:
             List[dict]: List of merged dictionaries
         """
-        output = []
+        # output = []
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
             # logger.debug(f"Writing sample: {sample}")
@@ -297,8 +302,8 @@ class SampleWriter(object):
                     if k in multiples:
                         continue
                     new[k] = v
-                output.append(new)
-        return sorted(output, key=lambda k: k['submission_rank'])
+                yield new
+        # return sorted(output, key=lambda k: k['submission_rank'])
 
     def write_samples(self) -> Workbook:
         """
@@ -331,15 +336,15 @@ class EquipmentWriter(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             equipment_list (list): List of equipment dictionaries to write to excel file.
-        """        
+        """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        equipment_map = self.submission_type.construct_equipment_map()
+        equipment_map = {k: v for k, v in self.submission_type.construct_equipment_map()}
         self.equipment = self.reconcile_map(equipment_list=equipment_list, equipment_map=equipment_map)
 
-    def reconcile_map(self, equipment_list: list, equipment_map: dict) -> List[dict]:
+    def reconcile_map(self, equipment_list: list, equipment_map: dict) -> Generator[dict, None, None]:
         """
         Merges equipment with location data
 
@@ -350,9 +355,9 @@ class EquipmentWriter(object):
         Returns:
             List[dict]: List of merged dictionaries 
         """
-        output = []
+        # output = []
         if equipment_list is None:
-            return output
+            return
         for ii, equipment in enumerate(equipment_list, start=1):
             mp_info = equipment_map[equipment['role']]
             # logger.debug(f"{equipment['role']} map: {mp_info}")
@@ -376,8 +381,9 @@ class EquipmentWriter(object):
             except KeyError:
                 placeholder['sheet'] = "Equipment"
             # logger.debug(f"Final output of {equipment['role']} : {placeholder}")
-            output.append(placeholder)
-        return output
+            yield placeholder
+            # output.append(placeholder)
+        # return output
 
     def write_equipment(self) -> Workbook:
         """
@@ -419,15 +425,15 @@ class TipWriter(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             tips_list (list): List of tip dictionaries to write to the excel file.
-        """        
+        """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        tips_map = self.submission_type.construct_tips_map()
+        tips_map = {k: v for k, v in self.submission_type.construct_tips_map()}
         self.tips = self.reconcile_map(tips_list=tips_list, tips_map=tips_map)
 
-    def reconcile_map(self, tips_list: List[dict], tips_map: dict) -> List[dict]:
+    def reconcile_map(self, tips_list: List[dict], tips_map: dict) -> Generator[dict, None, None]:
         """
         Merges tips with location data
 
@@ -438,9 +444,9 @@ class TipWriter(object):
         Returns:
             List[dict]: List of merged dictionaries
         """
-        output = []
+        # output = []
         if tips_list is None:
-            return output
+            return
         for ii, tips in enumerate(tips_list, start=1):
             mp_info = tips_map[tips['role']]
             # logger.debug(f"{tips['role']} map: {mp_info}")
@@ -462,8 +468,9 @@ class TipWriter(object):
             except KeyError:
                 placeholder['sheet'] = "Tips"
             # logger.debug(f"Final output of {tips['role']} : {placeholder}")
-            output.append(placeholder)
-        return output
+            yield placeholder
+            # output.append(placeholder)
+        # return output
 
     def write_tips(self) -> Workbook:
         """
@@ -497,13 +504,13 @@ class TipWriter(object):
 class DocxWriter(object):
     """
     Object to render 
-    """    
+    """
 
     def __init__(self, base_dict: dict):
         """
         Args:
             base_dict (dict): dictionary of info to be written to template.
-        """        
+        """
         self.sub_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=base_dict['submission_type'])
         env = jinja_template_loading()
         temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_subdocument.docx"
@@ -530,12 +537,12 @@ class DocxWriter(object):
             rows = max([sample['row'] for sample in sample_list])
         if columns == 0:
             columns = max([sample['column'] for sample in sample_list])
-        output = []
+        # output = []
         for row in range(0, rows):
             contents = [''] * columns
             for column in range(0, columns):
                 try:
-                    ooi = [item for item in sample_list if item['row']==row+1 and item['column']==column+1][0]
+                    ooi = [item for item in sample_list if item['row'] == row + 1 and item['column'] == column + 1][0]
                 except IndexError:
                     continue
                 contents[column] = ooi['submitter_id']
@@ -545,8 +552,9 @@ class DocxWriter(object):
                 contents += [''] * (columns - len(contents))
             if not contents:
                 contents = [''] * columns
-            output.append(contents)
-        return output
+            yield contents
+            # output.append(contents)
+        # return output
 
     def create_merged_template(self, *args) -> BytesIO:
         """
@@ -554,7 +562,7 @@ class DocxWriter(object):
 
         Returns:
             BytesIO: Merged docx template
-        """        
+        """
         merged_document = Document()
         output = BytesIO()
         for index, file in enumerate(args):
@@ -566,7 +574,6 @@ class DocxWriter(object):
                 merged_document.element.body.append(element)
         merged_document.save(output)
         return output
-
 
     def save(self, filename: Path | str):
         if isinstance(filename, str):

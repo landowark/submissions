@@ -844,7 +844,7 @@ def html_to_pdf(html: str, output_file: Path | str):
 
 def remove_key_from_list_of_dicts(input: list, key: str) -> list:
     """
-    Removes a key from all dictionaries in a list
+    Removes a key from all dictionaries in a list of dictionaries
 
     Args:
         input (list): Input list of dicts
@@ -939,5 +939,4 @@ def report_result(func):
                 logger.error(result.msg)
         logger.debug(f"Returning: {output}")
         return output
-
     return wrapper

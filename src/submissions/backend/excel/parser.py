@@ -84,8 +84,9 @@ class SheetParser(object):
         if extraction_kit is None:
             extraction_kit = self.sub['extraction_kit']
         # logger.debug(f"Parsing reagents for {extraction_kit}")
-        self.sub['reagents'] = ReagentParser(xl=self.xl, submission_type=self.submission_type,
-                                             extraction_kit=extraction_kit).parse_reagents()
+        parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
+                                             extraction_kit=extraction_kit)
+        self.sub['reagents'] = [item for item in parser.parse_reagents()]
 
     def parse_samples(self):
         """
@@ -303,21 +304,21 @@ class ReagentParser(object):
 
         if isinstance(submission_type, dict):
             submission_type = submission_type['value']
-        reagent_map = self.kit_object.construct_xl_map_for_use(submission_type)
+        reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
         try:
             del reagent_map['info']
         except KeyError:
             pass
         return reagent_map
 
-    def parse_reagents(self) -> List[dict]:
+    def parse_reagents(self) -> Generator[dict, None, None]:
         """
-        Extracts reagent information from the excel form.
+        Extracts reagent information from the Excel form.
 
         Returns:
             List[PydReagent]: List of parsed reagents.
         """
-        listo = []
+        # listo = []
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
@@ -337,9 +338,8 @@ class ReagentParser(object):
                     else:
                         comment = ""
                 except (KeyError, IndexError):
-                    listo.append(
-                        dict(role=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True))
-                    continue
+                    yield dict(role=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True)
+                    # continue
                 # NOTE: If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
                     missing = False
@@ -355,9 +355,9 @@ class ReagentParser(object):
                     logger.warning(f"name is not a string.")
                     check = True
                 if check:
-                    listo.append(dict(role=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
-                                      missing=missing))
-        return listo
+                    yield dict(role=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
+                                      missing=missing)
+        # return listo
 
 
 class SampleParser(object):
@@ -556,14 +556,14 @@ class EquipmentParser(object):
         self.xl = xl
         self.map = self.fetch_equipment_map()
 
-    def fetch_equipment_map(self) -> List[dict]:
+    def fetch_equipment_map(self) -> dict:
         """
         Gets the map of equipment locations in the submission type's spreadsheet
 
         Returns:
             List[dict]: List of locations
         """
-        return self.submission_type.construct_equipment_map()
+        return {k: v for k, v in self.submission_type.construct_equipment_map()}
 
     def get_asset_number(self, input: str) -> str:
         """
@@ -642,14 +642,14 @@ class TipParser(object):
         self.xl = xl
         self.map = self.fetch_tip_map()
 
-    def fetch_tip_map(self) -> List[dict]:
+    def fetch_tip_map(self) -> dict:
         """
         Gets the map of equipment locations in the submission type's spreadsheet
 
         Returns:
             List[dict]: List of locations
         """
-        return self.submission_type.construct_tips_map()
+        return {k:v for k,v in self.submission_type.construct_tips_map()}
 
     def parse_tips(self) -> List[dict]:
         """

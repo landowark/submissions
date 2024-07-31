@@ -25,7 +25,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report
 from datetime import datetime, date
-from typing import List, Any, Tuple, Literal
+from typing import List, Any, Tuple, Literal, Generator
 from dateutil.parser import parse
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
@@ -289,7 +289,7 @@ class BasicSubmission(BaseClass):
             try:
                 reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in
                             self.submission_reagent_associations]
-                for k in self.extraction_kit.construct_xl_map_for_use(self.submission_type):
+                for k, v in self.extraction_kit.construct_xl_map_for_use(self.submission_type):
                     if k == 'info':
                         continue
                     if not any([item['role'] == k for item in reagents]):
@@ -841,6 +841,7 @@ class BasicSubmission(BaseClass):
             for k, v in fields.items():
                 sheet = xl[v['sheet']]
                 sample[k] = sheet.cell(row=idx, column=v['column']).value
+            # yield sample
             samples.append(sample)
         return samples
 
@@ -1381,7 +1382,7 @@ class Wastewater(BasicSubmission):
         return input_dict
 
     @classmethod
-    def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> list:
+    def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> List[dict]:
         """
         Parse specific to wastewater samples.
         """
@@ -1393,6 +1394,7 @@ class Wastewater(BasicSubmission):
             sample['sample'] = re.sub('-N\\d$', '', sample['sample'])
             # NOTE: if sample is already in output skip
             if sample['sample'] in [item['sample'] for item in output]:
+                logger.warning(f"Already have {sample['sample']}")
                 continue
             # NOTE: Set ct values
             sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
