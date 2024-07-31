@@ -6,7 +6,6 @@ from copy import copy
 from getpass import getuser
 from pprint import pformat
 from typing import List
-import pandas as pd
 from openpyxl import load_workbook, Workbook
 from pathlib import Path
 from backend.db.models import *
@@ -16,7 +15,6 @@ from collections import OrderedDict
 from datetime import date
 from dateutil.parser import parse, ParserError
 from tools import check_not_nan, convert_nans_to_nones, is_missing, remove_key_from_list_of_dicts, check_key_or_attr
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -70,8 +68,8 @@ class SheetParser(object):
         self.info_map = parser.map
         for k, v in info.items():
             match k:
+                # NOTE: exclude samples.
                 case "sample":
-                    # case item if
                     pass
                 case _:
                     self.sub[k] = v
@@ -150,7 +148,7 @@ class SheetParser(object):
         except TypeError:
             check = False
         if check:
-            pyd_dict['equipment'] = [PydEquipment(**equipment) for equipment in  self.sub['equipment']]
+            pyd_dict['equipment'] = [PydEquipment(**equipment) for equipment in self.sub['equipment']]
         else:
             pyd_dict['equipment'] = None
         try:
@@ -158,7 +156,7 @@ class SheetParser(object):
         except TypeError:
             check = False
         if check:
-            pyd_dict['tips'] = [PydTips(**tips) for tips in  self.sub['tips']]
+            pyd_dict['tips'] = [PydTips(**tips) for tips in self.sub['tips']]
         else:
             pyd_dict['tips'] = None
         psm = PydSubmission(filepath=self.filepath, **pyd_dict)
@@ -169,13 +167,14 @@ class InfoParser(object):
     """
     Object to parse generic info from excel sheet.
     """
-    def __init__(self, xl: Workbook, submission_type: str|SubmissionType, sub_object: BasicSubmission|None=None):
+
+    def __init__(self, xl: Workbook, submission_type: str | SubmissionType, sub_object: BasicSubmission | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
-        """        
+        """
         logger.info(f"\n\nHello from InfoParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -190,9 +189,6 @@ class InfoParser(object):
     def fetch_submission_info_map(self) -> dict:
         """
         Gets location of basic info from the submission_type object in the database.
-
-        Args:
-            submission_type (str|dict): name of the submission type or parsed object with value=submission_type
 
         Returns:
             dict: Location map of all info for this submission type
@@ -266,23 +262,24 @@ class InfoParser(object):
                         dicto[item['name']] = dict(value=value, missing=missing)
                     except (KeyError, IndexError):
                         continue
-        # Return after running the parser components held in submission object.
+        # NOTE: Return after running the parser components held in submission object.
         return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl, custom_fields=self.map['custom'])
 
 
 class ReagentParser(object):
     """
     Object to pull reagents from excel sheet.
-    """    
+    """
 
-    def __init__(self, xl: Workbook, submission_type: str, extraction_kit: str, sub_object:BasicSubmission|None=None):
+    def __init__(self, xl: Workbook, submission_type: str, extraction_kit: str,
+                 sub_object: BasicSubmission | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             extraction_kit (str): Extraction kit used.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
-        """        
+        """
         # logger.debug("\n\nHello from ReagentParser!\n\n")
         self.submission_type_obj = submission_type
         self.sub_object = sub_object
@@ -359,7 +356,7 @@ class ReagentParser(object):
                     check = True
                 if check:
                     listo.append(dict(role=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
-                                            missing=missing))
+                                      missing=missing))
         return listo
 
 
@@ -368,14 +365,15 @@ class SampleParser(object):
     Object to pull data for samples in excel sheet and construct individual sample objects
     """
 
-    def __init__(self, xl: Workbook, submission_type: SubmissionType, sample_map: dict | None = None, sub_object:BasicSubmission|None=None) -> None:
+    def __init__(self, xl: Workbook, submission_type: SubmissionType, sample_map: dict | None = None,
+                 sub_object: BasicSubmission | None = None) -> None:
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             sample_map (dict | None, optional): Locations in database where samples are found. Defaults to None.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
-        """        
+        """
         # logger.debug("\n\nHello from SampleParser!\n\n")
         self.samples = []
         self.xl = xl
@@ -418,7 +416,7 @@ class SampleParser(object):
 
         Returns:
             List[dict]: List of sample ids and locations.
-        """        
+        """
         invalids = [0, "0", "EMPTY"]
         smap = self.sample_info_map['plate_map']
         ws = self.xl[smap['sheet']]
@@ -447,13 +445,13 @@ class SampleParser(object):
 
         Returns:
             List[dict]: List of basic sample info.
-        """        
-        
+        """
+
         lmap = self.sample_info_map['lookup_table']
         ws = self.xl[lmap['sheet']]
         lookup_samples = []
-        for ii, row in enumerate(range(lmap['start_row'], lmap['end_row']+1), start=1):
-            row_dict = {k:ws.cell(row=row, column=v).value for k, v in lmap['sample_columns'].items()}
+        for ii, row in enumerate(range(lmap['start_row'], lmap['end_row'] + 1), start=1):
+            row_dict = {k: ws.cell(row=row, column=v).value for k, v in lmap['sample_columns'].items()}
             try:
                 row_dict[lmap['merge_on_id']] = str(row_dict[lmap['merge_on_id']])
             except KeyError:
@@ -502,7 +500,7 @@ class SampleParser(object):
 
         Returns:
             List[dict]: Reconciled samples
-        """        
+        """
         # TODO: Move to pydantic validator?
         if self.plate_map_samples is None or self.lookup_samples is None:
             self.samples = self.lookup_samples or self.plate_map_samples
@@ -533,10 +531,6 @@ class SampleParser(object):
                         break
                     else:
                         new = psample
-            # try:
-            #     check = new['submitter_id'] is None
-            # except KeyError:
-            #     check = True
             if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
                 new['submitter_id'] = psample['id']
             new = self.sub_object.parse_samples(new)
@@ -549,12 +543,13 @@ class EquipmentParser(object):
     """
     Object to pull data for equipment in excel sheet
     """
-    def __init__(self, xl: Workbook, submission_type: str|SubmissionType) -> None:
+
+    def __init__(self, xl: Workbook, submission_type: str | SubmissionType) -> None:
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
-        """        
+        """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -601,7 +596,7 @@ class EquipmentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             try:
-                relevant = {k:v for k,v in self.map.items() if v['sheet'] == sheet}
+                relevant = {k: v for k, v in self.map.items() if v['sheet'] == sheet}
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
@@ -623,7 +618,7 @@ class EquipmentParser(object):
                 try:
                     output.append(
                         dict(name=eq.name, processes=[process], role=k, asset_number=eq.asset_number,
-                                     nickname=eq.nickname))
+                             nickname=eq.nickname))
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to list.")
                 logger.debug(f"Here is the output so far: {pformat(output)}")
@@ -634,12 +629,13 @@ class TipParser(object):
     """
     Object to pull data for tips in excel sheet
     """
-    def __init__(self, xl: Workbook, submission_type: str|SubmissionType) -> None:
+
+    def __init__(self, xl: Workbook, submission_type: str | SubmissionType) -> None:
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
-        """        
+        """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -698,7 +694,7 @@ class TipParser(object):
 class PCRParser(object):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | None=None, submission: BasicSubmission | None=None) -> None:
+    def __init__(self, filepath: Path | None = None, submission: BasicSubmission | None = None) -> None:
         """
          Args:
              filepath (Path | None, optional): file to parse. Defaults to None.

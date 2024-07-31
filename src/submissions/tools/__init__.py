@@ -55,6 +55,21 @@ main_form_style = '''
                 '''
 
 
+def divide_chunks(input_list: list, chunk_count: int):
+    """
+    Divides a list into {chunk_count} equal parts
+
+    Args:
+        input_list (list): Initials list
+        chunk_count (int): size of each chunk
+
+    Returns:
+        tuple: tuple containing sublists.
+    """
+    k, m = divmod(len(input_list), chunk_count)
+    return (input_list[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(chunk_count))
+
+
 def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
     """
     get all unique values in a dataframe column by name
@@ -423,7 +438,6 @@ class Settings(BaseSettings, extra="allow"):
             if not hasattr(self, k):
                 self.__setattr__(k, v)
 
-
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
         c = ConfigParser()
@@ -490,6 +504,7 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
     # logger.debug(f"Creating settings...")
     if isinstance(settings_path, str):
         settings_path = Path(settings_path)
+
     # NOTE: custom pyyaml constructor to join fields
     def join(loader, node):
         seq = loader.construct_sequence(node)
@@ -637,11 +652,13 @@ def setup_logger(verbosity: int = 3):
     Returns:
         logger: logger object
     """
+
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
     logger = logging.getLogger("submissions")
     logger.setLevel(logging.DEBUG)
     # NOTE: create file handler which logs even debug messages
@@ -670,23 +687,6 @@ def setup_logger(verbosity: int = 3):
     # NOTE: Output exception and traceback to logger
     sys.excepthook = handle_exception
     return logger
-
-
-def copy_settings(settings_path: Path, settings: dict) -> dict:
-    """
-    copies relevant settings dictionary from the default config.yml to a new directory
-
-    Args:
-        settings_path (Path): path to write the file to
-        settings (dict): settings dictionary obtained from default config.yml
-
-    Returns:
-        dict: output dictionary for use in first run
-    """
-    if not settings_path.exists():
-        with open(settings_path, 'w') as f:
-            yaml.dump(settings, f)
-    return settings
 
 
 def jinja_template_loading() -> Environment:
@@ -840,10 +840,6 @@ def html_to_pdf(html: str, output_file: Path | str):
     printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
     document.print(printer)
     # document.close()
-    # HTML(string=html).write_pdf(output_file)
-    # new_parser = HtmlToDocx()
-    # docx = new_parser.parse_html_string(html)
-    # docx.save(output_file)
 
 
 def remove_key_from_list_of_dicts(input: list, key: str) -> list:
@@ -862,18 +858,18 @@ def remove_key_from_list_of_dicts(input: list, key: str) -> list:
     return input
 
 
-def workbook_2_csv(worksheet: Worksheet, filename: Path):
-    """
-    Export an excel worksheet (workbook is not correct) to csv file.
-
-    Args:
-        worksheet (Worksheet): Incoming worksheet
-        filename (Path): Output csv filepath.
-    """
-    with open(filename, 'w', newline="") as f:
-        c = csv.writer(f)
-        for r in worksheet.rows:
-            c.writerow([cell.value for cell in r])
+# def workbook_2_csv(worksheet: Worksheet, filename: Path):
+#     """
+#     Export an excel worksheet (workbook is not correct) to csv file.
+#
+#     Args:
+#         worksheet (Worksheet): Incoming worksheet
+#         filename (Path): Output csv filepath.
+#     """
+#     with open(filename, 'w', newline="") as f:
+#         c = csv.writer(f)
+#         for r in worksheet.rows:
+#             c.writerow([cell.value for cell in r])
 
 
 ctx = get_config(None)
@@ -917,10 +913,16 @@ def report_result(func):
         logger.debug(f"Arguments: {args}")
         logger.debug(f"Keyword arguments: {kwargs}")
         output = func(*args, **kwargs)
-        if isinstance(output, tuple):
-            report = [item for item in output if isinstance(item, Report)][0]
-        else:
-            report = None
+        match output:
+            case Report():
+                report = output
+            case tuple():
+                try:
+                    report = [item for item in output if isinstance(item, Report)][0]
+                except IndexError:
+                    report = None
+            case _:
+                report = None
         logger.debug(f"Got report: {report}")
         try:
             results = report.results

@@ -3,7 +3,7 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging
-from sqlalchemy import Column, INTEGER, String, JSON, inspect
+from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
@@ -163,7 +163,6 @@ class BaseClass(Base):
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
-            # self.__database_session__.merge(self)
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             self.__database_session__.rollback()
@@ -203,4 +202,5 @@ from .organizations import *
 from .kits import *
 from .submissions import *
 
+# NOTE: Add a creator to the submission for reagent association.
 BasicSubmission.reagents.creator = lambda reg: SubmissionReagentAssociation(reagent=reg)

@@ -467,6 +467,7 @@ class Reagent(BaseClass):
         Lookup a list of reagents from the database.
 
         Args:
+            id (int | None, optional): reagent id number
             reagent_role (str | models.ReagentType | None, optional): Reagent type. Defaults to None.
             lot_number (str | None, optional): Reagent lot number. Defaults to None.
             name (str | None, optional): Reagent name. Defaults to None.
@@ -1468,7 +1469,7 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
             List[Process]: All associated processes
         """
         processes = [equipment.get_processes(self.submission_type) for equipment in self.equipment_role.instances]
-        # flatten list
+        # NOTE: flatten list
         processes = [item for items in processes for item in items if item is not None]
         match extraction_kit:
             case str():
@@ -1523,6 +1524,7 @@ class Process(BaseClass):
         Lookup Processes
 
         Args:
+            id (int | None, optional): Process id. Defaults to None.
             name (str | None, optional): Process name. Defaults to None.
             limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
 
@@ -1666,7 +1668,6 @@ class SubmissionTipsAssociation(BaseClass):
                         back_populates="tips_submission_associations")  #: associated equipment
     role_name = Column(String(32), primary_key=True)  #, ForeignKey("_tiprole.name"))
 
-    # role = relationship(TipRole)
 
     def to_sub_dict(self) -> dict:
         """

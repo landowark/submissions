@@ -27,7 +27,6 @@ from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_k
 from datetime import datetime, date
 from typing import List, Any, Tuple, Literal
 from dateutil.parser import parse
-# from dateutil.parser import ParserError
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
@@ -370,16 +369,16 @@ class BasicSubmission(BaseClass):
         """
         Calculates cost of the plate
         """
-        # Calculate number of columns based on largest column number
+        # NOTE: Calculate number of columns based on largest column number
         try:
             cols_count_96 = self.calculate_column_count()
         except Exception as e:
             logger.error(f"Column count error: {e}")
-        # Get kit associated with this submission
+        # NOTE: Get kit associated with this submission
         assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if
                  item.submission_type == self.submission_type][0]
         # logger.debug(f"Came up with association: {assoc}")
-        # If every individual cost is 0 this is probably an old plate.
+        # NOTE: If every individual cost is 0 this is probably an old plate.
         if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
             try:
                 self.run_cost = self.extraction_kit.cost_per_run
@@ -446,6 +445,7 @@ class BasicSubmission(BaseClass):
         Convert all submissions to dataframe
 
         Args:
+            chronologic (bool, optional): Sort submissions in chronologic order. Defaults to True.
             submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
             limit (int, optional): Maximum number of results to return. Defaults to 0.
 
@@ -1047,7 +1047,7 @@ class BasicSubmission(BaseClass):
             ValueError: Raised if disallowed key is passed.
 
         Returns:
-            cls: _description_
+            cls: A BasicSubmission subclass.
         """
         code = 0
         msg = ""
@@ -1056,10 +1056,6 @@ class BasicSubmission(BaseClass):
         if kwargs == {}:
             raise ValueError("Need to narrow down query or the first available instance will be returned.")
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        # for key in kwargs.keys():
-        #     if key in disallowed:
-        #         raise ValueError(
-        #             f"{key} is not allowed as a query argument as it could lead to creation of duplicate objects. Use .query() instead.")
         instance = cls.query(submission_type=submission_type, limit=1, **sanitized_kwargs)
         # logger.debug(f"Retrieved instance: {instance}")
         if instance is None:
@@ -1102,7 +1098,7 @@ class BasicSubmission(BaseClass):
             obj (_type_, optional): Parent widget. Defaults to None.
 
         Raises:
-            e: _description_
+            e: SQLIntegrityError or SQLOperationalError if problem with commit.
         """
         from frontend.widgets.pop_ups import QuestionAsker
         # logger.debug("Hello from delete")
@@ -1123,7 +1119,7 @@ class BasicSubmission(BaseClass):
         Creates Widget for showing submission details.
 
         Args:
-            obj (_type_): Parent widget
+            obj (Widget): Parent widget
         """
         # logger.debug("Hello from details")
         from frontend.widgets.submission_details import SubmissionDetails
@@ -1139,9 +1135,9 @@ class BasicSubmission(BaseClass):
             obj (Widget): Parent widget 
         """        
         from frontend.widgets.submission_widget import SubmissionFormWidget
-        for widg in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
-            # logger.debug(widg)
-            widg.setParent(None)
+        for widget in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
+            # logger.debug(widget)
+            widget.setParent(None)
         pyd = self.to_pydantic(backup=True)
         form = pyd.to_form(parent=obj, disable=['rsl_plate_num'])
         obj.app.table_widget.formwidget.layout().addWidget(form)
@@ -1271,7 +1267,6 @@ class BacterialCulture(BasicSubmission):
             input_dict (dict): _description_
             xl (pd.ExcelFile | None, optional): _description_. Defaults to None.
             info_map (dict | None, optional): _description_. Defaults to None.
-            plate_map (dict | None, optional): _description_. Defaults to None.
 
         Returns:
             dict: Updated dictionary.
@@ -1560,7 +1555,6 @@ class Wastewater(BasicSubmission):
         well_24 = []
         samples_copy = deepcopy(input_dict['samples'])
         for sample in sorted(samples_copy, key=itemgetter('column', 'row')):
-        # for sample in input_dict['samples']:
             try:
                 row = sample['source_row']
             except KeyError:
@@ -1742,6 +1736,7 @@ class WastewaterArtic(BasicSubmission):
             processed = rreplace(processed, plate_num, "")
         except AttributeError:
             plate_num = "1"
+        # NOTE: plate_num not currently used, but will keep incase it is in the future
         plate_num = plate_num.strip("-")
         # logger.debug(f"Processed after plate-num: {processed}")
         day = re.search(r"\d{2}$", processed).group()
@@ -1827,7 +1822,6 @@ class WastewaterArtic(BasicSubmission):
         """
         input_dict = super().finalize_parse(input_dict, xl, info_map)
         # logger.debug(f"Incoming input_dict: {pformat(input_dict)}")
-        # TODO: Move to validator?
         for sample in input_dict['samples']:
             # logger.debug(f"Sample: {sample}")
             if re.search(r"^NTC", sample['submitter_id']):
@@ -1978,7 +1972,7 @@ class WastewaterArtic(BasicSubmission):
                     self.comment = [com]
             # logger.debug(pformat(self.gel_info))
             with ZipFile(self.__directory_path__.joinpath("submission_imgs.zip"), 'a') as zipf:
-                # Add a file located at the source_path to the destination within the zip
+                # NOTE: Add a file located at the source_path to the destination within the zip
                 # file. It will overwrite existing files if the names collide, but it
                 # will give a warning
                 zipf.write(img_path, self.gel_image)
@@ -1997,6 +1991,7 @@ class WastewaterArtic(BasicSubmission):
             dict: Dictionary with information added.
         """        
         input_dict = super().custom_docx_writer(input_dict)
+        # NOTE: if there's a gel image, extract it.
         if check_key_or_attr(key='gel_image_path', interest=input_dict, check_none=True):
             with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
                 img = zipped.read(input_dict['gel_image_path'])
@@ -2246,9 +2241,7 @@ class BasicSample(BaseClass):
 
     @classmethod
     def fuzzy_search(cls,
-                     # submitter_id: str | None = None,
                      sample_type: str | BasicSample | None = None,
-                     # limit: int = 0,
                      **kwargs
                      ) -> List[BasicSample]:
         """
@@ -2315,8 +2308,8 @@ class BasicSample(BaseClass):
                      'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']:
             try:
                 df = df.drop(item, axis=1)
-            except:
-                logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
+            except KeyError as e:
+                logger.warning(f"Couldn't drop '{item}' column from submissionsheet df due to {e}.")
         return df
 
     def show_details(self, obj):
@@ -2408,7 +2401,7 @@ class WastewaterSample(BasicSample):
         # logger.debug(f"Initial sample dict: {pformat(output_dict)}")
         disallowed = ["", None, "None"]
         try:
-            check = output_dict['rsl_number'] in [None, "None"]
+            check = output_dict['rsl_number'] in disallowed
         except KeyError:
             check = True
         if check:
@@ -2451,7 +2444,6 @@ class BacterialCultureSample(BasicSample):
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above
         """
-        # start = time()
         sample = super().to_sub_dict(full_data=full_data)
         sample['name'] = self.submitter_id
         sample['organism'] = self.organism
@@ -2553,7 +2545,7 @@ class SubmissionSampleAssociation(BaseClass):
         Returns:
             dict: dictionary of sample id, row and column in elution plate
         """
-        # Since there is no PCR, negliable result is necessary.
+        # NOTE: Since there is no PCR, negliable result is necessary.
         sample = self.to_sub_dict()
         # logger.debug(f"Sample dict to hitpick: {sample}")
         env = jinja_template_loading()
@@ -2728,7 +2720,6 @@ class SubmissionSampleAssociation(BaseClass):
         except StatementError:
             instance = None
         if instance is None:
-            # sanitized_kwargs = {k:v for k,v in kwargs.items() if k not in ['id']}
             used_cls = cls.find_polymorphic_subclass(polymorphic_identity=association_type)
             instance = used_cls(submission=submission, sample=sample, id=id, **kwargs)
         return instance

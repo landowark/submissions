@@ -1,6 +1,9 @@
-'''
+"""
 Handles display of control charts
-'''
+"""
+from datetime import timedelta
+from typing import Tuple
+
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
@@ -10,8 +13,9 @@ from PyQt6.QtCore import QSignalBlocker
 from backend.db import ControlType, Control
 from PyQt6.QtCore import QDate, QSize
 import logging
+from pandas import DataFrame
 from tools import Report, Result
-from backend.excel.reports import convert_data_list_to_df
+# from backend.excel.reports import convert_data_list_to_df
 from frontend.visualizations.control_charts import create_charts, construct_html
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -28,17 +32,17 @@ class ControlsViewer(QWidget):
         # set tab2 layout
         self.layout = QVBoxLayout(self)
         self.control_typer = QComboBox()
-        # fetch types of controls 
+        # NOTE: fetch types of controls
         con_types = [item.name for item in ControlType.query()]
         self.control_typer.addItems(con_types)
-        # create custom widget to get types of analysis
+        # NOTE: create custom widget to get types of analysis
         self.mode_typer = QComboBox()
         mode_types = Control.get_modes()
         self.mode_typer.addItems(mode_types)
-        # create custom widget to get subtypes of analysis
+        # NOTE: create custom widget to get subtypes of analysis
         self.sub_typer = QComboBox()
         self.sub_typer.setEnabled(False)
-        # add widgets to tab2 layout
+        # NOTE: add widgets to tab2 layout
         self.layout.addWidget(self.datepicker)
         self.layout.addWidget(self.control_typer)
         self.layout.addWidget(self.mode_typer)
@@ -118,8 +122,8 @@ class ControlsViewer(QWidget):
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """    
         report = Report()
-        # logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart Date: {self.start_date}\n\tEnd Date: {self.end_date}")
-        # NOTE: set the subtype for kraken
+        # logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart
+        # Date: {self.start_date}\n\tEnd Date: {self.end_date}") NOTE: set the subtype for kraken
         if self.sub_typer.currentText() == "":
             self.subtype = None
         else:
@@ -140,7 +144,7 @@ class ControlsViewer(QWidget):
                 self.report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
                 return
             # NOTE send to dataframe creator
-            df = convert_data_list_to_df(input=data, subtype=self.subtype)
+            df = self.convert_data_list_to_df(input_df=data)
             if self.subtype is None:
                 title = self.mode
             else:
@@ -155,6 +159,116 @@ class ControlsViewer(QWidget):
         self.webengineview.update()
         # logger.debug("Figure updated... I hope.")
         self.report.add_result(report)
+
+    def convert_data_list_to_df(self, input_df: list[dict]) -> DataFrame:
+        """
+        Convert list of control records to dataframe
+
+        Args:
+            ctx (dict): settings passed from gui
+            input_df (list[dict]): list of dictionaries containing records
+            subtype (str | None, optional): name of submission type. Defaults to None.
+
+        Returns:
+            DataFrame: dataframe of controls
+        """
+
+        df = DataFrame.from_records(input_df)
+        safe = ['name', 'submitted_date', 'genus', 'target']
+        for column in df.columns:
+            if "percent" in column:
+                count_col = [item for item in df.columns if "count" in item][0]
+                # NOTE: The actual percentage from kraken was off due to exclusion of NaN, recalculating.
+                df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
+            if column not in safe:
+                if self.subtype is not None and column != self.subtype:
+                    del df[column]
+        # NOTE: move date of sample submitted on same date as previous ahead one.
+        df = self.displace_date(df=df)
+        # NOTE: ad hoc method to make data labels more accurate.
+        df = self.df_column_renamer(df=df)
+        return df
+
+    def df_column_renamer(self, df: DataFrame) -> DataFrame:
+        """
+        Ad hoc function I created to clarify some fields
+
+        Args:
+            df (DataFrame): input dataframe
+
+        Returns:
+            DataFrame: dataframe with 'clarified' column names
+        """
+        df = df[df.columns.drop(list(df.filter(regex='_hashes')))]
+        return df.rename(columns={
+            "contains_ratio": "contains_shared_hashes_ratio",
+            "matches_ratio": "matches_shared_hashes_ratio",
+            "kraken_count": "kraken2_read_count_(top_50)",
+            "kraken_percent": "kraken2_read_percent_(top_50)"
+        })
+
+    def displace_date(self, df: DataFrame) -> DataFrame:
+        """
+        This function serves to split samples that were submitted on the same date by incrementing dates.
+        It will shift the date forward by one day if it is the same day as an existing date in a list.
+
+        Args:
+            df (DataFrame): input dataframe composed of control records
+
+        Returns:
+            DataFrame: output dataframe with dates incremented.
+        """
+        # logger.debug(f"Unique items: {df['name'].unique()}")
+        # NOTE: get submitted dates for each control
+        dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in
+                     sorted(df['name'].unique())]
+        previous_dates = []
+        for _, item in enumerate(dict_list):
+            df, previous_dates = self.check_date(df=df, item=item, previous_dates=previous_dates)
+        return df
+
+    def check_date(self, df: DataFrame, item: dict, previous_dates: list) -> Tuple[DataFrame, list]:
+        """
+        Checks if an items date is already present in df and adjusts df accordingly
+
+        Args:
+            df (DataFrame): input dataframe
+            item (dict): control for checking
+            previous_dates (list): list of dates found in previous controls
+
+        Returns:
+            Tuple[DataFrame, list]: Output dataframe and appended list of previous dates
+        """
+        try:
+            check = item['date'] in previous_dates
+        except IndexError:
+            check = False
+        previous_dates.append(item['date'])
+        if check:
+            # logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
+            # NOTE: get df locations where name == item name
+            mask = df['name'] == item['name']
+            # NOTE: increment date in dataframe
+            df.loc[mask, 'submitted_date'] = df.loc[mask, 'submitted_date'].apply(lambda x: x + timedelta(days=1))
+            item['date'] += timedelta(days=1)
+            passed = False
+        else:
+            passed = True
+        # logger.debug(f"\n\tCurrent date: {item['date']}\n\tPrevious dates:{previous_dates}")
+        # logger.debug(f"DF: {type(df)}, previous_dates: {type(previous_dates)}")
+        # NOTE: if run didn't lead to changed date, return values
+        if passed:
+            # logger.debug(f"Date check passed, returning.")
+            return df, previous_dates
+        # NOTE: if date was changed, rerun with new date
+        else:
+            logger.warning(f"Date check failed, running recursion")
+            df, previous_dates = self.check_date(df, item, previous_dates)
+            return df, previous_dates
+
+
+
+
 
 class ControlsDatePicker(QWidget):
     """
