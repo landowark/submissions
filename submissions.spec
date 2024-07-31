@@ -19,6 +19,10 @@ docs_build = doc_path.joinpath("build")
 subprocess.run([build_path, doc_path.joinpath("source").__str__(), docs_build.__str__(), "-a"])
 #########################################################
 
+options = [
+    ('hide-console', None, 'hide-early'),
+]
+
 a = Analysis(
     ['src\\submissions\\__main__.py'],
     pathex=[project_path.absolute().__str__(), project_path.joinpath("src","submissions")],
