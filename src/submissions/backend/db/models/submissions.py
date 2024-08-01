@@ -4,6 +4,7 @@ Models for the main submission and sample types.
 from __future__ import annotations
 
 import sys
+import types
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, yaml, base64
@@ -78,7 +79,8 @@ class BasicSubmission(BaseClass):
     )  #: Relation to SubmissionSampleAssociation
 
     samples = association_proxy("submission_sample_associations",
-                                "sample", creator=lambda sample: SubmissionSampleAssociation(sample=sample))  #: Association proxy to SubmissionSampleAssociation.samples
+                                "sample", creator=lambda sample: SubmissionSampleAssociation(
+            sample=sample))  #: Association proxy to SubmissionSampleAssociation.samples
 
     submission_reagent_associations = relationship(
         "SubmissionReagentAssociation",
@@ -236,7 +238,7 @@ class BasicSubmission(BaseClass):
 
         Returns:
             dict: Final details dictionary.
-        """        
+        """
         del input_dict['id']
         return input_dict
 
@@ -627,7 +629,7 @@ class BasicSubmission(BaseClass):
 
         Returns:
             str: Regex for submission type.
-        """        
+        """
         return cls.construct_regex()
 
     # Polymorphic functions
@@ -688,7 +690,7 @@ class BasicSubmission(BaseClass):
 
     # Child class custom functions
     @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields:dict={}) -> dict:
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
         """
         Update submission dictionary with type specific information
 
@@ -735,7 +737,8 @@ class BasicSubmission(BaseClass):
         return input_dict
 
     @classmethod
-    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False, custom_fields:dict={}) -> Workbook:
+    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False,
+                           custom_fields: dict = {}) -> Workbook:
         """
         Adds custom autofill methods for submission
 
@@ -752,7 +755,7 @@ class BasicSubmission(BaseClass):
         return input_excel
 
     @classmethod
-    def custom_docx_writer(cls, input_dict:dict, tpl_obj=None):
+    def custom_docx_writer(cls, input_dict: dict, tpl_obj=None):
         """
         Adds custom fields to docx template writer for exported details.
 
@@ -762,7 +765,7 @@ class BasicSubmission(BaseClass):
 
         Returns:
             dict: Dictionary with information added.
-        """        
+        """
         return input_dict
 
     @classmethod
@@ -880,7 +883,7 @@ class BasicSubmission(BaseClass):
 
         Returns:
             List[Any]: Updated list of samples
-        """        
+        """
         logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} sampler")
         return samples
 
@@ -1134,7 +1137,7 @@ class BasicSubmission(BaseClass):
 
         Args:
             obj (Widget): Parent widget 
-        """        
+        """
         from frontend.widgets.submission_widget import SubmissionFormWidget
         for widget in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
             # logger.debug(widget)
@@ -1350,7 +1353,7 @@ class Wastewater(BasicSubmission):
         return output
 
     @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields:dict={}) -> dict:
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
         """
         Update submission dictionary with type specific information. Extends parent
 
@@ -1488,7 +1491,7 @@ class Wastewater(BasicSubmission):
 
         Returns:
             dict: Updated information
-        """        
+        """
         input_dict = super().finalize_details(input_dict)
         dummy_samples = []
         for item in input_dict['samples']:
@@ -1511,7 +1514,7 @@ class Wastewater(BasicSubmission):
 
         Returns:
             dict: Context menu items for this instance.
-        """        
+        """
         events = super().custom_context_events()
         events['Link PCR'] = self.link_pcr
         return events
@@ -1522,7 +1525,7 @@ class Wastewater(BasicSubmission):
 
         Args:
             obj (_type_): Parent widget
-        """        
+        """
         from backend.excel import PCRParser
         from frontend.widgets import select_open_file
         fname = select_open_file(obj=obj, file_extension="xlsx")
@@ -1541,7 +1544,7 @@ class Wastewater(BasicSubmission):
         # self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
 
     @classmethod
-    def custom_docx_writer(cls, input_dict:dict, tpl_obj=None) -> dict:
+    def custom_docx_writer(cls, input_dict: dict, tpl_obj=None) -> dict:
         """
         Adds custom fields to docx template writer for exported details. Extends parent.
 
@@ -1551,7 +1554,7 @@ class Wastewater(BasicSubmission):
 
         Returns:
             dict: Dictionary with information added.
-        """        
+        """
         from backend.excel.writer import DocxWriter
         input_dict = super().custom_docx_writer(input_dict)
         well_24 = []
@@ -1617,7 +1620,7 @@ class WastewaterArtic(BasicSubmission):
         return output
 
     @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields:dict={}) -> dict:
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
         """
         Update submission dictionary with type specific information
 
@@ -1633,7 +1636,8 @@ class WastewaterArtic(BasicSubmission):
         input_dict = super().custom_info_parser(input_dict)
         egel_section = custom_fields['egel_results']
         ws = xl[egel_section['sheet']]
-        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column']) for ii in range(egel_section['start_row'], egel_section['end_row'])]
+        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column']) for
+                ii in range(egel_section['start_row'], egel_section['end_row'])]
         data = [cell for cell in data if cell.value is not None and "NTC" in cell.value]
         input_dict['gel_controls'] = [
             dict(sample_id=cell.value, location=f"{row_map[cell.row - 9]}{str(cell.column - 14).zfill(2)}") for cell in
@@ -1641,8 +1645,10 @@ class WastewaterArtic(BasicSubmission):
         # NOTE: Get source plate information
         source_plates_section = custom_fields['source_plates']
         ws = xl[source_plates_section['sheet']]
-        data = [dict(plate=ws.cell(row=ii, column=source_plates_section['plate_column']).value, starting_sample=ws.cell(row=ii, column=source_plates_section['starting_sample_column']).value) for ii in
-                range(source_plates_section['start_row'], source_plates_section['end_row']+1)]
+        data = [dict(plate=ws.cell(row=ii, column=source_plates_section['plate_column']).value,
+                     starting_sample=ws.cell(row=ii, column=source_plates_section['starting_sample_column']).value) for
+                ii in
+                range(source_plates_section['start_row'], source_plates_section['end_row'] + 1)]
         for datum in data:
             if datum['plate'] in ["None", None, ""]:
                 continue
@@ -1832,7 +1838,8 @@ class WastewaterArtic(BasicSubmission):
         return input_dict
 
     @classmethod
-    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False, custom_fields:dict={}) -> Workbook:
+    def custom_info_writer(cls, input_excel: Workbook, info: dict | None = None, backup: bool = False,
+                           custom_fields: dict = {}) -> Workbook:
         """
         Adds custom autofill methods for submission. Extends Parent
 
@@ -1846,11 +1853,14 @@ class WastewaterArtic(BasicSubmission):
             Workbook: Updated workbook
         """
         input_excel = super().custom_info_writer(input_excel, info, backup)
-        # logger.debug(f"Info:\n{pformat(info)}")
-        # logger.debug(f"Custom fields:\n{pformat(custom_fields)}")
+        if isinstance(info, types.GeneratorType):
+            logger.debug(f"Unpacking info generator.")
+            info = {k: v for k, v in info}
+        logger.debug(f"Info:\n{pformat(info)}")
+        logger.debug(f"Custom fields:\n{pformat(custom_fields)}")
         # NOTE: check for source plate information
-        source_plates_section = custom_fields['source_plates']
         if check_key_or_attr(key='source_plates', interest=info, check_none=True):
+            source_plates_section = custom_fields['source_plates']
             worksheet = input_excel[source_plates_section['sheet']]
             start_row = source_plates_section['start_row']
             # NOTE: write source plates to First strand list
@@ -1862,12 +1872,15 @@ class WastewaterArtic(BasicSubmission):
                 except TypeError:
                     pass
                 try:
-                    worksheet.cell(row=row, column=source_plates_section['starting_sample_column'], value=plate['starting_sample'])
+                    worksheet.cell(row=row, column=source_plates_section['starting_sample_column'],
+                                   value=plate['starting_sample'])
                 except TypeError:
                     pass
+        else:
+            logger.warning(f"No source plate info found.")
         # NOTE: check for gel information
-        egel_section = custom_fields['egel_results']
         if check_key_or_attr(key='gel_info', interest=info, check_none=True):
+            egel_section = custom_fields['egel_results']
             # logger.debug(f"Gel info check passed.")
             # NOTE: print json field gel results to Egel results
             worksheet = input_excel[egel_section['sheet']]
@@ -1889,6 +1902,8 @@ class WastewaterArtic(BasicSubmission):
                         worksheet.cell(row=row, column=column, value=kj['value'])
                     except AttributeError:
                         logger.error(f"Failed {kj['name']} with value {kj['value']} to row {row}, column {column}")
+        else:
+            logger.warning("No gel info found.")
         if check_key_or_attr(key='gel_image_path', interest=info, check_none=True):
             worksheet = input_excel[egel_section['sheet']]
             # logger.debug(f"We got an image: {info['gel_image']}")
@@ -1899,6 +1914,8 @@ class WastewaterArtic(BasicSubmission):
                 img.width = 600
                 img.anchor = egel_section['img_anchor']
                 worksheet.add_image(img)
+        else:
+            logger.warning("No gel image found.")
         return input_excel
 
     @classmethod
@@ -1981,7 +1998,7 @@ class WastewaterArtic(BasicSubmission):
             self.save()
 
     @classmethod
-    def custom_docx_writer(cls, input_dict:dict, tpl_obj=None) -> dict:
+    def custom_docx_writer(cls, input_dict: dict, tpl_obj=None) -> dict:
         """
         Adds custom fields to docx template writer for exported details.
 
@@ -1991,7 +2008,7 @@ class WastewaterArtic(BasicSubmission):
 
         Returns:
             dict: Dictionary with information added.
-        """        
+        """
         input_dict = super().custom_docx_writer(input_dict)
         # NOTE: if there's a gel image, extract it.
         if check_key_or_attr(key='gel_image_path', interest=input_dict, check_none=True):
@@ -2000,7 +2017,7 @@ class WastewaterArtic(BasicSubmission):
             with tempfile.TemporaryFile(mode="wb", suffix=".jpg", delete=False) as tmp:
                 tmp.write(img)
             logger.debug(f"Tempfile: {tmp.name}")
-        img = InlineImage(tpl_obj, image_descriptor=tmp.name, width=Inches(5.5))#, width=5.5)#, height=400)
+        img = InlineImage(tpl_obj, image_descriptor=tmp.name, width=Inches(5.5))  #, width=5.5)#, height=400)
         input_dict['gel_image'] = img
         return input_dict
 
@@ -2067,7 +2084,7 @@ class BasicSample(BaseClass):
 
         Returns:
             List[str]: Attribute list
-        """        
+        """
         output = [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         if issubclass(cls, BasicSample) and not cls.__name__ == "BasicSample":
             output += BasicSample.timestamps()
@@ -2254,7 +2271,7 @@ class BasicSample(BaseClass):
 
         Returns:
             List[BasicSample]: List of samples that match kwarg search parameters.
-        """                     
+        """
         match sample_type:
             case str():
                 model = cls.find_polymorphic_subclass(polymorphic_identity=sample_type)
@@ -2283,11 +2300,11 @@ class BasicSample(BaseClass):
 
         Returns:
             List[str]: List of fields.
-        """        
+        """
         return [dict(label="Submitter ID", field="submitter_id")]
 
     @classmethod
-    def samples_to_df(cls, sample_list:List[BasicSample], **kwargs) -> pd.DataFrame:
+    def samples_to_df(cls, sample_list: List[BasicSample], **kwargs) -> pd.DataFrame:
         """
         Runs a fuzzy search and converts into a dataframe.
 
@@ -2353,7 +2370,7 @@ class WastewaterSample(BasicSample):
 
         Returns:
             dict | list | str: Output of key:value dict or single (list, str) desired variable
-        """        
+        """
         dicto = super().get_default_info(*args)
         match dicto:
             case dict():
@@ -2419,7 +2436,7 @@ class WastewaterSample(BasicSample):
 
         Returns:
             List[str]: List of fields.
-        """        
+        """
         searchables = super().get_searchables()
         for item in ["ww_processing_num", "ww_full_sample_id", "rsl_number"]:
             label = item.strip("ww_").replace("_", " ").replace("rsl", "RSL").title()

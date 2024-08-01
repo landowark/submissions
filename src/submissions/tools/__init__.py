@@ -102,10 +102,24 @@ def check_key_or_attr(key: str, interest: dict | object, check_none: bool = Fals
                 if check_none:
                     match interest[key]:
                         case dict():
-                            if interest[key]['value'] is None:
-                                return False
+                            if 'value' in interest[key].keys():
+                                try:
+                                    check = interest[key]['value'] is None
+                                except KeyError:
+                                    check = True
+                                if check:
+                                    return False
+                                else:
+                                    return True
                             else:
-                                return True
+                                try:
+                                    check = interest[key] is None
+                                except KeyError:
+                                    check = True
+                                if check:
+                                    return False
+                                else:
+                                    return True
                         case _:
                             if interest[key] is None:
                                 return False

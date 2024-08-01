@@ -173,11 +173,13 @@ class InfoWriter(object):
         Returns:
             Workbook: workbook with info written.
         """
+        final_info = {}
         for k, v in self.info:
             # NOTE: merge all comments to fit in single cell.
             if k == "comment" and isinstance(v['value'], list):
                 json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
                 v['value'] = "\n".join(json_join)
+            final_info[k] = v
             try:
                 locations = v['locations']
             except KeyError:
@@ -186,8 +188,11 @@ class InfoWriter(object):
             for loc in locations:
                 logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
                 sheet = self.xl[loc['sheet']]
-                sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
-        return self.sub_object.custom_info_writer(self.xl, info=self.info, custom_fields=self.info_map['custom'])
+                try:
+                    sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
+                except AttributeError as e:
+                    logger.error(f"Can't write {k} to that cell due to {e}")
+        return self.sub_object.custom_info_writer(self.xl, info=final_info, custom_fields=self.info_map['custom'])
 
 
 class ReagentWriter(object):
