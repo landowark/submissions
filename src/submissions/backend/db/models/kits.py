@@ -2,6 +2,9 @@
 All kit and reagent related models
 """
 from __future__ import annotations
+
+from pprint import pprint
+
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -253,6 +256,32 @@ class KitType(BaseClass):
         super().save()
 
 
+    def to_export_dict(self, submission_type: SubmissionType):
+        base_dict = {}
+        base_dict['reagent roles'] = []
+        base_dict['equipment roles'] = []
+        for k, v in self.construct_xl_map_for_use(submission_type=submission_type):
+            logger.debug(f"Value: {v}")
+            try:
+                assoc = [item for item in self.kit_reagentrole_associations if item.reagent_role.name == k][0]
+            except IndexError as e:
+                continue
+            for kk, vv in assoc.to_export_dict().items():
+                v[kk] = vv
+            base_dict['reagent roles'].append(v)
+        for k, v in submission_type.construct_equipment_map():
+            try:
+                assoc = [item for item in submission_type.submissiontype_equipmentrole_associations if item.equipment_role.name == k][0]
+            except IndexError:
+                continue
+            for kk, vv in assoc.to_export_dict(kit_type=self).items():
+                logger.debug(f"{kk}:{vv}")
+                v[kk] = vv
+            base_dict['equipment roles'].append(v)
+        logger.debug(f"KT returning {base_dict}")
+        return base_dict
+
+
 class ReagentRole(BaseClass):
     """
     Base of reagent type abstract
@@ -350,6 +379,9 @@ class ReagentRole(BaseClass):
         """
         from backend.validators.pydant import PydReagent
         return PydReagent(lot=None, role=self.name, name=self.name, expiry=date.today())
+
+    def to_export_dict(self):
+        return dict(role=self.name, extension_of_life=self.eol_ext.days)
 
     @check_authorization
     def save(self):
@@ -665,7 +697,7 @@ class SubmissionType(BaseClass):
         self.template_file = data
         self.save()
 
-    def construct_info_map(self, mode: Literal['read', 'write']) -> dict:
+    def construct_info_map(self, mode: Literal['read', 'write', 'export']) -> dict:
         """
         Make of map of where all fields are located in Excel sheet
 
@@ -683,6 +715,8 @@ class SubmissionType(BaseClass):
             case "write":
                 output = {k: v[mode] + v['read'] for k, v in info.items() if v[mode] or v['read']}
                 output = {k: v for k, v in output.items() if all([isinstance(item, dict) for item in v])}
+            case "export":
+                return self.info_map
             case _:
                 output = {}
         output['custom'] = self.info_map['custom']
@@ -810,6 +844,17 @@ class SubmissionType(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
+    def to_dict(self):
+        base_dict = {}
+        base_dict['info'] = self.construct_info_map(mode='export')
+        # base_dict['excel location maps']['kits'] = [{k: v for k, v in item.kit_type.construct_xl_map_for_use(submission_type=self)} for item in
+        #                      self.submissiontype_kit_associations]
+        base_dict['samples'] = self.construct_sample_map()
+        # base_dict['excel location maps']['equipment_roles'] = {k: v for k, v in self.construct_equipment_map()}
+        base_dict['kits'] = [item.to_export_dict() for item in self.submissiontype_kit_associations]
+        return base_dict
+
+
     @check_authorization
     def save(self):
         """
@@ -894,6 +939,13 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
                 query = query.join(KitType).filter(KitType.id == kit_type)
         limit = query.count()
         return cls.execute_query(query=query, limit=limit)
+
+    def to_export_dict(self):
+        exclude = ['_sa_instance_state', 'submission_types_id', 'kits_id', 'submission_type', 'kit_type']
+        base_dict = {k:v for k,v in self.__dict__.items() if k not in exclude}
+        base_dict['kit_type'] = self.kit_type.to_export_dict(submission_type=self.submission_type)
+        logger.debug(f"STKTA returning: {base_dict}")
+        return base_dict
 
 
 class KitTypeReagentRoleAssociation(BaseClass):
@@ -1007,6 +1059,13 @@ class KitTypeReagentRoleAssociation(BaseClass):
         if kit_type is not None and reagent_role is not None:
             limit = 1
         return cls.execute_query(query=query, limit=limit)
+
+    def to_export_dict(self):
+        base_dict={}
+        base_dict['required'] = self.required
+        for k, v in self.reagent_role.to_export_dict().items():
+            base_dict[k] = v
+        return base_dict
 
 
 class SubmissionReagentAssociation(BaseClass):
@@ -1372,10 +1431,10 @@ class EquipmentRole(BaseClass):
         match extraction_kit:
             case str():
                 # logger.debug(f"Filtering processes by extraction_kit str {extraction_kit}")
-                processes = [item for item in processes if extraction_kit in [kit.name for kit in item.kit_type]]
+                processes = [item for item in processes if extraction_kit in [kit.name for kit in item.kit_types]]
             case KitType():
                 # logger.debug(f"Filtering processes by extraction_kit KitType {extraction_kit}")
-                processes = [item for item in processes if extraction_kit in [kit for kit in item.kit_type]]
+                processes = [item for item in processes if extraction_kit in [kit for kit in item.kit_types]]
             case _:
                 pass
         output = [item.name for item in processes]
@@ -1383,6 +1442,12 @@ class EquipmentRole(BaseClass):
             return ['']
         else:
             return output
+
+    def to_export_dict(self, submission_type: SubmissionType, kit_type: KitType):
+        base_dict = {}
+        base_dict['role'] = self.name
+        base_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=kit_type)
+        return base_dict
 
 
 class SubmissionEquipmentAssociation(BaseClass):
@@ -1491,6 +1556,12 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
     @check_authorization
     def save(self):
         super().save()
+
+    def to_export_dict(self, kit_type: KitType):
+        base_dict = dict(static=self.static)
+        for k, v in self.equipment_role.to_export_dict(submission_type=self.submission_type, kit_type=kit_type).items():
+            base_dict[k] = v
+        return base_dict
 
 
 class Process(BaseClass):

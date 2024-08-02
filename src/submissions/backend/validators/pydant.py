@@ -851,7 +851,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Template rendered as: {render}")
         return render
 
-    @report_result
+    # @report_result
     def check_kit_integrity(self, extraction_kit: str | dict | None = None) -> Tuple[List[PydReagent], Report]:
         """
         Ensures all reagents expected in kit are listed in Submission
