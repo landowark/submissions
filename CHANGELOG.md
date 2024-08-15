@@ -1,3 +1,7 @@
+## 202408.03
+
+- Fixed issue backing up database file.
+
 ## 202407.05
 
 - Fixed issue with scrolling form potentially altering combobox values.
