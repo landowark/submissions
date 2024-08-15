@@ -209,7 +209,7 @@ class InfoParser(object):
         """
         dicto = {}
         # NOTE: This loop parses generic info
-        logger.debug(f"Map: {self.map}")
+        # logger.debug(f"Map: {self.map}")
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = []
@@ -590,7 +590,7 @@ class EquipmentParser(object):
         Returns:
             List[dict]: list of equipment
         """
-        logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
+        # logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
         output = []
         # logger.debug(f"Sheets: {sheets}")
         for sheet in self.xl.sheetnames:
@@ -600,17 +600,17 @@ class EquipmentParser(object):
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
-            logger.debug(f"Relevant equipment: {pformat(relevant)}")
+            # logger.debug(f"Relevant equipment: {pformat(relevant)}")
             previous_asset = ""
             for k, v in relevant.items():
-                logger.debug(f"Checking: {v}")
+                # logger.debug(f"Checking: {v}")
                 asset = ws.cell(v['name']['row'], v['name']['column']).value
                 if not check_not_nan(asset):
                     asset = previous_asset
                 else:
                     previous_asset = asset
                 asset = self.get_asset_number(input=asset)
-                logger.debug(f"asset: {asset}")
+                # logger.debug(f"asset: {asset}")
                 eq = Equipment.query(asset_number=asset)
                 if eq is None:
                     eq = Equipment.query(name=asset)
@@ -621,7 +621,7 @@ class EquipmentParser(object):
                              nickname=eq.nickname))
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to list.")
-                logger.debug(f"Here is the output so far: {pformat(output)}")
+                # logger.debug(f"Here is the output so far: {pformat(output)}")
         return output
 
 
@@ -668,7 +668,7 @@ class TipParser(object):
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
-            logger.debug(f"Relevant equipment: {pformat(relevant)}")
+            # logger.debug(f"Relevant equipment: {pformat(relevant)}")
             previous_asset = ""
             for k, v in relevant.items():
                 asset = ws.cell(v['name']['row'], v['name']['column']).value
@@ -680,14 +680,14 @@ class TipParser(object):
                     asset = previous_asset
                 else:
                     previous_asset = asset
-                logger.debug(f"asset: {asset}")
+                # logger.debug(f"asset: {asset}")
                 eq = Tips.query(lot=lot, name=asset, limit=1)
                 try:
                     output.append(
                         dict(name=eq.name, role=k, lot=lot))
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to PydTips list.")
-                logger.debug(f"Here is the output so far: {pformat(output)}")
+                # logger.debug(f"Here is the output so far: {pformat(output)}")
         return output
 
 

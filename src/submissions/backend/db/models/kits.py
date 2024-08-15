@@ -11,7 +11,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
 from tools import check_authorization, setup_lookup, Report, Result
-from typing import List, Literal, Generator
+from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization
@@ -261,7 +261,7 @@ class KitType(BaseClass):
         base_dict['reagent roles'] = []
         base_dict['equipment roles'] = []
         for k, v in self.construct_xl_map_for_use(submission_type=submission_type):
-            logger.debug(f"Value: {v}")
+            # logger.debug(f"Value: {v}")
             try:
                 assoc = [item for item in self.kit_reagentrole_associations if item.reagent_role.name == k][0]
             except IndexError as e:
@@ -275,10 +275,10 @@ class KitType(BaseClass):
             except IndexError:
                 continue
             for kk, vv in assoc.to_export_dict(kit_type=self).items():
-                logger.debug(f"{kk}:{vv}")
+                # logger.debug(f"{kk}:{vv}")
                 v[kk] = vv
             base_dict['equipment roles'].append(v)
-        logger.debug(f"KT returning {base_dict}")
+        # logger.debug(f"KT returning {base_dict}")
         return base_dict
 
 
@@ -1491,6 +1491,16 @@ class SubmissionEquipmentAssociation(BaseClass):
         output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments,
                       processes=[process], role=self.role, nickname=self.equipment.nickname)
         return output
+
+    @classmethod
+    @setup_lookup
+    def query(cls, equipment_id:int, submission_id:int, role:str, limit:int=0, **kwargs) -> Any | List[Any]:
+        query: Query = cls.__database_session__.query(cls)
+        query = query.filter(cls.equipment_id==equipment_id)
+        query = query.filter(cls.submission_id==submission_id)
+        query = query.filter(cls.role==role)
+        return cls.execute_query(query=query, limit=limit, **kwargs)
+
 
 
 class SubmissionTypeEquipmentRoleAssociation(BaseClass):

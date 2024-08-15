@@ -103,11 +103,11 @@ class RSLNamer(object):
             regex (str): string to construct pattern
             filename (str): string to be parsed
         """
-        logger.debug(f"Input string to be parsed: {filename}")
+        logger.info(f"Input string to be parsed: {filename}")
         if regex is None:
             regex = BasicSubmission.construct_regex()
         else:
-            logger.debug(f"Incoming regex: {regex}")
+            # logger.debug(f"Incoming regex: {regex}")
             try:
                 regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
             except re.error as e:

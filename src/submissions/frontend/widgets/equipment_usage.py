@@ -60,7 +60,7 @@ class EquipmentUsage(QDialog):
                         output.append(widget.parse_form())
                 case _:
                     pass
-        logger.debug(f"parsed output of Equsage form: {pformat(output)}")
+        # logger.debug(f"parsed output of Equsage form: {pformat(output)}")
         try:
             return [item.strip() for item in output if item is not None]
         except AttributeError:
@@ -169,7 +169,7 @@ class RoleComboBox(QWidget):
         eq = Equipment.query(name=self.box.currentText())
         tips = [PydTips(name=item.currentText(), role=item.objectName().lstrip("tips").lstrip("_")) for item in
                 self.findChildren(QComboBox) if item.objectName().startswith("tips")]
-        logger.debug(tips)
+        # logger.debug(tips)
         try:
             return PydEquipment(
                 name=eq.name,

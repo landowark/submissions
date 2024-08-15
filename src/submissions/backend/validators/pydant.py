@@ -334,15 +334,20 @@ class PydEquipment(BaseModel, extra='ignore'):
             Tuple[Equipment, SubmissionEquipmentAssociation]: SQL objects
         """
         if isinstance(submission, str):
+            logger.info(f"Got string, querying {submission}")
             submission = BasicSubmission.query(rsl_number=submission)
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
+            logger.error("No equipment found. Returning None.")
             return
         if submission is not None:
             # NOTE: Need to make sure the same association is not added to the submission
-
-            assoc = SubmissionEquipmentAssociation.query(equipment_id=equipment.id, submission_id=submission.id,
+            try:
+                assoc = SubmissionEquipmentAssociation.query(equipment_id=equipment.id, submission_id=submission.id,
                                                          role=self.role, limit=1)
+            except TypeError as e:
+                logger.error(f"Couldn't get association due to {e}, returning...")
+                return equipment, None
             if assoc is None:
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
                 process = Process.query(name=self.processes[0])
@@ -351,8 +356,10 @@ class PydEquipment(BaseModel, extra='ignore'):
                 assoc.process = process
                 assoc.role = self.role
             else:
+                logger.warning(f"Found already existing association: {assoc}")
                 assoc = None
         else:
+            logger.warning(f"No submission found")
             assoc = None
         return equipment, assoc
 
@@ -608,7 +615,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("contact")
     @classmethod
     def get_contact_from_org(cls, value, values):
-        logger.debug(f"Checking on value: {value}")
+        # logger.debug(f"Checking on value: {value}")
         match value:
             case dict():
                 if isinstance(value['value'], tuple):
@@ -621,7 +628,7 @@ class PydSubmission(BaseModel, extra='allow'):
         if check is None:
             org = Organization.query(name=values.data['submitting_lab']['value'])
             contact = org.contacts[0].name
-            logger.debug(f"Pulled: {contact}")
+            # logger.debug(f"Pulled: {contact}")
             if isinstance(contact, tuple):
                 contact = contact[0]
             return dict(value=contact, missing=True)
@@ -758,7 +765,7 @@ class PydSubmission(BaseModel, extra='allow'):
                     for tips in self.tips:
                         if tips is None:
                             continue
-                        logger.debug(f"Converting tips: {tips} to sql.")
+                        # logger.debug(f"Converting tips: {tips} to sql.")
                         try:
                             association = tips.to_sql(submission=instance)
                         except AttributeError:

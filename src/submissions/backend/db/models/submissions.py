@@ -295,8 +295,10 @@ class BasicSubmission(BaseClass):
                     if k == 'info':
                         continue
                     if not any([item['role'] == k for item in reagents]):
+                        # expiry = date(year=1970, month=1, day=1)
+                        expiry = "NA"
                         reagents.append(
-                            dict(role=k, name="Not Applicable", lot="NA", expiry=date(year=1970, month=1, day=1),
+                            dict(role=k, name="Not Applicable", lot="NA", expiry=expiry,
                                  missing=True))
             except Exception as e:
                 logger.error(f"We got an error retrieving reagents: {e}")
@@ -507,10 +509,10 @@ class BasicSubmission(BaseClass):
                     sample, _ = sample.to_sql(submission=self)
                 return
             case "reagents":
-                logger.debug(f"Reagents coming into SQL: {value}")
+                # logger.debug(f"Reagents coming into SQL: {value}")
                 field_value = [reagent['value'].to_sql()[0] if isinstance(reagent, dict) else reagent.to_sql()[0] for
                                reagent in value]
-                logger.debug(f"Reagents coming out of SQL: {field_value}")
+                # logger.debug(f"Reagents coming out of SQL: {field_value}")
             case "submission_type":
                 field_value = SubmissionType.query(name=value)
             case "sample_count":
@@ -521,7 +523,7 @@ class BasicSubmission(BaseClass):
             case "ctx" | "csv" | "filepath" | "equipment":
                 return
             case item if item in self.jsons():
-                logger.debug(f"Setting JSON attribute.")
+                # logger.debug(f"Setting JSON attribute.")
                 existing = self.__getattribute__(key)
                 if value is None or value in ['', 'null']:
                     logger.error(f"No value given, not setting.")
@@ -617,7 +619,7 @@ class BasicSubmission(BaseClass):
         Args:
             original (bool, optional): Is this the first save. Defaults to True.
         """
-        logger.debug("Saving submission.")
+        # logger.debug("Saving submission.")
         if original:
             self.uploaded_by = getuser()
         super().save()
@@ -1177,9 +1179,12 @@ class BasicSubmission(BaseClass):
                 # logger.debug(f"Processing: {equip}")
                 _, assoc = equip.toSQL(submission=self)
                 # logger.debug(f"Appending SubmissionEquipmentAssociation: {assoc}")
-                assoc.save()
+                try:
+                    assoc.save()
+                except AttributeError as e:
+                    logger.error(f"Couldn't save association with {equip} due to {e}")
                 if equip.tips:
-                    logger.debug("We have tips in this equipment")
+                    # logger.debug("We have tips in this equipment")
                     for tips in equip.tips:
                         tassoc = tips.to_sql(submission=self)
                         tassoc.save()
@@ -1308,7 +1313,7 @@ class BacterialCulture(BasicSubmission):
         idx = df[df[0] == sample.well]
         if idx.empty:
             new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
-            logger.debug(f"Checking: {new}")
+            # logger.debug(f"Checking: {new}")
             idx = df[df[0] == new]
         # logger.debug(f"Here is the row: {idx}")
         row = idx.index.to_list()[0]
@@ -1366,7 +1371,7 @@ class Wastewater(BasicSubmission):
             dict: Updated sample dictionary
         """
         input_dict = super().custom_info_parser(input_dict)
-        logger.debug(f"Input dict: {pformat(input_dict)}")
+        # logger.debug(f"Input dict: {pformat(input_dict)}")
         if xl is not None:
             try:
                 input_dict['csv'] = xl["Copy to import file"]
@@ -1636,12 +1641,14 @@ class WastewaterArtic(BasicSubmission):
         input_dict = super().custom_info_parser(input_dict)
         egel_section = custom_fields['egel_results']
         ws = xl[egel_section['sheet']]
-        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column']) for
-                ii in range(egel_section['start_row'], egel_section['end_row'])]
+        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column']+1) for
+                ii in range(egel_section['start_row'], egel_section['end_row']+1)]
         data = [cell for cell in data if cell.value is not None and "NTC" in cell.value]
+        # logger.debug(f"Got gel control map: {data}")
         input_dict['gel_controls'] = [
             dict(sample_id=cell.value, location=f"{row_map[cell.row - 9]}{str(cell.column - 14).zfill(2)}") for cell in
             data]
+        # logger.debug(f"Got gel control info: {input_dict['gel_controls']}")
         # NOTE: Get source plate information
         source_plates_section = custom_fields['source_plates']
         ws = xl[source_plates_section['sheet']]
@@ -1854,10 +1861,10 @@ class WastewaterArtic(BasicSubmission):
         """
         input_excel = super().custom_info_writer(input_excel, info, backup)
         if isinstance(info, types.GeneratorType):
-            logger.debug(f"Unpacking info generator.")
+            # logger.debug(f"Unpacking info generator.")
             info = {k: v for k, v in info}
-        logger.debug(f"Info:\n{pformat(info)}")
-        logger.debug(f"Custom fields:\n{pformat(custom_fields)}")
+        # logger.debug(f"Info:\n{pformat(info)}")
+        # logger.debug(f"Custom fields:\n{pformat(custom_fields)}")
         # NOTE: check for source plate information
         if check_key_or_attr(key='source_plates', interest=info, check_none=True):
             source_plates_section = custom_fields['source_plates']
@@ -2016,7 +2023,7 @@ class WastewaterArtic(BasicSubmission):
                 img = zipped.read(input_dict['gel_image_path'])
             with tempfile.TemporaryFile(mode="wb", suffix=".jpg", delete=False) as tmp:
                 tmp.write(img)
-            logger.debug(f"Tempfile: {tmp.name}")
+            # logger.debug(f"Tempfile: {tmp.name}")
         img = InlineImage(tpl_obj, image_descriptor=tmp.name, width=Inches(5.5))  #, width=5.5)#, height=400)
         input_dict['gel_image'] = img
         return input_dict
