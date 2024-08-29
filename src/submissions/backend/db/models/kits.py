@@ -1494,11 +1494,12 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, equipment_id:int, submission_id:int, role:str, limit:int=0, **kwargs) -> Any | List[Any]:
+    def query(cls, equipment_id:int, submission_id:int, role:str|None=None, limit:int=0, **kwargs) -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.equipment_id==equipment_id)
         query = query.filter(cls.submission_id==submission_id)
-        query = query.filter(cls.role==role)
+        if role is not None:
+            query = query.filter(cls.role==role)
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
 
@@ -1763,3 +1764,13 @@ class SubmissionTipsAssociation(BaseClass):
             dict: Values of this object
         """
         return dict(role=self.role_name, name=self.tips.name, lot=self.tips.lot)
+
+    @classmethod
+    @setup_lookup
+    def query(cls, tip_id: int, role: str, submission_id: int|None=None, limit: int = 0, **kwargs) -> Any | List[Any]:
+        query: Query = cls.__database_session__.query(cls)
+        query = query.filter(cls.tip_id == tip_id)
+        if submission_id is not None:
+            query = query.filter(cls.submission_id == submission_id)
+        query = query.filter(cls.role_name == role)
+        return cls.execute_query(query=query, limit=limit, **kwargs)

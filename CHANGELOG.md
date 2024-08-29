@@ -1,3 +1,11 @@
+## 202408-05
+
+- Improved scraping for gel info of Artic submissions.
+
+## 202408.04
+
+- Fixed false error throw when tips added in xl and from app.
+
 ## 202408.03
 
 - Fixed issue backing up database file.

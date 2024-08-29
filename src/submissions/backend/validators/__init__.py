@@ -75,7 +75,7 @@ class RSLNamer(object):
                 try:
                     submission_type = m.lastgroup
                 except AttributeError as e:
-                    logger.critical("No RSL plate number found or submission type found!")
+                    logger.critical(f"No RSL plate number found or submission type found!: {e}")
             case _:
                 submission_type = None
         try:
@@ -179,6 +179,14 @@ class RSLNamer(object):
         environment = jinja_template_loading()
         template = environment.from_string(template)
         return template.render(**kwargs)
+
+    def calculate_repeat(self):
+        regex = re.compile(r"-\d(?P<repeat>R\d)")
+        m = regex.search(self.parsed_name)
+        if m is not None:
+            return m.group("repeat")
+        else:
+            return ""
 
 
 from .pydant import PydSubmission, PydKit, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \

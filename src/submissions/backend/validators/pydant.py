@@ -296,7 +296,9 @@ class PydTips(BaseModel):
             SubmissionTipsAssociation: Association between queried tips and submission
         """
         tips = Tips.query(name=self.name, lot=self.lot, limit=1)
-        assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
+        assoc = SubmissionTipsAssociation.query(tip_id=tips.id, submission_id=submission.id, role=self.role, limit=1)
+        if assoc is None:
+            assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
         return assoc
 
 
@@ -640,6 +642,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # this could also be done with default_factory
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
+        self.namer = RSLNamer(self.rsl_plate_num['value'])
 
     def set_attribute(self, key: str, value):
         """
@@ -853,7 +856,7 @@ class PydSubmission(BaseModel, extra='allow'):
         """
         template = self.submission_object.filename_template()
         # logger.debug(f"Using template string: {template}")
-        render = RSLNamer.construct_export_name(template=template, **self.improved_dict(dictionaries=False)).replace(
+        render = self.namer.construct_export_name(template=template, **self.improved_dict(dictionaries=False)).replace(
             "/", "")
         # logger.debug(f"Template rendered as: {render}")
         return render

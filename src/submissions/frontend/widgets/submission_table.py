@@ -89,7 +89,7 @@ class SubmissionsSheet(QTableView):
         self.data = BasicSubmission.submissions_to_df()
         try:
             self.data['Id'] = self.data['Id'].apply(str)
-            self.data['Id'] = self.data['Id'].str.zfill(3)
+            self.data['Id'] = self.data['Id'].str.zfill(4)
         except KeyError as e:
             logger.error(f"Could not alter id to string due to {e}")
         proxyModel = QSortFilterProxyModel()

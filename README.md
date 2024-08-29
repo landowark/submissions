@@ -8,14 +8,14 @@
 *should fit 90% of usage cases*
 
 1. Ensure a properly formatted Submission Excel form has been filled out. 
-    a. The program can fill in reagent fields and some other information automatically, but should be checked for accuracy afterward.
+   1. The program can fill in reagent fields and some other information automatically, but should be checked for accuracy afterward.
 2. Click on 'File' in the menu bar, followed by 'Import Submission' and use the file dialog to locate the form.
    1.  The Excel file may also be dragged into the grey area on the left hand side of the screen from Windows File Explorer. If so, skip step 3. 
 3. Click 'Ok'.
 4. Most of the fields in the form should be automatically filled in from the form area to the left of the screen.
 5. You may need to maximize the app to ensure you can see all the info.
 6. Any fields that are not automatically filled in can be filled in manually from the drop-down menus.
-	1. Any reagent lots not found in the drop-downs can be typed in manually.
+   1. Any reagent lots not found in the drop-downs can be typed in manually.
 7. Once you are certain all the information is correct, click 'Submit' at the bottom of the form.
 8. Add in any new reagents the app doesn't have in the database.
 9. Once the new run shows up at the bottom of the Submissions, everything is fine.
@@ -68,7 +68,7 @@ This is meant to import .xlsx files created from the Design & Analysis Software
 1. Click on 'Reports' -> 'Make Report' in the menu bar.
 2. Select the start date and the end date you want for the report. Click 'ok'.
 3. Use the file dialog to select a location to save the report.
-	a. Both an Excel sheet and a pdf should be generated containing summary information for submissions made by each client lab.
+	1. Both an Excel sheet and a pdf should be generated containing summary information for submissions made by each client lab.
 
 ## Exporting a run as an Excel file:
 
@@ -96,9 +96,9 @@ This is meant to import .xlsx files created from the Design & Analysis Software
 4. For each reagent type in the kit click the "Add Reagent Type" button.
 5. Fill in the name of the reagent type. Alternatively select from already existing types in the drop-down.
 6. Fill in the reagent location in the Excel submission sheet.
-	a. For example if the reagent name is in a sheet called "Reagent Info" in row 12, column 1, type "Reagent Info" in the "Excel Location Sheet Name" field. 
-	b. Set 12 in the "Name Row" and 1 in the "Name Column".
-	c. Repeat 6b for the Lot and the Expiry row and columns.
+	1. For example if the reagent name is in a sheet called "Reagent Info" in row 12, column 1, type "Reagent Info" in the "Excel Location Sheet Name" field. 
+	2. Set 12 in the "Name Row" and 1 in the "Name Column".
+	3. Repeat 6b for the Lot and the Expiry row and columns.
 7. Click the "Submit" button at the top.
 
 ## Linking Extraction Logs:

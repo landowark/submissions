@@ -9,7 +9,7 @@ from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, yaml, base64
 from zipfile import ZipFile
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, Tips
@@ -33,6 +33,7 @@ from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
 from docxtpl import InlineImage
 from docx.shared import Inches
+from PIL import Image
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -469,7 +470,7 @@ class BasicSubmission(BaseClass):
                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
                     'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
                     'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
-                    'tips']
+                    'tips', 'gel_image_path']
         for item in excluded:
             try:
                 df = df.drop(item, axis=1)
@@ -1187,8 +1188,10 @@ class BasicSubmission(BaseClass):
                     # logger.debug("We have tips in this equipment")
                     for tips in equip.tips:
                         tassoc = tips.to_sql(submission=self)
-                        tassoc.save()
-
+                        if tassoc not in self.submission_tips_associations:
+                            tassoc.save()
+                        else:
+                            logger.error(f"Tips already found in submission, skipping.")
         else:
             pass
 
@@ -1638,13 +1641,30 @@ class WastewaterArtic(BasicSubmission):
             dict: Updated sample dictionary
         """
         from backend.validators import RSLNamer
+        from openpyxl_image_loader.sheet_image_loader import SheetImageLoader
+
+        def scrape_image(wb: Workbook, info_dict: dict) -> Image or None:
+            ws = wb[info_dict['sheet']]
+            img_loader = SheetImageLoader(ws)
+            for ii in range(info_dict['start_row'], info_dict['end_row'] + 1):
+                logger.debug(f"Checking row: {ii}")
+                for jj in range(info_dict['start_column'], info_dict['end_column'] + 1):
+                    cell_str = f"{row_map[jj]}{ii}"
+                    if img_loader.image_in(cell_str):
+                        return img_loader.get(cell_str)
+            return None
+
         input_dict = super().custom_info_parser(input_dict)
-        egel_section = custom_fields['egel_results']
+        logger.debug(f"Custom fields: {custom_fields}")
+        egel_section = custom_fields['egel_controls']
         ws = xl[egel_section['sheet']]
-        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column']+1) for
-                ii in range(egel_section['start_row'], egel_section['end_row']+1)]
+        # NOTE: Here we should be scraping the control results.
+        data = [ws.cell(row=ii, column=jj) for jj in range(egel_section['start_column'], egel_section['end_column'] + 1)
+                for
+                ii in range(egel_section['start_row'], egel_section['end_row'] + 1)]
         data = [cell for cell in data if cell.value is not None and "NTC" in cell.value]
         # logger.debug(f"Got gel control map: {data}")
+        # logger.debug(f"Checking against row_map: {row_map}")
         input_dict['gel_controls'] = [
             dict(sample_id=cell.value, location=f"{row_map[cell.row - 9]}{str(cell.column - 14).zfill(2)}") for cell in
             data]
@@ -1662,6 +1682,35 @@ class WastewaterArtic(BasicSubmission):
             else:
                 datum['plate'] = RSLNamer(filename=datum['plate'], sub_type="Wastewater").parsed_name
         input_dict['source_plates'] = data
+        egel_info_section = custom_fields['egel_info']
+        ws = xl[egel_info_section['sheet']]
+        data = []
+        for ii in range(egel_info_section['start_row'], egel_info_section['end_row'] + 1):
+            datum = dict(
+                name=ws.cell(row=ii, column=egel_info_section['start_column'] - 3).value,
+                values=[]
+            )
+            for jj in range(egel_info_section['start_column'], egel_info_section['end_column'] + 1):
+                d = dict(
+                    name=ws.cell(row=egel_info_section['start_row'] - 1, column=jj).value,
+                    value=ws.cell(row=ii, column=jj).value
+                )
+                if d['value'] is not None:
+                    datum['values'].append(d)
+            data.append(datum)
+        input_dict['gel_info'] = data
+        logger.debug(f"Wastewater Artic custom info:\n\n{pformat(input_dict)}")
+        egel_image_section = custom_fields['image_range']
+        img: Image = scrape_image(wb=xl, info_dict=egel_image_section)
+        if img is not None:
+            tmp = Path(TemporaryFile().name).with_suffix(".jpg")
+            img.save(tmp.__str__())
+            with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip"), 'a') as zipf:
+                # NOTE: Add a file located at the source_path to the destination within the zip
+                # file. It will overwrite existing files if the names collide, but it
+                # will give a warning
+                zipf.write(tmp.__str__(), f"{input_dict['rsl_plate_num']['value']}.jpg")
+            input_dict['gel_image'] = f"{input_dict['rsl_plate_num']['value']}.jpg"
         return input_dict
 
     @classmethod
@@ -1887,13 +1936,13 @@ class WastewaterArtic(BasicSubmission):
             logger.warning(f"No source plate info found.")
         # NOTE: check for gel information
         if check_key_or_attr(key='gel_info', interest=info, check_none=True):
-            egel_section = custom_fields['egel_results']
+            egel_section = custom_fields['egel_info']
             # logger.debug(f"Gel info check passed.")
             # NOTE: print json field gel results to Egel results
             worksheet = input_excel[egel_section['sheet']]
             # TODO: Move all this into a seperate function?
-            start_row = egel_section['start_row']
-            start_column = egel_section['start_column']
+            start_row = egel_section['start_row'] - 1
+            start_column = egel_section['start_column'] - 3
             for row, ki in enumerate(info['gel_info']['value'], start=1):
                 # logger.debug(f"ki: {ki}")
                 # logger.debug(f"vi: {vi}")
