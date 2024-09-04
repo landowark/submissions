@@ -113,6 +113,15 @@ class BasicSubmission(BaseClass):
     __mapper_args__ = {
         "polymorphic_identity": "Basic Submission",
         "polymorphic_on": submission_type_name,
+        # "polymorphic_on": case(
+        #
+        #     (submission_type_name == "Bacterial Culture", "Bacterial Culture"),
+        #     (submission_type_name == "Wastewater Artic", "Wastewater Artic"),
+        #     (submission_type_name == "Wastewater", "Wastewater"),
+        #     (submission_type_name == "Viral Culture", "Bacterial Culture"),
+        #
+        #     else_="Basic Sample"
+        # ),
         "with_polymorphic": "*",
     }
 
@@ -672,8 +681,9 @@ class BasicSubmission(BaseClass):
             case str():
                 try:
                     logger.info(f"Recruiting: {cls}")
-                    model = [item for item in cls.__subclasses__() if
-                             item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                    # model = [item for item in cls.__subclasses__() if
+                    #          item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                    model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
                 except Exception as e:
                     logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
             case _:
@@ -1302,6 +1312,49 @@ class BacterialCulture(BasicSubmission):
                 pos_control_reg['lot'] = new_lot
                 pos_control_reg['missing'] = False
         return input_dict
+
+    @classmethod
+    def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
+        """
+        Extends parent
+        """
+        # logger.debug(f"Checking {sample.well}")
+        # logger.debug(f"here's the worksheet: {worksheet}")
+        row = super().custom_sample_autofill_row(sample, worksheet)
+        df = pd.DataFrame(list(worksheet.values))
+        # logger.debug(f"Here's the dataframe: {df}")
+        idx = df[df[0] == sample.well]
+        if idx.empty:
+            new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
+            # logger.debug(f"Checking: {new}")
+            idx = df[df[0] == new]
+        # logger.debug(f"Here is the row: {idx}")
+        row = idx.index.to_list()[0]
+        return row + 1
+
+    @classmethod
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
+        input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
+        logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
+        return input_dict
+
+
+class ViralCulture(BasicSubmission):
+
+    id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
+    __mapper_args__ = dict(polymorphic_identity="Viral Culture",
+                           polymorphic_load="inline",
+                           inherit_condition=(id == BasicSubmission.id))
+
+    @classmethod
+    def get_regex(cls) -> str:
+        """
+        Retrieves string for regex construction.
+
+        Returns:
+            str: string for regex construction
+        """
+        return "(?P<Viral_Culture>RSL(?:-|_)?VE(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
 
     @classmethod
     def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:

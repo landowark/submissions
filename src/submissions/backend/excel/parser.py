@@ -70,9 +70,15 @@ class SheetParser(object):
             match k:
                 # NOTE: exclude samples.
                 case "sample":
-                    pass
+                    continue
+                case "submission_type":
+                    self.sub[k] = v
+                    # NOTE: Rescue submission type using scraped values to be used in Sample, Reagents, etc.
+                    if v not in [None, "None", "", " "]:
+                        self.submission_type = SubmissionType.query(name=v)
                 case _:
                     self.sub[k] = v
+
 
     def parse_reagents(self, extraction_kit: str | None = None):
         """
