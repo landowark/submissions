@@ -1322,6 +1322,12 @@ class BacterialCulture(BasicSubmission):
         row = idx.index.to_list()[0]
         return row + 1
 
+    @classmethod
+    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
+        input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
+        logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
+        return input_dict
+
 
 class Wastewater(BasicSubmission):
     """
