@@ -759,6 +759,7 @@ def setup_lookup(func):
                     raise ValueError("Could not sanitize dictionary in query. Make sure you parse it first.")
             elif v is not None:
                 sanitized_kwargs[k] = v
+        logger.debug(f"sanitized kwargs: {sanitized_kwargs}")
         return func(*args, **sanitized_kwargs)
 
     return wrapper

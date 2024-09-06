@@ -135,7 +135,7 @@ class BaseClass(Base):
         singles = model.get_default_info('singles')
         logger.info(f"Querying: {model}, with kwargs: {kwargs}")
         for k, v in kwargs.items():
-            # logger.debug(f"Using key: {k} with value: {v}")
+            logger.debug(f"Using key: {k} with value: {v}")
             try:
                 attr = getattr(model, k)
                 query = query.filter(attr == v)

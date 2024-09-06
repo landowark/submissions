@@ -675,7 +675,7 @@ class SubmissionType(BaseClass):
         Returns:
             List[str]: List of sheet names
         """
-        return ExcelFile(BytesIO(self.template_file)).sheet_names
+        return ExcelFile(BytesIO(self.template_file), engine="openpyxl").sheet_names
 
     def set_template_file(self, filepath: Path | str):
         """
