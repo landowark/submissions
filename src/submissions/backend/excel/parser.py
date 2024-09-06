@@ -76,6 +76,7 @@ class SheetParser(object):
                     # NOTE: Rescue submission type using scraped values to be used in Sample, Reagents, etc.
                     if v not in [None, "None", "", " "]:
                         self.submission_type = SubmissionType.query(name=v)
+                        logger.debug(f"Updated self.submission_type to {self.submission_type}")
                 case _:
                     self.sub[k] = v
 
@@ -202,7 +203,7 @@ class InfoParser(object):
         """
         self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
         # logger.debug(f"Looking up submission type: {self.submission_type['value']}")
-        info_map = self.sub_object.construct_info_map("read")
+        info_map = self.sub_object.construct_info_map(submission_type=self.submission_type_obj, mode="read")
         # NOTE: Get the parse_info method from the submission type specified
         return info_map
 
@@ -385,10 +386,12 @@ class SampleParser(object):
         self.xl = xl
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
+        logger.debug(f"Sample parser is using submission type: {submission_type}")
         self.submission_type = submission_type.name
         self.submission_type_obj = submission_type
         if sub_object is None:
-            sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type_obj.name)
+            logger.warning(f"Sample parser attempting to fetch submission class with polymorphic identity: {self.submission_type}")
+            sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.sub_object = sub_object
         self.sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
         # logger.debug(f"sample_info_map: {self.sample_info_map}")
@@ -406,12 +409,12 @@ class SampleParser(object):
             dict: Info locations.
         """
         # logger.debug(f"Looking up submission type: {submission_type}")
-        self.sample_type = self.sub_object.get_default_info("sample_type")
+        self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
         self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
         # logger.debug(f"Got sample class: {self.samp_object.__name__}")
         # logger.debug(f"info_map: {pformat(se)}")
         if sample_map is None:
-            sample_info_map = self.sub_object.construct_sample_map()
+            sample_info_map = self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
         else:
             sample_info_map = sample_map
         return sample_info_map

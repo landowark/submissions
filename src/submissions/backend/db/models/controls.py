@@ -58,7 +58,7 @@ class ControlType(BaseClass):
         Get subtypes associated with this controltype (currently used only for Kraken)
 
         Args:
-            mode (str): analysis mode name
+            mode (str): analysis mode sub_type
 
         Returns:
             List[str]: list of subtypes available

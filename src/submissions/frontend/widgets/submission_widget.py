@@ -185,7 +185,7 @@ class SubmissionFormWidget(QWidget):
         self.pyd = submission
         self.missing_info = []
         st = SubmissionType.query(name=self.pyd.submission_type['value']).get_submission_class()
-        defaults = st.get_default_info("form_recover", "form_ignore")
+        defaults = st.get_default_info("form_recover", "form_ignore", submission_type=self.pyd.submission_type['value'])
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
         # logger.debug(f"Attempting to extend ignore list with {self.pyd.submission_type['value']}")
@@ -554,6 +554,8 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(cats)
                     add_widget.setToolTip("Enter submission category or select from list.")
                 case _:
+                    # if key in sub_obj.get_default_info("form_ignore", submission_type=submission_type):
+                    #     return None
                     if key in sub_obj.timestamps():
                         add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
                         # NOTE: sets submitted date based on date found in excel sheet

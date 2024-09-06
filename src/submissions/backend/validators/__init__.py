@@ -26,11 +26,11 @@ class RSLNamer(object):
         if self.submission_type is None:
             # logger.debug("Creating submission type because none exists")
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        # logger.debug(f"got submission type: {self.submission_type}")
+        logger.debug(f"got submission type: {self.submission_type}")
         if self.submission_type is not None:
             # logger.debug("Retrieving BasicSubmission subclass")
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex())
+            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(submission_type=sub_type))
             if data is None:
                 data = dict(submission_type=self.submission_type)
             if "submission_type" not in data.keys():
@@ -50,7 +50,7 @@ class RSLNamer(object):
         """
         match filename:
             case Path():
-                # logger.debug(f"Using path method for {filename}.")
+                logger.debug(f"Using path method for {filename}.")
                 if filename.exists():
                     wb = load_workbook(filename)
                     try:
@@ -70,12 +70,14 @@ class RSLNamer(object):
                     submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
             case str():
                 regex = BasicSubmission.construct_regex()
-                # logger.debug(f"Using string method for {filename}.")
+                logger.debug(f"Using string method for {filename}.")
+                logger.debug(f"Using regex: {regex}")
                 m = regex.search(filename)
                 try:
                     submission_type = m.lastgroup
+                    logger.debug(f"Got submission type: {submission_type}")
                 except AttributeError as e:
-                    logger.critical(f"No RSL plate number found or submission type found!: {e}")
+                    logger.critical(f"No submission type found or submission type found!: {e}")
             case _:
                 submission_type = None
         try:
@@ -112,7 +114,7 @@ class RSLNamer(object):
                 regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
             except re.error as e:
                 regex = BasicSubmission.construct_regex()
-        # logger.debug(f"Using regex: {regex}")
+        logger.debug(f"Using regex: {regex}")
         match filename:
             case Path():
                 m = regex.search(filename.stem)

@@ -33,67 +33,67 @@ def upgrade() -> None:
     )
     op.create_table('_contact',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.Column('email', sa.String(length=64), nullable=True),
     sa.Column('phone', sa.String(length=32), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_controltype',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=255), nullable=True),
+    sa.Column('sub_type', sa.String(length=255), nullable=True),
     sa.Column('targets', sa.JSON(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.UniqueConstraint('sub_type')
     )
     op.create_table('_equipment',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.Column('nickname', sa.String(length=64), nullable=True),
     sa.Column('asset_number', sa.String(length=16), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_equipmentrole',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=32), nullable=True),
+    sa.Column('sub_type', sa.String(length=32), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_kittype',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.UniqueConstraint('sub_type')
     )
     op.create_table('_organization',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.Column('cost_centre', sa.String(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_process',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.UniqueConstraint('sub_type')
     )
     op.create_table('_reagentrole',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.Column('eol_ext', sa.Interval(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_submissiontype',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=128), nullable=True),
+    sa.Column('sub_type', sa.String(length=128), nullable=True),
     sa.Column('info_map', sa.JSON(), nullable=True),
     sa.Column('defaults', sa.JSON(), nullable=True),
     sa.Column('template_file', sa.LargeBinary(), nullable=True),
     sa.Column('sample_map', sa.JSON(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.UniqueConstraint('sub_type')
     )
     op.create_table('_tiprole',
     sa.Column('id', sa.INTEGER(), nullable=False),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('_bacterialculturesample',
@@ -107,7 +107,7 @@ def upgrade() -> None:
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('kit_id', sa.INTEGER(), nullable=True),
     sa.Column('client_id', sa.INTEGER(), nullable=True),
-    sa.Column('name', sa.String(length=128), nullable=True),
+    sa.Column('sub_type', sa.String(length=128), nullable=True),
     sa.Column('amount', sa.FLOAT(precision=2), nullable=True),
     sa.ForeignKeyConstraint(['client_id'], ['_organization.id'], name='fk_org_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['kit_id'], ['_kittype.id'], name='fk_kit_type_id', ondelete='SET NULL'),
@@ -164,7 +164,7 @@ def upgrade() -> None:
     op.create_table('_reagent',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('role_id', sa.INTEGER(), nullable=True),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.Column('lot', sa.String(length=64), nullable=True),
     sa.Column('expiry', sa.TIMESTAMP(), nullable=True),
     sa.ForeignKeyConstraint(['role_id'], ['_reagentrole.id'], name='fk_reagent_role_id', ondelete='SET NULL'),
@@ -207,7 +207,7 @@ def upgrade() -> None:
     op.create_table('_tips',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('role_id', sa.INTEGER(), nullable=True),
-    sa.Column('name', sa.String(length=64), nullable=True),
+    sa.Column('sub_type', sa.String(length=64), nullable=True),
     sa.Column('lot', sa.String(length=64), nullable=True),
     sa.ForeignKeyConstraint(['role_id'], ['_tiprole.id'], name='fk_tip_role_id', ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
@@ -245,7 +245,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['contact_id'], ['_contact.id'], name='fk_BS_contact_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['extraction_kit_id'], ['_kittype.id'], name='fk_BS_extkit_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['reagents_id'], ['_reagent.id'], name='fk_BS_reagents_id', ondelete='SET NULL'),
-    sa.ForeignKeyConstraint(['submission_type_name'], ['_submissiontype.name'], name='fk_BS_subtype_name', ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['submission_type_name'], ['_submissiontype.sub_type'], name='fk_BS_subtype_name', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['submitting_lab_id'], ['_organization.id'], name='fk_BS_sublab_id', ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('rsl_plate_num'),
@@ -277,7 +277,7 @@ def upgrade() -> None:
     op.create_table('_control',
     sa.Column('id', sa.INTEGER(), nullable=False),
     sa.Column('parent_id', sa.INTEGER(), nullable=True),
-    sa.Column('name', sa.String(length=255), nullable=True),
+    sa.Column('sub_type', sa.String(length=255), nullable=True),
     sa.Column('submitted_date', sa.TIMESTAMP(), nullable=True),
     sa.Column('contains', sa.JSON(), nullable=True),
     sa.Column('matches', sa.JSON(), nullable=True),
@@ -291,7 +291,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['sample_id'], ['_basicsample.id'], name='cont_BCS_id', ondelete='SET NULL'),
     sa.ForeignKeyConstraint(['submission_id'], ['_basicsubmission.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('name')
+    sa.UniqueConstraint('sub_type')
     )
     op.create_table('_submissionequipmentassociation',
     sa.Column('equipment_id', sa.INTEGER(), nullable=False),

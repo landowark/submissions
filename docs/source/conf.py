@@ -13,7 +13,7 @@ from submissions import __version__, __copyright__, __author__
 
 project = 'RSL Submissions'
 copyright = __copyright__
-author = f"{__author__['name']} - {__author__['email']}"
+author = f"{__author__['sub_type']} - {__author__['email']}"
 release = __version__
 
 # -- General configuration ---------------------------------------------------

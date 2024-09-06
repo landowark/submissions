@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import datetime
 import json
-from pprint import pprint
+from pprint import pprint, pformat
 
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
@@ -846,7 +846,7 @@ class SubmissionType(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_dict(self):
+    def to_export_dict(self):
         base_dict = dict(name=self.name)
         base_dict['info'] = self.construct_info_map(mode='export')
         base_dict['defaults'] = self.defaults
@@ -874,6 +874,7 @@ class SubmissionType(BaseClass):
             return None
         with open(filepath, "r") as f:
             import_dict = json.load(fp=f)
+        logger.debug(pformat(import_dict))
         submission_type = cls.query(name=import_dict['name'])
         if submission_type:
             return submission_type

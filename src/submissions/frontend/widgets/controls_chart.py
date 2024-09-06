@@ -170,7 +170,7 @@ class ControlsViewer(QWidget):
         Args:
             ctx (dict): settings passed from gui
             input_df (list[dict]): list of dictionaries containing records
-            subtype (str | None, optional): name of submission type. Defaults to None.
+            subtype (str | None, optional): sub_type of submission type. Defaults to None.
 
         Returns:
             DataFrame: dataframe of controls

@@ -509,7 +509,7 @@ class PydSubmission(BaseModel, extra='allow'):
         if check_not_nan(value['value']):
             return value
         else:
-            # logger.debug("Constructing plate name.")
+            # logger.debug("Constructing plate sub_type.")
             if "pytest" in sys.modules and sub_type.replace(" ", "") == "BasicSubmission":
                 output = "RSL-BS-Test001"
             else:
@@ -642,7 +642,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # this could also be done with default_factory
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
-        self.namer = RSLNamer(self.rsl_plate_num['value'])
+        self.namer = RSLNamer(self.rsl_plate_num['value'], sub_type=self.submission_type['value'])
 
     def set_attribute(self, key: str, value):
         """

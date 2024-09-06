@@ -113,15 +113,6 @@ class BasicSubmission(BaseClass):
     __mapper_args__ = {
         "polymorphic_identity": "Basic Submission",
         "polymorphic_on": submission_type_name,
-        # "polymorphic_on": case(
-        #
-        #     (submission_type_name == "Bacterial Culture", "Bacterial Culture"),
-        #     (submission_type_name == "Wastewater Artic", "Wastewater Artic"),
-        #     (submission_type_name == "Wastewater", "Wastewater"),
-        #     (submission_type_name == "Viral Culture", "Bacterial Culture"),
-        #
-        #     else_="Basic Sample"
-        # ),
         "with_polymorphic": "*",
     }
 
@@ -160,7 +151,7 @@ class BasicSubmission(BaseClass):
         return output
 
     @classmethod
-    def get_default_info(cls, *args):
+    def get_default_info(cls, *args, submission_type: SubmissionType | None = None):
         # NOTE: Create defaults for all submission_types
         parent_defs = super().get_default_info()
         recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
@@ -185,7 +176,10 @@ class BasicSubmission(BaseClass):
                 continue
             else:
                 output[k] = v
-        st = cls.get_submission_type()
+        if isinstance(submission_type, SubmissionType):
+            st = submission_type
+        else:
+            st = cls.get_submission_type(submission_type)
         if st is None:
             logger.error("No default info for BasicSubmission.")
         else:
@@ -205,18 +199,23 @@ class BasicSubmission(BaseClass):
         return output
 
     @classmethod
-    def get_submission_type(cls) -> SubmissionType:
+    def get_submission_type(cls, sub_type: str | SubmissionType | None = None) -> SubmissionType:
         """
         Gets the SubmissionType associated with this class
 
         Returns:
             SubmissionType: SubmissionType with name equal to this polymorphic identity
         """
-        name = cls.__mapper_args__['polymorphic_identity']
-        return SubmissionType.query(name=name)
+        match sub_type:
+            case str():
+                return SubmissionType.query(name=sub_type)
+            case SubmissionType():
+                return sub_type
+            case _:
+                return SubmissionType.query(cls.__mapper_args__['polymorphic_identity'])
 
     @classmethod
-    def construct_info_map(cls, mode: Literal["read", "write"]) -> dict:
+    def construct_info_map(cls, submission_type:SubmissionType|None=None, mode: Literal["read", "write"]="read") -> dict:
         """
         Method to call submission type's construct info map.
 
@@ -226,17 +225,17 @@ class BasicSubmission(BaseClass):
         Returns:
             dict: Map of info locations.
         """
-        return cls.get_submission_type().construct_info_map(mode=mode)
+        return cls.get_submission_type(submission_type).construct_info_map(mode=mode)
 
     @classmethod
-    def construct_sample_map(cls) -> dict:
+    def construct_sample_map(cls, submission_type:SubmissionType|None=None) -> dict:
         """
         Method to call submission type's construct_sample_map
 
         Returns:
             dict: sample location map
         """
-        return cls.get_submission_type().construct_sample_map()
+        return cls.get_submission_type(submission_type).construct_sample_map()
 
     @classmethod
     def finalize_details(cls, input_dict: dict) -> dict:
@@ -466,7 +465,7 @@ class BasicSubmission(BaseClass):
         Returns:
             pd.DataFrame: Pandas Dataframe of all relevant submissions
         """
-        # logger.debug(f"Querying Type: {submission_type}")
+        logger.debug(f"Querying Type: {submission_type}")
         # logger.debug(f"Using limit: {limit}")
         # NOTE: use lookup function to create list of dicts
         subs = [item.to_dict() for item in
@@ -635,14 +634,13 @@ class BasicSubmission(BaseClass):
         super().save()
 
     @classmethod
-    def get_regex(cls) -> str:
-        """
-        Dummy for inheritence.
-
-        Returns:
-            str: Regex for submission type.
-        """
-        return cls.construct_regex()
+    def get_regex(cls, submission_type:SubmissionType|str|None=None):
+        # logger.debug(f"Attempting to get regex for {cls.__mapper_args__['polymorphic_identity']}")
+        logger.debug(f"Attempting to get regex for {submission_type}")
+        try:
+            return cls.get_submission_type(submission_type).defaults['regex']
+        except AttributeError as e:
+            raise AttributeError(f"Couldn't get submission type for {cls.__mapper_args__['polymorphic_identity']}")
 
     # Polymorphic functions
 
@@ -654,7 +652,8 @@ class BasicSubmission(BaseClass):
         Returns:
             re.Pattern: Regular expression pattern to discriminate between submission types.
         """
-        rstring = rf'{"|".join([item.get_regex() for item in cls.__subclasses__()])}'
+        # rstring = rf'{"|".join([item.get_regex() for item in cls.__subclasses__()])}'
+        rstring = rf'{"|".join([item.defaults["regex"] for item in SubmissionType.query()])}'
         regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
         return regex
 
@@ -685,7 +684,7 @@ class BasicSubmission(BaseClass):
                     #          item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
                     model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
                 except Exception as e:
-                    logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
+                    logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
             case _:
                 pass
         if attrs is None or len(attrs) == 0:
@@ -796,11 +795,13 @@ class BasicSubmission(BaseClass):
         # logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} Enforcer!")
         from backend.validators import RSLNamer
         # logger.debug(f"instr coming into {cls}: {instr}")
-        # logger.debug(f"data coming into {cls}: {data}")
-        defaults = cls.get_default_info("abbreviation", "submission_type")
-        data['abbreviation'] = defaults['abbreviation']
-        if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
-            data['submission_type'] = defaults['submission_type']
+        logger.debug(f"data coming into {cls}: {data}")
+        # defaults = cls.get_default_info("abbreviation", "submission_type")
+        data['abbreviation'] = cls.get_default_info("abbreviation", submission_type=data['submission_type'])
+        # logger.debug(f"Default info: {defaults}")
+        # data['abbreviation'] = defaults['abbreviation']
+        # if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
+        #     data['submission_type'] = defaults['submission_type']
         if instr in [None, ""]:
             # logger.debug("Sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
@@ -829,9 +830,11 @@ class BasicSubmission(BaseClass):
         except AttributeError as e:
             repeat = ""
         outstr = re.sub(r"(-\dR)\d?", rf"\1 {repeat}", outstr).replace(" ", "")
-        abb = cls.get_default_info('abbreviation')
-        outstr = re.sub(rf"RSL{abb}", rf"RSL-{abb}", outstr)
-        return re.sub(rf"{abb}(\d)", rf"{abb}-\1", outstr)
+        # abb = cls.get_default_info('abbreviation')
+        # outstr = re.sub(rf"RSL{abb}", rf"RSL-{abb}", outstr)
+        # return re.sub(rf"{abb}(\d)", rf"{abb}-\1", outstr)
+        outstr = re.sub(rf"RSL{data['abbreviation']}", rf"RSL-{data['abbreviation']}", outstr)
+        return re.sub(rf"{data['abbreviation']}(\d)", rf"{data['abbreviation']}-\1", outstr)
 
     @classmethod
     def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> list:
@@ -1261,15 +1264,15 @@ class BacterialCulture(BasicSubmission):
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
 
-    @classmethod
-    def get_regex(cls) -> str:
-        """
-        Retrieves string for regex construction.
-
-        Returns:
-            str: string for regex construction
-        """
-        return "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+    # @classmethod
+    # def get_regex(cls) -> str:
+    #     """
+    #     Retrieves string for regex construction.
+    #
+    #     Returns:
+    #         str: string for regex construction
+    #     """
+    #     return "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
 
     @classmethod
     def filename_template(cls):
@@ -1339,47 +1342,47 @@ class BacterialCulture(BasicSubmission):
         return input_dict
 
 
-class ViralCulture(BasicSubmission):
-
-    id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
-    __mapper_args__ = dict(polymorphic_identity="Viral Culture",
-                           polymorphic_load="inline",
-                           inherit_condition=(id == BasicSubmission.id))
-
-    @classmethod
-    def get_regex(cls) -> str:
-        """
-        Retrieves string for regex construction.
-
-        Returns:
-            str: string for regex construction
-        """
-        return "(?P<Viral_Culture>RSL(?:-|_)?VE(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-
-    @classmethod
-    def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
-        """
-        Extends parent
-        """
-        # logger.debug(f"Checking {sample.well}")
-        # logger.debug(f"here's the worksheet: {worksheet}")
-        row = super().custom_sample_autofill_row(sample, worksheet)
-        df = pd.DataFrame(list(worksheet.values))
-        # logger.debug(f"Here's the dataframe: {df}")
-        idx = df[df[0] == sample.well]
-        if idx.empty:
-            new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
-            # logger.debug(f"Checking: {new}")
-            idx = df[df[0] == new]
-        # logger.debug(f"Here is the row: {idx}")
-        row = idx.index.to_list()[0]
-        return row + 1
-
-    @classmethod
-    def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
-        input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
-        logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
-        return input_dict
+# class ViralCulture(BasicSubmission):
+#
+#     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
+#     __mapper_args__ = dict(polymorphic_identity="Viral Culture",
+#                            polymorphic_load="inline",
+#                            inherit_condition=(id == BasicSubmission.id))
+#
+#     # @classmethod
+#     # def get_regex(cls) -> str:
+#     #     """
+#     #     Retrieves string for regex construction.
+#     #
+#     #     Returns:
+#     #         str: string for regex construction
+#     #     """
+#     #     return "(?P<Viral_Culture>RSL(?:-|_)?VE(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+#
+#     @classmethod
+#     def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
+#         """
+#         Extends parent
+#         """
+#         # logger.debug(f"Checking {sample.well}")
+#         # logger.debug(f"here's the worksheet: {worksheet}")
+#         row = super().custom_sample_autofill_row(sample, worksheet)
+#         df = pd.DataFrame(list(worksheet.values))
+#         # logger.debug(f"Here's the dataframe: {df}")
+#         idx = df[df[0] == sample.well]
+#         if idx.empty:
+#             new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
+#             # logger.debug(f"Checking: {new}")
+#             idx = df[df[0] == new]
+#         # logger.debug(f"Here is the row: {idx}")
+#         row = idx.index.to_list()[0]
+#         return row + 1
+#
+#     @classmethod
+#     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
+#         input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
+#         logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
+#         return input_dict
 
 
 class Wastewater(BasicSubmission):
@@ -1499,15 +1502,15 @@ class Wastewater(BasicSubmission):
         outstr = super().enforce_name(instr=instr, data=data)
         return outstr
 
-    @classmethod
-    def get_regex(cls) -> str:
-        """
-        Retrieves string for regex construction
-
-        Returns:
-            str: String for regex construction
-        """
-        return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+    # @classmethod
+    # def get_regex(cls) -> str:
+    #     """
+    #     Retrieves string for regex construction
+    #
+    #     Returns:
+    #         str: String for regex construction
+    #     """
+    #     return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
 
     @classmethod
     def adjust_autofill_samples(cls, samples: List[Any]) -> List[Any]:
@@ -1919,15 +1922,15 @@ class WastewaterArtic(BasicSubmission):
         # logger.debug(f"Final EN name: {final_en_name}")
         return final_en_name
 
-    @classmethod
-    def get_regex(cls) -> str:
-        """
-        Retrieves string for regex construction
-
-        Returns:
-            str: string for regex construction.
-        """
-        return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
+    # @classmethod
+    # def get_regex(cls) -> str:
+    #     """
+    #     Retrieves string for regex construction
+    #
+    #     Returns:
+    #         str: string for regex construction.
+    #     """
+    #     return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
 
     @classmethod
     def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None) -> dict:
