@@ -377,11 +377,18 @@ class SubmissionFormWidget(QWidget):
             # logger.debug(f"Updating: {reagent} with {reagent.lot}")
             reagent.update_last_used(kit=base_submission.extraction_kit)
         # logger.debug(f"Final reagents: {pformat(base_submission.reagents)}")
-        base_submission.save()
+        save_output = base_submission.save()
+        # logger.debug(f"Save output: {save_output}")
         # NOTE: update summary sheet
         self.app.table_widget.sub_wid.setData()
         # NOTE: reset form
-        self.setParent(None)
+        try:
+            check = save_output.results == []
+        except AttributeError:
+            logger.error(f"No save output, check passes")
+            check = True
+        if check:
+            self.setParent(None)
         # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
         return report
 

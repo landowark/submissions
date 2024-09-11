@@ -645,7 +645,7 @@ class BasicSubmission(BaseClass):
         # logger.debug("Saving submission.")
         if original:
             self.uploaded_by = getuser()
-        super().save()
+        return super().save()
 
     @classmethod
     def get_regex(cls, submission_type:SubmissionType|str|None=None):

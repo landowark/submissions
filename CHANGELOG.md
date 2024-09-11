@@ -1,4 +1,12 @@
-## 202408-05
+## 202409.03
+
+- Improved error messaging when saving submissions.
+
+## 202409.02
+
+- Creation of generic submissions using only database is now supported.
+
+## 202408.05
 
 - Improved scraping for gel info of Artic submissions.
 

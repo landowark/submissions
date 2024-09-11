@@ -142,20 +142,22 @@ class Control(BaseClass):
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
         # logger.debug("Creating new kraken.")
         new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'],
-                           kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total)) for item in
-                      kraken]
+                           kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total),
+                           target=item in self.controltype.targets)
+                      for item in kraken]
+        # logger.debug(f"New kraken before sort: {new_kraken}")
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
         # logger.debug("setting targets")
-        if not self.controltype.targets:
-            targets = ["None"]
-        else:
+        if self.controltype.targets:
             targets = self.controltype.targets
+        else:
+            targets = ["None"]
         # logger.debug("constructing output dictionary")
         output = {
             "name": self.name,
             "type": self.controltype.name,
             "targets": ", ".join(targets),
-            "kraken": new_kraken[0:5]
+            "kraken": new_kraken[0:10]
         }
         return output
 

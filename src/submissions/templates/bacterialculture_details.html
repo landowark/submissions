@@ -14,7 +14,7 @@
         {% for item in sub['controls'] %}
             <p>&nbsp;&nbsp;&nbsp;<b>{{ item['name'] }}:</b> {{ item['type'] }} (Targets: {{ item['targets'] }})</p>
             {% if item['kraken'] %}
-                <p>&nbsp;&nbsp;&nbsp;{{ item['name'] }} Top 5 Kraken Results:</p>
+                <p>&nbsp;&nbsp;&nbsp;{{ item['name'] }} Top 10 Kraken Results:</p>
                 <p>{% for genera in item['kraken'] %}
                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{ genera['name'] }}: {{ genera['kraken_count'] }} ({{ genera['kraken_percent'] }})<br>
                 {% endfor %}</p>
