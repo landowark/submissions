@@ -25,6 +25,7 @@ from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askdirectory
+from .error_messaging import parse_error_to_message
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -765,10 +766,10 @@ def setup_lookup(func):
     return wrapper
 
 
-class Result(BaseModel):
+class Result(BaseModel, arbitrary_types_allowed=True):
     owner: str = Field(default="", validate_default=True)
     code: int = Field(default=0)
-    msg: str
+    msg: str | Exception
     status: Literal["NoIcon", "Question", "Information", "Warning", "Critical"] = Field(default="NoIcon")
 
     @field_validator('status', mode='before')
@@ -778,6 +779,13 @@ class Result(BaseModel):
             return "NoIcon"
         else:
             return value.title()
+
+    @field_validator('msg')
+    @classmethod
+    def set_message(cls, value):
+        if isinstance(value, Exception):
+            value = parse_error_to_message(value=value)
+        return value
 
     def __repr__(self) -> str:
         return f"Result({self.owner})"
@@ -822,7 +830,7 @@ class Report(BaseModel):
 
 def rreplace(s: str, old: str, new: str) -> str:
     """
-    Removes rightmost occurence of a substring
+    Removes rightmost occurrence of a substring
 
     Args:
         s (str): input string
@@ -873,20 +881,6 @@ def remove_key_from_list_of_dicts(input: list, key: str) -> list:
     return input
 
 
-# def workbook_2_csv(worksheet: Worksheet, filename: Path):
-#     """
-#     Export an excel worksheet (workbook is not correct) to csv file.
-#
-#     Args:
-#         worksheet (Worksheet): Incoming worksheet
-#         filename (Path): Output csv filepath.
-#     """
-#     with open(filename, 'w', newline="") as f:
-#         c = csv.writer(f)
-#         for r in worksheet.rows:
-#             c.writerow([cell.value for cell in r])
-
-
 ctx = get_config(None)
 
 
@@ -909,7 +903,7 @@ def check_authorization(func):
     Decorator to check if user is authorized to access function
 
     Args:
-        func (_type_): Function to be used.
+        func (function): Function to be used.
     """
 
     def wrapper(*args, **kwargs):
@@ -918,15 +912,27 @@ def check_authorization(func):
             return func(*args, **kwargs)
         else:
             logger.error(f"User {getpass.getuser()} is not authorized for this function.")
-            return dict(code=1, message="This user does not have permission for this function.", status="warning")
-
+            # return dict(code=1, message="This user does not have permission for this function.", status="warning")
+            report = Report()
+            report.add_result(Result(owner=func.__str__(), code=1, msg="This user does not have permission for this function.", status="warning"))
+            return report
     return wrapper
 
 
 def report_result(func):
+    """
+    Decorator to display any reports returned from a function.
+
+    Args:
+        func (function): Function being decorated
+
+    Returns:
+        __type__: Output from decorated function
+
+    """
     def wrapper(*args, **kwargs):
-        logger.debug(f"Arguments: {args}")
-        logger.debug(f"Keyword arguments: {kwargs}")
+        # logger.debug(f"Arguments: {args}")
+        # logger.debug(f"Keyword arguments: {kwargs}")
         output = func(*args, **kwargs)
         match output:
             case Report():
@@ -955,3 +961,9 @@ def report_result(func):
         logger.debug(f"Returning: {output}")
         return output
     return wrapper
+
+
+@report_result
+@check_authorization
+def test_function():
+    print("Success!")

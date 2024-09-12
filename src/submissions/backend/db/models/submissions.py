@@ -2425,15 +2425,18 @@ class BasicSample(BaseClass):
             case _:
                 model = cls.find_polymorphic_subclass(attrs=kwargs)
             # logger.debug(f"Length of kwargs: {len(kwargs)}")
+        # logger.debug(f"Fuzzy search received sample type: {sample_type}")
         query: Query = cls.__database_session__.query(model)
+        # logger.debug(f"Queried model. Now running searches in {kwargs}")
         for k, v in kwargs.items():
+            # logger.debug(f"Running fuzzy search for attribute: {k} with value {v}")
             search = f"%{v}%"
             try:
                 attr = getattr(model, k)
                 query = query.filter(attr.like(search))
             except (ArgumentError, AttributeError) as e:
                 logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
-        return query.all()
+        return query.limit(50).all()
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")

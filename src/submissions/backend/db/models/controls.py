@@ -9,7 +9,7 @@ from operator import itemgetter
 from . import BaseClass
 from tools import setup_lookup
 from datetime import date, datetime
-from typing import List
+from typing import List, Literal
 from dateutil.parser import parse
 from re import Pattern
 
@@ -53,7 +53,7 @@ class ControlType(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def get_subtypes(self, mode: str) -> List[str]:
+    def get_subtypes(self, mode: Literal['kraken', 'matches', 'contains']) -> List[str]:
         """
         Get subtypes associated with this controltype (currently used only for Kraken)
 
@@ -161,7 +161,7 @@ class Control(BaseClass):
         }
         return output
 
-    def convert_by_mode(self, mode: str) -> list[dict]:
+    def convert_by_mode(self, mode: Literal['kraken', 'matches', 'contains']) -> list[dict]:
         """
         split this instance into analysis types for controls graphs
 
@@ -195,7 +195,7 @@ class Control(BaseClass):
             output.append(_dict)
         # logger.debug("Have to triage kraken data to keep program from getting overwhelmed")
         if "kraken" in mode:
-            output = sorted(output, key=lambda d: d[f"{mode}_count"], reverse=True)[:49]
+            output = sorted(output, key=lambda d: d[f"{mode}_count"], reverse=True)[:50]
         return output
 
     @classmethod

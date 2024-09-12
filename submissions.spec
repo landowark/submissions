@@ -3,6 +3,7 @@
 block_cipher = None
 
 #### custom for automation of documentation building ####
+
 import sys, subprocess
 from pathlib import Path
 sys.path.append(Path(__name__).parent.joinpath('src').absolute().__str__())
@@ -17,6 +18,7 @@ print(bcolors.BOLD + "Running Sphinx subprocess to generate html docs..." + bcol
 docs_build = doc_path.joinpath("build")
 #docs_build.mkdir(exist_ok=True, parents=True)
 subprocess.run([build_path, doc_path.joinpath("source").__str__(), docs_build.__str__(), "-a"])
+
 #########################################################
 
 options = [

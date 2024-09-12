@@ -167,20 +167,20 @@ class BaseClass(Base):
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             logger.error(f"Error message: {type(e)}")
-            match e:
-                case sqlalcIntegrityError():
-                    origin = e.orig.__str__().lower()
-                    logger.debug(f"Exception origin: {origin}")
-                    if "unique constraint failed:" in origin:
-                        field = origin.split(".")[1].replace("_", " ").upper()
-                        logger.debug(field)
-                        msg = f"{field} doesn't have a unique value.\nIt must be changed."
-                    else:
-                        msg = f"Got unknown integrity error: {e}"
-                case _:
-                    msg = f"Got generic error: {e}"
+            # match e:
+            #     case sqlalcIntegrityError():
+            #         origin = e.orig.__str__().lower()
+            #         logger.error(f"Exception origin: {origin}")
+            #         if "unique constraint failed:" in origin:
+            #             field = " ".join(origin.split(".")[1:]).replace("_", " ").upper()
+            #             # logger.debug(field)
+            #             msg = f"{field} doesn't have a unique value.\nIt must be changed."
+            #         else:
+            #             msg = f"Got unknown integrity error: {e}"
+            #     case _:
+            #         msg = f"Got generic error: {e}"
             self.__database_session__.rollback()
-            report.add_result(Result(msg=msg, status="Critical"))
+            report.add_result(Result(msg=e, status="Critical"))
             return report
 
 

@@ -1,6 +1,7 @@
 ## 202409.03
 
-- Improved error messaging when saving submissions.
+- Upgraded sample search to (semi) realtime search.
+- Improved error messaging.
 
 ## 202409.02
 

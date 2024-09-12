@@ -24,7 +24,7 @@ class SearchBox(QDialog):
         self.sample_type = QComboBox(self)
         self.sample_type.setObjectName("sample_type")
         self.sample_type.currentTextChanged.connect(self.update_widgets)
-        options = [cls.__mapper_args__['polymorphic_identity'] for cls in BasicSample.__subclasses__()]
+        options = ["Any"] + [cls.__mapper_args__['polymorphic_identity'] for cls in BasicSample.__subclasses__()]
         self.sample_type.addItems(options)
         self.sample_type.setEditable(False)
         self.setMinimumSize(600, 600)
@@ -34,6 +34,7 @@ class SearchBox(QDialog):
         self.layout.addWidget(self.results, 5, 0)
         self.setLayout(self.layout)
         self.update_widgets()
+        self.update_data()
 
     def update_widgets(self):
         """
@@ -43,13 +44,17 @@ class SearchBox(QDialog):
         # logger.debug(deletes)
         for item in deletes:
             item.setParent(None)
-        self.type = BasicSample.find_polymorphic_subclass(self.sample_type.currentText())
+        if self.sample_type.currentText() == "Any":
+            self.type = BasicSample
+        else:
+            self.type = BasicSample.find_polymorphic_subclass(self.sample_type.currentText())
         # logger.debug(f"Sample type: {self.type}")
         searchables = self.type.get_searchables()
         start_row = 1
         for iii, item in enumerate(searchables):
             widget = FieldSearch(parent=self, label=item['label'], field_name=item['field'])
             self.layout.addWidget(widget, start_row+iii, 0)
+            widget.search_widget.textChanged.connect(self.update_data)
 
     def parse_form(self) -> dict:
         """
@@ -64,10 +69,12 @@ class SearchBox(QDialog):
     def update_data(self):
         """
         Shows dataframe of relevant samples.
-        """        
+        """
+        # logger.debug(f"Running update_data with sample type: {self.type}")
         fields = self.parse_form()
-        data = self.type.fuzzy_search(sample_type=self.type, **fields)
-        data = self.type.samples_to_df(sample_list=data)
+        # logger.debug(f"Got fields: {fields}")
+        sample_list_creator = self.type.fuzzy_search(sample_type=self.type, **fields)
+        data = self.type.samples_to_df(sample_list=sample_list_creator)
         # logger.debug(f"Data: {data}")
         self.results.setData(df=data)
 

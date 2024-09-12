@@ -7,6 +7,7 @@ import datetime
 import json
 from pprint import pprint, pformat
 
+import yaml
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -873,7 +874,12 @@ class SubmissionType(BaseClass):
             logging.critical(f"Given file could not be found.")
             return None
         with open(filepath, "r") as f:
-            import_dict = json.load(fp=f)
+            if filepath.suffix == ".json":
+                import_dict = json.load(fp=f)
+            elif filepath.suffix == ".yml":
+                import_dict = yaml.safe_load(stream=f)
+            else:
+                raise Exception(f"Filetype {filepath.suffix} not supported.")
         logger.debug(pformat(import_dict))
         submission_type = cls.query(name=import_dict['name'])
         if submission_type:
