@@ -168,7 +168,8 @@ class BasicSubmission(BaseClass):
                             'extraction_info', 'comment', 'barcode',
                             'platemap', 'export_map', 'equipment', 'tips'],
             # NOTE: Fields not placed in ui form
-            form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer', 'submission_object', "tips"] + recover,
+            form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
+                         'submission_object', "tips", 'contact_phone'] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         )
@@ -229,7 +230,8 @@ class BasicSubmission(BaseClass):
                 return SubmissionType.query(cls.__mapper_args__['polymorphic_identity'])
 
     @classmethod
-    def construct_info_map(cls, submission_type:SubmissionType|None=None, mode: Literal["read", "write"]="read") -> dict:
+    def construct_info_map(cls, submission_type: SubmissionType | None = None,
+                           mode: Literal["read", "write"] = "read") -> dict:
         """
         Method to call submission type's construct info map.
 
@@ -242,7 +244,7 @@ class BasicSubmission(BaseClass):
         return cls.get_submission_type(submission_type).construct_info_map(mode=mode)
 
     @classmethod
-    def construct_sample_map(cls, submission_type:SubmissionType|None=None) -> dict:
+    def construct_sample_map(cls, submission_type: SubmissionType | None = None) -> dict:
         """
         Method to call submission type's construct_sample_map
 
@@ -609,7 +611,7 @@ class BasicSubmission(BaseClass):
         new_dict = {}
         for key, value in dicto.items():
             # logger.debug(f"Checking {key}")
-            missing = value is None or value in ['', 'None']
+            missing = value in ['', 'None', None]
             match key:
                 case "reagents":
                     new_dict[key] = [PydReagent(**reagent) for reagent in value]
@@ -628,7 +630,7 @@ class BasicSubmission(BaseClass):
                 case "id":
                     pass
                 case _:
-                    # logger.debug(f"Setting dict {key} to {value}")
+                    logger.debug(f"Setting dict {key} to {value}")
                     new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=missing)
             # logger.debug(f"{key} complete after {time()-start}")
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
@@ -648,7 +650,7 @@ class BasicSubmission(BaseClass):
         return super().save()
 
     @classmethod
-    def get_regex(cls, submission_type:SubmissionType|str|None=None):
+    def get_regex(cls, submission_type: SubmissionType | str | None = None):
         # logger.debug(f"Attempting to get regex for {cls.__mapper_args__['polymorphic_identity']}")
         logger.debug(f"Attempting to get regex for {submission_type}")
         try:
@@ -707,7 +709,8 @@ class BasicSubmission(BaseClass):
                     #          item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
                     model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
                 except Exception as e:
-                    logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
+                    logger.error(
+                        f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
             case _:
                 pass
         if attrs is None or len(attrs) == 0:
@@ -1199,6 +1202,8 @@ class BasicSubmission(BaseClass):
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
             comment = dlg.parse_form()
+            if comment in ["", None]:
+                return
             self.set_attribute(key='comment', value=comment)
             # logger.debug(self.comment)
             self.save(original=False)
@@ -1366,49 +1371,6 @@ class BacterialCulture(BasicSubmission):
         input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
         logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
         return input_dict
-
-
-# class ViralCulture(BasicSubmission):
-#
-#     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
-#     __mapper_args__ = dict(polymorphic_identity="Viral Culture",
-#                            polymorphic_load="inline",
-#                            inherit_condition=(id == BasicSubmission.id))
-#
-#     # @classmethod
-#     # def get_regex(cls) -> str:
-#     #     """
-#     #     Retrieves string for regex construction.
-#     #
-#     #     Returns:
-#     #         str: string for regex construction
-#     #     """
-#     #     return "(?P<Viral_Culture>RSL(?:-|_)?VE(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-#
-#     @classmethod
-#     def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
-#         """
-#         Extends parent
-#         """
-#         # logger.debug(f"Checking {sample.well}")
-#         # logger.debug(f"here's the worksheet: {worksheet}")
-#         row = super().custom_sample_autofill_row(sample, worksheet)
-#         df = pd.DataFrame(list(worksheet.values))
-#         # logger.debug(f"Here's the dataframe: {df}")
-#         idx = df[df[0] == sample.well]
-#         if idx.empty:
-#             new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
-#             # logger.debug(f"Checking: {new}")
-#             idx = df[df[0] == new]
-#         # logger.debug(f"Here is the row: {idx}")
-#         row = idx.index.to_list()[0]
-#         return row + 1
-#
-#     @classmethod
-#     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
-#         input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
-#         logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
-#         return input_dict
 
 
 class Wastewater(BasicSubmission):
@@ -2238,6 +2200,9 @@ class BasicSample(BaseClass):
     def to_sub_dict(self, full_data: bool = False) -> dict:
         """
         gui friendly dictionary, extends parent method.
+
+        Args:
+            full_data (bool): Whether to use full object or truncated. Defaults to False
 
         Returns:
             dict: well location and name (sample id, organism) NOTE: keys must sync with WWSample to_sub_dict above

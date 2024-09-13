@@ -257,7 +257,7 @@ class SubmissionsSheet(QTableView):
         dlg = ReportDatePicker()
         if dlg.exec():
             info = dlg.parse_form()
-            fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.docx", extension="docx")
+            fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.xlsx", extension="xlsx")
             rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
             rp.write_report(filename=fname, obj=self)
         return report

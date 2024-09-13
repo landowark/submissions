@@ -1,5 +1,6 @@
 ## 202409.03
 
+- Better navigation and clarity in details panes.
 - Upgraded sample search to (semi) realtime search.
 - Improved error messaging.
 

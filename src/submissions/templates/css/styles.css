@@ -27,3 +27,15 @@
   visibility: visible;
   font-size: large;
 }
+
+.data-link {
+  color: blue;
+  text-decoration: underline;
+  text-decoration-color: blue;
+}
+
+.data-link:hover {
+  color: #ff33ff;
+  text-decoration-color: #ff33ff;
+  cursor: pointer;
+}

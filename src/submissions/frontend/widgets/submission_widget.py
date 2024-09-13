@@ -191,7 +191,9 @@ class SubmissionFormWidget(QWidget):
         # logger.debug(f"Attempting to extend ignore list with {self.pyd.submission_type['value']}")
         self.layout = QVBoxLayout()
         for k in list(self.pyd.model_fields.keys()) + list(self.pyd.model_extra.keys()):
+            logger.debug(f"Creating widget: {k}")
             if k in self.ignore:
+                logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
             try:
                 # logger.debug(f"Key: {k}, Disable: {disable}")
@@ -201,9 +203,12 @@ class SubmissionFormWidget(QWidget):
                 check = False
             try:
                 value = self.pyd.__getattribute__(k)
-            except AttributeError:
-                logger.error(f"Couldn't get attribute from pyd: {k}")
-                value = dict(value=None, missing=True)
+            except AttributeError as e:
+                logger.error(f"Couldn't get attribute from pyd: {k} due to {e}")
+                try:
+                    value = self.pyd.model_extra[k]
+                except KeyError:
+                    value = dict(value=None, missing=True)
             add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'],
                                             sub_obj=st, disable=check)
             if add_widget is not None:
@@ -259,7 +264,7 @@ class SubmissionFormWidget(QWidget):
             Tuple[QMainWindow, dict]: Updated application and result
         """
         extraction_kit = args[0]
-        caller = inspect.stack()[1].function.__repr__().replace("'", "")
+        # caller = inspect.stack()[1].function.__repr__().replace("'", "")
         # logger.debug(f"Self.reagents: {self.reagents}")
         # logger.debug(f"\n\n{pformat(caller)}\n\n")
         # logger.debug(f"SubmissionType: {self.submission_type}")

@@ -1,0 +1,35 @@
+{% extends "details.html" %}
+<head>
+    {% block head %}
+    {{ super() }}
+    <title>Reagent Details for {{ reagent['name'] }} - {{ reagent['lot'] }}</title>
+    {% endblock %}
+</head>
+<body>
+    {% block body %}
+    <h2><u>Reagent Details for {{ reagent['name'] }} - {{ reagent['lot'] }}</u></h2>
+    {{ super() }}
+    <p>{% for key, value in reagent.items() if key not in reagent['excluded'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+    {% endfor %}</p>
+    {% if reagent['submissions'] %}<h2>Submissions:</h2>
+        {% for submission in reagent['submissions'] %}
+        <p><b><a class="data-link" id="{{ submission }}">{{ submission }}:</a></b> {{ reagent['role'] }}</p>
+        {% endfor %}
+    {% endif %}
+    {% endblock %}
+</body>
+<script>
+  {% block script %}
+  {{ super() }}
+  {% for submission in reagent['submissions'] %}
+  document.getElementById("{{ submission }}").addEventListener("click", function(){
+      backend.submission_details("{{ submission }}");
+  });
+  {% endfor %}
+  document.addEventListener('DOMContentLoaded', function() {
+          backend.activate_export(false);
+      }, false);
+  {% endblock %}
+</script>
+</html>

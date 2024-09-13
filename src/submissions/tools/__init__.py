@@ -25,7 +25,9 @@ from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askdirectory
-from .error_messaging import parse_error_to_message
+# from .error_messaging import parse_exception_to_message
+from sqlalchemy.exc import ArgumentError, IntegrityError as sqlalcIntegrityError
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -784,7 +786,33 @@ class Result(BaseModel, arbitrary_types_allowed=True):
     @classmethod
     def set_message(cls, value):
         if isinstance(value, Exception):
-            value = parse_error_to_message(value=value)
+            value = cls.parse_exception_to_message(value=value)
+        return value
+
+    @classmethod
+    def parse_exception_to_message(cls, value: Exception) -> str:
+        """
+        Converts an except to a human-readable error message for display.
+
+        Args:
+            value (Exception): Input exception
+
+        Returns:
+            str: Output message for display
+
+        """
+        match value:
+            case sqlalcIntegrityError():
+                origin = value.orig.__str__().lower()
+                logger.error(f"Exception origin: {origin}")
+                if "unique constraint failed:" in origin:
+                    field = " ".join(origin.split(".")[1:]).replace("_", " ").upper()
+                    # logger.debug(field)
+                    value = f"{field} doesn't have a unique value.\nIt must be changed."
+                else:
+                    value = f"Got unknown integrity error: {value}"
+            case _:
+                value = f"Got generic error: {value}"
         return value
 
     def __repr__(self) -> str:

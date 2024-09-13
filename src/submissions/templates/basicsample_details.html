@@ -1,65 +1,37 @@
-<!doctype html>
+{% extends "details.html" %}
+
 <html>
     <head>
         {% block head %}
-        <style>
-            /* Tooltip container */
-            .tooltip {
-              position: relative;
-              display: inline-block;
-              border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
-            }
-            
-            /* Tooltip text */
-            .tooltip .tooltiptext {
-              visibility: hidden;
-              width: 120px;
-              background-color: black;
-              color: #fff;
-              text-align: center;
-              padding: 5px 0;
-              border-radius: 6px;
-             
-              /* Position the tooltip text - see examples below! */
-              position: absolute;
-              z-index: 1;
-              bottom: 100%;
-              left: 50%;
-              margin-left: -60px;
-            }
-            
-            /* Show the tooltip text when you mouse over the tooltip container */
-            .tooltip:hover .tooltiptext {
-              visibility: visible;
-              font-size: large;
-            }
-        </style>
-        <title>Sample Details for {{ sample['Submitter ID'] }}</title>
-        <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+        {{ super() }}
+        <title>Sample Details for {{ sample['submitter_id'] }}</title>
         {% endblock %}
     </head>
     <body>
         {% block body %}
-        <h2><u>Sample Details for {{ sample['Submitter ID'] }}</u></h2>
+        <h2><u>Sample Details for {{ sample['submitter_id'] }}</u></h2>
+        {{ super() }}
         <p>{% for key, value in sample.items() if key not in sample['excluded'] %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
         {% endfor %}</p>
         {% if sample['submissions'] %}<h2>Submissions:</h2>
             {% for submission in sample['submissions'] %}
-            <p id="{{ submission['plate_name'] }}"><b>{{ submission['plate_name'] }}:</b> {{ submission['well'] }}</p>
+            <p><b><a class="data-link" id="{{ submission['plate_name'] }}">{{ submission['plate_name'] }}:</a></b> {{ submission['well'] }}</p>
             {% endfor %}
         {% endif %}
         {% endblock %}
     </body>
     <script>
-      var backend;
-      new QWebChannel(qt.webChannelTransport, function (channel) {
-          backend = channel.objects.backend;
-      });
+      {% block script %}
+      {{ super() }}
       {% for submission in sample['submissions'] %}
-      document.getElementById("{{ submission['plate_name'] }}").addEventListener("dblclick", function(){
+      document.getElementById("{{ submission['plate_name'] }}").addEventListener("click", function(){
           backend.submission_details("{{ submission['plate_name'] }}");
       });
       {% endfor %}
+      document.addEventListener('DOMContentLoaded', function() {
+          backend.activate_export(false);
+      }, false);
+      {% endblock %}
   </script>
 </html>

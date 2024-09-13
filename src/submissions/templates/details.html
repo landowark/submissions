@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+    <meta charset="UTF-8">
+    {% if css %}
+    <style>
+        {{ css }}
+    </style>
+    {% endif %}
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    {% endblock %}
+
+</head>
+<body>
+{% block body %}
+<!--<button type="button" id="back_btn">Back</button>-->
+{% endblock %}
+</body>
+<script>
+{% block script %}
+    var backend;
+    new QWebChannel(qt.webChannelTransport, function (channel) {
+      backend = channel.objects.backend;
+    });
+{% endblock %}
+</script>
+</html>

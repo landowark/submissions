@@ -137,6 +137,7 @@ class ReportDatePicker(QDialog):
         """        
         return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
 
+
 class LogParser(QDialog):
 
     def __init__(self, parent):

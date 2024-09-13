@@ -8,12 +8,13 @@ import json
 from pprint import pprint, pformat
 
 import yaml
+from jinja2 import TemplateNotFound
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
-from tools import check_authorization, setup_lookup, Report, Result
+from tools import check_authorization, setup_lookup, Report, Result, jinja_template_loading
 from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
 from pathlib import Path
@@ -421,12 +422,13 @@ class Reagent(BaseClass):
         else:
             return f"<Reagent({self.role.name}-{self.lot})>"
 
-    def to_sub_dict(self, extraction_kit: KitType = None) -> dict:
+    def to_sub_dict(self, extraction_kit: KitType = None, full_data:bool=False) -> dict:
         """
         dictionary containing values necessary for gui
 
         Args:
             extraction_kit (KitType, optional): KitType to use to get reagent type. Defaults to None.
+            full_data (bool, optional): Whether to include submissions in data for details. Defaults to False.
 
         Returns:
             dict: representation of the reagent's attributes
@@ -456,13 +458,17 @@ class Reagent(BaseClass):
             place_holder = "NA"
         else:
             place_holder = place_holder.strftime("%Y-%m-%d")
-        return dict(
+        output = dict(
             name=self.name,
             role=rtype,
             lot=self.lot,
             expiry=place_holder,
             missing=False
         )
+        if full_data:
+            output['submissions'] = [sub.rsl_plate_num for sub in self.submissions]
+            output['excluded'] = ['missing', 'submissions', 'excluded']
+        return output
 
     def update_last_used(self, kit: KitType) -> Report:
         """
