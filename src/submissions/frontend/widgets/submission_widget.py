@@ -1,6 +1,7 @@
 '''
 Contains all submission related frontend functions
 '''
+import re
 import sys
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
@@ -723,9 +724,14 @@ class SubmissionFormWidget(QWidget):
                 super().__init__(scrollWidget=scrollWidget)
                 self.setEditable(True)
                 # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
-                # NOTE: below was lookup_reagent_by_type_name_and_kit_name, but I couldn't get it to work.
                 lookup = Reagent.query(reagent_role=reagent.role)
-                relevant_reagents = [str(item.lot) for item in lookup]
+                looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
+                                                                   kit_type=extraction_kit)
+                try:
+                    regex = re.compile(rf"{looked_up_rt.uses['exclude_regex']}")
+                except KeyError:
+                    regex = re.compile(r"^$")
+                relevant_reagents = [str(item.lot) for item in lookup if not regex.match(str(item.lot))]
                 output_reg = []
                 for rel_reagent in relevant_reagents:
                     # NOTE: extract strings from any sets.
@@ -741,8 +747,8 @@ class SubmissionFormWidget(QWidget):
                     if check_not_nan(reagent.lot):
                         relevant_reagents.insert(0, str(reagent.lot))
                     else:
-                        looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
-                                                                           kit_type=extraction_kit)
+                        # looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
+                        #                                                    kit_type=extraction_kit)
                         try:
                             looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
                         except AttributeError:
