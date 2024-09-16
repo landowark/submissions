@@ -1,3 +1,7 @@
+## 202409.04
+
+- Fixed wastewater sample writing bug.
+
 ## 202409.03
 
 - Better navigation and clarity in details panes.

@@ -284,7 +284,8 @@ class SampleWriter(object):
         self.xl = xl
         self.sample_map = submission_type.construct_sample_map()['lookup_table']
         # self.samples = self.reconcile_map(sample_list)
-        samples = [item for item in self.reconcile_map(sample_list)]
+        # NOTE: exclude any samples without a submission rank.
+        samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
         self.samples = sorted(samples, key=lambda k: k['submission_rank'])
 
     def reconcile_map(self, sample_list: list) -> Generator[dict, None, None]:

@@ -79,6 +79,11 @@ class SubmissionDetails(QDialog):
             logger.debug(f"Updating export plate to: {self.export_plate}")
         else:
             self.btn.setEnabled(False)
+        if title == self.webview.history().items()[0].title():
+            logger.debug("Disabling back button")
+            self.back.setEnabled(False)
+        else:
+            self.back.setEnabled(True)
 
     @pyqtSlot(str)
     def sample_details(self, sample: str | BasicSample):
