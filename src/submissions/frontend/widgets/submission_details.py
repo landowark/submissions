@@ -152,9 +152,10 @@ class SubmissionDetails(QDialog):
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
+        # logger.debug(f"User is power user: {is_power_user()}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
-        # self.btn.setEnabled(True)
+
 
     @pyqtSlot(str)
     def sign_off(self, submission: str | BasicSubmission):

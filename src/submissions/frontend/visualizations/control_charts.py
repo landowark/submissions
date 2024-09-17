@@ -124,17 +124,17 @@ class CustomFigure(Figure):
         fig_len = len(self.data)
         if len(modes) > 1:
             for ii, mode in enumerate(modes):
-                # What I need to do is create a list of bools with the same length as the fig.data
+                # NOTE: What I need to do is create a list of bools with the same length as the fig.data
                 mode_vis = [True] * fig_len
-                # And break it into {len(modes)} chunks
+                # NOTE: And break it into {len(modes)} chunks
                 mode_vis = list(divide_chunks(mode_vis, len(modes)))
-                # Then, for each chunk, if the chunk index isn't equal to the index of the current mode, set to false
+                # NOTE: Then, for each chunk, if the chunk index isn't equal to the index of the current mode, set to false
                 for jj, sublist in enumerate(mode_vis):
                     if jj != ii:
                         mode_vis[jj] = [not elem for elem in mode_vis[jj]]
-                # Finally, flatten list.
+                # NOTE: Finally, flatten list.
                 mode_vis = [item for sublist in mode_vis for item in sublist]
-                # Now, yield button to add to list
+                # NOTE: Now, yield button to add to list
                 yield dict(label=mode, method="update", args=[
                     {"visible": mode_vis},
                     {"yaxis.title.text": mode},

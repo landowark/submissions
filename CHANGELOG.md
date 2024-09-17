@@ -1,7 +1,7 @@
 ## 202409.04
 
 - Fixed wastewater sample writing bug.
-- Added regex exclusion for KitTypeReagentRole to trim down Bacteria Positive Control list.
+- Added regex exclusion for KitTypeReagentRole.uses to trim down Bacteria Positive Control lot list.
 
 ## 202409.03
 

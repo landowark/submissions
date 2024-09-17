@@ -66,10 +66,11 @@
         <h3><u>Plate map:</u></h3>
         <img height="600px" width="1300px" src="data:image/jpeg;base64,{{ sub['export_map'] | safe }}">
         {% endif %}
-        {% endblock %}
         {% if signing_permission %}
         <button type="button" id="sign_btn">Sign Off</button>
         {% endif %}
+        {% endblock %}
+
         <br>
         <br>
         <br>
@@ -94,10 +95,8 @@
         {% endfor %}
         document.getElementById("sign_btn").addEventListener("click", function(){
             backend.sign_off("{{ sub['plate_number'] }}");
-        })
-        document.addEventListener('DOMContentLoaded', function() {
-          backend.activate_export(true);
-        }, false);
+        });
+
         {% endblock %}
     </script>
 </html>

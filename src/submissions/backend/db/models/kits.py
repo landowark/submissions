@@ -14,7 +14,7 @@ from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
-from tools import check_authorization, setup_lookup, Report, Result, jinja_template_loading
+from tools import check_authorization, setup_lookup, Report, Result, jinja_template_loading, check_regex_match
 from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
 from pathlib import Path
@@ -175,7 +175,7 @@ class KitType(BaseClass):
             return [item.reagent_role for item in relevant_associations]
 
     # TODO: Move to BasicSubmission?
-    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[str, str]:
+    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[(str, str)]:
         """
         Creates map of locations in Excel workbook for a SubmissionType
 
@@ -1139,6 +1139,23 @@ class KitTypeReagentRoleAssociation(BaseClass):
             base_dict[k] = v
         return base_dict
 
+    def get_all_relevant_reagents(self) -> Generator[Reagent, None, None]:
+        """
+        Creates a generator that will resolve in to a list filling the role associated with this object.
+
+        Returns:
+            Generator: Generates of reagents.
+        """
+        # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
+        reagents = self.reagent_role.instances
+        try:
+            regex = self.uses['exclude_regex']
+        except KeyError:
+            regex = "^$"
+        relevant_reagents = [reagent for reagent in reagents if
+                             not check_regex_match(pattern=regex, check=str(reagent.lot))]
+        for rel_reagent in relevant_reagents:
+            yield rel_reagent
 
 class SubmissionReagentAssociation(BaseClass):
     """

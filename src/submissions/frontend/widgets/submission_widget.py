@@ -1,18 +1,15 @@
 '''
 Contains all submission related frontend functions
 '''
-import re
-import sys
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
 )
 from PyQt6.QtCore import pyqtSignal, Qt
-from pathlib import Path
 from . import select_open_file, select_save_file
 import logging, difflib, inspect
 from pathlib import Path
-from tools import Report, Result, check_not_nan, main_form_style, report_result
+from tools import Report, Result, check_not_nan, main_form_style, report_result, check_regex_match
 from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
@@ -27,10 +24,11 @@ from datetime import date
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 class MyQComboBox(QComboBox):
     def __init__(self, scrollWidget=None, *args, **kwargs):
         super(MyQComboBox, self).__init__(*args, **kwargs)
-        self.scrollWidget=scrollWidget
+        self.scrollWidget = scrollWidget
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         logger.debug(f"Scrollwidget: {scrollWidget}")
 
@@ -40,10 +38,11 @@ class MyQComboBox(QComboBox):
         else:
             return self.scrollWidget.wheelEvent(*args, **kwargs)
 
+
 class MyQDateEdit(QDateEdit):
     def __init__(self, scrollWidget=None, *args, **kwargs):
         super(MyQDateEdit, self).__init__(*args, **kwargs)
-        self.scrollWidget=scrollWidget
+        self.scrollWidget = scrollWidget
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
     def wheelEvent(self, *args, **kwargs):
@@ -243,7 +242,8 @@ class SubmissionFormWidget(QWidget):
                     else:
                         widget = None
                 case _:
-                    widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type, sub_obj=sub_obj)
+                    widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
+                                           sub_obj=sub_obj)
             # logger.debug(f"Setting widget enabled to: {not disable}")
             if disable:
                 widget.input.setEnabled(False)
@@ -266,9 +266,6 @@ class SubmissionFormWidget(QWidget):
         """
         extraction_kit = args[0]
         # caller = inspect.stack()[1].function.__repr__().replace("'", "")
-        # logger.debug(f"Self.reagents: {self.reagents}")
-        # logger.debug(f"\n\n{pformat(caller)}\n\n")
-        # logger.debug(f"SubmissionType: {self.submission_type}")
         report = Report()
         # logger.debug(f"Extraction kit: {extraction_kit}")
         # NOTE: Remove previous reagent widgets
@@ -723,26 +720,13 @@ class SubmissionFormWidget(QWidget):
             def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
                 super().__init__(scrollWidget=scrollWidget)
                 self.setEditable(True)
-                # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
-                lookup = Reagent.query(reagent_role=reagent.role)
                 looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
                                                                    kit_type=extraction_kit)
-                try:
-                    regex = re.compile(rf"{looked_up_rt.uses['exclude_regex']}")
-                except KeyError:
-                    regex = re.compile(r"^$")
-                relevant_reagents = [str(item.lot) for item in lookup if not regex.match(str(item.lot))]
-                output_reg = []
-                for rel_reagent in relevant_reagents:
-                    # NOTE: extract strings from any sets.
-                    if isinstance(rel_reagent, set):
-                        for thing in rel_reagent:
-                            output_reg.append(thing)
-                    elif isinstance(rel_reagent, str):
-                        output_reg.append(rel_reagent)
-                relevant_reagents = output_reg
-                # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
+                # relevant_reagents = [str(item.lot) for item in
+                #                      self.relevant_reagents(assoc=looked_up_rt)]
+                relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
                 # logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
+                # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
                 if str(reagent.lot) not in relevant_reagents:
                     if check_not_nan(reagent.lot):
                         relevant_reagents.insert(0, str(reagent.lot))
@@ -778,5 +762,20 @@ class SubmissionFormWidget(QWidget):
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")
                 # self.setStyleSheet(main_form_style)
 
-
-
+            def relevant_reagents(self, assoc: KitTypeReagentRoleAssociation):
+                # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
+                lookup = Reagent.query(reagent_role=assoc.reagent_role)
+                try:
+                    regex = assoc.uses['exclude_regex']
+                except KeyError:
+                    regex = "^$"
+                relevant_reagents = [item for item in lookup if
+                                     not check_regex_match(pattern=regex, check=str(item.lot))]
+                for rel_reagent in relevant_reagents:
+                    # # NOTE: extract strings from any sets.
+                    # if isinstance(rel_reagent, set):
+                    #     for thing in rel_reagent:
+                    #         yield thing
+                    # elif isinstance(rel_reagent, str):
+                    #     yield rel_reagent
+                    yield rel_reagent
