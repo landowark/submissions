@@ -66,6 +66,8 @@
         <h3><u>Plate map:</u></h3>
         <img height="600px" width="1300px" src="data:image/jpeg;base64,{{ sub['export_map'] | safe }}">
         {% endif %}
+        {% endblock %}
+        {% block signing_button %}
         {% if signing_permission %}
         <button type="button" id="sign_btn">Sign Off</button>
         {% endif %}
@@ -82,8 +84,6 @@
         document.getElementById("{{ sample['submitter_id'] }}").addEventListener("click", function(){
             backend.sample_details("{{ sample['submitter_id'] }}");
         });
-        {% endfor %}
-        {% for sample in sub['samples'] %}
         document.getElementById("{{ sample['submitter_id'] }}_alpha").addEventListener("click", function(){
             backend.sample_details("{{ sample['submitter_id'] }}");
         });

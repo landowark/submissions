@@ -172,6 +172,8 @@ class SubmissionDetails(QDialog):
         """
         export_plate = BasicSubmission.query(rsl_plate_num=self.export_plate)
         base_dict = export_plate.to_dict(full_data=True)
+        base_dict['excluded'] = export_plate.get_default_info('details_ignore')
+        logger.debug(f"base dict: {pformat(base_dict)}")
         writer = DocxWriter(base_dict=base_dict)
         fname = select_save_file(obj=self, default_name=base_dict['plate_number'], extension="docx")
         writer.save(fname)

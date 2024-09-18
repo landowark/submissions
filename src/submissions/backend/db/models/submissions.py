@@ -26,7 +26,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report
 from datetime import datetime, date
-from typing import List, Any, Tuple, Literal, Generator
+from typing import List, Any, Tuple, Literal
 from dateutil.parser import parse
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
@@ -1295,16 +1295,6 @@ class BacterialCulture(BasicSubmission):
             output['controls'] = [item.to_sub_dict() for item in self.controls]
         return output
 
-    # @classmethod
-    # def get_regex(cls) -> str:
-    #     """
-    #     Retrieves string for regex construction.
-    #
-    #     Returns:
-    #         str: string for regex construction
-    #     """
-    #     return "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-
     @classmethod
     def filename_template(cls):
         """
@@ -1491,16 +1481,6 @@ class Wastewater(BasicSubmission):
         outstr = super().enforce_name(instr=instr, data=data)
         return outstr
 
-    # @classmethod
-    # def get_regex(cls) -> str:
-    #     """
-    #     Retrieves string for regex construction
-    #
-    #     Returns:
-    #         str: String for regex construction
-    #     """
-    #     return "(?P<Wastewater>RSL(?:-|_)?WW(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-
     @classmethod
     def adjust_autofill_samples(cls, samples: List[Any]) -> List[Any]:
         """
@@ -1629,7 +1609,7 @@ class Wastewater(BasicSubmission):
                 continue
             copy = dict(submitter_id=sample['submitter_id'], row=row, column=column)
             well_24.append(copy)
-        input_dict['origin_plate'] = DocxWriter.create_plate_map(sample_list=well_24, rows=4, columns=6)
+        input_dict['origin_plate'] = [item for item in DocxWriter.create_plate_map(sample_list=well_24, rows=4, columns=6)]
         return input_dict
 
 
@@ -1910,16 +1890,6 @@ class WastewaterArtic(BasicSubmission):
         final_en_name = f"PBS{year}{month}{day}-{plate_num}"
         # logger.debug(f"Final EN name: {final_en_name}")
         return final_en_name
-
-    # @classmethod
-    # def get_regex(cls) -> str:
-    #     """
-    #     Retrieves string for regex construction
-    #
-    #     Returns:
-    #         str: string for regex construction.
-    #     """
-    #     return "(?P<Wastewater_Artic>(\\d{4}-\\d{2}-\\d{2}(?:-|_)(?:\\d_)?artic)|(RSL(?:-|_)?AR(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)\\d?(\\D|$)R?\\d?)?))"
 
     @classmethod
     def finalize_parse(cls, input_dict: dict, xl: pd.ExcelFile | None = None, info_map: dict | None = None) -> dict:
