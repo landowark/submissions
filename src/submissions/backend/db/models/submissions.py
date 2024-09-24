@@ -72,6 +72,7 @@ class BasicSubmission(BaseClass):
     contact = relationship("Contact", back_populates="submissions")  #: client org
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
                                             name="fk_BS_contact_id"))  #: client lab id from _organizations
+    custom = Column(JSON)
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -563,7 +564,11 @@ class BasicSubmission(BaseClass):
                         existing += value
                     else:
                         if value is not None:
-                            existing.append(value)
+                            if key == "custom":
+                                existing = value
+                            else:
+                                existing.append(value)
+
                 self.__setattr__(key, existing)
                 flag_modified(self, key)
                 return
@@ -741,6 +746,28 @@ class BasicSubmission(BaseClass):
             dict: Updated sample dictionary
         """
         logger.info(f"Calling {cls.__mapper_args__['polymorphic_identity']} info parser.")
+        # logger.debug(f"Input dict: {input_dict}")
+        # logger.debug(f"Custom fields: {custom_fields}")
+        input_dict['custom'] = {}
+        for k,v in custom_fields.items():
+            logger.debug(f"Attempting custom parse of {k}: {v}")
+
+            match v['type']:
+                case "exempt":
+                    continue
+                case "cell":
+                    ws = xl[v['read']['sheet']]
+                    input_dict['custom'][k] = ws.cell(row=v['read']['row'], column=v['read']['column']).value
+                case "range":
+                    ws = xl[v['sheet']]
+                    input_dict['custom'][k] = []
+                    if v['start_row'] != v['end_row']:
+                        v['end_row'] = v['end_row'] + 1
+                    if v['start_column'] != v['end_column']:
+                        v['end_column'] = v['end_column'] + 1
+                    for ii in range(v['start_row'], v['end_row']):
+                        for jj in range(v['start_column'], v['end_column']+1):
+                            input_dict['custom'][k].append(dict(value=ws.cell(row=ii, column=jj).value, row=ii, column=jj))
         return input_dict
 
     @classmethod
@@ -790,6 +817,29 @@ class BasicSubmission(BaseClass):
             Workbook: Updated workbook
         """
         logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} autofill")
+        logger.debug(f"Input dict: {info}")
+        logger.debug(f"Custom fields: {custom_fields}")
+        for k,v in custom_fields.items():
+            try:
+                assert v['type'] in ['exempt', 'range', 'cell']
+            except (AssertionError, KeyError):
+                continue
+            match v['type']:
+                case "exempt":
+                    continue
+                case "cell":
+                    v['write'].append(v['read'])
+                    for cell in v['write']:
+                        ws = input_excel[cell['sheet']]
+                        ws.cell(row=cell['row'], column=cell['column'], value=info['custom'][k])
+                case "range":
+                    ws = input_excel[v['sheet']]
+                    if v['start_row'] != v['end_row']:
+                        v['end_row'] = v['end_row'] + 1
+                    if v['start_column'] != v['end_column']:
+                        v['end_column'] = v['end_column'] + 1
+                    for item in info['custom'][k]:
+                        ws.cell(row=item['row'], column=item['column'], value=item['value'])
         return input_excel
 
     @classmethod

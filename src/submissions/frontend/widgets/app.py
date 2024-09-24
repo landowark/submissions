@@ -1,6 +1,7 @@
 """
 Constructs main application.
 """
+import yaml
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow, 
@@ -10,8 +11,9 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 
 from markdown import markdown
-
+from __init__ import project_path
 from tools import check_if_app, Settings, Report, jinja_template_loading
+from .functions import select_save_file
 from datetime import date
 from .pop_ups import HTMLPop
 from .misc import LogParser
@@ -74,6 +76,7 @@ class App(QMainWindow):
         helpMenu.addAction(self.docsAction)
         helpMenu.addAction(self.githubAction)
         fileMenu.addAction(self.importAction)
+        fileMenu.addAction(self.yamlAction)
         methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
         reportMenu.addAction(self.generateReportAction)
@@ -108,6 +111,7 @@ class App(QMainWindow):
         self.searchLog = QAction("Search Log", self)
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
+        self.yamlAction = QAction("Export Type Template", self)
 
     def _connectActions(self):
         """
@@ -124,6 +128,7 @@ class App(QMainWindow):
         self.searchLog.triggered.connect(self.runSearch)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
+        self.yamlAction.triggered.connect(self.export_ST_yaml)
 
     def showAbout(self):
         """
@@ -196,6 +201,17 @@ class App(QMainWindow):
             case "postgresql+psycopg2":
                 logger.warning(f"Backup function not yet implemented for psql")
                 current_month_bak = current_month_bak.with_suffix(".psql")
+
+    def export_ST_yaml(self):
+        if check_if_app():
+            yaml_path = Path(sys._MEIPASS).joinpath("resources", "viral_culture.yml")
+        else:
+            yaml_path = project_path.joinpath("src", "submissions", "resources", "viral_culture.yml")
+        with open(yaml_path, "r") as f:
+            data = yaml.safe_load(f)
+        fname = select_save_file(obj=self, default_name="Submission Type Template.yml", extension="yml")
+        with open(fname, "w") as f:
+            yaml.safe_dump(data=data, stream=f)
 
 
 class AddSubForm(QWidget):

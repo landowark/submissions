@@ -932,6 +932,9 @@ class SubmissionType(BaseClass):
                     new_process.submission_types.append(submission_type)
                     new_process.kit_types.append(new_kit)
                     new_process.equipment_roles.append(new_role)
+            if 'orgs' in import_dict.keys():
+                logger.info("Found Organizations to be imported.")
+                Organization.import_from_json(filepath=filepath)
             return submission_type
 
 

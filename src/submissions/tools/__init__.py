@@ -909,6 +909,15 @@ def remove_key_from_list_of_dicts(input: list, key: str) -> list:
     return input
 
 
+def yaml_regex_creator(loader, node):
+    # Note: Add to import from json, NOT export yaml in app.
+    # base = node[0].value
+    nodes = loader.construct_sequence(node)
+    name = nodes[0].replace(" ", "_")
+    abbr = nodes[1]
+    return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+
+
 ctx = get_config(None)
 
 

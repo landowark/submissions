@@ -65,20 +65,28 @@ class SheetParser(object):
         """
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
         info = parser.parse_info()
+        logger.debug(f"Checking old submission type: {self.submission_type.name} against new: {info['submission_type']['value']}")
+        if self.submission_type.name != info['submission_type']['value']:
+            if info['submission_type']['value'] not in [None, "None", "", " "]:
+                self.submission_type = SubmissionType.query(name=info['submission_type']['value'])
+                logger.debug(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
+                self.parse_info()
+                return
         self.info_map = parser.map
         for k, v in info.items():
             match k:
                 # NOTE: exclude samples.
                 case "sample":
                     continue
-                case "submission_type":
-                    self.sub[k] = v
-                    # NOTE: Rescue submission type using scraped values to be used in Sample, Reagents, etc.
-                    if v not in [None, "None", "", " "]:
-                        self.submission_type = SubmissionType.query(name=v)
-                        logger.debug(f"Updated self.submission_type to {self.submission_type}")
+                # case "submission_type":
+                #     self.sub[k] = v
+                #     # NOTE: Rescue submission type using scraped values to be used in Sample, Reagents, etc.
+                #     if v not in [None, "None", "", " "]:
+                #         self.submission_type = SubmissionType.query(name=v)
+                #         logger.debug(f"Updated self.submission_type to {self.submission_type}")
                 case _:
                     self.sub[k] = v
+        print(f"\n\n {self.sub} \n\n")
 
 
     def parse_reagents(self, extraction_kit: str | None = None):

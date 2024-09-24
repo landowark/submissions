@@ -546,7 +546,10 @@ class SubmissionFormWidget(QWidget):
                     # logger.debug(f"Kits received for {submission_type}: {uses}")
                     if check_not_nan(value):
                         # logger.debug(f"The extraction kit in parser was: {value}")
-                        uses.insert(0, uses.pop(uses.index(value)))
+                        try:
+                            uses.insert(0, uses.pop(uses.index(value)))
+                        except ValueError:
+                            logger.warning(f"Couldn't find kit in list, skipping move to top of list.")
                         obj.ext_kit = value
                     else:
                         logger.error(f"Couldn't find {obj.prsr.sub['extraction_kit']}")

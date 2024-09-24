@@ -1,3 +1,7 @@
+## 202409.05
+
+- Added in custom field for BasicSubmission which will allow limited new fields to be added to generic submission types.
+
 ## 202409.04
 
 - Fixed wastewater sample writing bug.

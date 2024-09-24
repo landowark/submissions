@@ -1,0 +1,429 @@
+{
+    "name": "Viral Culture",
+    "defaults": {
+            "abbreviation": "VE",
+            "details_ignore": [
+            ],
+            "form_ignore": [
+                "cost_centre"
+            ],
+            "regex": "(?P<Viral_Culture>RSL(?:-|_)?VE(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)",
+            "sample_type": "Basic Sample"
+        },
+    "info": {
+        "comment": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 34,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "contact": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 4,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "contact_phone": {
+            "read": [],
+            "write": [
+                {
+                    "column": 2,
+                    "row": 5,
+                    "sheet": "Sample List"
+                }
+            ]
+        },
+        "cost_centre": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 6,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "custom": {},
+        "extraction_kit": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 5,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "rsl_plate_num": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 13,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "sample_count": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 4,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "signed_by": {
+            "read": [],
+            "write": [
+                {
+                    "column": 2,
+                    "row": 15,
+                    "sheet": "Sample List"
+                }
+            ]
+        },
+        "submission_category": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 6,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submission_type": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 3,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submitted_date": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 3,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submitter_plate_num": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 2,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submitting_lab": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 2,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "technician": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 14,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        }
+    },
+    "samples": {
+        "lookup_table": {
+            "end_row": 132,
+            "merge_on_id": "submitter_id",
+            "sample_columns": {
+                "column": 6,
+                "concentration": 4,
+                "organism": 3,
+                "row": 5,
+                "submitter_id": 2
+            },
+            "sheet": "Sample List",
+            "start_row": 37
+        },
+        "plate_map": {
+            "end_column": 13,
+            "end_row": 14,
+            "sheet": "Plate Map",
+            "start_column": 2,
+            "start_row": 7
+        }
+    },
+    "kits": [
+        {
+            "constant_cost": 0.00,
+            "mutable_cost_column": 0.00,
+            "mutable_cost_sample": 0.00,
+            "kit_type": {
+                "name": "MagMAX-96 Viral RNA Isolation Kit",
+                "reagent roles": [
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 19
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 19
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 19
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Wash Solution 1 (MagMAX-96 Viral)",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 20
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 20
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 20
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Wash Solution 2 (MagMAX-96 Viral)",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 21
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 21
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 21
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Lysis/Binding Solution (MagMAX-96 Viral)",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 22
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 22
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 22
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "RNA Binding Beads (MagMAX-96 Viral)",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 23
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 23
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 23
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Lysis/Binding Enhancer (MagMAX-96 Viral)",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 24
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 24
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 24
+                        },
+                        "sheet": "Sample List",
+                        "required": 0,
+                        "role": "Bacterial-Lysis Buffer",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 25
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 25
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 25
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Elution Buffer (MagMAX-96 Viral)",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 30
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 30
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 30
+                        },
+                        "sheet": "Sample List",
+                        "required": 0,
+                        "role": "Bacterial-Positive Control",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 31
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 31
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 31
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Bead Plate",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 28
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 28
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 28
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Isopropanol",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 29
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 29
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 29
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Ethanol",
+                        "extension_of_life": 0
+                    },
+                    {
+                        "expiry": {
+                            "column": 4,
+                            "row": 32
+                        },
+                        "lot": {
+                            "column": 3,
+                            "row": 32
+                        },
+                        "name": {
+                            "column": 2,
+                            "row": 32
+                        },
+                        "sheet": "Sample List",
+                        "required": 1,
+                        "role": "Carrier RNA",
+                        "extension_of_life": 0
+                    }
+                ],
+                "equipment roles": [
+                    {
+                        "static": 0,
+                        "role": "Extractor",
+                        "processes": [
+                            "OBT_M4029_KFF_v1.0"
+                        ]
+                    },
+                    {
+                        "static": 1,
+                        "role": "Momentum - Extraction",
+                        "processes": [
+                            "Omega_MagBind_Universal_VarCol"
+                        ]
+                    },
+                    {
+                        "static": 1,
+                        "role": "Liquid Handler",
+                        "processes": [
+                            "Bacterial_Core_Submission"
+                        ]
+                    }
+                ]
+            }
+        }       
+    ]
+}

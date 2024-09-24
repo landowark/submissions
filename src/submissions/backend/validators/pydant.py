@@ -734,11 +734,19 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
         for key, value in dicto.items():
             if isinstance(value, dict):
-                value = value['value']
+                try:
+                    value = value['value']
+                except KeyError:
+                    if key == "custom":
+                        pass
+                    else:
+                        continue
             if value is None:
                 continue
             # logger.debug(f"Setting {key} to {value}")
             match key:
+                # case "custom":
+                #     instance.custom = value
                 case "reagents":
                     if report.results[0].code == 1:
                         instance.submission_reagent_associations = []
@@ -782,9 +790,13 @@ class PydSubmission(BaseModel, extra='allow'):
                         ii = value.items()
                     except AttributeError:
                         ii = {}
+                    logger.debug(f"ii is {ii}, value is {value}")
                     for k, v in ii:
+                        logger.debug(f"k is {k}, v is {v}")
                         if isinstance(v, datetime):
                             value[k] = v.strftime("%Y-%m-%d %H:%M:%S")
+                        else:
+                            value[k] = v
                     instance.set_attribute(key=key, value=value)
                 case _:
                     try:

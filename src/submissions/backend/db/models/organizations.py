@@ -2,12 +2,15 @@
 All client organization related models.
 '''
 from __future__ import annotations
+
+import json, yaml, logging
+from pathlib import Path
+from pprint import pformat
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
 from tools import check_authorization, setup_lookup
 from typing import List
-import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -74,6 +77,42 @@ class Organization(BaseClass):
     def save(self):
         super().save()
 
+    @classmethod
+    @check_authorization
+    def import_from_json(cls, filepath: Path|str):
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
+        if not filepath.exists():
+            logging.critical(f"Given file could not be found.")
+            return None
+        with open(filepath, "r") as f:
+            if filepath.suffix == ".json":
+                import_dict = json.load(fp=f)
+            elif filepath.suffix == ".yml":
+                import_dict = yaml.safe_load(stream=f)
+            else:
+                raise Exception(f"Filetype {filepath.suffix} not supported.")
+        data = import_dict['orgs']
+        logger.debug(pformat(import_dict))
+        for org in data:
+            organ = Organization.query(name=org['name'])
+            if organ is None:
+                organ = Organization(name=org['name'])
+                try:
+                    organ.cost_centre = org['cost_centre']
+                except KeyError:
+                    organ.cost_centre = "xxx"
+            for contact in org['contacts']:
+                cont = Contact.query(name=contact['name'])
+                if cont is None:
+                    cont = Contact()
+                for k, v in contact.items():
+                    cont.__setattr__(k, v)
+                organ.contacts.append(cont)
+            organ.save()
+            # logger.debug(pformat(organ.__dict__))
+
+
 
 class Contact(BaseClass):
     """
@@ -119,7 +158,7 @@ class Contact(BaseClass):
         match name:
             case str():
                 # logger.debug(f"Looking up contact with name: {name}")
-                query = query.filter(cls.name == name)
+                query = query.filter(cls.name == name.title())
                 limit = 1
             case _:
                 pass

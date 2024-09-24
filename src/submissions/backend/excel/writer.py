@@ -175,6 +175,8 @@ class InfoWriter(object):
         """
         final_info = {}
         for k, v in self.info:
+            if k == "custom":
+                continue
             # NOTE: merge all comments to fit in single cell.
             if k == "comment" and isinstance(v['value'], list):
                 json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
