@@ -14,7 +14,8 @@ from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
-from tools import check_authorization, setup_lookup, Report, Result, jinja_template_loading, check_regex_match
+from tools import check_authorization, setup_lookup, Report, Result, jinja_template_loading, check_regex_match, \
+    yaml_regex_creator
 from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
 from pathlib import Path
@@ -422,7 +423,7 @@ class Reagent(BaseClass):
         else:
             return f"<Reagent({self.role.name}-{self.lot})>"
 
-    def to_sub_dict(self, extraction_kit: KitType = None, full_data:bool=False) -> dict:
+    def to_sub_dict(self, extraction_kit: KitType = None, full_data: bool = False) -> dict:
         """
         dictionary containing values necessary for gui
 
@@ -873,17 +874,16 @@ class SubmissionType(BaseClass):
 
     @classmethod
     @check_authorization
-    def import_from_json(cls, filepath:Path|str):
+    def import_from_json(cls, filepath: Path | str):
+        yaml.add_constructor("!regex", yaml_regex_creator)
         if isinstance(filepath, str):
             filepath = Path(filepath)
-        if not filepath.exists():
-            logging.critical(f"Given file could not be found.")
-            return None
+
         with open(filepath, "r") as f:
             if filepath.suffix == ".json":
                 import_dict = json.load(fp=f)
             elif filepath.suffix == ".yml":
-                import_dict = yaml.safe_load(stream=f)
+                import_dict = yaml.load(stream=f, Loader=yaml.Loader)
             else:
                 raise Exception(f"Filetype {filepath.suffix} not supported.")
         logger.debug(pformat(import_dict))
@@ -901,8 +901,14 @@ class SubmissionType(BaseClass):
                 new_kit = KitType(name=kit['kit_type']['name'])
             for role in kit['kit_type']['reagent roles']:
                 new_role = ReagentRole.query(name=role['role'])
-                eol = datetime.timedelta(role['extension_of_life'])
+                if new_role:
+                    check = input(f"Found existing role: {new_role.name}. Use this? [Y/n]: ")
+                    if check.lower() == "n":
+                        new_role = None
+                    else:
+                        pass
                 if not new_role:
+                    eol = datetime.timedelta(role['extension_of_life'])
                     new_role = ReagentRole(name=role['role'], eol_ext=eol)
                 uses = dict(expiry=role['expiry'], lot=role['lot'], name=role['name'], sheet=role['sheet'])
                 ktrr_assoc = KitTypeReagentRoleAssociation(kit_type=new_kit, reagent_role=new_role, uses=uses)
@@ -917,9 +923,18 @@ class SubmissionType(BaseClass):
             )
             for role in kit['kit_type']['equipment roles']:
                 new_role = EquipmentRole.query(name=role['role'])
+                if new_role:
+                    check = input(f"Found existing role: {new_role.name}. Use this? [Y/n]: ")
+                    if check.lower() == "n":
+                        new_role = None
+                    else:
+                        pass
                 if not new_role:
                     new_role = EquipmentRole(name=role['role'])
-                ster_assoc = SubmissionTypeEquipmentRoleAssociation(submission_type=submission_type, equipment_role=new_role)
+                    for equipment in Equipment.assign_equipment(equipment_role=new_role):
+                        new_role.instances.append(equipment)
+                ster_assoc = SubmissionTypeEquipmentRoleAssociation(submission_type=submission_type,
+                                                                    equipment_role=new_role)
                 try:
                     uses = dict(name=role['name'], process=role['process'], sheet=role['sheet'], static=role['static'])
                 except KeyError:
@@ -1160,6 +1175,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
         for rel_reagent in relevant_reagents:
             yield rel_reagent
 
+
 class SubmissionReagentAssociation(BaseClass):
     """
     table containing submission/reagent associations
@@ -1399,6 +1415,22 @@ class Equipment(BaseClass):
                           (?P<Axygen>[A-Z]{3}-\d{2}-[A-Z]-[A-Z]$)|
                           (?P<Labcon>\d{4}-\d{3}-\d{3}-\d$)""",
                           re.VERBOSE)
+
+    @classmethod
+    def assign_equipment(cls, equipment_role: EquipmentRole|str) -> List[Equipment]:
+        if isinstance(equipment_role, str):
+            equipment_role = EquipmentRole.query(name=equipment_role)
+        equipment = cls.query()
+        options = "\n".join([f"{ii}. {item.name}" for ii, item in enumerate(equipment)])
+        choices = input(f"Enter equipment numbers to add to {equipment_role.name} (space seperated):\n{options}\n\n")
+        output = []
+        for choice in choices.split(" "):
+            try:
+                choice = int(choice)
+            except (AttributeError, ValueError):
+                continue
+            output.append(equipment[choice])
+        return output
 
 
 class EquipmentRole(BaseClass):

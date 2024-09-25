@@ -831,7 +831,10 @@ class Report(BaseModel):
     results: List[Result] = Field(default=[])
 
     def __repr__(self):
-        return f"Report(result_count:{len(self.results)})"
+        return f"<Report(result_count:{len(self.results)})>"
+
+    def __str__(self):
+        return f"<Report(result_count:{len(self.results)})>"
 
     def add_result(self, result: Result | Report | None):
         """
@@ -916,6 +919,7 @@ def yaml_regex_creator(loader, node):
     name = nodes[0].replace(" ", "_")
     abbr = nodes[1]
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+
 
 
 ctx = get_config(None)
@@ -1004,3 +1008,5 @@ def report_result(func):
 @check_authorization
 def test_function():
     print("Success!")
+
+

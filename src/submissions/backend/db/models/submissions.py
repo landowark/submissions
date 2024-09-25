@@ -167,10 +167,10 @@ class BasicSubmission(BaseClass):
         dicto = dict(
             details_ignore=['excluded', 'reagents', 'samples',
                             'extraction_info', 'comment', 'barcode',
-                            'platemap', 'export_map', 'equipment', 'tips'],
+                            'platemap', 'export_map', 'equipment', 'tips', 'custom'],
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
-                         'submission_object', "tips", 'contact_phone'] + recover,
+                         'submission_object', "tips", 'contact_phone', 'custom'] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         )
@@ -347,12 +347,14 @@ class BasicSubmission(BaseClass):
                 logger.error(f"Error setting tips: {e}")
                 tips = None
             cost_centre = self.cost_centre
+            custom = self.custom
         else:
             reagents = None
             samples = None
             equipment = None
             tips = None
             cost_centre = None
+            custom = None
         # logger.debug("Getting comments")
         try:
             comments = self.comment
@@ -381,6 +383,7 @@ class BasicSubmission(BaseClass):
         # logger.debug(f"Setting contact to: {contact} of type: {type(contact)}")
         output["contact"] = contact
         output["contact_phone"] = contact_phone
+        output["custom"] = custom
         return output
 
     def calculate_column_count(self) -> int:
@@ -549,26 +552,29 @@ class BasicSubmission(BaseClass):
             case "ctx" | "csv" | "filepath" | "equipment":
                 return
             case item if item in self.jsons():
-                # logger.debug(f"Setting JSON attribute.")
-                existing = self.__getattribute__(key)
-                if value is None or value in ['', 'null']:
-                    logger.error(f"No value given, not setting.")
-                    return
-                if existing is None:
-                    existing = []
-                if value in existing:
-                    logger.warning("Value already exists. Preventing duplicate addition.")
-                    return
-                else:
-                    if isinstance(value, list):
-                        existing += value
-                    else:
-                        if value is not None:
-                            if key == "custom":
-                                existing = value
+                match value:
+                    case list():
+                        # logger.debug(f"Setting JSON attribute.")
+                        existing = self.__getattribute__(key)
+                        if value is None or value in ['', 'null']:
+                            logger.error(f"No value given, not setting.")
+                            return
+                        if existing is None:
+                            existing = []
+                        if value in existing:
+                            logger.warning("Value already exists. Preventing duplicate addition.")
+                            return
+                        else:
+                            if isinstance(value, list):
+                                existing += value
                             else:
-                                existing.append(value)
-
+                                if value is not None:
+                                    if key == "custom":
+                                        existing = value
+                                    else:
+                                        existing.append(value)
+                    case _:
+                        existing = value
                 self.__setattr__(key, existing)
                 flag_modified(self, key)
                 return
@@ -749,9 +755,8 @@ class BasicSubmission(BaseClass):
         # logger.debug(f"Input dict: {input_dict}")
         # logger.debug(f"Custom fields: {custom_fields}")
         input_dict['custom'] = {}
-        for k,v in custom_fields.items():
-            logger.debug(f"Attempting custom parse of {k}: {v}")
-
+        for k, v in custom_fields.items():
+            # logger.debug(f"Attempting custom parse of {k}: {v}")
             match v['type']:
                 case "exempt":
                     continue
@@ -766,8 +771,9 @@ class BasicSubmission(BaseClass):
                     if v['start_column'] != v['end_column']:
                         v['end_column'] = v['end_column'] + 1
                     for ii in range(v['start_row'], v['end_row']):
-                        for jj in range(v['start_column'], v['end_column']+1):
-                            input_dict['custom'][k].append(dict(value=ws.cell(row=ii, column=jj).value, row=ii, column=jj))
+                        for jj in range(v['start_column'], v['end_column'] + 1):
+                            input_dict['custom'][k].append(
+                                dict(value=ws.cell(row=ii, column=jj).value, row=ii, column=jj))
         return input_dict
 
     @classmethod
@@ -819,7 +825,7 @@ class BasicSubmission(BaseClass):
         logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} autofill")
         logger.debug(f"Input dict: {info}")
         logger.debug(f"Custom fields: {custom_fields}")
-        for k,v in custom_fields.items():
+        for k, v in custom_fields.items():
             try:
                 assert v['type'] in ['exempt', 'range', 'cell']
             except (AssertionError, KeyError):
@@ -1170,6 +1176,7 @@ class BasicSubmission(BaseClass):
             if "submitted_date" not in kwargs.keys():
                 instance.submitted_date = date.today()
         else:
+            logger.warning(f"Found existing instance: {instance}, asking to overwrite.")
             code = 1
             msg = "This submission already exists.\nWould you like to overwrite?"
         report.add_result(Result(msg=msg, code=code))
@@ -1659,7 +1666,8 @@ class Wastewater(BasicSubmission):
                 continue
             copy = dict(submitter_id=sample['submitter_id'], row=row, column=column)
             well_24.append(copy)
-        input_dict['origin_plate'] = [item for item in DocxWriter.create_plate_map(sample_list=well_24, rows=4, columns=6)]
+        input_dict['origin_plate'] = [item for item in
+                                      DocxWriter.create_plate_map(sample_list=well_24, rows=4, columns=6)]
         return input_dict
 
 
@@ -1728,14 +1736,22 @@ class WastewaterArtic(BasicSubmission):
             ws = wb[info_dict['sheet']]
             img_loader = SheetImageLoader(ws)
             for ii in range(info_dict['start_row'], info_dict['end_row'] + 1):
-                logger.debug(f"Checking row: {ii}")
+                # logger.debug(f"Checking row: {ii}")
                 for jj in range(info_dict['start_column'], info_dict['end_column'] + 1):
+                    # logger.debug(f"Checking column: {jj}")
                     cell_str = f"{row_map[jj]}{ii}"
                     if img_loader.image_in(cell_str):
-                        return img_loader.get(cell_str)
+                        try:
+                            return img_loader.get(cell_str)
+                        except ValueError as e:
+                            logger.error(f"Could not open image from cell: {cell_str} due to {e}")
+                            return None
             return None
 
         input_dict = super().custom_info_parser(input_dict)
+
+        input_dict['submission_type'] = dict(value="Wastewater Artic", missing=False)
+
         logger.debug(f"Custom fields: {custom_fields}")
         egel_section = custom_fields['egel_controls']
         ws = xl[egel_section['sheet']]

@@ -31,6 +31,11 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
     else:
         fname = Path(
             QFileDialog.getOpenFileName(obj, 'Open file', home_dir, filter=f"{file_extension}(*.{file_extension})")[0])
+        if not fname.exists():
+            raise FileNotFoundError(f"File {fname.__str__()} could not be found.")
+        if fname.__str__() == ".":
+            logger.warning(f"No file selected, cancelling.")
+            return
     obj.last_dir = fname.parent
     return fname
 

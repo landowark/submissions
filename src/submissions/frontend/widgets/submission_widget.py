@@ -1,6 +1,8 @@
 '''
 Contains all submission related frontend functions
 '''
+import sys
+
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
@@ -96,6 +98,7 @@ class SubmissionFormContainer(QWidget):
         self.import_submission_function(fname)
         return self.report
 
+    @report_result
     def import_submission_function(self, fname: Path | None = None):
         """
         Import a new submission to the app window
@@ -119,7 +122,7 @@ class SubmissionFormContainer(QWidget):
         if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
         # logger.debug(f"Attempting to parse file: {fname}")
-        if not fname.exists():
+        if not fname:
             report.add_result(Result(msg=f"File {fname.__str__()} not found.", status="critical"))
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
@@ -347,9 +350,14 @@ class SubmissionFormWidget(QWidget):
         # logger.debug(f"SQL object: {pformat(base_submission.__dict__)}")
         # logger.debug(f"Base submission: {base_submission.to_dict()}")
         # NOTE: check output message for issues
+        # logger.debug(f"Result of to_sql: {result}")
         try:
-            code = report.results[-1].code
-        except IndexError:
+            trigger = result.results[-1]
+            code = trigger.code
+            # logger.debug(f"Code from return: {code}")
+        except IndexError as e:
+            logger.error(result.results)
+            logger.error(f"Problem getting error code: {e}")
             code = 0
         match code:
             # NOTE: code 0: everything is fine.
@@ -357,7 +365,7 @@ class SubmissionFormWidget(QWidget):
                 pass
             # NOTE: code 1: ask for overwrite
             case 1:
-                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=result.msg)
+                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=trigger.msg)
                 if dlg.exec():
                     # NOTE: Do not add duplicate reagents.
                     pass

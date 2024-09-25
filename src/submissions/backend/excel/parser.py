@@ -65,14 +65,24 @@ class SheetParser(object):
         """
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
         info = parser.parse_info()
+        self.info_map = parser.map
+        try:
+            check = info['submission_type']['value'] not in [None, "None", "", " "]
+        except KeyError:
+            return
         logger.debug(f"Checking old submission type: {self.submission_type.name} against new: {info['submission_type']['value']}")
         if self.submission_type.name != info['submission_type']['value']:
-            if info['submission_type']['value'] not in [None, "None", "", " "]:
+            # logger.debug(f"info submission type: {info}")
+            if check:
                 self.submission_type = SubmissionType.query(name=info['submission_type']['value'])
                 logger.debug(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
                 self.parse_info()
-                return
-        self.info_map = parser.map
+
+            else:
+                self.submission_type = RSLNamer.retrieve_submission_type(filename=self.filepath)
+                self.parse_info()
+
+
         for k, v in info.items():
             match k:
                 # NOTE: exclude samples.
@@ -86,7 +96,7 @@ class SheetParser(object):
                 #         logger.debug(f"Updated self.submission_type to {self.submission_type}")
                 case _:
                     self.sub[k] = v
-        print(f"\n\n {self.sub} \n\n")
+        # print(f"\n\n {self.sub} \n\n")
 
 
     def parse_reagents(self, extraction_kit: str | None = None):

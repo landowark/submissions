@@ -46,7 +46,35 @@ info:
             row: 6
             sheet: Sample List
         write: []
-    custom: {}
+#    The 'custom' field is currently under development and will allow parsing, storage and writing of new fields in
+#    generic submission types.
+#    Examples of the types of fields are given below.
+    custom: {
+      #        The 'cell' type will read a single cell from the excel sheet and write it to the same cell as well as
+      #        any specified in the write list.
+      #        "test cell": {
+      #            "read": {
+      #                "column": 3,
+      #                "row": 1,
+      #                "sheet": "Plate Map"
+      #            },
+      #            "type": "cell",
+      #            "write": [{
+      #                      "column": 8,
+      #                      "row": 8,
+      #                      "sheet": "Sample List"
+      #                    }]
+      #        },
+      #        The 'range' type will read a group of cells, store them as a list of values, row and column integers
+      #        and write to that range.
+      #        "test range": {
+      #             "sheet": "First Strand",
+      #             "start_row": 1,
+      #             "end_row":9,
+      #             "start_column": 1,
+      #             "end_column": 5
+      #        }
+    }
     extraction_kit:
         read:
         -   column: 4
@@ -107,9 +135,9 @@ info:
             row: 14
             sheet: Sample List
         write: []
+# The 'kits' field holds reagents, equipment and tips information. It's a list of kit_type objects.
 kits:
--   constant_cost: 0.0
-    kit_type:
+-   kit_type:
         name: MagMAX-96 Viral RNA Isolation Kit
         equipment roles:
         -   role: Extractor
@@ -281,6 +309,7 @@ kits:
             required: 1
             role: Carrier RNA
             sheet: Sample List
+    constant_cost: 0.0
     mutable_cost_column: 0.0
     mutable_cost_sample: 0.0
 samples:

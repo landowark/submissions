@@ -729,6 +729,7 @@ class PydSubmission(BaseModel, extra='allow'):
         dicto = self.improved_dict()
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
+        logger.debug(f"Result of query or create: {type(result)}")
         report.add_result(result)
         self.handle_duplicate_samples()
         # logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")

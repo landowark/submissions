@@ -1,7 +1,7 @@
 """
 Constructs main application.
 """
-import yaml
+from pprint import pformat
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow, 
@@ -12,17 +12,17 @@ from pathlib import Path
 
 from markdown import markdown
 from __init__ import project_path
-from tools import check_if_app, Settings, Report, jinja_template_loading
-from .functions import select_save_file
+from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization
+from .functions import select_save_file,select_open_file
 from datetime import date
-from .pop_ups import HTMLPop
+from .pop_ups import HTMLPop, AlertPop
 from .misc import LogParser
 import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .kit_creator import KitAdder
-from .submission_type_creator import SubmissionTypeAdder
+from .submission_type_creator import SubmissionTypeAdder, SubmissionType
 from .sample_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -76,7 +76,8 @@ class App(QMainWindow):
         helpMenu.addAction(self.docsAction)
         helpMenu.addAction(self.githubAction)
         fileMenu.addAction(self.importAction)
-        fileMenu.addAction(self.yamlAction)
+        fileMenu.addAction(self.yamlExportAction)
+        fileMenu.addAction(self.yamlImportAction)
         methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
         reportMenu.addAction(self.generateReportAction)
@@ -111,7 +112,8 @@ class App(QMainWindow):
         self.searchLog = QAction("Search Log", self)
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
-        self.yamlAction = QAction("Export Type Template", self)
+        self.yamlExportAction = QAction("Export Type Example", self)
+        self.yamlImportAction = QAction("Import Type Template", self)
 
     def _connectActions(self):
         """
@@ -128,7 +130,8 @@ class App(QMainWindow):
         self.searchLog.triggered.connect(self.runSearch)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
-        self.yamlAction.triggered.connect(self.export_ST_yaml)
+        self.yamlExportAction.triggered.connect(self.export_ST_yaml)
+        self.yamlImportAction.triggered.connect(self.import_ST_yaml)
 
     def showAbout(self):
         """
@@ -207,11 +210,31 @@ class App(QMainWindow):
             yaml_path = Path(sys._MEIPASS).joinpath("resources", "viral_culture.yml")
         else:
             yaml_path = project_path.joinpath("src", "submissions", "resources", "viral_culture.yml")
-        with open(yaml_path, "r") as f:
-            data = yaml.safe_load(f)
+        # with open(yaml_path, "r") as f:
+        #     data = yaml.safe_load(f)
         fname = select_save_file(obj=self, default_name="Submission Type Template.yml", extension="yml")
-        with open(fname, "w") as f:
-            yaml.safe_dump(data=data, stream=f)
+        # with open(fname, "w") as f:
+        #     yaml.safe_dump(data=data, stream=f)
+        shutil.copyfile(yaml_path, fname)
+
+    @check_authorization
+    def import_ST_yaml(self, *args, **kwargs):
+        fname = select_open_file(obj=self, file_extension="yml")
+        if not fname:
+            logger.info(f"Import cancelled.")
+            return
+        ap = AlertPop(message="This function will proceed in the debug window.", status="Warning", owner=self)
+        ap.exec()
+        st = SubmissionType.import_from_json(filepath=fname)
+        if st:
+            print(pformat(st.to_export_dict()))
+            choice = input("Save the above submission type? [y/N]: ")
+            if choice.lower() == "y":
+                # st.save()
+                pass
+            else:
+                logger.warning("Save of submission type cancelled.")
+
 
 
 class AddSubForm(QWidget):

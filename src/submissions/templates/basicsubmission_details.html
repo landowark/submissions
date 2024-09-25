@@ -13,7 +13,10 @@
         {{ super() }}
         <p>{% for key, value in sub.items() if key not in sub['excluded'] %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: </b>{% if key=='cost' %}{% if sub['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br>
-        {% endfor %}</p>
+        {% endfor %}
+        {% if sub['custom'] %}{% for key, value in sub['custom'].items() %}
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+        {% endfor %}{% endif %}</p>
 
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
