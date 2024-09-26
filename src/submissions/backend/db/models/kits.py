@@ -5,17 +5,14 @@ from __future__ import annotations
 
 import datetime
 import json
-from pprint import pprint, pformat
-
+from pprint import pformat
 import yaml
-from jinja2 import TemplateNotFound
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
 import logging, re
-from tools import check_authorization, setup_lookup, Report, Result, jinja_template_loading, check_regex_match, \
-    yaml_regex_creator
+from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator
 from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
 from pathlib import Path
@@ -204,7 +201,6 @@ class KitType(BaseClass):
                 yield assoc.reagent_role.name, assoc.uses
             except TypeError:
                 continue
-        # return info_map
 
     @classmethod
     @setup_lookup
@@ -267,17 +263,20 @@ class KitType(BaseClass):
         for k, v in self.construct_xl_map_for_use(submission_type=submission_type):
             # logger.debug(f"Value: {v}")
             try:
-                assoc = [item for item in self.kit_reagentrole_associations if item.reagent_role.name == k][0]
-            except IndexError as e:
+                # assoc = [item for item in self.kit_reagentrole_associations if item.reagent_role.name == k][0]
+                assoc = next(item for item in self.kit_reagentrole_associations if item.reagent_role.name == k)
+            except StopIteration as e:
                 continue
             for kk, vv in assoc.to_export_dict().items():
                 v[kk] = vv
             base_dict['reagent roles'].append(v)
         for k, v in submission_type.construct_equipment_map():
             try:
-                assoc = [item for item in submission_type.submissiontype_equipmentrole_associations if
-                         item.equipment_role.name == k][0]
-            except IndexError:
+                # assoc = [item for item in submission_type.submissiontype_equipmentrole_associations if
+                #          item.equipment_role.name == k][0]
+                assoc = next(item for item in submission_type.submissiontype_equipmentrole_associations if
+                          item.equipment_role.name == k)
+            except StopIteration:
                 continue
             for kk, vv in assoc.to_export_dict(kit_type=self).items():
                 # logger.debug(f"{kk}:{vv}")
@@ -858,10 +857,7 @@ class SubmissionType(BaseClass):
         base_dict = dict(name=self.name)
         base_dict['info'] = self.construct_info_map(mode='export')
         base_dict['defaults'] = self.defaults
-        # base_dict['excel location maps']['kits'] = [{k: v for k, v in item.kit_type.construct_xl_map_for_use(submission_type=self)} for item in
-        #                      self.submissiontype_kit_associations]
         base_dict['samples'] = self.construct_sample_map()
-        # base_dict['excel location maps']['equipment_roles'] = {k: v for k, v in self.construct_equipment_map()}
         base_dict['kits'] = [item.to_export_dict() for item in self.submissiontype_kit_associations]
         return base_dict
 
@@ -878,7 +874,6 @@ class SubmissionType(BaseClass):
         yaml.add_constructor("!regex", yaml_regex_creator)
         if isinstance(filepath, str):
             filepath = Path(filepath)
-
         with open(filepath, "r") as f:
             if filepath.suffix == ".json":
                 import_dict = json.load(fp=f)
@@ -949,7 +944,7 @@ class SubmissionType(BaseClass):
                     new_process.equipment_roles.append(new_role)
             if 'orgs' in import_dict.keys():
                 logger.info("Found Organizations to be imported.")
-                Organization.import_from_json(filepath=filepath)
+                Organization.import_from_yml(filepath=filepath)
             return submission_type
 
 
@@ -1031,6 +1026,12 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     def to_export_dict(self):
+        """
+        Creates a dictionary of relevant values in this object.
+
+        Returns:
+            dict: dictionary of Association and related kittype
+        """
         exclude = ['_sa_instance_state', 'submission_types_id', 'kits_id', 'submission_type', 'kit_type']
         base_dict = {k: v for k, v in self.__dict__.items() if k not in exclude}
         base_dict['kit_type'] = self.kit_type.to_export_dict(submission_type=self.submission_type)
@@ -1150,7 +1151,13 @@ class KitTypeReagentRoleAssociation(BaseClass):
             limit = 1
         return cls.execute_query(query=query, limit=limit)
 
-    def to_export_dict(self):
+    def to_export_dict(self) -> dict:
+        """
+        Creates a dictionary of relevant values in this object.
+
+        Returns:
+            dict: dictionary of Association and related reagent role
+        """
         base_dict = {}
         base_dict['required'] = self.required
         for k, v in self.reagent_role.to_export_dict().items():
@@ -1418,6 +1425,15 @@ class Equipment(BaseClass):
 
     @classmethod
     def assign_equipment(cls, equipment_role: EquipmentRole|str) -> List[Equipment]:
+        """
+        Creates a list of equipment from user input to be used in Submission Type creation
+
+        Args:
+            equipment_role (EquipmentRole): Equipment role to be added to.
+
+        Returns:
+            List[Equipment]: User selected equipment.
+        """
         if isinstance(equipment_role, str):
             equipment_role = EquipmentRole.query(name=equipment_role)
         equipment = cls.query()
@@ -1468,16 +1484,7 @@ class EquipmentRole(BaseClass):
         Returns:
             dict: This EquipmentRole dict
         """
-        # output = {}
         return {key: value for key, value in self.__dict__.items() if key != "processes"}
-        #     match key:
-        #         case "processes":
-        #             pass
-        #         case _:
-        #             value = value
-        #     yield key, value
-        # #     output[key] = value
-        # return output
 
     def to_pydantic(self, submission_type: SubmissionType,
                     extraction_kit: str | KitType | None = None) -> "PydEquipmentRole":
@@ -1568,6 +1575,12 @@ class EquipmentRole(BaseClass):
             return output
 
     def to_export_dict(self, submission_type: SubmissionType, kit_type: KitType):
+        """
+        Creates a dictionary of relevant values in this object.
+
+        Returns:
+            dict: dictionary of Association and related reagent role
+        """
         base_dict = {}
         base_dict['role'] = self.name
         base_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=kit_type)

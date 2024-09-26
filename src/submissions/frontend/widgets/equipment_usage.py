@@ -129,7 +129,8 @@ class RoleComboBox(QWidget):
         """
         equip = self.box.currentText()
         # logger.debug(f"Updating equipment: {equip}")
-        equip2 = [item for item in self.role.equipment if item.name == equip][0]
+        # equip2 = [item for item in self.role.equipment if item.name == equip][0]
+        equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
         # logger.debug(f"Using: {equip2}")
         self.process.clear()
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])

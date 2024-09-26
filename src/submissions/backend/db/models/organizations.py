@@ -79,7 +79,16 @@ class Organization(BaseClass):
 
     @classmethod
     @check_authorization
-    def import_from_json(cls, filepath: Path|str):
+    def import_from_yml(cls, filepath: Path | str):
+        """
+        An ambitious project to create a Organization from a yml file
+
+        Args:
+            filepath (Path): Filepath of the yml.
+
+        Returns:
+
+        """
         if isinstance(filepath, str):
             filepath = Path(filepath)
         if not filepath.exists():

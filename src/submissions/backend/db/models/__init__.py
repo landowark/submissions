@@ -6,11 +6,10 @@ import sys, logging
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.exc import ArgumentError, IntegrityError as sqlalcIntegrityError
+from sqlalchemy.exc import ArgumentError
 from typing import Any, List
 from pathlib import Path
 from tools import report_result
-# from sqlite3 import IntegrityError as sqliteIntegrityError
 
 # Load testing environment
 if 'pytest' in sys.modules:
@@ -155,7 +154,7 @@ class BaseClass(Base):
                     return query.limit(limit).all()
 
     @report_result
-    def save(self):
+    def save(self) -> Report | None:
         """
         Add the object to the database and commit
         """
@@ -167,21 +166,8 @@ class BaseClass(Base):
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             logger.error(f"Error message: {type(e)}")
-            # match e:
-            #     case sqlalcIntegrityError():
-            #         origin = e.orig.__str__().lower()
-            #         logger.error(f"Exception origin: {origin}")
-            #         if "unique constraint failed:" in origin:
-            #             field = " ".join(origin.split(".")[1:]).replace("_", " ").upper()
-            #             # logger.debug(field)
-            #             msg = f"{field} doesn't have a unique value.\nIt must be changed."
-            #         else:
-            #             msg = f"Got unknown integrity error: {e}"
-            #     case _:
-            #         msg = f"Got generic error: {e}"
             self.__database_session__.rollback()
             report.add_result(Result(msg=e, status="Critical"))
-            return report
 
 
 class ConfigItem(BaseClass):
@@ -192,8 +178,8 @@ class ConfigItem(BaseClass):
     key = Column(String(32))  #: Name of the configuration item.
     value = Column(JSON)  #: Value associated with the config item.
 
-    def __repr__(self):
-        return f"ConfigItem({self.key} : {self.value})"
+    def __repr__(self) -> str:
+        return f"<ConfigItem({self.key} : {self.value})>"
 
     @classmethod
     def get_config_items(cls, *args) -> ConfigItem | List[ConfigItem]:

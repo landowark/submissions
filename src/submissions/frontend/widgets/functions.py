@@ -1,10 +1,10 @@
 '''
 functions used by all windows in the application's frontend
-NOTE: Depreciated. Moved to functions.__init__
 '''
 from pathlib import Path
 import logging
 from PyQt6.QtWidgets import QMainWindow, QFileDialog
+from tools import Result
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

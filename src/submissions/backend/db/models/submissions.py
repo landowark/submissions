@@ -12,7 +12,7 @@ from zipfile import ZipFile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
-from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, Tips
+from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -24,7 +24,8 @@ import pandas as pd
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
-from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report
+from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
+    report_result
 from datetime import datetime, date
 from typing import List, Any, Tuple, Literal
 from dateutil.parser import parse
@@ -160,7 +161,18 @@ class BasicSubmission(BaseClass):
         return output
 
     @classmethod
-    def get_default_info(cls, *args, submission_type: SubmissionType | None = None):
+    def get_default_info(cls, *args, submission_type: SubmissionType | None = None) -> dict:
+        """
+        Gets default info from the database for a given submission type.
+
+        Args:
+            *args (): List of fields to get
+            submission_type (SubmissionType): the submission type of interest. Necessary due to generic submission types.
+
+        Returns:
+            dict: Default info
+
+        """
         # NOTE: Create defaults for all submission_types
         parent_defs = super().get_default_info()
         recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
@@ -229,6 +241,7 @@ class BasicSubmission(BaseClass):
                 return sub_type
             case _:
                 return SubmissionType.query(cls.__mapper_args__['polymorphic_identity'])
+
 
     @classmethod
     def construct_info_map(cls, submission_type: SubmissionType | None = None,
@@ -408,8 +421,10 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # NOTE: Get kit associated with this submission
-        assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if
-                 item.submission_type == self.submission_type][0]
+        # assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if
+        #          item.submission_type == self.submission_type][0]
+        assoc = next((item for item in self.extraction_kit.kit_submissiontype_associations if item.submission_type == self.submission_type),
+                      None)
         # logger.debug(f"Came up with association: {assoc}")
         # NOTE: If every individual cost is 0 this is probably an old plate.
         if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
@@ -453,8 +468,9 @@ class BasicSubmission(BaseClass):
         for column in range(1, plate_columns + 1):
             for row in range(1, plate_rows + 1):
                 try:
-                    well = [item for item in sample_list if item['row'] == row and item['column'] == column][0]
-                except IndexError:
+                    # well = [item for item in sample_list if item['row'] == row and item['column'] == column][0]
+                    well = next(item for item in sample_list if item['row'] == row and item['column'] == column)
+                except StopIteration:
                     well = dict(name="", row=row, column=column, background_color="#ffffff")
                 output_samples.append(well)
         env = jinja_template_loading()
@@ -498,7 +514,7 @@ class BasicSubmission(BaseClass):
                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
                     'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
                     'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
-                    'tips', 'gel_image_path']
+                    'tips', 'gel_image_path', 'custom']
         for item in excluded:
             try:
                 df = df.drop(item, axis=1)
@@ -553,7 +569,9 @@ class BasicSubmission(BaseClass):
                 return
             case item if item in self.jsons():
                 match value:
-                    case list():
+                    case dict():
+                        existing = value
+                    case _:
                         # logger.debug(f"Setting JSON attribute.")
                         existing = self.__getattribute__(key)
                         if value is None or value in ['', 'null']:
@@ -573,8 +591,6 @@ class BasicSubmission(BaseClass):
                                         existing = value
                                     else:
                                         existing.append(value)
-                    case _:
-                        existing = value
                 self.__setattr__(key, existing)
                 flag_modified(self, key)
                 return
@@ -600,7 +616,13 @@ class BasicSubmission(BaseClass):
         Returns:
             Result: _description_
         """
-        assoc = [item for item in self.submission_sample_associations if item.sample == sample][0]
+        # assoc = [item for item in self.submission_sample_associations if item.sample == sample][0]
+        try:
+            assoc = next(item for item in self.submission_sample_associations if item.sample == sample)
+        except StopIteration:
+            report = Report()
+            report.add_result(Result(msg=f"Couldn't find submission sample association for {sample.submitter_id}", status="Warning"))
+            return report
         for k, v in input_dict.items():
             try:
                 setattr(assoc, k, v)
@@ -716,8 +738,6 @@ class BasicSubmission(BaseClass):
             case str():
                 try:
                     logger.info(f"Recruiting: {cls}")
-                    # model = [item for item in cls.__subclasses__() if
-                    #          item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
                     model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
                 except Exception as e:
                     logger.error(
@@ -823,8 +843,8 @@ class BasicSubmission(BaseClass):
             Workbook: Updated workbook
         """
         logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} autofill")
-        logger.debug(f"Input dict: {info}")
-        logger.debug(f"Custom fields: {custom_fields}")
+        # logger.debug(f"Input dict: {info}")
+        # logger.debug(f"Custom fields: {custom_fields}")
         for k, v in custom_fields.items():
             try:
                 assert v['type'] in ['exempt', 'range', 'cell']
@@ -878,15 +898,9 @@ class BasicSubmission(BaseClass):
         from backend.validators import RSLNamer
         # logger.debug(f"instr coming into {cls}: {instr}")
         logger.debug(f"data coming into {cls}: {data}")
-        # defaults = cls.get_default_info("abbreviation", "submission_type")
         if "submission_type" not in data.keys():
             data['submission_type'] = cls.__mapper_args__['polymorphic_identity']
         data['abbreviation'] = cls.get_default_info("abbreviation", submission_type=data['submission_type'])
-        # logger.debug(f"Default info: {defaults}")
-        # data['abbreviation'] = defaults['abbreviation']
-        # if 'submission_type' not in data.keys() or data['submission_type'] in [None, ""]:
-        #     data['submission_type'] = defaults['submission_type']
-
         if instr in [None, ""]:
             # logger.debug("Sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
@@ -1386,8 +1400,8 @@ class BacterialCulture(BasicSubmission):
                 new_lot = matched.group()
                 try:
                     pos_control_reg = \
-                        [reg for reg in input_dict['reagents'] if reg['role'] == "Bacterial-Positive Control"][0]
-                except IndexError:
+                        next(reg for reg in input_dict['reagents'] if reg['role'] == "Bacterial-Positive Control")
+                except StopIteration:
                     logger.error(f"No positive control reagent listed")
                     return input_dict
                 pos_control_reg['lot'] = new_lot
@@ -1615,6 +1629,7 @@ class Wastewater(BasicSubmission):
         events['Link PCR'] = self.link_pcr
         return events
 
+    @report_result
     def link_pcr(self, obj):
         """
         Adds PCR info to this submission
@@ -1624,7 +1639,11 @@ class Wastewater(BasicSubmission):
         """
         from backend.excel import PCRParser
         from frontend.widgets import select_open_file
+        report = Report()
         fname = select_open_file(obj=obj, file_extension="xlsx")
+        if not fname:
+            report.add_result(Result(msg="No file selected, cancelling.", status="Warning"))
+            return report
         parser = PCRParser(filepath=fname)
         self.set_attribute("pcr_info", parser.pcr)
         self.save(original=False)
@@ -1633,8 +1652,9 @@ class Wastewater(BasicSubmission):
         for sample in self.samples:
             # logger.debug(f"Running update on: {sample}")
             try:
-                sample_dict = [item for item in parser.samples if item['sample'] == sample.rsl_number][0]
-            except IndexError:
+                # sample_dict = [item for item in parser.samples if item['sample'] == sample.rsl_number][0]
+                sample_dict = next(item for item in parser.samples if item['sample'] == sample.rsl_number)
+            except StopIteration:
                 continue
             self.update_subsampassoc(sample=sample, input_dict=sample_dict)
         # self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
@@ -2119,7 +2139,11 @@ class WastewaterArtic(BasicSubmission):
         """
         from frontend.widgets.gel_checker import GelBox
         from frontend.widgets import select_open_file
+        report = Report()
         fname = select_open_file(obj=obj, file_extension="jpg")
+        if not fname:
+            report.add_result(Result(msg="No file selected, cancelling.", status="Warning"))
+            return report
         dlg = GelBox(parent=obj, img_path=fname, submission=self)
         if dlg.exec():
             self.dna_core_submission_number, self.gel_barcode, img_path, output, comment = dlg.parse_form()
@@ -2283,8 +2307,9 @@ class BasicSample(BaseClass):
             polymorphic_identity = polymorphic_identity['value']
         if polymorphic_identity is not None:
             try:
-                return [item for item in cls.__subclasses__() if
-                        item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                # return [item for item in cls.__subclasses__() if
+                #         item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
             except Exception as e:
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
                 model = cls

@@ -146,8 +146,9 @@ class ControlsForm(QWidget):
         for le in self.findChildren(QComboBox):
             label = [item.strip() for item in le.objectName().split(" : ")]
             try:
-                dicto = [item for item in output if item['name'] == label[0]][0]
-            except IndexError:
+                # dicto = [item for item in output if item['name'] == label[0]][0]
+                dicto = next(item for item in output if item['name'] == label[0])
+            except StopIteration:
                 dicto = dict(name=label[0], values=[])
             dicto['values'].append(dict(name=label[1], value=le.currentText()))
             if label[0] not in [item['name'] for item in output]:

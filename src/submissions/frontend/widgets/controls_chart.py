@@ -180,7 +180,11 @@ class ControlsViewer(QWidget):
         safe = ['name', 'submitted_date', 'genus', 'target']
         for column in df.columns:
             if "percent" in column:
-                count_col = [item for item in df.columns if "count" in item][0]
+                # count_col = [item for item in df.columns if "count" in item][0]
+                try:
+                    count_col = next(item for item in df.columns if "count" in item)
+                except StopIteration:
+                    continue
                 # NOTE: The actual percentage from kraken was off due to exclusion of NaN, recalculating.
                 df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
             if column not in safe:
