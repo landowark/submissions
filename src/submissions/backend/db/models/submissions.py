@@ -132,7 +132,7 @@ class BasicSubmission(BaseClass):
             str: Representation of this BasicSubmission
         """
         submission_type = self.submission_type or "Basic"
-        return f"{submission_type}Submission({self.rsl_plate_num})"
+        return f"<{submission_type}Submission({self.rsl_plate_num})>"
 
     @classmethod
     def jsons(cls) -> List[str]:
@@ -230,6 +230,9 @@ class BasicSubmission(BaseClass):
     def get_submission_type(cls, sub_type: str | SubmissionType | None = None) -> SubmissionType:
         """
         Gets the SubmissionType associated with this class
+
+        Args:
+            sub_type (str | SubmissionType, Optional): Identity of the submission type to retrieve. Defaults to None.
 
         Returns:
             SubmissionType: SubmissionType with name equal to this polymorphic identity
@@ -421,8 +424,6 @@ class BasicSubmission(BaseClass):
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # NOTE: Get kit associated with this submission
-        # assoc = [item for item in self.extraction_kit.kit_submissiontype_associations if
-        #          item.submission_type == self.submission_type][0]
         assoc = next((item for item in self.extraction_kit.kit_submissiontype_associations if item.submission_type == self.submission_type),
                       None)
         # logger.debug(f"Came up with association: {assoc}")
@@ -445,7 +446,7 @@ class BasicSubmission(BaseClass):
         Returns positve sample locations for plate
 
         Returns:
-            list: list of htipick dictionaries for each sample
+            list: list of hitpick dictionaries for each sample
         """
         output_list = [assoc.to_hitpick() for assoc in self.submission_sample_associations]
         return output_list
@@ -468,8 +469,7 @@ class BasicSubmission(BaseClass):
         for column in range(1, plate_columns + 1):
             for row in range(1, plate_rows + 1):
                 try:
-                    # well = [item for item in sample_list if item['row'] == row and item['column'] == column][0]
-                    well = next(item for item in sample_list if item['row'] == row and item['column'] == column)
+                    well = next((item for item in sample_list if item['row'] == row and item['column'] == column), dict(name="", row=row, column=column, background_color="#ffffff"))
                 except StopIteration:
                     well = dict(name="", row=row, column=column, background_color="#ffffff")
                 output_samples.append(well)
@@ -2788,16 +2788,17 @@ class SubmissionSampleAssociation(BaseClass):
         if isinstance(polymorphic_identity, dict):
             polymorphic_identity = polymorphic_identity['value']
         if polymorphic_identity is None:
-            output = cls
+            model = cls
         else:
             try:
-                output = [item for item in cls.__subclasses__() if
-                          item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                # output = [item for item in cls.__subclasses__() if
+                #           item.__mapper_args__['polymorphic_identity'] == polymorphic_identity][0]
+                model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
             except Exception as e:
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
-                output = cls
+                model = cls
         # logger.debug(f"Using SubmissionSampleAssociation subclass: {output}")
-        return output
+        return model
 
     @classmethod
     @setup_lookup
@@ -2986,7 +2987,7 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         return sample
 
     @classmethod
-    def autoincrement_id(cls) -> int:
+    def autoincrement_id_local(cls) -> int:
         """
         Increments the association id automatically. Overrides parent
 
@@ -2994,11 +2995,16 @@ class WastewaterAssociation(SubmissionSampleAssociation):
             int: incremented id
         """
         try:
-            parent = [base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"][0]
+            parent = next((base for base in cls.__bases__ if base.__name__=="SubmissionSampleAssociation"),
+                          SubmissionSampleAssociation)
             return max([item.id for item in parent.query()]) + 1
-        except ValueError as e:
+        except StopIteration as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1
+        
+    @classmethod
+    def autoincrement_id(cls) -> int:
+        return super().autoincrement_id()
 
 
 class WastewaterArticAssociation(SubmissionSampleAssociation):
@@ -3040,8 +3046,9 @@ class WastewaterArticAssociation(SubmissionSampleAssociation):
             int: incremented id
         """
         try:
-            parent = [base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"][0]
+            parent = next((base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"),
+                          SubmissionSampleAssociation)
             return max([item.id for item in parent.query()]) + 1
-        except ValueError as e:
+        except StopIteration as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1

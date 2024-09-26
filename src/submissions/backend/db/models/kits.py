@@ -263,7 +263,6 @@ class KitType(BaseClass):
         for k, v in self.construct_xl_map_for_use(submission_type=submission_type):
             # logger.debug(f"Value: {v}")
             try:
-                # assoc = [item for item in self.kit_reagentrole_associations if item.reagent_role.name == k][0]
                 assoc = next(item for item in self.kit_reagentrole_associations if item.reagent_role.name == k)
             except StopIteration as e:
                 continue
@@ -272,10 +271,8 @@ class KitType(BaseClass):
             base_dict['reagent roles'].append(v)
         for k, v in submission_type.construct_equipment_map():
             try:
-                # assoc = [item for item in submission_type.submissiontype_equipmentrole_associations if
-                #          item.equipment_role.name == k][0]
                 assoc = next(item for item in submission_type.submissiontype_equipmentrole_associations if
-                          item.equipment_role.name == k)
+                             item.equipment_role.name == k)
             except StopIteration:
                 continue
             for kk, vv in assoc.to_export_dict(kit_type=self).items():
@@ -292,7 +289,7 @@ class ReagentRole(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64))  #: name of reagent type
+    name = Column(String(64))  #: name of role reagent plays
     instances = relationship("Reagent", back_populates="role",
                              secondary=reagentroles_reagents)  #: concrete instances of this reagent type
     eol_ext = Column(Interval())  #: extension of life interval
@@ -747,15 +744,12 @@ class SubmissionType(BaseClass):
         Returns:
             dict: Map equipment locations in excel sheet
         """
-        # output = {}
         # logger.debug("Iterating through equipment roles")
         for item in self.submissiontype_equipmentrole_associations:
             emap = item.uses
             if emap is None:
                 emap = {}
-            # output[item.equipment_role.name] = emap
             yield item.equipment_role.name, emap
-        # return output
 
     def construct_tips_map(self) -> Generator[str, dict]:
         """
@@ -764,14 +758,11 @@ class SubmissionType(BaseClass):
         Returns:
             dict: Tip locations in the excel sheet.
         """
-        # output = {}
         for item in self.submissiontype_tiprole_associations:
             tmap = item.uses
             if tmap is None:
                 tmap = {}
-            # output[item.tip_role.name] = tmap
             yield item.tip_role.name, tmap
-        # return output
 
     def get_equipment(self, extraction_kit: str | KitType | None = None) -> List['PydEquipmentRole']:
         """
@@ -1035,7 +1026,7 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         exclude = ['_sa_instance_state', 'submission_types_id', 'kits_id', 'submission_type', 'kit_type']
         base_dict = {k: v for k, v in self.__dict__.items() if k not in exclude}
         base_dict['kit_type'] = self.kit_type.to_export_dict(submission_type=self.submission_type)
-        logger.debug(f"STKTA returning: {base_dict}")
+        # logger.debug(f"STKTA returning: {base_dict}")
         return base_dict
 
 
@@ -1073,7 +1064,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
         return f"<KitTypeReagentRoleAssociation({self.kit_type} & {self.reagent_role})>"
 
     @validates('required')
-    def validate_age(self, key, value):
+    def validate_required(self, key, value):
         """
         Ensures only 1 & 0 used in 'required'
 
@@ -1243,7 +1234,6 @@ class SubmissionReagentAssociation(BaseClass):
         match submission:
             case BasicSubmission() | str():
                 if isinstance(submission, str):
-                    # submission = BasicSubmission.query(rsl_number=submission)
                     submission = BasicSubmission.query(rsl_plate_num=submission)
                 # logger.debug(f"Lookup SubmissionReagentAssociation by submission BasicSubmission {submission}")
                 query = query.filter(cls.submission == submission)
@@ -1424,7 +1414,7 @@ class Equipment(BaseClass):
                           re.VERBOSE)
 
     @classmethod
-    def assign_equipment(cls, equipment_role: EquipmentRole|str) -> List[Equipment]:
+    def assign_equipment(cls, equipment_role: EquipmentRole | str) -> List[Equipment]:
         """
         Creates a list of equipment from user input to be used in Submission Type creation
 
@@ -1581,10 +1571,11 @@ class EquipmentRole(BaseClass):
         Returns:
             dict: dictionary of Association and related reagent role
         """
-        base_dict = {}
-        base_dict['role'] = self.name
-        base_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=kit_type)
-        return base_dict
+        return dict(role=self.name,
+                    processes=self.get_processes(submission_type=submission_type, extraction_kit=kit_type))
+        # base_dict['role'] = self.name
+        # base_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=kit_type)
+        # return base_dict
 
 
 class SubmissionEquipmentAssociation(BaseClass):
@@ -1621,6 +1612,7 @@ class SubmissionEquipmentAssociation(BaseClass):
         Returns:
             dict: This SubmissionEquipmentAssociation as a dictionary
         """
+        # TODO: Currently this will only fetch a single process, even if multiple are selectable.
         try:
             process = self.process.name
         except AttributeError:
@@ -1707,9 +1699,9 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
         super().save()
 
     def to_export_dict(self, kit_type: KitType):
-        base_dict = dict(static=self.static)
-        for k, v in self.equipment_role.to_export_dict(submission_type=self.submission_type, kit_type=kit_type).items():
-            base_dict[k] = v
+        base_dict = {k: v for k, v in self.equipment_role.to_export_dict(submission_type=self.submission_type,
+                                                                         kit_type=kit_type).items()}
+        base_dict['static'] = self.static
         return base_dict
 
 

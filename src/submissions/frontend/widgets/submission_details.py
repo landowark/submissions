@@ -177,10 +177,10 @@ class SubmissionDetails(QDialog):
         writer = DocxWriter(base_dict=base_dict)
         fname = select_save_file(obj=self, default_name=base_dict['plate_number'], extension="docx")
         writer.save(fname)
-        try:
-            html_to_pdf(html=self.html, output_file=fname)
-        except PermissionError as e:
-            logger.error(f"Error saving pdf: {e}")
+        # try:
+        #     html_to_pdf(html=self.html, output_file=fname)
+        # except PermissionError as e:
+        #     logger.error(f"Error saving pdf: {e}")
 
 
 class SubmissionComment(QDialog):

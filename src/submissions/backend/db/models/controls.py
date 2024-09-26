@@ -161,7 +161,7 @@ class Control(BaseClass):
         }
         return output
 
-    def convert_by_mode(self, mode: Literal['kraken', 'matches', 'contains']) -> list[dict]:
+    def convert_by_mode(self, mode: Literal['kraken', 'matches', 'contains']) -> List[dict]:
         """
         split this instance into analysis types for controls graphs
 
@@ -169,7 +169,7 @@ class Control(BaseClass):
             mode (str): analysis type, 'contains', etc
 
         Returns:
-            list[dict]: list of records
+            List[dict]: list of records
         """
         output = []
         # logger.debug("load json string for mode (i.e. contains, matches, kraken2)")

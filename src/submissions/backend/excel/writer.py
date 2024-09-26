@@ -547,23 +547,9 @@ class DocxWriter(object):
         if columns == 0:
             columns = max([sample['column'] for sample in sample_list])
         for row in range(0, rows):
-            # NOTE: Create a list with length equal to columns length
-            # contents = [''] * columns
+            # NOTE: Create a list with length equal to columns length, padding with '' where necessary
             contents = [next((item['submitter_id'] for item in sample_list if item['row'] == row + 1 and
                               item['column'] == column + 1), '') for column in range(0, columns)]
-            # for column in range(0, columns):
-            #     contents[column] = next((item['submitter_id'] for item in sample_list if item['row'] == row + 1 and item['column'] == column), '')
-                # try:
-                #     # ooi = [item for item in sample_list if item['row'] == row + 1 and item['column'] == column + 1][0]
-                #     ooi = next(item for item in sample_list if item['row'] == row + 1 and item['column'] == column)
-                # except StopIteration:
-                #     continue
-                # contents[column] = ooi['submitter_id']
-            # NOTE: Pad length of contents to reflect columns
-            # if len(contents) < columns:
-            #     contents += [''] * (columns - len(contents))
-            # if not contents:
-            #     contents = [''] * columns
             yield contents
 
     def create_merged_template(self, *args) -> BytesIO:

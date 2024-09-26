@@ -11,7 +11,7 @@ from typing import Any, List
 from pathlib import Path
 from tools import report_result
 
-# Load testing environment
+# NOTE: Load testing environment
 if 'pytest' in sys.modules:
     sys.path.append(Path(__file__).parents[4].absolute().joinpath("tests").__str__())
 
@@ -24,7 +24,7 @@ class BaseClass(Base):
     """
     Abstract class to pass ctx values to all SQLAlchemy objects.
     """
-    __abstract__ = True  #: Will not be added to DB
+    __abstract__ = True  #: NOTE: Will not be added to DB
 
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
@@ -168,6 +168,7 @@ class BaseClass(Base):
             logger.error(f"Error message: {type(e)}")
             self.__database_session__.rollback()
             report.add_result(Result(msg=e, status="Critical"))
+        return report
 
 
 class ConfigItem(BaseClass):
@@ -202,5 +203,6 @@ from .organizations import *
 from .kits import *
 from .submissions import *
 
-# NOTE: Add a creator to the submission for reagent association.
+# NOTE: Add a creator to the submission for reagent association. Assigned here due to circular import constraints.
+# https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator
 BasicSubmission.reagents.creator = lambda reg: SubmissionReagentAssociation(reagent=reg)
