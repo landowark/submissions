@@ -53,7 +53,7 @@ class SheetParser(object):
         self.parse_samples()
         self.parse_equipment()
         self.parse_tips()
-        self.finalize_parse()
+        # self.finalize_parse()
         # logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
 
     def parse_info(self):
@@ -98,7 +98,7 @@ class SheetParser(object):
         # logger.debug(f"Parsing reagents for {extraction_kit}")
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=extraction_kit)
-        self.sub['reagents'] = [reagent for reagent in parser.parse_reagents()]
+        self.sub['reagents'] = parser.parse_reagents()
 
     def parse_samples(self):
         """
@@ -112,14 +112,14 @@ class SheetParser(object):
         Calls equipment parser to pull info from the excel sheet
         """
         parser = EquipmentParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['equipment'] = [equipment for equipment in parser.parse_equipment()]
+        self.sub['equipment'] = parser.parse_equipment()
 
     def parse_tips(self):
         """
         Calls tips parser to pull info from the excel sheet
         """
         parser = TipParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['tips'] = [tip for tip in parser.parse_tips()]
+        self.sub['tips'] = parser.parse_tips()
 
     def import_kit_validation_check(self):
         """
@@ -136,12 +136,6 @@ class SheetParser(object):
         else:
             if isinstance(self.sub['extraction_kit'], str):
                 self.sub['extraction_kit'] = dict(value=self.sub['extraction_kit'], missing=True)
-
-    def finalize_parse(self):
-        """
-        Run custom final validations of data for submission subclasses.
-        """
-        self.sub = self.sub_object.finalize_parse(input_dict=self.sub, xl=self.xl, info_map=self.info_map)
 
     def to_pydantic(self) -> PydSubmission:
         """
@@ -172,7 +166,7 @@ class SheetParser(object):
             pyd_dict['tips'] = [PydTips(**tips) for tips in self.sub['tips']]
         else:
             pyd_dict['tips'] = None
-        psm = PydSubmission(filepath=self.filepath, **pyd_dict)
+        psm = PydSubmission(filepath=self.filepath, run_custom=True, **pyd_dict)
         return psm
 
 
@@ -524,6 +518,8 @@ class SampleParser(object):
         merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
         plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
         lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
+        print(pformat(plate_map_samples))
+        print(pformat(lookup_samples))
         for ii, psample in enumerate(plate_map_samples):
             try:
                 check = psample['id'] == lookup_samples[ii][merge_on_id]

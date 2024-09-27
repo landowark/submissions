@@ -637,12 +637,16 @@ class PydSubmission(BaseModel, extra='allow'):
         else:
             return value
 
-    def __init__(self, **data):
+    def __init__(self, run_custom:bool=False, **data):
         super().__init__(**data)
-        # this could also be done with default_factory
+        # NOTE: this could also be done with default_factory
+        logger.debug(data)
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
         self.namer = RSLNamer(self.rsl_plate_num['value'], sub_type=self.submission_type['value'])
+        if run_custom:
+            self.submission_object.custom_validation(pyd=self)
+
 
     def set_attribute(self, key: str, value):
         """
