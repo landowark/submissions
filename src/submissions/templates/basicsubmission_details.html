@@ -20,7 +20,7 @@
 
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}</b>: <a class="data-link" id="{{ item['lot'] }}">{{ item['lot'] }} (EXP: {{ item['expiry'] }})</a><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}</b>: <a class="data-link reagent" id="{{ item['lot'] }}">{{ item['lot'] }} (EXP: {{ item['expiry'] }})</a><br>
         {% endfor %}</p>
 
         {% if sub['equipment'] %}
@@ -38,7 +38,7 @@
         {% if sub['samples'] %}
         <h3><u>Samples:</u></h3>
         <p>{% for item in sub['samples'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b><a class="data-link" id="{{ item['submitter_id'] }}_alpha">{% if item['organism'] %} {{ item['name'] }} - ({{ item['organism']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}){% else %} {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}{% endif %}</a><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b><a class="data-link sample" id="{{ item['submitter_id'] }}">{% if item['organism'] %} {{ item['name'] }} - ({{ item['organism']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}){% else %} {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}{% endif %}</a><br>
         {% endfor %}</p>
         {% endif %}
 
@@ -83,22 +83,25 @@
     <script>
         {% block script %}
         {{ super() }}
-        {% for sample in sub['samples'] %}
-        document.getElementById("{{ sample['submitter_id'] }}").addEventListener("click", function(){
-            backend.sample_details("{{ sample['submitter_id'] }}");
-        });
-        document.getElementById("{{ sample['submitter_id'] }}_alpha").addEventListener("click", function(){
-            backend.sample_details("{{ sample['submitter_id'] }}");
-        });
-        {% endfor %}
-        {% for reagent in sub['reagents'] %}
-        document.getElementById("{{ reagent['lot'] }}").addEventListener("click", function(){
-            backend.reagent_details("{{ reagent['lot'] }}", "{{ sub['extraction_kit'] }}");
-        });
-        {% endfor %}
+
         document.getElementById("sign_btn").addEventListener("click", function(){
             backend.sign_off("{{ sub['plate_number'] }}");
         });
+        var sampleSelection = document.getElementsByClassName('sample');
+
+        for(let i = 0; i < sampleSelection.length; i++) {
+          sampleSelection[i].addEventListener("click", function() {
+            backend.sample_details(sampleSelection[i].id);
+          })
+        }
+
+        var reagentSelection = document.getElementsByClassName('reagent');
+
+        for(let i = 0; i < reagentSelection.length; i++) {
+          reagentSelection[i].addEventListener("click", function() {
+            backend.reagent_details(reagentSelection[i].id, "{{ sub['extraction_kit'] }}");
+          })
+        }
 
         {% endblock %}
     </script>

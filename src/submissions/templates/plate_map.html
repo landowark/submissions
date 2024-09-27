@@ -1,6 +1,6 @@
         <div class="gallery" style="display: grid;grid-template-columns: repeat({{ PLATE_COLUMNS }}, 7.5vw);grid-template-rows: repeat({{ PLATE_ROWS }}, 7.5vw);grid-gap: 2px;">
             {% for sample in samples %}
-                <div class="well data-link" id="{{sample['submitter_id']}}" style="background-color: {{sample['background_color']}};
+                <div class="well data-link sample" id="{{sample['submitter_id']}}" style="background-color: {{sample['background_color']}};
                 border: 1px solid #000;
                 padding: 20px;
                 grid-column-start: {{sample['column']}};

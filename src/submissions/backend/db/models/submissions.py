@@ -283,6 +283,17 @@ class BasicSubmission(BaseClass):
         del input_dict['id']
         return input_dict
 
+    def generate_associations(self, name:str, extra:str|None=None):
+        try:
+            field = self.__getattribute__(name)
+        except AttributeError:
+            return None
+        for item in field:
+            if extra:
+                yield item.to_sub_dict(extra)
+            else:
+                yield item.to_sub_dict()
+
     def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
         """
         Constructs dictionary used in submissions summary
@@ -332,6 +343,10 @@ class BasicSubmission(BaseClass):
             try:
                 reagents = [item.to_sub_dict(extraction_kit=self.extraction_kit) for item in
                             self.submission_reagent_associations]
+            except Exception as e:
+                logger.error(f"We got an error retrieving reagents: {e}")
+                reagents = []
+            finally:
                 for k, v in self.extraction_kit.construct_xl_map_for_use(self.submission_type):
                     if k == 'info':
                         continue
@@ -341,26 +356,26 @@ class BasicSubmission(BaseClass):
                         reagents.append(
                             dict(role=k, name="Not Applicable", lot="NA", expiry=expiry,
                                  missing=True))
-            except Exception as e:
-                logger.error(f"We got an error retrieving reagents: {e}")
-                reagents = None
             # logger.debug(f"Running samples.")
-            samples = self.adjust_to_dict_samples(backup=backup)
+            # samples = self.adjust_to_dict_samples(backup=backup)
+            samples = self.generate_associations(name="submission_sample_associations")
             # logger.debug("Running equipment")
-            try:
-                equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
-                if not equipment:
-                    equipment = None
-            except Exception as e:
-                logger.error(f"Error setting equipment: {e}")
-                equipment = None
-            try:
-                tips = [item.to_sub_dict() for item in self.submission_tips_associations]
-                if not tips:
-                    tips = None
-            except Exception as e:
-                logger.error(f"Error setting tips: {e}")
-                tips = None
+            equipment = self.generate_associations(name="submission_equipment_associations")
+            # try:
+            #     equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
+            #     if not equipment:
+            #         equipment = None
+            # except Exception as e:
+            #     logger.error(f"Error setting equipment: {e}")
+            #     equipment = None
+            tips = self.generate_associations(name="submission_tips_associations")
+            # try:
+            #     tips = [item.to_sub_dict() for item in self.submission_tips_associations]
+            #     if not tips:
+            #         tips = None
+            # except Exception as e:
+            #     logger.error(f"Error setting tips: {e}")
+            #     tips = None
             cost_centre = self.cost_centre
             custom = self.custom
         else:
@@ -1013,18 +1028,18 @@ class BasicSubmission(BaseClass):
         logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} sampler")
         return samples
 
-    def adjust_to_dict_samples(self, backup: bool = False) -> List[dict]:
-        """
-        Updates sample dictionaries with custom values
-
-        Args:
-            backup (bool, optional): Whether to perform backup. Defaults to False.
-
-        Returns:
-            List[dict]: Updated dictionaries
-        """
-        # logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
-        return [item.to_sub_dict() for item in self.submission_sample_associations]
+    # def adjust_to_dict_samples(self, backup: bool = False) -> List[dict]:
+    #     """
+    #     Updates sample dictionaries with custom values
+    #
+    #     Args:
+    #         backup (bool, optional): Whether to perform backup. Defaults to False.
+    #
+    #     Returns:
+    #         List[dict]: Updated dictionaries
+    #     """
+    #     # logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
+    #     return [item.to_sub_dict() for item in self.submission_sample_associations]
 
     @classmethod
     def get_details_template(cls, base_dict: dict) -> Tuple[dict, Template]:

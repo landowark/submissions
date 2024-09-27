@@ -53,7 +53,6 @@ class SheetParser(object):
         self.parse_samples()
         self.parse_equipment()
         self.parse_tips()
-        # self.finalize_parse()
         # logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
 
     def parse_info(self):
@@ -63,6 +62,8 @@ class SheetParser(object):
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
         info = parser.parse_info()
         self.info_map = parser.map
+        # NOTE: in order to accommodate generic submission types we have to check for the type in the excel sheet and
+        # rerun accordingly
         try:
             check = info['submission_type']['value'] not in [None, "None", "", " "]
         except KeyError:
@@ -78,13 +79,15 @@ class SheetParser(object):
             else:
                 self.submission_type = RSLNamer.retrieve_submission_type(filename=self.filepath)
                 self.parse_info()
-        for k, v in info.items():
-            match k:
-                # NOTE: exclude samples.
-                case "sample":
-                    continue
-                case _:
-                    self.sub[k] = v
+        [self.sub.__setitem__(k, v) for k, v in info.items()]
+        # for k, v in info.items():
+        #     match k:
+        #         # NOTE: exclude samples.
+        #         case "sample":
+        #             logger.debug(f"Sample found: {k}: {v}")
+        #             continue
+        #         case _:
+        #             self.sub[k] = v
 
     def parse_reagents(self, extraction_kit: str | None = None):
         """
@@ -105,7 +108,7 @@ class SheetParser(object):
         Calls sample parser to pull info from the excel sheet
         """
         parser = SampleParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['samples'] = parser.reconcile_samples()
+        self.sub['samples'] = parser.parse_samples()
 
     def parse_equipment(self):
         """
@@ -145,29 +148,29 @@ class SheetParser(object):
             PydSubmission: output pydantic model
         """
         # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
-        pyd_dict = copy(self.sub)
-        pyd_dict['samples'] = [PydSample(**sample) for sample in self.sub['samples']]
+        # pyd_dict = copy(self.sub)
+        # self.sub['samples'] = [PydSample(**sample) for sample in self.sub['samples']]
         # logger.debug(f"Reagents: {pformat(self.sub['reagents'])}")
-        pyd_dict['reagents'] = [PydReagent(**reagent) for reagent in self.sub['reagents']]
+        # self.sub['reagents'] = [PydReagent(**reagent) for reagent in self.sub['reagents']]
         # logger.debug(f"Equipment: {self.sub['equipment']}")
-        try:
-            check = bool(self.sub['equipment'])
-        except TypeError:
-            check = False
-        if check:
-            pyd_dict['equipment'] = [PydEquipment(**equipment) for equipment in self.sub['equipment']]
-        else:
-            pyd_dict['equipment'] = None
-        try:
-            check = bool(self.sub['tips'])
-        except TypeError:
-            check = False
-        if check:
-            pyd_dict['tips'] = [PydTips(**tips) for tips in self.sub['tips']]
-        else:
-            pyd_dict['tips'] = None
-        psm = PydSubmission(filepath=self.filepath, run_custom=True, **pyd_dict)
-        return psm
+        # try:
+        #     check = bool(self.sub['equipment'])
+        # except TypeError:
+        #     check = False
+        # if check:
+        #     self.sub['equipment'] = [PydEquipment(**equipment) for equipment in self.sub['equipment']]
+        # else:
+        #     self.sub['equipment'] = None
+        # try:
+        #     check = bool(self.sub['tips'])
+        # except TypeError:
+        #     check = False
+        # if check:
+        #     self.sub['tips'] = [PydTips(**tips) for tips in self.sub['tips']]
+        # else:
+        #     self.sub['tips'] = None
+        return PydSubmission(filepath=self.filepath, run_custom=True, **self.sub)
+        # return psm
 
 
 class InfoParser(object):
@@ -287,7 +290,7 @@ class ReagentParser(object):
             extraction_kit (str): Extraction kit used.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        # logger.debug("\n\nHello from ReagentParser!\n\n")
+        logger.debug("\n\nHello from ReagentParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type_obj = submission_type
@@ -382,7 +385,7 @@ class SampleParser(object):
             sample_map (dict | None, optional): Locations in database where samples are found. Defaults to None.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        # logger.debug("\n\nHello from SampleParser!\n\n")
+        logger.debug("\n\nHello from SampleParser!\n\n")
         self.samples = []
         self.xl = xl
         if isinstance(submission_type, str):
@@ -477,49 +480,50 @@ class SampleParser(object):
                 lookup_samples.append(self.samp_object.parse_sample(row_dict))
         return lookup_samples
 
-    def parse_samples(self) -> Tuple[Report | None, List[dict] | List[PydSample]]:
-        """
-        Parse merged platemap/lookup info into dicts/samples
+    # def parse_samples(self) -> Tuple[Report | None, List[dict] | List[PydSample]]:
+    #     """
+    #     Parse merged platemap/lookup info into dicts/samples
+    #
+    #     Returns:
+    #         List[dict]|List[models.BasicSample]: List of samples
+    #     """
+    #     result = None
+    #     new_samples = []
+    #     # logger.debug(f"Starting samples: {pformat(self.samples)}")
+    #     for sample in self.samples:
+    #         translated_dict = {}
+    #         for k, v in sample.items():
+    #             match v:
+    #                 case dict():
+    #                     v = None
+    #                 case float():
+    #                     v = convert_nans_to_nones(v)
+    #                 case _:
+    #                     v = v
+    #             translated_dict[k] = convert_nans_to_nones(v)
+    #         translated_dict['sample_type'] = f"{self.submission_type} Sample"
+    #         translated_dict = self.sub_object.parse_samples(translated_dict)
+    #         translated_dict = self.samp_object.parse_sample(translated_dict)
+    #         # logger.debug(f"Here is the output of the custom parser:\n{translated_dict}")
+    #         new_samples.append(PydSample(**translated_dict))
+    #     return result, new_samples
 
-        Returns:
-            List[dict]|List[models.BasicSample]: List of samples
-        """
-        result = None
-        new_samples = []
-        # logger.debug(f"Starting samples: {pformat(self.samples)}")
-        for sample in self.samples:
-            translated_dict = {}
-            for k, v in sample.items():
-                match v:
-                    case dict():
-                        v = None
-                    case float():
-                        v = convert_nans_to_nones(v)
-                    case _:
-                        v = v
-                translated_dict[k] = convert_nans_to_nones(v)
-            translated_dict['sample_type'] = f"{self.submission_type} Sample"
-            translated_dict = self.sub_object.parse_samples(translated_dict)
-            translated_dict = self.samp_object.parse_sample(translated_dict)
-            # logger.debug(f"Here is the output of the custom parser:\n{translated_dict}")
-            new_samples.append(PydSample(**translated_dict))
-        return result, new_samples
-
-    def reconcile_samples(self) -> Generator[dict, None, None]:
+    def parse_samples(self) -> Generator[dict, None, None]:
         """
         Merges sample info from lookup table and plate map.
 
         Returns:
             List[dict]: Reconciled samples
         """
-        if self.plate_map_samples is None or self.lookup_samples is None:
+        if not self.plate_map_samples or not self.lookup_samples:
+            logger.error(f"No separate samples, returning")
             self.samples = self.lookup_samples or self.plate_map_samples
             return
         merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
         plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
         lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
-        print(pformat(plate_map_samples))
-        print(pformat(lookup_samples))
+        # print(pformat(plate_map_samples))
+        # print(pformat(lookup_samples))
         for ii, psample in enumerate(plate_map_samples):
             try:
                 check = psample['id'] == lookup_samples[ii][merge_on_id]
@@ -563,6 +567,7 @@ class EquipmentParser(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
         """
+        logger.debug("\n\nHello from EquipmentParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -649,6 +654,7 @@ class TipParser(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
         """
+        logger.debug("\n\nHello from TipParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type

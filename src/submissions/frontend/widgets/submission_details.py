@@ -93,15 +93,16 @@ class SubmissionDetails(QDialog):
         Args:
             sample (str): Submitter Id of the sample.
         """
+        logger.debug(f"Details: {sample}")
         if isinstance(sample, str):
             sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
         exclude = ['submissions', 'excluded', 'colour', 'tooltip']
-        try:
-            base_dict['excluded'] += exclude
-        except KeyError:
-            base_dict['excluded'] = exclude
-        template = sample.get_details_template(base_dict=base_dict)
+        # try:
+        #     base_dict['excluded'] += exclude
+        # except KeyError:
+        base_dict['excluded'] = exclude
+        template = sample.get_details_template()
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
@@ -158,6 +159,8 @@ class SubmissionDetails(QDialog):
         # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         # logger.debug(f"User is power user: {is_power_user()}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
+        with open("test.html", "w") as f:
+            f.write(self.html)
         self.webview.setHtml(self.html)
 
 

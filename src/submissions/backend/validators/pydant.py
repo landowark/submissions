@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
+from types import GeneratorType
 from . import RSLNamer
 from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, Report, Result
@@ -395,16 +396,32 @@ class PydSubmission(BaseModel, extra='allow'):
     submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
     reagents: List[dict] | List[PydReagent] = []
-    samples: List[PydSample]
+    samples: List[PydSample] | Generator
     equipment: List[PydEquipment] | None = []
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    tips: List[PydTips] | None =[]
+
+    @field_validator("tips", mode="before")
+    @classmethod
+    def expand_tips(cls, value):
+        # print(f"\n{type(value)}\n")
+        if isinstance(value, dict):
+            value = value['value']
+        if isinstance(value, Generator):
+            logger.debug("We have a generator")
+            return [PydTips(**tips) for tips in value]
+        if not value:
+            return []
+        return value
 
     @field_validator('equipment', mode='before')
     @classmethod
     def convert_equipment_dict(cls, value):
         # logger.debug(f"Equipment: {value}")
-
+        if isinstance(value, Generator):
+            logger.debug("We have a generator")
+            return [PydEquipment(**equipment) for equipment in value]
         if isinstance(value, dict):
             return value['value']
         return value
@@ -578,6 +595,24 @@ class PydSubmission(BaseModel, extra='allow'):
     def rescue_category(cls, value, values):
         if value['value'] not in ["Research", "Diagnostic", "Surveillance", "Validation"]:
             value['value'] = values.data['submission_type']['value']
+        return value
+
+    @field_validator("reagents", mode="before")
+    @classmethod
+    def expand_reagents(cls, value):
+        # print(f"\n{type(value)}\n")
+        if isinstance(value, Generator):
+            logger.debug("We have a generator")
+            return [PydReagent(**reagent) for reagent in value]
+        return value
+
+    @field_validator("samples", mode="before")
+    @classmethod
+    def expand_samples(cls, value):
+        # print(f"\n{type(value)}\n")
+        if isinstance(value, Generator):
+            logger.debug("We have a generator")
+            return [PydSample(**sample) for sample in value]
         return value
 
     @field_validator("samples")
