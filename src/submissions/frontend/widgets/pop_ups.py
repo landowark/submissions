@@ -67,7 +67,7 @@ class ObjectSelector(QDialog):
     """
     dialog to input BaseClass type manually
     """    
-    def __init__(self, title:str, message:str, obj_type:str|models.BaseClass):
+    def __init__(self, title:str, message:str, obj_type:str|type[models.BaseClass]):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()

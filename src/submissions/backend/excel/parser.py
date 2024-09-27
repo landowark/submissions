@@ -1,7 +1,6 @@
 '''
 contains parser objects for pulling values from client generated submission sheets.
 '''
-import sys
 from copy import copy
 from getpass import getuser
 from pprint import pformat
@@ -12,9 +11,7 @@ from backend.db.models import *
 from backend.validators import PydSubmission, PydReagent, RSLNamer, PydSample, PydEquipment, PydTips
 import logging, re
 from collections import OrderedDict
-from datetime import date
-from dateutil.parser import parse, ParserError
-from tools import check_not_nan, convert_nans_to_nones, is_missing, remove_key_from_list_of_dicts, check_key_or_attr
+from tools import check_not_nan, convert_nans_to_nones, is_missing, check_key_or_attr
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -70,34 +67,24 @@ class SheetParser(object):
             check = info['submission_type']['value'] not in [None, "None", "", " "]
         except KeyError:
             return
-        logger.debug(f"Checking old submission type: {self.submission_type.name} against new: {info['submission_type']['value']}")
+        logger.info(
+            f"Checking for updated submission type: {self.submission_type.name} against new: {info['submission_type']['value']}")
         if self.submission_type.name != info['submission_type']['value']:
             # logger.debug(f"info submission type: {info}")
             if check:
                 self.submission_type = SubmissionType.query(name=info['submission_type']['value'])
-                logger.debug(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
+                logger.info(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
                 self.parse_info()
-
             else:
                 self.submission_type = RSLNamer.retrieve_submission_type(filename=self.filepath)
                 self.parse_info()
-
-
         for k, v in info.items():
             match k:
                 # NOTE: exclude samples.
                 case "sample":
                     continue
-                # case "submission_type":
-                #     self.sub[k] = v
-                #     # NOTE: Rescue submission type using scraped values to be used in Sample, Reagents, etc.
-                #     if v not in [None, "None", "", " "]:
-                #         self.submission_type = SubmissionType.query(name=v)
-                #         logger.debug(f"Updated self.submission_type to {self.submission_type}")
                 case _:
                     self.sub[k] = v
-        # print(f"\n\n {self.sub} \n\n")
-
 
     def parse_reagents(self, extraction_kit: str | None = None):
         """
@@ -110,8 +97,8 @@ class SheetParser(object):
             extraction_kit = self.sub['extraction_kit']
         # logger.debug(f"Parsing reagents for {extraction_kit}")
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
-                                             extraction_kit=extraction_kit)
-        self.sub['reagents'] = [item for item in parser.parse_reagents()]
+                               extraction_kit=extraction_kit)
+        self.sub['reagents'] = [reagent for reagent in parser.parse_reagents()]
 
     def parse_samples(self):
         """
@@ -125,14 +112,14 @@ class SheetParser(object):
         Calls equipment parser to pull info from the excel sheet
         """
         parser = EquipmentParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['equipment'] = parser.parse_equipment()
+        self.sub['equipment'] = [equipment for equipment in parser.parse_equipment()]
 
     def parse_tips(self):
         """
         Calls tips parser to pull info from the excel sheet
         """
         parser = TipParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['tips'] = parser.parse_tips()
+        self.sub['tips'] = [tip for tip in parser.parse_tips()]
 
     def import_kit_validation_check(self):
         """
@@ -297,16 +284,18 @@ class ReagentParser(object):
     Object to pull reagents from excel sheet.
     """
 
-    def __init__(self, xl: Workbook, submission_type: str, extraction_kit: str,
+    def __init__(self, xl: Workbook, submission_type: str | SubmissionType, extraction_kit: str,
                  sub_object: BasicSubmission | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str|SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             extraction_kit (str): Extraction kit used.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
         # logger.debug("\n\nHello from ReagentParser!\n\n")
+        if isinstance(submission_type, str):
+            submission_type = SubmissionType.query(name=submission_type)
         self.submission_type_obj = submission_type
         self.sub_object = sub_object
         if isinstance(extraction_kit, dict):
@@ -381,7 +370,7 @@ class ReagentParser(object):
                     check = True
                 if check:
                     yield dict(role=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
-                                      missing=missing)
+                               missing=missing)
         # return listo
 
 
@@ -408,7 +397,8 @@ class SampleParser(object):
         self.submission_type = submission_type.name
         self.submission_type_obj = submission_type
         if sub_object is None:
-            logger.warning(f"Sample parser attempting to fetch submission class with polymorphic identity: {self.submission_type}")
+            logger.warning(
+                f"Sample parser attempting to fetch submission class with polymorphic identity: {self.submission_type}")
             sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.sub_object = sub_object
         self.sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
@@ -521,18 +511,16 @@ class SampleParser(object):
             new_samples.append(PydSample(**translated_dict))
         return result, new_samples
 
-    def reconcile_samples(self) -> List[dict]:
+    def reconcile_samples(self) -> Generator[dict, None, None]:
         """
         Merges sample info from lookup table and plate map.
 
         Returns:
             List[dict]: Reconciled samples
         """
-        # TODO: Move to pydantic validator?
         if self.plate_map_samples is None or self.lookup_samples is None:
             self.samples = self.lookup_samples or self.plate_map_samples
             return
-        samples = []
         merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
         plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
         lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
@@ -561,9 +549,11 @@ class SampleParser(object):
             if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
                 new['submitter_id'] = psample['id']
             new = self.sub_object.parse_samples(new)
-            samples.append(new)
-        samples = remove_key_from_list_of_dicts(samples, "id")
-        return sorted(samples, key=lambda k: (k['row'], k['column']))
+            del new['id']
+            yield new
+            # samples.append(new)
+        # samples = remove_key_from_list_of_dicts(samples, "id")
+        # return sorted(samples, key=lambda k: (k['row'], k['column']))
 
 
 class EquipmentParser(object):
@@ -643,13 +633,13 @@ class EquipmentParser(object):
                     eq = Equipment.query(name=asset)
                 process = ws.cell(row=v['process']['row'], column=v['process']['column']).value
                 try:
-                    output.append(
-                        dict(name=eq.name, processes=[process], role=k, asset_number=eq.asset_number,
-                             nickname=eq.nickname))
+                    # output.append(
+                    yield dict(name=eq.name, processes=[process], role=k, asset_number=eq.asset_number,
+                               nickname=eq.nickname)
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to list.")
                 # logger.debug(f"Here is the output so far: {pformat(output)}")
-        return output
+        # return output
 
 
 class TipParser(object):
@@ -676,7 +666,7 @@ class TipParser(object):
         Returns:
             List[dict]: List of locations
         """
-        return {k:v for k,v in self.submission_type.construct_tips_map()}
+        return {k: v for k, v in self.submission_type.construct_tips_map()}
 
     def parse_tips(self) -> List[dict]:
         """
@@ -710,12 +700,12 @@ class TipParser(object):
                 # logger.debug(f"asset: {asset}")
                 eq = Tips.query(lot=lot, name=asset, limit=1)
                 try:
-                    output.append(
-                        dict(name=eq.name, role=k, lot=lot))
+                    # output.append(
+                    yield dict(name=eq.name, role=k, lot=lot)
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to PydTips list.")
                 # logger.debug(f"Here is the output so far: {pformat(output)}")
-        return output
+        # return output
 
 
 class PCRParser(object):

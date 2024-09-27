@@ -582,7 +582,7 @@ class PydSubmission(BaseModel, extra='allow'):
 
     @field_validator("samples")
     @classmethod
-    def assign_ids(cls, value, values):
+    def assign_ids(cls, value):
         starting_id = SubmissionSampleAssociation.autoincrement_id()
         output = []
         for iii, sample in enumerate(value, start=starting_id):

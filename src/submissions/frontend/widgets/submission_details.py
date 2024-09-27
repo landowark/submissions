@@ -96,14 +96,18 @@ class SubmissionDetails(QDialog):
         if isinstance(sample, str):
             sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
-        base_dict, template = sample.get_details_template(base_dict=base_dict)
+        exclude = ['submissions', 'excluded', 'colour', 'tooltip']
+        try:
+            base_dict['excluded'] += exclude
+        except KeyError:
+            base_dict['excluded'] = exclude
+        template = sample.get_details_template(base_dict=base_dict)
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         html = template.render(sample=base_dict, css=css)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Sample Details - {sample.submitter_id}")
-        # self.btn.setEnabled(False)
 
     @pyqtSlot(str, str)
     def reagent_details(self, reagent: str | Reagent, kit: str | KitType):

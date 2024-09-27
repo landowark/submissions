@@ -168,7 +168,7 @@ class BaseClass(Base):
             logger.error(f"Error message: {type(e)}")
             self.__database_session__.rollback()
             report.add_result(Result(msg=e, status="Critical"))
-        return report
+            return report
 
 
 class ConfigItem(BaseClass):
