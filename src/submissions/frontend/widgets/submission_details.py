@@ -1,12 +1,13 @@
 """
 Webview to show submission and sample details.
 """
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QPageSize, QPageLayout
+from PyQt6.QtPrintSupport import QPrinter
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt, pyqtSlot, QMarginsF
 from jinja2 import TemplateNotFound
 
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
@@ -43,7 +44,7 @@ class SubmissionDetails(QDialog):
         self.layout = QGridLayout()
         # self.setFixedSize(900, 500)
         # NOTE: button to export a pdf version
-        self.btn = QPushButton("Export DOCX")
+        self.btn = QPushButton("Export PDF")
         self.btn.setFixedWidth(775)
         self.btn.clicked.connect(self.export)
         self.back = QPushButton("Back")
@@ -151,7 +152,8 @@ class SubmissionDetails(QDialog):
         self.base_dict = submission.finalize_details(self.base_dict)
         # logger.debug(f"Creating barcode.")
         # logger.debug(f"Making platemap...")
-        self.base_dict['platemap'] = BasicSubmission.make_plate_map(sample_list=submission.hitpick_plate())
+        self.base_dict['platemap'] = submission.make_plate_map(sample_list=submission.hitpick_plate())
+        self.base_dict['excluded'] = submission.get_default_info("details_ignore")
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
@@ -159,10 +161,9 @@ class SubmissionDetails(QDialog):
         # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         # logger.debug(f"User is power user: {is_power_user()}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
-        with open("test.html", "w") as f:
-            f.write(self.html)
+        # with open("test.html", "w") as f:
+        #     f.write(self.html)
         self.webview.setHtml(self.html)
-
 
     @pyqtSlot(str)
     def sign_off(self, submission: str | BasicSubmission):
@@ -177,18 +178,12 @@ class SubmissionDetails(QDialog):
         """
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """
-        export_plate = BasicSubmission.query(rsl_plate_num=self.export_plate)
-        base_dict = export_plate.to_dict(full_data=True)
-        base_dict['excluded'] = export_plate.get_default_info('details_ignore')
-        logger.debug(f"base dict: {pformat(base_dict)}")
-        writer = DocxWriter(base_dict=base_dict)
-        fname = select_save_file(obj=self, default_name=base_dict['plate_number'], extension="docx")
-        writer.save(fname)
-        # try:
-        #     html_to_pdf(html=self.html, output_file=fname)
-        # except PermissionError as e:
-        #     logger.error(f"Error saving pdf: {e}")
-
+        fname = select_save_file(obj=self, default_name=self.export_plate, extension="pdf")
+        page_layout = QPageLayout()
+        page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        page_layout.setOrientation(QPageLayout.Orientation.Portrait)
+        page_layout.setMargins(QMarginsF(25, 25, 25, 25))
+        self.webview.page().printToPdf(fname.with_suffix(".pdf").__str__(), page_layout)
 
 class SubmissionComment(QDialog):
     """

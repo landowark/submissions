@@ -519,6 +519,7 @@ class DocxWriter(object):
         Args:
             base_dict (dict): dictionary of info to be written to template.
         """
+        logger.debug(f"Incoming base dict: {pformat(base_dict)}")
         self.sub_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=base_dict['submission_type'])
         env = jinja_template_loading()
         temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_subdocument.docx"
@@ -528,8 +529,8 @@ class DocxWriter(object):
         if subdocument.exists():
             main_template = self.create_merged_template(main_template, subdocument)
         self.template = DocxTemplate(main_template)
-        base_dict['platemap'] = self.create_plate_map(base_dict['samples'], rows=8, columns=12)
-        # logger.debug(pformat(base_dict['plate_map']))
+        base_dict['platemap'] = [item for item in self.create_plate_map(base_dict['samples'], rows=8, columns=12)]
+        # logger.debug(pformat(base_dict['platemap']))
         try:
             base_dict['excluded'] += ["platemap"]
         except KeyError:

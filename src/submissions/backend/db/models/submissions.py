@@ -1042,7 +1042,7 @@ class BasicSubmission(BaseClass):
     #     return [item.to_sub_dict() for item in self.submission_sample_associations]
 
     @classmethod
-    def get_details_template(cls, base_dict: dict) -> Tuple[dict, Template]:
+    def get_details_template(cls, base_dict: dict) -> Template:
         """
         Get the details jinja template for the correct class
 
@@ -1357,13 +1357,13 @@ class BasicSubmission(BaseClass):
         if fname.name == "":
             # logger.debug(f"export cancelled.")
             return
-        if full_backup:
-            backup = self.to_dict(full_data=True)
-            try:
-                with open(self.__backup_path__.joinpath(fname.with_suffix(".yml")), "w") as f:
-                    yaml.dump(backup, f)
-            except KeyError as e:
-                logger.error(f"Problem saving yml backup file: {e}")
+        # if full_backup:
+        #     backup = self.to_dict(full_data=True)
+        #     try:
+        #         with open(self.__backup_path__.joinpath(fname.with_suffix(".yml")), "w") as f:
+        #             yaml.dump(backup, f)
+        #     except KeyError as e:
+        #         logger.error(f"Problem saving yml backup file: {e}")
         writer = pyd.to_writer()
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
@@ -1632,6 +1632,8 @@ class Wastewater(BasicSubmission):
             dict: Updated information
         """
         input_dict = super().finalize_details(input_dict)
+        # NOTE: Currently this is preserving the generator items, can we come up with a better way?
+        input_dict['samples'] = [sample for sample in input_dict['samples']]
         dummy_samples = []
         for item in input_dict['samples']:
             # logger.debug(f"Sample dict: {item}")
@@ -1681,12 +1683,10 @@ class Wastewater(BasicSubmission):
         for sample in self.samples:
             # logger.debug(f"Running update on: {sample}")
             try:
-                # sample_dict = [item for item in parser.samples if item['sample'] == sample.rsl_number][0]
                 sample_dict = next(item for item in parser.samples if item['sample'] == sample.rsl_number)
             except StopIteration:
                 continue
             self.update_subsampassoc(sample=sample, input_dict=sample_dict)
-        # self.report.add_result(Result(msg=f"We added PCR info to {sub.rsl_plate_num}.", status='Information'))
 
     @classmethod
     def custom_docx_writer(cls, input_dict: dict, tpl_obj=None) -> dict:
@@ -1703,6 +1703,7 @@ class Wastewater(BasicSubmission):
         from backend.excel.writer import DocxWriter
         input_dict = super().custom_docx_writer(input_dict)
         well_24 = []
+        input_dict['samples'] = [item for item in input_dict['samples']]
         samples_copy = deepcopy(input_dict['samples'])
         for sample in sorted(samples_copy, key=itemgetter('column', 'row')):
             try:

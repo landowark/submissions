@@ -739,10 +739,21 @@ class PydSubmission(BaseModel, extra='allow'):
                 pass
         else:
             # logger.debug("Extracting 'value' from attributes")
-            output = {k: (getattr(self, k) if not isinstance(getattr(self, k), dict) else getattr(self, k)['value']) for
-                      k in fields}
-
+            output = {k: self.filter_field(k) for k in fields}
         return output
+
+    def filter_field(self, key:str):
+        item = getattr(self, key)
+        # logger.debug(f"Attempting deconstruction of {key}: {item} with type {type(item)}")
+        match item:
+            case dict():
+                try:
+                    item = item['value']
+                except KeyError:
+                    logger.error(f"Couldn't get dict value: {item}")
+            case _:
+                pass
+        return item
 
     def find_missing(self) -> Tuple[dict, dict]:
         """

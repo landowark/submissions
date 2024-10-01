@@ -1,5 +1,6 @@
 ## 202409.05
 
+- Replaced some lists with generators to improve speed, added javascript to templates for click events.
 - Added in custom field for BasicSubmission which will allow limited new fields to be added to generic submission types.
 
 ## 202409.04
