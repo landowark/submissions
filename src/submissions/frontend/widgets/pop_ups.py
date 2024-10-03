@@ -2,11 +2,10 @@
 Contains dialogs for notification and prompting.
 '''
 from PyQt6.QtWidgets import (
-    QLabel, QVBoxLayout, QDialog, 
+    QLabel, QVBoxLayout, QDialog,
     QDialogButtonBox, QMessageBox, QComboBox
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtCore import Qt
 from tools import jinja_template_loading
 import logging
 from backend.db import models
@@ -20,8 +19,9 @@ env = jinja_template_loading()
 class QuestionAsker(QDialog):
     """
     dialog to ask yes/no questions
-    """    
-    def __init__(self, title:str, message:str):
+    """
+
+    def __init__(self, title: str, message: str):
         super().__init__()
         self.setWindowTitle(title)
         # NOTE: set yes/no buttons
@@ -40,8 +40,10 @@ class QuestionAsker(QDialog):
 class AlertPop(QMessageBox):
     """
     Dialog to show an alert.
-    """    
-    def __init__(self, message:str, status:Literal['Information', 'Question', 'Warning', 'Critical'], owner:str|None=None):
+    """
+
+    def __init__(self, message: str, status: Literal['Information', 'Question', 'Warning', 'Critical'],
+                 owner: str | None = None):
         super().__init__()
         # NOTE: select icon by string
         icon = getattr(QMessageBox.Icon, status)
@@ -49,9 +51,10 @@ class AlertPop(QMessageBox):
         self.setInformativeText(message)
         self.setWindowTitle(f"{owner} - {status.title()}")
 
+
 class HTMLPop(QDialog):
 
-    def __init__(self, html:str, owner:str|None=None, title:str="python"):
+    def __init__(self, html: str, owner: str | None = None, title: str = "python"):
         super().__init__()
 
         self.webview = QWebEngineView(parent=self)
@@ -66,14 +69,18 @@ class HTMLPop(QDialog):
 class ObjectSelector(QDialog):
     """
     dialog to input BaseClass type manually
-    """    
-    def __init__(self, title:str, message:str, obj_type:str|type[models.BaseClass]):
+    """
+
+    def __init__(self, title: str, message: str, obj_type: str | type[models.BaseClass], values: list | None = None):
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()
-        if isinstance(obj_type, str):
-            obj_type: models.BaseClass = getattr(models, obj_type)
-        items = [item.name for item in obj_type.query()]
+        if values:
+            items = values
+        else:
+            if isinstance(obj_type, str):
+                obj_type: models.BaseClass = getattr(models, obj_type)
+            items = [item.name for item in obj_type.query()]
         self.widget.addItems(items)
         self.widget.setEditable(False)
         # NOTE: set yes/no buttons
@@ -95,5 +102,5 @@ class ObjectSelector(QDialog):
 
         Returns:
             str: KitType as str
-        """        
+        """
         return self.widget.currentText()

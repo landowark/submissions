@@ -1,9 +1,13 @@
 """
 Functions for constructing controls graphs using plotly.
 """
+from copy import deepcopy
+from pprint import pformat
+
 import plotly
 import plotly.express as px
 import pandas as pd
+from PyQt6.QtWidgets import QWidget
 from plotly.graph_objects import Figure
 import logging
 from tools import get_unique_values_in_df_column, divide_chunks
@@ -14,7 +18,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class CustomFigure(Figure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None):
+    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None):
         super().__init__()
         self.construct_chart(df=df, modes=modes)
         self.generic_figure_markers(modes=modes, ytitle=ytitle)
@@ -140,7 +144,7 @@ class CustomFigure(Figure):
                     {"yaxis.title.text": mode},
                 ])
 
-    def save_figure(self, group_name: str = "plotly_output"):
+    def save_figure(self, group_name: str = "plotly_output", parent:QWidget|None=None):
         """
         Writes plotly figure to html file.
 
@@ -150,12 +154,10 @@ class CustomFigure(Figure):
             fig (Figure): input figure object
             group_name (str): controltype
         """
-        output = select_save_file(None, default_name=group_name, extension="html")
-        with open(output, "w") as f:
-            try:
-                f.write(self.to_html())
-            except AttributeError:
-                logger.error(f"The following figure was a string: {self}")
+
+        output = select_save_file(obj=parent, default_name=group_name, extension="png")
+        self.write_image(output.absolute().__str__(), engine="kaleido")
+
 
     def to_html(self) -> str:
         """

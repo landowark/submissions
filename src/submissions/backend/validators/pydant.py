@@ -9,7 +9,6 @@ from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
-from types import GeneratorType
 from . import RSLNamer
 from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, Report, Result
@@ -49,7 +48,6 @@ class PydReagent(BaseModel):
     def rescue_type_with_lookup(cls, value, values):
         if value is None and values.data['lot'] is not None:
             try:
-                # return lookup_reagents(ctx=values.data['ctx'], lot_number=values.data['lot']).name
                 return Reagent.query(lot_number=values.data['lot'].name)
             except AttributeError:
                 return value
@@ -222,7 +220,8 @@ class PydSample(BaseModel, extra='allow'):
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         return {k: getattr(self, k) for k in fields}
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[BasicSample, Result]:
+    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[
+        BasicSample, List[SubmissionSampleAssociation], Result | None]:
         """
         Converts this instance into a backend.db.models.submissions.Sample object
 
@@ -238,6 +237,7 @@ class PydSample(BaseModel, extra='allow'):
         instance = BasicSample.query_or_create(sample_type=self.sample_type, submitter_id=self.submitter_id)
         for key, value in self.__dict__.items():
             match key:
+                # NOTE: row, column go in the association
                 case "row" | "column":
                     continue
                 case _:
@@ -259,7 +259,6 @@ class PydSample(BaseModel, extra='allow'):
                                                                           **self.model_extra)
                 # logger.debug(f"Using submission_sample_association: {association}")
                 try:
-                    # instance.sample_submission_associations.append(association)
                     out_associations.append(association)
                 except IntegrityError as e:
                     logger.error(f"Could not attach submission sample association due to: {e}")
@@ -316,10 +315,10 @@ class PydEquipment(BaseModel, extra='ignore'):
     def make_empty_list(cls, value):
         # logger.debug(f"Pydantic value: {value}")
         value = convert_nans_to_nones(value)
-        if value is None:
+        if not value:
             value = ['']
-        if len(value) == 0:
-            value = ['']
+        # if len(value) == 0:
+        #     value = ['']
         try:
             value = [item.strip() for item in value]
         except AttributeError:
@@ -337,7 +336,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             Tuple[Equipment, SubmissionEquipmentAssociation]: SQL objects
         """
         if isinstance(submission, str):
-            logger.info(f"Got string, querying {submission}")
+            # logger.debug(f"Got string, querying {submission}")
             submission = BasicSubmission.query(rsl_number=submission)
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
@@ -347,7 +346,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             # NOTE: Need to make sure the same association is not added to the submission
             try:
                 assoc = SubmissionEquipmentAssociation.query(equipment_id=equipment.id, submission_id=submission.id,
-                                                         role=self.role, limit=1)
+                                                             role=self.role, limit=1)
             except TypeError as e:
                 logger.error(f"Couldn't get association due to {e}, returning...")
                 return equipment, None
@@ -400,7 +399,7 @@ class PydSubmission(BaseModel, extra='allow'):
     equipment: List[PydEquipment] | None = []
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    tips: List[PydTips] | None =[]
+    tips: List[PydTips] | None = []
 
     @field_validator("tips", mode="before")
     @classmethod
@@ -409,7 +408,7 @@ class PydSubmission(BaseModel, extra='allow'):
         if isinstance(value, dict):
             value = value['value']
         if isinstance(value, Generator):
-            logger.debug("We have a generator")
+            # logger.debug("We have a generator")
             return [PydTips(**tips) for tips in value]
         if not value:
             return []
@@ -466,7 +465,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(),
                             missing=True)
             case str():
-                string = re.sub(r"(_|-)\d$", "", value['value'])
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value['value'])
                 try:
                     output = dict(value=parse(string).date(), missing=True)
                 except ParserError as e:
@@ -568,6 +567,7 @@ class PydSubmission(BaseModel, extra='allow'):
         else:
             raise ValueError(f"No extraction kit found.")
         if value is None:
+            # NOTE: Kit selection is done in the parser, so should not be necessary here.
             return dict(value=None, missing=True)
         return value
 
@@ -575,7 +575,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def make_submission_type(cls, value, values):
         if not isinstance(value, dict):
-            value = {"value": value}
+            value = dict(value=value)
         if check_not_nan(value['value']):
             value = value['value'].title()
             return dict(value=value, missing=False)
@@ -593,6 +593,8 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("submission_category")
     @classmethod
     def rescue_category(cls, value, values):
+        if isinstance(value['value'], str):
+            value['value'] = value['value'].title()
         if value['value'] not in ["Research", "Diagnostic", "Surveillance", "Validation"]:
             value['value'] = values.data['submission_type']['value']
         return value
@@ -600,18 +602,16 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("reagents", mode="before")
     @classmethod
     def expand_reagents(cls, value):
-        # print(f"\n{type(value)}\n")
         if isinstance(value, Generator):
-            logger.debug("We have a generator")
+            # logger.debug("We have a generator")
             return [PydReagent(**reagent) for reagent in value]
         return value
 
     @field_validator("samples", mode="before")
     @classmethod
     def expand_samples(cls, value):
-        # print(f"\n{type(value)}\n")
         if isinstance(value, Generator):
-            logger.debug("We have a generator")
+            # logger.debug("We have a generator")
             return [PydSample(**sample) for sample in value]
         return value
 
@@ -619,11 +619,10 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def assign_ids(cls, value):
         starting_id = SubmissionSampleAssociation.autoincrement_id()
-        output = []
         for iii, sample in enumerate(value, start=starting_id):
+            # NOTE: Why is this a list? Answer: to zip with the lists of rows and columns in case of multiple of the same sample.
             sample.assoc_id = [iii]
-            output.append(sample)
-        return output
+        return value
 
     @field_validator("cost_centre", mode="before")
     @classmethod
@@ -672,7 +671,7 @@ class PydSubmission(BaseModel, extra='allow'):
         else:
             return value
 
-    def __init__(self, run_custom:bool=False, **data):
+    def __init__(self, run_custom: bool = False, **data):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
         logger.debug(data)
@@ -681,7 +680,6 @@ class PydSubmission(BaseModel, extra='allow'):
         self.namer = RSLNamer(self.rsl_plate_num['value'], sub_type=self.submission_type['value'])
         if run_custom:
             self.submission_object.custom_validation(pyd=self)
-
 
     def set_attribute(self, key: str, value):
         """
@@ -742,7 +740,7 @@ class PydSubmission(BaseModel, extra='allow'):
             output = {k: self.filter_field(k) for k in fields}
         return output
 
-    def filter_field(self, key:str):
+    def filter_field(self, key: str):
         item = getattr(self, key)
         # logger.debug(f"Attempting deconstruction of {key}: {item} with type {type(item)}")
         match item:
@@ -796,8 +794,6 @@ class PydSubmission(BaseModel, extra='allow'):
                 continue
             # logger.debug(f"Setting {key} to {value}")
             match key:
-                # case "custom":
-                #     instance.custom = value
                 case "reagents":
                     if report.results[0].code == 1:
                         instance.submission_reagent_associations = []
@@ -833,7 +829,6 @@ class PydSubmission(BaseModel, extra='allow'):
                         except AttributeError:
                             continue
                         if association is not None and association not in instance.submission_tips_associations:
-                            # association.save()
                             instance.submission_tips_associations.append(association)
                 case item if item in instance.jsons():
                     # logger.debug(f"{item} is a json.")
@@ -877,16 +872,9 @@ class PydSubmission(BaseModel, extra='allow'):
                 instance.run_cost = instance.run_cost - sum(discounts)
         except Exception as e:
             logger.error(f"An unknown exception occurred when calculating discounts: {e}")
-        # We need to make sure there's a proper rsl plate number
-        # logger.debug(f"We've got a total cost of {instance.run_cost}")
-        # try:
-        #     logger.debug(f"Constructed instance: {instance}")
-        # except AttributeError as e:
-        #     logger.debug(f"Something went wrong constructing instance {self.rsl_plate_num}: {e}")
-        # logger.debug(f"Constructed submissions message: {msg}")
         return instance, report
 
-    def to_form(self, parent: QWidget, disable:list|None=None):
+    def to_form(self, parent: QWidget, disable: list | None = None):
         """
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
 
@@ -1014,7 +1002,6 @@ class PydOrganization(BaseModel):
                     value = [item.to_sql() for item in getattr(self, field)]
                 case _:
                     value = getattr(self, field)
-            # instance.set_attribute(name=field, value=value)
             instance.__setattr__(name=field, value=value)
         return instance
 

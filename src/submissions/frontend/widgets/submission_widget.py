@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from . import select_open_file, select_save_file
-import logging, difflib, inspect
+import logging, difflib
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, check_regex_match
 from backend.excel.parser import SheetParser
@@ -163,7 +163,7 @@ class SubmissionFormContainer(QWidget):
         # NOTE: create form
         dlg = AddReagentForm(reagent_lot=reagent_lot, reagent_role=reagent_role, expiry=expiry, reagent_name=name)
         if dlg.exec():
-            # extract form info
+            # NOTE: extract form info
             info = dlg.parse_form()
             # logger.debug(f"Reagent info: {info}")
             # NOTE: create reagent object
@@ -180,7 +180,6 @@ class SubmissionFormWidget(QWidget):
 
     def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
-        # self.report = Report()
         # logger.debug(f"Disable: {disable}")
         if disable is None:
             disable = []
@@ -268,7 +267,6 @@ class SubmissionFormWidget(QWidget):
             Tuple[QMainWindow, dict]: Updated application and result
         """
         extraction_kit = args[0]
-        # caller = inspect.stack()[1].function.__repr__().replace("'", "")
         report = Report()
         # logger.debug(f"Extraction kit: {extraction_kit}")
         # NOTE: Remove previous reagent widgets

@@ -26,7 +26,7 @@ class RSLNamer(object):
         if self.submission_type is None:
             # logger.debug("Creating submission type because none exists")
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        logger.debug(f"got submission type: {self.submission_type}")
+        logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type is not None:
             # logger.debug("Retrieving BasicSubmission subclass")
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
@@ -48,36 +48,41 @@ class RSLNamer(object):
         Returns:
             str: parsed submission type
         """
+        def st_from_path(filename:Path) -> str:
+            logger.debug(f"Using path method for {filename}.")
+            if filename.exists():
+                wb = load_workbook(filename)
+                try:
+                    # NOTE: Gets first category in the metadata.
+                    submission_type = next(item.strip().title() for item in wb.properties.category.split(";"))
+                except (StopIteration, AttributeError):
+                    sts = {item.name: item.get_template_file_sheets() for item in SubmissionType.query()}
+                    try:
+                        submission_type = next(k.title() for k,v in sts.items() if wb.sheetnames==v)
+                    except StopIteration:
+                        # NOTE: On failure recurse using filename as string for string method
+                        submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
+            else:
+                submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
+            return submission_type
+        def st_from_str(filename:str) -> str:
+            regex = BasicSubmission.construct_regex()
+            logger.debug(f"Using string method for {filename}.")
+            logger.debug(f"Using regex: {regex}")
+            m = regex.search(filename)
+            print(m)
+            try:
+                submission_type = m.lastgroup
+                logger.debug(f"Got submission type: {submission_type}")
+            except AttributeError as e:
+                submission_type = None
+                logger.critical(f"No submission type found or submission type found!: {e}")
+            return submission_type
         match filename:
             case Path():
-                logger.debug(f"Using path method for {filename}.")
-                if filename.exists():
-                    wb = load_workbook(filename)
-                    try:
-                        submission_type = [item.strip().title() for item in wb.properties.category.split(";")][0]
-                    except AttributeError:
-                        try:
-                            sts = {item.name: item.get_template_file_sheets() for item in SubmissionType.query()}
-                            for k, v in sts.items():
-                                # This gets the *first* submission type that matches the sheet names in the workbook 
-                                if wb.sheetnames == v:
-                                    submission_type = k.title()
-                                    break
-                        except:
-                            # On failure recurse using filename as string for string method
-                            submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
-                else:
-                    submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
+                submission_type = st_from_path(filename=filename)
             case str():
-                regex = BasicSubmission.construct_regex()
-                logger.debug(f"Using string method for {filename}.")
-                logger.debug(f"Using regex: {regex}")
-                m = regex.search(filename)
-                try:
-                    submission_type = m.lastgroup
-                    logger.debug(f"Got submission type: {submission_type}")
-                except AttributeError as e:
-                    logger.critical(f"No submission type found or submission type found!: {e}")
+                submission_type = st_from_str(filename=filename)
             case _:
                 submission_type = None
         try:
@@ -93,6 +98,7 @@ class RSLNamer(object):
                                  message="Please select submission type from list below.", obj_type=SubmissionType)
             if dlg.exec():
                 submission_type = dlg.parse_form()
+        print(submission_type)
         submission_type = submission_type.replace("_", " ")
         return submission_type
 

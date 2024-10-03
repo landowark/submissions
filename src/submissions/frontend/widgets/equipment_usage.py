@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,
 from backend.db.models import Equipment, BasicSubmission, Process
 from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
 import logging
-from typing import List
+from typing import List, Generator
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -45,26 +45,26 @@ class EquipmentUsage(QDialog):
             widg.update_processes()
         self.layout.addWidget(self.buttonBox)
 
-    def parse_form(self) -> List[PydEquipment]:
+    def parse_form(self) -> Generator[PydEquipment, None, None]:
         """
         Pull info from all RoleComboBox widgets
 
         Returns:
             List[PydEquipment]: All equipment pulled from widgets
         """
-        output = []
         for widget in self.findChildren(QWidget):
             match widget:
                 case RoleComboBox():
                     if widget.check.isChecked():
-                        output.append(widget.parse_form())
+                        item = widget.parse_form()
+                        if item:
+                            yield item
+                        else:
+                            continue
+                    else:
+                        continue
                 case _:
-                    pass
-        # logger.debug(f"parsed output of Equsage form: {pformat(output)}")
-        try:
-            return [item.strip() for item in output if item is not None]
-        except AttributeError:
-            return [item for item in output if item is not None]
+                    continue
 
     class LabelRow(QWidget):
 
@@ -93,14 +93,10 @@ class RoleComboBox(QWidget):
 
     def __init__(self, parent, role: PydEquipmentRole, used: list) -> None:
         super().__init__(parent)
-        # self.layout = QHBoxLayout()
         self.layout = QGridLayout()
         self.role = role
         self.check = QCheckBox()
-        # if role.name in used:
         self.check.setChecked(False)
-        # else:
-        #     self.check.setChecked(True)
         self.check.stateChanged.connect(self.toggle_checked)
         self.box = QComboBox()
         self.box.setMaximumWidth(200)
@@ -129,7 +125,6 @@ class RoleComboBox(QWidget):
         """
         equip = self.box.currentText()
         # logger.debug(f"Updating equipment: {equip}")
-        # equip2 = [item for item in self.role.equipment if item.name == equip][0]
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
         # logger.debug(f"Using: {equip2}")
         self.process.clear()
@@ -158,7 +153,10 @@ class RoleComboBox(QWidget):
             widget.setMinimumWidth(200)
             widget.setMaximumWidth(200)
             self.layout.addWidget(widget, 0, 4)
-        widget.setEnabled(self.check.isChecked())
+        try:
+            widget.setEnabled(self.check.isChecked())
+        except NameError:
+            pass
 
     def parse_form(self) -> PydEquipment | None:
         """

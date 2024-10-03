@@ -11,8 +11,6 @@ from backend.excel import ReportMaker
 from tools import Report, Result, report_result
 from .functions import select_save_file, select_open_file
 from .misc import ReportDatePicker
-import pandas as pd
-from openpyxl.worksheet.worksheet import Worksheet
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -222,10 +220,6 @@ class SubmissionsSheet(QTableView):
             # NOTE: if imported submission doesn't exist move on to next run
             if sub is None:
                 continue
-            # try:
-            #     logger.debug(f"Found submission: {sub.rsl_plate_num}")
-            # except AttributeError:
-            #     continue
             sub.set_attribute('pcr_info', new_run)
             # NOTE: check if pcr_info already exists
             sub.save()

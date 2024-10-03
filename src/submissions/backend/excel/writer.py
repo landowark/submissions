@@ -3,9 +3,6 @@ contains writer objects for pushing values to submission sheet templates.
 """
 import logging
 from copy import copy
-from operator import itemgetter
-from pathlib import Path
-# from pathlib import Path
 from pprint import pformat
 from typing import List, Generator
 from openpyxl import load_workbook, Workbook
@@ -13,9 +10,6 @@ from backend.db.models import SubmissionType, KitType, BasicSubmission
 from backend.validators.pydant import PydSubmission
 from io import BytesIO
 from collections import OrderedDict
-from tools import jinja_template_loading
-from docxtpl import DocxTemplate
-from docx import Document
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -147,7 +141,6 @@ class InfoWriter(object):
         Returns:
             dict: merged dictionary
         """
-        # output = {}
         for k, v in info_dict.items():
             if v is None:
                 continue
@@ -163,8 +156,6 @@ class InfoWriter(object):
             if len(dicto) > 0:
                 # output[k] = dicto
                 yield k, dicto
-        # logger.debug(f"Reconciled info: {pformat(output)}")
-        # return output
 
     def write_info(self) -> Workbook:
         """
@@ -217,7 +208,6 @@ class ReagentWriter(object):
         if isinstance(extraction_kit, str):
             kit_type = KitType.query(name=extraction_kit)
         reagent_map = {k: v for k, v in kit_type.construct_xl_map_for_use(submission_type)}
-        # self.reagents = {k: v for k, v in self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)}
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
     def reconcile_map(self, reagent_list: List[dict], reagent_map: dict) -> Generator[dict, None, None]:
@@ -231,7 +221,6 @@ class ReagentWriter(object):
         Returns:
             List[dict]: merged dictionary
         """
-        # output = []
         for reagent in reagent_list:
             try:
                 mp_info = reagent_map[reagent['role']]
@@ -246,9 +235,7 @@ class ReagentWriter(object):
                     dicto = v
                 placeholder[k] = dicto
                 placeholder['sheet'] = mp_info['sheet']
-            # output.append(placeholder)
             yield placeholder
-        # return output
 
     def write_reagents(self) -> Workbook:
         """
@@ -285,7 +272,6 @@ class SampleWriter(object):
         self.submission_type = submission_type
         self.xl = xl
         self.sample_map = submission_type.construct_sample_map()['lookup_table']
-        # self.samples = self.reconcile_map(sample_list)
         # NOTE: exclude any samples without a submission rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
         self.samples = sorted(samples, key=lambda k: k['submission_rank'])
@@ -300,7 +286,6 @@ class SampleWriter(object):
         Returns:
             List[dict]: List of merged dictionaries
         """
-        # output = []
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
             # logger.debug(f"Writing sample: {sample}")
@@ -311,7 +296,6 @@ class SampleWriter(object):
                         continue
                     new[k] = v
                 yield new
-        # return sorted(output, key=lambda k: k['submission_rank'])
 
     def write_samples(self) -> Workbook:
         """
@@ -325,6 +309,11 @@ class SampleWriter(object):
         for sample in self.samples:
             row = self.sample_map['start_row'] + (sample['submission_rank'] - 1)
             for k, v in sample.items():
+                if isinstance(v, dict):
+                    try:
+                        v = v['value']
+                    except KeyError:
+                        logger.error(f"Cant convert {v} to single string.")
                 try:
                     column = columns[k]
                 except KeyError:
@@ -363,7 +352,6 @@ class EquipmentWriter(object):
         Returns:
             List[dict]: List of merged dictionaries 
         """
-        # output = []
         if equipment_list is None:
             return
         for ii, equipment in enumerate(equipment_list, start=1):
@@ -388,10 +376,7 @@ class EquipmentWriter(object):
                 placeholder['sheet'] = mp_info['sheet']
             except KeyError:
                 placeholder['sheet'] = "Equipment"
-            # logger.debug(f"Final output of {equipment['role']} : {placeholder}")
             yield placeholder
-            # output.append(placeholder)
-        # return output
 
     def write_equipment(self) -> Workbook:
         """
@@ -452,19 +437,19 @@ class TipWriter(object):
         Returns:
             List[dict]: List of merged dictionaries
         """
-        # output = []
         if tips_list is None:
             return
         for ii, tips in enumerate(tips_list, start=1):
-            mp_info = tips_map[tips['role']]
+            # mp_info = tips_map[tips['role']]
+            mp_info = tips_map[tips.role]
             # logger.debug(f"{tips['role']} map: {mp_info}")
-            placeholder = copy(tips)
+            placeholder = {}
             if mp_info == {}:
-                for jj, (k, v) in enumerate(tips.items(), start=1):
+                for jj, (k, v) in enumerate(tips.__dict__.items(), start=1):
                     dicto = dict(value=v, row=ii, column=jj)
                     placeholder[k] = dicto
             else:
-                for jj, (k, v) in enumerate(tips.items(), start=1):
+                for jj, (k, v) in enumerate(tips.__dict__.items(), start=1):
                     try:
                         dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
                     except KeyError as e:
@@ -477,8 +462,6 @@ class TipWriter(object):
                 placeholder['sheet'] = "Tips"
             # logger.debug(f"Final output of {tips['role']} : {placeholder}")
             yield placeholder
-            # output.append(placeholder)
-        # return output
 
     def write_tips(self) -> Workbook:
         """
@@ -507,72 +490,3 @@ class TipWriter(object):
                     logger.error(f"Couldn't write to {tips['sheet']}, row: {v['row']}, column: {v['column']}")
                     logger.error(e)
         return self.xl
-
-
-class DocxWriter(object):
-    """
-    Object to render 
-    """
-
-    def __init__(self, base_dict: dict):
-        """
-        Args:
-            base_dict (dict): dictionary of info to be written to template.
-        """
-        logger.debug(f"Incoming base dict: {pformat(base_dict)}")
-        self.sub_obj = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=base_dict['submission_type'])
-        env = jinja_template_loading()
-        temp_name = f"{base_dict['submission_type'].replace(' ', '').lower()}_subdocument.docx"
-        path = Path(env.loader.__getattribute__("searchpath")[0])
-        main_template = path.joinpath("basicsubmission_document.docx")
-        subdocument = path.joinpath(temp_name)
-        if subdocument.exists():
-            main_template = self.create_merged_template(main_template, subdocument)
-        self.template = DocxTemplate(main_template)
-        base_dict['platemap'] = [item for item in self.create_plate_map(base_dict['samples'], rows=8, columns=12)]
-        # logger.debug(pformat(base_dict['platemap']))
-        try:
-            base_dict['excluded'] += ["platemap"]
-        except KeyError:
-            base_dict['excluded'] = ["platemap"]
-        base_dict = self.sub_obj.custom_docx_writer(base_dict, tpl_obj=self.template)
-        # logger.debug(f"Base dict: {pformat(base_dict)}")
-        self.template.render({"sub": base_dict})
-
-    @classmethod
-    def create_plate_map(self, sample_list: List[dict], rows: int = 0, columns: int = 0) -> List[list]:
-        sample_list = sorted(sample_list, key=itemgetter('column', 'row'))
-        # NOTE if rows or samples is default, set to maximum value in sample list
-        if rows == 0:
-            rows = max([sample['row'] for sample in sample_list])
-        if columns == 0:
-            columns = max([sample['column'] for sample in sample_list])
-        for row in range(0, rows):
-            # NOTE: Create a list with length equal to columns length, padding with '' where necessary
-            contents = [next((item['submitter_id'] for item in sample_list if item['row'] == row + 1 and
-                              item['column'] == column + 1), '') for column in range(0, columns)]
-            yield contents
-
-    def create_merged_template(self, *args) -> BytesIO:
-        """
-        Appends submission specific information
-
-        Returns:
-            BytesIO: Merged docx template
-        """
-        merged_document = Document()
-        output = BytesIO()
-        for index, file in enumerate(args):
-            sub_doc = Document(file)
-            # Don't add a page break if you've reached the last file.
-            # if index < len(args) - 1:
-            #     sub_doc.add_page_break()
-            for element in sub_doc.element.body:
-                merged_document.element.body.append(element)
-        merged_document.save(output)
-        return output
-
-    def save(self, filename: Path | str):
-        if isinstance(filename, str):
-            filename = Path(filename)
-        self.template.save(filename)

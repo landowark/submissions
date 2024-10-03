@@ -2,12 +2,13 @@
 Handles display of control charts
 """
 import re
+import sys
 from datetime import timedelta
 from typing import Tuple
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
-    QDateEdit, QLabel, QSizePolicy
+    QDateEdit, QLabel, QSizePolicy, QPushButton
 )
 from PyQt6.QtCore import QSignalBlocker
 from backend.db import ControlType, Control
@@ -15,10 +16,10 @@ from PyQt6.QtCore import QDate, QSize
 import logging
 from pandas import DataFrame
 from tools import Report, Result, get_unique_values_in_df_column, Settings, report_result
-# from backend.excel.reports import convert_data_list_to_df
 from frontend.visualizations.control_charts import CustomFigure
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
 
 class ControlsViewer(QWidget):
 
@@ -29,7 +30,7 @@ class ControlsViewer(QWidget):
         self.report = Report()
         self.datepicker = ControlsDatePicker()
         self.webengineview = QWebEngineView()
-        # set tab2 layout
+        # NOTE: set tab2 layout
         self.layout = QVBoxLayout(self)
         self.control_typer = QComboBox()
         # NOTE: fetch types of controls
@@ -54,18 +55,22 @@ class ControlsViewer(QWidget):
         self.mode_typer.currentIndexChanged.connect(self.controls_getter)
         self.datepicker.start_date.dateChanged.connect(self.controls_getter)
         self.datepicker.end_date.dateChanged.connect(self.controls_getter)
+        self.datepicker.save_button.pressed.connect(self.save_chart_function)
+
+    def save_chart_function(self):
+        self.fig.save_figure(parent=self)
 
     def controls_getter(self):
         """
         Lookup controls from database and send to chartmaker
-        """    
+        """
         self.controls_getter_function()
 
     @report_result
     def controls_getter_function(self):
         """
         Get controls based on start/end dates
-        """    
+        """
         report = Report()
         # NOTE: subtype defaults to disabled  
         try:
@@ -96,7 +101,7 @@ class ControlsViewer(QWidget):
             sub_types = []
         if sub_types != []:
             # NOTE: block signal that will rerun controls getter and update sub_typer
-            with QSignalBlocker(self.sub_typer) as blocker: 
+            with QSignalBlocker(self.sub_typer) as blocker:
                 self.sub_typer.addItems(sub_types)
             self.sub_typer.setEnabled(True)
             self.sub_typer.currentTextChanged.connect(self.chart_maker)
@@ -109,8 +114,8 @@ class ControlsViewer(QWidget):
     def chart_maker(self):
         """
         Creates plotly charts for webview
-        """   
-        self.chart_maker_function()     
+        """
+        self.chart_maker_function()
 
     @report_result
     def chart_maker_function(self):
@@ -122,7 +127,7 @@ class ControlsViewer(QWidget):
 
         Returns:
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
+        """
         report = Report()
         # logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart
         # Date: {self.start_date}\n\tEnd Date: {self.end_date}") NOTE: set the subtype for kraken
@@ -136,6 +141,7 @@ class ControlsViewer(QWidget):
         # NOTE: if no data found from query set fig to none for reporting in webview
         if controls is None:
             fig = None
+            self.datepicker.save_button.setEnabled(False)
         else:
             # NOTE: change each control to list of dictionaries
             data = [control.convert_by_mode(mode=self.mode) for control in controls]
@@ -153,8 +159,10 @@ class ControlsViewer(QWidget):
                 title = f"{self.mode} - {self.subtype}"
             # NOTE: send dataframe to chart maker
             df, modes = self.prep_df(ctx=self.app.ctx, df=df)
-            fig = CustomFigure(df=df, ytitle=title, modes=modes)
+            fig = CustomFigure(df=df, ytitle=title, modes=modes, parent=self)
+            self.datepicker.save_button.setEnabled(True)
         # logger.debug(f"Updating figure...")
+        self.fig = fig
         # NOTE: construct html for webview
         html = fig.to_html()
         # logger.debug(f"The length of html code is: {len(html)}")
@@ -179,6 +187,11 @@ class ControlsViewer(QWidget):
         df = DataFrame.from_records(input_df)
         safe = ['name', 'submitted_date', 'genus', 'target']
         for column in df.columns:
+            if column not in safe:
+                if self.subtype is not None and column != self.subtype:
+                    continue
+                else:
+                    safe.append(column)
             if "percent" in column:
                 # count_col = [item for item in df.columns if "count" in item][0]
                 try:
@@ -187,9 +200,9 @@ class ControlsViewer(QWidget):
                     continue
                 # NOTE: The actual percentage from kraken was off due to exclusion of NaN, recalculating.
                 df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
-            if column not in safe:
-                if self.subtype is not None and column != self.subtype:
-                    del df[column]
+        logger.debug(df)
+        logger.debug(safe)
+        df = df[[c for c in df.columns if c in safe]]
         # NOTE: move date of sample submitted on same date as previous ahead one.
         df = self.displace_date(df=df)
         # NOTE: ad hoc method to make data labels more accurate.
@@ -229,12 +242,13 @@ class ControlsViewer(QWidget):
         # NOTE: get submitted dates for each control
         dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in
                      sorted(df['name'].unique())]
-        previous_dates = []
-        for _, item in enumerate(dict_list):
+        previous_dates = set()
+        # for _, item in enumerate(dict_list):
+        for item in dict_list:
             df, previous_dates = self.check_date(df=df, item=item, previous_dates=previous_dates)
         return df
 
-    def check_date(self, df: DataFrame, item: dict, previous_dates: list) -> Tuple[DataFrame, list]:
+    def check_date(self, df: DataFrame, item: dict, previous_dates: set) -> Tuple[DataFrame, list]:
         """
         Checks if an items date is already present in df and adjusts df accordingly
 
@@ -250,7 +264,7 @@ class ControlsViewer(QWidget):
             check = item['date'] in previous_dates
         except IndexError:
             check = False
-        previous_dates.append(item['date'])
+        previous_dates.add(item['date'])
         if check:
             # logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
             # NOTE: get df locations where name == item name
@@ -273,7 +287,7 @@ class ControlsViewer(QWidget):
             df, previous_dates = self.check_date(df, item, previous_dates)
             return df, previous_dates
 
-    def prep_df(self, ctx: Settings, df: DataFrame) -> DataFrame:
+    def prep_df(self, ctx: Settings, df: DataFrame) -> Tuple[DataFrame, list]:
         """
         Constructs figures based on parsed pandas dataframe.
 
@@ -285,27 +299,17 @@ class ControlsViewer(QWidget):
         Returns:
             Figure: Plotly figure
         """
-        # from backend.excel import drop_reruns_from_df
-        # converts starred genera to normal and splits off list of starred
-        genera = []
+        # NOTE: converts starred genera to normal and splits off list of starred
         if df.empty:
             return None
-        for item in df['genus'].to_list():
-            try:
-                if item[-1] == "*":
-                    genera.append(item[-1])
-                else:
-                    genera.append("")
-            except IndexError:
-                genera.append("")
         df['genus'] = df['genus'].replace({'\*': ''}, regex=True).replace({"NaN": "Unknown"})
-        df['genera'] = genera
+        df['genera'] = [item[-1] if item and item[-1] == "*" else "" for item in df['genus'].to_list()]
         # NOTE: remove original runs, using reruns if applicable
         df = self.drop_reruns_from_df(ctx=ctx, df=df)
         # NOTE: sort by and exclude from
         sorts = ['submitted_date', "target", "genus"]
         exclude = ['name', 'genera']
-        modes = [item for item in df.columns if item not in sorts and item not in exclude]  # and "_hashes" not in item]
+        modes = [item for item in df.columns if item not in sorts and item not in exclude]
         # NOTE: Set descending for any columns that have "{mode}" in the header.
         ascending = [False if item == "target" else True for item in sorts]
         df = df.sort_values(by=sorts, ascending=ascending)
@@ -327,23 +331,26 @@ class ControlsViewer(QWidget):
         if 'rerun_regex' in ctx:
             sample_names = get_unique_values_in_df_column(df, column_name="name")
             rerun_regex = re.compile(fr"{ctx.rerun_regex}")
-            for sample in sample_names:
-                if rerun_regex.search(sample):
-                    first_run = re.sub(rerun_regex, "", sample)
-                    df = df.drop(df[df.name == first_run].index)
+            exclude = [re.sub(rerun_regex, "", sample) for sample in sample_names if rerun_regex.search(sample)]
+            df = df[df.name not in exclude]
+            # for sample in sample_names:
+            #     if rerun_regex.search(sample):
+            #         first_run = re.sub(rerun_regex, "", sample)
+            #         df = df.drop(df[df.name == first_run].index)
         return df
 
 
 class ControlsDatePicker(QWidget):
     """
     custom widget to pick start and end dates for controls graphs
-    """    
+    """
+
     def __init__(self) -> None:
         super().__init__()
         self.start_date = QDateEdit(calendarPopup=True)
         # NOTE: start date is two months prior to end date by default
-        twomonthsago = QDate.currentDate().addDays(-60)
-        self.start_date.setDate(twomonthsago)
+        sixmonthsago = QDate.currentDate().addDays(-180)
+        self.start_date.setDate(sixmonthsago)
         self.end_date = QDateEdit(calendarPopup=True)
         self.end_date.setDate(QDate.currentDate())
         self.layout = QHBoxLayout()
@@ -353,6 +360,8 @@ class ControlsDatePicker(QWidget):
         self.layout.addWidget(self.end_date)
         self.setLayout(self.layout)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.save_button = QPushButton("Save Chart", parent=self)
+        self.layout.addWidget(self.save_button)
 
     def sizeHint(self) -> QSize:
-        return QSize(80,20)  
+        return QSize(80, 20)

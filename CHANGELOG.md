@@ -1,3 +1,8 @@
+## 202410.01
+
+- Reverted details exports from docx back to pdf.
+- Large scale speedups for control chart construction.
+
 ## 202409.05
 
 - Replaced some lists with generators to improve speed, added javascript to templates for click events.

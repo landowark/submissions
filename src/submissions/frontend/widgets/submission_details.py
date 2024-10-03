@@ -9,7 +9,6 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot, QMarginsF
 from jinja2 import TemplateNotFound
-
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
 from tools import is_power_user, html_to_pdf, jinja_template_loading
 from .functions import select_save_file
@@ -18,9 +17,8 @@ import logging
 from getpass import getuser
 from datetime import datetime
 from pprint import pformat
-
 from typing import List
-from backend.excel.writer import DocxWriter
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

@@ -874,28 +874,6 @@ def rreplace(s: str, old: str, new: str) -> str:
     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
 
 
-def html_to_pdf(html: str, output_file: Path | str):
-    """
-    Attempts to print an html string as a PDF. (currently not working)
-
-    Args:
-        html (str): Input html string.
-        output_file (Path | str): Output PDF file path.
-    """
-    if isinstance(output_file, str):
-        output_file = Path(output_file)
-    logger.debug(f"Printing PDF to {output_file}")
-    document = QWebEngineView()
-    document.setHtml(html)
-    # document.show()
-    printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-    printer.setOutputFormat(QPrinter.OutputFormat.PdfFormat)
-    printer.setOutputFileName(output_file.absolute().__str__())
-    printer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-    document.print(printer)
-    # document.close()
-
-
 def remove_key_from_list_of_dicts(input: list, key: str) -> list:
     """
     Removes a key from all dictionaries in a list of dictionaries

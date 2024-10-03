@@ -55,6 +55,7 @@ class SearchBox(QDialog):
             widget = FieldSearch(parent=self, label=item['label'], field_name=item['field'])
             self.layout.addWidget(widget, start_row+iii, 0)
             widget.search_widget.textChanged.connect(self.update_data)
+        self.update_data()
 
     def parse_form(self) -> dict:
         """
@@ -73,7 +74,8 @@ class SearchBox(QDialog):
         # logger.debug(f"Running update_data with sample type: {self.type}")
         fields = self.parse_form()
         # logger.debug(f"Got fields: {fields}")
-        sample_list_creator = self.type.fuzzy_search(sample_type=self.type, **fields)
+        # sample_list_creator = self.type.fuzzy_search(sample_type=self.type, **fields)
+        sample_list_creator = self.type.fuzzy_search(**fields)
         data = self.type.samples_to_df(sample_list=sample_list_creator)
         # logger.debug(f"Data: {data}")
         self.results.setData(df=data)

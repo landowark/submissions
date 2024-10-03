@@ -74,7 +74,7 @@ class GelBox(QDialog):
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        layout.addWidget(self.buttonBox, 23, 1, 1, 1)  #, alignment=Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(self.buttonBox, 23, 1, 1, 1)
         self.setLayout(layout)
 
 
@@ -135,7 +135,7 @@ class ControlsForm(QWidget):
         self.layout.addWidget(self.comment_field, 1, 5, 4, 1)
         self.setLayout(self.layout)
 
-    def parse_form(self) -> List[dict]:
+    def parse_form(self) -> Tuple[List[dict], str]:
         """
         Pulls the controls statuses from the form.
 
@@ -145,11 +145,7 @@ class ControlsForm(QWidget):
         output = []
         for le in self.findChildren(QComboBox):
             label = [item.strip() for item in le.objectName().split(" : ")]
-            try:
-                # dicto = [item for item in output if item['name'] == label[0]][0]
-                dicto = next(item for item in output if item['name'] == label[0])
-            except StopIteration:
-                dicto = dict(name=label[0], values=[])
+            dicto = next((item for item in output if item['name'] == label[0]), dict(name=label[0], values=[]))
             dicto['values'].append(dict(name=label[1], value=le.currentText()))
             if label[0] not in [item['name'] for item in output]:
                 output.append(dicto)

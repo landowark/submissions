@@ -1,13 +1,15 @@
 '''
 Contains functions for generating summary reports
 '''
+from PyQt6.QtCore import QMarginsF
+from PyQt6.QtGui import QPageLayout, QPageSize
 from pandas import DataFrame, ExcelWriter
 import logging, re
 from pathlib import Path
 from datetime import date, timedelta
 from typing import List, Tuple, Any
 from backend.db.models import BasicSubmission
-from tools import jinja_template_loading, html_to_pdf, get_first_blank_df_row, \
+from tools import jinja_template_loading, get_first_blank_df_row, \
     row_map
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
@@ -99,11 +101,15 @@ class ReportMaker(object):
             filename = Path(filename)
         filename = filename.absolute()
         # NOTE: html_to_pdf doesn't function without a PyQt6 app
-        if isinstance(obj, QWidget):
-            logger.info(f"We're in PyQt environment, writing PDF to: {filename}")
-            html_to_pdf(html=self.html, output_file=filename)
-        else:
-            logger.info("Not in PyQt. Skipping PDF writing.")
+        # if isinstance(obj, QWidget):
+            # logger.info(f"We're in PyQt environment, writing PDF to: {filename}")
+            # page_layout = QPageLayout()
+            # page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+            # page_layout.setOrientation(QPageLayout.Orientation.Portrait)
+            # page_layout.setMargins(QMarginsF(25, 25, 25, 25))
+            # self.webview.page().printToPdf(fname.with_suffix(".pdf").__str__(), page_layout)
+        # else:
+        #     logger.info("Not in PyQt. Skipping PDF writing.")
         # logger.debug("Finished writing.")
         self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
         self.summary_df.to_excel(self.writer, sheet_name="Report")

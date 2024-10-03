@@ -189,8 +189,8 @@ class App(QMainWindow):
         """        
         month = date.today().strftime("%Y-%m")
         current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve()
-        logger.debug(f"Here is the db directory: {self.ctx.database_path}")
-        logger.debug(f"Here is the backup directory: {self.ctx.backup_path}")
+        logger.info(f"Here is the db directory: {self.ctx.database_path}")
+        logger.info(f"Here is the backup directory: {self.ctx.backup_path}")
         match self.ctx.database_schema:
             case "sqlite":
                 db_path = self.ctx.database_path.joinpath(self.ctx.database_name).with_suffix(".db")
@@ -206,15 +206,17 @@ class App(QMainWindow):
                 current_month_bak = current_month_bak.with_suffix(".psql")
 
     def export_ST_yaml(self):
+        """
+        Copies submission type yaml to file system for editing and remport
+
+        Returns:
+            None
+        """
         if check_if_app():
             yaml_path = Path(sys._MEIPASS).joinpath("resources", "viral_culture.yml")
         else:
             yaml_path = project_path.joinpath("src", "submissions", "resources", "viral_culture.yml")
-        # with open(yaml_path, "r") as f:
-        #     data = yaml.safe_load(f)
         fname = select_save_file(obj=self, default_name="Submission Type Template.yml", extension="yml")
-        # with open(fname, "w") as f:
-        #     yaml.safe_dump(data=data, stream=f)
         shutil.copyfile(yaml_path, fname)
 
     @check_authorization
@@ -230,7 +232,6 @@ class App(QMainWindow):
             print(pformat(st.to_export_dict()))
             choice = input("Save the above submission type? [y/N]: ")
             if choice.lower() == "y":
-                # st.save()
                 pass
             else:
                 logger.warning("Save of submission type cancelled.")
