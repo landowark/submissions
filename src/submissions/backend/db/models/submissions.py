@@ -593,7 +593,7 @@ class BasicSubmission(BaseClass):
                 return
             case item if item in self.jsons():
                 match key:
-                    case "custom":
+                    case "custom" | "source_plates":
                         existing = value
                     case _:
                         # logger.debug(f"Setting JSON attribute.")

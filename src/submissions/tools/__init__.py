@@ -7,7 +7,7 @@ import json
 import pprint
 from json import JSONDecodeError
 import numpy as np
-import logging, re, yaml, sys, os, stat, platform, getpass, inspect, csv
+import logging, re, yaml, sys, os, stat, platform, getpass, inspect
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
@@ -17,22 +17,15 @@ from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
-from PyQt6.QtGui import QPageSize
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from openpyxl.worksheet.worksheet import Worksheet
-from PyQt6.QtPrintSupport import QPrinter
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askdirectory
-# from .error_messaging import parse_exception_to_message
-from sqlalchemy.exc import ArgumentError, IntegrityError as sqlalcIntegrityError
+from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# package_dir = Path(__file__).parents[2].resolve()
-# package_dir = project_path
 logger.debug(f"Package dir: {project_path}")
 
 if platform.system() == "Windows":
@@ -154,11 +147,11 @@ def check_not_nan(cell_contents) -> bool:
         bool: True if cell has value, else, false.
     """
     # NOTE: check for nan as a string first
-    exclude = ['unnamed:', 'blank', 'void']
+    exclude = ['unnamed:', 'blank', 'void', 'nat', 'nan', ""]
     try:
         if cell_contents.lower() in exclude:
             cell_contents = np.nan
-        cell_contents = cell_contents.lower()
+        # cell_contents = cell_contents.lower()
     except (TypeError, AttributeError):
         pass
     try:
@@ -166,14 +159,6 @@ def check_not_nan(cell_contents) -> bool:
             cell_contents = np.nan
     except TypeError as e:
         pass
-    if cell_contents == "nat":
-        cell_contents = np.nan
-    if cell_contents == 'nan':
-        cell_contents = np.nan
-    if cell_contents is None:
-        cell_contents = np.nan
-    if str(cell_contents).lower() == "none":
-        cell_contents = np.nan
     try:
         if pd.isnull(cell_contents):
             cell_contents = np.nan
@@ -897,7 +882,6 @@ def yaml_regex_creator(loader, node):
     name = nodes[0].replace(" ", "_")
     abbr = nodes[1]
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-
 
 
 ctx = get_config(None)

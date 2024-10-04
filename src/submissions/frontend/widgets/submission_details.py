@@ -10,8 +10,9 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot, QMarginsF
 from jinja2 import TemplateNotFound
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
-from tools import is_power_user, html_to_pdf, jinja_template_loading
+from tools import is_power_user, jinja_template_loading
 from .functions import select_save_file
+from .misc import save_pdf
 from pathlib import Path
 import logging
 from getpass import getuser
@@ -177,11 +178,12 @@ class SubmissionDetails(QDialog):
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """
         fname = select_save_file(obj=self, default_name=self.export_plate, extension="pdf")
-        page_layout = QPageLayout()
-        page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-        page_layout.setOrientation(QPageLayout.Orientation.Portrait)
-        page_layout.setMargins(QMarginsF(25, 25, 25, 25))
-        self.webview.page().printToPdf(fname.with_suffix(".pdf").__str__(), page_layout)
+        # page_layout = QPageLayout()
+        # page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+        # page_layout.setOrientation(QPageLayout.Orientation.Portrait)
+        # page_layout.setMargins(QMarginsF(25, 25, 25, 25))
+        # self.webview.page().printToPdf(fname.with_suffix(".pdf").__str__(), page_layout)
+        save_pdf(obj=self, filename=fname)
 
 class SubmissionComment(QDialog):
     """

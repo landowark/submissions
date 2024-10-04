@@ -1,10 +1,10 @@
 <!doctype html>
 <html>
     <head>
-        <title>Submissions Report for {{ input['start_date'] }} - {{ input['end_date'] }}</title>
+        <title>Submissions Report for {{ input['start_date'] }} to {{ input['end_date'] }}</title>
     </head>
     <body>
-        <h2>Submissions Report {{ input['start_date'] }} - {{ input['end_date'] }}</h2>
+        <h2>Submissions Report {{ input['start_date'] }} to {{ input['end_date'] }}</h2>
         <br>
         {{ input['table'] }}
         <br>
@@ -12,10 +12,10 @@
         <h3><u>{{ lab['lab'] }}:</u></h3>
             {% for kit in lab['kits'] %}
             <p><b>{{ kit['name'] }}</b></p>
-                <p>     Runs: {{ kit['run_count'] }}, Samples: {{ kit['sample_count'] }}, Cost: {{ "${:,.2f}".format(kit['cost']) }}</p>
+                <p>&nbsp;&nbsp;&nbsp;&nbsp;Runs: {{ kit['run_count'] }}, Samples: {{ kit['sample_count'] }}, Cost: {{ "${:,.2f}".format(kit['cost']) }}</p>
             {% endfor %}
-            <p><b>Lab total:</b></p>
-                <p>     Runs: {{ lab['total_runs'] }}, Samples: {{ lab['total_samples'] }}, Cost: {{ "${:,.2f}".format(lab['total_cost']) }}</p>
+            <p><b><u>Lab total:</u></b></p>
+                <p>&nbsp;&nbsp;&nbsp;&nbsp;Runs: {{ lab['total_runs'] }}, Samples: {{ lab['total_samples'] }}, Cost: {{ "${:,.2f}".format(lab['total_cost']) }}</p>
         <br>
         {% endfor %}
     </body>

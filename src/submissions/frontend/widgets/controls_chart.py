@@ -8,7 +8,7 @@ from typing import Tuple
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QComboBox, QHBoxLayout,
-    QDateEdit, QLabel, QSizePolicy, QPushButton
+    QDateEdit, QLabel, QSizePolicy, QPushButton, QGridLayout
 )
 from PyQt6.QtCore import QSignalBlocker
 from backend.db import ControlType, Control
@@ -17,7 +17,7 @@ import logging
 from pandas import DataFrame
 from tools import Report, Result, get_unique_values_in_df_column, Settings, report_result
 from frontend.visualizations.control_charts import CustomFigure
-
+from .misc import StartEndDatePicker
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -28,10 +28,10 @@ class ControlsViewer(QWidget):
         self.app = self.parent().parent()
         # logger.debug(f"\n\n{self.app}\n\n")
         self.report = Report()
-        self.datepicker = ControlsDatePicker()
+        self.datepicker = StartEndDatePicker(default_start=-180)
         self.webengineview = QWebEngineView()
         # NOTE: set tab2 layout
-        self.layout = QVBoxLayout(self)
+        self.layout = QGridLayout(self)
         self.control_typer = QComboBox()
         # NOTE: fetch types of controls
         con_types = [item.name for item in ControlType.query()]
@@ -44,18 +44,20 @@ class ControlsViewer(QWidget):
         self.sub_typer = QComboBox()
         self.sub_typer.setEnabled(False)
         # NOTE: add widgets to tab2 layout
-        self.layout.addWidget(self.datepicker)
-        self.layout.addWidget(self.control_typer)
-        self.layout.addWidget(self.mode_typer)
-        self.layout.addWidget(self.sub_typer)
-        self.layout.addWidget(self.webengineview)
+        self.layout.addWidget(self.datepicker, 0,0,1,2)
+        self.save_button = QPushButton("Save Chart", parent=self)
+        self.layout.addWidget(self.save_button, 0,2,1,1)
+        self.layout.addWidget(self.control_typer, 1,0,1,3)
+        self.layout.addWidget(self.mode_typer, 2,0,1,3)
+        self.layout.addWidget(self.sub_typer, 3,0,1,3)
+        self.layout.addWidget(self.webengineview, 4,0,1,3)
         self.setLayout(self.layout)
         self.controls_getter()
         self.control_typer.currentIndexChanged.connect(self.controls_getter)
         self.mode_typer.currentIndexChanged.connect(self.controls_getter)
         self.datepicker.start_date.dateChanged.connect(self.controls_getter)
         self.datepicker.end_date.dateChanged.connect(self.controls_getter)
-        self.datepicker.save_button.pressed.connect(self.save_chart_function)
+        self.save_button.pressed.connect(self.save_chart_function)
 
     def save_chart_function(self):
         self.fig.save_figure(parent=self)
@@ -141,7 +143,7 @@ class ControlsViewer(QWidget):
         # NOTE: if no data found from query set fig to none for reporting in webview
         if controls is None:
             fig = None
-            self.datepicker.save_button.setEnabled(False)
+            self.save_button.setEnabled(False)
         else:
             # NOTE: change each control to list of dictionaries
             data = [control.convert_by_mode(mode=self.mode) for control in controls]
@@ -160,7 +162,7 @@ class ControlsViewer(QWidget):
             # NOTE: send dataframe to chart maker
             df, modes = self.prep_df(ctx=self.app.ctx, df=df)
             fig = CustomFigure(df=df, ytitle=title, modes=modes, parent=self)
-            self.datepicker.save_button.setEnabled(True)
+            self.save_button.setEnabled(True)
         # logger.debug(f"Updating figure...")
         self.fig = fig
         # NOTE: construct html for webview
@@ -200,8 +202,6 @@ class ControlsViewer(QWidget):
                     continue
                 # NOTE: The actual percentage from kraken was off due to exclusion of NaN, recalculating.
                 df[column] = 100 * df[count_col] / df.groupby('name')[count_col].transform('sum')
-        logger.debug(df)
-        logger.debug(safe)
         df = df[[c for c in df.columns if c in safe]]
         # NOTE: move date of sample submitted on same date as previous ahead one.
         df = self.displace_date(df=df)
@@ -340,28 +340,27 @@ class ControlsViewer(QWidget):
         return df
 
 
-class ControlsDatePicker(QWidget):
-    """
-    custom widget to pick start and end dates for controls graphs
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.start_date = QDateEdit(calendarPopup=True)
-        # NOTE: start date is two months prior to end date by default
-        sixmonthsago = QDate.currentDate().addDays(-180)
-        self.start_date.setDate(sixmonthsago)
-        self.end_date = QDateEdit(calendarPopup=True)
-        self.end_date.setDate(QDate.currentDate())
-        self.layout = QHBoxLayout()
-        self.layout.addWidget(QLabel("Start Date"))
-        self.layout.addWidget(self.start_date)
-        self.layout.addWidget(QLabel("End Date"))
-        self.layout.addWidget(self.end_date)
-        self.setLayout(self.layout)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.save_button = QPushButton("Save Chart", parent=self)
-        self.layout.addWidget(self.save_button)
-
-    def sizeHint(self) -> QSize:
-        return QSize(80, 20)
+# class ControlsDatePicker(QWidget):
+#     """
+#     custom widget to pick start and end dates for controls graphs
+#     """
+#
+#     def __init__(self) -> None:
+#         super().__init__()
+#         self.start_date = QDateEdit(calendarPopup=True)
+#         # NOTE: start date is two months prior to end date by default
+#         sixmonthsago = QDate.currentDate().addDays(-180)
+#         self.start_date.setDate(sixmonthsago)
+#         self.end_date = QDateEdit(calendarPopup=True)
+#         self.end_date.setDate(QDate.currentDate())
+#         self.layout = QHBoxLayout()
+#         self.layout.addWidget(QLabel("Start Date"))
+#         self.layout.addWidget(self.start_date)
+#         self.layout.addWidget(QLabel("End Date"))
+#         self.layout.addWidget(self.end_date)
+#         self.setLayout(self.layout)
+#         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+#
+#
+#     def sizeHint(self) -> QSize:
+#         return QSize(80, 20)

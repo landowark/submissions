@@ -2,17 +2,20 @@
 Contains miscellaneous widgets for frontend functions
 '''
 from datetime import date
+
+from PyQt6.QtGui import QPageLayout, QPageSize, QStandardItem, QStandardItemModel
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
-    QLineEdit, QComboBox, QDialog, 
-    QDialogButtonBox, QDateEdit, QPushButton, QFormLayout
+    QLineEdit, QComboBox, QDialog,
+    QDialogButtonBox, QDateEdit, QPushButton, QFormLayout, QWidget, QHBoxLayout, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtCore import Qt, QDate, QSize, QMarginsF, pyqtSlot, pyqtSignal, QEvent
 from tools import jinja_template_loading
 from backend.db.models import *
 import logging
 from .pop_ups import AlertPop
-from .functions import select_open_file
+from .functions import select_open_file, select_save_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -22,8 +25,10 @@ env = jinja_template_loading()
 class AddReagentForm(QDialog):
     """
     dialog to add gather info about new reagent
-    """    
-    def __init__(self, reagent_lot:str|None=None, reagent_role: str | None=None, expiry: date | None=None, reagent_name: str | None=None) -> None:
+    """
+
+    def __init__(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
+                 reagent_name: str | None = None) -> None:
         super().__init__()
         if reagent_lot is None:
             reagent_lot = reagent_role
@@ -71,7 +76,8 @@ class AddReagentForm(QDialog):
         self.layout.addWidget(self.name_input)
         self.layout.addWidget(QLabel("Lot:"))
         self.layout.addWidget(self.lot_input)
-        self.layout.addWidget(QLabel("Expiry:\n(use exact date on reagent.\nEOL will be calculated from kit automatically)"))
+        self.layout.addWidget(
+            QLabel("Expiry:\n(use exact date on reagent.\nEOL will be calculated from kit automatically)"))
         self.layout.addWidget(self.exp_input)
         self.layout.addWidget(QLabel("Type:"))
         self.layout.addWidget(self.type_input)
@@ -85,57 +91,57 @@ class AddReagentForm(QDialog):
 
         Returns:
             dict: Output info
-        """        
-        return dict(name=self.name_input.currentText().strip(), 
-                    lot=self.lot_input.text().strip(), 
+        """
+        return dict(name=self.name_input.currentText().strip(),
+                    lot=self.lot_input.text().strip(),
                     expiry=self.exp_input.date().toPyDate(),
                     role=self.type_input.currentText().strip())
 
     def update_names(self):
         """
         Updates reagent names form field with examples from reagent type
-        """        
+        """
         # logger.debug(self.type_input.currentText())
         self.name_input.clear()
         lookup = Reagent.query(reagent_role=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
 
-class ReportDatePicker(QDialog):
-    """
-    custom dialog to ask for report start/stop dates
-    """    
-    def __init__(self) -> None:
-        super().__init__()
-        self.setWindowTitle("Select Report Date Range")
-        # NOTE: make confirm/reject buttons
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        # NOTE: widgets to ask for dates 
-        self.start_date = QDateEdit(calendarPopup=True)
-        self.start_date.setObjectName("start_date")
-        self.start_date.setDate(QDate.currentDate())
-        self.end_date = QDateEdit(calendarPopup=True)
-        self.end_date.setObjectName("end_date")
-        self.end_date.setDate(QDate.currentDate())
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(QLabel("Start Date"))
-        self.layout.addWidget(self.start_date)
-        self.layout.addWidget(QLabel("End Date"))
-        self.layout.addWidget(self.end_date)
-        self.layout.addWidget(self.buttonBox)
-        self.setLayout(self.layout)
-
-    def parse_form(self) -> dict:
-        """
-        Converts information in this object to a dict
-
-        Returns:
-            dict: output dict.
-        """        
-        return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
+# class ReportDatePicker(QDialog):
+#     """
+#     custom dialog to ask for report start/stop dates
+#     """
+#     def __init__(self) -> None:
+#         super().__init__()
+#         self.setWindowTitle("Select Report Date Range")
+#         # NOTE: make confirm/reject buttons
+#         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+#         self.buttonBox = QDialogButtonBox(QBtn)
+#         self.buttonBox.accepted.connect(self.accept)
+#         self.buttonBox.rejected.connect(self.reject)
+#         # NOTE: widgets to ask for dates
+#         self.start_date = QDateEdit(calendarPopup=True)
+#         self.start_date.setObjectName("start_date")
+#         self.start_date.setDate(QDate.currentDate())
+#         self.end_date = QDateEdit(calendarPopup=True)
+#         self.end_date.setObjectName("end_date")
+#         self.end_date.setDate(QDate.currentDate())
+#         self.layout = QVBoxLayout()
+#         self.layout.addWidget(QLabel("Start Date"))
+#         self.layout.addWidget(self.start_date)
+#         self.layout.addWidget(QLabel("End Date"))
+#         self.layout.addWidget(self.end_date)
+#         self.layout.addWidget(self.buttonBox)
+#         self.setLayout(self.layout)
+#
+#     def parse_form(self) -> dict:
+#         """
+#         Converts information in this object to a dict
+#
+#         Returns:
+#             dict: output dict.
+#         """
+#         return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
 
 
 class LogParser(QDialog):
@@ -160,13 +166,13 @@ class LogParser(QDialog):
     def filelookup(self):
         """
         Select file to search
-        """        
+        """
         self.fname = select_open_file(self, "tabular")
 
     def runsearch(self):
         """
         Gets total/percent occurences of string in tabular file.
-        """        
+        """
         count: int = 0
         total: int = 0
         # logger.debug(f"Current search term: {self.phrase_looker.currentText()}")
@@ -177,7 +183,7 @@ class LogParser(QDialog):
                     for line in chunk:
                         if self.phrase_looker.currentText().lower() in line.lower():
                             count += 1
-            percent = (count/total)*100
+            percent = (count / total) * 100
             msg = f"I found {count} instances of the search phrase out of {total} = {percent:.2f}%."
             status = "Information"
         except AttributeError:
@@ -186,3 +192,56 @@ class LogParser(QDialog):
         dlg = AlertPop(message=msg, status=status)
         dlg.exec()
 
+
+class StartEndDatePicker(QWidget):
+    """
+    custom widget to pick start and end dates for controls graphs
+    """
+
+    def __init__(self, default_start: int) -> None:
+        super().__init__()
+        self.start_date = QDateEdit(calendarPopup=True)
+        # NOTE: start date is two months prior to end date by default
+        default_start = QDate.currentDate().addDays(default_start)
+        self.start_date.setDate(default_start)
+        self.end_date = QDateEdit(calendarPopup=True)
+        self.end_date.setDate(QDate.currentDate())
+        self.layout = QHBoxLayout()
+        self.layout.addWidget(QLabel("Start Date"))
+        self.layout.addWidget(self.start_date)
+        self.layout.addWidget(QLabel("End Date"))
+        self.layout.addWidget(self.end_date)
+        self.setLayout(self.layout)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def sizeHint(self) -> QSize:
+        return QSize(80, 20)
+
+
+def save_pdf(obj: QWebEngineView, filename: Path):
+    page_layout = QPageLayout()
+    page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    page_layout.setOrientation(QPageLayout.Orientation.Portrait)
+    page_layout.setMargins(QMarginsF(25, 25, 25, 25))
+    obj.page().printToPdf(filename.absolute().__str__(), page_layout)
+
+
+# subclass
+class CheckableComboBox(QComboBox):
+    # once there is a checkState set, it is rendered
+    # here we assume default Unchecked
+
+    def addItem(self, item, header: bool = False):
+        super(CheckableComboBox, self).addItem(item)
+        item: QStandardItem = self.model().item(self.count() - 1, 0)
+        if not header:
+            item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            item.setCheckState(Qt.CheckState.Checked)
+
+    def itemChecked(self, index):
+        item = self.model().item(index, 0)
+        return item.checkState() == Qt.CheckState.Checked
+
+    def changed(self):
+        logger.debug("emitting updated")
+        self.updated.emit()

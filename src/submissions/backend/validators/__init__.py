@@ -70,7 +70,6 @@ class RSLNamer(object):
             logger.debug(f"Using string method for {filename}.")
             logger.debug(f"Using regex: {regex}")
             m = regex.search(filename)
-            print(m)
             try:
                 submission_type = m.lastgroup
                 logger.debug(f"Got submission type: {submission_type}")
@@ -98,7 +97,6 @@ class RSLNamer(object):
                                  message="Please select submission type from list below.", obj_type=SubmissionType)
             if dlg.exec():
                 submission_type = dlg.parse_form()
-        print(submission_type)
         submission_type = submission_type.replace("_", " ")
         return submission_type
 

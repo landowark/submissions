@@ -10,7 +10,7 @@ from backend.db.models import BasicSubmission
 from backend.excel import ReportMaker
 from tools import Report, Result, report_result
 from .functions import select_save_file, select_open_file
-from .misc import ReportDatePicker
+# from .misc import ReportDatePicker
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -226,32 +226,32 @@ class SubmissionsSheet(QTableView):
         report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         return report
 
-    @report_result
-    def generate_report(self, *args):
-        """
-        Make a report
-        """
-        report = Report()
-        result = self.generate_report_function()
-        report.add_result(result)
-        return report
-
-    def generate_report_function(self):
-        """
-        Generate a summary of activities for a time period
-
-        Args:
-            obj (QMainWindow): original app window
-
-        Returns:
-            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """    
-        report = Report()
-        # NOTE: ask for date ranges
-        dlg = ReportDatePicker()
-        if dlg.exec():
-            info = dlg.parse_form()
-            fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.xlsx", extension="xlsx")
-            rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
-            rp.write_report(filename=fname, obj=self)
-        return report
+    # @report_result
+    # def generate_report(self, *args):
+    #     """
+    #     Make a report
+    #     """
+    #     report = Report()
+    #     result = self.generate_report_function()
+    #     report.add_result(result)
+    #     return report
+    #
+    # def generate_report_function(self):
+    #     """
+    #     Generate a summary of activities for a time period
+    #
+    #     Args:
+    #         obj (QMainWindow): original app window
+    #
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    #     """
+    #     report = Report()
+    #     # NOTE: ask for date ranges
+    #     dlg = ReportDatePicker()
+    #     if dlg.exec():
+    #         info = dlg.parse_form()
+    #         fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.xlsx", extension="xlsx")
+    #         rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
+    #         rp.write_report(filename=fname, obj=self)
+    #     return report

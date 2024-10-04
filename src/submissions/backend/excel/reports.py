@@ -1,13 +1,11 @@
 '''
 Contains functions for generating summary reports
 '''
-from PyQt6.QtCore import QMarginsF
-from PyQt6.QtGui import QPageLayout, QPageSize
 from pandas import DataFrame, ExcelWriter
-import logging, re
+import logging
 from pathlib import Path
-from datetime import date, timedelta
-from typing import List, Tuple, Any
+from datetime import date
+from typing import Tuple
 from backend.db.models import BasicSubmission
 from tools import jinja_template_loading, get_first_blank_df_row, \
     row_map
@@ -21,10 +19,12 @@ env = jinja_template_loading()
 
 class ReportMaker(object):
 
-    def __init__(self, start_date: date, end_date: date):
+    def __init__(self, start_date: date, end_date: date, organizations:list|None=None):
         self.start_date = start_date
         self.end_date = end_date
         self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date)
+        if organizations is not None:
+            self.subs = [sub for sub in self.subs if sub.submitting_lab.name in organizations]
         self.detailed_df, self.summary_df = self.make_report_xlsx()
         self.html = self.make_report_html(df=self.summary_df)
 
@@ -35,6 +35,8 @@ class ReportMaker(object):
         Returns:
             DataFrame: output dataframe
         """
+        if not self.subs:
+            return DataFrame(), DataFrame()
         df = DataFrame.from_records([item.to_dict(report=True) for item in self.subs])
         # NOTE: put submissions with the same lab together
         df = df.sort_values("submitting_lab")
@@ -100,17 +102,6 @@ class ReportMaker(object):
         if isinstance(filename, str):
             filename = Path(filename)
         filename = filename.absolute()
-        # NOTE: html_to_pdf doesn't function without a PyQt6 app
-        # if isinstance(obj, QWidget):
-            # logger.info(f"We're in PyQt environment, writing PDF to: {filename}")
-            # page_layout = QPageLayout()
-            # page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-            # page_layout.setOrientation(QPageLayout.Orientation.Portrait)
-            # page_layout.setMargins(QMarginsF(25, 25, 25, 25))
-            # self.webview.page().printToPdf(fname.with_suffix(".pdf").__str__(), page_layout)
-        # else:
-        #     logger.info("Not in PyQt. Skipping PDF writing.")
-        # logger.debug("Finished writing.")
         self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
         self.summary_df.to_excel(self.writer, sheet_name="Report")
         self.detailed_df.to_excel(self.writer, sheet_name="Details", index=False)

@@ -2,6 +2,7 @@
 
 - Reverted details exports from docx back to pdf.
 - Large scale speedups for control chart construction.
+- Reports are now given their own tab and can be updated in real time. 
 
 ## 202409.05
 
