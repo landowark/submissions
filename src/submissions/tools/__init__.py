@@ -50,6 +50,7 @@ main_form_style = '''
 
                 '''
 
+page_size = 250
 
 def divide_chunks(input_list: list, chunk_count: int):
     """
@@ -147,7 +148,7 @@ def check_not_nan(cell_contents) -> bool:
         bool: True if cell has value, else, false.
     """
     # NOTE: check for nan as a string first
-    exclude = ['unnamed:', 'blank', 'void', 'nat', 'nan', ""]
+    exclude = ['unnamed:', 'blank', 'void', 'nat', 'nan', "", "none"]
     try:
         if cell_contents.lower() in exclude:
             cell_contents = np.nan
@@ -511,8 +512,7 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
     def join(loader, node):
         seq = loader.construct_sequence(node)
         return ''.join([str(i) for i in seq])
-
-    # register the tag handler
+    # NOTE: register the tag handler
     yaml.add_constructor('!join', join)
     # NOTE: make directories
     try:
@@ -877,7 +877,6 @@ def remove_key_from_list_of_dicts(input: list, key: str) -> list:
 
 def yaml_regex_creator(loader, node):
     # Note: Add to import from json, NOT export yaml in app.
-    # base = node[0].value
     nodes = loader.construct_sequence(node)
     name = nodes[0].replace(" ", "_")
     abbr = nodes[1]
@@ -964,11 +963,3 @@ def report_result(func):
         logger.debug(f"Returning: {output}")
         return output
     return wrapper
-
-
-@report_result
-@check_authorization
-def test_function():
-    print("Success!")
-
-
