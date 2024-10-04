@@ -12,11 +12,11 @@ from pathlib import Path
 
 from markdown import markdown
 from __init__ import project_path
-from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization
+from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
 from .functions import select_save_file,select_open_file
 from datetime import date
 from .pop_ups import HTMLPop, AlertPop
-from .misc import LogParser
+from .misc import LogParser, Pagifier
 import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
@@ -49,6 +49,7 @@ class App(QMainWindow):
         self.height = 1000
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
+        self.page_size = page_size
         # NOTE: insert tabs into main app
         self.table_widget = AddSubForm(self)
         self.setCentralWidget(self.table_widget)
@@ -133,6 +134,7 @@ class App(QMainWindow):
         self.githubAction.triggered.connect(self.openGithub)
         self.yamlExportAction.triggered.connect(self.export_ST_yaml)
         self.yamlImportAction.triggered.connect(self.import_ST_yaml)
+        self.table_widget.pager.current_page.textChanged.connect(self.update_data)
 
     def showAbout(self):
         """
@@ -237,6 +239,8 @@ class App(QMainWindow):
             else:
                 logger.warning("Save of submission type cancelled.")
 
+    def update_data(self):
+        self.table_widget.sub_wid.setData(page=int(self.table_widget.pager.current_page.text()), page_size=page_size)
 
 
 class AddSubForm(QWidget):
@@ -272,7 +276,9 @@ class AddSubForm(QWidget):
         self.sheetlayout = QVBoxLayout(self)
         self.sheetwidget.setLayout(self.sheetlayout)
         self.sub_wid = SubmissionsSheet(parent=parent)
+        self.pager = Pagifier(page_max=self.sub_wid.total_count/page_size)
         self.sheetlayout.addWidget(self.sub_wid)
+        self.sheetlayout.addWidget(self.pager)
         # NOTE: Create layout of first tab to hold form and sheet
         self.tab1.layout = QHBoxLayout(self)
         self.tab1.setLayout(self.tab1.layout)

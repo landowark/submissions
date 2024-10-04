@@ -7,9 +7,9 @@ from PyQt6.QtWidgets import QTableView, QMenu
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
 from PyQt6.QtGui import QAction, QCursor
 from backend.db.models import BasicSubmission
-from backend.excel import ReportMaker
 from tools import Report, Result, report_result
-from .functions import select_save_file, select_open_file
+from .functions import select_open_file
+
 # from .misc import ReportDatePicker
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -20,6 +20,7 @@ class pandasModel(QAbstractTableModel):
     pandas model for inserting summary sheet into gui
     NOTE: Copied from Stack Overflow. I have no idea how it actually works.
     """
+
     def __init__(self, data) -> None:
         QAbstractTableModel.__init__(self)
         self._data = data
@@ -45,10 +46,10 @@ class pandasModel(QAbstractTableModel):
 
         Returns:
             int: number of columns in data
-        """        
+        """
         return self._data.shape[1]
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole) -> str|None:
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole) -> str | None:
         if index.isValid():
             if role == Qt.ItemDataRole.DisplayRole:
                 return str(self._data.iloc[index.row(), index.column()])
@@ -63,28 +64,30 @@ class pandasModel(QAbstractTableModel):
 class SubmissionsSheet(QTableView):
     """
     presents submission summary to user in tab1
-    """    
+    """
+
     def __init__(self, parent) -> None:
         """
         initialize
 
         Args:
             ctx (dict): settings passed from gui
-        """        
+        """
         super().__init__(parent)
         self.app = self.parent()
         self.report = Report()
-        self.setData()
+        self.setData(page=1, page_size=self.app.page_size)
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
         self.doubleClicked.connect(lambda x: BasicSubmission.query(id=x.sibling(x.row(), 0).data()).show_details(self))
- 
-    def setData(self) -> None: 
+        self.total_count = BasicSubmission.__database_session__.query(BasicSubmission).count()
+
+    def setData(self, page: int = 1, page_size: int = 250) -> None:
         """
         sets data in model
-        """        
-        self.data = BasicSubmission.submissions_to_df()
+        """
+        self.data = BasicSubmission.submissions_to_df(page=page)
         try:
             self.data['Id'] = self.data['Id'].apply(str)
             self.data['Id'] = self.data['Id'].str.zfill(4)
@@ -93,17 +96,17 @@ class SubmissionsSheet(QTableView):
         proxyModel = QSortFilterProxyModel()
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
-        
+
     def contextMenuEvent(self, event):
         """
         Creates actions for right click menu events.
 
         Args:
             event (_type_): the item of interest
-        """        
+        """
         # logger.debug(event().__dict__)
         id = self.selectionModel().currentIndex()
-        id = id.sibling(id.row(),0).data()
+        id = id.sibling(id.row(), 0).data()
         submission = BasicSubmission.query(id=id)
         self.menu = QMenu(self)
         self.con_actions = submission.custom_context_events()
@@ -115,13 +118,13 @@ class SubmissionsSheet(QTableView):
         # add other required actions
         self.menu.popup(QCursor.pos())
 
-    def triggered_action(self, action_name:str):
+    def triggered_action(self, action_name: str):
         """
         Calls the triggered action from the context menu
 
         Args:
             action_name (str): name of the action from the menu
-        """        
+        """
         # logger.debug(f"Action: {action_name}")
         # logger.debug(f"Responding with {self.con_actions[action_name]}")
         func = self.con_actions[action_name]
@@ -155,16 +158,16 @@ class SubmissionsSheet(QTableView):
         count = 0
         for run in runs:
             new_run = dict(
-                    start_time=run[0].strip(), 
-                    rsl_plate_num=run[1].strip(), 
-                    sample_count=run[2].strip(), 
-                    status=run[3].strip(),
-                    experiment_name=run[4].strip(),
-                    end_time=run[5].strip()
-                )
+                start_time=run[0].strip(),
+                rsl_plate_num=run[1].strip(),
+                sample_count=run[2].strip(),
+                status=run[3].strip(),
+                experiment_name=run[4].strip(),
+                end_time=run[5].strip()
+            )
             # NOTE: elution columns are item 6 in the comma split list to the end
             for ii in range(6, len(run)):
-                new_run[f"column{str(ii-5)}_vol"] = run[ii]
+                new_run[f"column{str(ii - 5)}_vol"] = run[ii]
             # NOTE: Lookup imported submissions
             sub = BasicSubmission.query(rsl_plate_num=new_run['rsl_plate_num'])
             # NOTE: If no such submission exists, move onto the next run
@@ -208,13 +211,13 @@ class SubmissionsSheet(QTableView):
         count = 0
         for run in runs:
             new_run = dict(
-                    start_time=run[0].strip(), 
-                    rsl_plate_num=run[1].strip(), 
-                    biomek_status=run[2].strip(), 
-                    quant_status=run[3].strip(),
-                    experiment_name=run[4].strip(),
-                    end_time=run[5].strip()
-                )
+                start_time=run[0].strip(),
+                rsl_plate_num=run[1].strip(),
+                biomek_status=run[2].strip(),
+                quant_status=run[3].strip(),
+                experiment_name=run[4].strip(),
+                end_time=run[5].strip()
+            )
             # NOTE: lookup imported submission
             sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
             # NOTE: if imported submission doesn't exist move on to next run
@@ -225,33 +228,3 @@ class SubmissionsSheet(QTableView):
             sub.save()
         report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         return report
-
-    # @report_result
-    # def generate_report(self, *args):
-    #     """
-    #     Make a report
-    #     """
-    #     report = Report()
-    #     result = self.generate_report_function()
-    #     report.add_result(result)
-    #     return report
-    #
-    # def generate_report_function(self):
-    #     """
-    #     Generate a summary of activities for a time period
-    #
-    #     Args:
-    #         obj (QMainWindow): original app window
-    #
-    #     Returns:
-    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-    #     """
-    #     report = Report()
-    #     # NOTE: ask for date ranges
-    #     dlg = ReportDatePicker()
-    #     if dlg.exec():
-    #         info = dlg.parse_form()
-    #         fname = select_save_file(obj=self, default_name=f"Submissions_Report_{info['start_date']}-{info['end_date']}.xlsx", extension="xlsx")
-    #         rp = ReportMaker(start_date=info['start_date'], end_date=info['end_date'])
-    #         rp.write_report(filename=fname, obj=self)
-    #     return report

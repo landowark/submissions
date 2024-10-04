@@ -1,21 +1,22 @@
 '''
 Contains miscellaneous widgets for frontend functions
 '''
+import math
 from datetime import date
 
-from PyQt6.QtGui import QPageLayout, QPageSize, QStandardItem, QStandardItemModel
+from PyQt6.QtGui import QPageLayout, QPageSize, QStandardItem, QIcon
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog,
     QDialogButtonBox, QDateEdit, QPushButton, QFormLayout, QWidget, QHBoxLayout, QSizePolicy
 )
-from PyQt6.QtCore import Qt, QDate, QSize, QMarginsF, pyqtSlot, pyqtSignal, QEvent
+from PyQt6.QtCore import Qt, QDate, QSize, QMarginsF
 from tools import jinja_template_loading
 from backend.db.models import *
 import logging
 from .pop_ups import AlertPop
-from .functions import select_open_file, select_save_file
+from .functions import select_open_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -245,3 +246,42 @@ class CheckableComboBox(QComboBox):
     def changed(self):
         logger.debug("emitting updated")
         self.updated.emit()
+
+
+class Pagifier(QWidget):
+
+    def __init__(self, page_max:int):
+        super().__init__()
+        self.page_max = math.ceil(page_max)
+
+        next = QPushButton(parent=self, icon = QIcon.fromTheme(QIcon.ThemeIcon.GoNext))
+        next.pressed.connect(self.increment_page)
+        previous = QPushButton(parent=self, icon=QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious))
+        previous.pressed.connect(self.decrement_page)
+        label = QLabel(f"/ {self.page_max}")
+        label.setMinimumWidth(200)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.current_page = QLineEdit(self)
+        self.current_page.setEnabled(False)
+        # onlyInt = QIntValidator()
+        # onlyInt.setRange(1, 4)
+        # self.current_page.setValidator(onlyInt)
+        self.current_page.setText("1")
+        self.current_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout = QHBoxLayout()
+        self.layout.addWidget(previous)
+        self.layout.addWidget(self.current_page)
+        self.layout.addWidget(label)
+        self.layout.addWidget(next)
+        self.setLayout(self.layout)
+
+    def increment_page(self):
+        new = int(self.current_page.text())+1
+        if new <= self.page_max:
+            self.current_page.setText(str(new))
+
+    def decrement_page(self):
+        new = int(self.current_page.text())-1
+        if new >= 1:
+            self.current_page.setText(str(new))
+

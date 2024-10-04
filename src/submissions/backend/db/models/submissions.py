@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, desc
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -283,7 +283,7 @@ class BasicSubmission(BaseClass):
         del input_dict['id']
         return input_dict
 
-    def generate_associations(self, name:str, extra:str|None=None):
+    def generate_associations(self, name: str, extra: str | None = None):
         try:
             field = self.__getattribute__(name)
         except AttributeError:
@@ -479,15 +479,6 @@ class BasicSubmission(BaseClass):
         Returns:
             str: html output string.
         """
-        # output_samples = []
-        # logger.debug("Setting locations.")
-        # for column in range(1, plate_columns + 1):
-        #     for row in range(1, plate_rows + 1):
-        #         try:
-        #             well = next((item for item in sample_list if item['row'] == row and item['column'] == column), dict(name="", row=row, column=column, background_color="#ffffff"))
-        #         except StopIteration:
-        #             well = dict(name="", row=row, column=column, background_color="#ffffff")
-        #         output_samples.append(well)
         rows = range(1, plate_rows + 1)
         columns = range(1, plate_columns + 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
@@ -512,11 +503,12 @@ class BasicSubmission(BaseClass):
 
     @classmethod
     def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0,
-                          chronologic: bool = True) -> pd.DataFrame:
+                          chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
         """
         Convert all submissions to dataframe
 
         Args:
+            page (int, optional): Limits the number of submissions to a page size. Defaults to 1.
             chronologic (bool, optional): Sort submissions in chronologic order. Defaults to True.
             submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
             limit (int, optional): Maximum number of results to return. Defaults to 0.
@@ -528,16 +520,16 @@ class BasicSubmission(BaseClass):
         # logger.debug(f"Using limit: {limit}")
         # NOTE: use lookup function to create list of dicts
         subs = [item.to_dict() for item in
-                cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic)]
+                cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic, page=page, page_size=page_size)]
         # logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # logger.debug(f"Column names: {df.columns}")
         # NOTE: Exclude sub information
         exclude = ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
-                    'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
-                    'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
-                    'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
-                    'tips', 'gel_image_path', 'custom']
+                   'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
+                   'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
+                   'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
+                   'tips', 'gel_image_path', 'custom']
         df = df.loc[:, ~df.columns.isin(exclude)]
         # for item in excluded:
         #     try:
@@ -829,7 +821,7 @@ class BasicSubmission(BaseClass):
         return input_dict
 
     @classmethod
-    def custom_validation(cls, pyd:"PydSubmission") -> dict:
+    def custom_validation(cls, pyd: "PydSubmission") -> dict:
         """
         Performs any final custom parsing of the excel file.
 
@@ -885,7 +877,6 @@ class BasicSubmission(BaseClass):
                     for item in info['custom'][k]:
                         ws.cell(row=item['row'], column=item['column'], value=item['value'])
         return input_excel
-
 
     @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:
@@ -1061,6 +1052,8 @@ class BasicSubmission(BaseClass):
               reagent: Reagent | str | None = None,
               chronologic: bool = False,
               limit: int = 0,
+              page: int = 1,
+              page_size: int = 250,
               **kwargs
               ) -> BasicSubmission | List[BasicSubmission]:
         """
@@ -1161,7 +1154,13 @@ class BasicSubmission(BaseClass):
             case _:
                 pass
         if chronologic:
-            query.order_by(cls.submitted_date)
+            logger.debug("Attempting sort by date descending")
+            query = query.order_by(cls.submitted_date.desc())
+        if page_size is not None:
+            query = query.limit(page_size)
+        page = page - 1
+        if page is not None:
+            query = query.offset(page * page_size)
         return cls.execute_query(query=query, model=model, limit=limit, **kwargs)
 
     @classmethod
@@ -2483,7 +2482,7 @@ class BasicSample(BaseClass):
         df = pd.DataFrame.from_records(samples)
         # NOTE: Exclude sub information
         exclude = ['concentration', 'organism', 'colour', 'tooltip', 'comments', 'samples', 'reagents',
-                     'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']
+                   'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']
         df = df.loc[:, ~df.columns.isin(exclude)]
         return df
 

@@ -611,7 +611,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @classmethod
     def expand_samples(cls, value):
         if isinstance(value, Generator):
-            # logger.debug("We have a generator")
+            # logger.debug("We have a generator")[
             return [PydSample(**sample) for sample in value]
         return value
 
