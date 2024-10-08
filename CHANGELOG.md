@@ -1,3 +1,8 @@
+## 202410.02
+
+- Trimmed down html timeline buttons for controls window.
+- Improved paginator for submissions table.
+
 ## 202410.01
 
 - Reverted details exports from docx back to pdf.

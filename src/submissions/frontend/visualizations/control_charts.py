@@ -2,6 +2,7 @@
 Functions for constructing controls graphs using plotly.
 """
 from copy import deepcopy
+from datetime import date
 from pprint import pformat
 
 import plotly
@@ -18,10 +19,12 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class CustomFigure(Figure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None):
+    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
+                 months: int = 6):
         super().__init__()
+
         self.construct_chart(df=df, modes=modes)
-        self.generic_figure_markers(modes=modes, ytitle=ytitle)
+        self.generic_figure_markers(modes=modes, ytitle=ytitle, months=months)
 
     def construct_chart(self, df: pd.DataFrame, modes: list):
         """
@@ -67,7 +70,7 @@ class CustomFigure(Figure):
             self.add_traces(bar.data)
         # return generic_figure_markers(modes=modes, ytitle=ytitle)
 
-    def generic_figure_markers(self, modes: list = [], ytitle: str | None = None):
+    def generic_figure_markers(self, modes: list = [], ytitle: str | None = None, months: int = 6):
         """
         Adds standard layout to figure.
 
@@ -94,27 +97,41 @@ class CustomFigure(Figure):
                     x=0.7,
                     y=1.2,
                     showactive=True,
-                    buttons=[button for button in self.make_buttons(modes=modes)],
+                    buttons=[button for button in self.make_pyqt_buttons(modes=modes)],
                 )
             ]
         )
+
         self.update_xaxes(
             rangeslider_visible=True,
             rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=3, label="3m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="YTD", step="year", stepmode="todate"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(step="all")
-                ])
+                # buttons=list([
+                #     dict(count=1, label="1m", step="month", stepmode="backward"),
+                #     dict(count=3, label="3m", step="month", stepmode="backward"),
+                #     dict(count=6, label="6m", step="month", stepmode="backward"),
+                #     dict(count=1, label="YTD", step="year", stepmode="todate"),
+                #     dict(count=12, label="1y", step="month", stepmode="backward"),
+                #     dict(step="all")
+                # ])
+                buttons=[button for button in self.make_plotly_buttons(months=months)]
             )
         )
         assert isinstance(self, Figure)
         # return fig
 
-    def make_buttons(self, modes: list) -> list:
+    def make_plotly_buttons(self, months:int=6):
+        rng = [1]
+        if months > 2:
+            rng += [iii for iii in range(3, months, 3)]
+        logger.debug(f"Making buttons for months: {rng}")
+        buttons = [dict(count=iii, label=f"{iii}m", step="month", stepmode="backward") for iii in rng]
+        if months > date.today().month:
+            buttons += [dict(count=1, label="YTD", step="year", stepmode="todate")]
+        buttons += [dict(step="all")]
+        for button in buttons:
+            yield button
+
+    def make_pyqt_buttons(self, modes: list) -> list:
         """
         Creates list of buttons with one for each mode to be used in showing/hiding mode traces.
 
@@ -144,7 +161,7 @@ class CustomFigure(Figure):
                     {"yaxis.title.text": mode},
                 ])
 
-    def save_figure(self, group_name: str = "plotly_output", parent:QWidget|None=None):
+    def save_figure(self, group_name: str = "plotly_output", parent: QWidget | None = None):
         """
         Writes plotly figure to html file.
 
@@ -157,7 +174,6 @@ class CustomFigure(Figure):
 
         output = select_save_file(obj=parent, default_name=group_name, extension="png")
         self.write_image(output.absolute().__str__(), engine="kaleido")
-
 
     def to_html(self) -> str:
         """

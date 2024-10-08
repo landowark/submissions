@@ -3,7 +3,7 @@ Handles display of control charts
 """
 import re
 import sys
-from datetime import timedelta
+from datetime import timedelta, date
 from typing import Tuple
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
@@ -113,6 +113,9 @@ class ControlsViewer(QWidget):
         self.chart_maker()
         return report
 
+    def diff_month(self, d1:date, d2:date):
+        return abs((d1.year - d2.year) * 12 + d1.month - d2.month)
+
     def chart_maker(self):
         """
         Creates plotly charts for webview
@@ -132,7 +135,8 @@ class ControlsViewer(QWidget):
         """
         report = Report()
         # logger.debug(f"Control getter context: \n\tControl type: {self.con_type}\n\tMode: {self.mode}\n\tStart
-        # Date: {self.start_date}\n\tEnd Date: {self.end_date}") NOTE: set the subtype for kraken
+        # Date: {self.start_date}\n\tEnd Date: {self.end_date}")
+        # NOTE: set the subtype for kraken
         if self.sub_typer.currentText() == "":
             self.subtype = None
         else:
@@ -161,7 +165,8 @@ class ControlsViewer(QWidget):
                 title = f"{self.mode} - {self.subtype}"
             # NOTE: send dataframe to chart maker
             df, modes = self.prep_df(ctx=self.app.ctx, df=df)
-            fig = CustomFigure(df=df, ytitle=title, modes=modes, parent=self)
+            months = self.diff_month(self.start_date, self.end_date)
+            fig = CustomFigure(df=df, ytitle=title, modes=modes, parent=self, months=months)
             self.save_button.setEnabled(True)
         # logger.debug(f"Updating figure...")
         self.fig = fig

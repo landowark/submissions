@@ -142,8 +142,8 @@ class KitType(BaseClass):
         """
         return f"<KitType({self.name})>"
 
-    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> List[
-        ReagentRole]:
+    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> Generator[
+        ReagentRole, None, None]:
         """
         Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
 
@@ -168,9 +168,9 @@ class KitType(BaseClass):
                 relevant_associations = [item for item in self.kit_reagentrole_associations]
         if required:
             # logger.debug(f"Filtering by required.")
-            return [item.reagent_role for item in relevant_associations if item.required == 1]
+            return (item.reagent_role for item in relevant_associations if item.required == 1)
         else:
-            return [item.reagent_role for item in relevant_associations]
+            return (item.reagent_role for item in relevant_associations)
 
     # TODO: Move to BasicSubmission?
     def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[(str, str)]:
@@ -198,6 +198,7 @@ class KitType(BaseClass):
         # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
         for assoc in assocs:
             try:
+                logger.debug(f"Yielding: {assoc.reagent_role.name}, {assoc.uses}")
                 yield assoc.reagent_role.name, assoc.uses
             except TypeError:
                 continue
@@ -764,14 +765,14 @@ class SubmissionType(BaseClass):
                 tmap = {}
             yield item.tip_role.name, tmap
 
-    def get_equipment(self, extraction_kit: str | KitType | None = None) -> List['PydEquipmentRole']:
+    def get_equipment(self, extraction_kit: str | KitType | None = None) -> Generator['PydEquipmentRole', None, None]:
         """
         Returns PydEquipmentRole of all equipment associated with this SubmissionType
 
         Returns:
             List[PydEquipmentRole]: List of equipment roles
         """
-        return [item.to_pydantic(submission_type=self, extraction_kit=extraction_kit) for item in self.equipment]
+        return (item.to_pydantic(submission_type=self, extraction_kit=extraction_kit) for item in self.equipment)
 
     def get_processes_for_role(self, equipment_role: str | EquipmentRole, kit: str | KitType | None = None) -> list:
         """

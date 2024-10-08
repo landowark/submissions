@@ -240,7 +240,7 @@ class App(QMainWindow):
                 logger.warning("Save of submission type cancelled.")
 
     def update_data(self):
-        self.table_widget.sub_wid.setData(page=int(self.table_widget.pager.current_page.text()), page_size=page_size)
+        self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
 
 class AddSubForm(QWidget):

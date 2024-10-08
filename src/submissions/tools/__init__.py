@@ -19,7 +19,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
 from __init__ import project_path
 from configparser import ConfigParser
-from tkinter import Tk  # from tkinter import Tk for Python 3.x
+from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
 from tkinter.filedialog import askdirectory
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 

@@ -108,43 +108,6 @@ class AddReagentForm(QDialog):
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
 
-# class ReportDatePicker(QDialog):
-#     """
-#     custom dialog to ask for report start/stop dates
-#     """
-#     def __init__(self) -> None:
-#         super().__init__()
-#         self.setWindowTitle("Select Report Date Range")
-#         # NOTE: make confirm/reject buttons
-#         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-#         self.buttonBox = QDialogButtonBox(QBtn)
-#         self.buttonBox.accepted.connect(self.accept)
-#         self.buttonBox.rejected.connect(self.reject)
-#         # NOTE: widgets to ask for dates
-#         self.start_date = QDateEdit(calendarPopup=True)
-#         self.start_date.setObjectName("start_date")
-#         self.start_date.setDate(QDate.currentDate())
-#         self.end_date = QDateEdit(calendarPopup=True)
-#         self.end_date.setObjectName("end_date")
-#         self.end_date.setDate(QDate.currentDate())
-#         self.layout = QVBoxLayout()
-#         self.layout.addWidget(QLabel("Start Date"))
-#         self.layout.addWidget(self.start_date)
-#         self.layout.addWidget(QLabel("End Date"))
-#         self.layout.addWidget(self.end_date)
-#         self.layout.addWidget(self.buttonBox)
-#         self.setLayout(self.layout)
-#
-#     def parse_form(self) -> dict:
-#         """
-#         Converts information in this object to a dict
-#
-#         Returns:
-#             dict: output dict.
-#         """
-#         return dict(start_date=self.start_date.date().toPyDate(), end_date = self.end_date.date().toPyDate())
-
-
 class LogParser(QDialog):
 
     def __init__(self, parent):
@@ -253,35 +216,32 @@ class Pagifier(QWidget):
     def __init__(self, page_max:int):
         super().__init__()
         self.page_max = math.ceil(page_max)
-
+        self.page_anchor = 1
         next = QPushButton(parent=self, icon = QIcon.fromTheme(QIcon.ThemeIcon.GoNext))
         next.pressed.connect(self.increment_page)
         previous = QPushButton(parent=self, icon=QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious))
         previous.pressed.connect(self.decrement_page)
-        label = QLabel(f"/ {self.page_max}")
-        label.setMinimumWidth(200)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.current_page = QLineEdit(self)
         self.current_page.setEnabled(False)
-        # onlyInt = QIntValidator()
-        # onlyInt.setRange(1, 4)
-        # self.current_page.setValidator(onlyInt)
-        self.current_page.setText("1")
+        self.update_current_page()
         self.current_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout = QHBoxLayout()
         self.layout.addWidget(previous)
         self.layout.addWidget(self.current_page)
-        self.layout.addWidget(label)
         self.layout.addWidget(next)
         self.setLayout(self.layout)
 
     def increment_page(self):
-        new = int(self.current_page.text())+1
+        new = self.page_anchor + 1
         if new <= self.page_max:
-            self.current_page.setText(str(new))
+            self.page_anchor = new
+        self.update_current_page()
 
     def decrement_page(self):
-        new = int(self.current_page.text())-1
+        new = self.page_anchor - 1
         if new >= 1:
-            self.current_page.setText(str(new))
+            self.page_anchor = new
+        self.update_current_page()
 
+    def update_current_page(self):
+        self.current_page.setText(f"{self.page_anchor} of {self.page_max}")

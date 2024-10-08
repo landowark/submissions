@@ -80,14 +80,6 @@ class SheetParser(object):
                 self.submission_type = RSLNamer.retrieve_submission_type(filename=self.filepath)
                 self.parse_info()
         [self.sub.__setitem__(k, v) for k, v in info.items()]
-        # for k, v in info.items():
-        #     match k:
-        #         # NOTE: exclude samples.
-        #         case "sample":
-        #             logger.debug(f"Sample found: {k}: {v}")
-        #             continue
-        #         case _:
-        #             self.sub[k] = v
 
     def parse_reagents(self, extraction_kit: str | None = None):
         """
@@ -147,30 +139,8 @@ class SheetParser(object):
         Returns:
             PydSubmission: output pydantic model
         """
-        # logger.debug(f"Submission dictionary coming into 'to_pydantic':\n{pformat(self.sub)}")
-        # pyd_dict = copy(self.sub)
-        # self.sub['samples'] = [PydSample(**sample) for sample in self.sub['samples']]
-        # logger.debug(f"Reagents: {pformat(self.sub['reagents'])}")
-        # self.sub['reagents'] = [PydReagent(**reagent) for reagent in self.sub['reagents']]
-        # logger.debug(f"Equipment: {self.sub['equipment']}")
-        # try:
-        #     check = bool(self.sub['equipment'])
-        # except TypeError:
-        #     check = False
-        # if check:
-        #     self.sub['equipment'] = [PydEquipment(**equipment) for equipment in self.sub['equipment']]
-        # else:
-        #     self.sub['equipment'] = None
-        # try:
-        #     check = bool(self.sub['tips'])
-        # except TypeError:
-        #     check = False
-        # if check:
-        #     self.sub['tips'] = [PydTips(**tips) for tips in self.sub['tips']]
-        # else:
-        #     self.sub['tips'] = None
         return PydSubmission(filepath=self.filepath, run_custom=True, **self.sub)
-        # return psm
+
 
 
 class InfoParser(object):
@@ -298,6 +268,7 @@ class ReagentParser(object):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
+        # logger.debug(f"Got extraction kit object: {self.kit_object}")
         self.map = self.fetch_kit_info_map(submission_type=submission_type)
         # logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
@@ -329,15 +300,14 @@ class ReagentParser(object):
         Returns:
             List[PydReagent]: List of parsed reagents.
         """
-        # listo = []
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
+            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
-                # logger.debug(f"Attempting to scrape: {item}")
+                logger.debug(f"Attempting to scrape: {item}")
                 try:
                     reagent = relevant[item]
                     name = ws.cell(row=reagent['name']['row'], column=reagent['name']['column']).value
@@ -350,16 +320,15 @@ class ReagentParser(object):
                         comment = ""
                 except (KeyError, IndexError):
                     yield dict(role=item.strip(), lot=None, expiry=None, name=None, comment="", missing=True)
-                    # continue
                 # NOTE: If the cell is blank tell the PydReagent
                 if check_not_nan(lot):
                     missing = False
                 else:
                     missing = True
-                # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
+                logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                # logger.debug(
-                #     f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
+                logger.debug(
+                    f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
                 try:
                     check = name.lower() != "not applicable"
                 except AttributeError:
@@ -368,7 +337,6 @@ class ReagentParser(object):
                 if check:
                     yield dict(role=item.strip(), lot=lot, expiry=expiry, name=name, comment=comment,
                                missing=missing)
-        # return listo
 
 
 class SampleParser(object):
@@ -480,34 +448,6 @@ class SampleParser(object):
                 lookup_samples.append(self.samp_object.parse_sample(row_dict))
         return lookup_samples
 
-    # def parse_samples(self) -> Tuple[Report | None, List[dict] | List[PydSample]]:
-    #     """
-    #     Parse merged platemap/lookup info into dicts/samples
-    #
-    #     Returns:
-    #         List[dict]|List[models.BasicSample]: List of samples
-    #     """
-    #     result = None
-    #     new_samples = []
-    #     # logger.debug(f"Starting samples: {pformat(self.samples)}")
-    #     for sample in self.samples:
-    #         translated_dict = {}
-    #         for k, v in sample.items():
-    #             match v:
-    #                 case dict():
-    #                     v = None
-    #                 case float():
-    #                     v = convert_nans_to_nones(v)
-    #                 case _:
-    #                     v = v
-    #             translated_dict[k] = convert_nans_to_nones(v)
-    #         translated_dict['sample_type'] = f"{self.submission_type} Sample"
-    #         translated_dict = self.sub_object.parse_samples(translated_dict)
-    #         translated_dict = self.samp_object.parse_sample(translated_dict)
-    #         # logger.debug(f"Here is the output of the custom parser:\n{translated_dict}")
-    #         new_samples.append(PydSample(**translated_dict))
-    #     return result, new_samples
-
     def parse_samples(self) -> Generator[dict, None, None]:
         """
         Merges sample info from lookup table and plate map.
@@ -522,9 +462,8 @@ class SampleParser(object):
         merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
         plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
         lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
-        # print(pformat(plate_map_samples))
-        # print(pformat(lookup_samples))
         for ii, psample in enumerate(plate_map_samples):
+            # NOTE: See if we can do this the easy way and just use the same list index.
             try:
                 check = psample['id'] == lookup_samples[ii][merge_on_id]
             except (KeyError, IndexError):
@@ -534,7 +473,7 @@ class SampleParser(object):
                 new = lookup_samples[ii] | psample
                 lookup_samples[ii] = {}
             else:
-                # logger.warning(f"Match for {psample['id']} not direct, running search.")
+                logger.warning(f"Match for {psample['id']} not direct, running search.")
                 for jj, lsample in enumerate(lookup_samples):
                     try:
                         check = lsample[merge_on_id] == psample['id']
@@ -551,9 +490,6 @@ class SampleParser(object):
             new = self.sub_object.parse_samples(new)
             del new['id']
             yield new
-            # samples.append(new)
-        # samples = remove_key_from_list_of_dicts(samples, "id")
-        # return sorted(samples, key=lambda k: (k['row'], k['column']))
 
 
 class EquipmentParser(object):

@@ -219,11 +219,11 @@ class BasicSubmission(BaseClass):
         if len(args) == 1:
             try:
                 return output[args[0]]
-            except KeyError:
+            except KeyError as e:
                 if "pytest" in sys.modules and args[0] == "abbreviation":
                     return "BS"
                 else:
-                    raise KeyError("args[0]")
+                    raise KeyError(f"{args[0]} not found in {output}")
         return output
 
     @classmethod
@@ -237,6 +237,13 @@ class BasicSubmission(BaseClass):
         Returns:
             SubmissionType: SubmissionType with name equal to this polymorphic identity
         """
+        logger.debug(f"Running search for {sub_type}")
+        if isinstance(sub_type, dict):
+            try:
+                sub_type = sub_type['value']
+            except KeyError as e:
+                logger.error(f"Couldn't extract value from {sub_type}")
+                raise e
         match sub_type:
             case str():
                 return SubmissionType.query(name=sub_type)
