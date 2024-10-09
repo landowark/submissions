@@ -76,7 +76,11 @@ class SubmissionsSheet(QTableView):
         super().__init__(parent)
         self.app = self.parent()
         self.report = Report()
-        self.setData(page=1, page_size=self.app.page_size)
+        try:
+            page_size = self.app.page_size
+        except AttributeError:
+            page_size = 250
+        self.setData(page=1, page_size=page_size)
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)

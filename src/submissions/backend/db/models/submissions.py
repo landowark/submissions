@@ -506,7 +506,7 @@ class BasicSubmission(BaseClass):
         Returns:
             List[str]: List of names
         """
-        return [item.role for item in self.submission_equipment_associations]
+        return (item.role for item in self.submission_equipment_associations)
 
     @classmethod
     def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0,
@@ -527,7 +527,8 @@ class BasicSubmission(BaseClass):
         # logger.debug(f"Using limit: {limit}")
         # NOTE: use lookup function to create list of dicts
         subs = [item.to_dict() for item in
-                cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic, page=page, page_size=page_size)]
+                cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic, page=page,
+                          page_size=page_size)]
         # logger.debug(f"Got {len(subs)} submissions.")
         df = pd.DataFrame.from_records(subs)
         # logger.debug(f"Column names: {df.columns}")
@@ -970,6 +971,19 @@ class BasicSubmission(BaseClass):
             yield sample
         #     samples.append(sample)
         # return samples
+
+    @classmethod
+    def parse_pcr_controls(cls, xl: Workbook) -> list:
+        location_map = cls.get_submission_type().sample_map['pcr_controls']
+        name_column = 1
+        for item in location_map:
+            logger.debug(f"Looking for {item['name']}")
+            worksheet = xl[item['sheet']]
+            for iii, row in enumerate(worksheet.iter_rows(max_row=len(worksheet['A']), max_col=name_column), start=1):
+                for cell in row:
+                    if cell.value == item['name']:
+                        logger.debug(f"Pulling from row {iii}, column {item['ct_column']}")
+                        yield dict(name=item['name'], ct=worksheet.cell(row=iii, column=item['ct_column']).value)
 
     @classmethod
     def filename_template(cls) -> str:
@@ -1559,6 +1573,11 @@ class Wastewater(BasicSubmission):
             output.append(sample)
         for sample in output:
             yield sample
+
+    # @classmethod
+    # def parse_pcr_controls(cls, xl: Workbook, location_map: list) -> list:
+
+
 
     @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:

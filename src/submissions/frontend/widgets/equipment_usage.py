@@ -91,7 +91,7 @@ class EquipmentUsage(QDialog):
 
 class RoleComboBox(QWidget):
 
-    def __init__(self, parent, role: PydEquipmentRole, used: list) -> None:
+    def __init__(self, parent, role: PydEquipmentRole, used: Generator) -> None:
         super().__init__(parent)
         self.layout = QGridLayout()
         self.role = role
