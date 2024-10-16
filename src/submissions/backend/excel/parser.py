@@ -675,7 +675,7 @@ class PCRParser(object):
             rsl_plate_num = self.submission_obj.rsl_plate_num
         self.pcr = self.parse_general()
         self.samples = self.submission_obj.parse_pcr(xl=self.xl, rsl_plate_num=rsl_plate_num)
-        self.controls = self.submission_obj.parse_pcr_controls(xl=self.xl)
+        self.controls = self.submission_obj.parse_pcr_controls(xl=self.xl, rsl_plate_num=rsl_plate_num)
 
     def parse_general(self):
         """

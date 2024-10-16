@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, desc
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -22,7 +22,6 @@ from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityErr
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 import pandas as pd
 from openpyxl import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
     report_result
@@ -32,8 +31,6 @@ from dateutil.parser import parse
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
-from docxtpl import InlineImage
-from docx.shared import Inches
 from PIL import Image
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -74,6 +71,8 @@ class BasicSubmission(BaseClass):
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
                                             name="fk_BS_contact_id"))  #: client lab id from _organizations
     custom = Column(JSON)
+    controls = relationship("Control", back_populates="submission",
+                            uselist=True)  #: A control sample added to submission
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -114,7 +113,6 @@ class BasicSubmission(BaseClass):
     # NOTE: Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
     __mapper_args__ = {
         "polymorphic_identity": "Basic Submission",
-        # "polymorphic_on": submission_type_name,
         "polymorphic_on": case(
 
             (submission_type_name == "Wastewater", "Wastewater"),
@@ -190,7 +188,7 @@ class BasicSubmission(BaseClass):
         # NOTE: Singles tells the query which fields to set limit to 1
         dicto['singles'] = parent_defs['singles']
         # logger.debug(dicto['singles'])
-        # NOTE: Grab subtype specific info.
+        # NOTE: Grab mode_sub_type specific info.
         output = {}
         for k, v in dicto.items():
             if len(args) > 0 and k not in args:
@@ -960,7 +958,6 @@ class BasicSubmission(BaseClass):
         pcr_sample_map = cls.get_submission_type().sample_map['pcr_samples']
         # logger.debug(f'sample map: {pcr_sample_map}')
         main_sheet = xl[pcr_sample_map['main_sheet']]
-        # samples = []
         fields = {k: v for k, v in pcr_sample_map.items() if k not in ['main_sheet', 'start_row']}
         for row in main_sheet.iter_rows(min_row=pcr_sample_map['start_row']):
             idx = row[0].row
@@ -969,12 +966,11 @@ class BasicSubmission(BaseClass):
                 sheet = xl[v['sheet']]
                 sample[k] = sheet.cell(row=idx, column=v['column']).value
             yield sample
-        #     samples.append(sample)
-        # return samples
 
     @classmethod
-    def parse_pcr_controls(cls, xl: Workbook) -> list:
+    def parse_pcr_controls(cls, xl: Workbook, rsl_plate_num: str) -> list:
         location_map = cls.get_submission_type().sample_map['pcr_controls']
+        submission = cls.query(rsl_plate_num=rsl_plate_num)
         name_column = 1
         for item in location_map:
             logger.debug(f"Looking for {item['name']}")
@@ -983,7 +979,29 @@ class BasicSubmission(BaseClass):
                 for cell in row:
                     if cell.value == item['name']:
                         logger.debug(f"Pulling from row {iii}, column {item['ct_column']}")
-                        yield dict(name=item['name'], ct=worksheet.cell(row=iii, column=item['ct_column']).value)
+                        subtype, target = item['name'].split("-")
+                        ct = worksheet.cell(row=iii, column=item['ct_column']).value
+                        if subtype == "PC":
+                            ctrl = next((assoc.reagent for assoc in submission.submission_reagent_associations
+                                         if any(["positive control" in item.name.lower() for item in  assoc.reagent.role])), None)
+                        elif subtype == "NC":
+                            ctrl = next((assoc.reagent for assoc in submission.submission_reagent_associations
+                                         if any(["molecular grade water" in item.name.lower() for item in  assoc.reagent.role])), None)
+                        try:
+                            ct = float(ct)
+                        except ValueError:
+                            ct = 0.0
+                        if ctrl:
+                            ctrl = ctrl.lot
+                        else:
+                            ctrl = None
+                        yield dict(
+                            name=f"{rsl_plate_num}<{item['name']}>",
+                            ct=ct,
+                            subtype=subtype,
+                            target=target,
+                            reagent_lot=ctrl
+                        )
 
     @classmethod
     def filename_template(cls) -> str:
@@ -995,21 +1013,6 @@ class BasicSubmission(BaseClass):
             str: filename template in jinja friendly format.
         """
         return "{{ rsl_plate_num }}"
-
-    # @classmethod
-    # def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
-    #     """
-    #     Updates row information
-    #
-    #     Args:
-    #         sample (_type_): _description_
-    #         worksheet (Workbook): _description_
-    #
-    #     Returns:
-    #         int: New row number
-    #     """
-    #     logger.debug(f"Sample from args: {sample}")
-    #     return None
 
     @classmethod
     def adjust_autofill_samples(cls, samples: List[Any]) -> List[Any]:
@@ -1024,19 +1027,6 @@ class BasicSubmission(BaseClass):
         """
         logger.info(f"Hello from {cls.__mapper_args__['polymorphic_identity']} sampler")
         return samples
-
-    # def adjust_to_dict_samples(self, backup: bool = False) -> List[dict]:
-    #     """
-    #     Updates sample dictionaries with custom values
-    #
-    #     Args:
-    #         backup (bool, optional): Whether to perform backup. Defaults to False.
-    #
-    #     Returns:
-    #         List[dict]: Updated dictionaries
-    #     """
-    #     # logger.debug(f"Hello from {self.__class__.__name__} dictionary sample adjuster.")
-    #     return [item.to_sub_dict() for item in self.submission_sample_associations]
 
     @classmethod
     def get_details_template(cls, base_dict: dict) -> Template:
@@ -1380,8 +1370,7 @@ class BacterialCulture(BasicSubmission):
     derivative submission type from BasicSubmission
     """
     id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
-    controls = relationship("Control", back_populates="submission",
-                            uselist=True)  #: A control sample added to submission
+
     __mapper_args__ = dict(polymorphic_identity="Bacterial Culture",
                            polymorphic_load="inline",
                            inherit_condition=(id == BasicSubmission.id))
@@ -1441,25 +1430,6 @@ class BacterialCulture(BasicSubmission):
                 pos_control_reg.lot = new_lot
                 pos_control_reg.missing = False
         return pyd
-
-    # @classmethod
-    # def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
-    #     """
-    #     Extends parent
-    #     """
-    #     # logger.debug(f"Checking {sample.well}")
-    #     # logger.debug(f"here's the worksheet: {worksheet}")
-    #     row = super().custom_sample_autofill_row(sample, worksheet)
-    #     df = pd.DataFrame(list(worksheet.values))
-    #     # logger.debug(f"Here's the dataframe: {df}")
-    #     idx = df[df[0] == sample.well]
-    #     if idx.empty:
-    #         new = f"{sample.well[0]}{sample.well[1:].zfill(2)}"
-    #         # logger.debug(f"Checking: {new}")
-    #         idx = df[df[0] == new]
-    #     # logger.debug(f"Here is the row: {idx}")
-    #     row = idx.index.to_list()[0]
-    #     return row + 1
 
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
@@ -1548,7 +1518,7 @@ class Wastewater(BasicSubmission):
         for sample in samples:
             # NOTE: remove '-{target}' from controls
             sample['sample'] = re.sub('-N\\d$', '', sample['sample'])
-            # # NOTE: if sample is already in output skip
+            # NOTE: if sample is already in output skip
             if sample['sample'] in [item['sample'] for item in output]:
                 logger.warning(f"Already have {sample['sample']}")
                 continue
@@ -1576,8 +1546,6 @@ class Wastewater(BasicSubmission):
 
     # @classmethod
     # def parse_pcr_controls(cls, xl: Workbook, location_map: list) -> list:
-
-
 
     @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:
@@ -1681,15 +1649,17 @@ class Wastewater(BasicSubmission):
             obj (_type_): Parent widget
         """
         from backend.excel import PCRParser
+        from backend.db import PCRControl, ControlType
         from frontend.widgets import select_open_file
         report = Report()
         fname = select_open_file(obj=obj, file_extension="xlsx")
         if not fname:
             report.add_result(Result(msg="No file selected, cancelling.", status="Warning"))
             return report
-        parser = PCRParser(filepath=fname)
+        parser = PCRParser(filepath=fname, submission=self)
         self.set_attribute("pcr_info", parser.pcr)
         pcr_samples = [sample for sample in parser.samples]
+        pcr_controls = [control for control in parser.controls]
         self.save(original=False)
         # logger.debug(f"Got {len(parser.samples)} samples to update!")
         # logger.debug(f"Parser samples: {parser.samples}")
@@ -1700,6 +1670,16 @@ class Wastewater(BasicSubmission):
             except StopIteration:
                 continue
             self.update_subsampassoc(sample=sample, input_dict=sample_dict)
+        controltype = ControlType.query(name="PCR Control")
+        logger.debug(parser.pcr)
+        submitted_date = datetime.strptime(" ".join(parser.pcr['run_start_date/time'].split(" ")[:-1]),
+                                           "%Y-%m-%d %I:%M:%S %p")
+        for control in pcr_controls:
+            new_control = PCRControl(**control)
+            new_control.submitted_date = submitted_date
+            new_control.controltype = controltype
+            new_control.submission = self
+            new_control.save()
 
 
 class WastewaterArtic(BasicSubmission):
@@ -2207,7 +2187,7 @@ class BasicSample(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     submitter_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-    sample_type = Column(String(32))  #: subtype of sample
+    sample_type = Column(String(32))  #: mode_sub_type of sample
 
     sample_submission_associations = relationship(
         "SubmissionSampleAssociation",
@@ -2632,7 +2612,7 @@ class BacterialCultureSample(BasicSample):
     id = Column(INTEGER, ForeignKey('_basicsample.id'), primary_key=True)
     organism = Column(String(64))  #: bacterial specimen
     concentration = Column(String(16))  #: sample concentration
-    control = relationship("Control", back_populates="sample", uselist=False)
+    control = relationship("IridaControl", back_populates="sample", uselist=False)
     __mapper_args__ = dict(polymorphic_identity="Bacterial Culture Sample",
                            polymorphic_load="inline",
                            inherit_condition=(id == BasicSample.id))
@@ -2677,7 +2657,7 @@ class SubmissionSampleAssociation(BaseClass):
     # reference to the Sample object
     sample = relationship(BasicSample, back_populates="sample_submission_associations")  #: associated sample
 
-    base_sub_type = Column(String)  #: string of subtype name
+    base_sub_type = Column(String)  #: string of mode_sub_type name
 
     # Refers to the type of parent.
     # Hooooooo boy, polymorphic association type, now we're getting into the weeds!

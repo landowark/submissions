@@ -4,7 +4,7 @@ Constructs main application.
 from pprint import pformat
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
-    QHBoxLayout, QScrollArea, QMainWindow, 
+    QHBoxLayout, QScrollArea, QMainWindow,
     QToolBar
 )
 from PyQt6.QtGui import QAction
@@ -13,7 +13,7 @@ from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
-from .functions import select_save_file,select_open_file
+from .functions import select_save_file, select_open_file
 from datetime import date
 from .pop_ups import HTMLPop, AlertPop
 from .misc import LogParser, Pagifier
@@ -28,6 +28,7 @@ from .summary import Summary
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
+
 
 class App(QMainWindow):
 
@@ -61,11 +62,11 @@ class App(QMainWindow):
         self.show()
         self.statusBar().showMessage('Ready', 5000)
         self.backup_database()
-        
+
     def _createMenuBar(self):
         """
         adds items to menu bar
-        """        
+        """
         # logger.debug(f"Creating menu bar...")
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
@@ -85,11 +86,11 @@ class App(QMainWindow):
         # reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
-        
+
     def _createToolBar(self):
         """
         adds items to toolbar
-        """        
+        """
         # logger.debug(f"Creating toolbar...")
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
@@ -100,7 +101,7 @@ class App(QMainWindow):
     def _createActions(self):
         """
         creates actions
-        """        
+        """
         # logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
         self.addReagentAction = QAction("Add Reagent", self)
@@ -139,7 +140,7 @@ class App(QMainWindow):
     def showAbout(self):
         """
         Show the 'about' message
-        """        
+        """
         j_env = jinja_template_loading()
         template = j_env.get_template("project.html")
         html = template.render(info=self.ctx.package.__dict__)
@@ -150,7 +151,7 @@ class App(QMainWindow):
     def openDocs(self):
         """
         Open the documentation html pages
-        """        
+        """
         if check_if_app():
             url = Path(sys._MEIPASS).joinpath("files", "docs", "index.html")
         else:
@@ -182,14 +183,14 @@ class App(QMainWindow):
     def runSampleSearch(self):
         """
         Create a search for samples.
-        """        
+        """
         dlg = SearchBox(self)
         dlg.exec()
 
     def backup_database(self):
         """
         Copies the database into the backup directory the first time it is opened every month.
-        """        
+        """
         month = date.today().strftime("%Y-%m")
         current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve()
         logger.info(f"Here is the db directory: {self.ctx.database_path}")
@@ -244,8 +245,8 @@ class App(QMainWindow):
 
 
 class AddSubForm(QWidget):
-    
-    def __init__(self, parent:QWidget):
+
+    def __init__(self, parent: QWidget):
         # logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
@@ -255,11 +256,12 @@ class AddSubForm(QWidget):
         self.tab2 = QWidget()
         self.tab3 = QWidget()
         self.tab4 = QWidget()
-        self.tabs.resize(300,200)
+        self.tabs.resize(300, 200)
         # NOTE: Add tabs
-        self.tabs.addTab(self.tab1,"Submissions")
-        self.tabs.addTab(self.tab2,"Controls")
-        self.tabs.addTab(self.tab3, "Summary Report")
+        self.tabs.addTab(self.tab1, "Submissions")
+        self.tabs.addTab(self.tab2, "Irida Controls")
+        self.tabs.addTab(self.tab3, "PCR Controls")
+        self.tabs.addTab(self.tab4, "Cost Report")
         # self.tabs.addTab(self.tab4, "Add Kit")
         # NOTE: Create submission adder form
         self.formwidget = SubmissionFormContainer(self)
@@ -276,7 +278,7 @@ class AddSubForm(QWidget):
         self.sheetlayout = QVBoxLayout(self)
         self.sheetwidget.setLayout(self.sheetlayout)
         self.sub_wid = SubmissionsSheet(parent=parent)
-        self.pager = Pagifier(page_max=self.sub_wid.total_count/page_size)
+        self.pager = Pagifier(page_max=self.sub_wid.total_count / page_size)
         self.sheetlayout.addWidget(self.sub_wid)
         self.sheetlayout.addWidget(self.pager)
         # NOTE: Create layout of first tab to hold form and sheet
@@ -285,15 +287,19 @@ class AddSubForm(QWidget):
         self.tab1.layout.addWidget(self.interior)
         self.tab1.layout.addWidget(self.sheetwidget)
         self.tab2.layout = QVBoxLayout(self)
-        self.controls_viewer = ControlsViewer(self)
-        self.tab2.layout.addWidget(self.controls_viewer)
+        self.irida_viewer = ControlsViewer(self, archetype="Irida Control")
+        self.tab2.layout.addWidget(self.irida_viewer)
         self.tab2.setLayout(self.tab2.layout)
+        self.tab3.layout = QVBoxLayout(self)
+        self.pcr_viewer = ControlsViewer(self, archetype="PCR Control")
+        self.tab3.layout.addWidget(self.pcr_viewer)
+        self.tab3.setLayout(self.tab3.layout)
         # NOTE: create custom widget to add new tabs
         # ST_adder = SubmissionTypeAdder(self)
         summary_report = Summary(self)
-        self.tab3.layout = QVBoxLayout(self)
-        self.tab3.layout.addWidget(summary_report)
-        self.tab3.setLayout(self.tab3.layout)
+        self.tab4.layout = QVBoxLayout(self)
+        self.tab4.layout.addWidget(summary_report)
+        self.tab4.setLayout(self.tab4.layout)
         # kit_adder = KitAdder(self)
         # self.tab4.layout = QVBoxLayout(self)
         # self.tab4.layout.addWidget(kit_adder)

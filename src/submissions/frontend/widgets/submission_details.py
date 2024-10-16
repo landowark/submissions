@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import Qt, pyqtSlot, QMarginsF
+from PyQt6.QtCore import Qt, pyqtSlot, QMarginsF, QSize
 from jinja2 import TemplateNotFound
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
 from tools import is_power_user, jinja_template_loading
@@ -38,7 +38,7 @@ class SubmissionDetails(QDialog):
             self.app = None
         self.webview = QWebEngineView(parent=self)
         self.webview.setMinimumSize(900, 500)
-        self.webview.setMaximumSize(900, 700)
+        self.webview.setMaximumWidth(900)
         self.webview.loadFinished.connect(self.activate_export)
         self.layout = QGridLayout()
         # self.setFixedSize(900, 500)
@@ -98,9 +98,6 @@ class SubmissionDetails(QDialog):
             sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
         exclude = ['submissions', 'excluded', 'colour', 'tooltip']
-        # try:
-        #     base_dict['excluded'] += exclude
-        # except KeyError:
         base_dict['excluded'] = exclude
         template = sample.get_details_template()
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
@@ -131,7 +128,6 @@ class SubmissionDetails(QDialog):
         html = template.render(reagent=base_dict, css=css)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Reagent Details - {reagent.name} - {reagent.lot}")
-        # self.btn.setEnabled(False)
 
     @pyqtSlot(str)
     def submission_details(self, submission: str | BasicSubmission):
@@ -160,8 +156,6 @@ class SubmissionDetails(QDialog):
         # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         # logger.debug(f"User is power user: {is_power_user()}")
         self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
-        # with open("test.html", "w") as f:
-        #     f.write(self.html)
         self.webview.setHtml(self.html)
 
     @pyqtSlot(str)
@@ -178,11 +172,6 @@ class SubmissionDetails(QDialog):
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """
         fname = select_save_file(obj=self, default_name=self.export_plate, extension="pdf")
-        # page_layout = QPageLayout()
-        # page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
-        # page_layout.setOrientation(QPageLayout.Orientation.Portrait)
-        # page_layout.setMargins(QMarginsF(25, 25, 25, 25))
-        # self.webview.page().printToPdf(fname.with_suffix(".pdf").__str__(), page_layout)
         save_pdf(obj=self, filename=fname)
 
 class SubmissionComment(QDialog):

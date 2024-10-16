@@ -17,6 +17,7 @@ from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
+print(inspect.stack()[1])
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
@@ -960,6 +961,6 @@ def report_result(func):
             except Exception as e:
                 logger.error(f"Problem reporting due to {e}")
                 logger.error(result.msg)
-        logger.debug(f"Returning: {output}")
+        # logger.debug(f"Returning: {output}")
         return output
     return wrapper

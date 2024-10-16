@@ -1,7 +1,12 @@
+## 202410.03
+
+- Added code for cataloging of PCR controls.
+
 ## 202410.02
 
 - Trimmed down html timeline buttons for controls window.
 - Improved paginator for submissions table.
+- Refactor of Controls to support multiple types. (Note: Irida parser not updated yet.)
 
 ## 202410.01
 

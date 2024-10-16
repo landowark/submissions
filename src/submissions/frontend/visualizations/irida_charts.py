@@ -1,15 +1,13 @@
 """
-Functions for constructing controls graphs using plotly.
+Functions for constructing irida controls graphs using plotly.
 """
-from copy import deepcopy
 from datetime import date
 from pprint import pformat
-
 import plotly
 import plotly.express as px
 import pandas as pd
 from PyQt6.QtWidgets import QWidget
-from plotly.graph_objects import Figure
+from . import CustomFigure
 import logging
 from tools import get_unique_values_in_df_column, divide_chunks
 from frontend.widgets.functions import select_save_file
@@ -17,11 +15,12 @@ from frontend.widgets.functions import select_save_file
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class CustomFigure(Figure):
+class IridaFigure(CustomFigure):
 
     def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
                  months: int = 6):
-        super().__init__()
+
+        super().__init__(df=df, modes=modes)
 
         self.construct_chart(df=df, modes=modes)
         self.generic_figure_markers(modes=modes, ytitle=ytitle, months=months)
@@ -105,25 +104,16 @@ class CustomFigure(Figure):
         self.update_xaxes(
             rangeslider_visible=True,
             rangeselector=dict(
-                # buttons=list([
-                #     dict(count=1, label="1m", step="month", stepmode="backward"),
-                #     dict(count=3, label="3m", step="month", stepmode="backward"),
-                #     dict(count=6, label="6m", step="month", stepmode="backward"),
-                #     dict(count=1, label="YTD", step="year", stepmode="todate"),
-                #     dict(count=12, label="1y", step="month", stepmode="backward"),
-                #     dict(step="all")
-                # ])
                 buttons=[button for button in self.make_plotly_buttons(months=months)]
             )
         )
-        assert isinstance(self, Figure)
-        # return fig
+        assert isinstance(self, CustomFigure)
 
-    def make_plotly_buttons(self, months:int=6):
+    def make_plotly_buttons(self, months: int = 6):
         rng = [1]
         if months > 2:
             rng += [iii for iii in range(3, months, 3)]
-        logger.debug(f"Making buttons for months: {rng}")
+        # logger.debug(f"Making buttons for months: {rng}")
         buttons = [dict(count=iii, label=f"{iii}m", step="month", stepmode="backward") for iii in rng]
         if months > date.today().month:
             buttons += [dict(count=1, label="YTD", step="year", stepmode="todate")]
@@ -161,35 +151,3 @@ class CustomFigure(Figure):
                     {"yaxis.title.text": mode},
                 ])
 
-    def save_figure(self, group_name: str = "plotly_output", parent: QWidget | None = None):
-        """
-        Writes plotly figure to html file.
-
-        Args:
-            figs ():
-            settings (dict): settings passed down from click
-            fig (Figure): input figure object
-            group_name (str): controltype
-        """
-
-        output = select_save_file(obj=parent, default_name=group_name, extension="png")
-        self.write_image(output.absolute().__str__(), engine="kaleido")
-
-    def to_html(self) -> str:
-        """
-        Creates final html code from plotly
-
-        Args:
-            figure (Figure): input figure
-
-        Returns:
-            str: html string
-        """
-        html = '<html><body>'
-        if self is not None:
-            html += plotly.offline.plot(self, output_type='div',
-                                        include_plotlyjs='cdn')  #, image = 'png', auto_open=True, image_filename='plot_image')
-        else:
-            html += "<h1>No data was retrieved for the given parameters.</h1>"
-        html += '</body></html>'
-        return html
