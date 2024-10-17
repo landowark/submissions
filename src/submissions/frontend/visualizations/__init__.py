@@ -10,9 +10,12 @@ from frontend.widgets.functions import select_save_file
 
 class CustomFigure(Figure):
 
+    df = None
+
     def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
                  months: int = 6):
         super().__init__()
+        self.df = df
 
     def save_figure(self, group_name: str = "plotly_output", parent: QWidget | None = None):
         """
@@ -27,6 +30,11 @@ class CustomFigure(Figure):
 
         output = select_save_file(obj=parent, default_name=group_name, extension="png")
         self.write_image(output.absolute().__str__(), engine="kaleido")
+
+    def save_data(self, group_name: str = "plotly_export", parent:QWidget|None=None):
+        output = select_save_file(obj=parent, default_name=group_name, extension="xlsx")
+        self.df.to_excel(output.absolute().__str__(), engine="openpyxl", index=False)
+
 
     def to_html(self) -> str:
         """

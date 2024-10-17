@@ -260,7 +260,7 @@ class ReagentParser(object):
             extraction_kit (str): Extraction kit used.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        logger.debug("\n\nHello from ReagentParser!\n\n")
+        logger.info("\n\nHello from ReagentParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type_obj = submission_type
@@ -303,11 +303,11 @@ class ReagentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
+            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
-                logger.debug(f"Attempting to scrape: {item}")
+                # logger.debug(f"Attempting to scrape: {item}")
                 try:
                     reagent = relevant[item]
                     name = ws.cell(row=reagent['name']['row'], column=reagent['name']['column']).value
@@ -325,10 +325,10 @@ class ReagentParser(object):
                     missing = False
                 else:
                     missing = True
-                logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
+                # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                logger.debug(
-                    f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
+                # logger.debug(
+                #     f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
                 try:
                     check = name.lower() != "not applicable"
                 except AttributeError:
@@ -353,12 +353,12 @@ class SampleParser(object):
             sample_map (dict | None, optional): Locations in database where samples are found. Defaults to None.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        logger.debug("\n\nHello from SampleParser!\n\n")
+        logger.info("\n\nHello from SampleParser!\n\n")
         self.samples = []
         self.xl = xl
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
-        logger.debug(f"Sample parser is using submission type: {submission_type}")
+        # logger.debug(f"Sample parser is using submission type: {submission_type}")
         self.submission_type = submission_type.name
         self.submission_type_obj = submission_type
         if sub_object is None:
@@ -456,40 +456,49 @@ class SampleParser(object):
             List[dict]: Reconciled samples
         """
         if not self.plate_map_samples or not self.lookup_samples:
-            logger.error(f"No separate samples, returning")
-            self.samples = self.lookup_samples or self.plate_map_samples
-            return
-        merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
-        plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
-        lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
-        for ii, psample in enumerate(plate_map_samples):
-            # NOTE: See if we can do this the easy way and just use the same list index.
-            try:
-                check = psample['id'] == lookup_samples[ii][merge_on_id]
-            except (KeyError, IndexError):
-                check = False
-            if check:
-                # logger.debug(f"Direct match found for {psample['id']}")
-                new = lookup_samples[ii] | psample
-                lookup_samples[ii] = {}
-            else:
-                logger.warning(f"Match for {psample['id']} not direct, running search.")
-                for jj, lsample in enumerate(lookup_samples):
-                    try:
-                        check = lsample[merge_on_id] == psample['id']
-                    except KeyError:
-                        check = False
-                    if check:
-                        new = lsample | psample
-                        lookup_samples[jj] = {}
-                        break
-                    else:
-                        new = psample
-            if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
-                new['submitter_id'] = psample['id']
-            new = self.sub_object.parse_samples(new)
-            del new['id']
-            yield new
+            logger.warning(f"No separate samples")
+            samples = self.lookup_samples or self.plate_map_samples
+            for new in samples:
+                if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
+                    new['submitter_id'] = new['id']
+                new = self.sub_object.parse_samples(new)
+                try:
+                    del new['id']
+                except KeyError:
+                    pass
+                yield new
+        else:
+            merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
+            plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
+            lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
+            for ii, psample in enumerate(plate_map_samples):
+                # NOTE: See if we can do this the easy way and just use the same list index.
+                try:
+                    check = psample['id'] == lookup_samples[ii][merge_on_id]
+                except (KeyError, IndexError):
+                    check = False
+                if check:
+                    # logger.debug(f"Direct match found for {psample['id']}")
+                    new = lookup_samples[ii] | psample
+                    lookup_samples[ii] = {}
+                else:
+                    logger.warning(f"Match for {psample['id']} not direct, running search.")
+                    for jj, lsample in enumerate(lookup_samples):
+                        try:
+                            check = lsample[merge_on_id] == psample['id']
+                        except KeyError:
+                            check = False
+                        if check:
+                            new = lsample | psample
+                            lookup_samples[jj] = {}
+                            break
+                        else:
+                            new = psample
+                if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
+                    new['submitter_id'] = psample['id']
+                new = self.sub_object.parse_samples(new)
+                del new['id']
+                yield new
 
 
 class EquipmentParser(object):

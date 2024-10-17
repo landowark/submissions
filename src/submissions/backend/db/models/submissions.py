@@ -235,7 +235,7 @@ class BasicSubmission(BaseClass):
         Returns:
             SubmissionType: SubmissionType with name equal to this polymorphic identity
         """
-        logger.debug(f"Running search for {sub_type}")
+        # logger.debug(f"Running search for {sub_type}")
         if isinstance(sub_type, dict):
             try:
                 sub_type = sub_type['value']
@@ -521,7 +521,7 @@ class BasicSubmission(BaseClass):
         Returns:
             pd.DataFrame: Pandas Dataframe of all relevant submissions
         """
-        logger.debug(f"Querying Type: {submission_type}")
+        # logger.debug(f"Querying Type: {submission_type}")
         # logger.debug(f"Using limit: {limit}")
         # NOTE: use lookup function to create list of dicts
         subs = [item.to_dict() for item in
@@ -827,7 +827,7 @@ class BasicSubmission(BaseClass):
         return input_dict
 
     @classmethod
-    def custom_validation(cls, pyd: "PydSubmission") -> dict:
+    def custom_validation(cls, pyd: "PydSubmission") -> "PydSubmission":
         """
         Performs any final custom parsing of the excel file.
 
@@ -1412,14 +1412,16 @@ class BacterialCulture(BasicSubmission):
             dict: Updated dictionary.
         """
         from . import ControlType
+        # logger.debug(f"\n\nHello from BacterialCulture custom_validation")
         pyd = super().custom_validation(pyd)
         # NOTE: build regex for all control types that have targets
-        regex = ControlType.build_positive_regex()
+        regex = ControlType.build_positive_regex(control_type="Irida Control")
+        logger.debug(regex)
         # NOTE: search samples for match
         for sample in pyd.samples:
             matched = regex.match(sample.submitter_id)
             if bool(matched):
-                # logger.debug(f"Control match found: {sample['submitter_id']}")
+                # logger.debug(f"Control match found: {sample.submitter_id}")
                 new_lot = matched.group()
                 try:
                     pos_control_reg = \
@@ -1429,6 +1431,7 @@ class BacterialCulture(BasicSubmission):
                     return pyd
                 pos_control_reg.lot = new_lot
                 pos_control_reg.missing = False
+                # logger.debug(f"Got positive control: {pos_control_reg}")
         return pyd
 
     @classmethod
@@ -1785,6 +1788,7 @@ class WastewaterArtic(BasicSubmission):
                 ii in
                 range(source_plates_section['start_row'], source_plates_section['end_row'] + 1)]
         for datum in data:
+            logger.debug(f"Datum: {datum}")
             if datum['plate'] in ["None", None, ""]:
                 continue
             else:
@@ -1869,7 +1873,13 @@ class WastewaterArtic(BasicSubmission):
             dict: Updated sample dictionary
         """
         input_dict = super().parse_samples(input_dict)
+        logger.debug(f"WWA input dict: {pformat(input_dict)}")
         input_dict['sample_type'] = "Wastewater Sample"
+        # NOTE: Stop gap solution because WW is sloppy with their naming schemes
+        try:
+            input_dict['source_plate'] = input_dict['source_plate'].replace("WW20", "WW-20")
+        except KeyError:
+            pass
         # NOTE: Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
         # at the end, this has to be done here. No moving to sqlalchemy object :(
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)\s?$", "", str(input_dict['submitter_id'])).strip()

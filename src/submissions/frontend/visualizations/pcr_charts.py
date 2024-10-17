@@ -21,6 +21,7 @@ class PCRFigure(CustomFigure):
     def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
                  months: int = 6):
         super().__init__(df=df, modes=modes)
+        logger.debug(f"DF: {self.df}")
         self.construct_chart(df=df)
         # self.generic_figure_markers(modes=modes, ytitle=ytitle, months=months)
 

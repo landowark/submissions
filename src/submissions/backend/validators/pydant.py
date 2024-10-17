@@ -57,14 +57,14 @@ class PydReagent(BaseModel):
     @classmethod
     def rescue_lot_string(cls, value):
         if value is not None:
-            return convert_nans_to_nones(str(value))
+            return convert_nans_to_nones(str(value).strip())
         return value
 
     @field_validator("lot")
     @classmethod
     def enforce_lot_string(cls, value):
         if value is not None:
-            return value.upper()
+            return value.upper().strip()
         return value
 
     @field_validator("expiry", mode="before")
@@ -97,9 +97,9 @@ class PydReagent(BaseModel):
     @classmethod
     def enforce_name(cls, value, values):
         if value is not None:
-            return convert_nans_to_nones(str(value))
+            return convert_nans_to_nones(str(value).strip())
         else:
-            return values.data['role']
+            return values.data['role'].strip()
 
     def improved_dict(self) -> dict:
         """
@@ -209,6 +209,18 @@ class PydSample(BaseModel, extra='allow'):
     @classmethod
     def int_to_str(cls, value):
         return str(value)
+
+    @field_validator("submitter_id")
+    @classmethod
+    def strip_sub_id(cls, value):
+        match value:
+            case dict():
+                value['value'] = value['value'].strip().upper()
+            case str():
+                value = value.strip().upper()
+            case _:
+                pass
+        return value
 
     def improved_dict(self) -> dict:
         """
@@ -439,6 +451,7 @@ class PydSubmission(BaseModel, extra='allow'):
         if value['value'] in [None, "None"]:
             return dict(value=uuid.uuid4().hex.upper(), missing=True)
         else:
+            value['value'] = value['value'].strip()
             return value
 
     @field_validator("submitted_date", mode="before")
@@ -523,6 +536,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"RSL-plate initial value: {value['value']} and other values: {values.data}")
         sub_type = values.data['submission_type']['value']
         if check_not_nan(value['value']):
+            value['value'] = value['value'].strip()
             return value
         else:
             # logger.debug("Constructing plate sub_type.")
@@ -808,6 +822,7 @@ class PydSubmission(BaseModel, extra='allow'):
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)
                         # logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
+                        logger.debug(associations)
                         for assoc in associations:
                             if assoc is not None and assoc not in instance.submission_sample_associations:
                                 instance.submission_sample_associations.append(assoc)

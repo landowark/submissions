@@ -198,7 +198,7 @@ class KitType(BaseClass):
         # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
         for assoc in assocs:
             try:
-                logger.debug(f"Yielding: {assoc.reagent_role.name}, {assoc.uses}")
+                # logger.debug(f"Yielding: {assoc.reagent_role.name}, {assoc.uses}")
                 yield assoc.reagent_role.name, assoc.uses
             except TypeError:
                 continue
@@ -1156,7 +1156,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
             base_dict[k] = v
         return base_dict
 
-    def get_all_relevant_reagents(self) -> Generator[Reagent, None, None]:
+    def get_all_relevant_reagents(self, override:Reagent|None=None) -> Generator[Reagent, None, None]:
         """
         Creates a generator that will resolve in to a list filling the role associated with this object.
 

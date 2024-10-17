@@ -12,7 +12,7 @@ import logging, re
 from operator import itemgetter
 
 from . import BaseClass
-from tools import setup_lookup, report_result, Result, Report, Settings, get_unique_values_in_df_column
+from tools import setup_lookup, report_result, Result, Report, Settings, get_unique_values_in_df_column, super_splitter
 from datetime import date, datetime, timedelta
 from typing import List, Literal, Tuple, Generator
 from dateutil.parser import parse
@@ -81,31 +81,33 @@ class ControlType(BaseClass):
             return []
         # NOTE: remove items that don't have relevant data
         subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
-        logger.debug(f"subtypes out: {pformat(subtypes)}")
+        # logger.debug(f"subtypes out: {pformat(subtypes)}")
         return subtypes
 
     def get_instance_class(self):
         return Control.find_polymorphic_subclass(polymorphic_identity=self.name)
 
     @classmethod
-    def get_positive_control_types(cls) -> Generator[ControlType, None, None]:
+    def get_positive_control_types(cls, control_type: str) -> Generator[str, None, None]:
         """
         Gets list of Control types if they have targets
 
         Returns:
             List[ControlType]: Control types that have targets
         """
-        return (item for item in cls.query() if item.targets)
+        ct = cls.query(name=control_type).targets
+        return (item for item in ct.keys() if ct[item])
 
     @classmethod
-    def build_positive_regex(cls) -> Pattern:
+    def build_positive_regex(cls, control_type:str) -> Pattern:
         """
         Creates a re.Pattern that will look for positive control types
 
         Returns:
             Pattern: Constructed pattern
         """
-        strings = list(set([item.name.split("-")[0] for item in cls.get_positive_control_types()]))
+        # strings = list(set([item.name.split("-")[0] for item in cls.get_positive_control_types()]))
+        strings = list(set([super_splitter(item, "-", 0) for item in cls.get_positive_control_types(control_type)]))
         return re.compile(rf"(^{'|^'.join(strings)})-.*", flags=re.IGNORECASE)
 
 
@@ -298,7 +300,8 @@ class PCRControl(Control):
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
         report = Report()
-        controls = cls.query(sub_type=chart_settings['sub_type'], start_date=chart_settings['start_date'], end_date=chart_settings['end_date'])
+        controls = cls.query(sub_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
+                             end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
         df = DataFrame.from_records(data)
         try:

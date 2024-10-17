@@ -1,6 +1,8 @@
 ## 202410.03
 
 - Added code for cataloging of PCR controls.
+- Data from control charts now exportable.
+- Irida parser updated.
 
 ## 202410.02
 

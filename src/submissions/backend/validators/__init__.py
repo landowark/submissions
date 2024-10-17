@@ -49,12 +49,13 @@ class RSLNamer(object):
             str: parsed submission type
         """
         def st_from_path(filename:Path) -> str:
-            logger.debug(f"Using path method for {filename}.")
+            logger.info(f"Using path method for {filename}.")
             if filename.exists():
                 wb = load_workbook(filename)
                 try:
                     # NOTE: Gets first category in the metadata.
-                    submission_type = next(item.strip().title() for item in wb.properties.category.split(";"))
+                    categories = wb.properties.category.split(";")
+                    submission_type = next(item.strip().title() for item in categories)
                 except (StopIteration, AttributeError):
                     sts = {item.name: item.get_template_file_sheets() for item in SubmissionType.query()}
                     try:
@@ -67,12 +68,12 @@ class RSLNamer(object):
             return submission_type
         def st_from_str(filename:str) -> str:
             regex = BasicSubmission.construct_regex()
-            logger.debug(f"Using string method for {filename}.")
-            logger.debug(f"Using regex: {regex}")
+            logger.info(f"Using string method for {filename}.")
+            # logger.debug(f"Using regex: {regex}")
             m = regex.search(filename)
             try:
                 submission_type = m.lastgroup
-                logger.debug(f"Got submission type: {submission_type}")
+                # logger.debug(f"Got submission type: {submission_type}")
             except AttributeError as e:
                 submission_type = None
                 logger.critical(f"No submission type found or submission type found!: {e}")
@@ -118,7 +119,7 @@ class RSLNamer(object):
                 regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
             except re.error as e:
                 regex = BasicSubmission.construct_regex()
-        logger.debug(f"Using regex: {regex}")
+        logger.info(f"Using regex: {regex}")
         match filename:
             case Path():
                 m = regex.search(filename.stem)

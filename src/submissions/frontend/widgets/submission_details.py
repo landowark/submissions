@@ -76,11 +76,11 @@ class SubmissionDetails(QDialog):
         if "Submission" in title:
             self.btn.setEnabled(True)
             self.export_plate = title.split(" ")[-1]
-            logger.debug(f"Updating export plate to: {self.export_plate}")
+            # logger.debug(f"Updating export plate to: {self.export_plate}")
         else:
             self.btn.setEnabled(False)
         if title == self.webview.history().items()[0].title():
-            logger.debug("Disabling back button")
+            # logger.debug("Disabling back button")
             self.back.setEnabled(False)
         else:
             self.back.setEnabled(True)
@@ -93,7 +93,7 @@ class SubmissionDetails(QDialog):
         Args:
             sample (str): Submitter Id of the sample.
         """
-        logger.debug(f"Details: {sample}")
+        # logger.debug(f"Details: {sample}")
         if isinstance(sample, str):
             sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)

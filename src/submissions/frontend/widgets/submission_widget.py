@@ -731,10 +731,8 @@ class SubmissionFormWidget(QWidget):
                 self.setEditable(True)
                 looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
                                                                    kit_type=extraction_kit)
-                # relevant_reagents = [str(item.lot) for item in
-                #                      self.relevant_reagents(assoc=looked_up_rt)]
                 relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
-                # logger.debug(f"Relevant reagents for {reagent.lot}: {relevant_reagents}")
+                logger.debug(f"Relevant reagents for {reagent}: {relevant_reagents}")
                 # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
                 if str(reagent.lot) not in relevant_reagents:
                     if check_not_nan(reagent.lot):
@@ -749,12 +747,13 @@ class SubmissionFormWidget(QWidget):
                         if isinstance(looked_up_reg, list):
                             looked_up_reg = None
                         # logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
-                        if looked_up_reg is not None:
+                        if looked_up_reg:
                             try:
                                 relevant_reagents.remove(str(looked_up_reg.lot))
-                                relevant_reagents.insert(0, str(looked_up_reg.lot))
+
                             except ValueError as e:
                                 logger.error(f"Error reordering relevant reagents: {e}")
+                            relevant_reagents.insert(0, str(looked_up_reg.lot))
                 else:
                     if len(relevant_reagents) > 1:
                         # logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
@@ -765,26 +764,26 @@ class SubmissionFormWidget(QWidget):
                     else:
                         # logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
                         pass
-                # logger.debug(f"New relevant reagents: {relevant_reagents}")
+                logger.debug(f"New relevant reagents: {relevant_reagents}")
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")
                 # self.setStyleSheet(main_form_style)
 
-            def relevant_reagents(self, assoc: KitTypeReagentRoleAssociation):
-                # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
-                lookup = Reagent.query(reagent_role=assoc.reagent_role)
-                try:
-                    regex = assoc.uses['exclude_regex']
-                except KeyError:
-                    regex = "^$"
-                relevant_reagents = [item for item in lookup if
-                                     not check_regex_match(pattern=regex, check=str(item.lot))]
-                for rel_reagent in relevant_reagents:
-                    # # NOTE: extract strings from any sets.
-                    # if isinstance(rel_reagent, set):
-                    #     for thing in rel_reagent:
-                    #         yield thing
-                    # elif isinstance(rel_reagent, str):
-                    #     yield rel_reagent
-                    yield rel_reagent
+            # def relevant_reagents(self, assoc: KitTypeReagentRoleAssociation):
+            #     # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
+            #     lookup = Reagent.query(reagent_role=assoc.reagent_role)
+            #     try:
+            #         regex = assoc.uses['exclude_regex']
+            #     except KeyError:
+            #         regex = "^$"
+            #     relevant_reagents = [item for item in lookup if
+            #                          not check_regex_match(pattern=regex, check=str(item.lot))]
+            #     for rel_reagent in relevant_reagents:
+            #         # # NOTE: extract strings from any sets.
+            #         # if isinstance(rel_reagent, set):
+            #         #     for thing in rel_reagent:
+            #         #         yield thing
+            #         # elif isinstance(rel_reagent, str):
+            #         #     yield rel_reagent
+            #         yield rel_reagent

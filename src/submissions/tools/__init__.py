@@ -884,6 +884,13 @@ def yaml_regex_creator(loader, node):
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
 
 
+def super_splitter(input:str, ioi:str, idx:int) -> str:
+    try:
+        return input.split(ioi)[idx]
+    except IndexError:
+        return input
+
+
 ctx = get_config(None)
 
 

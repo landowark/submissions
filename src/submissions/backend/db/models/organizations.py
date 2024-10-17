@@ -102,7 +102,6 @@ class Organization(BaseClass):
             else:
                 raise Exception(f"Filetype {filepath.suffix} not supported.")
         data = import_dict['orgs']
-        logger.debug(pformat(import_dict))
         for org in data:
             organ = Organization.query(name=org['name'])
             if organ is None:
