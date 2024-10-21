@@ -2,7 +2,6 @@
 All client organization related models.
 '''
 from __future__ import annotations
-
 import json, yaml, logging
 from pathlib import Path
 from pprint import pformat
@@ -118,8 +117,6 @@ class Organization(BaseClass):
                     cont.__setattr__(k, v)
                 organ.contacts.append(cont)
             organ.save()
-            # logger.debug(pformat(organ.__dict__))
-
 
 
 class Contact(BaseClass):
@@ -136,10 +133,6 @@ class Contact(BaseClass):
     submissions = relationship("BasicSubmission", back_populates="contact")  #: submissions this contact has submitted
 
     def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this Contact
-        """
         return f"<Contact({self.name})>"
 
     @classmethod

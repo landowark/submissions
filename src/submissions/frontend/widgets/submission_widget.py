@@ -1,8 +1,6 @@
 '''
 Contains all submission related frontend functions
 '''
-import sys
-
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
@@ -11,7 +9,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from . import select_open_file, select_save_file
 import logging, difflib
 from pathlib import Path
-from tools import Report, Result, check_not_nan, main_form_style, report_result, check_regex_match
+from tools import Report, Result, check_not_nan, main_form_style, report_result
 from backend.excel.parser import SheetParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
@@ -28,6 +26,9 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class MyQComboBox(QComboBox):
+    """
+    Custom combobox that disables wheel events until focussed on.
+    """
     def __init__(self, scrollWidget=None, *args, **kwargs):
         super(MyQComboBox, self).__init__(*args, **kwargs)
         self.scrollWidget = scrollWidget
@@ -42,6 +43,9 @@ class MyQComboBox(QComboBox):
 
 
 class MyQDateEdit(QDateEdit):
+    """
+    Custom date editor that disables wheel events until focussed on.
+    """
     def __init__(self, scrollWidget=None, *args, **kwargs):
         super(MyQDateEdit, self).__init__(*args, **kwargs)
         self.scrollWidget = scrollWidget
@@ -340,8 +344,6 @@ class SubmissionFormWidget(QWidget):
         _, result = self.pyd.check_kit_integrity()
         report.add_result(result)
         if len(result.results) > 0:
-            # self.app.report.add_result(report)
-            # self.app.report_result()
             return
         # logger.debug(f"PYD before transformation into SQL:\n\n{self.pyd}\n\n")
         base_submission, result = self.pyd.to_sql()
@@ -370,14 +372,10 @@ class SubmissionFormWidget(QWidget):
                 else:
                     self.app.ctx.database_session.rollback()
                     report.add_result(Result(msg="Overwrite cancelled", status="Information"))
-                    # self.app.report.add_result(report)
-                    # self.app.report_result()
                     return report
             # NOTE: code 2: No RSL plate number given
             case 2:
                 report.add_result(result)
-                # self.app.report.add_result(report)
-                # self.app.report_result()
                 return report
             case _:
                 pass
@@ -451,7 +449,6 @@ class SubmissionFormWidget(QWidget):
                 info[item] = value
         for k, v in info.items():
             self.pyd.set_attribute(key=k, value=v)
-        # NOTE: return submission
         report.add_result(report)
         return report
 
@@ -527,18 +524,18 @@ class SubmissionFormWidget(QWidget):
             match key:
                 case 'submitting_lab':
                     add_widget = MyQComboBox(scrollWidget=parent)
-                    # lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
+                    # NOTE: lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
                     labs = [item.name for item in Organization.query()]
-                    # try to set closest match to top of list
+                    # NOTE: try to set closest match to top of list
                     try:
                         labs = difflib.get_close_matches(value, labs, len(labs), 0)
                     except (TypeError, ValueError):
                         pass
-                    # set combobox values to lookedup values
+                    # NOTE: set combobox values to lookedup values
                     add_widget.addItems(labs)
                     add_widget.setToolTip("Select submitting lab.")
                 case 'extraction_kit':
-                    # if extraction kit not available, all other values fail
+                    # NOTE: if extraction kit not available, all other values fail
                     if not check_not_nan(value):
                         msg = AlertPop(message="Make sure to check your extraction kit in the excel sheet!",
                                        status="warning")
@@ -573,8 +570,6 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(cats)
                     add_widget.setToolTip("Enter submission category or select from list.")
                 case _:
-                    # if key in sub_obj.get_default_info("form_ignore", submission_type=submission_type):
-                    #     return None
                     if key in sub_obj.timestamps():
                         add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
                         # NOTE: sets submitted date based on date found in excel sheet
@@ -593,7 +588,6 @@ class SubmissionFormWidget(QWidget):
             if add_widget is not None:
                 add_widget.setObjectName(key)
                 add_widget.setParent(parent)
-                # add_widget.setStyleSheet(main_form_style)
             return add_widget
 
         def update_missing(self):
@@ -649,7 +643,6 @@ class SubmissionFormWidget(QWidget):
             self.label = self.ReagentParsedLabel(reagent=reagent)
             layout.addWidget(self.label)
             self.lot = self.ReagentLot(scrollWidget=parent, reagent=reagent, extraction_kit=extraction_kit)
-            # self.lot.setStyleSheet(main_form_style)
             layout.addWidget(self.lot)
             # NOTE: Remove spacing between reagents
             layout.setContentsMargins(0, 0, 0, 0)
@@ -738,8 +731,6 @@ class SubmissionFormWidget(QWidget):
                     if check_not_nan(reagent.lot):
                         relevant_reagents.insert(0, str(reagent.lot))
                     else:
-                        # looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
-                        #                                                    kit_type=extraction_kit)
                         try:
                             looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
                         except AttributeError:
@@ -768,22 +759,4 @@ class SubmissionFormWidget(QWidget):
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")
-                # self.setStyleSheet(main_form_style)
-
-            # def relevant_reagents(self, assoc: KitTypeReagentRoleAssociation):
-            #     # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
-            #     lookup = Reagent.query(reagent_role=assoc.reagent_role)
-            #     try:
-            #         regex = assoc.uses['exclude_regex']
-            #     except KeyError:
-            #         regex = "^$"
-            #     relevant_reagents = [item for item in lookup if
-            #                          not check_regex_match(pattern=regex, check=str(item.lot))]
-            #     for rel_reagent in relevant_reagents:
-            #         # # NOTE: extract strings from any sets.
-            #         # if isinstance(rel_reagent, set):
-            #         #     for thing in rel_reagent:
-            #         #         yield thing
-            #         # elif isinstance(rel_reagent, str):
-            #         #     yield rel_reagent
-            #         yield rel_reagent
+                

@@ -9,7 +9,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from tools import jinja_template_loading
 import logging
 from backend.db import models
-from typing import Literal
+from typing import Any, Literal
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -54,9 +54,8 @@ class AlertPop(QMessageBox):
 
 class HTMLPop(QDialog):
 
-    def __init__(self, html: str, owner: str | None = None, title: str = "python"):
+    def __init__(self, html: str, title: str = "python"):
         super().__init__()
-
         self.webview = QWebEngineView(parent=self)
         self.layout = QVBoxLayout()
         self.setWindowTitle(title)

@@ -3,14 +3,12 @@ All control related models.
 """
 from __future__ import annotations
 from pprint import pformat
-
 from PyQt6.QtWidgets import QWidget, QCheckBox, QLabel
 from pandas import DataFrame
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, case, FLOAT
 from sqlalchemy.orm import relationship, Query, validates
 import logging, re
 from operator import itemgetter
-
 from . import BaseClass
 from tools import setup_lookup, report_result, Result, Report, Settings, get_unique_values_in_df_column, super_splitter
 from datetime import date, datetime, timedelta
@@ -73,7 +71,6 @@ class ControlType(BaseClass):
         if not self.instances:
             return
         jsoner = getattr(self.instances[0], mode)
-        # logger.debug(f"JSON retrieved: {jsoner.keys()}")
         try:
             # NOTE: Pick genera (all should have same subtypes)
             genera = list(jsoner.keys())[0]
@@ -81,10 +78,15 @@ class ControlType(BaseClass):
             return []
         # NOTE: remove items that don't have relevant data
         subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
-        # logger.debug(f"subtypes out: {pformat(subtypes)}")
         return subtypes
 
-    def get_instance_class(self):
+    def get_instance_class(self) -> Control:
+        """
+        Retrieves the Control class associated with this controltype
+
+        Returns:
+            Control: Associated Control class
+        """        
         return Control.find_polymorphic_subclass(polymorphic_identity=self.name)
 
     @classmethod
@@ -93,7 +95,7 @@ class ControlType(BaseClass):
         Gets list of Control types if they have targets
 
         Returns:
-            List[ControlType]: Control types that have targets
+            Generator[str, None, None]: Control types that have targets
         """
         ct = cls.query(name=control_type).targets
         return (item for item in ct.keys() if ct[item])
@@ -106,7 +108,6 @@ class ControlType(BaseClass):
         Returns:
             Pattern: Constructed pattern
         """
-        # strings = list(set([item.name.split("-")[0] for item in cls.get_positive_control_types()]))
         strings = list(set([super_splitter(item, "-", 0) for item in cls.get_positive_control_types(control_type)]))
         return re.compile(rf"(^{'|^'.join(strings)})-.*", flags=re.IGNORECASE)
 
@@ -144,7 +145,7 @@ class Control(BaseClass):
 
     @classmethod
     def find_polymorphic_subclass(cls, polymorphic_identity: str | ControlType | None = None,
-                                  attrs: dict | None = None):
+                                  attrs: dict | None = None) -> Control:
         """
                 Find subclass based on polymorphic identity or relevant attributes.
 
@@ -153,7 +154,7 @@ class Control(BaseClass):
                     attrs (str | SubmissionType | None, optional): Attributes of the relevant class. Defaults to None.
 
                 Returns:
-                    _type_: Subclass of interest.
+                    Control: Subclass of interest.
                 """
         if isinstance(polymorphic_identity, dict):
             # logger.debug(f"Controlling for dict value")
@@ -184,7 +185,8 @@ class Control(BaseClass):
     @classmethod
     def make_parent_buttons(cls, parent: QWidget) -> None:
         """
-
+        Super that will make buttons in a CustomFigure. Made to be overrided.
+        
         Args:
             parent (QWidget): chart holding widget to add buttons to.
 
@@ -196,13 +198,11 @@ class Control(BaseClass):
     @classmethod
     def make_chart(cls, parent, chart_settings: dict, ctx):
         """
+        Dummy operation to be overridden by child classes.
 
         Args:
             chart_settings (dict): settings passed down from chart widget
             ctx (Settings): settings passed down from gui
-
-        Returns:
-
         """
         return None
 
@@ -220,7 +220,13 @@ class PCRControl(Control):
                            polymorphic_load="inline",
                            inherit_condition=(id == Control.id))
 
-    def to_sub_dict(self):
+    def to_sub_dict(self) -> dict:
+        """
+        Creates dictionary of fields for this object
+
+        Returns:
+            dict: Output dict of name, ct, subtype, target, reagent_lot and submitted_date
+        """        
         return dict(name=self.name, ct=self.ct, subtype=self.subtype, target=self.target, reagent_lot=self.reagent_lot,
                     submitted_date=self.submitted_date.date())
 
@@ -237,15 +243,16 @@ class PCRControl(Control):
         Lookup control objects in the database based on a number of parameters.
 
         Args:
-            sub_type (models.ControlType | str | None, optional): Control archetype. Defaults to None.
+            sub_type (str | None, optional): Control archetype. Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
             end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
             control_name (str | None, optional): Name of control. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-            models.Control|List[models.Control]: Control object of interest.
+            PCRControl|List[PCRControl]: Control object of interest.
         """
+        from backend.db import SubmissionType
         query: Query = cls.__database_session__.query(cls)
         # NOTE: by date range
         if start_date is not None and end_date is None:
@@ -282,7 +289,12 @@ class PCRControl(Control):
         match sub_type:
             case str():
                 from backend import BasicSubmission, SubmissionType
+                # logger.debug(f"Lookup controls by SubmissionType str: {sub_type}")
                 query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == sub_type)
+            case SubmissionType():
+                from backend import BasicSubmission
+                # logger.debug(f"Lookup controls by SubmissionType: {sub_type}")
+                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name==sub_type.name)
             case _:
                 pass
         match control_name:
@@ -295,7 +307,18 @@ class PCRControl(Control):
         return cls.execute_query(query=query, limit=limit)
 
     @classmethod
-    def make_chart(cls, parent, chart_settings: dict, ctx):
+    def make_chart(cls, parent, chart_settings: dict, ctx: Settings) -> Tuple[Report, "PCRFigure"]:
+        """
+        Creates a PCRFigure. Overrides parent
+
+        Args:
+            parent (__type__): Widget to contain the chart.
+            chart_settings (dict): settings passed down from chart widget
+            ctx (Settings): settings passed down from gui. Not used here.
+
+        Returns:
+            Tuple[Report, "PCRFigure"]: Report of status and resulting figure.
+        """        
         from frontend.visualizations.pcr_charts import PCRFigure
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
@@ -308,7 +331,7 @@ class PCRControl(Control):
             df = df[df.ct > 0.0]
         except AttributeError:
             df = df
-        fig = PCRFigure(df=df, modes=None)
+        fig = PCRFigure(df=df, modes=[])
         return report, fig
 
 
@@ -324,16 +347,26 @@ class IridaControl(Control):
     sample = relationship("BacterialCultureSample", back_populates="control")  #: This control's submission sample
     sample_id = Column(INTEGER,
                        ForeignKey("_basicsample.id", ondelete="SET NULL", name="cont_BCS_id"))  #: sample id key
-    # submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"))  #: parent submission id
-    # submission = relationship("BacterialCulture", back_populates="controls",
-    #                           foreign_keys=[submission_id])  #: parent submission
-
+    
     __mapper_args__ = dict(polymorphic_identity="Irida Control",
                            polymorphic_load="inline",
                            inherit_condition=(id == Control.id))
 
     @validates("sub_type")
-    def enforce_subtype_literals(self, key: str, value: str):
+    def enforce_subtype_literals(self, key: str, value: str) -> str:
+        """
+        Validates sub_type field with acceptable values
+
+        Args:
+            key (str): Field name
+            value (str): Field Value
+
+        Raises:
+            KeyError: Raised if value is not in the acceptable list.
+
+        Returns:
+            str: Validated string.
+        """        
         acceptables = ['ATCC49226', 'ATCC49619', 'EN-NOS', "EN-SSTI", "MCS-NOS", "MCS-SSTI", "SN-NOS", "SN-SSTI"]
         if value.upper() not in acceptables:
             raise KeyError(f"Sub-type must be in {acceptables}")
@@ -346,7 +379,6 @@ class IridaControl(Control):
             Returns:
                 dict: output dictionary containing: Name, Type, Targets, Top Kraken results
             """
-        # logger.debug("loading json string into dict")
         try:
             kraken = self.kraken
         except TypeError:
@@ -405,8 +437,6 @@ class IridaControl(Control):
                               k.strip("*") not in self.controltype.targets[control_sub_type])
                 on_tar['Off-target'] = {f"{mode}_ratio": off_tar}
                 data = on_tar
-        # logger.debug(pformat(data))
-        # logger.debug(f"Length of data: {len(data)}")
         # logger.debug("dict keys are genera of bacteria, e.g. 'Streptococcus'")
         for genus in data:
             _dict = dict(
@@ -416,7 +446,6 @@ class IridaControl(Control):
                 target='Target' if genus.strip("*") in self.controltype.targets[control_sub_type] else "Off-target"
             )
             # logger.debug("get Target or Off-target of genus")
-            # logger.debug("set 'contains_hashes', etc for genus")
             for key in data[genus]:
                 _dict[key] = data[genus][key]
             yield _dict
@@ -462,12 +491,7 @@ class IridaControl(Control):
         query: Query = cls.__database_session__.query(cls)
         # NOTE: by control type
         match sub_type:
-            # case ControlType():
-            #     # logger.debug(f"Looking up control by control type: {sub_type}")
-            #     query = query.filter(cls.controltype == sub_type)
             case str():
-                # logger.debug(f"Looking up control by control type: {sub_type}")
-                # query = query.join(ControlType).filter(ControlType.name == sub_type)
                 query = query.filter(cls.sub_type == sub_type)
             case _:
                 pass
@@ -519,8 +543,6 @@ class IridaControl(Control):
         Args:
             parent (QWidget): chart holding widget to add buttons to.
 
-        Returns:
-
         """
         super().make_parent_buttons(parent=parent)
         rows = parent.layout.rowCount()
@@ -536,6 +558,17 @@ class IridaControl(Control):
     @classmethod
     @report_result
     def make_chart(cls, chart_settings: dict, parent, ctx) -> Tuple[Report, "IridaFigure" | None]:
+        """
+        Creates a IridaFigure. Overrides parent
+
+        Args:
+            parent (__type__): Widget to contain the chart.
+            chart_settings (dict): settings passed down from chart widget
+            ctx (Settings): settings passed down from gui.
+
+        Returns:
+            Tuple[Report, "IridaFigure"]: Report of status and resulting figure.
+        """        
         from frontend.visualizations import IridaFigure
         try:
             checker = parent.findChild(QCheckBox, name="irida_check")
@@ -574,8 +607,6 @@ class IridaControl(Control):
         # NOTE: send dataframe to chart maker
         df, modes = cls.prep_df(ctx=ctx, df=df)
         # logger.debug(f"prepped df: \n {df}")
-        # assert modes
-        # logger.debug(f"modes: {modes}")
         fig = IridaFigure(df=df, ytitle=title, modes=modes, parent=parent,
                           months=chart_settings['months'])
         return report, fig
@@ -604,7 +635,6 @@ class IridaControl(Control):
                 else:
                     safe.append(column)
             if "percent" in column:
-                # count_col = [item for item in df.columns if "count" in item][0]
                 try:
                     count_col = next(item for item in df.columns if "count" in item)
                 except StopIteration:

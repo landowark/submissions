@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from pathlib import Path
-
 from markdown import markdown
 from __init__ import project_path
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
@@ -21,8 +20,6 @@ import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
-from .kit_creator import KitAdder
-from .submission_type_creator import SubmissionTypeAdder, SubmissionType
 from .sample_search import SearchBox
 from .summary import Summary
 
@@ -72,7 +69,6 @@ class App(QMainWindow):
         fileMenu = menuBar.addMenu("&File")
         # NOTE: Creating menus using a title
         methodsMenu = menuBar.addMenu("&Methods")
-        # reportMenu = menuBar.addMenu("&Reports")
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
@@ -83,7 +79,6 @@ class App(QMainWindow):
         fileMenu.addAction(self.yamlImportAction)
         methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
-        # reportMenu.addAction(self.generateReportAction)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
 
@@ -105,7 +100,6 @@ class App(QMainWindow):
         # logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
         self.addReagentAction = QAction("Add Reagent", self)
-        # self.generateReportAction = QAction("Make Report", self)
         self.addKitAction = QAction("Import Kit", self)
         self.addOrgAction = QAction("Import Org", self)
         self.joinExtractionAction = QAction("Link Extraction Logs")
@@ -125,7 +119,6 @@ class App(QMainWindow):
         # logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
-        # self.generateReportAction.triggered.connect(self.table_widget.sub_wid.generate_report)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
@@ -233,6 +226,7 @@ class App(QMainWindow):
         ap.exec()
         st = SubmissionType.import_from_json(filepath=fname)
         if st:
+            # NOTE: Do not delete the print statement below.
             print(pformat(st.to_export_dict()))
             choice = input("Save the above submission type? [y/N]: ")
             if choice.lower() == "y":
@@ -262,7 +256,6 @@ class AddSubForm(QWidget):
         self.tabs.addTab(self.tab2, "Irida Controls")
         self.tabs.addTab(self.tab3, "PCR Controls")
         self.tabs.addTab(self.tab4, "Cost Report")
-        # self.tabs.addTab(self.tab4, "Add Kit")
         # NOTE: Create submission adder form
         self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
@@ -294,16 +287,10 @@ class AddSubForm(QWidget):
         self.pcr_viewer = ControlsViewer(self, archetype="PCR Control")
         self.tab3.layout.addWidget(self.pcr_viewer)
         self.tab3.setLayout(self.tab3.layout)
-        # NOTE: create custom widget to add new tabs
-        # ST_adder = SubmissionTypeAdder(self)
         summary_report = Summary(self)
         self.tab4.layout = QVBoxLayout(self)
         self.tab4.layout.addWidget(summary_report)
         self.tab4.setLayout(self.tab4.layout)
-        # kit_adder = KitAdder(self)
-        # self.tab4.layout = QVBoxLayout(self)
-        # self.tab4.layout.addWidget(kit_adder)
-        # self.tab4.setLayout(self.tab4.layout)
         # NOTE: add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)

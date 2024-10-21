@@ -7,8 +7,7 @@ from pathlib import Path
 from datetime import date
 from typing import Tuple
 from backend.db.models import BasicSubmission
-from tools import jinja_template_loading, get_first_blank_df_row, \
-    row_map
+from tools import jinja_template_loading, get_first_blank_df_row, row_map
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -65,7 +64,7 @@ class ReportMaker(object):
         old_lab = ""
         output = []
         # logger.debug(f"Report DataFrame: {df}")
-        for ii, row in enumerate(df.iterrows()):
+        for row in df.iterrows():
             # logger.debug(f"Row {ii}: {row}")
             lab = row[0][0]
             # logger.debug(type(row))
@@ -111,7 +110,7 @@ class ReportMaker(object):
 
     def fix_up_xl(self):
         """
-        Handles formatting of xl file.
+        Handles formatting of xl file, mediocrely.
         """        
         # logger.debug(f"Updating worksheet")
         worksheet: Worksheet = self.writer.sheets['Report']

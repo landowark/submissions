@@ -96,7 +96,7 @@ class BaseClass(Base):
         output = {}
         for k, v in dicto.items():
             if len(args) > 0 and k not in args:
-                # logger.debug(f"Don't want {k}")
+                # logger.debug(f"{k} not selected as being of interest.")
                 continue
             else:
                 output[k] = v

@@ -74,7 +74,6 @@ class SearchBox(QDialog):
         # logger.debug(f"Running update_data with sample type: {self.type}")
         fields = self.parse_form()
         # logger.debug(f"Got fields: {fields}")
-        # sample_list_creator = self.type.fuzzy_search(sample_type=self.type, **fields)
         sample_list_creator = self.type.fuzzy_search(**fields)
         data = self.type.samples_to_df(sample_list=sample_list_creator)
         # logger.debug(f"Data: {data}")

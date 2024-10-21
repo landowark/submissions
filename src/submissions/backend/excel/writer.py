@@ -4,7 +4,7 @@ contains writer objects for pushing values to submission sheet templates.
 import logging
 from copy import copy
 from pprint import pformat
-from typing import List, Generator
+from typing import List, Generator, Tuple
 from openpyxl import load_workbook, Workbook
 from backend.db.models import SubmissionType, KitType, BasicSubmission
 from backend.validators.pydant import PydSubmission
@@ -19,13 +19,13 @@ class SheetWriter(object):
     object to manage data placement into excel file
     """
 
-    def __init__(self, submission: PydSubmission, missing_only: bool = False):
+    def __init__(self, submission: PydSubmission):
         """
         Args:
             submission (PydSubmission): Object containing submission information.
-            missing_only (bool, optional): Whether to only fill in missing values. Defaults to False.
         """
         self.sub = OrderedDict(submission.improved_dict())
+        # NOTE: Set values from pydantic object.
         for k, v in self.sub.items():
             match k:
                 case 'filepath':
@@ -41,18 +41,16 @@ class SheetWriter(object):
                     else:
                         self.sub[k] = v
         # logger.debug(f"\n\nWriting to {submission.filepath.__str__()}\n\n")
-        if self.filepath.stem.startswith("tmp"):
-            template = self.submission_type.template_file
-            workbook = load_workbook(BytesIO(template))
-            missing_only = False
-        else:
-            try:
-                workbook = load_workbook(self.filepath)
-            except Exception as e:
-                logger.error(f"Couldn't open workbook due to {e}")
-                template = self.submission_type.template_file
-                workbook = load_workbook(BytesIO(template))
-                missing_only = False
+        # if self.filepath.stem.startswith("tmp"):
+        #     template = self.submission_type.template_file
+        #     workbook = load_workbook(BytesIO(template))
+        # else:
+        #     try:
+        #         workbook = load_workbook(self.filepath)
+        #     except Exception as e:
+        #         logger.error(f"Couldn't open workbook due to {e}")
+        template = self.submission_type.template_file
+        workbook = load_workbook(BytesIO(template))
         # self.workbook = workbook
         self.xl = workbook
         self.write_info()
@@ -130,7 +128,7 @@ class InfoWriter(object):
         self.info = self.reconcile_map(info_dict, self.info_map)
         # logger.debug(pformat(self.info))
 
-    def reconcile_map(self, info_dict: dict, info_map: dict) -> dict:
+    def reconcile_map(self, info_dict: dict, info_map: dict) -> Generator[(Tuple[str, dict]), None, None]:
         """
         Merge info with its locations
 
@@ -246,7 +244,7 @@ class ReagentWriter(object):
         """
         for reagent in self.reagents:
             sheet = self.xl[reagent['sheet']]
-            for k, v in reagent.items():
+            for v in reagent.values():
                 if not isinstance(v, dict):
                     continue
                 # logger.debug(
@@ -440,7 +438,6 @@ class TipWriter(object):
         if tips_list is None:
             return
         for ii, tips in enumerate(tips_list, start=1):
-            # mp_info = tips_map[tips['role']]
             mp_info = tips_map[tips.role]
             # logger.debug(f"{tips['role']} map: {mp_info}")
             placeholder = {}

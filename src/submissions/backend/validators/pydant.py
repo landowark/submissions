@@ -157,7 +157,6 @@ class PydReagent(BaseModel):
                 if submission is not None and reagent not in submission.reagents:
                     assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
                     assoc.comments = self.comment
-                    # reagent.reagent_submission_associations.append(assoc)
                 else:
                     assoc = None
             report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
@@ -165,7 +164,6 @@ class PydReagent(BaseModel):
             if submission is not None and reagent not in submission.reagents:
                 assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
                 assoc.comments = self.comment
-                # reagent.reagent_submission_associations.append(assoc)
             else:
                 assoc = None
                 # add end-of-life extension from reagent type to expiry date
@@ -187,12 +185,10 @@ class PydSample(BaseModel, extra='allow'):
         # logger.debug(f"Data for pydsample: {data}")
         model = BasicSample.find_polymorphic_subclass(polymorphic_identity=data.sample_type)
         for k, v in data.model_extra.items():
-            # print(k, v)
             if k in model.timestamps():
                 if isinstance(v, str):
                     v = datetime.strptime(v, "%Y-%m-%d")
                 data.__setattr__(k, v)
-                # print(dir(data))
         # logger.debug(f"Data coming out of validation: {pformat(data)}")
         return data
 
@@ -329,8 +325,6 @@ class PydEquipment(BaseModel, extra='ignore'):
         value = convert_nans_to_nones(value)
         if not value:
             value = ['']
-        # if len(value) == 0:
-        #     value = ['']
         try:
             value = [item.strip() for item in value]
         except AttributeError:
@@ -416,7 +410,6 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("tips", mode="before")
     @classmethod
     def expand_tips(cls, value):
-        # print(f"\n{type(value)}\n")
         if isinstance(value, dict):
             value = value['value']
         if isinstance(value, Generator):
@@ -594,7 +587,6 @@ class PydSubmission(BaseModel, extra='allow'):
             value = value['value'].title()
             return dict(value=value, missing=False)
         else:
-            # return dict(value=RSLNamer(instr=values.data['filepath'].__str__()).submission_type.title(), missing=True)
             return dict(value=RSLNamer.retrieve_submission_type(filename=values.data['filepath']).title(), missing=True)
 
     @field_validator("submission_category", mode="before")
@@ -688,7 +680,6 @@ class PydSubmission(BaseModel, extra='allow'):
     def __init__(self, run_custom: bool = False, **data):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
-        logger.debug(data)
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
         self.namer = RSLNamer(self.rsl_plate_num['value'], sub_type=self.submission_type['value'])
@@ -729,7 +720,6 @@ class PydSubmission(BaseModel, extra='allow'):
                 output.append(dummy)
         self.samples = output
 
-    # TODO: Return samples, reagents, etc to dictionaries as well.
     def improved_dict(self, dictionaries: bool = True) -> dict:
         """
         Adds model_extra to fields.
@@ -786,7 +776,6 @@ class PydSubmission(BaseModel, extra='allow'):
         Returns:
             Tuple[BasicSubmission, Result]: BasicSubmission instance, result object
         """
-        # self.__dict__.update(self.model_extra)
         report = Report()
         dicto = self.improved_dict()
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
@@ -817,7 +806,6 @@ class PydSubmission(BaseModel, extra='allow'):
                         # logger.debug(f"Association: {assoc}")
                         if assoc is not None:  # and assoc not in instance.submission_reagent_associations:
                             instance.submission_reagent_associations.append(assoc)
-                        # instance.reagents.append(reagent)
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)

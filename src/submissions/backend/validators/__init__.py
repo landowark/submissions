@@ -23,15 +23,15 @@ class RSLNamer(object):
         # NOTE: Preferred method is path retrieval, but might also need validation for just string.
         filename = Path(filename) if Path(filename).exists() else filename
         self.submission_type = sub_type
-        if self.submission_type is None:
+        if not self.submission_type:
             # logger.debug("Creating submission type because none exists")
             self.submission_type = self.retrieve_submission_type(filename=filename)
         logger.info(f"got submission type: {self.submission_type}")
-        if self.submission_type is not None:
+        if self.submission_type:
             # logger.debug("Retrieving BasicSubmission subclass")
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(submission_type=sub_type))
-            if data is None:
+            if not data:
                 data = dict(submission_type=self.submission_type)
             if "submission_type" not in data.keys():
                 data['submission_type'] = self.submission_type
@@ -44,6 +44,9 @@ class RSLNamer(object):
 
         Args:
             filename (str | Path): filename
+
+        Raises:
+            TypeError: Raised if unsupported variable type for filename given.
 
         Returns:
             str: parsed submission type
@@ -84,6 +87,7 @@ class RSLNamer(object):
             case str():
                 submission_type = st_from_str(filename=filename)
             case _:
+                raise TypeError(f"Unsupported filename type: {type(filename)}.")
                 submission_type = None
         try:
             check = submission_type is None

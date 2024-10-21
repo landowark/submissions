@@ -10,8 +10,6 @@ from backend.db.models import BasicSubmission
 from tools import Report, Result, report_result
 from .functions import select_open_file
 
-# from .misc import ReportDatePicker
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -91,7 +89,7 @@ class SubmissionsSheet(QTableView):
         """
         sets data in model
         """
-        self.data = BasicSubmission.submissions_to_df(page=page)
+        self.data = BasicSubmission.submissions_to_df(page=page, page_size=page_size)
         try:
             self.data['Id'] = self.data['Id'].apply(str)
             self.data['Id'] = self.data['Id'].str.zfill(4)
@@ -101,7 +99,7 @@ class SubmissionsSheet(QTableView):
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self):
         """
         Creates actions for right click menu events.
 
@@ -157,7 +155,7 @@ class SubmissionsSheet(QTableView):
         report = Report()
         fname = select_open_file(self, file_extension="csv")
         with open(fname.__str__(), 'r') as f:
-            # split csv on commas
+            # NOTE: split csv on commas
             runs = [col.strip().split(",") for col in f.readlines()]
         count = 0
         for run in runs:

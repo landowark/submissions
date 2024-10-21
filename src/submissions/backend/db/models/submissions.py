@@ -2,7 +2,6 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
-
 import sys
 import types
 from copy import deepcopy
@@ -125,10 +124,6 @@ class BasicSubmission(BaseClass):
     }
 
     def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this BasicSubmission
-        """
         submission_type = self.submission_type or "Basic"
         return f"<{submission_type}Submission({self.rsl_plate_num})>"
 
@@ -184,10 +179,8 @@ class BasicSubmission(BaseClass):
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         )
-        # logger.debug(dicto['singles'])
         # NOTE: Singles tells the query which fields to set limit to 1
         dicto['singles'] = parent_defs['singles']
-        # logger.debug(dicto['singles'])
         # NOTE: Grab mode_sub_type specific info.
         output = {}
         for k, v in dicto.items():
@@ -233,7 +226,7 @@ class BasicSubmission(BaseClass):
             sub_type (str | SubmissionType, Optional): Identity of the submission type to retrieve. Defaults to None.
 
         Returns:
-            SubmissionType: SubmissionType with name equal to this polymorphic identity
+            SubmissionType: SubmissionType with name equal sub_type or this polymorphic identity if sub_type is None.
         """
         # logger.debug(f"Running search for {sub_type}")
         if isinstance(sub_type, dict):
@@ -273,20 +266,6 @@ class BasicSubmission(BaseClass):
             dict: sample location map
         """
         return cls.get_submission_type(submission_type).construct_sample_map()
-
-    @classmethod
-    def finalize_details(cls, input_dict: dict) -> dict:
-        """
-        Make final adjustments to the details dictionary before display.
-
-        Args:
-            input_dict (dict): Incoming dictionary.
-
-        Returns:
-            dict: Final details dictionary.
-        """
-        del input_dict['id']
-        return input_dict
 
     def generate_associations(self, name: str, extra: str | None = None):
         try:
@@ -362,25 +341,10 @@ class BasicSubmission(BaseClass):
                             dict(role=k, name="Not Applicable", lot="NA", expiry=expiry,
                                  missing=True))
             # logger.debug(f"Running samples.")
-            # samples = self.adjust_to_dict_samples(backup=backup)
             samples = self.generate_associations(name="submission_sample_associations")
             # logger.debug("Running equipment")
             equipment = self.generate_associations(name="submission_equipment_associations")
-            # try:
-            #     equipment = [item.to_sub_dict() for item in self.submission_equipment_associations]
-            #     if not equipment:
-            #         equipment = None
-            # except Exception as e:
-            #     logger.error(f"Error setting equipment: {e}")
-            #     equipment = None
             tips = self.generate_associations(name="submission_tips_associations")
-            # try:
-            #     tips = [item.to_sub_dict() for item in self.submission_tips_associations]
-            #     if not tips:
-            #         tips = None
-            # except Exception as e:
-            #     logger.error(f"Error setting tips: {e}")
-            #     tips = None
             cost_centre = self.cost_centre
             custom = self.custom
         else:
@@ -428,7 +392,6 @@ class BasicSubmission(BaseClass):
         Returns:
             int: Number of unique columns.
         """
-        # logger.debug(f"Here's the samples: {self.samples}")
         columns = set([assoc.column for assoc in self.submission_sample_associations])
         # logger.debug(f"Here are the columns for {self.rsl_plate_num}: {columns}")
         return len(columns)
@@ -513,6 +476,7 @@ class BasicSubmission(BaseClass):
         Convert all submissions to dataframe
 
         Args:
+            page_size (int, optional): Number of items to include in query result. Defaults to 250.
             page (int, optional): Limits the number of submissions to a page size. Defaults to 1.
             chronologic (bool, optional): Sort submissions in chronologic order. Defaults to True.
             submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
@@ -537,11 +501,6 @@ class BasicSubmission(BaseClass):
                    'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
                    'tips', 'gel_image_path', 'custom']
         df = df.loc[:, ~df.columns.isin(exclude)]
-        # for item in excluded:
-        #     try:
-        #         df = df.drop(item, axis=1)
-        #     except:
-        #         logger.warning(f"Couldn't drop '{item}' column from submissionsheet df.")
         if chronologic:
             try:
                 df.sort_values(by="id", axis=0, inplace=True, ascending=False)
@@ -611,6 +570,7 @@ class BasicSubmission(BaseClass):
                                 if value is not None:
                                     existing.append(value)
                 self.__setattr__(key, existing)
+                # NOTE: Make sure this gets updated by telling SQLAlchemy it's been modified.
                 flag_modified(self, key)
                 return
             case _:
@@ -645,7 +605,7 @@ class BasicSubmission(BaseClass):
         for k, v in input_dict.items():
             try:
                 setattr(assoc, k, v)
-                # NOTE: for some reason I don't think assoc.__setattr__(k, v) doesn't work here.
+                # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
             except AttributeError:
                 logger.error(f"Can't set {k} to {v}")
         result = assoc.save()
@@ -703,7 +663,16 @@ class BasicSubmission(BaseClass):
         return super().save()
 
     @classmethod
-    def get_regex(cls, submission_type: SubmissionType | str | None = None):
+    def get_regex(cls, submission_type: SubmissionType | str | None = None) -> str:
+        """
+        Gets the regex string for identifying a certain class of submission.
+
+        Args:
+            submission_type (SubmissionType | str | None, optional): submission type of interest. Defaults to None.
+
+        Returns:
+            str: _description_
+        """
         # logger.debug(f"Attempting to get regex for {cls.__mapper_args__['polymorphic_identity']}")
         logger.debug(f"Attempting to get regex for {submission_type}")
         try:
@@ -755,11 +724,8 @@ class BasicSubmission(BaseClass):
                         f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
             case _:
                 pass
-        # if attrs is None or len(attrs) == 0:
-        #     logger.info(f"Recruiting: {cls}")
-        #     return model
         if attrs and any([not hasattr(cls, attr) for attr in attrs.keys()]):
-            # looks for first model that has all included kwargs
+            # NOTE: looks for first model that has all included kwargs
             try:
                 model = next(subclass for subclass in cls.__subclasses__() if
                              all([hasattr(subclass, attr) for attr in attrs.keys()]))
@@ -797,7 +763,6 @@ class BasicSubmission(BaseClass):
                     input_dict['custom'][k] = ws.cell(row=v['read']['row'], column=v['read']['column']).value
                 case "range":
                     ws = xl[v['sheet']]
-                    # input_dict['custom'][k] = []
                     if v['start_row'] != v['end_row']:
                         v['end_row'] = v['end_row'] + 1
                     rows = range(v['start_row'], v['end_row'])
@@ -806,10 +771,6 @@ class BasicSubmission(BaseClass):
                     columns = range(v['start_column'], v['end_column'])
                     input_dict['custom'][k] = [dict(value=ws.cell(row=row, column=column).value, row=row, column=column)
                                                for row in rows for column in columns]
-                    # for ii in range(v['start_row'], v['end_row']):
-                    #     for jj in range(v['start_column'], v['end_column'] + 1):
-                    #         input_dict['custom'][k].append(
-                    #             dict(value=ws.cell(row=ii, column=jj).value, row=ii, column=jj))
         return input_dict
 
     @classmethod
@@ -952,7 +913,7 @@ class BasicSubmission(BaseClass):
             rsl_plate_number (str): rsl plate num of interest
 
         Returns:
-            list: _description_
+            Generator[dict, None, None]: Updated samples
         """
         # logger.debug(f"Hello from {cls.__mapper_args__['polymorphic_identity']} PCR parser!")
         pcr_sample_map = cls.get_submission_type().sample_map['pcr_samples']
@@ -968,7 +929,17 @@ class BasicSubmission(BaseClass):
             yield sample
 
     @classmethod
-    def parse_pcr_controls(cls, xl: Workbook, rsl_plate_num: str) -> list:
+    def parse_pcr_controls(cls, xl: Workbook, rsl_plate_num: str) -> Generator[dict, None, None]:
+        """
+        Custom parsing of pcr controls from Design & Analysis Software export.
+
+        Args:
+            xl (Workbook): D&A export file
+            rsl_plate_num (str): Plate number of the submission to be joined.
+
+        Yields:
+            Generator[dict, None, None]: Dictionaries of row values.
+        """
         location_map = cls.get_submission_type().sample_map['pcr_controls']
         submission = cls.query(rsl_plate_num=rsl_plate_num)
         name_column = 1
@@ -981,12 +952,16 @@ class BasicSubmission(BaseClass):
                         logger.debug(f"Pulling from row {iii}, column {item['ct_column']}")
                         subtype, target = item['name'].split("-")
                         ct = worksheet.cell(row=iii, column=item['ct_column']).value
+                        # NOTE: Kind of a stop gap solution to find control reagents.
                         if subtype == "PC":
                             ctrl = next((assoc.reagent for assoc in submission.submission_reagent_associations
-                                         if any(["positive control" in item.name.lower() for item in  assoc.reagent.role])), None)
+                                         if
+                                         any(["positive control" in item.name.lower() for item in assoc.reagent.role])),
+                                        None)
                         elif subtype == "NC":
                             ctrl = next((assoc.reagent for assoc in submission.submission_reagent_associations
-                                         if any(["molecular grade water" in item.name.lower() for item in  assoc.reagent.role])), None)
+                                         if any(["molecular grade water" in item.name.lower() for item in
+                                                 assoc.reagent.role])), None)
                         try:
                             ct = float(ct)
                         except ValueError:
@@ -1124,8 +1099,6 @@ class BasicSubmission(BaseClass):
                 case _:
                     # logger.debug(f"Lookup BasicSubmission by parsed str end_date {end_date}")
                     end_date = parse(end_date).strftime("%Y-%m-%d")
-            # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
-            # logger.debug(f"Start date {start_date} == End date {end_date}: {start_date == end_date}")
             # logger.debug(f"Compensating for same date by using time")
             if start_date == end_date:
                 start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -1336,7 +1309,7 @@ class BasicSubmission(BaseClass):
 
     def backup(self, obj=None, fname: Path | None = None, full_backup: bool = False):
         """
-        Exports xlsx and yml info files for this instance.
+        Exports xlsx info files for this instance.
 
         Args:
             obj (_type_, optional): _description_. Defaults to None.
@@ -1352,13 +1325,6 @@ class BasicSubmission(BaseClass):
         if fname.name == "":
             # logger.debug(f"export cancelled.")
             return
-        # if full_backup:
-        #     backup = self.to_dict(full_data=True)
-        #     try:
-        #         with open(self.__backup_path__.joinpath(fname.with_suffix(".yml")), "w") as f:
-        #             yaml.dump(backup, f)
-        #     except KeyError as e:
-        #         logger.error(f"Problem saving yml backup file: {e}")
         writer = pyd.to_writer()
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
@@ -1436,6 +1402,17 @@ class BacterialCulture(BasicSubmission):
 
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
+        """
+        Performs class specific info parsing before info parsing is finalized.
+
+        Args:
+            input_dict (dict): Generic input info
+            xl (Workbook | None, optional): Original xl workbook. Defaults to None.
+            custom_fields (dict, optional): Map of custom fields to be parsed. Defaults to {}.
+
+        Returns:
+            dict: Updated info dictionary.
+        """
         input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
         # logger.debug(f"\n\nInfo dictionary:\n\n{pformat(input_dict)}\n\n")
         return input_dict
@@ -1476,12 +1453,30 @@ class Wastewater(BasicSubmission):
             output["pcr_technician"] = self.technician
         else:
             output['pcr_technician'] = self.pcr_technician
+        ############### Updated from finalize_details - testing 2024-1017 ################
+        if full_data:
+            output['samples'] = [sample for sample in output['samples']]
+            dummy_samples = []
+            for item in output['samples']:
+                # logger.debug(f"Sample dict: {item}")
+                thing = deepcopy(item)
+                try:
+                    thing['row'] = thing['source_row']
+                    thing['column'] = thing['source_column']
+                except KeyError:
+                    logger.error(f"No row or column for sample: {item['submitter_id']}")
+                    continue
+                thing['tooltip'] = f"Sample Name: {thing['name']}\nWell: {thing['sample_location']}"
+                dummy_samples.append(thing)
+            output['origin_plate'] = self.__class__.make_plate_map(sample_list=dummy_samples, plate_rows=4,
+                                                                   plate_columns=6)
+        ###############################
         return output
 
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
         """
-        Update submission dictionary with type specific information. Extends parent
+        Update submission dictionary with class specific information. Extends parent
 
         Args:
             input_dict (dict): Input sample dictionary
@@ -1489,7 +1484,7 @@ class Wastewater(BasicSubmission):
             custom_fields: Dictionary of locations, ranges, etc to be used by this function
 
         Returns:
-            dict: Updated sample dictionary
+            dict: Updated info dictionary
         """
         input_dict = super().custom_info_parser(input_dict)
         # logger.debug(f"Input dict: {pformat(input_dict)}")
@@ -1513,10 +1508,18 @@ class Wastewater(BasicSubmission):
     @classmethod
     def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> Generator[dict, None, None]:
         """
-        Parse specific to wastewater samples.
+        Perform parsing of pcr info. Since most of our PC outputs are the same format, this should work for most.
+
+        Args:
+            xl (pd.DataFrame): pcr info form
+            rsl_plate_number (str): rsl plate num of interest
+
+        Returns:
+            Generator[dict, None, None]: Updated samples
         """
         samples = [item for item in super().parse_pcr(xl=xl, rsl_plate_num=rsl_plate_num)]
         # logger.debug(f'Samples from parent pcr parser: {pformat(samples)}')
+        # NOTE: Due to having to run through samples in for loop we need to convert to list.
         output = []
         for sample in samples:
             # NOTE: remove '-{target}' from controls
@@ -1542,20 +1545,23 @@ class Wastewater(BasicSubmission):
                 del sample['assessment']
             except KeyError:
                 pass
-            # yield sample
             output.append(sample)
+        # NOTE: And then convert back to list ot keep fidelity with parent method.
         for sample in output:
             yield sample
-
-    # @classmethod
-    # def parse_pcr_controls(cls, xl: Workbook, location_map: list) -> list:
 
     @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:
         """
-        Extends parent
-        """
+        Custom naming method for this class. Extends parent.
 
+        Args:
+            instr (str): Initial name.
+            data (dict | None, optional): Additional parameters for name. Defaults to None.
+
+        Returns:
+            str: Updated name.
+        """
         try:
             # NOTE: Deal with PCR file.
             instr = re.sub(r"PCR(-|_)", "", instr)
@@ -1567,26 +1573,17 @@ class Wastewater(BasicSubmission):
     @classmethod
     def adjust_autofill_samples(cls, samples: List[Any]) -> List[Any]:
         """
-        Extends parent
+        Makes adjustments to samples before writing to excel. Extends parent.
+
+        Args:
+            samples (List[Any]): List of Samples
+
+        Returns:
+            List[Any]: Updated list of samples
         """
         samples = super().adjust_autofill_samples(samples)
         samples = [item for item in samples if not item.submitter_id.startswith("EN")]
         return samples
-
-    # @classmethod
-    # def custom_sample_autofill_row(cls, sample, worksheet: Worksheet) -> int:
-    #     """
-    #     Extends parent
-    #     """
-    #     # logger.debug(f"Checking {sample.well}")
-    #     # logger.debug(f"here's the worksheet: {worksheet}")
-    #     row = super().custom_sample_autofill_row(sample, worksheet)
-    #     df = pd.DataFrame(list(worksheet.values))
-    #     # logger.debug(f"Here's the dataframe: {df}")
-    #     idx = df[df[1] == sample.sample_location]
-    #     # logger.debug(f"Here is the row: {idx}")
-    #     row = idx.index.to_list()[0]
-    #     return row + 1
 
     @classmethod
     def get_details_template(cls, base_dict: dict) -> Tuple[dict, Template]:
@@ -1603,35 +1600,6 @@ class Wastewater(BasicSubmission):
         base_dict['excluded'] += ['origin_plate']
         return base_dict, template
 
-    @classmethod
-    def finalize_details(cls, input_dict: dict) -> dict:
-        """
-        Makes changes to information before display
-
-        Args:
-            input_dict (dict): Input information
-
-        Returns:
-            dict: Updated information
-        """
-        input_dict = super().finalize_details(input_dict)
-        # NOTE: Currently this is preserving the generator items, can we come up with a better way?
-        input_dict['samples'] = [sample for sample in input_dict['samples']]
-        dummy_samples = []
-        for item in input_dict['samples']:
-            # logger.debug(f"Sample dict: {item}")
-            thing = deepcopy(item)
-            try:
-                thing['row'] = thing['source_row']
-                thing['column'] = thing['source_column']
-            except KeyError:
-                logger.error(f"No row or column for sample: {item['submitter_id']}")
-                continue
-            thing['tooltip'] = f"Sample Name: {thing['name']}\nWell: {thing['sample_location']}"
-            dummy_samples.append(thing)
-        input_dict['origin_plate'] = cls.make_plate_map(sample_list=dummy_samples, plate_rows=4, plate_columns=6)
-        return input_dict
-
     def custom_context_events(self) -> dict:
         """
         Sets context events for main widget
@@ -1646,7 +1614,7 @@ class Wastewater(BasicSubmission):
     @report_result
     def link_pcr(self, obj):
         """
-        Adds PCR info to this submission
+        PYQT6 function to add PCR info to this submission
 
         Args:
             obj (_type_): Parent widget
@@ -1733,7 +1701,7 @@ class WastewaterArtic(BasicSubmission):
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
         """
-        Update submission dictionary with type specific information
+        Update submission dictionary with class specific information
 
         Args:
             input_dict (dict): Input sample dictionary
@@ -1763,10 +1731,8 @@ class WastewaterArtic(BasicSubmission):
             return None
 
         input_dict = super().custom_info_parser(input_dict)
-
         input_dict['submission_type'] = dict(value="Wastewater Artic", missing=False)
-
-        logger.debug(f"Custom fields: {custom_fields}")
+        # logger.debug(f"Custom fields: {custom_fields}")
         egel_section = custom_fields['egel_controls']
         ws = xl[egel_section['sheet']]
         # NOTE: Here we should be scraping the control results.
@@ -1788,7 +1754,7 @@ class WastewaterArtic(BasicSubmission):
                 ii in
                 range(source_plates_section['start_row'], source_plates_section['end_row'] + 1)]
         for datum in data:
-            logger.debug(f"Datum: {datum}")
+            # logger.debug(f"Datum: {datum}")
             if datum['plate'] in ["None", None, ""]:
                 continue
             else:
@@ -1843,7 +1809,14 @@ class WastewaterArtic(BasicSubmission):
     @classmethod
     def enforce_name(cls, instr: str, data: dict = {}) -> str:
         """
-        Extends parent
+        Custom naming method for this class. Extends parent.
+
+        Args:
+            instr (str): Initial name.
+            data (dict | None, optional): Additional parameters for name. Defaults to None.
+
+        Returns:
+            str: Updated name.
         """
         try:
             # NOTE: Deal with PCR file.
@@ -1873,7 +1846,7 @@ class WastewaterArtic(BasicSubmission):
             dict: Updated sample dictionary
         """
         input_dict = super().parse_samples(input_dict)
-        logger.debug(f"WWA input dict: {pformat(input_dict)}")
+        # logger.debug(f"WWA input dict: {pformat(input_dict)}")
         input_dict['sample_type'] = "Wastewater Sample"
         # NOTE: Stop gap solution because WW is sloppy with their naming schemes
         try:
@@ -1952,14 +1925,14 @@ class WastewaterArtic(BasicSubmission):
     @classmethod
     def pbs_adapter(cls, input_str):
         """
-                Stopgap solution because WW names their controls different
+        Stopgap solution because WW names their controls different
 
-                Args:
-                    input_str (str): input name
+        Args:
+            input_str (str): input name
 
-                Returns:
-                    str: output name
-                """
+        Returns:
+            str: output name
+        """
         # logger.debug(f"input string raw: {input_str}")
         # NOTE: Remove letters.
         processed = input_str.replace("RSL", "")
@@ -2155,7 +2128,7 @@ class WastewaterArtic(BasicSubmission):
 
     def gel_box(self, obj):
         """
-        Creates widget to perform gel viewing operations
+        Creates PYQT6 widget to perform gel viewing operations
 
         Args:
             obj (_type_): parent widget
@@ -2221,7 +2194,7 @@ class BasicSample(BaseClass):
     submissions = association_proxy("sample_submission_associations", "submission")  #: proxy of associated submissions
 
     @validates('submitter_id')
-    def create_id(self, key: str, value: str):
+    def create_id(self, key: str, value: str) -> str:
         """
         Creates a random string as a submitter id.
 
@@ -2330,7 +2303,7 @@ class BasicSample(BaseClass):
 
     @classmethod
     def parse_sample(cls, input_dict: dict) -> dict:
-        f"""
+        """
         Custom sample parser
 
         Args:
@@ -2413,7 +2386,7 @@ class BasicSample(BaseClass):
             ValueError: Raised if unallowed key is given.
 
         Returns:
-            _type_: _description_
+            BasicSample: Instance of BasicSample
         """
         disallowed = ["id"]
         if kwargs == {}:
@@ -2434,7 +2407,7 @@ class BasicSample(BaseClass):
                      **kwargs
                      ) -> List[BasicSample]:
         """
-        Allows for fuzzy search of samples. (Experimental)
+        Allows for fuzzy search of samples.
 
         Args:
             sample_type (str | BasicSample | None, optional): Type of sample. Defaults to None.
@@ -2764,9 +2737,13 @@ class SubmissionSampleAssociation(BaseClass):
         Returns:
             int: incremented id
         """
-
+        if cls.__name__ == "SubmissionSampleAssociation":
+            model = cls
+        else:
+            model = next((base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"),
+                         SubmissionSampleAssociation)
         try:
-            return max([item.id for item in cls.query()]) + 1
+            return max([item.id for item in model.query()]) + 1
         except ValueError as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1
@@ -2980,26 +2957,6 @@ class WastewaterAssociation(SubmissionSampleAssociation):
             logger.error(f"Couldn't set tooltip for {self.sample.rsl_number}. Looks like there isn't PCR data.")
         return sample
 
-    @classmethod
-    def autoincrement_id_local(cls) -> int:
-        """
-        Increments the association id automatically. Overrides parent
-
-        Returns:
-            int: incremented id
-        """
-        try:
-            parent = next((base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"),
-                          SubmissionSampleAssociation)
-            return max([item.id for item in parent.query()]) + 1
-        except StopIteration as e:
-            logger.error(f"Problem incrementing id: {e}")
-            return 1
-
-    @classmethod
-    def autoincrement_id(cls) -> int:
-        return super().autoincrement_id()
-
 
 class WastewaterArticAssociation(SubmissionSampleAssociation):
     """
@@ -3030,19 +2987,3 @@ class WastewaterArticAssociation(SubmissionSampleAssociation):
         sample['source_plate_number'] = self.source_plate_number
         sample['source_well'] = self.source_well
         return sample
-
-    @classmethod
-    def autoincrement_id(cls) -> int:
-        """
-        Increments the association id automatically. Overrides parent
-
-        Returns:
-            int: incremented id
-        """
-        try:
-            parent = next((base for base in cls.__bases__ if base.__name__ == "SubmissionSampleAssociation"),
-                          SubmissionSampleAssociation)
-            return max([item.id for item in parent.query()]) + 1
-        except StopIteration as e:
-            logger.error(f"Problem incrementing id: {e}")
-            return 1

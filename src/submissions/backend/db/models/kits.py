@@ -2,7 +2,6 @@
 All kit and reagent related models
 """
 from __future__ import annotations
-
 import datetime
 import json
 from pprint import pformat
@@ -152,7 +151,7 @@ class KitType(BaseClass):
             submission_type (str | Submissiontype | None, optional): Submission type to narrow results. Defaults to None.
 
         Returns:
-            List[ReagentRole]: List of reagents linked to this kit.
+            Generator[ReagentRole, None, None]: List of reagents linked to this kit.
         """
         match submission_type:
             case SubmissionType():
@@ -173,7 +172,7 @@ class KitType(BaseClass):
             return (item.reagent_role for item in relevant_associations)
 
     # TODO: Move to BasicSubmission?
-    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[(str, str)]:
+    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[(str, str), None, None]:
         """
         Creates map of locations in Excel workbook for a SubmissionType
 
@@ -181,9 +180,8 @@ class KitType(BaseClass):
             submission_type (str | SubmissionType): Submissiontype.name
 
         Returns:
-            dict: Dictionary containing information locations.
+            Generator[(str, str), None, None]: Tuple containing information locations.
         """
-        # info_map = {}
         # NOTE: Account for submission_type variable type.
         match submission_type:
             case str():
@@ -221,7 +219,7 @@ class KitType(BaseClass):
         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-        models.KitType|List[models.KitType]: KitType(s) of interest.
+        KitType|List[KitType]: KitType(s) of interest.
         """
         query: Query = cls.__database_session__.query(cls)
         match used_for:
@@ -257,7 +255,16 @@ class KitType(BaseClass):
     def save(self):
         super().save()
 
-    def to_export_dict(self, submission_type: SubmissionType):
+    def to_export_dict(self, submission_type: SubmissionType) -> dict:
+        """
+        Creates dictionary for exporting to yml used in new SubmissionType Construction
+
+        Args:
+            submission_type (SubmissionType): SubmissionType of interest.
+
+        Returns:
+            dict: Dictionary containing relevant info for SubmissionType construction
+        """        
         base_dict = dict(name=self.name)
         base_dict['reagent roles'] = []
         base_dict['equipment roles'] = []
@@ -382,7 +389,13 @@ class ReagentRole(BaseClass):
         from backend.validators.pydant import PydReagent
         return PydReagent(lot=None, role=self.name, name=self.name, expiry=date.today())
 
-    def to_export_dict(self):
+    def to_export_dict(self) -> dict:
+        """
+        Creates dictionary for exporting to yml used in new SubmissionType Construction
+
+        Returns:
+            dict: Dictionary containing relevant info for SubmissionType construction
+        """        
         return dict(role=self.name, extension_of_life=self.eol_ext.days)
 
     @check_authorization
@@ -664,7 +677,7 @@ class SubmissionType(BaseClass):
         "SubmissionTypeTipRoleAssociation",
         back_populates="submission_type",
         cascade="all, delete-orphan"
-    )
+    ) #: Association of tiproles
 
     def __repr__(self) -> str:
         """
@@ -738,12 +751,12 @@ class SubmissionType(BaseClass):
         """
         return self.sample_map
 
-    def construct_equipment_map(self) -> Generator[str, dict]:
+    def construct_equipment_map(self) -> Generator[(str, dict), None, None]:
         """
         Constructs map of equipment to excel cells.
 
         Returns:
-            dict: Map equipment locations in excel sheet
+            Generator[(str, dict), None, None]: Map equipment locations in excel sheet
         """
         # logger.debug("Iterating through equipment roles")
         for item in self.submissiontype_equipmentrole_associations:
@@ -752,12 +765,12 @@ class SubmissionType(BaseClass):
                 emap = {}
             yield item.equipment_role.name, emap
 
-    def construct_tips_map(self) -> Generator[str, dict]:
+    def construct_tips_map(self) -> Generator[(str, dict), None, None]:
         """
         Constructs map of tips to excel cells.
 
         Returns:
-            dict: Tip locations in the excel sheet.
+            Generator[(str, dict), None, None]: Tip locations in the excel sheet.
         """
         for item in self.submissiontype_tiprole_associations:
             tmap = item.uses
@@ -770,7 +783,7 @@ class SubmissionType(BaseClass):
         Returns PydEquipmentRole of all equipment associated with this SubmissionType
 
         Returns:
-            List[PydEquipmentRole]: List of equipment roles
+            Generator['PydEquipmentRole', None, None]: List of equipment roles
         """
         return (item.to_pydantic(submission_type=self, extraction_kit=extraction_kit) for item in self.equipment)
 
@@ -846,6 +859,12 @@ class SubmissionType(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     def to_export_dict(self):
+        """
+        Creates dictionary for exporting to yml used in new SubmissionType Construction
+
+        Returns:
+            dict: Dictionary containing relevant info for SubmissionType construction
+        """        
         base_dict = dict(name=self.name)
         base_dict['info'] = self.construct_info_map(mode='export')
         base_dict['defaults'] = self.defaults
@@ -862,7 +881,20 @@ class SubmissionType(BaseClass):
 
     @classmethod
     @check_authorization
-    def import_from_json(cls, filepath: Path | str):
+    def import_from_json(cls, filepath: Path | str) -> SubmissionType:
+        """
+        Creates a new SubmissionType from a yml file
+
+        Args:
+            filepath (Path | str): Input yml file.
+
+        Raises:
+            Exception: Raised if filetype is not a yml or json
+
+        Returns:
+            SubmissionType: Created SubmissionType
+        """
+        full = True
         yaml.add_constructor("!regex", yaml_regex_creator)
         if isinstance(filepath, str):
             filepath = Path(filepath)
@@ -874,70 +906,76 @@ class SubmissionType(BaseClass):
             else:
                 raise Exception(f"Filetype {filepath.suffix} not supported.")
         logger.debug(pformat(import_dict))
-        submission_type = cls.query(name=import_dict['name'])
-        if submission_type:
-            return submission_type
-        submission_type = cls()
-        submission_type.name = import_dict['name']
-        submission_type.info_map = import_dict['info']
-        submission_type.sample_map = import_dict['samples']
-        submission_type.defaults = import_dict['defaults']
-        for kit in import_dict['kits']:
-            new_kit = KitType.query(name=kit['kit_type']['name'])
-            if not new_kit:
-                new_kit = KitType(name=kit['kit_type']['name'])
-            for role in kit['kit_type']['reagent roles']:
-                new_role = ReagentRole.query(name=role['role'])
-                if new_role:
-                    check = input(f"Found existing role: {new_role.name}. Use this? [Y/n]: ")
-                    if check.lower() == "n":
-                        new_role = None
-                    else:
-                        pass
-                if not new_role:
-                    eol = datetime.timedelta(role['extension_of_life'])
-                    new_role = ReagentRole(name=role['role'], eol_ext=eol)
-                uses = dict(expiry=role['expiry'], lot=role['lot'], name=role['name'], sheet=role['sheet'])
-                ktrr_assoc = KitTypeReagentRoleAssociation(kit_type=new_kit, reagent_role=new_role, uses=uses)
-                ktrr_assoc.submission_type = submission_type
-                ktrr_assoc.required = role['required']
-            ktst_assoc = SubmissionTypeKitTypeAssociation(
-                kit_type=new_kit,
-                submission_type=submission_type,
-                mutable_cost_sample=kit['mutable_cost_sample'],
-                mutable_cost_column=kit['mutable_cost_column'],
-                constant_cost=kit['constant_cost']
-            )
-            for role in kit['kit_type']['equipment roles']:
-                new_role = EquipmentRole.query(name=role['role'])
-                if new_role:
-                    check = input(f"Found existing role: {new_role.name}. Use this? [Y/n]: ")
-                    if check.lower() == "n":
-                        new_role = None
-                    else:
-                        pass
-                if not new_role:
-                    new_role = EquipmentRole(name=role['role'])
-                    for equipment in Equipment.assign_equipment(equipment_role=new_role):
-                        new_role.instances.append(equipment)
-                ster_assoc = SubmissionTypeEquipmentRoleAssociation(submission_type=submission_type,
-                                                                    equipment_role=new_role)
-                try:
-                    uses = dict(name=role['name'], process=role['process'], sheet=role['sheet'], static=role['static'])
-                except KeyError:
-                    uses = None
-                ster_assoc.uses = uses
-                for process in role['processes']:
-                    new_process = Process.query(name=process)
-                    if not new_process:
-                        new_process = Process(name=process)
-                    new_process.submission_types.append(submission_type)
-                    new_process.kit_types.append(new_kit)
-                    new_process.equipment_roles.append(new_role)
-            if 'orgs' in import_dict.keys():
-                logger.info("Found Organizations to be imported.")
-                Organization.import_from_yml(filepath=filepath)
-            return submission_type
+        try:
+            submission_type = cls.query(name=import_dict['name'])
+        except KeyError:
+            logger.error(f"Submission type has no name")
+            submission_type = None
+            full = False
+        if full:
+            if submission_type:
+                return submission_type
+            submission_type = cls()
+            submission_type.name = import_dict['name']
+            submission_type.info_map = import_dict['info']
+            submission_type.sample_map = import_dict['samples']
+            submission_type.defaults = import_dict['defaults']
+            for kit in import_dict['kits']:
+                new_kit = KitType.query(name=kit['kit_type']['name'])
+                if not new_kit:
+                    new_kit = KitType(name=kit['kit_type']['name'])
+                for role in kit['kit_type']['reagent roles']:
+                    new_role = ReagentRole.query(name=role['role'])
+                    if new_role:
+                        check = input(f"Found existing role: {new_role.name}. Use this? [Y/n]: ")
+                        if check.lower() == "n":
+                            new_role = None
+                        else:
+                            pass
+                    if not new_role:
+                        eol = datetime.timedelta(role['extension_of_life'])
+                        new_role = ReagentRole(name=role['role'], eol_ext=eol)
+                    uses = dict(expiry=role['expiry'], lot=role['lot'], name=role['name'], sheet=role['sheet'])
+                    ktrr_assoc = KitTypeReagentRoleAssociation(kit_type=new_kit, reagent_role=new_role, uses=uses)
+                    ktrr_assoc.submission_type = submission_type
+                    ktrr_assoc.required = role['required']
+                ktst_assoc = SubmissionTypeKitTypeAssociation(
+                    kit_type=new_kit,
+                    submission_type=submission_type,
+                    mutable_cost_sample=kit['mutable_cost_sample'],
+                    mutable_cost_column=kit['mutable_cost_column'],
+                    constant_cost=kit['constant_cost']
+                )
+                for role in kit['kit_type']['equipment roles']:
+                    new_role = EquipmentRole.query(name=role['role'])
+                    if new_role:
+                        check = input(f"Found existing role: {new_role.name}. Use this? [Y/n]: ")
+                        if check.lower() == "n":
+                            new_role = None
+                        else:
+                            pass
+                    if not new_role:
+                        new_role = EquipmentRole(name=role['role'])
+                        for equipment in Equipment.assign_equipment(equipment_role=new_role):
+                            new_role.instances.append(equipment)
+                    ster_assoc = SubmissionTypeEquipmentRoleAssociation(submission_type=submission_type,
+                                                                        equipment_role=new_role)
+                    try:
+                        uses = dict(name=role['name'], process=role['process'], sheet=role['sheet'], static=role['static'])
+                    except KeyError:
+                        uses = None
+                    ster_assoc.uses = uses
+                    for process in role['processes']:
+                        new_process = Process.query(name=process)
+                        if not new_process:
+                            new_process = Process(name=process)
+                        new_process.submission_types.append(submission_type)
+                        new_process.kit_types.append(new_kit)
+                        new_process.equipment_roles.append(new_role)
+        if 'orgs' in import_dict.keys():
+            logger.info("Found Organizations to be imported.")
+            Organization.import_from_yml(filepath=filepath)
+        return submission_type
 
 
 class SubmissionTypeKitTypeAssociation(BaseClass):
@@ -1574,10 +1612,7 @@ class EquipmentRole(BaseClass):
         """
         return dict(role=self.name,
                     processes=self.get_processes(submission_type=submission_type, extraction_kit=kit_type))
-        # base_dict['role'] = self.name
-        # base_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=kit_type)
-        # return base_dict
-
+        
 
 class SubmissionEquipmentAssociation(BaseClass):
     """
@@ -1598,7 +1633,7 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     equipment = relationship(Equipment, back_populates="equipment_submission_associations")  #: associated equipment
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num} & {self.equipment.name})>"
 
     def __init__(self, submission, equipment, role: str = "None"):
@@ -1699,9 +1734,18 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
     def save(self):
         super().save()
 
-    def to_export_dict(self, kit_type: KitType):
+    def to_export_dict(self, extraction_kit: KitType) -> dict:
+        """
+        Creates dictionary for exporting to yml used in new SubmissionType Construction
+
+        Args:
+            kit_type (KitType): KitType of interest.
+
+        Returns:
+            dict: Dictionary containing relevant info for SubmissionType construction
+        """        
         base_dict = {k: v for k, v in self.equipment_role.to_export_dict(submission_type=self.submission_type,
-                                                                         kit_type=kit_type).items()}
+                                                                         kit_type=extraction_kit).items()}
         base_dict['static'] = self.static
         return base_dict
 

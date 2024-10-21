@@ -4,6 +4,7 @@ Contains all operations for creating charts, graphs and visual effects.
 from PyQt6.QtWidgets import QWidget
 import plotly
 from plotly.graph_objects import Figure
+from plotly.graph_objs import FigureWidget
 import pandas as pd
 from frontend.widgets.functions import select_save_file
 
@@ -34,7 +35,6 @@ class CustomFigure(Figure):
     def save_data(self, group_name: str = "plotly_export", parent:QWidget|None=None):
         output = select_save_file(obj=parent, default_name=group_name, extension="xlsx")
         self.df.to_excel(output.absolute().__str__(), engine="openpyxl", index=False)
-
 
     def to_html(self) -> str:
         """

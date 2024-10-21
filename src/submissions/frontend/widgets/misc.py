@@ -3,7 +3,6 @@ Contains miscellaneous widgets for frontend functions
 '''
 import math
 from datetime import date
-
 from PyQt6.QtGui import QPageLayout, QPageSize, QStandardItem, QIcon
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
@@ -51,7 +50,6 @@ class AddReagentForm(QDialog):
         self.exp_input.setObjectName('expiry')
         # NOTE: if expiry is not passed in from gui, use today
         if expiry is None:
-            # self.exp_input.setDate(QDate.currentDate())
             self.exp_input.setDate(QDate(1970, 1, 1))
         else:
             try:

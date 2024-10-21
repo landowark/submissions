@@ -1,13 +1,11 @@
 """
 Webview to show submission and sample details.
 """
-from PyQt6.QtGui import QColor, QPageSize, QPageLayout
-from PyQt6.QtPrintSupport import QPrinter
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtCore import Qt, pyqtSlot, QMarginsF, QSize
+from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
 from tools import is_power_user, jinja_template_loading
@@ -41,7 +39,6 @@ class SubmissionDetails(QDialog):
         self.webview.setMaximumWidth(900)
         self.webview.loadFinished.connect(self.activate_export)
         self.layout = QGridLayout()
-        # self.setFixedSize(900, 500)
         # NOTE: button to export a pdf version
         self.btn = QPushButton("Export PDF")
         self.btn.setFixedWidth(775)
@@ -69,7 +66,6 @@ class SubmissionDetails(QDialog):
     def back_function(self):
         self.webview.back()
 
-    # @pyqtSlot(bool)
     def activate_export(self):
         title = self.webview.title()
         self.setWindowTitle(title)
@@ -144,7 +140,6 @@ class SubmissionDetails(QDialog):
         self.base_dict = submission.to_dict(full_data=True)
         # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k == 'reagents'})}")
         # NOTE: don't want id
-        self.base_dict = submission.finalize_details(self.base_dict)
         # logger.debug(f"Creating barcode.")
         # logger.debug(f"Making platemap...")
         self.base_dict['platemap'] = submission.make_plate_map(sample_list=submission.hitpick_plate())

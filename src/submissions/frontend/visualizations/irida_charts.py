@@ -3,14 +3,13 @@ Functions for constructing irida controls graphs using plotly.
 """
 from datetime import date
 from pprint import pformat
-import plotly
+from typing import Generator
 import plotly.express as px
 import pandas as pd
 from PyQt6.QtWidgets import QWidget
 from . import CustomFigure
 import logging
 from tools import get_unique_values_in_df_column, divide_chunks
-from frontend.widgets.functions import select_save_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -67,7 +66,6 @@ class IridaFigure(CustomFigure):
                          )
             bar.update_traces(visible=ii == 0)
             self.add_traces(bar.data)
-        # return generic_figure_markers(modes=modes, ytitle=ytitle)
 
     def generic_figure_markers(self, modes: list = [], ytitle: str | None = None, months: int = 6):
         """
@@ -83,7 +81,7 @@ class IridaFigure(CustomFigure):
         """
         if modes:
             ytitle = modes[0]
-        # Creating visibles list for each mode.
+        # logger.debug("Creating visibles list for each mode.")
         self.update_layout(
             xaxis_title="Submitted Date (* - Date parsed from fastq file creation date)",
             yaxis_title=ytitle,
@@ -100,7 +98,6 @@ class IridaFigure(CustomFigure):
                 )
             ]
         )
-
         self.update_xaxes(
             rangeslider_visible=True,
             rangeselector=dict(
@@ -109,7 +106,16 @@ class IridaFigure(CustomFigure):
         )
         assert isinstance(self, CustomFigure)
 
-    def make_plotly_buttons(self, months: int = 6):
+    def make_plotly_buttons(self, months: int = 6) -> Generator[dict, None, None]:
+        """
+        Creates html buttons to zoom in on date areas
+
+        Args:
+            months (int, optional): Number of months of data given. Defaults to 6.
+
+        Yields:
+            Generator[dict, None, None]: Button details.
+        """        
         rng = [1]
         if months > 2:
             rng += [iii for iii in range(3, months, 3)]
@@ -121,7 +127,7 @@ class IridaFigure(CustomFigure):
         for button in buttons:
             yield button
 
-    def make_pyqt_buttons(self, modes: list) -> list:
+    def make_pyqt_buttons(self, modes: list) -> Generator[dict, None, None]:
         """
         Creates list of buttons with one for each mode to be used in showing/hiding mode traces.
 
@@ -130,7 +136,7 @@ class IridaFigure(CustomFigure):
             fig_len (int): number of traces in the figure
 
         Returns:
-            list: list of buttons.
+            Generator[dict, None, None]: list of buttons.
         """
         fig_len = len(self.data)
         if len(modes) > 1:

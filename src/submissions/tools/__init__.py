@@ -153,7 +153,6 @@ def check_not_nan(cell_contents) -> bool:
     try:
         if cell_contents.lower() in exclude:
             cell_contents = np.nan
-        # cell_contents = cell_contents.lower()
     except (TypeError, AttributeError):
         pass
     try:
@@ -314,7 +313,7 @@ class Settings(BaseSettings, extra="allow"):
             check = value.exists()
         except AttributeError:
             check = False
-        if not check:  # and values.data['database_schema'] == "sqlite":
+        if not check: 
             # print(f"No directory found, using Documents/submissions")
             value.mkdir(exist_ok=True)
         # print(f"Final return of directory_path: {value}")
@@ -922,7 +921,6 @@ def check_authorization(func):
             return func(*args, **kwargs)
         else:
             logger.error(f"User {getpass.getuser()} is not authorized for this function.")
-            # return dict(code=1, message="This user does not have permission for this function.", status="warning")
             report = Report()
             report.add_result(Result(owner=func.__str__(), code=1, msg="This user does not have permission for this function.", status="warning"))
             return report

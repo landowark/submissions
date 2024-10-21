@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,
 from backend.db.models import Equipment, BasicSubmission, Process
 from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
 import logging
-from typing import List, Generator
+from typing import Generator
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -50,7 +50,7 @@ class EquipmentUsage(QDialog):
         Pull info from all RoleComboBox widgets
 
         Returns:
-            List[PydEquipment]: All equipment pulled from widgets
+            Generator[PydEquipment, None, None]: All equipment pulled from widgets
         """
         for widget in self.findChildren(QWidget):
             match widget:

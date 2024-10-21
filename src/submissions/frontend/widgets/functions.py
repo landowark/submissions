@@ -4,7 +4,6 @@ functions used by all windows in the application's frontend
 from pathlib import Path
 import logging
 from PyQt6.QtWidgets import QMainWindow, QFileDialog
-from tools import Result
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

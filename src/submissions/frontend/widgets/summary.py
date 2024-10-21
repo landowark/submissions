@@ -1,6 +1,6 @@
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QComboBox, QLabel
+from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
 from backend.db import Organization
 from backend.excel import ReportMaker
 from tools import Report
@@ -34,7 +34,6 @@ class Summary(QWidget):
         for org in [org.name for org in Organization.query()]:
             self.org_select.addItem(org)
         self.org_select.model().itemChanged.connect(self.get_report)
-        # self.org_select.itemChecked.connect(self.get_report)
         self.layout.addWidget(self.save_excel_button, 0, 2, 1, 1)
         self.layout.addWidget(self.save_pdf_button, 0, 3, 1, 1)
         self.layout.addWidget(self.webview, 2, 0, 1, 4)
