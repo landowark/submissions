@@ -6,7 +6,7 @@ import sys
 import types
 from copy import deepcopy
 from getpass import getuser
-import logging, uuid, tempfile, re, yaml, base64
+import logging, uuid, tempfile, re, base64
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
@@ -167,28 +167,24 @@ class BasicSubmission(BaseClass):
 
         """
         # NOTE: Create defaults for all submission_types
-        parent_defs = super().get_default_info()
+        # NOTE: Singles tells the query which fields to set limit to 1
+        dicto = super().get_default_info()
         recover = ['filepath', 'samples', 'csv', 'comment', 'equipment']
-        dicto = dict(
+        dicto.update(dict(
             details_ignore=['excluded', 'reagents', 'samples',
                             'extraction_info', 'comment', 'barcode',
                             'platemap', 'export_map', 'equipment', 'tips', 'custom'],
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
-                         'submission_object', "tips", 'contact_phone', 'custom'] + recover,
+                         'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre'] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
-        )
-        # NOTE: Singles tells the query which fields to set limit to 1
-        dicto['singles'] = parent_defs['singles']
+        ))
         # NOTE: Grab mode_sub_type specific info.
-        output = {}
-        for k, v in dicto.items():
-            if len(args) > 0 and k not in args:
-                # logger.debug(f"Don't want {k}")
-                continue
-            else:
-                output[k] = v
+        if args:
+            output = {k: v for k, v in dicto.items() if k in args}
+        else:
+            output = {k: v for k, v in dicto.items()}
         if isinstance(submission_type, SubmissionType):
             st = submission_type
         else:
@@ -198,7 +194,7 @@ class BasicSubmission(BaseClass):
         else:
             output['submission_type'] = st.name
             for k, v in st.defaults.items():
-                if len(args) > 0 and k not in args:
+                if args and k not in args:
                     # logger.debug(f"Don't want {k}")
                     continue
                 else:
@@ -272,6 +268,7 @@ class BasicSubmission(BaseClass):
             field = self.__getattribute__(name)
         except AttributeError:
             return None
+        # assert isinstance(field, list)
         for item in field:
             if extra:
                 yield item.to_sub_dict(extra)
@@ -1137,9 +1134,9 @@ class BasicSubmission(BaseClass):
                 limit = 1
             case _:
                 pass
-        if chronologic:
-            logger.debug("Attempting sort by date descending")
-            query = query.order_by(cls.submitted_date.desc())
+        # if chronologic:
+        #     logger.debug("Attempting sort by date descending")
+        query = query.order_by(cls.submitted_date.desc())
         if page_size is not None:
             query = query.limit(page_size)
         page = page - 1
@@ -2980,7 +2977,6 @@ class WastewaterArticAssociation(SubmissionSampleAssociation):
         Returns:
             dict: Updated dictionary with row, column and well updated
         """
-
         sample = super().to_sub_dict()
         sample['ct'] = self.ct
         sample['source_plate'] = self.source_plate

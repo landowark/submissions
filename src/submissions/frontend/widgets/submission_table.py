@@ -99,19 +99,21 @@ class SubmissionsSheet(QTableView):
         proxyModel.setSourceModel(pandasModel(self.data))
         self.setModel(proxyModel)
 
-    def contextMenuEvent(self):
+    def contextMenuEvent(self, event):
         """
         Creates actions for right click menu events.
 
         Args:
             event (_type_): the item of interest
         """
-        # logger.debug(event().__dict__)
+        # logger.debug(event.__dict__)
         id = self.selectionModel().currentIndex()
         id = id.sibling(id.row(), 0).data()
         submission = BasicSubmission.query(id=id)
+        # logger.debug(f"Event submission: {submission}")
         self.menu = QMenu(self)
         self.con_actions = submission.custom_context_events()
+        # logger.debug(f"Menu options: {self.con_actions}")
         for k in self.con_actions.keys():
             # logger.debug(f"Adding {k}")
             action = QAction(k, self)

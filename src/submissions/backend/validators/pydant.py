@@ -11,7 +11,7 @@ from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
 from . import RSLNamer
 from pathlib import Path
-from tools import check_not_nan, convert_nans_to_nones, Report, Result
+from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone
 from backend.db.models import *
 from sqlalchemy.exc import StatementError, IntegrityError
 from PyQt6.QtWidgets import QWidget
@@ -148,7 +148,9 @@ class PydReagent(BaseModel):
                     case "expiry":
                         if isinstance(value, str):
                             value = date(year=1970, month=1, day=1)
-                        reagent.expiry = value
+                        value = datetime.combine(value, datetime.min.time())
+                        logger.debug(f"Expiry date coming into sql: {value} with type {type(value)}")
+                        reagent.expiry = value.replace(tzinfo=timezone)
                     case _:
                         try:
                             reagent.__setattr__(key, value)
@@ -187,7 +189,11 @@ class PydSample(BaseModel, extra='allow'):
         for k, v in data.model_extra.items():
             if k in model.timestamps():
                 if isinstance(v, str):
+                    # try:
                     v = datetime.strptime(v, "%Y-%m-%d")
+                    # except ValueError:
+                    #     logger.warning(f"Attribute {k} value {v} for sample {data.submitter_id} could not be coerced into date. Setting to None.")
+                    #     v = None
                 data.__setattr__(k, v)
         # logger.debug(f"Data coming out of validation: {pformat(data)}")
         return data
@@ -678,6 +684,7 @@ class PydSubmission(BaseModel, extra='allow'):
             return value
 
     def __init__(self, run_custom: bool = False, **data):
+        logger.debug(f"{__name__} input data: {data}")
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
@@ -833,6 +840,18 @@ class PydSubmission(BaseModel, extra='allow'):
                             continue
                         if association is not None and association not in instance.submission_tips_associations:
                             instance.submission_tips_associations.append(association)
+                case item if item in instance.timestamps():
+                    logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
+                    # value = value.replace(tzinfo=timezone)
+                    if isinstance(value, date):
+                        value = datetime.combine(value, datetime.min.time())
+                        value = value.replace(tzinfo=timezone)
+                    elif isinstance(value, str):
+                        value: datetime = datetime.strptime(value, "%Y-%m-%d")
+                        value = value.replace(tzinfo=timezone)
+                    else:
+                        value = value
+                    instance.set_attribute(key=key, value=value)
                 case item if item in instance.jsons():
                     # logger.debug(f"{item} is a json.")
                     try:
@@ -941,7 +960,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # NOTE: Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.role for item in ext_kit_rtypes]
         output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
-        # logger.debug(f"Already have these reagent types: {output_reagents}")
+        logger.debug(f"Already have these reagent types: {output_reagents}")
         missing_check = [item.role for item in output_reagents]
         missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check]
         missing_reagents += [rt for rt in output_reagents if rt.missing]

@@ -1,6 +1,8 @@
 '''
 Contains all submission related frontend functions
 '''
+import sys
+
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
@@ -190,7 +192,8 @@ class SubmissionFormWidget(QWidget):
         self.app = parent.app
         self.pyd = submission
         self.missing_info = []
-        st = SubmissionType.query(name=self.pyd.submission_type['value']).get_submission_class()
+        self.submission_type = SubmissionType.query(name=self.pyd.submission_type['value'])
+        st = self.submission_type.get_submission_class()
         defaults = st.get_default_info("form_recover", "form_ignore", submission_type=self.pyd.submission_type['value'])
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
@@ -215,7 +218,7 @@ class SubmissionFormWidget(QWidget):
                     value = self.pyd.model_extra[k]
                 except KeyError:
                     value = dict(value=None, missing=True)
-            add_widget = self.create_widget(key=k, value=value, submission_type=self.pyd.submission_type['value'],
+            add_widget = self.create_widget(key=k, value=value, submission_type=self.submission_type,
                                             sub_obj=st, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
@@ -224,7 +227,7 @@ class SubmissionFormWidget(QWidget):
         self.setStyleSheet(main_form_style)
         self.scrape_reagents(self.pyd.extraction_kit)
 
-    def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | None = None,
+    def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType| None = None,
                       extraction_kit: str | None = None, sub_obj: BasicSubmission | None = None,
                       disable: bool = False) -> "self.InfoItem":
         """
@@ -240,6 +243,8 @@ class SubmissionFormWidget(QWidget):
             self.InfoItem: Form widget to hold name:value
         """
         # logger.debug(f"Key: {key}, Disable: {disable}")
+        if isinstance(submission_type, str):
+            submission_type = SubmissionType.query(name=submission_type)
         if key not in self.ignore:
             match value:
                 case PydReagent():
@@ -272,7 +277,7 @@ class SubmissionFormWidget(QWidget):
         """
         extraction_kit = args[0]
         report = Report()
-        # logger.debug(f"Extraction kit: {extraction_kit}")
+        logger.debug(f"Extraction kit: {extraction_kit}")
         # NOTE: Remove previous reagent widgets
         try:
             old_reagents = self.find_widgets()
@@ -284,7 +289,7 @@ class SubmissionFormWidget(QWidget):
             if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
                 reagent.setParent(None)
         reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=extraction_kit)
-        # logger.debug(f"Missing reagents: {obj.missing_reagents}")
+        logger.debug(f"Got reagents: {pformat(reagents)}")
         for reagent in reagents:
             add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.pyd.extraction_kit)
             self.layout.addWidget(add_widget)
@@ -454,9 +459,11 @@ class SubmissionFormWidget(QWidget):
 
     class InfoItem(QWidget):
 
-        def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | None = None,
+        def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
                      sub_obj: BasicSubmission | None = None) -> None:
             super().__init__(parent)
+            if isinstance(submission_type, str):
+                submission_type = SubmissionType.query(name=submission_type)
             layout = QVBoxLayout()
             self.label = self.ParsedQLabel(key=key, value=value)
             self.input: QWidget = self.set_widget(parent=parent, key=key, value=value, submission_type=submission_type,
@@ -497,7 +504,7 @@ class SubmissionFormWidget(QWidget):
                     return None, None
             return self.input.objectName(), dict(value=value, missing=self.missing)
 
-        def set_widget(self, parent: QWidget, key: str, value: dict, submission_type: str | None = None,
+        def set_widget(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
                        sub_obj: BasicSubmission | None = None) -> QWidget:
             """
             Creates form widget
@@ -511,8 +518,10 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 QWidget: Form object
             """
+            if isinstance(submission_type, str):
+                submission_type = SubmissionType.query(name=submission_type)
             if sub_obj is None:
-                sub_obj = SubmissionType.query(name=submission_type).get_submission_class()
+                sub_obj = submission_type.get_submission_class()
             try:
                 value = value['value']
             except (TypeError, KeyError):
@@ -544,7 +553,8 @@ class SubmissionFormWidget(QWidget):
                     add_widget = MyQComboBox(scrollWidget=parent)
                     # NOTE: lookup existing kits by 'submission_type' decided on by sheetparser
                     # logger.debug(f"Looking up kits used for {submission_type}")
-                    uses = [item.name for item in KitType.query(used_for=submission_type)]
+                    # uses = [item.name for item in KitType.query(used_for=submission_type)]
+                    uses = [item.name for item in submission_type.kit_types]
                     obj.uses = uses
                     # logger.debug(f"Kits received for {submission_type}: {uses}")
                     if check_not_nan(value):
@@ -668,7 +678,7 @@ class SubmissionFormWidget(QWidget):
                 dlg = QuestionAsker(title=f"Add {lot}?",
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
                 if dlg.exec():
-                    wanted_reagent, _ = self.parent().parent().add_reagent(reagent_lot=lot,
+                    wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot,
                                                                            reagent_role=self.reagent.role,
                                                                            expiry=self.reagent.expiry,
                                                                            name=self.reagent.name)

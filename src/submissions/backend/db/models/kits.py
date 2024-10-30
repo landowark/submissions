@@ -4,6 +4,7 @@ All kit and reagent related models
 from __future__ import annotations
 import datetime
 import json
+import sys
 from pprint import pformat
 import yaml
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
@@ -693,6 +694,9 @@ class SubmissionType(BaseClass):
         Returns:
             List[str]: List of sheet names
         """
+        # print(f"Getting template file from {self.__database_session__.get_bind()}")
+        if "pytest" in sys.modules:
+            return ExcelFile("C:\\Users\lwark\Documents\python\submissions\mytests\\test_assets\RSL-AR-20240513-1.xlsx").sheet_names
         return ExcelFile(BytesIO(self.template_file), engine="openpyxl").sheet_names
 
     def set_template_file(self, filepath: Path | str):

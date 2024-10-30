@@ -155,7 +155,7 @@ class ControlsViewer(QWidget):
         chart_settings = dict(sub_type=self.con_sub_type, start_date=self.start_date, end_date=self.end_date,
                               mode=self.mode,
                               sub_mode=self.mode_sub_type, parent=self, months=months)
-        _, self.fig = self.archetype.get_instance_class().make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
+        self.fig = self.archetype.get_instance_class().make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
         if issubclass(self.fig.__class__, CustomFigure):
             self.save_button.setEnabled(True)
         # logger.debug(f"Updating figure...")

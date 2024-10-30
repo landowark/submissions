@@ -1,6 +1,7 @@
 """
 Gel box for artic quality control
 """
+from operator import itemgetter
 from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
                              QLabel, QLineEdit, QDialogButtonBox,
                              QTextEdit, QComboBox
@@ -65,7 +66,8 @@ class GelBox(QDialog):
         layout.addWidget(self.imv, 0, 1, 20, 20)
         # NOTE: setting this widget as central widget of the main window
         try:
-            control_info = sorted(self.submission.gel_controls, key=lambda d: d['location'])
+            # control_info = sorted(self.submission.gel_controls, key=lambda d: d['location'])
+            control_info = sorted(self.submission.gel_controls, key=itemgetter('location'))
         except KeyError:
             control_info = None
         self.form = ControlsForm(parent=self, control_info=control_info)

@@ -42,7 +42,6 @@ class Summary(QWidget):
         self.setLayout(self.layout)
         self.get_report()
 
-
     def get_report(self):
         orgs = [self.org_select.itemText(i) for i in range(self.org_select.count()) if self.org_select.itemChecked(i)]
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():

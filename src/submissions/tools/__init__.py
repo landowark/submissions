@@ -17,13 +17,15 @@ from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
-print(inspect.stack()[1])
+# print(inspect.stack()[1])
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
 from tkinter.filedialog import askdirectory
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
+from pytz import timezone as tz
 
+timezone = tz("America/Winnipeg")
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -386,16 +388,22 @@ class Settings(BaseSettings, extra="allow"):
                 case "sqlite":
                     value = f"/{values.data['database_path']}"
                     db_name = f"{values.data['database_name']}.db"
+                    template = jinja_template_loading().from_string(
+                        "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}")
+                case "mssql+pyodbc":
+                    value = values.data['database_path']
+                    db_name = values.data['database_name']
+                    template = jinja_template_loading().from_string(
+                        "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Trusted_Connection=yes"
+                    )
                 case _:
                     # print(pprint.pprint(values.data))
                     tmp = jinja_template_loading().from_string(
                         "{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}@{{ values['database_path'] }}")
                     value = tmp.render(values=values.data)
                     db_name = values.data['database_name']
-            template = jinja_template_loading().from_string(
-                "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}")
             database_path = template.render(values=values.data, value=value, db_name=db_name)
-            # print(f"Using {database_path} for database path")
+            print(f"Using {database_path} for database path")
             engine = create_engine(database_path)
             session = Session(engine)
             return session
@@ -939,8 +947,7 @@ def report_result(func):
 
     """
     def wrapper(*args, **kwargs):
-        # logger.debug(f"Arguments: {args}")
-        # logger.debug(f"Keyword arguments: {kwargs}")
+        logger.debug(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
         match output:
             case Report():
@@ -966,6 +973,12 @@ def report_result(func):
             except Exception as e:
                 logger.error(f"Problem reporting due to {e}")
                 logger.error(result.msg)
-        # logger.debug(f"Returning: {output}")
-        return output
+        if output:
+            true_output = tuple(item for item in output if not isinstance(item, Report))
+            if len(true_output) == 1:
+                true_output = true_output[0]
+        else:
+            true_output = None
+        # logger.debug(f"Returning true output: {true_output}")
+        return true_output
     return wrapper

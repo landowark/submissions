@@ -131,10 +131,8 @@ class Control(BaseClass):
     __mapper_args__ = {
         "polymorphic_identity": "Basic Control",
         "polymorphic_on": case(
-
             (controltype_name == "PCR Control", "PCR Control"),
             (controltype_name == "Irida Control", "Irida Control"),
-
             else_="Basic Control"
         ),
         "with_polymorphic": "*",
@@ -147,15 +145,15 @@ class Control(BaseClass):
     def find_polymorphic_subclass(cls, polymorphic_identity: str | ControlType | None = None,
                                   attrs: dict | None = None) -> Control:
         """
-                Find subclass based on polymorphic identity or relevant attributes.
+        Find subclass based on polymorphic identity or relevant attributes.
 
-                Args:
-                    polymorphic_identity (str | None, optional): String representing polymorphic identity. Defaults to None.
-                    attrs (str | SubmissionType | None, optional): Attributes of the relevant class. Defaults to None.
+        Args:
+            polymorphic_identity (str | None, optional): String representing polymorphic identity. Defaults to None.
+            attrs (str | SubmissionType | None, optional): Attributes of the relevant class. Defaults to None.
 
-                Returns:
-                    Control: Subclass of interest.
-                """
+        Returns:
+            Control: Subclass of interest.
+        """
         if isinstance(polymorphic_identity, dict):
             # logger.debug(f"Controlling for dict value")
             polymorphic_identity = polymorphic_identity['value']
@@ -189,14 +187,11 @@ class Control(BaseClass):
         
         Args:
             parent (QWidget): chart holding widget to add buttons to.
-
-        Returns:
-
         """
-        pass
+        return None
 
     @classmethod
-    def make_chart(cls, parent, chart_settings: dict, ctx):
+    def make_chart(cls, parent, chart_settings: dict, ctx) -> Tuple[Report, "CustomFigure" | None]:
         """
         Dummy operation to be overridden by child classes.
 
@@ -307,6 +302,7 @@ class PCRControl(Control):
         return cls.execute_query(query=query, limit=limit)
 
     @classmethod
+    @report_result
     def make_chart(cls, parent, chart_settings: dict, ctx: Settings) -> Tuple[Report, "PCRFigure"]:
         """
         Creates a PCRFigure. Overrides parent

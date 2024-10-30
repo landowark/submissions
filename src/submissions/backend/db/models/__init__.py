@@ -28,6 +28,8 @@ class BaseClass(Base):
 
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
+    singles = ['id']
+
     @classmethod
     @declared_attr
     def __tablename__(cls) -> str:
@@ -92,17 +94,21 @@ class BaseClass(Base):
         Returns:
             dict | list | str: Output of key:value dict or single (list, str) desired variable
         """
-        dicto = dict(singles=['id'])
-        output = {}
-        for k, v in dicto.items():
-            if len(args) > 0 and k not in args:
-                # logger.debug(f"{k} not selected as being of interest.")
-                continue
-            else:
-                output[k] = v
-        if len(args) == 1:
-            return output[args[0]]
-        return output
+        # if issubclass(cls, BaseClass) and cls.__name__ != "BaseClass":
+        singles = list(set(cls.singles + BaseClass.singles))
+        # else:
+        #     singles = cls.singles
+        # output = dict(singles=singles)
+        # output = {}
+        # for k, v in dicto.items():
+        #     if len(args) > 0 and k not in args:
+        #         # logger.debug(f"{k} not selected as being of interest.")
+        #         continue
+        #     else:
+        #         output[k] = v
+        # if len(args) == 1:
+        #     return output[args[0]]
+        return dict(singles=singles)
 
     @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:
@@ -190,10 +196,15 @@ class ConfigItem(BaseClass):
         Returns:
             ConfigItem|List[ConfigItem]: Config item(s)
         """
-        config_items = cls.__database_session__.query(cls).all()
-        config_items = [item for item in config_items if item.key in args]
-        if len(args) == 1:
-            config_items = config_items[0]
+        query = cls.__database_session__.query(cls)
+        # config_items = [item for item in config_items if item.key in args]
+        match len(args):
+            case 0:
+                config_items = query.all()
+            case 1:
+                config_items = query.filter(cls.key == args[0]).first()
+            case _:
+                config_items = query.filter(cls.key.in_(args)).all()
         return config_items
 
 

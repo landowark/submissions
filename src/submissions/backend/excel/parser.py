@@ -2,6 +2,7 @@
 contains parser objects for pulling values from client generated submission sheets.
 '''
 import json
+import sys
 from copy import copy
 from getpass import getuser
 from pprint import pformat
@@ -95,6 +96,7 @@ class SheetParser(object):
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=extraction_kit)
         self.sub['reagents'] = parser.parse_reagents()
+        logger.debug(f"Reagents out of parser: {pformat(self.sub['reagents'])}")
 
     def parse_samples(self):
         """
@@ -273,7 +275,8 @@ class ReagentParser(object):
         # logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
-    def fetch_kit_info_map(self, submission_type: str) -> dict:
+    @report_result
+    def fetch_kit_info_map(self, submission_type: str) -> Tuple[Report, dict]:
         """
         Gets location of kit reagents from database
 
@@ -283,7 +286,7 @@ class ReagentParser(object):
         Returns:
             dict: locations of reagent info for the kit.
         """
-
+        report = Report()
         if isinstance(submission_type, dict):
             submission_type = submission_type['value']
         reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
@@ -291,7 +294,12 @@ class ReagentParser(object):
             del reagent_map['info']
         except KeyError:
             pass
-        return reagent_map
+        # logger.debug(f"Reagent map: {pformat(reagent_map)}")
+        if not reagent_map.keys():
+            report.add_result(Result(owner=__name__, code=0, msg=f"No kit map found for {self.kit_object.name}.\n\n"
+                                                                 f"Are you sure you used the right kit?",
+                                     status="Critical"))
+        return report, reagent_map
 
     def parse_reagents(self) -> Generator[dict, None, None]:
         """
@@ -401,6 +409,7 @@ class SampleParser(object):
         """
         invalids = [0, "0", "EMPTY"]
         smap = self.sample_info_map['plate_map']
+        print(smap)
         ws = self.xl[smap['sheet']]
         plate_map_samples = []
         for ii, row in enumerate(range(smap['start_row'], smap['end_row'] + 1), start=1):
@@ -469,8 +478,10 @@ class SampleParser(object):
                 yield new
         else:
             merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
-            plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
-            lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
+            # plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
+            # lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
+            plate_map_samples = sorted(copy(self.plate_map_samples), key=itemgetter('id'))
+            lookup_samples = sorted(copy(self.lookup_samples), key=itemgetter(merge_on_id))
             for ii, psample in enumerate(plate_map_samples):
                 # NOTE: See if we can do this the easy way and just use the same list index.
                 try:
@@ -483,6 +494,8 @@ class SampleParser(object):
                     lookup_samples[ii] = {}
                 else:
                     logger.warning(f"Match for {psample['id']} not direct, running search.")
+                    searchables = [(jj, sample) for jj, sample in enumerate(lookup_samples)
+                                   if merge_on_id in sample.keys()]
                     # for jj, lsample in enumerate(lookup_samples):
                     #     try:
                     #         check = lsample[merge_on_id] == psample['id']
@@ -494,14 +507,18 @@ class SampleParser(object):
                     #         break
                     #     else:
                     #         new = psample
-                    jj, new = next(((jj, lsample) for jj, lsample in enumerate(lookup_samples) if lsample[merge_on_id] == psample['id']), (-1, psample))
+                    jj, new = next(((jj, lsample | psample) for jj, lsample in searchables
+                                    if lsample[merge_on_id] == psample['id']), (-1, psample))
                     logger.debug(f"Assigning from index {jj} - {new}")
                     if jj >= 0:
                         lookup_samples[jj] = {}
                 if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
                     new['submitter_id'] = psample['id']
                 new = self.sub_object.parse_samples(new)
-                del new['id']
+                try:
+                    del new['id']
+                except KeyError:
+                    pass
                 yield new
 
 
@@ -586,7 +603,7 @@ class EquipmentParser(object):
                                nickname=eq.nickname)
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to list.")
-                
+
 
 class TipParser(object):
     """
@@ -649,7 +666,7 @@ class TipParser(object):
                     yield dict(name=eq.name, role=k, lot=lot)
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to PydTips list.")
-                
+
 
 class PCRParser(object):
     """Object to pull data from Design and Analysis PCR export file."""
@@ -705,4 +722,3 @@ class PCRParser(object):
         pcr['imported_by'] = getuser()
         # logger.debug(f"PCR: {pformat(pcr)}")
         return pcr
-

@@ -1,8 +1,9 @@
 '''
 Creates forms that the user can enter equipment info into.
 '''
+import time
 from pprint import pformat
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,
                              QLabel, QWidget, QVBoxLayout, QDialogButtonBox, QGridLayout)
 from backend.db.models import Equipment, BasicSubmission, Process
@@ -127,13 +128,14 @@ class RoleComboBox(QWidget):
         # logger.debug(f"Updating equipment: {equip}")
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
         # logger.debug(f"Using: {equip2}")
-        self.process.clear()
+        with QSignalBlocker(self.process) as blocker:
+            self.process.clear()
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])
 
     def update_tips(self):
         """
         Changes what tips are available when process is changed
-        """        
+        """
         process = self.process.currentText().strip()
         # logger.debug(f"Checking process: {process} for equipment {self.role.name}")
         process = Process.query(name=process)

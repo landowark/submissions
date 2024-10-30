@@ -3,6 +3,7 @@ contains writer objects for pushing values to submission sheet templates.
 """
 import logging
 from copy import copy
+from operator import itemgetter
 from pprint import pformat
 from typing import List, Generator, Tuple
 from openpyxl import load_workbook, Workbook
@@ -272,7 +273,8 @@ class SampleWriter(object):
         self.sample_map = submission_type.construct_sample_map()['lookup_table']
         # NOTE: exclude any samples without a submission rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
-        self.samples = sorted(samples, key=lambda k: k['submission_rank'])
+        # self.samples = sorted(samples, key=lambda k: k['submission_rank'])
+        self.samples = sorted(samples, key=itemgetter('submission_rank'))
 
     def reconcile_map(self, sample_list: list) -> Generator[dict, None, None]:
         """

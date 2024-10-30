@@ -2,11 +2,12 @@
 Contains all operations for creating charts, graphs and visual effects.
 '''
 from PyQt6.QtWidgets import QWidget
-import plotly
+import plotly, logging
 from plotly.graph_objects import Figure
-from plotly.graph_objs import FigureWidget
 import pandas as pd
 from frontend.widgets.functions import select_save_file
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class CustomFigure(Figure):
@@ -40,16 +41,12 @@ class CustomFigure(Figure):
         """
         Creates final html code from plotly
 
-        Args:
-            figure (Figure): input figure
-
         Returns:
             str: html string
         """
         html = '<html><body>'
         if self is not None:
-            html += plotly.offline.plot(self, output_type='div',
-                                        include_plotlyjs='cdn')  #, image = 'png', auto_open=True, image_filename='plot_image')
+            html += plotly.offline.plot(self, output_type='div', include_plotlyjs='cdn')
         else:
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'

@@ -2,6 +2,7 @@
 Constructs main application.
 """
 from pprint import pformat
+from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow,
@@ -11,6 +12,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
+from backend import SubmissionType
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
 from .functions import select_save_file, select_open_file
 from datetime import date
@@ -32,12 +34,13 @@ class App(QMainWindow):
     def __init__(self, ctx: Settings = None):
         # logger.debug(f"Initializing main window...")
         super().__init__()
+        qInstallMessageHandler(lambda x, y, z: None)
         self.ctx = ctx
         self.last_dir = ctx.directory_path
         self.report = Report()
         # NOTE: indicate version and connected database in title bar
         try:
-            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_session.get_bind().url}"
+            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}/{ctx.database_name}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
         # NOTE: set initial app position and size
