@@ -349,7 +349,7 @@ class PydEquipment(BaseModel, extra='ignore'):
         """
         if isinstance(submission, str):
             # logger.debug(f"Got string, querying {submission}")
-            submission = BasicSubmission.query(rsl_number=submission)
+            submission = BasicSubmission.query(rsl_plate_num=submission)
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
             logger.error("No equipment found. Returning None.")
@@ -361,7 +361,8 @@ class PydEquipment(BaseModel, extra='ignore'):
                                                              role=self.role, limit=1)
             except TypeError as e:
                 logger.error(f"Couldn't get association due to {e}, returning...")
-                return equipment, None
+                # return equipment, None
+                assoc = None
             if assoc is None:
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
                 process = Process.query(name=self.processes[0])
@@ -829,6 +830,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         equip, association = equip.toSQL(submission=instance)
                         if association is not None:
                             instance.submission_equipment_associations.append(association)
+                    logger.debug(f"Equipment associations:\n\n{pformat(instance.submission_equipment_associations)}")
                 case "tips":
                     for tips in self.tips:
                         if tips is None:

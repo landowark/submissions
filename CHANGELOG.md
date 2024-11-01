@@ -1,6 +1,7 @@
-## 202410.05
+## 202411.01
 
 - Code clean up.
+- Improved flexibility of Irida chart for subtyping.
 
 ## 202410.03
 

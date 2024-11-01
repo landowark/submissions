@@ -18,8 +18,18 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         connection_record (_type_): _description_
     """    
     cursor = dbapi_connection.cursor()
+    # print(ctx.database_schema)
     if ctx.database_schema == "sqlite":
-        cursor.execute("PRAGMA foreign_keys=ON")
+        execution_phrase = "PRAGMA foreign_keys=ON"
+        # cursor.execute(execution_phrase)
+    elif ctx.database_schema == "mssql+pyodbc":
+        execution_phrase = "SET IDENTITY_INSERT dbo._wastewater ON;"
+    else:
+        print("Nothing to execute, returning")
+        cursor.close()
+        return
+    print(f"Executing {execution_phrase} in sql.")
+    cursor.execute(execution_phrase)
     cursor.close()
 
 

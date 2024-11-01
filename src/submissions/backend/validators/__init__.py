@@ -52,7 +52,7 @@ class RSLNamer(object):
             str: parsed submission type
         """
         def st_from_path(filename:Path) -> str:
-            logger.info(f"Using path method for {filename}.")
+            # logger.info(f"Using path method for {filename}.")
             if filename.exists():
                 wb = load_workbook(filename)
                 try:
@@ -60,7 +60,7 @@ class RSLNamer(object):
                     categories = wb.properties.category.split(";")
                     submission_type = next(item.strip().title() for item in categories)
                 except (StopIteration, AttributeError):
-                    sts = {item.name: item.get_template_file_sheets() for item in SubmissionType.query()}
+                    sts = {item.name: item.get_template_file_sheets() for item in SubmissionType.query() if item.template_file}
                     try:
                         submission_type = next(k.title() for k,v in sts.items() if wb.sheetnames==v)
                     except StopIteration:
@@ -70,8 +70,10 @@ class RSLNamer(object):
                 submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
             return submission_type
         def st_from_str(filename:str) -> str:
+            if filename.startswith("tmp"):
+                return "Bacterial Culture"
             regex = BasicSubmission.construct_regex()
-            logger.info(f"Using string method for {filename}.")
+            # logger.info(f"Using string method for {filename}.")
             # logger.debug(f"Using regex: {regex}")
             m = regex.search(filename)
             try:
@@ -95,7 +97,7 @@ class RSLNamer(object):
             check = True
         if check:
             if "pytest" in sys.modules:
-                return "Bacterial Culture"
+                raise ValueError("Submission Type came back as None.")
             # logger.debug("Final option, ask the user for submission type")
             from frontend.widgets import ObjectSelector
             dlg = ObjectSelector(title="Couldn't parse submission type.",

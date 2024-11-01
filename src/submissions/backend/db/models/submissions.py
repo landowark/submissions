@@ -4,6 +4,7 @@ Models for the main submission and sample types.
 from __future__ import annotations
 import sys
 import types
+import zipfile
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64
@@ -733,6 +734,7 @@ class BasicSubmission(BaseClass):
         return model
 
     # Child class custom functions
+
     @classmethod
     def custom_info_parser(cls, input_dict: dict, xl: Workbook | None = None, custom_fields: dict = {}) -> dict:
         """
@@ -1170,7 +1172,8 @@ class BasicSubmission(BaseClass):
         # logger.debug(f"Retrieved instance: {instance}")
         if instance is None:
             used_class = cls.find_polymorphic_subclass(attrs=kwargs, polymorphic_identity=submission_type)
-            instance = used_class(**kwargs)
+            # instance = used_class(**kwargs)
+            instance = used_class(**sanitized_kwargs)
             match submission_type:
                 case str():
                     submission_type = SubmissionType.query(name=submission_type)
@@ -1216,7 +1219,10 @@ class BasicSubmission(BaseClass):
         fname = self.__backup_path__.joinpath(f"{self.rsl_plate_num}-backup({date.today().strftime('%Y%m%d')})")
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_num}?\n")
         if msg.exec():
-            self.backup(fname=fname, full_backup=True)
+            try:
+                self.backup(fname=fname, full_backup=True)
+            except zipfile.BadZipfile:
+                logger.error("Couldn't open zipfile for writing.")
             self.__database_session__.delete(self)
             try:
                 self.__database_session__.commit()
@@ -1419,7 +1425,7 @@ class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """
-    id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True)
+    id = Column(INTEGER, ForeignKey('_basicsubmission.id'), primary_key=True, autoincrement=False)
     ext_technician = Column(String(64))  #: Name of technician doing extraction
     pcr_technician = Column(String(64))  #: Name of technician doing pcr
     pcr_info = Column(JSON)  #: unstructured output from pcr table logger or user(Artic)
@@ -2279,7 +2285,7 @@ class BasicSample(BaseClass):
             try:
                 model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
             except Exception as e:
-                logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
+                logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, using {cls}")
                 model = cls
             logger.info(f"Recruiting model: {model}")
             return model
@@ -2856,6 +2862,7 @@ class SubmissionSampleAssociation(BaseClass):
             SubmissionSampleAssociation: Queried or new association.
         """
         # logger.debug(f"Attempting create or query with {kwargs}")
+        disallowed = ['id']
         match submission:
             case BasicSubmission():
                 pass

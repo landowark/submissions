@@ -94,20 +94,7 @@ class BaseClass(Base):
         Returns:
             dict | list | str: Output of key:value dict or single (list, str) desired variable
         """
-        # if issubclass(cls, BaseClass) and cls.__name__ != "BaseClass":
         singles = list(set(cls.singles + BaseClass.singles))
-        # else:
-        #     singles = cls.singles
-        # output = dict(singles=singles)
-        # output = {}
-        # for k, v in dicto.items():
-        #     if len(args) > 0 and k not in args:
-        #         # logger.debug(f"{k} not selected as being of interest.")
-        #         continue
-        #     else:
-        #         output[k] = v
-        # if len(args) == 1:
-        #     return output[args[0]]
         return dict(singles=singles)
 
     @classmethod
@@ -197,10 +184,10 @@ class ConfigItem(BaseClass):
             ConfigItem|List[ConfigItem]: Config item(s)
         """
         query = cls.__database_session__.query(cls)
-        # config_items = [item for item in config_items if item.key in args]
         match len(args):
             case 0:
                 config_items = query.all()
+            # NOTE: If only one item sought, don't use a list, just return it.
             case 1:
                 config_items = query.filter(cls.key == args[0]).first()
             case _:

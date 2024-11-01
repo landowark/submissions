@@ -230,7 +230,7 @@ class App(QMainWindow):
         st = SubmissionType.import_from_json(filepath=fname)
         if st:
             # NOTE: Do not delete the print statement below.
-            print(pformat(st.to_export_dict()))
+            # print(pformat(st.to_export_dict()))
             choice = input("Save the above submission type? [y/N]: ")
             if choice.lower() == "y":
                 pass

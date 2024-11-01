@@ -2,16 +2,12 @@
 All kit and reagent related models
 """
 from __future__ import annotations
-import datetime
-import json
-import sys
+import datetime, json, zipfile, yaml, logging, re
 from pprint import pformat
-import yaml
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date
-import logging, re
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator
 from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
@@ -688,16 +684,17 @@ class SubmissionType(BaseClass):
         return f"<SubmissionType({self.name})>"
 
     def get_template_file_sheets(self) -> List[str]:
+        logger.debug(f"Submission type to get sheets for: {self.name}")
         """
         Gets names of sheet in the stored blank form.
 
         Returns:
             List[str]: List of sheet names
         """
-        # print(f"Getting template file from {self.__database_session__.get_bind()}")
-        if "pytest" in sys.modules:
-            return ExcelFile("C:\\Users\lwark\Documents\python\submissions\mytests\\test_assets\RSL-AR-20240513-1.xlsx").sheet_names
-        return ExcelFile(BytesIO(self.template_file), engine="openpyxl").sheet_names
+        try:
+            return ExcelFile(BytesIO(self.template_file), engine="openpyxl").sheet_names
+        except zipfile.BadZipfile:
+            return []
 
     def set_template_file(self, filepath: Path | str):
         """

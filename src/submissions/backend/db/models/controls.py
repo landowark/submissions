@@ -66,18 +66,18 @@ class ControlType(BaseClass):
         Returns:
             List[str]: list of subtypes available
         """
-        # NOTE: Get first instance since all should have same subtypes
-        # NOTE: Get mode of instance
         if not self.instances:
             return
+        # NOTE: Get first instance since all should have same subtypes
+        # NOTE: Get mode of instance
         jsoner = getattr(self.instances[0], mode)
         try:
             # NOTE: Pick genera (all should have same subtypes)
             genera = list(jsoner.keys())[0]
         except IndexError:
             return []
-        # NOTE: remove items that don't have relevant data
-        subtypes = [item for item in jsoner[genera] if "_hashes" not in item and "_ratio" not in item]
+        # NOTE subtypes now created for all modes, but ignored for all but allowed_for_subtyping later in the ControlsChart
+        subtypes = sorted(list(jsoner[genera].keys()), reverse=True)
         return subtypes
 
     def get_instance_class(self) -> Control:
@@ -98,7 +98,7 @@ class ControlType(BaseClass):
             Generator[str, None, None]: Control types that have targets
         """
         ct = cls.query(name=control_type).targets
-        return (item for item in ct.keys() if ct[item])
+        return (k for k, v in ct.items() if v)
 
     @classmethod
     def build_positive_regex(cls, control_type:str) -> Pattern:
@@ -141,6 +141,98 @@ class Control(BaseClass):
     def __repr__(self) -> str:
         return f"<{self.controltype_name}({self.name})>"
 
+    # @classmethod
+    # @setup_lookup
+    # def query(cls,
+    #           submission_type: str | None = None,
+    #           subtype: str | None = None,
+    #           start_date: date | str | int | None = None,
+    #           end_date: date | str | int | None = None,
+    #           control_name: str | None = None,
+    #           limit: int = 0, **kwargs
+    #           ) -> Control | List[Control]:
+    #     """
+    #     Lookup control objects in the database based on a number of parameters.
+    #
+    #     Args:
+    #         submission_type (str | None, optional): Control archetype. Defaults to None.
+    #         start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
+    #         end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
+    #         control_name (str | None, optional): Name of control. Defaults to None.
+    #         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+    #
+    #     Returns:
+    #         PCRControl|List[PCRControl]: Control object of interest.
+    #     """
+    #     from backend.db import SubmissionType
+    #     query: Query = cls.__database_session__.query(cls)
+    #     match submission_type:
+    #         case str():
+    #             from backend import BasicSubmission, SubmissionType
+    #             # logger.debug(f"Lookup controls by SubmissionType str: {submission_type}")
+    #             query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submission_type)
+    #         case SubmissionType():
+    #             from backend import BasicSubmission
+    #             # logger.debug(f"Lookup controls by SubmissionType: {submission_type}")
+    #             query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name == submission_type.name)
+    #         case _:
+    #             pass
+    #             # NOTE: by control type
+    #     match subtype:
+    #         case str():
+    #             if cls.__name__ == "Control":
+    #                 raise ValueError(f"Cannot query base class Control with subtype.")
+    #             elif cls.__name__ == "IridaControl":
+    #                 query = query.filter(cls.subtype == subtype)
+    #             else:
+    #                 try:
+    #                     query = query.filter(cls.subtype == subtype)
+    #                 except AttributeError as e:
+    #                     logger.error(e)
+    #         case _:
+    #             pass
+    #     # NOTE: by date range
+    #     if start_date is not None and end_date is None:
+    #         logger.warning(f"Start date with no end date, using today.")
+    #         end_date = date.today()
+    #     if end_date is not None and start_date is None:
+    #         logger.warning(f"End date with no start date, using 90 days ago.")
+    #         # start_date = date(2023, 1, 1)
+    #         start_date = date.today() - timedelta(days=90)
+    #     if start_date is not None:
+    #         match start_date:
+    #             case date():
+    #                 # logger.debug(f"Lookup control by start date({start_date})")
+    #                 start_date = start_date.strftime("%Y-%m-%d")
+    #             case int():
+    #                 # logger.debug(f"Lookup control by ordinal start date {start_date}")
+    #                 start_date = datetime.fromordinal(
+    #                     datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
+    #             case _:
+    #                 # logger.debug(f"Lookup control with parsed start date {start_date}")
+    #                 start_date = parse(start_date).strftime("%Y-%m-%d")
+    #         match end_date:
+    #             case date():
+    #                 # logger.debug(f"Lookup control by end date({end_date})")
+    #                 end_date = end_date.strftime("%Y-%m-%d")
+    #             case int():
+    #                 # logger.debug(f"Lookup control by ordinal end date {end_date}")
+    #                 end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
+    #                     "%Y-%m-%d")
+    #             case _:
+    #                 # logger.debug(f"Lookup control with parsed end date {end_date}")
+    #                 end_date = parse(end_date).strftime("%Y-%m-%d")
+    #         # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
+    #         query = query.filter(cls.submitted_date.between(start_date, end_date))
+    #     match control_name:
+    #         case str():
+    #             # logger.debug(f"Lookup control by name {control_name}")
+    #             query = query.filter(cls.name.startswith(control_name))
+    #             limit = 1
+    #         case _:
+    #             pass
+    #     return cls.execute_query(query=query, limit=limit)
+
     @classmethod
     def find_polymorphic_subclass(cls, polymorphic_identity: str | ControlType | None = None,
                                   attrs: dict | None = None) -> Control:
@@ -155,15 +247,20 @@ class Control(BaseClass):
             Control: Subclass of interest.
         """
         if isinstance(polymorphic_identity, dict):
-            # logger.debug(f"Controlling for dict value")
             polymorphic_identity = polymorphic_identity['value']
-        if isinstance(polymorphic_identity, ControlType):
-            polymorphic_identity = polymorphic_identity.name
+        # if isinstance(polymorphic_identity, ControlType):
+        #     polymorphic_identity = polymorphic_identity.name
         model = cls
         match polymorphic_identity:
             case str():
                 try:
                     model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
+                except Exception as e:
+                    logger.error(
+                        f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
+            case ControlType():
+                try:
+                    model = cls.__mapper__.polymorphic_map[polymorphic_identity.name].class_
                 except Exception as e:
                     logger.error(
                         f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
@@ -228,7 +325,7 @@ class PCRControl(Control):
     @classmethod
     @setup_lookup
     def query(cls,
-              sub_type: str | None = None,
+              submission_type: str | None = None,
               start_date: date | str | int | None = None,
               end_date: date | str | int | None = None,
               control_name: str | None = None,
@@ -238,7 +335,7 @@ class PCRControl(Control):
         Lookup control objects in the database based on a number of parameters.
 
         Args:
-            sub_type (str | None, optional): Control archetype. Defaults to None.
+            submission_type (str | None, optional): Control archetype. Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
             end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
             control_name (str | None, optional): Name of control. Defaults to None.
@@ -254,8 +351,9 @@ class PCRControl(Control):
             logger.warning(f"Start date with no end date, using today.")
             end_date = date.today()
         if end_date is not None and start_date is None:
-            logger.warning(f"End date with no start date, using Jan 1, 2023")
-            start_date = date(2023, 1, 1)
+            logger.warning(f"End date with no start date, using 90 days ago.")
+            # start_date = date(2023, 1, 1)
+            start_date = date.today() - timedelta(days=90)
         if start_date is not None:
             match start_date:
                 case date():
@@ -281,15 +379,15 @@ class PCRControl(Control):
                     end_date = parse(end_date).strftime("%Y-%m-%d")
             # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
-        match sub_type:
+        match submission_type:
             case str():
                 from backend import BasicSubmission, SubmissionType
-                # logger.debug(f"Lookup controls by SubmissionType str: {sub_type}")
-                query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == sub_type)
+                # logger.debug(f"Lookup controls by SubmissionType str: {submission_type}")
+                query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submission_type)
             case SubmissionType():
                 from backend import BasicSubmission
-                # logger.debug(f"Lookup controls by SubmissionType: {sub_type}")
-                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name==sub_type.name)
+                # logger.debug(f"Lookup controls by SubmissionType: {submission_type}")
+                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name==submission_type.name)
             case _:
                 pass
         match control_name:
@@ -319,7 +417,8 @@ class PCRControl(Control):
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
         report = Report()
-        controls = cls.query(sub_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
+        logger.debug(f"Chart settings: {pformat(chart_settings)}")
+        controls = cls.query(submission_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
         df = DataFrame.from_records(data)
@@ -332,11 +431,14 @@ class PCRControl(Control):
 
 
 class IridaControl(Control):
+
+    subtyping_allowed = ['kraken']
+
     id = Column(INTEGER, ForeignKey('_control.id'), primary_key=True)
     contains = Column(JSON)  #: unstructured hashes in contains.tsv for each organism
     matches = Column(JSON)  #: unstructured hashes in matches.tsv for each organism
     kraken = Column(JSON)  #: unstructured output from kraken_report
-    sub_type = Column(String(16), nullable=False)  #: EN-NOS, MCS-NOS, etc
+    subtype = Column(String(16), nullable=False)  #: EN-NOS, MCS-NOS, etc
     refseq_version = Column(String(16))  #: version of refseq used in fastq parsing
     kraken2_version = Column(String(16))  #: version of kraken2 used in fastq parsing
     kraken2_db_version = Column(String(32))  #: folder name of kraken2 db
@@ -488,16 +590,17 @@ class IridaControl(Control):
         # NOTE: by control type
         match sub_type:
             case str():
-                query = query.filter(cls.sub_type == sub_type)
+                query = query.filter(cls.subtype == sub_type)
             case _:
                 pass
-        # NOTE: by date range
+        # NOTE: If one date exists, we need the other one to exist as well.
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
             end_date = date.today()
         if end_date is not None and start_date is None:
-            logger.warning(f"End date with no start date, using Jan 1, 2023")
-            start_date = date(2023, 1, 1)
+            logger.warning(f"End date with no start date, using 90 days ago.")
+            # start_date = date(2023, 1, 1)
+            start_date = date.today() - timedelta(days=90)
         if start_date is not None:
             match start_date:
                 case date():

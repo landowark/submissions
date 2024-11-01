@@ -103,7 +103,8 @@ class ControlsViewer(QWidget):
             sub_types = self.archetype.get_modes(mode=self.mode)
         except AttributeError:
             sub_types = []
-        if sub_types:
+        # NOTE: added in allowed to have subtypes in case additions made in future.
+        if sub_types and self.mode.lower() in self.archetype.get_instance_class().subtyping_allowed:
             # NOTE: block signal that will rerun controls getter and update mode_sub_typer
             with QSignalBlocker(self.mode_sub_typer) as blocker:
                 self.mode_sub_typer.addItems(sub_types)

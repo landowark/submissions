@@ -37,7 +37,7 @@ a = Analysis(
             ("src\\submissions\\resources\\*", "files\\resources"),
             ("alembic.ini", "files"),
     ],
-    hiddenimports=[],
+    hiddenimports=["pyodbc"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

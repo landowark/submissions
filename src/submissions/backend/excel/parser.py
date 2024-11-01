@@ -123,8 +123,8 @@ class SheetParser(object):
         """
         Enforce that the parser has an extraction kit
         """
-        from frontend.widgets.pop_ups import ObjectSelector
         if 'extraction_kit' not in self.sub.keys() or not check_not_nan(self.sub['extraction_kit']['value']):
+            from frontend.widgets.pop_ups import ObjectSelector
             dlg = ObjectSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.",
                                  obj_type=KitType)
             if dlg.exec():
@@ -199,6 +199,7 @@ class InfoParser(object):
                 if k == "custom":
                     continue
                 if isinstance(v, str):
+                    logger.debug(f"Found string for {k}, setting value to {v}")
                     dicto[k] = dict(value=v, missing=False)
                     continue
                 # logger.debug(f"Looking for {k} in self.map")
@@ -270,13 +271,13 @@ class ReagentParser(object):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
-        # logger.debug(f"Got extraction kit object: {self.kit_object}")
+        logger.debug(f"Got extraction kit object: {self.kit_object}")
         self.map = self.fetch_kit_info_map(submission_type=submission_type)
         # logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
     @report_result
-    def fetch_kit_info_map(self, submission_type: str) -> Tuple[Report, dict]:
+    def fetch_kit_info_map(self, submission_type: str|SubmissionType) -> Tuple[Report, dict]:
         """
         Gets location of kit reagents from database
 
@@ -296,8 +297,13 @@ class ReagentParser(object):
             pass
         # logger.debug(f"Reagent map: {pformat(reagent_map)}")
         if not reagent_map.keys():
+            try:
+                ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]
+                location_string = f"Sheet: {ext_kit_loc['sheet']}, Row: {ext_kit_loc['row']}, Column: {ext_kit_loc['column']}?"
+            except:
+                location_string = ""
             report.add_result(Result(owner=__name__, code=0, msg=f"No kit map found for {self.kit_object.name}.\n\n"
-                                                                 f"Are you sure you used the right kit?",
+                                                                 f"Are you sure you put the right kit in:\n\n{location_string}?",
                                      status="Critical"))
         return report, reagent_map
 
@@ -409,7 +415,6 @@ class SampleParser(object):
         """
         invalids = [0, "0", "EMPTY"]
         smap = self.sample_info_map['plate_map']
-        print(smap)
         ws = self.xl[smap['sheet']]
         plate_map_samples = []
         for ii, row in enumerate(range(smap['start_row'], smap['end_row'] + 1), start=1):

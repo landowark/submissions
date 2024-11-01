@@ -167,7 +167,7 @@ class SubmissionDetails(QDialog):
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """
         fname = select_save_file(obj=self, default_name=self.export_plate, extension="pdf")
-        save_pdf(obj=self, filename=fname)
+        save_pdf(obj=self.webview, filename=fname)
 
 class SubmissionComment(QDialog):
     """
