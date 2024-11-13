@@ -683,6 +683,11 @@ class SubmissionType(BaseClass):
         """
         return f"<SubmissionType({self.name})>"
 
+    @classmethod
+    def retrieve_template_file(cls):
+        submission_type = cls.query(name="Bacterial Culture")
+        return submission_type.template_file
+
     def get_template_file_sheets(self) -> List[str]:
         logger.debug(f"Submission type to get sheets for: {self.name}")
         """
@@ -778,6 +783,12 @@ class SubmissionType(BaseClass):
             if tmap is None:
                 tmap = {}
             yield item.tip_role.name, tmap
+
+    def get_default_kit(self) -> KitType | None:
+        if len(self.kit_types) == 1:
+            return self.kit_types[0]
+        else:
+            return None
 
     def get_equipment(self, extraction_kit: str | KitType | None = None) -> Generator['PydEquipmentRole', None, None]:
         """

@@ -1,6 +1,7 @@
 """
 Constructs main application.
 """
+import os
 from pprint import pformat
 from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (
@@ -213,7 +214,7 @@ class App(QMainWindow):
             None
         """
         if check_if_app():
-            yaml_path = Path(sys._MEIPASS).joinpath("resources", "viral_culture.yml")
+            yaml_path = Path(sys._MEIPASS).joinpath("files", "resources", "viral_culture.yml")
         else:
             yaml_path = project_path.joinpath("src", "submissions", "resources", "viral_culture.yml")
         fname = select_save_file(obj=self, default_name="Submission Type Template.yml", extension="yml")

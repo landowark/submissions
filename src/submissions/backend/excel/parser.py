@@ -96,7 +96,7 @@ class SheetParser(object):
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=extraction_kit)
         self.sub['reagents'] = parser.parse_reagents()
-        logger.debug(f"Reagents out of parser: {pformat(self.sub['reagents'])}")
+        # logger.debug(f"Reagents out of parser: {pformat(self.sub['reagents'])}")
 
     def parse_samples(self):
         """
@@ -273,11 +273,11 @@ class ReagentParser(object):
         self.kit_object = KitType.query(name=extraction_kit)
         logger.debug(f"Got extraction kit object: {self.kit_object}")
         self.map = self.fetch_kit_info_map(submission_type=submission_type)
-        # logger.debug(f"Reagent Parser map: {self.map}")
+        logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
     @report_result
-    def fetch_kit_info_map(self, submission_type: str|SubmissionType) -> Tuple[Report, dict]:
+    def fetch_kit_info_map(self, submission_type: str | SubmissionType) -> Tuple[Report, dict]:
         """
         Gets location of kit reagents from database
 
@@ -296,15 +296,24 @@ class ReagentParser(object):
         except KeyError:
             pass
         # logger.debug(f"Reagent map: {pformat(reagent_map)}")
+        # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
         if not reagent_map.keys():
-            try:
-                ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]
-                location_string = f"Sheet: {ext_kit_loc['sheet']}, Row: {ext_kit_loc['row']}, Column: {ext_kit_loc['column']}?"
-            except:
-                location_string = ""
-            report.add_result(Result(owner=__name__, code=0, msg=f"No kit map found for {self.kit_object.name}.\n\n"
-                                                                 f"Are you sure you put the right kit in:\n\n{location_string}?",
-                                     status="Critical"))
+            temp_kit_object = self.submission_type_obj.get_default_kit()
+            if temp_kit_object:
+                self.kit_object = temp_kit_object
+                reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
+                logger.warning(f"Attempting to salvage {self.kit_object} with default kit map: {reagent_map}")
+            if not reagent_map.keys():
+                logger.error(f"Still no reagent map, displaying error.")
+                try:
+                    ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]
+                    location_string = f"Sheet: {ext_kit_loc['sheet']}, Row: {ext_kit_loc['row']}, Column: {ext_kit_loc['column']}?"
+                except (IndexError, KeyError):
+                    location_string = ""
+                report.add_result(Result(owner=__name__, code=0,
+                                         msg=f"No kit map found for {self.kit_object.name}.\n\n"
+                                             f"Are you sure you put the right kit in:\n\n{location_string}?",
+                                         status="Critical"))
         return report, reagent_map
 
     def parse_reagents(self) -> Generator[dict, None, None]:
@@ -317,7 +326,7 @@ class ReagentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
+            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:

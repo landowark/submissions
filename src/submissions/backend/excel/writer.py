@@ -51,6 +51,9 @@ class SheetWriter(object):
         #     except Exception as e:
         #         logger.error(f"Couldn't open workbook due to {e}")
         template = self.submission_type.template_file
+        if not template:
+            logger.error(f"No template file found, falling back to Bacterial Culture")
+            template = SubmissionType.retrieve_template_file()
         workbook = load_workbook(BytesIO(template))
         # self.workbook = workbook
         self.xl = workbook

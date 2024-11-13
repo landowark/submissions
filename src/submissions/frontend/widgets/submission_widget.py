@@ -225,7 +225,8 @@ class SubmissionFormWidget(QWidget):
             if k == "extraction_kit":
                 add_widget.input.currentTextChanged.connect(self.scrape_reagents)
         self.setStyleSheet(main_form_style)
-        self.scrape_reagents(self.pyd.extraction_kit)
+        # self.scrape_reagents(self.pyd.extraction_kit)
+        self.scrape_reagents(self.extraction_kit)
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType| None = None,
                       extraction_kit: str | None = None, sub_obj: BasicSubmission | None = None,
@@ -275,9 +276,9 @@ class SubmissionFormWidget(QWidget):
         Returns:
             Tuple[QMainWindow, dict]: Updated application and result
         """
-        extraction_kit = args[0]
+        self.extraction_kit = args[0]
         report = Report()
-        logger.debug(f"Extraction kit: {extraction_kit}")
+        logger.debug(f"Extraction kit: {self.extraction_kit}")
         # NOTE: Remove previous reagent widgets
         try:
             old_reagents = self.find_widgets()
@@ -288,10 +289,11 @@ class SubmissionFormWidget(QWidget):
         for reagent in old_reagents:
             if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
                 reagent.setParent(None)
-        reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=extraction_kit)
+        reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
         logger.debug(f"Got reagents: {pformat(reagents)}")
         for reagent in reagents:
-            add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.pyd.extraction_kit)
+            # add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.pyd.extraction_kit)
+            add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
             self.layout.addWidget(add_widget)
         report.add_result(integrity_report)
         # logger.debug(f"Outgoing report: {report.results}")
@@ -569,6 +571,7 @@ class SubmissionFormWidget(QWidget):
                         obj.ext_kit = uses[0]
                     add_widget.addItems(uses)
                     add_widget.setToolTip("Select extraction kit.")
+                    parent.extraction_kit = add_widget.currentText()
                 case 'submission_category':
                     add_widget = MyQComboBox(scrollWidget=parent)
                     cats = ['Diagnostic', "Surveillance", "Research"]

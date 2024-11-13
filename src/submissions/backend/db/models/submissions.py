@@ -1038,7 +1038,7 @@ class BasicSubmission(BaseClass):
               chronologic: bool = False,
               limit: int = 0,
               page: int = 1,
-              page_size: int = 250,
+              page_size: None | int = 250,
               **kwargs
               ) -> BasicSubmission | List[BasicSubmission]:
         """
@@ -1059,6 +1059,7 @@ class BasicSubmission(BaseClass):
         """
         # logger.debug(f"Incoming kwargs: {kwargs}")
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
+        # logger.debug(f"Page size: {page_size}")
         if submission_type is not None:
             model = cls.find_polymorphic_subclass(polymorphic_identity=submission_type)
         elif len(kwargs) > 0:
@@ -1139,7 +1140,7 @@ class BasicSubmission(BaseClass):
         # if chronologic:
         #     logger.debug("Attempting sort by date descending")
         query = query.order_by(cls.submitted_date.desc())
-        if page_size is not None:
+        if page_size > 0:
             query = query.limit(page_size)
         page = page - 1
         if page is not None:

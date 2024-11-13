@@ -8,7 +8,7 @@ from pprint import pformat
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
-from tools import check_authorization, setup_lookup
+from tools import check_authorization, setup_lookup, yaml_regex_creator
 from typing import List
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -88,6 +88,7 @@ class Organization(BaseClass):
         Returns:
 
         """
+        yaml.add_constructor("!regex", yaml_regex_creator)
         if isinstance(filepath, str):
             filepath = Path(filepath)
         if not filepath.exists():
@@ -97,7 +98,7 @@ class Organization(BaseClass):
             if filepath.suffix == ".json":
                 import_dict = json.load(fp=f)
             elif filepath.suffix == ".yml":
-                import_dict = yaml.safe_load(stream=f)
+                import_dict = yaml.load(stream=f, Loader=yaml.Loader)
             else:
                 raise Exception(f"Filetype {filepath.suffix} not supported.")
         data = import_dict['orgs']

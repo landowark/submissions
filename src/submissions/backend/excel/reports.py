@@ -18,10 +18,12 @@ env = jinja_template_loading()
 
 class ReportMaker(object):
 
-    def __init__(self, start_date: date, end_date: date, organizations:list|None=None):
+    def __init__(self, start_date: date, end_date: date, organizations: list | None = None):
         self.start_date = start_date
         self.end_date = end_date
-        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date)
+        # NOTE: Set page size to zero to override limiting query size.
+        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, page_size=0)
+        # logger.debug(f"Number of subs returned: {len(self.subs)}")
         if organizations is not None:
             self.subs = [sub for sub in self.subs if sub.submitting_lab.name in organizations]
         self.detailed_df, self.summary_df = self.make_report_xlsx()
@@ -46,6 +48,7 @@ class ReportMaker(object):
         # logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
         df = df.drop('id', axis=1)
         df = df.sort_values(['submitting_lab', "submitted_date"])
+        logger.debug(f"Details dataframe:\n{df2}")
         return df, df2
 
     def make_report_html(self, df: DataFrame) -> str:
@@ -97,7 +100,7 @@ class ReportMaker(object):
         Args:
             filename (Path | str): Basename of output file
             obj (QWidget | None, optional): Parent object. Defaults to None.
-        """        
+        """
         if isinstance(filename, str):
             filename = Path(filename)
         filename = filename.absolute()
@@ -111,7 +114,7 @@ class ReportMaker(object):
     def fix_up_xl(self):
         """
         Handles formatting of xl file, mediocrely.
-        """        
+        """
         # logger.debug(f"Updating worksheet")
         worksheet: Worksheet = self.writer.sheets['Report']
         for idx, col in enumerate(self.summary_df, start=1):  # NOTE: loop through all columns
@@ -134,5 +137,3 @@ class ReportMaker(object):
         for cell in worksheet['D']:
             if cell.row > 1:
                 cell.style = 'Currency'
-
-

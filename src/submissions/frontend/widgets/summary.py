@@ -56,6 +56,7 @@ class Summary(QWidget):
         # NOTE: convert to python useable date objects
         self.start_date = self.datepicker.start_date.date().toPyDate()
         self.end_date = self.datepicker.end_date.date().toPyDate()
+        logger.debug(f"Getting report from {self.start_date} to {self.end_date} using {orgs}")
         self.report_obj = ReportMaker(start_date=self.start_date, end_date=self.end_date, organizations=orgs)
         self.webview.setHtml(self.report_obj.html)
         if self.report_obj.subs:
