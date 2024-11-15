@@ -291,7 +291,8 @@ class SampleWriter(object):
         """
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
-            # logger.debug(f"Writing sample: {sample}")
+            sample = self.submission_type.get_submission_class().custom_sample_writer(sample)
+            logger.debug(f"Writing sample: {sample}")
             for assoc in zip(sample['row'], sample['column'], sample['submission_rank']):
                 new = dict(row=assoc[0], column=assoc[1], submission_rank=assoc[2])
                 for k, v in sample.items():

@@ -71,6 +71,7 @@ class App(QMainWindow):
         # logger.debug(f"Creating menu bar...")
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
+        editMenu = menuBar.addMenu("&Edit")
         # NOTE: Creating menus using a title
         methodsMenu = menuBar.addMenu("&Methods")
         maintenanceMenu = menuBar.addMenu("&Monthly")
@@ -85,6 +86,7 @@ class App(QMainWindow):
         methodsMenu.addAction(self.searchSample)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
+        editMenu.addAction(self.editReagentAction)
 
     def _createToolBar(self):
         """
@@ -115,6 +117,7 @@ class App(QMainWindow):
         self.githubAction = QAction("Github", self)
         self.yamlExportAction = QAction("Export Type Example", self)
         self.yamlImportAction = QAction("Import Type Template", self)
+        self.editReagentAction = QAction("Edit Reagent", self)
 
     def _connectActions(self):
         """
@@ -133,6 +136,7 @@ class App(QMainWindow):
         self.yamlExportAction.triggered.connect(self.export_ST_yaml)
         self.yamlImportAction.triggered.connect(self.import_ST_yaml)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
+        self.editReagentAction.triggered.connect(self.edit_reagent)
 
     def showAbout(self):
         """
@@ -219,6 +223,11 @@ class App(QMainWindow):
             yaml_path = project_path.joinpath("src", "submissions", "resources", "viral_culture.yml")
         fname = select_save_file(obj=self, default_name="Submission Type Template.yml", extension="yml")
         shutil.copyfile(yaml_path, fname)
+
+    @check_authorization
+    def edit_reagent(self, *args, **kwargs):
+        dlg = EditReagent()
+        dlg.exec()
 
     @check_authorization
     def import_ST_yaml(self, *args, **kwargs):

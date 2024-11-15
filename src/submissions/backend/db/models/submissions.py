@@ -844,6 +844,9 @@ class BasicSubmission(BaseClass):
                         ws.cell(row=item['row'], column=item['column'], value=item['value'])
         return input_excel
 
+    def custom_sample_writer(self, sample:dict) -> dict:
+        return sample
+
     @classmethod
     def enforce_name(cls, instr: str, data: dict | None = {}) -> str:
         """
@@ -1692,6 +1695,8 @@ class WastewaterArtic(BasicSubmission):
             output['artic_technician'] = self.technician
         else:
             output['artic_technician'] = self.artic_technician
+        # logger.debug(full_data)
+        # logger.debug(output.keys())
         output['gel_info'] = self.gel_info
         output['gel_image_path'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
@@ -1850,13 +1855,17 @@ class WastewaterArtic(BasicSubmission):
             dict: Updated sample dictionary
         """
         input_dict = super().parse_samples(input_dict)
-        # logger.debug(f"WWA input dict: {pformat(input_dict)}")
+        logger.debug(f"WWA input dict: {pformat(input_dict)}")
         input_dict['sample_type'] = "Wastewater Sample"
         # NOTE: Stop gap solution because WW is sloppy with their naming schemes
         try:
             input_dict['source_plate'] = input_dict['source_plate'].replace("WW20", "WW-20")
         except KeyError:
             pass
+        try:
+            input_dict['source_plate_number'] = int(input_dict['source_plate_number'])
+        except ValueError:
+            input_dict['source_plate_number'] = 0
         # NOTE: Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
         # at the end, this has to be done here. No moving to sqlalchemy object :(
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)\s?$", "", str(input_dict['submitter_id'])).strip()
@@ -2080,6 +2089,13 @@ class WastewaterArtic(BasicSubmission):
         else:
             logger.warning("No gel image found.")
         return input_excel
+
+    @classmethod
+    def custom_sample_writer(self, sample:dict) -> dict:
+        logger.debug("Wastewater Artic custom sample writer")
+        if sample['source_plate_number'] in [0, "0"]:
+            sample['source_plate_number'] = "control"
+        return sample
 
     @classmethod
     def get_details_template(cls, base_dict: dict) -> Tuple[dict, Template]:

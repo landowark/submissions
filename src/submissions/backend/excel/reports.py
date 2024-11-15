@@ -48,7 +48,7 @@ class ReportMaker(object):
         # logger.debug(f"Output daftaframe for xlsx: {df2.columns}")
         df = df.drop('id', axis=1)
         df = df.sort_values(['submitting_lab', "submitted_date"])
-        logger.debug(f"Details dataframe:\n{df2}")
+        # logger.debug(f"Details dataframe:\n{df2}")
         return df, df2
 
     def make_report_html(self, df: DataFrame) -> str:
