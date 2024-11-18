@@ -48,7 +48,7 @@ class PydReagent(BaseModel):
     def rescue_type_with_lookup(cls, value, values):
         if value is None and values.data['lot'] is not None:
             try:
-                return Reagent.query(lot_number=values.data['lot'].name)
+                return Reagent.query(lot=values.data['lot'].name)
             except AttributeError:
                 return value
         return value
@@ -127,7 +127,7 @@ class PydReagent(BaseModel):
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
         # logger.debug(f"Reagent SQL constructor is looking up type: {self.type}, lot: {self.lot}")
-        reagent = Reagent.query(lot_number=self.lot, name=self.name)
+        reagent = Reagent.query(lot=self.lot, name=self.name)
         # logger.debug(f"Result: {reagent}")
         if reagent is None:
             reagent = Reagent()

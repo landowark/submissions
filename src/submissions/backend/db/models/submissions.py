@@ -844,7 +844,8 @@ class BasicSubmission(BaseClass):
                         ws.cell(row=item['row'], column=item['column'], value=item['value'])
         return input_excel
 
-    def custom_sample_writer(self, sample:dict) -> dict:
+    @classmethod
+    def custom_sample_writer(self, sample: dict) -> dict:
         return sample
 
     @classmethod
@@ -2091,7 +2092,7 @@ class WastewaterArtic(BasicSubmission):
         return input_excel
 
     @classmethod
-    def custom_sample_writer(self, sample:dict) -> dict:
+    def custom_sample_writer(self, sample: dict) -> dict:
         logger.debug("Wastewater Artic custom sample writer")
         if sample['source_plate_number'] in [0, "0"]:
             sample['source_plate_number'] = "control"

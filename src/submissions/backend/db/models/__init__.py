@@ -3,6 +3,8 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging
+
+import pandas as pd
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
@@ -96,6 +98,26 @@ class BaseClass(Base):
         """
         singles = list(set(cls.singles + BaseClass.singles))
         return dict(singles=singles)
+
+    @classmethod
+    def fuzzy_search(cls, **kwargs):
+        query: Query = cls.__database_session__.query(cls)
+        # logger.debug(f"Queried model. Now running searches in {kwargs}")
+        for k, v in kwargs.items():
+            # logger.debug(f"Running fuzzy search for attribute: {k} with value {v}")
+            search = f"%{v}%"
+            try:
+                attr = getattr(cls, k)
+                # NOTE: the secret sauce is in attr.like
+                query = query.filter(attr.like(search))
+            except (ArgumentError, AttributeError) as e:
+                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
+        return query.limit(50).all()
+
+    @classmethod
+    def results_to_df(cls, objects: list, **kwargs):
+        records = [object.to_sub_dict(**kwargs) for object in objects]
+        return pd.DataFrame.from_records(records)
 
     @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:

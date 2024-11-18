@@ -675,7 +675,7 @@ class SubmissionFormWidget(QWidget):
             report = Report()
             lot = self.lot.currentText()
             # logger.debug(f"Using this lot for the reagent {self.reagent}: {lot}")
-            wanted_reagent = Reagent.query(lot_number=lot, reagent_role=self.reagent.role)
+            wanted_reagent = Reagent.query(lot=lot, role=self.reagent.role)
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
             if wanted_reagent is None:
                 dlg = QuestionAsker(title=f"Add {lot}?",
@@ -745,7 +745,7 @@ class SubmissionFormWidget(QWidget):
                         relevant_reagents.insert(0, str(reagent.lot))
                     else:
                         try:
-                            looked_up_reg = Reagent.query(lot_number=looked_up_rt.last_used)
+                            looked_up_reg = Reagent.query(lot=looked_up_rt.last_used)
                         except AttributeError:
                             looked_up_reg = None
                         if isinstance(looked_up_reg, list):

@@ -16,7 +16,7 @@ import logging
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class SearchBox(QDialog):
+class SampleSearchBox(QDialog):
 
     def __init__(self, parent):
         super().__init__(parent)

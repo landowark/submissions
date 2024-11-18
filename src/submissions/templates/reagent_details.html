@@ -10,8 +10,11 @@
     <h2><u>Reagent Details for {{ reagent['name'] }} - {{ reagent['lot'] }}</u></h2>
     {{ super() }}
     <p>{% for key, value in reagent.items() if key not in reagent['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>
     {% endfor %}</p>
+    {% if permission %}
+        <button type="button" id="save_btn">Save</button>
+    {% endif %}
     {% if reagent['submissions'] %}<h2>Submissions:</h2>
         {% for submission in reagent['submissions'] %}
         <p><b><a class="data-link" id="{{ submission }}">{{ submission }}:</a></b> {{ reagent['role'] }}</p>
@@ -22,6 +25,11 @@
 <script>
   {% block script %}
   {{ super() }}
+  document.getElementById("save_btn").addEventListener("click", function(){
+            var new_lot = document.getElementById('lot').value
+            var new_exp = document.getElementById('expiry').value
+            backend.update_reagent("{{ reagent['lot'] }}", new_lot, new_exp);
+        });
   {% for submission in reagent['submissions'] %}
   document.getElementById("{{ submission }}").addEventListener("click", function(){
       backend.submission_details("{{ submission }}");

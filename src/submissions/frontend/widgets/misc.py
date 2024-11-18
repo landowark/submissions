@@ -30,8 +30,8 @@ class AddReagentForm(QDialog):
     def __init__(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
                  reagent_name: str | None = None) -> None:
         super().__init__()
-        if reagent_lot is None:
-            reagent_lot = reagent_role
+        if reagent_name is None:
+            reagent_name = reagent_role
         self.setWindowTitle("Add Reagent")
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)

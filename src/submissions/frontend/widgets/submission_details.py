@@ -106,10 +106,10 @@ class SubmissionDetails(QDialog):
     @pyqtSlot(str, str)
     def reagent_details(self, reagent: str | Reagent, kit: str | KitType):
         if isinstance(reagent, str):
-            reagent = Reagent.query(lot_number=reagent)
+            reagent = Reagent.query(lot=reagent)
         if isinstance(kit, str):
-            kit = KitType.query(name=kit)
-        base_dict = reagent.to_sub_dict(extraction_kit=kit, full_data=True)
+            self.kit = KitType.query(name=kit)
+        base_dict = reagent.to_sub_dict(extraction_kit=self.kit, full_data=True)
         env = jinja_template_loading()
         temp_name = "reagent_details.html"
         # logger.debug(f"Returning template: {temp_name}")
@@ -121,9 +121,21 @@ class SubmissionDetails(QDialog):
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        html = template.render(reagent=base_dict, css=css)
+        html = template.render(reagent=base_dict, permission=is_power_user(), css=css)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Reagent Details - {reagent.name} - {reagent.lot}")
+
+    @pyqtSlot(str, str, str)
+    def update_reagent(self, old_lot: str, new_lot: str, expiry: str):
+        expiry = datetime.strptime(expiry, "%Y-%m-%d")
+        reagent = Reagent.query(lot=old_lot)
+        if reagent:
+            reagent.lot = new_lot
+            reagent.expiry = expiry
+            reagent.save()
+            self.reagent_details(reagent=reagent, kit=self.kit)
+        else:
+            logger.error(f"Reagent with lot {old_lot} not found.")
 
     @pyqtSlot(str)
     def submission_details(self, submission: str | BasicSubmission):
@@ -150,7 +162,7 @@ class SubmissionDetails(QDialog):
             css = f.read()
         # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
         # logger.debug(f"User is power user: {is_power_user()}")
-        self.html = self.template.render(sub=self.base_dict, signing_permission=is_power_user(), css=css)
+        self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
 
     @pyqtSlot(str)

@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
-from backend import SubmissionType
+from backend import SubmissionType, Reagent
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
 from .functions import select_save_file, select_open_file
 from datetime import date
@@ -23,8 +23,9 @@ import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
-from .sample_search import SearchBox
+from .sample_search import SampleSearchBox
 from .summary import Summary
+from .omni_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
 logger.info("Hello, I am a logger")
@@ -185,7 +186,7 @@ class App(QMainWindow):
         """
         Create a search for samples.
         """
-        dlg = SearchBox(self)
+        dlg = SampleSearchBox(self)
         dlg.exec()
 
     def backup_database(self):
@@ -226,7 +227,7 @@ class App(QMainWindow):
 
     @check_authorization
     def edit_reagent(self, *args, **kwargs):
-        dlg = EditReagent()
+        dlg = SearchBox(parent=self, object_type=Reagent, extras=['role'])
         dlg.exec()
 
     @check_authorization

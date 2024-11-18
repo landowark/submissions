@@ -1,4 +1,5 @@
-- [ ] Allow parsing of custom fields to a json 'custom' field in _basicsubmissions
+- [ ] Find a way to merge omni_search and sample_search
+- [x] Allow parsing of custom fields to a json 'custom' field in _basicsubmissions
 - [x] Upgrade to generators when returning lists.
 - [x] Revamp frontend.widgets.controls_chart to include visualizations?
 - [x] Convert Parsers to using openpyxl.

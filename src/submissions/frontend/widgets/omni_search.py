@@ -2,14 +2,13 @@
 Search box that performs fuzzy search for samples
 '''
 from pprint import pformat
-from typing import Tuple
+from typing import Tuple, Any, List
 from pandas import DataFrame
 from PyQt6.QtCore import QSortFilterProxyModel
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
-    QComboBox, QTableView, QWidget, QLineEdit, QGridLayout
+    QTableView, QWidget, QLineEdit, QGridLayout, QComboBox
 )
-from backend.db.models import BasicSample
 from .submission_table import pandasModel
 import logging
 
@@ -18,21 +17,22 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class SearchBox(QDialog):
 
-    def __init__(self, parent):
+    def __init__(self, parent, object_type: Any, extras: List[str], **kwargs):
         super().__init__(parent)
-        self.layout = QGridLayout(self)
-        self.sample_type = QComboBox(self)
-        self.sample_type.setObjectName("sample_type")
-        self.sample_type.currentTextChanged.connect(self.update_widgets)
-        options = ["Any"] + [cls.__mapper_args__['polymorphic_identity'] for cls in BasicSample.__subclasses__()]
-        self.sample_type.addItems(options)
-        self.sample_type.setEditable(False)
+        self.object_type = object_type
+        # options = ["Any"] + [cls.__name__ for cls in self.object_type.__subclasses__()]
+        # self.sub_class = QComboBox(self)
+        # self.sub_class.setObjectName("sub_class")
+        # self.sub_class.currentTextChanged.connect(self.update_widgets)
+        # self.sub_class.addItems(options)
+        # self.sub_class.setEditable(False)
         self.setMinimumSize(600, 600)
-        self.sample_type.setMinimumWidth(self.minimumWidth())
-        self.layout.addWidget(self.sample_type, 0, 0)
-        self.results = SearchResults()
+        # self.sub_class.setMinimumWidth(self.minimumWidth())
+        # self.layout.addWidget(self.sub_class, 0, 0)
+        self.results = SearchResults(parent=self, object_type=self.object_type, extras=extras, **kwargs)
         self.layout.addWidget(self.results, 5, 0)
         self.setLayout(self.layout)
+        self.setWindowTitle(f"Search {self.object_type.__name__}")
         self.update_widgets()
         self.update_data()
 
@@ -40,21 +40,10 @@ class SearchBox(QDialog):
         """
         Changes form inputs based on sample type
         """
-        deletes = [item for item in self.findChildren(FieldSearch)]
-        # logger.debug(deletes)
-        for item in deletes:
-            item.setParent(None)
-        if self.sample_type.currentText() == "Any":
-            self.type = BasicSample
-        else:
-            self.type = BasicSample.find_polymorphic_subclass(self.sample_type.currentText())
-        # logger.debug(f"Sample type: {self.type}")
-        searchables = self.type.get_searchables()
-        start_row = 1
-        for iii, item in enumerate(searchables):
-            widget = FieldSearch(parent=self, label=item['label'], field_name=item['field'])
-            self.layout.addWidget(widget, start_row + iii, 0)
-            widget.search_widget.textChanged.connect(self.update_data)
+        for iii, searchable in enumerate(self.object_type.searchables):
+            self.widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
+            self.layout.addWidget(self.widget, 1, 0)
+            self.widget.search_widget.textChanged.connect(self.update_data)
         self.update_data()
 
     def parse_form(self) -> dict:
@@ -74,9 +63,8 @@ class SearchBox(QDialog):
         # logger.debug(f"Running update_data with sample type: {self.type}")
         fields = self.parse_form()
         # logger.debug(f"Got fields: {fields}")
-        sample_list_creator = self.type.fuzzy_search(**fields)
-        data = self.type.samples_to_df(sample_list=sample_list_creator)
-        # logger.debug(f"Data: {data}")
+        sample_list_creator = self.object_type.fuzzy_search(**fields)
+        data = self.object_type.results_to_df(objects=sample_list_creator)
         self.results.setData(df=data)
 
 
@@ -108,21 +96,43 @@ class FieldSearch(QWidget):
 
 class SearchResults(QTableView):
 
-    def __init__(self):
+    def __init__(self, parent: SearchBox, object_type: Any, extras: List[str], **kwargs):
         super().__init__()
-        self.doubleClicked.connect(
-            lambda x: BasicSample.query(submitter_id=x.sibling(x.row(), 0).data()).show_details(self))
+        self.context = kwargs
+        self.parent = parent
+        self.object_type = object_type
+        self.extras = extras + self.object_type.searchables
 
     def setData(self, df: DataFrame) -> None:
         """
         sets data in model
         """
         self.data = df
+        print(self.data)
+        try:
+            self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for item in self.extras]
+        except KeyError:
+            self.columns_of_interest = []
         try:
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)
-        except (TypeError, KeyError):
-            logger.error("Couldn't format id string.")
+        except (TypeError, KeyError) as e:
+            logger.error(f"Couldn't format id string: {e}")
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(pandasModel(self.data))
         self.setModel(proxy_model)
+        self.doubleClicked.connect(self.parse_row)
+
+    def parse_row(self, x):
+        context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
+        try:
+            object = self.object_type.query(**{self.object_type.search: context[self.object_type.search]})
+        except KeyError:
+            object = None
+        try:
+            object.edit_from_search(**context)
+        except AttributeError:
+            pass
+        self.doubleClicked.disconnect()
+        self.parent.update_data()
+
