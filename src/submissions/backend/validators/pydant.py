@@ -786,9 +786,10 @@ class PydSubmission(BaseModel, extra='allow'):
         """
         report = Report()
         dicto = self.improved_dict()
+        logger.warning(f"\n\nQuery or create: {self.submission_type['value']}, {self.rsl_plate_num['value']}")
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
-        logger.debug(f"Result of query or create: {type(result)}")
+        logger.debug(f"Result of query or create: {instance}")
         report.add_result(result)
         self.handle_duplicate_samples()
         # logger.debug(f"Here's our list of duplicate removed samples: {self.samples}")
@@ -830,7 +831,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         equip, association = equip.toSQL(submission=instance)
                         if association is not None:
                             instance.submission_equipment_associations.append(association)
-                    logger.debug(f"Equipment associations:\n\n{pformat(instance.submission_equipment_associations)}")
+                    logger.debug(f"Equipment associations: {instance.submission_equipment_associations}")
                 case "tips":
                     for tips in self.tips:
                         if tips is None:
@@ -871,16 +872,18 @@ class PydSubmission(BaseModel, extra='allow'):
                 case _:
                     try:
                         instance.set_attribute(key=key, value=value)
+                        # instance.update({key:value})
                     except AttributeError as e:
                         logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
                         continue
                     except KeyError:
                         continue
+        print(f"\n\n{instance}\n\n")
         try:
             # logger.debug(f"Calculating costs for procedure...")
             instance.calculate_base_cost()
         except (TypeError, AttributeError) as e:
-            # logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using full plate cost.")
+            logger.debug(f"Looks like that kit doesn't have cost breakdown yet due to: {e}, using 0.")
             try:
                 instance.run_cost = instance.extraction_kit.cost_per_run
             except AttributeError:
@@ -1104,3 +1107,29 @@ class PydEquipmentRole(BaseModel):
         """
         from frontend.widgets.equipment_usage import RoleComboBox
         return RoleComboBox(parent=parent, role=self, used=used)
+
+
+class PydPCRControl(BaseModel):
+    name: str
+    subtype: str
+    target: str
+    ct: float
+    reagent_lot: str
+    submitted_date: datetime  #: Date submitted to Robotics
+    submission_id: int
+    controltype_name: str
+
+
+class PydIridaControl(BaseModel, extra='ignore'):
+    name: str
+    contains: list | dict  #: unstructured hashes in contains.tsv for each organism
+    matches: list | dict  #: unstructured hashes in matches.tsv for each organism
+    kraken: list | dict  #: unstructured output from kraken_report
+    subtype: str  #: EN-NOS, MCS-NOS, etc
+    refseq_version: str  #: version of refseq used in fastq parsing
+    kraken2_version: str
+    kraken2_db_version: str
+    sample_id: int
+    submitted_date: datetime  #: Date submitted to Robotics
+    submission_id: int
+    controltype_name: str

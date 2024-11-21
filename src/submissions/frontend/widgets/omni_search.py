@@ -19,17 +19,24 @@ class SearchBox(QDialog):
 
     def __init__(self, parent, object_type: Any, extras: List[str], **kwargs):
         super().__init__(parent)
-        self.object_type = object_type
-        # options = ["Any"] + [cls.__name__ for cls in self.object_type.__subclasses__()]
-        # self.sub_class = QComboBox(self)
-        # self.sub_class.setObjectName("sub_class")
-        # self.sub_class.currentTextChanged.connect(self.update_widgets)
-        # self.sub_class.addItems(options)
-        # self.sub_class.setEditable(False)
+        self.object_type = self.original_type = object_type
+        self.extras = extras
+        self.context = kwargs
+        self.layout = QGridLayout(self)
         self.setMinimumSize(600, 600)
-        # self.sub_class.setMinimumWidth(self.minimumWidth())
-        # self.layout.addWidget(self.sub_class, 0, 0)
-        self.results = SearchResults(parent=self, object_type=self.object_type, extras=extras, **kwargs)
+        options = ["Any"] + [cls.__name__ for cls in self.object_type.__subclasses__()]
+        if len(options) > 1:
+            self.sub_class = QComboBox(self)
+            self.sub_class.setObjectName("sub_class")
+            self.sub_class.addItems(options)
+            self.sub_class.currentTextChanged.connect(self.update_widgets)
+            self.sub_class.setEditable(False)
+            self.sub_class.setMinimumWidth(self.minimumWidth())
+            self.layout.addWidget(self.sub_class, 0, 0)
+        else:
+            self.sub_class = None
+        self.results = SearchResults(parent=self, object_type=self.object_type, extras=self.extras, **kwargs)
+        logger.debug(f"results: {self.results}")
         self.layout.addWidget(self.results, 5, 0)
         self.setLayout(self.layout)
         self.setWindowTitle(f"Search {self.object_type.__name__}")
@@ -40,10 +47,23 @@ class SearchBox(QDialog):
         """
         Changes form inputs based on sample type
         """
+        deletes = [item for item in self.findChildren(FieldSearch)]
+        # logger.debug(deletes)
+        for item in deletes:
+            item.setParent(None)
+        if not self.sub_class:
+            self.update_data()
+        else:
+            if self.sub_class.currentText() == "Any":
+                self.object_type = self.original_type
+            else:
+                self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
+        logger.debug(f"{self.object_type} searchables: {self.object_type.searchables}")
         for iii, searchable in enumerate(self.object_type.searchables):
-            self.widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
-            self.layout.addWidget(self.widget, 1, 0)
-            self.widget.search_widget.textChanged.connect(self.update_data)
+            widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
+            widget.setObjectName(searchable)
+            self.layout.addWidget(widget, 1+iii, 0)
+            widget.search_widget.textChanged.connect(self.update_data)
         self.update_data()
 
     def parse_form(self) -> dict:
@@ -60,11 +80,11 @@ class SearchBox(QDialog):
         """
         Shows dataframe of relevant samples.
         """
-        # logger.debug(f"Running update_data with sample type: {self.type}")
         fields = self.parse_form()
         # logger.debug(f"Got fields: {fields}")
         sample_list_creator = self.object_type.fuzzy_search(**fields)
         data = self.object_type.results_to_df(objects=sample_list_creator)
+        # Setting results moved to here from __init__ 202411118
         self.results.setData(df=data)
 
 
@@ -108,7 +128,6 @@ class SearchResults(QTableView):
         sets data in model
         """
         self.data = df
-        print(self.data)
         try:
             self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for item in self.extras]
         except KeyError:
@@ -125,14 +144,15 @@ class SearchResults(QTableView):
 
     def parse_row(self, x):
         context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
+        logger.debug(f"Context: {context}")
         try:
-            object = self.object_type.query(**{self.object_type.search: context[self.object_type.search]})
+            # object = self.object_type.query(**{self.object_type.searchables: context[self.object_type.searchables]})
+            object = self.object_type.query(**context)
         except KeyError:
             object = None
         try:
-            object.edit_from_search(**context)
-        except AttributeError:
-            pass
+            object.edit_from_search(obj=self.parent, **context)
+        except AttributeError as e:
+            logger.error(f"Error getting object function: {e}")
         self.doubleClicked.disconnect()
         self.parent.update_data()
-

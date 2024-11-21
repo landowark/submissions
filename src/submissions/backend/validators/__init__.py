@@ -203,4 +203,4 @@ class RSLNamer(object):
 
 
 from .pydant import PydSubmission, PydKit, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
-    PydEquipment, PydEquipmentRole, PydTips
+    PydEquipment, PydEquipmentRole, PydTips, PydPCRControl, PydIridaControl

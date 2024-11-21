@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
-from backend import SubmissionType, Reagent
+from backend import SubmissionType, Reagent, BasicSample
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
 from .functions import select_save_file, select_open_file
 from datetime import date
@@ -23,7 +23,7 @@ import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
-from .sample_search import SampleSearchBox
+# from .sample_search import SampleSearchBox
 from .summary import Summary
 from .omni_search import SearchBox
 
@@ -138,6 +138,7 @@ class App(QMainWindow):
         self.yamlImportAction.triggered.connect(self.import_ST_yaml)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
         self.editReagentAction.triggered.connect(self.edit_reagent)
+        self.destroyed.connect(self.final_commit)
 
     def showAbout(self):
         """
@@ -186,7 +187,8 @@ class App(QMainWindow):
         """
         Create a search for samples.
         """
-        dlg = SampleSearchBox(self)
+        # dlg = SampleSearchBox(self)
+        dlg = SearchBox(self, object_type=BasicSample, extras=[])
         dlg.exec()
 
     def backup_database(self):
@@ -251,6 +253,9 @@ class App(QMainWindow):
     def update_data(self):
         self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
+    def final_commit(self):
+        logger.debug("Running final commit")
+        self.ctx.database_session.commit()
 
 class AddSubForm(QWidget):
 

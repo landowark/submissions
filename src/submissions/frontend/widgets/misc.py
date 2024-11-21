@@ -28,7 +28,7 @@ class AddReagentForm(QDialog):
     """
 
     def __init__(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
-                 reagent_name: str | None = None) -> None:
+                 reagent_name: str | None = None, kit: str | KitType | None = None) -> None:
         super().__init__()
         if reagent_name is None:
             reagent_name = reagent_role
@@ -58,8 +58,16 @@ class AddReagentForm(QDialog):
                 self.exp_input.setDate(QDate(1970, 1, 1))
         # NOTE: widget to get reagent type info
         self.type_input = QComboBox()
-        self.type_input.setObjectName('type')
-        self.type_input.addItems([item.name for item in ReagentRole.query()])
+        self.type_input.setObjectName('role')
+        if kit:
+            match kit:
+                case str():
+                    kit = KitType.query(name=kit)
+                case _:
+                    pass
+            self.type_input.addItems([item.name for item in ReagentRole.query() if kit in item.kit_types])
+        else:
+            self.type_input.addItems([item.name for item in ReagentRole.query()])
         # logger.debug(f"Trying to find index of {reagent_type}")
         # NOTE: convert input to user-friendly string?
         try:

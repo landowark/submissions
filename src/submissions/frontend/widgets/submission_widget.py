@@ -31,6 +31,7 @@ class MyQComboBox(QComboBox):
     """
     Custom combobox that disables wheel events until focussed on.
     """
+
     def __init__(self, scrollWidget=None, *args, **kwargs):
         super(MyQComboBox, self).__init__(*args, **kwargs)
         self.scrollWidget = scrollWidget
@@ -48,6 +49,7 @@ class MyQDateEdit(QDateEdit):
     """
     Custom date editor that disables wheel events until focussed on.
     """
+
     def __init__(self, scrollWidget=None, *args, **kwargs):
         super(MyQDateEdit, self).__init__(*args, **kwargs)
         self.scrollWidget = scrollWidget
@@ -150,7 +152,7 @@ class SubmissionFormContainer(QWidget):
 
     @report_result
     def add_reagent(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
-                    name: str | None = None) -> Tuple[PydReagent, Report]:
+                    name: str | None = None, kit: str | KitType | None = None) -> Tuple[PydReagent, Report]:
         """
         Action to create new reagent in DB.
 
@@ -167,7 +169,8 @@ class SubmissionFormContainer(QWidget):
         if isinstance(reagent_lot, bool):
             reagent_lot = ""
         # NOTE: create form
-        dlg = AddReagentForm(reagent_lot=reagent_lot, reagent_role=reagent_role, expiry=expiry, reagent_name=name)
+        dlg = AddReagentForm(reagent_lot=reagent_lot, reagent_role=reagent_role, expiry=expiry, reagent_name=name,
+                             kit=kit)
         if dlg.exec():
             # NOTE: extract form info
             info = dlg.parse_form()
@@ -228,7 +231,7 @@ class SubmissionFormWidget(QWidget):
         # self.scrape_reagents(self.pyd.extraction_kit)
         self.scrape_reagents(self.extraction_kit)
 
-    def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType| None = None,
+    def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
                       extraction_kit: str | None = None, sub_obj: BasicSubmission | None = None,
                       disable: bool = False) -> "self.InfoItem":
         """
@@ -506,7 +509,8 @@ class SubmissionFormWidget(QWidget):
                     return None, None
             return self.input.objectName(), dict(value=value, missing=self.missing)
 
-        def set_widget(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
+        def set_widget(self, parent: QWidget, key: str, value: dict,
+                       submission_type: str | SubmissionType | None = None,
                        sub_obj: BasicSubmission | None = None) -> QWidget:
             """
             Creates form widget
@@ -682,9 +686,11 @@ class SubmissionFormWidget(QWidget):
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
                 if dlg.exec():
                     wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot,
-                                                                           reagent_role=self.reagent.role,
-                                                                           expiry=self.reagent.expiry,
-                                                                           name=self.reagent.name)
+                                                                        reagent_role=self.reagent.role,
+                                                                        expiry=self.reagent.expiry,
+                                                                        name=self.reagent.name,
+                                                                        kit=self.extraction_kit
+                                                                        )
                     return wanted_reagent, report
                 else:
                     # NOTE: In this case we will have an empty reagent and the submission will fail kit integrity check
@@ -772,4 +778,3 @@ class SubmissionFormWidget(QWidget):
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")
-                

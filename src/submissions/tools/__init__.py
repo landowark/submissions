@@ -13,6 +13,7 @@ from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.state import InstanceState
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -952,6 +953,10 @@ def report_result(func):
         match output:
             case Report():
                 report = output
+            # case InstanceState():
+            #     for attr in output.attrs:
+            #         print(f"{attr}: {attr.load_history()}")
+            #     return
             case tuple():
                 try:
                     report = [item for item in output if isinstance(item, Report)][0]
@@ -959,6 +964,7 @@ def report_result(func):
                     report = None
             case _:
                 report = None
+                return report
         logger.debug(f"Got report: {report}")
         try:
             results = report.results
@@ -982,3 +988,5 @@ def report_result(func):
         # logger.debug(f"Returning true output: {true_output}")
         return true_output
     return wrapper
+
+

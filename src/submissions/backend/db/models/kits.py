@@ -567,7 +567,7 @@ class Reagent(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     @check_authorization
-    def edit_from_search(self, **kwargs):
+    def edit_from_search(self, obj, **kwargs):
         from frontend.widgets.misc import AddReagentForm
         role = ReagentRole.query(kwargs['role'])
         if role:
@@ -1279,7 +1279,10 @@ class SubmissionReagentAssociation(BaseClass):
         Returns:
             str: Representation of this SubmissionReagentAssociation
         """
-        return f"<{self.submission.rsl_plate_num} & {self.reagent.lot}>"
+        try:
+            return f"<{self.submission.rsl_plate_num} & {self.reagent.lot}>"
+        except AttributeError:
+            return f"<Unknown Submission & {self.reagent.lot}"
 
     def __init__(self, reagent=None, submission=None):
         if isinstance(reagent, list):

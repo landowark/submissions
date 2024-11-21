@@ -45,7 +45,8 @@ class SubmissionDetails(QDialog):
         self.btn.clicked.connect(self.export)
         self.back = QPushButton("Back")
         self.back.setFixedWidth(100)
-        self.back.clicked.connect(self.back_function)
+        # self.back.clicked.connect(self.back_function)
+        self.back.clicked.connect(self.webview.back)
         self.layout.addWidget(self.back, 0, 0, 1, 1)
         self.layout.addWidget(self.btn, 0, 1, 1, 9)
         self.layout.addWidget(self.webview, 1, 0, 10, 10)
@@ -63,8 +64,8 @@ class SubmissionDetails(QDialog):
                 self.reagent_details(reagent=sub)
         self.webview.page().setWebChannel(self.channel)
 
-    def back_function(self):
-        self.webview.back()
+    # def back_function(self):
+    #     self.webview.back()
 
     def activate_export(self):
         title = self.webview.title()
@@ -75,7 +76,11 @@ class SubmissionDetails(QDialog):
             # logger.debug(f"Updating export plate to: {self.export_plate}")
         else:
             self.btn.setEnabled(False)
-        if title == self.webview.history().items()[0].title():
+        try:
+            check = self.webview.history().items()[0].title()
+        except IndexError as e:
+            check = title
+        if title == check:
             # logger.debug("Disabling back button")
             self.back.setEnabled(False)
         else:
@@ -96,7 +101,7 @@ class SubmissionDetails(QDialog):
         exclude = ['submissions', 'excluded', 'colour', 'tooltip']
         base_dict['excluded'] = exclude
         template = sample.get_details_template()
-        template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
+        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         html = template.render(sample=base_dict, css=css)

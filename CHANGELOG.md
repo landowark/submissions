@@ -1,3 +1,7 @@
+## 202411.04
+
+- Add reagent from scrape now limits roles to those found in kit to prevent confusion.
+
 ## 202411.01
 
 - Code clean up.

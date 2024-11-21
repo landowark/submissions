@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys, logging
 
 import pandas as pd
-from sqlalchemy import Column, INTEGER, String, JSON
+from sqlalchemy import Column, INTEGER, String, JSON, event, inspect
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
@@ -20,6 +20,12 @@ if 'pytest' in sys.modules:
 Base: DeclarativeMeta = declarative_base()
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
+
+class LogMixin(Base):
+
+    __abstract__ = True
+
 
 
 class BaseClass(Base):
@@ -100,6 +106,15 @@ class BaseClass(Base):
         return dict(singles=singles)
 
     @classmethod
+    def find_regular_subclass(cls, name: str | None = None):
+        if not name:
+            return cls
+        if " " in name:
+            search = name.title().replace(" ", "")
+        logger.debug(f"Searching for subclass: {search}")
+        return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
+
+    @classmethod
     def fuzzy_search(cls, **kwargs):
         query: Query = cls.__database_session__.query(cls)
         # logger.debug(f"Queried model. Now running searches in {kwargs}")
@@ -175,15 +190,19 @@ class BaseClass(Base):
         """
         # logger.debug(f"Saving object: {pformat(self.__dict__)}")
         report = Report()
+        state = inspect(self)
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
+            return state
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             logger.error(f"Error message: {type(e)}")
             self.__database_session__.rollback()
             report.add_result(Result(msg=e, status="Critical"))
             return report
+
+
 
 
 class ConfigItem(BaseClass):
@@ -222,6 +241,7 @@ from .controls import *
 from .organizations import *
 from .kits import *
 from .submissions import *
+from .audit import AuditLog
 
 # NOTE: Add a creator to the submission for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator

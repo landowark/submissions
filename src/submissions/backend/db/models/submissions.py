@@ -12,8 +12,8 @@ from zipfile import ZipFile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
-from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case
+from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, event, inspect
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -36,7 +36,7 @@ from PIL import Image
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class BasicSubmission(BaseClass):
+class BasicSubmission(BaseClass, LogMixin):
     """
     Concrete of basic submission which polymorphs into BacterialCulture and Wastewater
     """
@@ -544,7 +544,7 @@ class BasicSubmission(BaseClass):
                     field_value = len(self.samples)
                 else:
                     field_value = value
-            case "ctx" | "csv" | "filepath" | "equipment":
+            case "ctx" | "csv" | "filepath" | "equipment" | "controls":
                 return
             case item if item in self.jsons():
                 match key:
@@ -577,10 +577,13 @@ class BasicSubmission(BaseClass):
                 except AttributeError:
                     field_value = value
         # NOTE: insert into field
-        try:
-            self.__setattr__(key, field_value)
-        except AttributeError as e:
-            logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
+        current = self.__getattribute__(key)
+        if field_value and current != field_value:
+            logger.debug(f"Updated value: {key}: {current} to {field_value}")
+            try:
+                self.__setattr__(key, field_value)
+            except AttributeError as e:
+                logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
 
     def update_subsampassoc(self, sample: BasicSample, input_dict: dict):
         """
@@ -1339,7 +1342,7 @@ class BasicSubmission(BaseClass):
 
 # Below are the custom submission types
 
-class BacterialCulture(BasicSubmission):
+class BacterialCulture(BasicSubmission, LogMixin):
     """
     derivative submission type from BasicSubmission
     """
@@ -1426,7 +1429,7 @@ class BacterialCulture(BasicSubmission):
         return input_dict
 
 
-class Wastewater(BasicSubmission):
+class Wastewater(BasicSubmission, LogMixin):
     """
     derivative submission type from BasicSubmission
     """
@@ -2189,6 +2192,8 @@ class BasicSample(BaseClass):
     Base of basic sample which polymorphs into BCSample and WWSample
     """
 
+    searchables = ['submitter_id']
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     submitter_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
     sample_type = Column(String(32))  #: mode_sub_type of sample
@@ -2509,6 +2514,9 @@ class BasicSample(BaseClass):
         if dlg.exec():
             pass
 
+    def edit_from_search(self, obj, **kwargs):
+        self.show_details(obj)
+
 
 # Below are the custom sample types
 
@@ -2516,6 +2524,9 @@ class WastewaterSample(BasicSample):
     """
     Derivative wastewater sample
     """
+
+    searchables = BasicSample.searchables + ['ww_processing_num', 'ww_full_sample_id', 'rsl_number']
+
     id = Column(INTEGER, ForeignKey('_basicsample.id'), primary_key=True)
     ww_processing_num = Column(String(64))  #: wastewater processing number
     ww_full_sample_id = Column(String(64))  #: full id given by entrics

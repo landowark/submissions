@@ -16,6 +16,7 @@ from typing import List, Literal, Tuple, Generator
 from dateutil.parser import parse
 from re import Pattern
 
+
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -428,6 +429,10 @@ class PCRControl(Control):
             df = df
         fig = PCRFigure(df=df, modes=[])
         return report, fig
+
+    def to_pydantic(self):
+        from backend.validators import PydPCRControl
+        return PydPCRControl(**self.to_sub_dict())
 
 
 class IridaControl(Control):
@@ -878,3 +883,7 @@ class IridaControl(Control):
             exclude = [re.sub(rerun_regex, "", sample) for sample in sample_names if rerun_regex.search(sample)]
             df = df[df.name not in exclude]
         return df
+
+    def to_pydantic(self):
+        from backend.validators import PydIridaControl
+        return PydIridaControl(**self.__dict__)
