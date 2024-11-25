@@ -261,7 +261,7 @@ class KitType(BaseClass):
 
         Returns:
             dict: Dictionary containing relevant info for SubmissionType construction
-        """        
+        """
         base_dict = dict(name=self.name)
         base_dict['reagent roles'] = []
         base_dict['equipment roles'] = []
@@ -274,7 +274,8 @@ class KitType(BaseClass):
             for kk, vv in assoc.to_export_dict().items():
                 v[kk] = vv
             base_dict['reagent roles'].append(v)
-        for k, v in submission_type.construct_equipment_map():
+        # for k, v in submission_type.construct_equipment_map():
+        for k, v in submission_type.contstruct_field_map("equipment"):
             try:
                 assoc = next(item for item in submission_type.submissiontype_equipmentrole_associations if
                              item.equipment_role.name == k)
@@ -392,7 +393,7 @@ class ReagentRole(BaseClass):
 
         Returns:
             dict: Dictionary containing relevant info for SubmissionType construction
-        """        
+        """
         return dict(role=self.name, extension_of_life=self.eol_ext.days)
 
     @check_authorization
@@ -484,8 +485,6 @@ class Reagent(BaseClass):
             output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
             output['editable'] = ['lot', 'expiry']
         return output
-
-
 
     def update_last_used(self, kit: KitType) -> Report:
         """
@@ -591,7 +590,7 @@ class Reagent(BaseClass):
                         continue
                     case _:
                         field_value = value
-                logger.debug(f"Setting reagent {key} to {field_value}")
+                # logger.debug(f"Setting reagent {key} to {field_value}")
                 self.__setattr__(key, field_value)
             self.save()
 
@@ -710,7 +709,7 @@ class SubmissionType(BaseClass):
         "SubmissionTypeTipRoleAssociation",
         back_populates="submission_type",
         cascade="all, delete-orphan"
-    ) #: Association of tiproles
+    )  #: Association of tiproles
 
     def __repr__(self) -> str:
         """
@@ -793,32 +792,12 @@ class SubmissionType(BaseClass):
         """
         return self.sample_map
 
-    def construct_equipment_map(self) -> Generator[(str, dict), None, None]:
-        """
-        Constructs map of equipment to excel cells.
-
-        Returns:
-            Generator[(str, dict), None, None]: Map equipment locations in excel sheet
-        """
-        # logger.debug("Iterating through equipment roles")
-        for item in self.submissiontype_equipmentrole_associations:
-            emap = item.uses
-            if emap is None:
-                emap = {}
-            yield item.equipment_role.name, emap
-
-    def construct_tips_map(self) -> Generator[(str, dict), None, None]:
-        """
-        Constructs map of tips to excel cells.
-
-        Returns:
-            Generator[(str, dict), None, None]: Tip locations in the excel sheet.
-        """
-        for item in self.submissiontype_tiprole_associations:
-            tmap = item.uses
-            if tmap is None:
-                tmap = {}
-            yield item.tip_role.name, tmap
+    def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
+        for item in self.__getattribute__(f"submissiontype_{field}role_associations"):
+            fmap = item.uses
+            if fmap is None:
+                fmap = {}
+            yield getattr(item, f"{field}_role"), fmap
 
     def get_default_kit(self) -> KitType | None:
         if len(self.kit_types) == 1:
@@ -912,7 +891,7 @@ class SubmissionType(BaseClass):
 
         Returns:
             dict: Dictionary containing relevant info for SubmissionType construction
-        """        
+        """
         base_dict = dict(name=self.name)
         base_dict['info'] = self.construct_info_map(mode='export')
         base_dict['defaults'] = self.defaults
@@ -953,7 +932,7 @@ class SubmissionType(BaseClass):
                 import_dict = yaml.load(stream=f, Loader=yaml.Loader)
             else:
                 raise Exception(f"Filetype {filepath.suffix} not supported.")
-        logger.debug(pformat(import_dict))
+        # logger.debug(pformat(import_dict))
         try:
             submission_type = cls.query(name=import_dict['name'])
         except KeyError:
@@ -1009,7 +988,8 @@ class SubmissionType(BaseClass):
                     ster_assoc = SubmissionTypeEquipmentRoleAssociation(submission_type=submission_type,
                                                                         equipment_role=new_role)
                     try:
-                        uses = dict(name=role['name'], process=role['process'], sheet=role['sheet'], static=role['static'])
+                        uses = dict(name=role['name'], process=role['process'], sheet=role['sheet'],
+                                    static=role['static'])
                     except KeyError:
                         uses = None
                     ster_assoc.uses = uses
@@ -1236,13 +1216,12 @@ class KitTypeReagentRoleAssociation(BaseClass):
         Returns:
             dict: dictionary of Association and related reagent role
         """
-        base_dict = {}
-        base_dict['required'] = self.required
+        base_dict = dict(required=self.required)
         for k, v in self.reagent_role.to_export_dict().items():
             base_dict[k] = v
         return base_dict
 
-    def get_all_relevant_reagents(self, override:Reagent|None=None) -> Generator[Reagent, None, None]:
+    def get_all_relevant_reagents(self) -> Generator[Reagent, None, None]:
         """
         Creates a generator that will resolve in to a list filling the role associated with this object.
 
@@ -1354,6 +1333,7 @@ class SubmissionReagentAssociation(BaseClass):
         from backend.validators import PydReagent
         return PydReagent(**self.to_sub_dict(extraction_kit=extraction_kit))
 
+
 class Equipment(BaseClass):
     """
     A concrete instance of equipment
@@ -1399,8 +1379,6 @@ class Equipment(BaseClass):
             return {k: v for k, v in self.__dict__.items() if k != 'processes'}
         else:
             return {k: v for k, v in self.__dict__.items()}
-
-
 
     def get_processes(self, submission_type: SubmissionType, extraction_kit: str | KitType | None = None) -> List[str]:
         """
@@ -1669,7 +1647,7 @@ class EquipmentRole(BaseClass):
         """
         return dict(role=self.name,
                     processes=self.get_processes(submission_type=submission_type, extraction_kit=kit_type))
-        
+
 
 class SubmissionEquipmentAssociation(BaseClass):
     """
@@ -1689,7 +1667,6 @@ class SubmissionEquipmentAssociation(BaseClass):
                               back_populates="submission_equipment_associations")  #: associated submission
 
     equipment = relationship(Equipment, back_populates="equipment_submission_associations")  #: associated equipment
-
 
     def __repr__(self) -> str:
         return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num} & {self.equipment.name})>"
@@ -1805,7 +1782,7 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
 
         Returns:
             dict: Dictionary containing relevant info for SubmissionType construction
-        """        
+        """
         base_dict = {k: v for k, v in self.equipment_role.to_export_dict(submission_type=self.submission_type,
                                                                          kit_type=extraction_kit).items()}
         base_dict['static'] = self.static

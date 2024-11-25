@@ -342,7 +342,7 @@ class EquipmentWriter(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        equipment_map = {k: v for k, v in self.submission_type.construct_equipment_map()}
+        equipment_map = {k: v for k, v in self.submission_type.construct_field_map("equipment")}
         self.equipment = self.reconcile_map(equipment_list=equipment_list, equipment_map=equipment_map)
 
     def reconcile_map(self, equipment_list: list, equipment_map: dict) -> Generator[dict, None, None]:

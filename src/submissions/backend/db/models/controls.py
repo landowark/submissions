@@ -156,7 +156,8 @@ class Control(BaseClass):
         Lookup control objects in the database based on a number of parameters.
 
         Args:
-            submission_type (str | None, optional): Control archetype. Defaults to None.
+            submission_type (str | None, optional): Submission type associated with control. Defaults to None.
+            subtype (str | None, optional): Control subtype, eg IridaControl. Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
             end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
             name (str | None, optional): Name of control. Defaults to None.
@@ -198,7 +199,6 @@ class Control(BaseClass):
             end_date = date.today()
         if end_date is not None and start_date is None:
             logger.warning(f"End date with no start date, using 90 days ago.")
-            # start_date = date(2023, 1, 1)
             start_date = date.today() - timedelta(days=90)
         if start_date is not None:
             match start_date:
@@ -249,8 +249,6 @@ class Control(BaseClass):
         """
         if isinstance(polymorphic_identity, dict):
             polymorphic_identity = polymorphic_identity['value']
-        # if isinstance(polymorphic_identity, ControlType):
-        #     polymorphic_identity = polymorphic_identity.name
         model = cls
         match polymorphic_identity:
             case str():
@@ -304,10 +302,10 @@ class PCRControl(Control):
     id = Column(INTEGER, ForeignKey('_control.id'), primary_key=True)
     subtype = Column(String(16))  #: PC or NC
     target = Column(String(16))  #: N1, N2, etc.
-    ct = Column(FLOAT)
+    ct = Column(FLOAT) #: PCR result
     reagent_lot = Column(String(64), ForeignKey("_reagent.name", ondelete="SET NULL",
                                                 name="fk_reagent_lot"))
-    reagent = relationship("Reagent", foreign_keys=reagent_lot)
+    reagent = relationship("Reagent", foreign_keys=reagent_lot) #: reagent used for this control
 
     __mapper_args__ = dict(polymorphic_identity="PCR Control",
                            polymorphic_load="inline",
@@ -322,83 +320,6 @@ class PCRControl(Control):
         """        
         return dict(name=self.name, ct=self.ct, subtype=self.subtype, target=self.target, reagent_lot=self.reagent_lot,
                     submitted_date=self.submitted_date.date())
-
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           submission_type: str | None = None,
-    #           start_date: date | str | int | None = None,
-    #           end_date: date | str | int | None = None,
-    #           name: str | None = None,
-    #           limit: int = 0
-    #           ) -> Control | List[Control]:
-    #     """
-    #     Lookup control objects in the database based on a number of parameters.
-    #
-    #     Args:
-    #         submission_type (str | None, optional): Control archetype. Defaults to None.
-    #         start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
-    #         end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
-    #         control_name (str | None, optional): Name of control. Defaults to None.
-    #         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-    #
-    #     Returns:
-    #         PCRControl|List[PCRControl]: Control object of interest.
-    #     """
-    #     from backend.db import SubmissionType
-    #     query: Query = cls.__database_session__.query(cls)
-    #     # NOTE: by date range
-    #     if start_date is not None and end_date is None:
-    #         logger.warning(f"Start date with no end date, using today.")
-    #         end_date = date.today()
-    #     if end_date is not None and start_date is None:
-    #         logger.warning(f"End date with no start date, using 90 days ago.")
-    #         # start_date = date(2023, 1, 1)
-    #         start_date = date.today() - timedelta(days=90)
-    #     if start_date is not None:
-    #         match start_date:
-    #             case date():
-    #                 # logger.debug(f"Lookup control by start date({start_date})")
-    #                 start_date = start_date.strftime("%Y-%m-%d")
-    #             case int():
-    #                 # logger.debug(f"Lookup control by ordinal start date {start_date}")
-    #                 start_date = datetime.fromordinal(
-    #                     datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
-    #             case _:
-    #                 # logger.debug(f"Lookup control with parsed start date {start_date}")
-    #                 start_date = parse(start_date).strftime("%Y-%m-%d")
-    #         match end_date:
-    #             case date():
-    #                 # logger.debug(f"Lookup control by end date({end_date})")
-    #                 end_date = end_date.strftime("%Y-%m-%d")
-    #             case int():
-    #                 # logger.debug(f"Lookup control by ordinal end date {end_date}")
-    #                 end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
-    #                     "%Y-%m-%d")
-    #             case _:
-    #                 # logger.debug(f"Lookup control with parsed end date {end_date}")
-    #                 end_date = parse(end_date).strftime("%Y-%m-%d")
-    #         # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
-    #         query = query.filter(cls.submitted_date.between(start_date, end_date))
-    #     match submission_type:
-    #         case str():
-    #             from backend import BasicSubmission, SubmissionType
-    #             # logger.debug(f"Lookup controls by SubmissionType str: {submission_type}")
-    #             query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submission_type)
-    #         case SubmissionType():
-    #             from backend import BasicSubmission
-    #             # logger.debug(f"Lookup controls by SubmissionType: {submission_type}")
-    #             query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name==submission_type.name)
-    #         case _:
-    #             pass
-    #     match control_name:
-    #         case str():
-    #             # logger.debug(f"Lookup control by name {control_name}")
-    #             query = query.filter(cls.name.startswith(control_name))
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit)
 
     @classmethod
     @report_result
@@ -418,7 +339,7 @@ class PCRControl(Control):
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
         report = Report()
-        logger.debug(f"Chart settings: {pformat(chart_settings)}")
+        # logger.debug(f"Chart settings: {pformat(chart_settings)}")
         controls = cls.query(submission_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
@@ -569,77 +490,6 @@ class IridaControl(Control):
             cols = []
         return cols
 
-    # @classmethod
-    # @setup_lookup
-    # def query(cls,
-    #           sub_type: str | None = None,
-    #           start_date: date | str | int | None = None,
-    #           end_date: date | str | int | None = None,
-    #           control_name: str | None = None,
-    #           limit: int = 0
-    #           ) -> Control | List[Control]:
-    #     """
-    #     Lookup control objects in the database based on a number of parameters.
-    #
-    #     Args:
-    #         sub_type (models.ControlType | str | None, optional): Control archetype. Defaults to None.
-    #         start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
-    #         end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
-    #         control_name (str | None, optional): Name of control. Defaults to None.
-    #         limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-    #
-    #     Returns:
-    #         models.Control|List[models.Control]: Control object of interest.
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     # NOTE: by control type
-    #     match sub_type:
-    #         case str():
-    #             query = query.filter(cls.subtype == sub_type)
-    #         case _:
-    #             pass
-    #     # NOTE: If one date exists, we need the other one to exist as well.
-    #     if start_date is not None and end_date is None:
-    #         logger.warning(f"Start date with no end date, using today.")
-    #         end_date = date.today()
-    #     if end_date is not None and start_date is None:
-    #         logger.warning(f"End date with no start date, using 90 days ago.")
-    #         # start_date = date(2023, 1, 1)
-    #         start_date = date.today() - timedelta(days=90)
-    #     if start_date is not None:
-    #         match start_date:
-    #             case date():
-    #                 # logger.debug(f"Lookup control by start date({start_date})")
-    #                 start_date = start_date.strftime("%Y-%m-%d")
-    #             case int():
-    #                 # logger.debug(f"Lookup control by ordinal start date {start_date}")
-    #                 start_date = datetime.fromordinal(
-    #                     datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
-    #             case _:
-    #                 # logger.debug(f"Lookup control with parsed start date {start_date}")
-    #                 start_date = parse(start_date).strftime("%Y-%m-%d")
-    #         match end_date:
-    #             case date():
-    #                 # logger.debug(f"Lookup control by end date({end_date})")
-    #                 end_date = end_date.strftime("%Y-%m-%d")
-    #             case int():
-    #                 # logger.debug(f"Lookup control by ordinal end date {end_date}")
-    #                 end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
-    #                     "%Y-%m-%d")
-    #             case _:
-    #                 # logger.debug(f"Lookup control with parsed end date {end_date}")
-    #                 end_date = parse(end_date).strftime("%Y-%m-%d")
-    #         # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
-    #         query = query.filter(cls.submitted_date.between(start_date, end_date))
-    #     match control_name:
-    #         case str():
-    #             # logger.debug(f"Lookup control by name {control_name}")
-    #             query = query.filter(cls.name.startswith(control_name))
-    #             limit = 1
-    #         case _:
-    #             pass
-    #     return cls.execute_query(query=query, limit=limit)
-
     @classmethod
     def make_parent_buttons(cls, parent: QWidget) -> None:
         """
@@ -650,7 +500,7 @@ class IridaControl(Control):
         """
         super().make_parent_buttons(parent=parent)
         rows = parent.layout.rowCount()
-        logger.debug(f"Parent rows: {rows}")
+        # logger.debug(f"Parent rows: {rows}")
         checker = QCheckBox(parent)
         checker.setChecked(True)
         checker.setObjectName("irida_check")

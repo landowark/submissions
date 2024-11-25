@@ -564,7 +564,8 @@ class EquipmentParser(object):
         Returns:
             List[dict]: List of locations
         """
-        return {k: v for k, v in self.submission_type.construct_equipment_map()}
+        # return {k: v for k, v in self.submission_type.construct_equipment_map()}
+        return {k: v for k, v in self.submission_type.construct_field_map("equipment")}
 
     def get_asset_number(self, input: str) -> str:
         """
