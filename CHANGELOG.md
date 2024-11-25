@@ -1,6 +1,12 @@
+## 202411.05
+
+- Can now calculate turnaround time including holidays. 
+
 ## 202411.04
 
 - Add reagent from scrape now limits roles to those found in kit to prevent confusion.
+- Added audit logs to track changes.
+- Added completed_date column to _basicsubmission to track turnaround time.
 
 ## 202411.01
 

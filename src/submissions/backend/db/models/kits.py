@@ -485,6 +485,8 @@ class Reagent(BaseClass):
             output['editable'] = ['lot', 'expiry']
         return output
 
+
+
     def update_last_used(self, kit: KitType) -> Report:
         """
         Updates last used reagent lot for ReagentType/KitType
@@ -1282,7 +1284,8 @@ class SubmissionReagentAssociation(BaseClass):
         try:
             return f"<{self.submission.rsl_plate_num} & {self.reagent.lot}>"
         except AttributeError:
-            return f"<Unknown Submission & {self.reagent.lot}"
+            logger.error(f"Reagent {self.reagent.lot} submission association {self.reagent_id} has no submissions!")
+            return f"<Unknown Submission & {self.reagent.lot}>"
 
     def __init__(self, reagent=None, submission=None):
         if isinstance(reagent, list):
@@ -1347,6 +1350,9 @@ class SubmissionReagentAssociation(BaseClass):
         output['comments'] = self.comments
         return output
 
+    def to_pydantic(self, extraction_kit: KitType):
+        from backend.validators import PydReagent
+        return PydReagent(**self.to_sub_dict(extraction_kit=extraction_kit))
 
 class Equipment(BaseClass):
     """
@@ -1393,6 +1399,8 @@ class Equipment(BaseClass):
             return {k: v for k, v in self.__dict__.items() if k != 'processes'}
         else:
             return {k: v for k, v in self.__dict__.items()}
+
+
 
     def get_processes(self, submission_type: SubmissionType, extraction_kit: str | KitType | None = None) -> List[str]:
         """
@@ -1682,6 +1690,7 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     equipment = relationship(Equipment, back_populates="equipment_submission_associations")  #: associated equipment
 
+
     def __repr__(self) -> str:
         return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num} & {self.equipment.name})>"
 
@@ -1705,6 +1714,10 @@ class SubmissionEquipmentAssociation(BaseClass):
         output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments,
                       processes=[process], role=self.role, nickname=self.equipment.nickname)
         return output
+
+    def to_pydantic(self):
+        from backend.validators import PydEquipment
+        return PydEquipment(**self.to_sub_dict())
 
     @classmethod
     @setup_lookup
@@ -1999,3 +2012,7 @@ class SubmissionTipsAssociation(BaseClass):
             query = query.filter(cls.submission_id == submission_id)
         query = query.filter(cls.role_name == role)
         return cls.execute_query(query=query, limit=limit, **kwargs)
+
+    def to_pydantic(self):
+        from backend.validators import PydTips
+        return PydTips(name=self.tips.name, lot=self.tips.lot, role=self.role_name)

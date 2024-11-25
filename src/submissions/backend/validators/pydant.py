@@ -807,22 +807,28 @@ class PydSubmission(BaseModel, extra='allow'):
             # logger.debug(f"Setting {key} to {value}")
             match key:
                 case "reagents":
-                    if report.results[0].code == 1:
-                        instance.submission_reagent_associations = []
+                    # if report.results[0].code == 1:
+                    #     instance.submission_reagent_associations = []
                     # logger.debug(f"Looking through {self.reagents}")
                     for reagent in self.reagents:
                         reagent, assoc, _ = reagent.toSQL(submission=instance)
                         # logger.debug(f"Association: {assoc}")
                         if assoc is not None:  # and assoc not in instance.submission_reagent_associations:
-                            instance.submission_reagent_associations.append(assoc)
+                            if assoc not in instance.submission_reagent_associations:
+                                instance.submission_reagent_associations.append(assoc)
+                            else:
+                                logger.warning(f"Reagent association {assoc} is already present in {instance}")
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)
                         # logger.debug(f"Sample SQL object to be added to submission: {sample.__dict__}")
-                        logger.debug(associations)
+                        # logger.debug(associations)
                         for assoc in associations:
-                            if assoc is not None and assoc not in instance.submission_sample_associations:
-                                instance.submission_sample_associations.append(assoc)
+                            if assoc is not None:
+                                if assoc not in instance.submission_sample_associations:
+                                    instance.submission_sample_associations.append(assoc)
+                                else:
+                                    logger.warning(f"Sample association {assoc} is already present in {instance}")
                 case "equipment":
                     # logger.debug(f"Equipment: {pformat(self.equipment)}")
                     for equip in self.equipment:
@@ -841,8 +847,11 @@ class PydSubmission(BaseModel, extra='allow'):
                             association = tips.to_sql(submission=instance)
                         except AttributeError:
                             continue
-                        if association is not None and association not in instance.submission_tips_associations:
-                            instance.submission_tips_associations.append(association)
+                        if association is not None:
+                            if association not in instance.submission_tips_associations:
+                                instance.submission_tips_associations.append(association)
+                            else:
+                                logger.warning(f"Tips association {association} is already present in {instance}")
                 case item if item in instance.timestamps():
                     logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
                     # value = value.replace(tzinfo=timezone)
@@ -871,14 +880,20 @@ class PydSubmission(BaseModel, extra='allow'):
                     instance.set_attribute(key=key, value=value)
                 case _:
                     try:
-                        instance.set_attribute(key=key, value=value)
-                        # instance.update({key:value})
-                    except AttributeError as e:
-                        logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
+                        check = instance.__getattribute__(key) != value
+                    except AttributeError:
                         continue
-                    except KeyError:
-                        continue
-        print(f"\n\n{instance}\n\n")
+                    if check:
+                        try:
+                            instance.set_attribute(key=key, value=value)
+                            # instance.update({key:value})
+                        except AttributeError as e:
+                            logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
+                            continue
+                        except KeyError:
+                            continue
+                    else:
+                        logger.warning(f"{key} already == {value} so no updating.")
         try:
             # logger.debug(f"Calculating costs for procedure...")
             instance.calculate_base_cost()
@@ -1119,6 +1134,16 @@ class PydPCRControl(BaseModel):
     submission_id: int
     controltype_name: str
 
+    def to_sql(self):
+        instance = PCRControl.query(name=self.name)
+        if not instance:
+            instance = PCRControl()
+        for key in self.model_fields:
+            field_value = self.__getattribute__(key)
+            if instance.__getattribute__(key) != field_value:
+                instance.__setattr__(key, field_value)
+        return instance
+
 
 class PydIridaControl(BaseModel, extra='ignore'):
     name: str
@@ -1133,3 +1158,13 @@ class PydIridaControl(BaseModel, extra='ignore'):
     submitted_date: datetime  #: Date submitted to Robotics
     submission_id: int
     controltype_name: str
+
+    def to_sql(self):
+        instance = IridaControl.query(name=self.name)
+        if not instance:
+            instance = IridaControl()
+        for key in self.model_fields:
+            field_value = self.__getattribute__(key)
+            if instance.__getattribute__(key) != field_value:
+                instance.__setattr__(key, field_value)
+        return instance

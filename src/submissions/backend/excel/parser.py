@@ -227,6 +227,9 @@ class InfoParser(object):
                     case "submission_type":
                         value, missing = is_missing(value)
                         value = value.title()
+                    case "submitted_date":
+                        value, missing = is_missing(value)
+                        logger.debug(f"Parsed submitted date: {value}")
                     # NOTE: is field a JSON?
                     case thing if thing in self.sub_object.jsons():
                         value, missing = is_missing(value)

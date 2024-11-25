@@ -2,30 +2,30 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
-import sys
-import types
-import zipfile
+# import sys
+# import types
+# import zipfile
 from copy import deepcopy
 from getpass import getuser
-import logging, uuid, tempfile, re, base64
+import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
 from zipfile import ZipFile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, event, inspect
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, event, inspect, func
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError, \
     ArgumentError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-import pandas as pd
+# import pandas as pd
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result
-from datetime import datetime, date
+    report_result, create_holidays_for_year
+from datetime import datetime, date, timedelta
 from typing import List, Any, Tuple, Literal, Generator
 from dateutil.parser import parse
 from pathlib import Path
@@ -73,6 +73,7 @@ class BasicSubmission(BaseClass, LogMixin):
     custom = Column(JSON)
     controls = relationship("Control", back_populates="submission",
                             uselist=True)  #: A control sample added to submission
+    completed_date = Column(TIMESTAMP)
 
     submission_sample_associations = relationship(
         "SubmissionSampleAssociation",
@@ -345,6 +346,8 @@ class BasicSubmission(BaseClass, LogMixin):
             tips = self.generate_associations(name="submission_tips_associations")
             cost_centre = self.cost_centre
             custom = self.custom
+            controls = [item.to_sub_dict() for item in self.controls]
+
         else:
             reagents = None
             samples = None
@@ -352,6 +355,7 @@ class BasicSubmission(BaseClass, LogMixin):
             tips = None
             cost_centre = None
             custom = None
+            controls = None
         # logger.debug("Getting comments")
         try:
             comments = self.comment
@@ -381,6 +385,8 @@ class BasicSubmission(BaseClass, LogMixin):
         output["contact"] = contact
         output["contact_phone"] = contact_phone
         output["custom"] = custom
+        output["controls"] = controls
+        output["completed_date"] = self.completed_date
         return output
 
     def calculate_column_count(self) -> int:
@@ -619,7 +625,7 @@ class BasicSubmission(BaseClass, LogMixin):
         Returns:
             PydSubmission: converted object.
         """
-        from backend.validators import PydSubmission, PydSample, PydReagent, PydEquipment
+        from backend.validators import PydSubmission
         dicto = self.to_dict(full_data=True, backup=backup)
         # logger.debug("To dict complete")
         new_dict = {}
@@ -628,24 +634,43 @@ class BasicSubmission(BaseClass, LogMixin):
             missing = value in ['', 'None', None]
             match key:
                 case "reagents":
-                    new_dict[key] = [PydReagent(**reagent) for reagent in value]
+                    # new_dict[key] = [PydReagent(**reagent) for reagent in value]
+                    field_value = [item.to_pydantic(extraction_kit=self.extraction_kit) for item in self.submission_reagent_associations]
                 case "samples":
-                    new_dict[key] = [PydSample(**{k.lower().replace(" ", "_"): v for k, v in sample.items()}) for sample
-                                     in dicto['samples']]
+                    field_value = [item.to_pydantic() for item in self.submission_sample_associations]
                 case "equipment":
+                    field_value = [item.to_pydantic() for item in self.submission_equipment_associations]
+                case "controls":
                     try:
-                        new_dict[key] = [PydEquipment(**equipment) for equipment in dicto['equipment']]
+                        field_value = [item.to_pydantic() for item in self.__getattribute__(key)]
                     except TypeError as e:
-                        logger.error(f"Possible no equipment error: {e}")
+                        logger.error(f"Error converting {key} to pydantic :{e}")
+                        continue
+                case "tips":
+                    field_value = [item.to_pydantic() for item in self.submission_tips_associations]
+                case "submission_type" | "contact":
+                    field_value = dict(value=self.__getattribute__(key).name, missing=missing)
                 case "plate_number":
-                    new_dict['rsl_plate_num'] = dict(value=value, missing=missing)
+                    key = 'rsl_plate_num'
+                    field_value = dict(value=self.rsl_plate_num, missing=missing)
+                    # continue
                 case "submitter_plate_number":
-                    new_dict['submitter_plate_num'] = dict(value=value, missing=missing)
+                    # new_dict['submitter_plate_num'] = dict(value=self.submitter_plate_num, missing=missing)
+                    # continue
+                    key = "submitter_plate_num"
+                    field_value = dict(value=self.submitter_plate_num, missing=missing)
                 case "id":
-                    pass
+                    continue
                 case _:
-                    logger.debug(f"Setting dict {key} to {value}")
-                    new_dict[key.lower().replace(" ", "_")] = dict(value=value, missing=missing)
+                    try:
+                        key = key.lower().replace(" ", "_")
+                        field_value = dict(value=self.__getattribute__(key), missing=missing)
+                        # new_dict[key.lower().replace(" ", "_")] = dict(value=self.__getattribute__(key), missing=missing)
+                    except AttributeError:
+                        logger.error(f"{key} is not available in {self}")
+                        continue
+            logger.debug(f"Setting dict {key}")
+            new_dict[key] = field_value
             # logger.debug(f"{key} complete after {time()-start}")
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
         # logger.debug("Done converting fields.")
@@ -1021,6 +1046,7 @@ class BasicSubmission(BaseClass, LogMixin):
             Tuple(dict, Template): (Updated dictionary, Template to be rendered)
         """
         base_dict['excluded'] = cls.get_default_info('details_ignore')
+        base_dict['excluded'] += ['controls']
         env = jinja_template_loading()
         temp_name = f"{cls.__name__.lower()}_details.html"
         # logger.debug(f"Returning template: {temp_name}")
@@ -1081,11 +1107,11 @@ class BasicSubmission(BaseClass, LogMixin):
             end_date = date.today()
         if end_date is not None and start_date is None:
             logger.warning(f"End date with no start date, using Jan 1, 2023")
-            start_date = date(2023, 1, 1)
+            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
         if start_date is not None:
             # logger.debug(f"Querying with start date: {start_date} and end date: {end_date}")
             match start_date:
-                case date():
+                case date() | datetime():
                     # logger.debug(f"Lookup BasicSubmission by start_date({start_date})")
                     start_date = start_date.strftime("%Y-%m-%d")
                 case int():
@@ -1098,14 +1124,18 @@ class BasicSubmission(BaseClass, LogMixin):
             match end_date:
                 case date() | datetime():
                     # logger.debug(f"Lookup BasicSubmission by end_date({end_date})")
+                    end_date = end_date + timedelta(days=1)
                     end_date = end_date.strftime("%Y-%m-%d")
                 case int():
                     # logger.debug(f"Lookup BasicSubmission by ordinal end_date {end_date}")
-                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
+                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date() + timedelta(
+                        days=1)
+                    end_date = end_date.strftime(
                         "%Y-%m-%d")
                 case _:
                     # logger.debug(f"Lookup BasicSubmission by parsed str end_date {end_date}")
-                    end_date = parse(end_date).strftime("%Y-%m-%d")
+                    end_date = parse(end_date) + timedelta(days=1)
+                    end_date = end_date.strftime("%Y-%m-%d")
             # logger.debug(f"Compensating for same date by using time")
             if start_date == end_date:
                 start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -1339,10 +1369,22 @@ class BasicSubmission(BaseClass, LogMixin):
         writer = pyd.to_writer()
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
+    def get_turnaround_time(self):
+        completed = self.completed_date or datetime.now()
+        return self.calculate_turnaround(start_date=self.submitted_date.date(), end_date=completed.date())
+
+    @classmethod
+    def calculate_turnaround(cls, start_date:date|None=None, end_date:date|None=None) -> int|None:
+        try:
+            delta = np.busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year))
+        except ValueError:
+            return None
+        return delta + 1
+
 
 # Below are the custom submission types
 
-class BacterialCulture(BasicSubmission, LogMixin):
+class BacterialCulture(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """
@@ -1429,7 +1471,7 @@ class BacterialCulture(BasicSubmission, LogMixin):
         return input_dict
 
 
-class Wastewater(BasicSubmission, LogMixin):
+class Wastewater(BasicSubmission):
     """
     derivative submission type from BasicSubmission
     """
@@ -1868,7 +1910,7 @@ class WastewaterArtic(BasicSubmission):
             pass
         try:
             input_dict['source_plate_number'] = int(input_dict['source_plate_number'])
-        except ValueError:
+        except (ValueError, KeyError):
             input_dict['source_plate_number'] = 0
         # NOTE: Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
         # at the end, this has to be done here. No moving to sqlalchemy object :(
@@ -2275,6 +2317,10 @@ class BasicSample(BaseClass):
                                            key=itemgetter('submitted_date'))
         # logger.debug(f"Done converting {self} after {time()-start}")
         return sample
+
+    def to_pydantic(self):
+        from backend.validators import PydSample
+        return PydSample(**self.to_sub_dict())
 
     def set_attribute(self, name: str, value):
         """
@@ -2732,6 +2778,10 @@ class SubmissionSampleAssociation(BaseClass):
         sample['submitted_date'] = self.submission.submitted_date
         sample['submission_rank'] = self.submission_rank
         return sample
+
+    def to_pydantic(self):
+        from backend.validators import PydSample
+        return PydSample(**self.to_sub_dict())
 
     def to_hitpick(self) -> dict | None:
         """

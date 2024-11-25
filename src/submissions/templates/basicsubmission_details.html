@@ -71,7 +71,7 @@
         {% endif %}
         {% endblock %}
         {% block signing_button %}
-        {% if permission %}
+        {% if permission and not sub['signed_by'] %}
         <button type="button" id="sign_btn">Sign Off</button>
         {% endif %}
         {% endblock %}

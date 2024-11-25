@@ -41,9 +41,9 @@ from .models import *
 def update_log(mapper, connection, target):
     logger.debug("\n\nBefore update\n\n")
     state = inspect(target)
-    logger.debug(state)
+    # logger.debug(state)
     update = dict(user=getuser(), time=datetime.now(), object=str(state.object), changes=[])
-    logger.debug(update)
+    # logger.debug(update)
     for attr in state.attrs:
         hist = attr.load_history()
         if not hist.has_changes():
@@ -51,24 +51,24 @@ def update_log(mapper, connection, target):
         added = [str(item) for item in hist.added]
         deleted = [str(item) for item in hist.deleted]
         change = dict(field=attr.key, added=added, deleted=deleted)
-        logger.debug(f"Adding: {pformat(change)}")
-        try:
-            update['changes'].append(change)
-        except Exception as e:
-            logger.error(f"Something went horribly wrong adding attr: {attr.key}: {e}")
-            continue
-
-    logger.debug(f"Adding to audit logs: {pformat(update)}")
+        # logger.debug(f"Adding: {pformat(change)}")
+        if added != deleted:
+            try:
+                update['changes'].append(change)
+            except Exception as e:
+                logger.error(f"Something went wrong adding attr: {attr.key}: {e}")
+                continue
+    # logger.debug(f"Adding to audit logs: {pformat(update)}")
     if update['changes']:
         # Note: must use execute as the session will be busy at this point.
         # https://medium.com/@singh.surbhicse/creating-audit-table-to-log-insert-update-and-delete-changes-in-flask-sqlalchemy-f2ca53f7b02f
         table = AuditLog.__table__
-        logger.debug(f"Adding to {table}")
+        # logger.debug(f"Adding to {table}")
         connection.execute(table.insert().values(**update))
         # logger.debug("Here is where I would insert values, if I was able.")
     else:
         logger.info(f"No changes detected, not updating logs.")
 
 
-# event.listen(LogMixin, 'after_update', update_log, propagate=True)
-# event.listen(LogMixin, 'after_insert', update_log, propagate=True)
+event.listen(LogMixin, 'after_update', update_log, propagate=True)
+event.listen(LogMixin, 'after_insert', update_log, propagate=True)

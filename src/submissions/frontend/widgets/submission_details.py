@@ -176,6 +176,7 @@ class SubmissionDetails(QDialog):
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         submission.signed_by = getuser()
+        submission.completed = datetime.now().date()
         submission.save()
         self.submission_details(submission=self.rsl_plate_num)
 

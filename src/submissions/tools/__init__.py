@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import json
 import pprint
+from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 import numpy as np
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect
 import pandas as pd
+from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
@@ -988,5 +990,43 @@ def report_result(func):
         # logger.debug(f"Returning true output: {true_output}")
         return true_output
     return wrapper
+
+
+def create_holidays_for_year(year: int|None=None) -> List[date]:
+    def find_nth_monday(year, month, occurence: int | None=None, day: int|None=None):
+        if not occurence:
+            occurence = 1
+        if not day:
+            day = occurence * 7
+        max_days = (date(2012, month+1, 1) - date(2012, month, 1)).days
+        if day > max_days:
+            day = max_days
+        try:
+            d = datetime(year, int(month), day=day)
+        except ValueError:
+            return
+        offset = -d.weekday()  # weekday == 0 means Monday
+        output = d + timedelta(offset)
+        return output.date()
+    if not year:
+        year = date.today().year
+    # Includes New Year's day for next year.
+    holidays = [date(year, 1, 1), date(year, 7,1), date(year, 9, 30),
+                date(year, 11, 11), date(year, 12, 25), date(year, 12, 26),
+                date(year+1, 1, 1)]
+    # August Civic
+    # holidays.append(find_nth_monday(year, 8))
+    # Labour Day
+    holidays.append(find_nth_monday(year, 9))
+    # Thanksgiving
+    holidays.append(find_nth_monday(year, 10, occurence=2))
+    # Victoria Day
+    holidays.append(find_nth_monday(year, 5, day=25))
+    # Easter, etc
+    holidays.append(easter(year) - timedelta(days=2))
+    holidays.append(easter(year) + timedelta(days=1))
+    return sorted(holidays)
+
+
 
 

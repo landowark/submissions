@@ -110,7 +110,7 @@ class AddReagentForm(QDialog):
         """
         # logger.debug(self.type_input.currentText())
         self.name_input.clear()
-        lookup = Reagent.query(reagent_role=self.type_input.currentText())
+        lookup = Reagent.query(role=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
 
 

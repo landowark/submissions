@@ -542,10 +542,25 @@ class SubmissionFormWidget(QWidget):
                     # NOTE: lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
                     labs = [item.name for item in Organization.query()]
                     # NOTE: try to set closest match to top of list
+                    # try:
+                    #     labs = difflib.get_close_matches(value, labs, len(labs), 0)
+                    # except (TypeError, ValueError):
+                    #     pass
+                    if isinstance(value, dict):
+                        value = value['value']
+                    if isinstance(value, Organization):
+                        value = value.name
                     try:
-                        labs = difflib.get_close_matches(value, labs, len(labs), 0)
-                    except (TypeError, ValueError):
-                        pass
+                        looked_up_lab = Organization.query(name=value, limit=1)
+                    except AttributeError:
+                        looked_up_lab = None
+                    logger.debug(f"\n\nLooked up lab: {looked_up_lab}")
+                    if looked_up_lab:
+                        try:
+                            labs.remove(str(looked_up_lab.name))
+                        except ValueError as e:
+                            logger.error(f"Error reordering labs: {e}")
+                        labs.insert(0, str(looked_up_lab.name))
                     # NOTE: set combobox values to lookedup values
                     add_widget.addItems(labs)
                     add_widget.setToolTip("Select submitting lab.")
@@ -760,7 +775,6 @@ class SubmissionFormWidget(QWidget):
                         if looked_up_reg:
                             try:
                                 relevant_reagents.remove(str(looked_up_reg.lot))
-
                             except ValueError as e:
                                 logger.error(f"Error reordering relevant reagents: {e}")
                             relevant_reagents.insert(0, str(looked_up_reg.lot))
