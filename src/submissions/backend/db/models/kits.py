@@ -12,7 +12,7 @@ from tools import check_authorization, setup_lookup, Report, Result, check_regex
 from typing import List, Literal, Generator, Any
 from pandas import ExcelFile
 from pathlib import Path
-from . import Base, BaseClass, Organization
+from . import Base, BaseClass, Organization, LogMixin
 from io import BytesIO
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -797,7 +797,7 @@ class SubmissionType(BaseClass):
             fmap = item.uses
             if fmap is None:
                 fmap = {}
-            yield getattr(item, f"{field}_role"), fmap
+            yield getattr(item, f"{field}_role").name, fmap
 
     def get_default_kit(self) -> KitType | None:
         if len(self.kit_types) == 1:
@@ -1361,7 +1361,7 @@ class Equipment(BaseClass):
     def __repr__(self) -> str:
         """
         Returns:
-            str: represenation of this Equipment
+            str: representation of this Equipment
         """
         return f"<Equipment({self.name})>"
 
@@ -1502,7 +1502,7 @@ class Equipment(BaseClass):
             equipment_role = EquipmentRole.query(name=equipment_role)
         equipment = cls.query()
         options = "\n".join([f"{ii}. {item.name}" for ii, item in enumerate(equipment)])
-        choices = input(f"Enter equipment numbers to add to {equipment_role.name} (space seperated):\n{options}\n\n")
+        choices = input(f"Enter equipment numbers to add to {equipment_role.name} (space separated):\n{options}\n\n")
         output = []
         for choice in choices.split(" "):
             try:

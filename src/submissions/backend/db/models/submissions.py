@@ -618,6 +618,17 @@ class BasicSubmission(BaseClass, LogMixin):
         result = assoc.save()
         return result
 
+    def update_reagentassoc(self, reagent: Reagent, role: str):
+        from backend.db import SubmissionReagentAssociation
+        # NOTE: get the first reagent assoc that fills the given role.
+        try:
+            assoc = next(item for item in self.submission_reagent_associations if item.reagent and role in [role.name for role in item.reagent.role])
+            assoc.reagent = reagent
+        except StopIteration as e:
+            logger.error(f"Association for {role} not found, creating new association.")
+            assoc = SubmissionReagentAssociation(submission=self, reagent=reagent)
+            self.submission_reagent_associations.append(assoc)
+
     def to_pydantic(self, backup: bool = False) -> "PydSubmission":
         """
         Converts this instance into a PydSubmission
@@ -758,7 +769,7 @@ class BasicSubmission(BaseClass, LogMixin):
             except StopIteration as e:
                 raise AttributeError(
                     f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs.keys())}")
-        logger.info(f"Recruiting model: {model}")
+        # logger.info(f"Recruiting model: {model}")
         return model
 
     # Child class custom functions
@@ -1414,7 +1425,7 @@ class BacterialCulture(BasicSubmission):
         extends parent
         """
         template = super().filename_template()
-        template += "_{{ submitting_lab }}_{{ submitter_plate_num }}"
+        template += "_{{ submitting_lab.name }}_{{ submitter_plate_num }}"
         return template
 
     @classmethod
@@ -2356,7 +2367,7 @@ class BasicSample(BaseClass):
             except Exception as e:
                 logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, using {cls}")
                 model = cls
-            logger.info(f"Recruiting model: {model}")
+            # logger.info(f"Recruiting model: {model}")
             return model
         else:
             model = cls
@@ -2370,7 +2381,7 @@ class BasicSample(BaseClass):
             except StopIteration as e:
                 raise AttributeError(
                     f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs.keys())}")
-        logger.info(f"Recruiting model: {model}")
+        # logger.info(f"Recruiting model: {model}")
         return model
 
     @classmethod

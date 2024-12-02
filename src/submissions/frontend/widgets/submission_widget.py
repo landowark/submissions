@@ -178,7 +178,7 @@ class SubmissionFormContainer(QWidget):
             # NOTE: create reagent object
             reagent = PydReagent(ctx=self.app.ctx, **info, missing=False)
             # NOTE: send reagent to db
-            sqlobj, assoc, result = reagent.toSQL()
+            sqlobj, result = reagent.toSQL()
             sqlobj.save()
             report.add_result(result)
             # logger.debug(f"Reagent: {reagent}, Report: {report}")
@@ -334,6 +334,10 @@ class SubmissionFormWidget(QWidget):
             query = [widget for widget in query if widget.objectName() == object_name]
         return query
 
+    # def update_pyd(self):
+    #     results = self.parse_form()
+    #     logger.debug(pformat(results))
+
     @report_result
     def submit_new_sample_function(self, *args) -> Report:
         """
@@ -448,8 +452,9 @@ class SubmissionFormWidget(QWidget):
                     if field is not None:
                         info[field] = value
         # logger.debug(f"Info: {pformat(info)}")
-        # logger.debug(f"Reagents going into pyd: {pformat(reagents)}")
+        logger.debug(f"Reagents going into pyd: {pformat(reagents)}")
         self.pyd.reagents = reagents
+        logger.debug(f"Reagents after insertion in pyd: {pformat(self.pyd.reagents)}")
         # logger.debug(f"Attrs not in info: {[k for k, v in self.__dict__.items() if k not in info.keys()]}")
         for item in self.recover:
             # logger.debug(f"Attempting to recover: {item}")

@@ -648,7 +648,8 @@ class TipParser(object):
         Returns:
             List[dict]: List of locations
         """
-        return {k: v for k, v in self.submission_type.construct_tips_map()}
+        # return {k: v for k, v in self.submission_type.construct_tips_map()}
+        return {k: v for k, v in self.submission_type.construct_field_map("tip")}
 
     def parse_tips(self) -> List[dict]:
         """

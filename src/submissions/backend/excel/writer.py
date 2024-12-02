@@ -187,6 +187,9 @@ class InfoWriter(object):
                     sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
                 except AttributeError as e:
                     logger.error(f"Can't write {k} to that cell due to {e}")
+                except ValueError as e:
+                    logger.error(f"Can't write {v} to that cell due to {e}")
+                    sheet.cell(row=loc['row'], column=loc['column'], value=v['value'].name)
         return self.sub_object.custom_info_writer(self.xl, info=final_info, custom_fields=self.info_map['custom'])
 
 
@@ -208,8 +211,8 @@ class ReagentWriter(object):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if isinstance(extraction_kit, str):
-            kit_type = KitType.query(name=extraction_kit)
-        reagent_map = {k: v for k, v in kit_type.construct_xl_map_for_use(submission_type)}
+            extraction_kit = KitType.query(name=extraction_kit)
+        reagent_map = {k: v for k, v in extraction_kit.construct_xl_map_for_use(submission_type)}
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
     def reconcile_map(self, reagent_list: List[dict], reagent_map: dict) -> Generator[dict, None, None]:
@@ -359,7 +362,10 @@ class EquipmentWriter(object):
         if equipment_list is None:
             return
         for ii, equipment in enumerate(equipment_list, start=1):
-            mp_info = equipment_map[equipment['role']]
+            try:
+                mp_info = equipment_map[equipment['role']]
+            except KeyError:
+                logger.error(f"No {equipment['role']} in {pformat(equipment_map)}")
             # logger.debug(f"{equipment['role']} map: {mp_info}")
             placeholder = copy(equipment)
             if mp_info == {}:
@@ -427,7 +433,7 @@ class TipWriter(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        tips_map = {k: v for k, v in self.submission_type.construct_tips_map()}
+        tips_map = {k: v for k, v in self.submission_type.construct_field_map("tip")}
         self.tips = self.reconcile_map(tips_list=tips_list, tips_map=tips_map)
 
     def reconcile_map(self, tips_list: List[dict], tips_map: dict) -> Generator[dict, None, None]:

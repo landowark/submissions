@@ -273,7 +273,7 @@ class Control(BaseClass):
             except StopIteration as e:
                 raise AttributeError(
                     f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs.keys())}")
-        logger.info(f"Recruiting model: {model}")
+        # logger.info(f"Recruiting model: {model}")
         return model
 
     @classmethod
@@ -535,8 +535,8 @@ class IridaControl(Control):
         except AttributeError:
             consolidate = False
         report = Report()
-        # logger.debug(f"settings: {pformat(chart_settings)}")
-        controls = cls.query(sub_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
+        logger.debug(f"settings: {pformat(chart_settings)}")
+        controls = cls.query(subtype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         # logger.debug(f"Controls found: {controls}")
         if not controls:

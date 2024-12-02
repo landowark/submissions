@@ -115,7 +115,7 @@ class PydReagent(BaseModel):
         fields = list(self.model_fields.keys()) + extras
         return {k: getattr(self, k) for k in fields}
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, SubmissionReagentAssociation, Report]:
+    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, Report]:
         """
         Converts this instance into a backend.db.models.kit.Reagent instance
 
@@ -164,13 +164,14 @@ class PydReagent(BaseModel):
             report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
         else:
             if submission is not None and reagent not in submission.reagents:
-                assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
-                assoc.comments = self.comment
-            else:
-                assoc = None
+                # assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
+                # assoc.comments = self.comment
+                submission.update_reagentassoc(reagent=reagent, role=self.role)
+            # else:
+            #     assoc = None
                 # add end-of-life extension from reagent type to expiry date
                 # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
-        return reagent, assoc, report
+        return reagent, report
 
 
 class PydSample(BaseModel, extra='allow'):
@@ -299,6 +300,13 @@ class PydTips(BaseModel):
     lot: str | None = Field(default=None)
     role: str
 
+    @field_validator('role', mode='before')
+    @classmethod
+    def get_role_name(cls, value):
+        if isinstance(value, TipRole):
+            value = value.name
+        return value
+
     def to_sql(self, submission: BasicSubmission) -> SubmissionTipsAssociation:
         """
         Con
@@ -323,6 +331,13 @@ class PydEquipment(BaseModel, extra='ignore'):
     processes: List[str] | None
     role: str | None
     tips: List[PydTips] | None = Field(default=None)
+
+    @field_validator('role', mode='before')
+    @classmethod
+    def get_role_name(cls, value):
+        if isinstance(value, EquipmentRole):
+            value = value.name
+        return value
 
     @field_validator('processes', mode='before')
     @classmethod
@@ -786,7 +801,7 @@ class PydSubmission(BaseModel, extra='allow'):
         """
         report = Report()
         dicto = self.improved_dict()
-        logger.warning(f"\n\nQuery or create: {self.submission_type['value']}, {self.rsl_plate_num['value']}")
+        # logger.warning(f"\n\nQuery or create: {self.submission_type['value']}, {self.rsl_plate_num['value']}")
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
         logger.debug(f"Result of query or create: {instance}")
@@ -807,17 +822,15 @@ class PydSubmission(BaseModel, extra='allow'):
             # logger.debug(f"Setting {key} to {value}")
             match key:
                 case "reagents":
-                    # if report.results[0].code == 1:
-                    #     instance.submission_reagent_associations = []
-                    # logger.debug(f"Looking through {self.reagents}")
                     for reagent in self.reagents:
-                        reagent, assoc, _ = reagent.toSQL(submission=instance)
+                        logger.debug(f"Checking reagent {reagent.lot}")
+                        reagent, _ = reagent.toSQL(submission=instance)
                         # logger.debug(f"Association: {assoc}")
-                        if assoc is not None:  # and assoc not in instance.submission_reagent_associations:
-                            if assoc not in instance.submission_reagent_associations:
-                                instance.submission_reagent_associations.append(assoc)
-                            else:
-                                logger.warning(f"Reagent association {assoc} is already present in {instance}")
+                        # if assoc is not None:  # and assoc not in instance.submission_reagent_associations:
+                        #     if assoc not in instance.submission_reagent_associations:
+                        #         instance.submission_reagent_associations.append(assoc)
+                        #     else:
+                        #         logger.warning(f"Reagent association {assoc} is already present in {instance.submission_reagent_associations}")
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)

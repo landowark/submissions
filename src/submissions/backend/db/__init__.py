@@ -70,5 +70,5 @@ def update_log(mapper, connection, target):
         logger.info(f"No changes detected, not updating logs.")
 
 
-event.listen(LogMixin, 'after_update', update_log, propagate=True)
-event.listen(LogMixin, 'after_insert', update_log, propagate=True)
+# event.listen(LogMixin, 'after_update', update_log, propagate=True)
+# event.listen(LogMixin, 'after_insert', update_log, propagate=True)

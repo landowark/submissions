@@ -182,7 +182,7 @@ class BaseClass(Base):
             query: Query = cls.__database_session__.query(model)
         # logger.debug(f"Grabbing singles using {model.get_default_info}")
         singles = model.get_default_info('singles')
-        logger.info(f"Querying: {model}, with kwargs: {kwargs}")
+        # logger.info(f"Querying: {model}, with kwargs: {kwargs}")
         for k, v in kwargs.items():
             logger.info(f"Using key: {k} with value: {v}")
             try:
