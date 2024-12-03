@@ -955,10 +955,6 @@ def report_result(func):
         match output:
             case Report():
                 report = output
-            # case InstanceState():
-            #     for attr in output.attrs:
-            #         print(f"{attr}: {attr.load_history()}")
-            #     return
             case tuple():
                 try:
                     report = [item for item in output if isinstance(item, Report)][0]

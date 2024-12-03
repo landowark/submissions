@@ -401,7 +401,7 @@ class ReagentRole(BaseClass):
         super().save()
 
 
-class Reagent(BaseClass):
+class Reagent(BaseClass, LogMixin):
     """
     Concrete reagent instance
     """

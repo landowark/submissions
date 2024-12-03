@@ -1,3 +1,8 @@
+"""
+Contains the audit log class and functions.
+"""
+from typing import List
+
 from dateutil.parser import parse
 from sqlalchemy.orm import declarative_base, DeclarativeMeta, Query
 from . import BaseClass
@@ -13,7 +18,7 @@ class AuditLog(Base):
 
     __tablename__ = "_auditlog"
 
-    id = Column(INTEGER, primary_key=True)  #: primary key
+    id = Column(INTEGER, primary_key=True, autoincrement=True)  #: primary key
     user = Column(String(64))
     time = Column(TIMESTAMP)
     object = Column(String(64))
@@ -23,7 +28,17 @@ class AuditLog(Base):
         return f"<{self.user} @ {self.time}>"
 
     @classmethod
-    def query(cls, start_date: date | str | int | None = None, end_date: date | str | int | None = None, ):
+    def query(cls, start_date: date | str | int | None = None, end_date: date | str | int | None = None) -> List["AuditLog"]:
+        """
+        Searches for database transactions by date.
+
+        Args:
+            start_date (date | str | int | None, Optional): Earliest date sought. Defaults to None
+            end_date (date | str | int | None, Optional): Latest date sought. Defaults to None
+
+        Returns:
+            List[AuditLog]: List of transactions made to the database.
+        """
         session = BaseClass.__database_session__
         query: Query = session.query(cls)
         if start_date is not None and end_date is None:

@@ -4,8 +4,8 @@ Contains all models for sqlalchemy
 from __future__ import annotations
 import sys, logging
 
-import pandas as pd
-from sqlalchemy import Column, INTEGER, String, JSON, inspect
+from pandas import DataFrame
+from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
@@ -100,11 +100,21 @@ class BaseClass(Base):
         Returns:
             dict | list | str: Output of key:value dict or single (list, str) desired variable
         """
+        # NOTE: singles is a list of fields that need to be limited to 1 result.
         singles = list(set(cls.singles + BaseClass.singles))
         return dict(singles=singles)
 
     @classmethod
-    def find_regular_subclass(cls, name: str | None = None):
+    def find_regular_subclass(cls, name: str | None = None) -> Any:
+        """
+
+        Args:
+            name (str): name of subclass of interest.
+
+        Returns:
+            Any: Subclass of this object
+
+        """
         if not name:
             return cls
         if " " in name:
@@ -140,7 +150,7 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
-    def results_to_df(cls, objects: list, **kwargs) -> pd.DataFrame:
+    def results_to_df(cls, objects: list, **kwargs) -> DataFrame:
         """
 
         Args:
@@ -148,15 +158,15 @@ class BaseClass(Base):
             **kwargs (): Arguments necessary for the to_sub_dict method. eg extraction_kit=X
 
         Returns:
-            pd.Dataframe
+            Dataframe
         """
         records = [obj.to_sub_dict(**kwargs) for obj in objects]
-        return pd.DataFrame.from_records(records)
+        return DataFrame.from_records(records)
 
     @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:
         """
-        Default query function for models. Overridden in most models.
+        Default query function for models. Overridden in most models with additional filters.
 
         Returns:
             Any | List[Any]: Result of query execution.
@@ -209,11 +219,9 @@ class BaseClass(Base):
         """
         # logger.debug(f"Saving object: {pformat(self.__dict__)}")
         report = Report()
-        state = inspect(self)
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
-            return state
         except Exception as e:
             logger.critical(f"Problem saving object: {e}")
             logger.error(f"Error message: {type(e)}")
