@@ -25,6 +25,7 @@ from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 # from .sample_search import SampleSearchBox
 from .summary import Summary
+from .turnaround import TurnaroundTime
 from .omni_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -269,12 +270,14 @@ class AddSubForm(QWidget):
         self.tab2 = QWidget()
         self.tab3 = QWidget()
         self.tab4 = QWidget()
+        self.tab5 = QWidget()
         self.tabs.resize(300, 200)
         # NOTE: Add tabs
         self.tabs.addTab(self.tab1, "Submissions")
         self.tabs.addTab(self.tab2, "Irida Controls")
         self.tabs.addTab(self.tab3, "PCR Controls")
         self.tabs.addTab(self.tab4, "Cost Report")
+        self.tabs.addTab(self.tab5, "Turnaround Times")
         # NOTE: Create submission adder form
         self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
@@ -310,6 +313,10 @@ class AddSubForm(QWidget):
         self.tab4.layout = QVBoxLayout(self)
         self.tab4.layout.addWidget(summary_report)
         self.tab4.setLayout(self.tab4.layout)
+        turnaround = TurnaroundTime(self)
+        self.tab5.layout = QVBoxLayout(self)
+        self.tab5.layout.addWidget(turnaround)
+        self.tab5.setLayout(self.tab5.layout)
         # NOTE: add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)

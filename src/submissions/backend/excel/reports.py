@@ -1,6 +1,8 @@
 '''
 Contains functions for generating summary reports
 '''
+from pprint import pformat
+
 from pandas import DataFrame, ExcelWriter
 import logging
 from pathlib import Path
@@ -137,3 +139,35 @@ class ReportMaker(object):
         for cell in worksheet['D']:
             if cell.row > 1:
                 cell.style = 'Currency'
+
+class TurnaroundMaker(object):
+
+    def __init__(self, start_date: date, end_date: date):
+        self.start_date = start_date
+        self.end_date = end_date
+        # NOTE: Set page size to zero to override limiting query size.
+        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, page_size=0)
+        records = [self.build_record(sub) for sub in self.subs]
+        self.df = DataFrame.from_records(records)
+
+    @classmethod
+    def build_record(cls, sub):
+        days, tat_ok = sub.get_turnaround_time()
+        return dict(name=sub.rsl_plate_num, days=days, submitted_date=sub.submitted_date,
+                        completed_date=sub.completed_date, acceptable=tat_ok)
+
+    def write_report(self, filename: Path | str, obj: QWidget | None = None):
+        """
+        Writes info to files.
+
+        Args:
+            filename (Path | str): Basename of output file
+            obj (QWidget | None, optional): Parent object. Defaults to None.
+        """
+        if isinstance(filename, str):
+            filename = Path(filename)
+        filename = filename.absolute()
+        self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
+        self.df.to_excel(self.writer, sheet_name="Turnaround")
+        # logger.debug(f"Writing report to: {filename}")
+        self.writer.close()

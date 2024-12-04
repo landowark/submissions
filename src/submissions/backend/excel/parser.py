@@ -293,20 +293,24 @@ class ReagentParser(object):
         report = Report()
         if isinstance(submission_type, dict):
             submission_type = submission_type['value']
+        if isinstance(submission_type, str):
+            submission_type = SubmissionType.query(name=submission_type)
         reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
         try:
             del reagent_map['info']
         except KeyError:
             pass
-        # logger.debug(f"Reagent map: {pformat(reagent_map)}")
+        logger.debug(f"Reagent map: {pformat(reagent_map)}")
         # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
-        if not reagent_map.keys():
+        if not reagent_map:
             temp_kit_object = self.submission_type_obj.get_default_kit()
+            logger.debug(f"Temp kit: {temp_kit_object}")
             if temp_kit_object:
                 self.kit_object = temp_kit_object
-                reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
-                logger.warning(f"Attempting to salvage {self.kit_object} with default kit map: {reagent_map}")
-            if not reagent_map.keys():
+                # reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
+                logger.warning(f"Attempting to salvage with default kit {self.kit_object} and submission_type: {self.submission_type_obj}")
+                return self.fetch_kit_info_map(submission_type=self.submission_type_obj)
+            else:
                 logger.error(f"Still no reagent map, displaying error.")
                 try:
                     ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]

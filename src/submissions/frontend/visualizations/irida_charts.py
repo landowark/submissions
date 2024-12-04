@@ -16,19 +16,23 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class IridaFigure(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
-                 months: int = 6):
+    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, ytitle: str | None = None, parent: QWidget | None = None):
 
-        super().__init__(df=df, modes=modes)
-
-        self.construct_chart(df=df, modes=modes)
+        super().__init__(df=df, modes=modes, settings=settings)
+        try:
+            months = int(settings['months'])
+        except KeyError:
+            months = 6
+        self.construct_chart(df=df, modes=modes, start_date=settings['start_date'], end_date=settings['end_date'])
         self.generic_figure_markers(modes=modes, ytitle=ytitle, months=months)
 
-    def construct_chart(self, df: pd.DataFrame, modes: list):
+    def construct_chart(self, df: pd.DataFrame, modes: list, start_date: date, end_date:date):
         """
         Creates a plotly chart for controls from a pandas dataframe
 
         Args:
+            end_date ():
+            start_date ():
             df (pd.DataFrame): input dataframe of controls
             modes (list): analysis modes to construct charts for
             ytitle (str | None, optional): title on the y-axis. Defaults to None.

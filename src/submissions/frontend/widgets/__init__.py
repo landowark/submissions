@@ -11,4 +11,6 @@ from .controls_chart import *
 from .submission_details import *
 from .equipment_usage import *
 from .gel_checker import *
+from .summary import Summary
+from .turnaround import TurnaroundTime
 from .app import App

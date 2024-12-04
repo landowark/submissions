@@ -172,11 +172,11 @@ class SubmissionDetails(QDialog):
 
     @pyqtSlot(str)
     def sign_off(self, submission: str | BasicSubmission):
-        # logger.debug(f"Signing off on {submission} - ({getuser()})")
+        logger.debug(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         submission.signed_by = getuser()
-        submission.completed = datetime.now().date()
+        submission.completed_date = datetime.now().date()
         submission.save()
         self.submission_details(submission=self.rsl_plate_num)
 

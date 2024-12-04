@@ -279,7 +279,7 @@ class Control(BaseClass):
     @classmethod
     def make_parent_buttons(cls, parent: QWidget) -> None:
         """
-        Super that will make buttons in a CustomFigure. Made to be overrided.
+        Super that will make buttons in a CustomFigure. Made to be overridden.
         
         Args:
             parent (QWidget): chart holding widget to add buttons to.
@@ -299,6 +299,10 @@ class Control(BaseClass):
 
 
 class PCRControl(Control):
+    """
+    Class made to hold info from Design & Analysis software.
+    """
+
     id = Column(INTEGER, ForeignKey('_control.id'), primary_key=True)
     subtype = Column(String(16))  #: PC or NC
     target = Column(String(16))  #: N1, N2, etc.
@@ -348,7 +352,7 @@ class PCRControl(Control):
             df = df[df.ct > 0.0]
         except AttributeError:
             df = df
-        fig = PCRFigure(df=df, modes=[])
+        fig = PCRFigure(df=df, modes=[], settings=chart_settings)
         return report, fig
 
     def to_pydantic(self):
@@ -433,12 +437,12 @@ class IridaControl(Control):
     def convert_by_mode(self, control_sub_type: str, mode: Literal['kraken', 'matches', 'contains'],
                         consolidate: bool = False) -> Generator[dict, None, None]:
         """
-        split this instance into analysis types for controls graphs
+        split this instance into analysis types ('kraken', 'matches', 'contains') for controls graphs
 
         Args:
             consolidate (bool): whether to merge all off-target genera. Defaults to False
             control_sub_type (str): control subtype, 'MCS-NOS', etc.
-            mode (str): analysis type, 'contains', etc.
+            mode (Literal['kraken', 'matches', 'contains']): analysis type, 'contains', etc.
 
         Returns:
             List[dict]: list of records
@@ -562,7 +566,7 @@ class IridaControl(Control):
         df, modes = cls.prep_df(ctx=ctx, df=df)
         # logger.debug(f"prepped df: \n {df}")
         fig = IridaFigure(df=df, ytitle=title, modes=modes, parent=parent,
-                          months=chart_settings['months'])
+                          settings=chart_settings)
         return report, fig
 
     @classmethod
@@ -571,9 +575,8 @@ class IridaControl(Control):
         Convert list of control records to dataframe
 
         Args:
-            ctx (dict): settings passed from gui
             input_df (list[dict]): list of dictionaries containing records
-            sub_type (str | None, optional): sub_type of submission type. Defaults to None.
+            sub_mode (str | None, optional): sub_type of submission type. Defaults to None.
 
         Returns:
             DataFrame: dataframe of controls

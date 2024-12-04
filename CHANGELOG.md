@@ -1,3 +1,7 @@
+## 202412.02
+
+- Addition of turnaround time tracking
+
 ## 202411.05
 
 - Can now calculate turnaround time including holidays. 

@@ -24,7 +24,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result, create_holidays_for_year
+    report_result, create_holidays_for_year, ctx
 from datetime import datetime, date, timedelta
 from typing import List, Any, Tuple, Literal, Generator
 from dateutil.parser import parse
@@ -127,7 +127,7 @@ class BasicSubmission(BaseClass, LogMixin):
 
     def __repr__(self) -> str:
         submission_type = self.submission_type or "Basic"
-        return f"<{submission_type}Submission({self.rsl_plate_num})>"
+        return f"<Submission({self.rsl_plate_num})>"
 
     @classmethod
     def jsons(cls) -> List[str]:
@@ -1380,17 +1380,22 @@ class BasicSubmission(BaseClass, LogMixin):
         writer = pyd.to_writer()
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
-    def get_turnaround_time(self):
-        completed = self.completed_date or datetime.now()
-        return self.calculate_turnaround(start_date=self.submitted_date.date(), end_date=completed.date())
+    def get_turnaround_time(self) -> Tuple[int|None, bool|None]:
+        try:
+            completed = self.completed_date.date()
+        except AttributeError:
+            completed = None
+        return self.calculate_turnaround(start_date=self.submitted_date.date(), end_date=completed)
 
     @classmethod
-    def calculate_turnaround(cls, start_date:date|None=None, end_date:date|None=None) -> int|None:
+    def calculate_turnaround(cls, start_date:date|None=None, end_date:date|None=None) -> Tuple[int|None, bool|None]:
+        if not end_date:
+            return None, None
         try:
-            delta = np.busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year))
+            delta = np.busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year)) + 1
         except ValueError:
-            return None
-        return delta + 1
+            return None, None
+        return delta, delta <= ctx.TaT_threshold
 
 
 # Below are the custom submission types

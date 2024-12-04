@@ -168,7 +168,6 @@ class KitType(BaseClass):
         else:
             return (item.reagent_role for item in relevant_associations)
 
-    # TODO: Move to BasicSubmission?
     def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Generator[(str, str), None, None]:
         """
         Creates map of locations in Excel workbook for a SubmissionType
@@ -274,8 +273,7 @@ class KitType(BaseClass):
             for kk, vv in assoc.to_export_dict().items():
                 v[kk] = vv
             base_dict['reagent roles'].append(v)
-        # for k, v in submission_type.construct_equipment_map():
-        for k, v in submission_type.contstruct_field_map("equipment"):
+        for k, v in submission_type.construct_field_map("equipment"):
             try:
                 assoc = next(item for item in submission_type.submissiontype_equipmentrole_associations if
                              item.equipment_role.name == k)
@@ -428,7 +426,7 @@ class Reagent(BaseClass, LogMixin):
                                         submission=sub))  #: Association proxy to SubmissionSampleAssociation.samples
 
     def __repr__(self):
-        if self.name is not None:
+        if self.name:
             return f"<Reagent({self.name}-{self.lot})>"
         else:
             return f"<Reagent({self.role.name}-{self.lot})>"
@@ -447,11 +445,12 @@ class Reagent(BaseClass, LogMixin):
 
         if extraction_kit is not None:
             # NOTE: Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
-            try:
-                reagent_role = list(set(self.role).intersection(extraction_kit.reagent_roles))[0]
-            # NOTE: Most will be able to fall back to first ReagentType in itself because most will only have 1.
-            except:
-                reagent_role = self.role[0]
+            reagent_role = next((item for item in set(self.role).intersection(extraction_kit.reagent_roles)), self.role[0])
+            # try:
+            #     reagent_role = list(set(self.role).intersection(extraction_kit.reagent_roles))[0]
+            # # NOTE: Most will be able to fall back to first ReagentType in itself because most will only have 1.
+            # except:
+            #     reagent_role = self.role[0]
         else:
             try:
                 reagent_role = self.role[0]

@@ -1,6 +1,8 @@
 '''
 Contains all operations for creating charts, graphs and visual effects.
 '''
+from datetime import timedelta
+
 from PyQt6.QtWidgets import QWidget
 import plotly, logging
 from plotly.graph_objects import Figure
@@ -14,10 +16,15 @@ class CustomFigure(Figure):
 
     df = None
 
-    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
-                 months: int = 6):
+    def __init__(self, df: pd.DataFrame, settings: dict, modes: list, ytitle: str | None = None, parent: QWidget | None = None):
         super().__init__()
+        # self.settings = settings
+        try:
+            months = int(settings['months'])
+        except KeyError:
+            months = 6
         self.df = df
+        self.update_xaxes(range=[settings['start_date'] - timedelta(days=1), settings['end_date']])
 
     def save_figure(self, group_name: str = "plotly_output", parent: QWidget | None = None):
         """

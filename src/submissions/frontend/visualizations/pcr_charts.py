@@ -13,9 +13,13 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class PCRFigure(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, ytitle: str | None = None, parent: QWidget | None = None,
+    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, ytitle: str | None = None, parent: QWidget | None = None,
                  months: int = 6):
-        super().__init__(df=df, modes=modes)
+        super().__init__(df=df, modes=modes, settings=settings)
+        try:
+            months = int(settings['months'])
+        except KeyError:
+            months = 6
         # logger.debug(f"DF: {self.df}")
         self.construct_chart(df=df)
 
