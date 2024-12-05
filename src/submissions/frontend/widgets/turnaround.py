@@ -1,10 +1,10 @@
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
+from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel, QComboBox
 from .info_tab import InfoPane
 from backend.excel.reports import TurnaroundMaker
 from pandas import DataFrame
-from backend.db import BasicSubmission
+from backend.db import BasicSubmission, SubmissionType
 from frontend.visualizations.turnaround_chart import TurnaroundChart
 import logging
 
@@ -17,6 +17,11 @@ class TurnaroundTime(InfoPane):
         super().__init__(parent)
         self.chart = None
         self.report_object = None
+        self.submission_typer = QComboBox(self)
+        subs = ["Any"] + [item.name for item in SubmissionType.query()]
+        self.submission_typer.addItems(subs)
+        self.layout.addWidget(self.submission_typer, 1, 1, 1, 3)
+        self.submission_typer.currentTextChanged.connect(self.date_changed)
         self.date_changed()
 
     def date_changed(self):
@@ -31,6 +36,16 @@ class TurnaroundTime(InfoPane):
             return
         super().date_changed()
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date)
-        self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date)
-        self.chart = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[])
+        if self.submission_typer.currentText() == "Any":
+            submission_type = None
+            subtype_obj = None
+        else:
+            submission_type = self.submission_typer.currentText()
+            subtype_obj = SubmissionType.query(name = submission_type)
+        self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date, submission_type=submission_type)
+        if subtype_obj:
+            threshold = subtype_obj.defaults['turnaround_time'] + 0.5
+        else:
+            threshold = None
+        self.chart = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold)
         self.webview.setHtml(self.chart.to_html())

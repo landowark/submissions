@@ -1074,6 +1074,7 @@ class BasicSubmission(BaseClass, LogMixin):
     @setup_lookup
     def query(cls,
               submission_type: str | SubmissionType | None = None,
+              submission_type_name: str|None = None,
               id: int | str | None = None,
               rsl_plate_num: str | None = None,
               start_date: date | str | int | None = None,
@@ -1171,6 +1172,11 @@ class BasicSubmission(BaseClass, LogMixin):
                 query = query.filter(model.rsl_plate_num == rsl_plate_num)
                 # logger.debug(f"At this point the query gets: {query.all()}")
                 limit = 1
+            case _:
+                pass
+        match submission_type_name:
+            case str():
+                query = query.filter(model.submission_type_name == submission_type_name)
             case _:
                 pass
         # NOTE: by id (returns only a single value)
@@ -1389,13 +1395,23 @@ class BasicSubmission(BaseClass, LogMixin):
 
     @classmethod
     def calculate_turnaround(cls, start_date:date|None=None, end_date:date|None=None) -> Tuple[int|None, bool|None]:
+        if 'pytest' not in sys.modules:
+            from tools import ctx
+        else:
+            from test_settings import ctx
         if not end_date:
             return None, None
         try:
             delta = np.busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year)) + 1
         except ValueError:
             return None, None
-        return delta, delta <= ctx.TaT_threshold
+        try:
+            tat = cls.get_default_info("turnaround_time")
+        except (AttributeError, KeyError):
+            tat = None
+        if not tat:
+            tat = ctx.TaT_threshold
+        return delta, delta <= tat
 
 
 # Below are the custom submission types

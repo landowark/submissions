@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
+from types import GeneratorType
 from . import RSLNamer
 from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone
@@ -343,6 +344,8 @@ class PydEquipment(BaseModel, extra='ignore'):
     @classmethod
     def make_empty_list(cls, value):
         # logger.debug(f"Pydantic value: {value}")
+        if isinstance(value, GeneratorType):
+            value = [item.name for item in value]
         value = convert_nans_to_nones(value)
         if not value:
             value = ['']
@@ -380,6 +383,7 @@ class PydEquipment(BaseModel, extra='ignore'):
                 assoc = None
             if assoc is None:
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
+                # TODO: This seems precarious. What if there is more than one process?
                 process = Process.query(name=self.processes[0])
                 if process is None:
                     logger.error(f"Found unknown process: {process}.")
@@ -1121,6 +1125,13 @@ class PydEquipmentRole(BaseModel):
     name: str
     equipment: List[PydEquipment]
     processes: List[str] | None
+
+    @field_validator("processes", mode="before")
+    @classmethod
+    def expand_processes(cls, value):
+        if isinstance(value, GeneratorType):
+            value = [item for item in value]
+        return value
 
     def to_form(self, parent, used: list) -> "RoleComboBox":
         """

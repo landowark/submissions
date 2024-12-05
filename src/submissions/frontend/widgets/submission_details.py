@@ -8,7 +8,7 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
-from tools import is_power_user, jinja_template_loading
+from tools import is_power_user, jinja_template_loading, timezone
 from .functions import select_save_file
 from .misc import save_pdf
 from pathlib import Path
@@ -176,7 +176,8 @@ class SubmissionDetails(QDialog):
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         submission.signed_by = getuser()
-        submission.completed_date = datetime.now().date()
+        submission.completed_date = datetime.now()
+        submission.completed_date.replace(tzinfo=timezone)
         submission.save()
         self.submission_details(submission=self.rsl_plate_num)
 

@@ -142,18 +142,18 @@ class ReportMaker(object):
 
 class TurnaroundMaker(object):
 
-    def __init__(self, start_date: date, end_date: date):
+    def __init__(self, start_date: date, end_date: date, submission_type:str):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, page_size=0)
+        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, submission_type_name=submission_type, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
 
     @classmethod
     def build_record(cls, sub):
         days, tat_ok = sub.get_turnaround_time()
-        return dict(name=sub.rsl_plate_num, days=days, submitted_date=sub.submitted_date,
+        return dict(name=str(sub.rsl_plate_num), days=days, submitted_date=sub.submitted_date,
                         completed_date=sub.completed_date, acceptable=tat_ok)
 
     def write_report(self, filename: Path | str, obj: QWidget | None = None):
