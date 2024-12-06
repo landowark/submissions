@@ -511,7 +511,7 @@ class IridaControl(Control):
         checker.setToolTip("Pools off-target genera to save time.")
         parent.layout.addWidget(QLabel("Consolidate Off-targets"), rows, 0, 1, 1)
         parent.layout.addWidget(checker, rows, 1, 1, 2)
-        checker.checkStateChanged.connect(parent.controls_getter_function)
+        checker.checkStateChanged.connect(parent.update_data)
 
     @classmethod
     @report_result

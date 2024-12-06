@@ -1,6 +1,5 @@
 """
 A pane to show info e.g. cost reports and turnaround times.
-TODO: Can I merge this with the controls chart pane?
 """
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -20,13 +19,13 @@ class InfoPane(QWidget):
         self.app = self.parent().parent()
         # logger.debug(f"\n\n{self.app}\n\n")
         self.report = Report()
-        self.datepicker = StartEndDatePicker(default_start=-31)
+        self.datepicker = StartEndDatePicker(default_start=-180)
         self.webview = QWebEngineView()
         self.datepicker.start_date.dateChanged.connect(self.update_data)
         self.datepicker.end_date.dateChanged.connect(self.update_data)
         self.layout = QGridLayout(self)
         self.layout.addWidget(self.datepicker, 0, 0, 1, 2)
-        self.layout.addWidget(self.webview, 2, 0, 1, 4)
+        self.layout.addWidget(self.webview, 4, 0, 1, 4)
         self.setLayout(self.layout)
 
     @report_result

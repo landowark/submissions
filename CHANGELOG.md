@@ -1,6 +1,7 @@
 ## 202412.02
 
 - Addition of turnaround time tracking
+- Merged new Infopane with old ControlsView
 
 ## 202411.05
 

@@ -18,7 +18,7 @@ from .info_tab import InfoPane
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class ControlsViewer(QWidget):
+class ControlsViewer(InfoPane):
 
     def __init__(self, parent: QWidget, archetype: str) -> None:
         super().__init__(parent)
@@ -27,13 +27,13 @@ class ControlsViewer(QWidget):
         if not self.archetype:
             return
         logger.debug(f"Archetype set as: {self.archetype}")
-        self.app = self.parent().parent()
+        # self.app = self.parent().parent()
         # logger.debug(f"\n\n{self.app}\n\n")
-        self.report = Report()
-        self.datepicker = StartEndDatePicker(default_start=-180)
-        self.webengineview = QWebEngineView()
+        # self.report = Report()
+        # self.datepicker = StartEndDatePicker(default_start=-180)
+        # self.webengineview = QWebEngineView()
         # NOTE: set tab2 layout
-        self.layout = QGridLayout(self)
+        # self.layout = QGridLayout(self)
         self.control_sub_typer = QComboBox()
         # NOTE: fetch types of controls
         con_sub_types = [item for item in self.archetype.targets.keys()]
@@ -46,7 +46,7 @@ class ControlsViewer(QWidget):
         self.mode_sub_typer = QComboBox()
         self.mode_sub_typer.setEnabled(False)
         # NOTE: add widgets to tab2 layout
-        self.layout.addWidget(self.datepicker, 0, 0, 1, 2)
+        # self.layout.addWidget(self.datepicker, 0, 0, 1, 2)
         self.save_button = QPushButton("Save Chart", parent=self)
         self.layout.addWidget(self.save_button, 0, 2, 1, 1)
         self.export_button = QPushButton("Save Data", parent=self)
@@ -55,13 +55,13 @@ class ControlsViewer(QWidget):
         self.layout.addWidget(self.mode_typer, 2, 0, 1, 4)
         self.layout.addWidget(self.mode_sub_typer, 3, 0, 1, 4)
         self.archetype.get_instance_class().make_parent_buttons(parent=self)
-        self.layout.addWidget(self.webengineview, self.layout.rowCount(), 0, 1, 4)
-        self.setLayout(self.layout)
-        self.controls_getter_function()
-        self.control_sub_typer.currentIndexChanged.connect(self.controls_getter_function)
-        self.mode_typer.currentIndexChanged.connect(self.controls_getter_function)
-        self.datepicker.start_date.dateChanged.connect(self.controls_getter_function)
-        self.datepicker.end_date.dateChanged.connect(self.controls_getter_function)
+        # self.layout.addWidget(self.webengineview, self.layout.rowCount(), 0, 1, 4)
+        # self.setLayout(self.layout)
+        self.update_data()
+        self.control_sub_typer.currentIndexChanged.connect(self.update_data)
+        self.mode_typer.currentIndexChanged.connect(self.update_data)
+        # self.datepicker.start_date.dateChanged.connect(self.update_data)
+        # self.datepicker.end_date.dateChanged.connect(self.update_data)
         self.save_button.pressed.connect(self.save_chart_function)
         self.export_button.pressed.connect(self.save_data_function)
 
@@ -72,30 +72,30 @@ class ControlsViewer(QWidget):
         self.fig.save_data(parent=self)
 
     @report_result
-    def controls_getter_function(self, *args, **kwargs):
+    def update_data(self, *args, **kwargs):
         """
         Get controls based on start/end dates
         """
-        report = Report()
+        super().update_data()
         # NOTE: mode_sub_type defaults to disabled
         try:
             self.mode_sub_typer.disconnect()
         except TypeError:
             pass
         # NOTE: correct start date being more recent than end date and rerun
-        if self.datepicker.start_date.date() > self.datepicker.end_date.date():
-            threemonthsago = self.datepicker.end_date.date().addDays(-60)
-            msg = f"Start date after end date is not allowed! Setting to {threemonthsago.toString()}."
-            logger.warning(msg)
-            # NOTE: block signal that will rerun controls getter and set start date Without triggering this function again
-            with QSignalBlocker(self.datepicker.start_date) as blocker:
-                self.datepicker.start_date.setDate(threemonthsago)
-            self.controls_getter_function()
-            report.add_result(Result(owner=self.__str__(), msg=msg, status="Warning"))
-            return report
-        # NOTE: convert to python useable date objects
-        self.start_date = self.datepicker.start_date.date().toPyDate()
-        self.end_date = self.datepicker.end_date.date().toPyDate()
+        # if self.datepicker.start_date.date() > self.datepicker.end_date.date():
+        #     threemonthsago = self.datepicker.end_date.date().addDays(-60)
+        #     msg = f"Start date after end date is not allowed! Setting to {threemonthsago.toString()}."
+        #     logger.warning(msg)
+        #     # NOTE: block signal that will rerun controls getter and set start date Without triggering this function again
+        #     with QSignalBlocker(self.datepicker.start_date) as blocker:
+        #         self.datepicker.start_date.setDate(threemonthsago)
+        #     self.update_data()
+        #     report.add_result(Result(owner=self.__str__(), msg=msg, status="Warning"))
+        #     return report
+        # # NOTE: convert to python useable date objects
+        # self.start_date = self.datepicker.start_date.date().toPyDate()
+        # self.end_date = self.datepicker.end_date.date().toPyDate()
         self.con_sub_type = self.control_sub_typer.currentText()
         self.mode = self.mode_typer.currentText()
         self.mode_sub_typer.clear()
@@ -115,7 +115,7 @@ class ControlsViewer(QWidget):
             self.mode_sub_typer.clear()
             self.mode_sub_typer.setEnabled(False)
         self.chart_maker_function()
-        return report
+        # return report
 
     @classmethod
     def diff_month(self, d1: date, d2: date) -> float:
@@ -162,9 +162,12 @@ class ControlsViewer(QWidget):
             self.save_button.setEnabled(True)
         # logger.debug(f"Updating figure...")
         # NOTE: construct html for webview
-        html = self.fig.to_html()
+        try:
+            html = self.fig.to_html()
+        except AttributeError:
+            html = ""
         # logger.debug(f"The length of html code is: {len(html)}")
-        self.webengineview.setHtml(html)
-        self.webengineview.update()
+        self.webview.setHtml(html)
+        self.webview.update()
         # logger.debug("Figure updated... I hope.")
         return report
