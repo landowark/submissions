@@ -1,18 +1,17 @@
 """
 Handles display of control charts
 """
-from datetime import date
 from pprint import pformat
-from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
-    QWidget, QComboBox, QPushButton, QGridLayout
+    QWidget, QComboBox, QPushButton
 )
 from PyQt6.QtCore import QSignalBlocker
+
+from backend import ChartReportMaker
 from backend.db import ControlType, IridaControl
 import logging
-from tools import Report, report_result, Result
+from tools import Report, report_result
 from frontend.visualizations import CustomFigure
-from .misc import StartEndDatePicker
 from .info_tab import InfoPane
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -27,13 +26,8 @@ class ControlsViewer(InfoPane):
         if not self.archetype:
             return
         logger.debug(f"Archetype set as: {self.archetype}")
-        # self.app = self.parent().parent()
         # logger.debug(f"\n\n{self.app}\n\n")
-        # self.report = Report()
-        # self.datepicker = StartEndDatePicker(default_start=-180)
-        # self.webengineview = QWebEngineView()
         # NOTE: set tab2 layout
-        # self.layout = QGridLayout(self)
         self.control_sub_typer = QComboBox()
         # NOTE: fetch types of controls
         con_sub_types = [item for item in self.archetype.targets.keys()]
@@ -46,7 +40,6 @@ class ControlsViewer(InfoPane):
         self.mode_sub_typer = QComboBox()
         self.mode_sub_typer.setEnabled(False)
         # NOTE: add widgets to tab2 layout
-        # self.layout.addWidget(self.datepicker, 0, 0, 1, 2)
         self.save_button = QPushButton("Save Chart", parent=self)
         self.layout.addWidget(self.save_button, 0, 2, 1, 1)
         self.export_button = QPushButton("Save Data", parent=self)
@@ -55,21 +48,17 @@ class ControlsViewer(InfoPane):
         self.layout.addWidget(self.mode_typer, 2, 0, 1, 4)
         self.layout.addWidget(self.mode_sub_typer, 3, 0, 1, 4)
         self.archetype.get_instance_class().make_parent_buttons(parent=self)
-        # self.layout.addWidget(self.webengineview, self.layout.rowCount(), 0, 1, 4)
-        # self.setLayout(self.layout)
         self.update_data()
         self.control_sub_typer.currentIndexChanged.connect(self.update_data)
         self.mode_typer.currentIndexChanged.connect(self.update_data)
-        # self.datepicker.start_date.dateChanged.connect(self.update_data)
-        # self.datepicker.end_date.dateChanged.connect(self.update_data)
-        self.save_button.pressed.connect(self.save_chart_function)
-        self.export_button.pressed.connect(self.save_data_function)
+        self.save_button.pressed.connect(self.save_png)
+        self.export_button.pressed.connect(self.save_excel)
 
-    def save_chart_function(self):
-        self.fig.save_figure(parent=self)
-
-    def save_data_function(self):
-        self.fig.save_data(parent=self)
+    # def save_chart_function(self):
+    #     self.fig.save_figure(parent=self)
+    #
+    # def save_data_function(self):
+    #     self.fig.save_data(parent=self)
 
     @report_result
     def update_data(self, *args, **kwargs):
@@ -117,20 +106,6 @@ class ControlsViewer(InfoPane):
         self.chart_maker_function()
         # return report
 
-    @classmethod
-    def diff_month(self, d1: date, d2: date) -> float:
-        """
-        Gets the number of months difference between two different dates
-
-        Args:
-            d1 (date): Start date.
-            d2 (date): End date.
-
-        Returns:
-            float: Number of months difference
-        """        
-        return abs((d1.year - d2.year) * 12 + d1.month - d2.month)
-
     @report_result
     def chart_maker_function(self, *args, **kwargs):
         # TODO: Generalize this by moving as much code as possible to IridaControl
@@ -158,6 +133,7 @@ class ControlsViewer(InfoPane):
                               mode=self.mode,
                               sub_mode=self.mode_sub_type, parent=self, months=months)
         self.fig = self.archetype.get_instance_class().make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
+        self.report_obj = ChartReportMaker(df=self.fig.df, sheet_name=self.archetype.name)
         if issubclass(self.fig.__class__, CustomFigure):
             self.save_button.setEnabled(True)
         # logger.debug(f"Updating figure...")

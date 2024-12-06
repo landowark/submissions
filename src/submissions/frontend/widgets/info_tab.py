@@ -1,6 +1,7 @@
 """
 A pane to show info e.g. cost reports and turnaround times.
 """
+from datetime import date
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout
@@ -25,7 +26,8 @@ class InfoPane(QWidget):
         self.datepicker.end_date.dateChanged.connect(self.update_data)
         self.layout = QGridLayout(self)
         self.layout.addWidget(self.datepicker, 0, 0, 1, 2)
-        self.layout.addWidget(self.webview, 4, 0, 1, 4)
+        # NOTE: Placed in lower row to allow for addition of custom rows.
+        self.layout.addWidget(self.webview, 5, 0, 1, 4)
         self.setLayout(self.layout)
 
     @report_result
@@ -44,6 +46,20 @@ class InfoPane(QWidget):
             self.update_data()
             report.add_result(Result(owner=self.__str__(), msg=msg, status="Warning"))
             return report
+
+    @classmethod
+    def diff_month(self, d1: date, d2: date) -> float:
+        """
+        Gets the number of months difference between two different dates
+
+        Args:
+            d1 (date): Start date.
+            d2 (date): End date.
+
+        Returns:
+            float: Number of months difference
+        """
+        return abs((d1.year - d2.year) * 12 + d1.month - d2.month)
 
     def save_excel(self):
         fname = select_save_file(self, default_name=f"Report {self.start_date.strftime('%Y%m%d')} - {self.end_date.strftime('%Y%m%d')}", extension="xlsx")

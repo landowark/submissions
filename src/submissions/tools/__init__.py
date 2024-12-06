@@ -2,7 +2,6 @@
 Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
-
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from pprint import pprint
@@ -13,7 +12,6 @@ from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
 from sqlalchemy.orm import Session
-from sqlalchemy.orm.state import InstanceState
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -893,11 +891,21 @@ def yaml_regex_creator(loader, node):
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
 
 
-def super_splitter(input:str, ioi:str, idx:int) -> str:
+def super_splitter(ins_str:str, substring:str, idx:int) -> str:
+    """
+
+    Args:
+        ins_str (str): input string
+        substring (str): substring to split on
+        idx (int): the occurrence of the substring to return
+
+    Returns:
+
+    """
     try:
-        return input.split(ioi)[idx]
+        return ins_str.split(substring)[idx]
     except IndexError:
-        return input
+        return ins_str
 
 
 ctx = get_config(None)
@@ -1021,7 +1029,3 @@ def create_holidays_for_year(year: int|None=None) -> List[date]:
     holidays.append(easter(year) - timedelta(days=2))
     holidays.append(easter(year) + timedelta(days=1))
     return sorted(holidays)
-
-
-
-

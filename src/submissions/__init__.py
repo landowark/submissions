@@ -11,6 +11,12 @@ month = date.today().month
 day = date.today().day
 
 def get_week_of_month() -> int:
+    """
+    Gets the current week number of the month.
+
+    Returns:
+        int:
+    """
     for ii, week in enumerate(calendar.monthcalendar(date.today().year, date.today().month)):
         if day in week:
             return ii + 1

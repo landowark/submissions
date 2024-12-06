@@ -17,6 +17,25 @@ logger = logging.getLogger(f"submissions.{__name__}")
 env = jinja_template_loading()
 
 
+class ReportArchetype(object):
+
+    def write_report(self, filename: Path | str, obj: QWidget | None = None):
+        """
+        Writes info to files.
+
+        Args:
+            filename (Path | str): Basename of output file
+            obj (QWidget | None, optional): Parent object. Defaults to None.
+        """
+        if isinstance(filename, str):
+            filename = Path(filename)
+        filename = filename.absolute()
+        self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
+        self.df.to_excel(self.writer, sheet_name=self.sheet_name)
+        # logger.debug(f"Writing report to: {filename}")
+        self.writer.close()
+
+
 class ReportMaker(object):
 
     def __init__(self, start_date: date, end_date: date, organizations: list | None = None):
@@ -138,7 +157,7 @@ class ReportMaker(object):
             if cell.row > 1:
                 cell.style = 'Currency'
 
-class TurnaroundMaker(object):
+class TurnaroundMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type:str):
         self.start_date = start_date
@@ -147,6 +166,7 @@ class TurnaroundMaker(object):
         self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, submission_type_name=submission_type, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
+        self.sheet_name = "Turnaround"
 
     @classmethod
     def build_record(cls, sub: BasicSubmission) -> dict:
@@ -163,18 +183,12 @@ class TurnaroundMaker(object):
         return dict(name=str(sub.rsl_plate_num), days=days, submitted_date=sub.submitted_date,
                         completed_date=sub.completed_date, acceptable=tat_ok)
 
-    def write_report(self, filename: Path | str, obj: QWidget | None = None):
-        """
-        Writes info to files.
 
-        Args:
-            filename (Path | str): Basename of output file
-            obj (QWidget | None, optional): Parent object. Defaults to None.
-        """
-        if isinstance(filename, str):
-            filename = Path(filename)
-        filename = filename.absolute()
-        self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
-        self.df.to_excel(self.writer, sheet_name="Turnaround")
-        # logger.debug(f"Writing report to: {filename}")
-        self.writer.close()
+class ChartReportMaker(ReportArchetype):
+
+    def __init__(self, df: DataFrame, sheet_name):
+        self.df = df
+        self.sheet_name = sheet_name
+
+
+

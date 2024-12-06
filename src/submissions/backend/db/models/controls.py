@@ -503,7 +503,7 @@ class IridaControl(Control):
 
         """
         super().make_parent_buttons(parent=parent)
-        rows = parent.layout.rowCount()
+        rows = parent.layout.rowCount() - 2
         # logger.debug(f"Parent rows: {rows}")
         checker = QCheckBox(parent)
         checker.setChecked(True)
