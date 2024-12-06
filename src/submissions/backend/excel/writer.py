@@ -41,21 +41,11 @@ class SheetWriter(object):
                         self.sub[k] = v['value']
                     else:
                         self.sub[k] = v
-        # logger.debug(f"\n\nWriting to {submission.filepath.__str__()}\n\n")
-        # if self.filepath.stem.startswith("tmp"):
-        #     template = self.submission_type.template_file
-        #     workbook = load_workbook(BytesIO(template))
-        # else:
-        #     try:
-        #         workbook = load_workbook(self.filepath)
-        #     except Exception as e:
-        #         logger.error(f"Couldn't open workbook due to {e}")
         template = self.submission_type.template_file
         if not template:
             logger.error(f"No template file found, falling back to Bacterial Culture")
             template = SubmissionType.retrieve_template_file()
         workbook = load_workbook(BytesIO(template))
-        # self.workbook = workbook
         self.xl = workbook
         self.write_info()
         self.write_reagents()
@@ -152,11 +142,9 @@ class InfoWriter(object):
             try:
                 dicto['locations'] = info_map[k]
             except KeyError:
-                # continue
                 pass
             dicto['value'] = v
             if len(dicto) > 0:
-                # output[k] = dicto
                 yield k, dicto
 
     def write_info(self) -> Workbook:
@@ -279,7 +267,6 @@ class SampleWriter(object):
         self.sample_map = submission_type.construct_sample_map()['lookup_table']
         # NOTE: exclude any samples without a submission rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
-        # self.samples = sorted(samples, key=lambda k: k['submission_rank'])
         self.samples = sorted(samples, key=itemgetter('submission_rank'))
 
     def reconcile_map(self, sample_list: list) -> Generator[dict, None, None]:
@@ -368,7 +355,8 @@ class EquipmentWriter(object):
                 logger.error(f"No {equipment['role']} in {pformat(equipment_map)}")
             # logger.debug(f"{equipment['role']} map: {mp_info}")
             placeholder = copy(equipment)
-            if mp_info == {}:
+            # if mp_info == {}:
+            if not mp_info:
                 for jj, (k, v) in enumerate(equipment.items(), start=1):
                     dicto = dict(value=v, row=ii, column=jj)
                     placeholder[k] = dicto

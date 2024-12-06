@@ -16,6 +16,9 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class SearchBox(QDialog):
+    """
+    The full search widget.
+    """
 
     def __init__(self, parent, object_type: Any, extras: List[str], **kwargs):
         super().__init__(parent)
@@ -36,7 +39,7 @@ class SearchBox(QDialog):
         else:
             self.sub_class = None
         self.results = SearchResults(parent=self, object_type=self.object_type, extras=self.extras, **kwargs)
-        logger.debug(f"results: {self.results}")
+        # logger.debug(f"results: {self.results}")
         self.layout.addWidget(self.results, 5, 0)
         self.setLayout(self.layout)
         self.setWindowTitle(f"Search {self.object_type.__name__}")
@@ -51,6 +54,7 @@ class SearchBox(QDialog):
         # logger.debug(deletes)
         for item in deletes:
             item.setParent(None)
+        # NOTE: Handle any subclasses
         if not self.sub_class:
             self.update_data()
         else:
@@ -89,6 +93,9 @@ class SearchBox(QDialog):
 
 
 class FieldSearch(QWidget):
+    """
+    Search bar.
+    """
 
     def __init__(self, parent, label, field_name):
         super().__init__(parent)
@@ -115,6 +122,9 @@ class FieldSearch(QWidget):
 
 
 class SearchResults(QTableView):
+    """
+    Results table.
+    """
 
     def __init__(self, parent: SearchBox, object_type: Any, extras: List[str], **kwargs):
         super().__init__()
@@ -146,7 +156,6 @@ class SearchResults(QTableView):
         context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
         logger.debug(f"Context: {context}")
         try:
-            # object = self.object_type.query(**{self.object_type.searchables: context[self.object_type.searchables]})
             object = self.object_type.query(**context)
         except KeyError:
             object = None

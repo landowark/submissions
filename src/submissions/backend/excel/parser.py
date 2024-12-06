@@ -1,8 +1,7 @@
 '''
 contains parser objects for pulling values from client generated submission sheets.
 '''
-import json
-import sys
+import logging
 from copy import copy
 from getpass import getuser
 from pprint import pformat
@@ -11,7 +10,6 @@ from openpyxl import load_workbook, Workbook
 from pathlib import Path
 from backend.db.models import *
 from backend.validators import PydSubmission, RSLNamer
-import logging, re
 from collections import OrderedDict
 from tools import check_not_nan, is_missing, check_key_or_attr
 
@@ -195,7 +193,7 @@ class InfoParser(object):
             ws = self.xl[sheet]
             relevant = []
             for k, v in self.map.items():
-                # NOTE: If the value is hardcoded put it in the dictionary directly.
+                # NOTE: If the value is hardcoded put it in the dictionary directly. Ex. Artic kit
                 if k == "custom":
                     continue
                 if isinstance(v, str):
@@ -230,7 +228,7 @@ class InfoParser(object):
                     case "submitted_date":
                         value, missing = is_missing(value)
                         logger.debug(f"Parsed submitted date: {value}")
-                    # NOTE: is field a JSON?
+                    # NOTE: is field a JSON? Includes: Extraction info, PCR info, comment, custom
                     case thing if thing in self.sub_object.jsons():
                         value, missing = is_missing(value)
                         if missing: continue
@@ -300,11 +298,11 @@ class ReagentParser(object):
             del reagent_map['info']
         except KeyError:
             pass
-        logger.debug(f"Reagent map: {pformat(reagent_map)}")
+        # logger.debug(f"Reagent map: {pformat(reagent_map)}")
         # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
         if not reagent_map:
             temp_kit_object = self.submission_type_obj.get_default_kit()
-            logger.debug(f"Temp kit: {temp_kit_object}")
+            # logger.debug(f"Temp kit: {temp_kit_object}")
             if temp_kit_object:
                 self.kit_object = temp_kit_object
                 # reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
@@ -333,7 +331,7 @@ class ReagentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
+            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
@@ -499,8 +497,7 @@ class SampleParser(object):
                 yield new
         else:
             merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
-            # plate_map_samples = sorted(copy(self.plate_map_samples), key=lambda d: d['id'])
-            # lookup_samples = sorted(copy(self.lookup_samples), key=lambda d: d[merge_on_id])
+            logger.info(f"Merging sample info using {merge_on_id}")
             plate_map_samples = sorted(copy(self.plate_map_samples), key=itemgetter('id'))
             lookup_samples = sorted(copy(self.lookup_samples), key=itemgetter(merge_on_id))
             for ii, psample in enumerate(plate_map_samples):
@@ -517,20 +514,9 @@ class SampleParser(object):
                     logger.warning(f"Match for {psample['id']} not direct, running search.")
                     searchables = [(jj, sample) for jj, sample in enumerate(lookup_samples)
                                    if merge_on_id in sample.keys()]
-                    # for jj, lsample in enumerate(lookup_samples):
-                    #     try:
-                    #         check = lsample[merge_on_id] == psample['id']
-                    #     except KeyError:
-                    #         check = False
-                    #     if check:
-                    #         new = lsample | psample
-                    #         lookup_samples[jj] = {}
-                    #         break
-                    #     else:
-                    #         new = psample
                     jj, new = next(((jj, lsample | psample) for jj, lsample in searchables
                                     if lsample[merge_on_id] == psample['id']), (-1, psample))
-                    logger.debug(f"Assigning from index {jj} - {new}")
+                    # logger.debug(f"Assigning from index {jj} - {new}")
                     if jj >= 0:
                         lookup_samples[jj] = {}
                 if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
@@ -554,7 +540,7 @@ class EquipmentParser(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
         """
-        logger.debug("\n\nHello from EquipmentParser!\n\n")
+        logger.info("\n\nHello from EquipmentParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -568,7 +554,6 @@ class EquipmentParser(object):
         Returns:
             List[dict]: List of locations
         """
-        # return {k: v for k, v in self.submission_type.construct_equipment_map()}
         return {k: v for k, v in self.submission_type.construct_field_map("equipment")}
 
     def get_asset_number(self, input: str) -> str:
@@ -638,7 +623,7 @@ class TipParser(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
         """
-        logger.debug("\n\nHello from TipParser!\n\n")
+        logger.info("\n\nHello from TipParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -652,7 +637,6 @@ class TipParser(object):
         Returns:
             List[dict]: List of locations
         """
-        # return {k: v for k, v in self.submission_type.construct_tips_map()}
         return {k: v for k, v in self.submission_type.construct_field_map("tip")}
 
     def parse_tips(self) -> List[dict]:

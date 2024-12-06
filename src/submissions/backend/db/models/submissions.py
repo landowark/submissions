@@ -2,13 +2,10 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
-# import sys
-# import types
-# import zipfile
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
-from zipfile import ZipFile
+from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
@@ -20,7 +17,6 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError, \
     ArgumentError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-# import pandas as pd
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
@@ -1276,7 +1272,7 @@ class BasicSubmission(BaseClass, LogMixin):
         if msg.exec():
             try:
                 self.backup(fname=fname, full_backup=True)
-            except zipfile.BadZipfile:
+            except BadZipfile:
                 logger.error("Couldn't open zipfile for writing.")
             self.__database_session__.delete(self)
             try:
@@ -2261,7 +2257,7 @@ class WastewaterArtic(BasicSubmission):
 
 # Sample Classes
 
-class BasicSample(BaseClass):
+class BasicSample(BaseClass, LogMixin):
     """
     Base of basic sample which polymorphs into BCSample and WWSample
     """

@@ -14,8 +14,6 @@ from PyQt6.QtCore import Qt, QDate, QSize, QMarginsF
 from tools import jinja_template_loading
 from backend.db.models import *
 import logging
-from .pop_ups import AlertPop
-from .functions import select_open_file
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -112,55 +110,6 @@ class AddReagentForm(QDialog):
         self.name_input.clear()
         lookup = Reagent.query(role=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
-
-
-class LogParser(QDialog):
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.app = self.parent()
-        self.filebutton = QPushButton(self)
-        self.filebutton.setText("Import File")
-        self.phrase_looker = QComboBox(self)
-        self.phrase_looker.setEditable(True)
-        self.btn = QPushButton(self)
-        self.btn.setText("Search")
-        self.layout = QFormLayout(self)
-        self.layout.addRow(self.tr("&File:"), self.filebutton)
-        self.layout.addRow(self.tr("&Search Term:"), self.phrase_looker)
-        self.layout.addRow(self.btn)
-        self.filebutton.clicked.connect(self.filelookup)
-        self.btn.clicked.connect(self.runsearch)
-        self.setMinimumWidth(400)
-
-    def filelookup(self):
-        """
-        Select file to search
-        """
-        self.fname = select_open_file(self, "tabular")
-
-    def runsearch(self):
-        """
-        Gets total/percent occurences of string in tabular file.
-        """
-        count: int = 0
-        total: int = 0
-        # logger.debug(f"Current search term: {self.phrase_looker.currentText()}")
-        try:
-            with open(self.fname, "r") as f:
-                for chunk in readInChunks(fileObj=f):
-                    total += len(chunk)
-                    for line in chunk:
-                        if self.phrase_looker.currentText().lower() in line.lower():
-                            count += 1
-            percent = (count / total) * 100
-            msg = f"I found {count} instances of the search phrase out of {total} = {percent:.2f}%."
-            status = "Information"
-        except AttributeError:
-            msg = f"No file was selected."
-            status = "Error"
-        dlg = AlertPop(message=msg, status=status)
-        dlg.exec()
 
 
 class StartEndDatePicker(QWidget):

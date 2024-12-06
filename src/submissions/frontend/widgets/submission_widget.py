@@ -1,15 +1,13 @@
 '''
 Contains all submission related frontend functions
 '''
-import sys
-
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel
 )
 from PyQt6.QtCore import pyqtSignal, Qt
 from . import select_open_file, select_save_file
-import logging, difflib
+import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result
 from backend.excel.parser import SheetParser
@@ -187,6 +185,8 @@ class SubmissionFormContainer(QWidget):
 
 class SubmissionFormWidget(QWidget):
 
+    update_reagent_fields = ['extraction_kit']
+
     def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
         # logger.debug(f"Disable: {disable}")
@@ -203,7 +203,7 @@ class SubmissionFormWidget(QWidget):
         # logger.debug(f"Attempting to extend ignore list with {self.pyd.submission_type['value']}")
         self.layout = QVBoxLayout()
         for k in list(self.pyd.model_fields.keys()) + list(self.pyd.model_extra.keys()):
-            logger.debug(f"Creating widget: {k}")
+            # logger.debug(f"Creating widget: {k}")
             if k in self.ignore:
                 logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
@@ -225,10 +225,10 @@ class SubmissionFormWidget(QWidget):
                                             sub_obj=st, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
-            if k == "extraction_kit":
+            # if k == "extraction_kit":
+            if k in self.__class__.update_reagent_fields:
                 add_widget.input.currentTextChanged.connect(self.scrape_reagents)
         self.setStyleSheet(main_form_style)
-        # self.scrape_reagents(self.pyd.extraction_kit)
         self.scrape_reagents(self.extraction_kit)
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
@@ -293,9 +293,8 @@ class SubmissionFormWidget(QWidget):
             if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
                 reagent.setParent(None)
         reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
-        logger.debug(f"Got reagents: {pformat(reagents)}")
+        # logger.debug(f"Got reagents: {pformat(reagents)}")
         for reagent in reagents:
-            # add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.pyd.extraction_kit)
             add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
             self.layout.addWidget(add_widget)
         report.add_result(integrity_report)
@@ -333,10 +332,6 @@ class SubmissionFormWidget(QWidget):
         if object_name is not None:
             query = [widget for widget in query if widget.objectName() == object_name]
         return query
-
-    # def update_pyd(self):
-    #     results = self.parse_form()
-    #     logger.debug(pformat(results))
 
     @report_result
     def submit_new_sample_function(self, *args) -> Report:
@@ -538,19 +533,14 @@ class SubmissionFormWidget(QWidget):
             except (TypeError, KeyError):
                 pass
             obj = parent.parent().parent()
-            logger.debug(f"Object: {obj}")
-            logger.debug(f"Parent: {parent.parent()}")
+            # logger.debug(f"Object: {obj}")
+            # logger.debug(f"Parent: {parent.parent()}")
             # logger.debug(f"Creating widget for: {key}")
             match key:
                 case 'submitting_lab':
                     add_widget = MyQComboBox(scrollWidget=parent)
                     # NOTE: lookup organizations suitable for submitting_lab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
                     labs = [item.name for item in Organization.query()]
-                    # NOTE: try to set closest match to top of list
-                    # try:
-                    #     labs = difflib.get_close_matches(value, labs, len(labs), 0)
-                    # except (TypeError, ValueError):
-                    #     pass
                     if isinstance(value, dict):
                         value = value['value']
                     if isinstance(value, Organization):
@@ -559,7 +549,7 @@ class SubmissionFormWidget(QWidget):
                         looked_up_lab = Organization.query(name=value, limit=1)
                     except AttributeError:
                         looked_up_lab = None
-                    logger.debug(f"\n\nLooked up lab: {looked_up_lab}")
+                    # logger.debug(f"\n\nLooked up lab: {looked_up_lab}")
                     if looked_up_lab:
                         try:
                             labs.remove(str(looked_up_lab.name))
@@ -579,7 +569,6 @@ class SubmissionFormWidget(QWidget):
                     add_widget = MyQComboBox(scrollWidget=parent)
                     # NOTE: lookup existing kits by 'submission_type' decided on by sheetparser
                     # logger.debug(f"Looking up kits used for {submission_type}")
-                    # uses = [item.name for item in KitType.query(used_for=submission_type)]
                     uses = [item.name for item in submission_type.kit_types]
                     obj.uses = uses
                     # logger.debug(f"Kits received for {submission_type}: {uses}")

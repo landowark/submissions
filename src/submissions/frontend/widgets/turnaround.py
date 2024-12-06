@@ -15,28 +15,25 @@ class TurnaroundTime(InfoPane):
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
-        self.chart = None
+        self.save_button = QPushButton("Save Chart", parent=self)
+        self.save_button.pressed.connect(self.save_png)
+        self.layout.addWidget(self.save_button, 0, 2, 1, 1)
+        self.export_button = QPushButton("Save Data", parent=self)
+        self.export_button.pressed.connect(self.save_excel)
+        self.layout.addWidget(self.export_button, 0, 3, 1, 1)
+        self.fig = None
         self.report_object = None
         self.submission_typer = QComboBox(self)
-        subs = ["Any"] + [item.name for item in SubmissionType.query()]
+        subs = ["All"] + [item.name for item in SubmissionType.query()]
         self.submission_typer.addItems(subs)
         self.layout.addWidget(self.submission_typer, 1, 1, 1, 3)
-        self.submission_typer.currentTextChanged.connect(self.date_changed)
-        self.date_changed()
+        self.submission_typer.currentTextChanged.connect(self.update_data)
+        self.update_data()
 
-    def date_changed(self):
-        if self.datepicker.start_date.date() > self.datepicker.end_date.date():
-            logger.warning("Start date after end date is not allowed!")
-            lastmonth = self.datepicker.end_date.date().addDays(-31)
-            # NOTE: block signal that will rerun controls getter and set start date
-            # Without triggering this function again
-            with QSignalBlocker(self.datepicker.start_date) as blocker:
-                self.datepicker.start_date.setDate(lastmonth)
-            self.date_changed()
-            return
-        super().date_changed()
+    def update_data(self):
+        super().update_data()
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date)
-        if self.submission_typer.currentText() == "Any":
+        if self.submission_typer.currentText() == "All":
             submission_type = None
             subtype_obj = None
         else:
@@ -47,5 +44,5 @@ class TurnaroundTime(InfoPane):
             threshold = subtype_obj.defaults['turnaround_time'] + 0.5
         else:
             threshold = None
-        self.chart = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold)
-        self.webview.setHtml(self.chart.to_html())
+        self.fig = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold)
+        self.webview.setHtml(self.fig.to_html())

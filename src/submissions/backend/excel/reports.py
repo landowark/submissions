@@ -2,7 +2,6 @@
 Contains functions for generating summary reports
 '''
 from pprint import pformat
-
 from pandas import DataFrame, ExcelWriter
 import logging
 from pathlib import Path
@@ -72,7 +71,6 @@ class ReportMaker(object):
         for row in df.iterrows():
             # logger.debug(f"Row {ii}: {row}")
             lab = row[0][0]
-            # logger.debug(type(row))
             # logger.debug(f"Old lab: {old_lab}, Current lab: {lab}")
             # logger.debug(f"Name: {row[0][1]}")
             data = [item for item in row[1]]
@@ -151,7 +149,16 @@ class TurnaroundMaker(object):
         self.df = DataFrame.from_records(records)
 
     @classmethod
-    def build_record(cls, sub):
+    def build_record(cls, sub: BasicSubmission) -> dict:
+        """
+        Build a turnaround dictionary from a submission
+
+        Args:
+            sub (BasicSubmission): The submission to be processed.
+
+        Returns:
+
+        """
         days, tat_ok = sub.get_turnaround_time()
         return dict(name=str(sub.rsl_plate_num), days=days, submitted_date=sub.submitted_date,
                         completed_date=sub.completed_date, acceptable=tat_ok)

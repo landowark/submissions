@@ -1,10 +1,8 @@
 """
 All database related operations.
 """
-import sqlalchemy.orm
 from sqlalchemy import event, inspect
 from sqlalchemy.engine import Engine
-
 from tools import ctx
 
 
@@ -48,7 +46,11 @@ def update_log(mapper, connection, target):
         hist = attr.load_history()
         if not hist.has_changes():
             continue
+        if attr.key == "custom":
+            continue
         added = [str(item) for item in hist.added]
+        if attr.key in ['submission_sample_associations', 'submission_reagent_associations']:
+            added = ['Numbers truncated for space purposes.']
         deleted = [str(item) for item in hist.deleted]
         change = dict(field=attr.key, added=added, deleted=deleted)
         # logger.debug(f"Adding: {pformat(change)}")
@@ -69,6 +71,6 @@ def update_log(mapper, connection, target):
     else:
         logger.info(f"No changes detected, not updating logs.")
 
-# if ctx.database_schema == "sqlite":
+# if ctx.logging_enabled:
 event.listen(LogMixin, 'after_update', update_log, propagate=True)
 event.listen(LogMixin, 'after_insert', update_log, propagate=True)

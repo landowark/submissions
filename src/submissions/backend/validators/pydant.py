@@ -2,8 +2,7 @@
 Contains pydantic models and accompanying validators
 '''
 from __future__ import annotations
-import sys
-import uuid, re, logging, csv
+import uuid, re, logging, csv, sys
 from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
@@ -165,13 +164,7 @@ class PydReagent(BaseModel):
             report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
         else:
             if submission is not None and reagent not in submission.reagents:
-                # assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
-                # assoc.comments = self.comment
                 submission.update_reagentassoc(reagent=reagent, role=self.role)
-            # else:
-            #     assoc = None
-                # add end-of-life extension from reagent type to expiry date
-                # NOTE: this will now be done only in the reporting phase to account for potential changes in end-of-life extensions
         return reagent, report
 
 
@@ -191,11 +184,7 @@ class PydSample(BaseModel, extra='allow'):
         for k, v in data.model_extra.items():
             if k in model.timestamps():
                 if isinstance(v, str):
-                    # try:
                     v = datetime.strptime(v, "%Y-%m-%d")
-                    # except ValueError:
-                    #     logger.warning(f"Attribute {k} value {v} for sample {data.submitter_id} could not be coerced into date. Setting to None.")
-                    #     v = None
                 data.__setattr__(k, v)
         # logger.debug(f"Data coming out of validation: {pformat(data)}")
         return data
@@ -379,7 +368,6 @@ class PydEquipment(BaseModel, extra='ignore'):
                                                              role=self.role, limit=1)
             except TypeError as e:
                 logger.error(f"Couldn't get association due to {e}, returning...")
-                # return equipment, None
                 assoc = None
             if assoc is None:
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
@@ -830,11 +818,6 @@ class PydSubmission(BaseModel, extra='allow'):
                         logger.debug(f"Checking reagent {reagent.lot}")
                         reagent, _ = reagent.toSQL(submission=instance)
                         # logger.debug(f"Association: {assoc}")
-                        # if assoc is not None:  # and assoc not in instance.submission_reagent_associations:
-                        #     if assoc not in instance.submission_reagent_associations:
-                        #         instance.submission_reagent_associations.append(assoc)
-                        #     else:
-                        #         logger.warning(f"Reagent association {assoc} is already present in {instance.submission_reagent_associations}")
                 case "samples":
                     for sample in self.samples:
                         sample, associations, _ = sample.toSQL(submission=instance)
@@ -871,7 +854,6 @@ class PydSubmission(BaseModel, extra='allow'):
                                 logger.warning(f"Tips association {association} is already present in {instance}")
                 case item if item in instance.timestamps():
                     logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
-                    # value = value.replace(tzinfo=timezone)
                     if isinstance(value, date):
                         value = datetime.combine(value, datetime.min.time())
                         value = value.replace(tzinfo=timezone)
@@ -903,7 +885,6 @@ class PydSubmission(BaseModel, extra='allow'):
                     if check:
                         try:
                             instance.set_attribute(key=key, value=value)
-                            # instance.update({key:value})
                         except AttributeError as e:
                             logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
                             continue

@@ -66,7 +66,6 @@ class GelBox(QDialog):
         layout.addWidget(self.imv, 0, 1, 20, 20)
         # NOTE: setting this widget as central widget of the main window
         try:
-            # control_info = sorted(self.submission.gel_controls, key=lambda d: d['location'])
             control_info = sorted(self.submission.gel_controls, key=itemgetter('location'))
         except KeyError:
             control_info = None
@@ -78,7 +77,6 @@ class GelBox(QDialog):
         self.buttonBox.rejected.connect(self.reject)
         layout.addWidget(self.buttonBox, 23, 1, 1, 1)
         self.setLayout(layout)
-
 
     def parse_form(self) -> Tuple[str, str | Path, list]:
         """
@@ -124,7 +122,6 @@ class ControlsForm(QWidget):
             self.layout.addWidget(label, iii, 1, 1, 1)
         for iii in range(3):
             for jjj in range(3):
-                # widge = QLineEdit()
                 widge = QComboBox()
                 widge.addItems(['Neg', 'Pos'])
                 widge.setCurrentIndex(0)

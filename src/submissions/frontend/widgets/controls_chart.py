@@ -10,9 +10,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QSignalBlocker
 from backend.db import ControlType, IridaControl
 import logging
-from tools import Report, report_result
+from tools import Report, report_result, Result
 from frontend.visualizations import CustomFigure
 from .misc import StartEndDatePicker
+from .info_tab import InfoPane
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -37,11 +38,11 @@ class ControlsViewer(QWidget):
         # NOTE: fetch types of controls
         con_sub_types = [item for item in self.archetype.targets.keys()]
         self.control_sub_typer.addItems(con_sub_types)
-        # NOTE: create custom widget to get types of analysis
+        # NOTE: create custom widget to get types of analysis -- disabled by PCR control
         self.mode_typer = QComboBox()
         mode_types = IridaControl.get_modes()
         self.mode_typer.addItems(mode_types)
-        # NOTE: create custom widget to get subtypes of analysis
+        # NOTE: create custom widget to get subtypes of analysis -- disabled by PCR control
         self.mode_sub_typer = QComboBox()
         self.mode_sub_typer.setEnabled(False)
         # NOTE: add widgets to tab2 layout
@@ -83,15 +84,15 @@ class ControlsViewer(QWidget):
             pass
         # NOTE: correct start date being more recent than end date and rerun
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():
-            logger.warning("Start date after end date is not allowed!")
             threemonthsago = self.datepicker.end_date.date().addDays(-60)
-            # NOTE: block signal that will rerun controls getter and set start date
-            # Without triggering this function again
+            msg = f"Start date after end date is not allowed! Setting to {threemonthsago.toString()}."
+            logger.warning(msg)
+            # NOTE: block signal that will rerun controls getter and set start date Without triggering this function again
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(threemonthsago)
-            self.controls_getter()
-            self.report.add_result(report)
-            return
+            self.controls_getter_function()
+            report.add_result(Result(owner=self.__str__(), msg=msg, status="Warning"))
+            return report
         # NOTE: convert to python useable date objects
         self.start_date = self.datepicker.start_date.date().toPyDate()
         self.end_date = self.datepicker.end_date.date().toPyDate()
@@ -167,4 +168,3 @@ class ControlsViewer(QWidget):
         self.webengineview.update()
         # logger.debug("Figure updated... I hope.")
         return report
-

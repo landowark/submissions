@@ -40,7 +40,6 @@ class IridaFigure(CustomFigure):
         Returns:
             Figure: output stacked bar chart.
         """
-        # fig = Figure()
         for ii, mode in enumerate(modes):
             if "count" in mode:
                 df[mode] = pd.to_numeric(df[mode], errors='coerce')

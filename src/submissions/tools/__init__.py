@@ -3,13 +3,11 @@ Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
 
-import json
-import pprint
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
+from pprint import pprint
 import numpy as np
-import logging, re, yaml, sys, os, stat, platform, getpass, inspect
-import pandas as pd
+import logging, re, yaml, sys, os, stat, platform, getpass, inspect, json, pandas as pd
 from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
@@ -20,7 +18,6 @@ from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List
-# print(inspect.stack()[1])
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
@@ -261,6 +258,7 @@ class Settings(BaseSettings, extra="allow"):
     submission_types: dict | None = None
     database_session: Session | None = None
     package: Any | None = None
+    logging_enabled: bool = Field(default=False)
 
     model_config = SettingsConfigDict(env_file_encoding='utf-8')
 
@@ -422,6 +420,7 @@ class Settings(BaseSettings, extra="allow"):
 
         super().__init__(*args, **kwargs)
         self.set_from_db()
+        pprint(f"User settings:\n{self.__dict__}")
 
     def set_from_db(self):
         if 'pytest' in sys.modules:
@@ -819,7 +818,7 @@ class Result(BaseModel, arbitrary_types_allowed=True):
         self.owner = inspect.stack()[1].function
 
     def report(self):
-        from frontend.widgets.misc import AlertPop
+        from frontend.widgets.pop_ups import AlertPop
         return AlertPop(message=self.msg, status=self.status, owner=self.owner)
 
 

@@ -1,8 +1,10 @@
+"""
+Construct turnaround time charts
+"""
 from pprint import pformat
 from . import CustomFigure
 import plotly.express as px
 import pandas as pd
-import numpy as np
 from PyQt6.QtWidgets import QWidget
 import logging
 
@@ -25,7 +27,6 @@ class TurnaroundChart(CustomFigure):
         self.construct_chart()
         if threshold:
             self.add_hline(y=threshold)
-        # self.update_xaxes()
         self.update_layout(showlegend=False)
 
     def construct_chart(self, df: pd.DataFrame | None = None):

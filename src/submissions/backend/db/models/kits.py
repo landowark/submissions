@@ -1414,25 +1414,6 @@ class Equipment(BaseClass):
             if extraction_kit and extraction_kit not in process.kit_types:
                 continue
             yield process
-        # processes = (process for process in self.processes if submission_type in process.submission_types)
-        # match extraction_kit:
-        #     case str():
-        #         # logger.debug(f"Filtering processes by extraction_kit str {extraction_kit}")
-        #         processes = (process for process in processes if
-        #                      extraction_kit in [kit.name for kit in process.kit_types])
-        #     case KitType():
-        #         # logger.debug(f"Filtering processes by extraction_kit KitType {extraction_kit}")
-        #         processes = (process for process in processes if extraction_kit in process.kit_types)
-        #     case _:
-        #         pass
-        # # NOTE: Convert to strings
-        # # processes = [process.name for process in processes]
-        # # assert all([isinstance(process, str) for process in processes])
-        # # if len(processes) == 0:
-        # #     processes = ['']
-        # # return processes
-        # for process in processes:
-        #     yield process.name
 
     @classmethod
     @setup_lookup
@@ -1650,25 +1631,6 @@ class EquipmentRole(BaseClass):
             if extraction_kit and extraction_kit not in process.kit_types:
                     continue
             yield process.name
-        # if submission_type is not None:
-        #     # logger.debug("Getting all processes for this EquipmentRole")
-        #     processes = [process for process in self.processes if submission_type in process.submission_types]
-        # else:
-        #     processes = self.processes
-        # match extraction_kit:
-        #     case str():
-        #         # logger.debug(f"Filtering processes by extraction_kit str {extraction_kit}")
-        #         processes = [item for item in processes if extraction_kit in [kit.name for kit in item.kit_types]]
-        #     case KitType():
-        #         # logger.debug(f"Filtering processes by extraction_kit KitType {extraction_kit}")
-        #         processes = [item for item in processes if extraction_kit in [kit for kit in item.kit_types]]
-        #     case _:
-        #         pass
-        # output = [item.name for item in processes]
-        # if len(output) == 0:
-        #     return ['']
-        # else:
-        #     return output
 
     def to_export_dict(self, submission_type: SubmissionType, kit_type: KitType):
         """
@@ -1730,9 +1692,8 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, equipment_id: int, submission_id: int, role: str | None = None, limit: int = 0, **kwargs) -> Any | \
-                                                                                                                List[
-                                                                                                                    Any]:
+    def query(cls, equipment_id: int, submission_id: int, role: str | None = None, limit: int = 0, **kwargs) \
+            -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.equipment_id == equipment_id)
         query = query.filter(cls.submission_id == submission_id)
@@ -1777,44 +1738,22 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
         return value
 
-    def get_all_processes(self, extraction_kit: KitType | str | None = None) -> List[Process]:
-        """
-        Get all processes associated with this SubmissionTypeEquipmentRole
-
-        Args:
-            extraction_kit (KitType | str | None, optional): KitType of interest. Defaults to None.
-
-        Returns:
-            List[Process]: All associated processes
-        """
-        processes = [equipment.get_processes(self.submission_type) for equipment in self.equipment_role.instances]
-        # NOTE: flatten list
-        processes = [item for items in processes for item in items if item is not None]
-        match extraction_kit:
-            case str():
-                # logger.debug(f"Filtering Processes by extraction_kit str {extraction_kit}")
-                processes = [item for item in processes if extraction_kit in [kit.name for kit in item.kit_type]]
-            case KitType():
-                # logger.debug(f"Filtering Processes by extraction_kit KitType {extraction_kit}")
-                processes = [item for item in processes if extraction_kit in [kit for kit in item.kit_type]]
-            case _:
-                pass
-        return processes
-
     @check_authorization
     def save(self):
         super().save()
 
-    def to_export_dict(self, extraction_kit: KitType) -> dict:
+    def to_export_dict(self, extraction_kit: KitType | str) -> dict:
         """
         Creates dictionary for exporting to yml used in new SubmissionType Construction
 
         Args:
-            kit_type (KitType): KitType of interest.
+            extraction_kit (KitType | str): KitType of interest.
 
         Returns:
             dict: Dictionary containing relevant info for SubmissionType construction
         """
+        if isinstance(extraction_kit, str):
+            extraction_kit = KitType.query(name=extraction_kit)
         base_dict = {k: v for k, v in self.equipment_role.to_export_dict(submission_type=self.submission_type,
                                                                          kit_type=extraction_kit).items()}
         base_dict['static'] = self.static
@@ -2013,8 +1952,8 @@ class SubmissionTipsAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, tip_id: int, role: str, submission_id: int | None = None, limit: int = 0, **kwargs) -> Any | List[
-        Any]:
+    def query(cls, tip_id: int, role: str, submission_id: int | None = None, limit: int = 0, **kwargs) \
+            -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.tip_id == tip_id)
         if submission_id is not None:

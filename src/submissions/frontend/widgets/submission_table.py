@@ -83,6 +83,7 @@ class SubmissionsSheet(QTableView):
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
         self.doubleClicked.connect(lambda x: BasicSubmission.query(id=x.sibling(x.row(), 0).data()).show_details(self))
+        # NOTE: Have to run native query here because mine just returns results?
         self.total_count = BasicSubmission.__database_session__.query(BasicSubmission).count()
 
     def setData(self, page: int = 1, page_size: int = 250) -> None:

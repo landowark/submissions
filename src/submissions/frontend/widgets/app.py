@@ -1,7 +1,6 @@
 """
 Constructs main application.
 """
-import os
 from pprint import pformat
 from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (
@@ -18,12 +17,11 @@ from tools import check_if_app, Settings, Report, jinja_template_loading, check_
 from .functions import select_save_file, select_open_file
 from datetime import date
 from .pop_ups import HTMLPop, AlertPop
-from .misc import LogParser, Pagifier
+from .misc import Pagifier
 import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
-# from .sample_search import SampleSearchBox
 from .summary import Summary
 from .turnaround import TurnaroundTime
 from .omni_search import SearchBox
@@ -84,7 +82,7 @@ class App(QMainWindow):
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.yamlExportAction)
         fileMenu.addAction(self.yamlImportAction)
-        methodsMenu.addAction(self.searchLog)
+        # methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
@@ -98,8 +96,8 @@ class App(QMainWindow):
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
         toolbar.addAction(self.addReagentAction)
-        toolbar.addAction(self.addKitAction)
-        toolbar.addAction(self.addOrgAction)
+        # toolbar.addAction(self.addKitAction)
+        # toolbar.addAction(self.addOrgAction)
 
     def _createActions(self):
         """
@@ -108,13 +106,13 @@ class App(QMainWindow):
         # logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
         self.addReagentAction = QAction("Add Reagent", self)
-        self.addKitAction = QAction("Import Kit", self)
-        self.addOrgAction = QAction("Import Org", self)
+        # self.addKitAction = QAction("Import Kit", self)
+        # self.addOrgAction = QAction("Import Org", self)
         self.joinExtractionAction = QAction("Link Extraction Logs")
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
         self.docsAction = QAction("&Docs", self)
-        self.searchLog = QAction("Search Log", self)
+        # self.searchLog = QAction("Search Log", self)
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
         self.yamlExportAction = QAction("Export Type Example", self)
@@ -132,14 +130,13 @@ class App(QMainWindow):
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
-        self.searchLog.triggered.connect(self.runSearch)
+        # self.searchLog.triggered.connect(self.runSearch)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
         self.yamlExportAction.triggered.connect(self.export_ST_yaml)
         self.yamlImportAction.triggered.connect(self.import_ST_yaml)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
         self.editReagentAction.triggered.connect(self.edit_reagent)
-        self.destroyed.connect(self.final_commit)
 
     def showAbout(self):
         """
@@ -180,15 +177,14 @@ class App(QMainWindow):
         instr = HTMLPop(html=html, title="Instructions")
         instr.exec()
 
-    def runSearch(self):
-        dlg = LogParser(self)
-        dlg.exec()
+    # def runSearch(self):
+    #     dlg = LogParser(self)
+    #     dlg.exec()
 
     def runSampleSearch(self):
         """
         Create a search for samples.
         """
-        # dlg = SampleSearchBox(self)
         dlg = SearchBox(self, object_type=BasicSample, extras=[])
         dlg.exec()
 
@@ -244,7 +240,6 @@ class App(QMainWindow):
         st = SubmissionType.import_from_json(filepath=fname)
         if st:
             # NOTE: Do not delete the print statement below.
-            # print(pformat(st.to_export_dict()))
             choice = input("Save the above submission type? [y/N]: ")
             if choice.lower() == "y":
                 pass
@@ -254,9 +249,6 @@ class App(QMainWindow):
     def update_data(self):
         self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
-    def final_commit(self):
-        logger.debug("Running final commit")
-        self.ctx.database_session.commit()
 
 class AddSubForm(QWidget):
 

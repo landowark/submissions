@@ -1,7 +1,6 @@
 '''
 Creates forms that the user can enter equipment info into.
 '''
-import time
 from pprint import pformat
 from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,

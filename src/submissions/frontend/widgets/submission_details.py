@@ -42,7 +42,7 @@ class SubmissionDetails(QDialog):
         # NOTE: button to export a pdf version
         self.btn = QPushButton("Export PDF")
         self.btn.setFixedWidth(775)
-        self.btn.clicked.connect(self.export)
+        self.btn.clicked.connect(self.save_pdf)
         self.back = QPushButton("Back")
         self.back.setFixedWidth(100)
         # self.back.clicked.connect(self.back_function)
@@ -181,7 +181,7 @@ class SubmissionDetails(QDialog):
         submission.save()
         self.submission_details(submission=self.rsl_plate_num)
 
-    def export(self):
+    def save_pdf(self):
         """
         Renders submission to html, then creates and saves .pdf file to user selected file.
         """
