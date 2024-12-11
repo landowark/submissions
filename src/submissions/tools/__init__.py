@@ -418,13 +418,13 @@ class Settings(BaseSettings, extra="allow"):
 
         super().__init__(*args, **kwargs)
         self.set_from_db()
-        pprint(f"User settings:\n{self.__dict__}")
+        # pprint(f"User settings:\n{self.__dict__}")
 
     def set_from_db(self):
         if 'pytest' in sys.modules:
             output = dict(power_users=['lwark', 'styson', 'ruwang'])
         else:
-            print(f"Hello from database settings getter.")
+            # print(f"Hello from database settings getter.")
             # print(self.__dict__)
             session = self.database_session
             metadata = MetaData()

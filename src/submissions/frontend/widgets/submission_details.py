@@ -64,9 +64,6 @@ class SubmissionDetails(QDialog):
                 self.reagent_details(reagent=sub)
         self.webview.page().setWebChannel(self.channel)
 
-    # def back_function(self):
-    #     self.webview.back()
-
     def activate_export(self):
         title = self.webview.title()
         self.setWindowTitle(title)

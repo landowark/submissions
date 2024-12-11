@@ -174,7 +174,8 @@ class BasicSubmission(BaseClass, LogMixin):
                             'platemap', 'export_map', 'equipment', 'tips', 'custom'],
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
-                         'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre'] + recover,
+                         'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
+                         'controls'] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         ))

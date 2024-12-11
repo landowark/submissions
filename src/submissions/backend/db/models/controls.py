@@ -539,7 +539,7 @@ class IridaControl(Control):
         except AttributeError:
             consolidate = False
         report = Report()
-        logger.debug(f"settings: {pformat(chart_settings)}")
+        # logger.debug(f"settings: {pformat(chart_settings)}")
         controls = cls.query(subtype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         # logger.debug(f"Controls found: {controls}")

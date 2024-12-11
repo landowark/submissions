@@ -17,12 +17,12 @@
         {% if sub['custom'] %}{% for key, value in sub['custom'].items() %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
         {% endfor %}{% endif %}</p>
-
+        {% if sub['reagents'] %}
         <h3><u>Reagents:</u></h3>
         <p>{% for item in sub['reagents'] %}
             &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}</b>: <a class="data-link reagent" id="{{ item['lot'] }}">{{ item['lot'] }} (EXP: {{ item['expiry'] }})</a><br>
         {% endfor %}</p>
-
+        {% endif %}
         {% if sub['equipment'] %}
         <h3><u>Equipment:</u></h3>
         <p>{% for item in sub['equipment'] %}

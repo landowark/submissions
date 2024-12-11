@@ -3,6 +3,7 @@ contains writer objects for pushing values to submission sheet templates.
 """
 import logging
 from copy import copy
+from datetime import date
 from operator import itemgetter
 from pprint import pformat
 from typing import List, Generator, Tuple
@@ -214,6 +215,10 @@ class ReagentWriter(object):
         Returns:
             List[dict]: merged dictionary
         """
+        filled_roles = [item['role'] for item in reagent_list]
+        for map_obj in reagent_map.keys():
+            if map_obj not in filled_roles:
+                reagent_list.append(dict(name="Not Applicable", role=map_obj, lot="Not Applicable", expiry="Not Applicable"))
         for reagent in reagent_list:
             try:
                 mp_info = reagent_map[reagent['role']]
@@ -268,6 +273,7 @@ class SampleWriter(object):
         # NOTE: exclude any samples without a submission rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
         self.samples = sorted(samples, key=itemgetter('submission_rank'))
+        self.blank_lookup_table()
 
     def reconcile_map(self, sample_list: list) -> Generator[dict, None, None]:
         """
@@ -290,6 +296,16 @@ class SampleWriter(object):
                         continue
                     new[k] = v
                 yield new
+
+    def blank_lookup_table(self):
+        """
+        Blanks out columns in the lookup table to ensure help values are removed before writing.
+        """
+        sheet = self.xl[self.sample_map['sheet']]
+        for row in range(self.sample_map['start_row'], self.sample_map['end_row'] + 1):
+            for column in self.sample_map['sample_columns'].values():
+                if sheet.cell(row, column).data_type != 'f':
+                    sheet.cell(row=row, column=column, value="")
 
     def write_samples(self) -> Workbook:
         """

@@ -3,9 +3,9 @@ Contains all submission related frontend functions
 '''
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
-    QComboBox, QDateEdit, QLineEdit, QLabel
+    QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QBoxLayout, QHBoxLayout, QGridLayout
 )
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
 from . import select_open_file, select_save_file
 import logging
 from pathlib import Path
@@ -228,8 +228,25 @@ class SubmissionFormWidget(QWidget):
             # if k == "extraction_kit":
             if k in self.__class__.update_reagent_fields:
                 add_widget.input.currentTextChanged.connect(self.scrape_reagents)
+                self.disabler = self.DisableReagents(self)
+                self.disabler.checkbox.setChecked(True)
+                self.layout.addWidget(self.disabler)
+                self.disabler.checkbox.checkStateChanged.connect(self.disable_reagents)
         self.setStyleSheet(main_form_style)
         self.scrape_reagents(self.extraction_kit)
+
+    def disable_reagents(self):
+        for reagent in self.findChildren(self.ReagentFormWidget):
+            # if self.disabler.checkbox.isChecked():
+            #     # reagent.setVisible(True)
+            #     # with QSignalBlocker(self.disabler.checkbox) as b:
+            #     reagent.flip_check()
+            # else:
+            #     # reagent.setVisible(False)
+            #     # with QSignalBlocker(self.disabler.checkbox) as b:
+            #     reagent.check.setChecked(False)
+            reagent.flip_check(self.disabler.checkbox.isChecked())
+
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
                       extraction_kit: str | None = None, sub_obj: BasicSubmission | None = None,
@@ -350,8 +367,9 @@ class SubmissionFormWidget(QWidget):
         report.add_result(result)
         # logger.debug(f"Submission: {pformat(self.pyd)}")
         # logger.debug("Checking kit integrity...")
-        _, result = self.pyd.check_kit_integrity()
-        report.add_result(result)
+        if self.disabler.checkbox.isChecked():
+            _, result = self.pyd.check_kit_integrity()
+            report.add_result(result)
         if len(result.results) > 0:
             return
         # logger.debug(f"PYD before transformation into SQL:\n\n{self.pyd}\n\n")
@@ -665,11 +683,15 @@ class SubmissionFormWidget(QWidget):
             self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
             self.reagent = reagent
             self.extraction_kit = extraction_kit
-            layout = QVBoxLayout()
+            layout = QGridLayout()
+            self.check = QCheckBox()
+            self.check.setChecked(True)
+            self.check.checkStateChanged.connect(self.disable)
+            layout.addWidget(self.check, 0, 0, 1, 1)
             self.label = self.ReagentParsedLabel(reagent=reagent)
-            layout.addWidget(self.label)
+            layout.addWidget(self.label, 0, 1, 1, 9)
             self.lot = self.ReagentLot(scrollWidget=parent, reagent=reagent, extraction_kit=extraction_kit)
-            layout.addWidget(self.lot)
+            layout.addWidget(self.lot, 1, 0, 1, 10)
             # NOTE: Remove spacing between reagents
             layout.setContentsMargins(0, 0, 0, 0)
             self.setLayout(layout)
@@ -677,6 +699,20 @@ class SubmissionFormWidget(QWidget):
             self.missing = reagent.missing
             # NOTE: If changed set self.missing to True and update self.label
             self.lot.currentTextChanged.connect(self.updated)
+
+        def flip_check(self, checked:bool):
+            with QSignalBlocker(self.check) as b:
+                self.check.setChecked(checked)
+                self.lot.setEnabled(checked)
+                self.label.setEnabled(checked)
+
+        def disable(self):
+            self.lot.setEnabled(self.check.isChecked())
+            self.label.setEnabled(self.check.isChecked())
+            if not any([item.lot.isEnabled() for item in self.parent().findChildren(self.__class__)]):
+                self.parent().disabler.checkbox.setChecked(False)
+            else:
+                self.parent().disabler.checkbox.setChecked(True)
 
         def parse_form(self) -> Tuple[PydReagent | None, Report]:
             """
@@ -686,6 +722,8 @@ class SubmissionFormWidget(QWidget):
                 Tuple[PydReagent, dict]: PydReagent and Report(?)
             """
             report = Report()
+            if not self.lot.isEnabled():
+                return None, report
             lot = self.lot.currentText()
             # logger.debug(f"Using this lot for the reagent {self.reagent}: {lot}")
             wanted_reagent = Reagent.query(lot=lot, role=self.reagent.role)
@@ -786,3 +824,15 @@ class SubmissionFormWidget(QWidget):
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")
+
+    class DisableReagents(QWidget):
+
+        def __init__(self, parent: QWidget):
+            super().__init__(parent)
+            self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
+            layout = QHBoxLayout()
+            self.label = QLabel("Import Reagents")
+            self.checkbox = QCheckBox()
+            layout.addWidget(self.label)
+            layout.addWidget(self.checkbox)
+            self.setLayout(layout)

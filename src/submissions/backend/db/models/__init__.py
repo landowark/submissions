@@ -25,6 +25,16 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class LogMixin(Base):
     __abstract__ = True
 
+    def truncated_name(self):
+        name = str(self)
+        if len(name) > 64:
+            name = name.replace("<", "").replace(">", "")
+        if len(name) > 64:
+            name = name.replace("agent", "")
+        if len(name) > 64:
+            name = f"...{name[-61:]}"
+        return name
+
 
 class BaseClass(Base):
     """

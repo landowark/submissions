@@ -37,10 +37,11 @@ from .models import *
 
 
 def update_log(mapper, connection, target):
-    logger.debug("\n\nBefore update\n\n")
+    # logger.debug("\n\nBefore update\n\n")
     state = inspect(target)
     # logger.debug(state)
-    update = dict(user=getuser(), time=datetime.now(), object=str(state.object), changes=[])
+    object_name = state.object.truncated_name()
+    update = dict(user=getuser(), time=datetime.now(), object=object_name, changes=[])
     # logger.debug(update)
     for attr in state.attrs:
         hist = attr.load_history()
@@ -49,8 +50,10 @@ def update_log(mapper, connection, target):
         if attr.key == "custom":
             continue
         added = [str(item) for item in hist.added]
-        if attr.key in ['submission_sample_associations', 'submission_reagent_associations']:
-            added = ['Numbers truncated for space purposes.']
+        if attr.key in ['artic_technician', 'submission_sample_associations', 'submission_reagent_associations',
+                        'submission_equipment_associations', 'submission_tips_associations', 'contact_id', 'gel_info',
+                        'gel_controls', 'source_plates']:
+            continue
         deleted = [str(item) for item in hist.deleted]
         change = dict(field=attr.key, added=added, deleted=deleted)
         # logger.debug(f"Adding: {pformat(change)}")

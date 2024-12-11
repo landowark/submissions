@@ -1,3 +1,11 @@
+## 202412.03
+
+- Automated truncating of object names longer than 64 chars going into _auditlog
+- Writer will now blank out the lookup table before writing to ensure removal of extraneous help info.
+- Added support for running startup and teardown scripts.
+- Created startup script to pull irida controls from secondary database.
+- Added ability to not import reagents on first import.
+
 ## 202412.02
 
 - Addition of turnaround time tracking

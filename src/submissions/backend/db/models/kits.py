@@ -427,9 +427,10 @@ class Reagent(BaseClass, LogMixin):
 
     def __repr__(self):
         if self.name:
-            return f"<Reagent({self.name}-{self.lot})>"
+            name = f"<Reagent({self.name}-{self.lot})>"
         else:
-            return f"<Reagent({self.role.name}-{self.lot})>"
+            name = f"<Reagent({self.role.name}-{self.lot})>"
+        return name
 
     def to_sub_dict(self, extraction_kit: KitType = None, full_data: bool = False, **kwargs) -> dict:
         """
@@ -1347,7 +1348,7 @@ class SubmissionReagentAssociation(BaseClass):
         return PydReagent(**self.to_sub_dict(extraction_kit=extraction_kit))
 
 
-class Equipment(BaseClass):
+class Equipment(BaseClass, LogMixin):
     """
     A concrete instance of equipment
     """
@@ -1851,7 +1852,7 @@ class TipRole(BaseClass):
         super().save()
 
 
-class Tips(BaseClass):
+class Tips(BaseClass, LogMixin):
     """
     A concrete instance of tips.
     """

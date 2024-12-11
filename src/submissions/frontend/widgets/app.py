@@ -27,7 +27,7 @@ from .turnaround import TurnaroundTime
 from .omni_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
-logger.info("Hello, I am a logger")
+# logger.info("Hello, I am a logger")
 
 
 class App(QMainWindow):
