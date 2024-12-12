@@ -18,7 +18,6 @@ class InfoPane(QWidget):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.app = self.parent().parent()
-        # logger.debug(f"\n\n{self.app}\n\n")
         self.report = Report()
         self.datepicker = StartEndDatePicker(default_start=-180)
         self.webview = QWebEngineView()

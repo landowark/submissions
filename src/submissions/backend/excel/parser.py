@@ -1,6 +1,6 @@
-'''
+"""
 contains parser objects for pulling values from client generated submission sheets.
-'''
+"""
 import logging
 from copy import copy
 from getpass import getuser
@@ -53,7 +53,6 @@ class SheetParser(object):
         self.parse_samples()
         self.parse_equipment()
         self.parse_tips()
-        # logger.debug(f"Parser.sub after info scrape: {pformat(self.sub)}")
 
     def parse_info(self):
         """
@@ -71,7 +70,6 @@ class SheetParser(object):
         logger.info(
             f"Checking for updated submission type: {self.submission_type.name} against new: {info['submission_type']['value']}")
         if self.submission_type.name != info['submission_type']['value']:
-            # logger.debug(f"info submission type: {info}")
             if check:
                 self.submission_type = SubmissionType.query(name=info['submission_type']['value'])
                 logger.info(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
@@ -90,11 +88,9 @@ class SheetParser(object):
         """
         if extraction_kit is None:
             extraction_kit = self.sub['extraction_kit']
-        # logger.debug(f"Parsing reagents for {extraction_kit}")
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=extraction_kit)
         self.sub['reagents'] = parser.parse_reagents()
-        # logger.debug(f"Reagents out of parser: {pformat(self.sub['reagents'])}")
 
     def parse_samples(self):
         """
@@ -155,7 +151,6 @@ class InfoParser(object):
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        logger.info(f"\n\nHello from InfoParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
@@ -164,7 +159,6 @@ class InfoParser(object):
         self.sub_object = sub_object
         self.map = self.fetch_submission_info_map()
         self.xl = xl
-        # logger.debug(f"Info map for InfoParser: {pformat(self.map)}")
 
     def fetch_submission_info_map(self) -> dict:
         """
@@ -174,7 +168,6 @@ class InfoParser(object):
             dict: Location map of all info for this submission type
         """
         self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
-        # logger.debug(f"Looking up submission type: {self.submission_type['value']}")
         info_map = self.sub_object.construct_info_map(submission_type=self.submission_type_obj, mode="read")
         # NOTE: Get the parse_info method from the submission type specified
         return info_map
@@ -188,7 +181,6 @@ class InfoParser(object):
         """
         dicto = {}
         # NOTE: This loop parses generic info
-        # logger.debug(f"Map: {self.map}")
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = []
@@ -197,11 +189,8 @@ class InfoParser(object):
                 if k == "custom":
                     continue
                 if isinstance(v, str):
-                    logger.debug(f"Found string for {k}, setting value to {v}")
                     dicto[k] = dict(value=v, missing=False)
                     continue
-                # logger.debug(f"Looking for {k} in self.map")
-                # logger.debug(f"Locations: {v}")
                 for location in v:
                     try:
                         check = location['sheet'] == sheet
@@ -213,21 +202,18 @@ class InfoParser(object):
                         new = location
                         new['name'] = k
                         relevant.append(new)
-            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             # NOTE: make sure relevant is not an empty list.
             if not relevant:
                 continue
             for item in relevant:
                 # NOTE: Get cell contents at this location
                 value = ws.cell(row=item['row'], column=item['column']).value
-                # logger.debug(f"Value for {item['name']} = {value}")
                 match item['name']:
                     case "submission_type":
                         value, missing = is_missing(value)
                         value = value.title()
                     case "submitted_date":
                         value, missing = is_missing(value)
-                        logger.debug(f"Parsed submitted date: {value}")
                     # NOTE: is field a JSON? Includes: Extraction info, PCR info, comment, custom
                     case thing if thing in self.sub_object.jsons():
                         value, missing = is_missing(value)
@@ -240,7 +226,6 @@ class InfoParser(object):
                             logger.error(f"New value for {item['name']}")
                     case _:
                         value, missing = is_missing(value)
-                # logger.debug(f"Setting {item} on {sheet} to {value}")
                 if item['name'] not in dicto.keys():
                     try:
                         dicto[item['name']] = dict(value=value, missing=missing)
@@ -264,7 +249,6 @@ class ReagentParser(object):
             extraction_kit (str): Extraction kit used.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        logger.info("\n\nHello from ReagentParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type_obj = submission_type
@@ -272,9 +256,7 @@ class ReagentParser(object):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
-        logger.debug(f"Got extraction kit object: {self.kit_object}")
         self.map = self.fetch_kit_info_map(submission_type=submission_type)
-        logger.debug(f"Reagent Parser map: {self.map}")
         self.xl = xl
 
     @report_result
@@ -298,14 +280,11 @@ class ReagentParser(object):
             del reagent_map['info']
         except KeyError:
             pass
-        # logger.debug(f"Reagent map: {pformat(reagent_map)}")
         # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
         if not reagent_map:
             temp_kit_object = self.submission_type_obj.get_default_kit()
-            # logger.debug(f"Temp kit: {temp_kit_object}")
             if temp_kit_object:
                 self.kit_object = temp_kit_object
-                # reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
                 logger.warning(f"Attempting to salvage with default kit {self.kit_object} and submission_type: {self.submission_type_obj}")
                 return self.fetch_kit_info_map(submission_type=self.submission_type_obj)
             else:
@@ -331,18 +310,15 @@ class ReagentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            # logger.debug(f"relevant map for {sheet}: {pformat(relevant)}")
             if relevant == {}:
                 continue
             for item in relevant:
-                # logger.debug(f"Attempting to scrape: {item}")
                 try:
                     reagent = relevant[item]
                     name = ws.cell(row=reagent['name']['row'], column=reagent['name']['column']).value
                     lot = ws.cell(row=reagent['lot']['row'], column=reagent['lot']['column']).value
                     expiry = ws.cell(row=reagent['expiry']['row'], column=reagent['expiry']['column']).value
                     if 'comment' in relevant[item].keys():
-                        # logger.debug(f"looking for {relevant[item]} comment.")
                         comment = ws.cell(row=reagent['comment']['row'], column=reagent['comment']['column']).value
                     else:
                         comment = ""
@@ -353,10 +329,7 @@ class ReagentParser(object):
                     missing = False
                 else:
                     missing = True
-                # logger.debug(f"Got lot for {item}-{name}: {lot} as {type(lot)}")
                 lot = str(lot)
-                # logger.debug(
-                #     f"Going into pydantic: name: {name}, lot: {lot}, expiry: {expiry}, type: {item.strip()}, comment: {comment}")
                 try:
                     check = name.lower() != "not applicable"
                 except AttributeError:
@@ -381,12 +354,10 @@ class SampleParser(object):
             sample_map (dict | None, optional): Locations in database where samples are found. Defaults to None.
             sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
         """
-        logger.info("\n\nHello from SampleParser!\n\n")
         self.samples = []
         self.xl = xl
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
-        # logger.debug(f"Sample parser is using submission type: {submission_type}")
         self.submission_type = submission_type.name
         self.submission_type_obj = submission_type
         if sub_object is None:
@@ -395,7 +366,6 @@ class SampleParser(object):
             sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.sub_object = sub_object
         self.sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
-        # logger.debug(f"sample_info_map: {self.sample_info_map}")
         self.plate_map_samples = self.parse_plate_map()
         self.lookup_samples = self.parse_lookup_table()
 
@@ -409,11 +379,8 @@ class SampleParser(object):
         Returns:
             dict: Info locations.
         """
-        # logger.debug(f"Looking up submission type: {submission_type}")
         self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
         self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
-        # logger.debug(f"Got sample class: {self.samp_object.__name__}")
-        # logger.debug(f"info_map: {pformat(se)}")
         if sample_map is None:
             sample_info_map = self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
         else:
@@ -432,9 +399,7 @@ class SampleParser(object):
         ws = self.xl[smap['sheet']]
         plate_map_samples = []
         for ii, row in enumerate(range(smap['start_row'], smap['end_row'] + 1), start=1):
-            # logger.debug(f"Parsing row: {row}")
             for jj, column in enumerate(range(smap['start_column'], smap['end_column'] + 1), start=1):
-                # logger.debug(f"Parsing column: {column}")
                 id = str(ws.cell(row=row, column=column).value)
                 if check_not_nan(id):
                     if id not in invalids:
@@ -442,10 +407,8 @@ class SampleParser(object):
                         sample_dict['sample_type'] = self.sample_type
                         plate_map_samples.append(sample_dict)
                     else:
-                        # logger.error(f"Sample cell ({row}, {column}) has invalid value: {id}.")
                         pass
                 else:
-                    # logger.error(f"Sample cell ({row}, {column}) has no info: {id}.")
                     pass
         return plate_map_samples
 
@@ -507,7 +470,6 @@ class SampleParser(object):
                 except (KeyError, IndexError):
                     check = False
                 if check:
-                    # logger.debug(f"Direct match found for {psample['id']}")
                     new = lookup_samples[ii] | psample
                     lookup_samples[ii] = {}
                 else:
@@ -516,7 +478,6 @@ class SampleParser(object):
                                    if merge_on_id in sample.keys()]
                     jj, new = next(((jj, lsample | psample) for jj, lsample in searchables
                                     if lsample[merge_on_id] == psample['id']), (-1, psample))
-                    # logger.debug(f"Assigning from index {jj} - {new}")
                     if jj >= 0:
                         lookup_samples[jj] = {}
                 if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
@@ -540,7 +501,6 @@ class EquipmentParser(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
         """
-        logger.info("\n\nHello from EquipmentParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -567,7 +527,6 @@ class EquipmentParser(object):
             str: asset number
         """
         regex = Equipment.get_regex()
-        # logger.debug(f"Using equipment regex: {regex} on {input}")
         try:
             return regex.search(input).group().strip("-")
         except AttributeError as e:
@@ -581,8 +540,6 @@ class EquipmentParser(object):
         Returns:
             List[dict]: list of equipment
         """
-        # logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
-        # logger.debug(f"Sheets: {sheets}")
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             try:
@@ -590,17 +547,14 @@ class EquipmentParser(object):
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
-            # logger.debug(f"Relevant equipment: {pformat(relevant)}")
             previous_asset = ""
             for k, v in relevant.items():
-                # logger.debug(f"Checking: {v}")
                 asset = ws.cell(v['name']['row'], v['name']['column']).value
                 if not check_not_nan(asset):
                     asset = previous_asset
                 else:
                     previous_asset = asset
                 asset = self.get_asset_number(input=asset)
-                # logger.debug(f"asset: {asset}")
                 eq = Equipment.query(asset_number=asset)
                 if eq is None:
                     eq = Equipment.query(name=asset)
@@ -623,7 +577,6 @@ class TipParser(object):
             xl (Workbook): Openpyxl workbook from submitted excel file.
             submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
         """
-        logger.info("\n\nHello from TipParser!\n\n")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
@@ -646,8 +599,6 @@ class TipParser(object):
         Returns:
             List[dict]: list of equipment
         """
-        # logger.debug(f"Equipment parser going into parsing: {pformat(self.__dict__)}")
-        # logger.debug(f"Sheets: {sheets}")
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             try:
@@ -655,7 +606,6 @@ class TipParser(object):
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
-            # logger.debug(f"Relevant equipment: {pformat(relevant)}")
             previous_asset = ""
             for k, v in relevant.items():
                 asset = ws.cell(v['name']['row'], v['name']['column']).value
@@ -667,7 +617,6 @@ class TipParser(object):
                     asset = previous_asset
                 else:
                     previous_asset = asset
-                # logger.debug(f"asset: {asset}")
                 eq = Tips.query(lot=lot, name=asset, limit=1)
                 try:
                     yield dict(name=eq.name, role=k, lot=lot)
@@ -684,7 +633,6 @@ class PCRParser(object):
             filepath (Path | None, optional): file to parse. Defaults to None.
             submission (BasicSubmission | None, optional): Submission parsed data to be added to.
         """
-        # logger.debug(f'Parsing {filepath.__str__()}')
         if filepath is None:
             logger.error('No filepath given.')
             self.xl = None
@@ -727,5 +675,4 @@ class PCRParser(object):
             value = row[1].value or ""
             pcr[key] = value
         pcr['imported_by'] = getuser()
-        # logger.debug(f"PCR: {pformat(pcr)}")
         return pcr

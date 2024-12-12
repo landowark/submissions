@@ -171,11 +171,9 @@ class Control(BaseClass):
         match submission_type:
             case str():
                 from backend import BasicSubmission, SubmissionType
-                # logger.debug(f"Lookup controls by SubmissionType str: {submission_type}")
                 query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submission_type)
             case SubmissionType():
                 from backend import BasicSubmission
-                # logger.debug(f"Lookup controls by SubmissionType: {submission_type}")
                 query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name == submission_type.name)
             case _:
                 pass
@@ -203,31 +201,23 @@ class Control(BaseClass):
         if start_date is not None:
             match start_date:
                 case date():
-                    # logger.debug(f"Lookup control by start date({start_date})")
                     start_date = start_date.strftime("%Y-%m-%d")
                 case int():
-                    # logger.debug(f"Lookup control by ordinal start date {start_date}")
                     start_date = datetime.fromordinal(
                         datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
                 case _:
-                    # logger.debug(f"Lookup control with parsed start date {start_date}")
                     start_date = parse(start_date).strftime("%Y-%m-%d")
             match end_date:
                 case date():
-                    # logger.debug(f"Lookup control by end date({end_date})")
                     end_date = end_date.strftime("%Y-%m-%d")
                 case int():
-                    # logger.debug(f"Lookup control by ordinal end date {end_date}")
                     end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
                         "%Y-%m-%d")
                 case _:
-                    # logger.debug(f"Lookup control with parsed end date {end_date}")
                     end_date = parse(end_date).strftime("%Y-%m-%d")
-            # logger.debug(f"Looking up BasicSubmissions from start date: {start_date} and end date: {end_date}")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         match name:
             case str():
-                # logger.debug(f"Lookup control by name {control_name}")
                 query = query.filter(cls.name.startswith(name))
                 limit = 1
             case _:
@@ -273,7 +263,6 @@ class Control(BaseClass):
             except StopIteration as e:
                 raise AttributeError(
                     f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs.keys())}")
-        # logger.info(f"Recruiting model: {model}")
         return model
 
     @classmethod
@@ -343,7 +332,6 @@ class PCRControl(Control):
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
         report = Report()
-        # logger.debug(f"Chart settings: {pformat(chart_settings)}")
         controls = cls.query(submission_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
@@ -411,21 +399,16 @@ class IridaControl(Control):
             kraken = self.kraken
         except TypeError:
             kraken = {}
-        # logger.debug("calculating kraken count total to use in percentage")
         kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
-        # logger.debug("Creating new kraken.")
         new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'],
                            kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total),
                            target=item in self.controltype.targets)
                       for item in kraken]
-        # logger.debug(f"New kraken before sort: {new_kraken}")
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
-        # logger.debug("setting targets")
         if self.controltype.targets:
             targets = self.controltype.targets
         else:
             targets = ["None"]
-        # logger.debug("constructing output dictionary")
         output = dict(
             name=self.name,
             type=self.controltype.name,
@@ -447,7 +430,6 @@ class IridaControl(Control):
         Returns:
             List[dict]: list of records
         """
-        # logger.debug("load json string for mode (i.e. contains, matches, kraken2)")
         try:
             data = self.__getattribute__(mode)
         except TypeError:
@@ -460,12 +442,10 @@ class IridaControl(Control):
         else:
             if consolidate:
                 on_tar = {k: v for k, v in data.items() if k.strip("*") in self.controltype.targets[control_sub_type]}
-                # logger.debug(f"Consolidating off-targets to: {self.controltype.targets[control_sub_type]}")
                 off_tar = sum(v[f'{mode}_ratio'] for k, v in data.items() if
                               k.strip("*") not in self.controltype.targets[control_sub_type])
                 on_tar['Off-target'] = {f"{mode}_ratio": off_tar}
                 data = on_tar
-        # logger.debug("dict keys are genera of bacteria, e.g. 'Streptococcus'")
         for genus in data:
             _dict = dict(
                 name=self.name,
@@ -473,7 +453,6 @@ class IridaControl(Control):
                 genus=genus,
                 target='Target' if genus.strip("*") in self.controltype.targets[control_sub_type] else "Off-target"
             )
-            # logger.debug("get Target or Off-target of genus")
             for key in data[genus]:
                 _dict[key] = data[genus][key]
             yield _dict
@@ -487,7 +466,6 @@ class IridaControl(Control):
             List[str]: List of control mode names.
         """
         try:
-            # logger.debug("Creating a list of JSON columns in _controls table")
             cols = [item.name for item in list(cls.__table__.columns) if isinstance(item.type, JSON)]
         except AttributeError as e:
             logger.error(f"Failed to get available modes from db: {e}")
@@ -504,7 +482,6 @@ class IridaControl(Control):
         """
         super().make_parent_buttons(parent=parent)
         rows = parent.layout.rowCount() - 2
-        # logger.debug(f"Parent rows: {rows}")
         checker = QCheckBox(parent)
         checker.setChecked(True)
         checker.setObjectName("irida_check")
@@ -539,10 +516,8 @@ class IridaControl(Control):
         except AttributeError:
             consolidate = False
         report = Report()
-        # logger.debug(f"settings: {pformat(chart_settings)}")
         controls = cls.query(subtype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
-        # logger.debug(f"Controls found: {controls}")
         if not controls:
             report.add_result(Result(status="Critical", msg="No controls found in given date range."))
             return report, None
@@ -552,19 +527,16 @@ class IridaControl(Control):
                 control in controls]
         # NOTE: flatten data to one dimensional list
         data = [item for sublist in data for item in sublist]
-        # logger.debug(f"Control objects going into df conversion: {pformat(data)}")
         if not data:
             report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
             return report, None
         df = cls.convert_data_list_to_df(input_df=data, sub_mode=chart_settings['sub_mode'])
-        # logger.debug(f"Chart df: \n {df}")
         if chart_settings['sub_mode'] is None:
             title = chart_settings['sub_mode']
         else:
             title = f"{chart_settings['mode']} - {chart_settings['sub_mode']}"
         # NOTE: send dataframe to chart maker
         df, modes = cls.prep_df(ctx=ctx, df=df)
-        # logger.debug(f"prepped df: \n {df}")
         fig = IridaFigure(df=df, ytitle=title, modes=modes, parent=parent,
                           settings=chart_settings)
         return report, fig
@@ -581,9 +553,7 @@ class IridaControl(Control):
         Returns:
             DataFrame: dataframe of controls
         """
-        # logger.debug(f"Subtype: {sub_mode}")
         df = DataFrame.from_records(input_df)
-        # logger.debug(f"DF from records: {df}")
         safe = ['name', 'submitted_date', 'genus', 'target']
         for column in df.columns:
             if column not in safe:
@@ -636,7 +606,6 @@ class IridaControl(Control):
         Returns:
             DataFrame: output dataframe with dates incremented.
         """
-        # logger.debug(f"Unique items: {df['name'].unique()}")
         # NOTE: get submitted dates for each control
         dict_list = [dict(name=item, date=df[df.name == item].iloc[0]['submitted_date']) for item in
                      sorted(df['name'].unique())]
@@ -664,7 +633,6 @@ class IridaControl(Control):
             check = False
         previous_dates.add(item['date'])
         if check:
-            # logger.debug(f"We found one! Increment date!\n\t{item['date']} to {item['date'] + timedelta(days=1)}")
             # NOTE: get df locations where name == item name
             mask = df['name'] == item['name']
             # NOTE: increment date in dataframe
@@ -673,15 +641,12 @@ class IridaControl(Control):
             passed = False
         else:
             passed = True
-        # logger.debug(f"\n\tCurrent date: {item['date']}\n\tPrevious dates:{previous_dates}")
-        # logger.debug(f"DF: {type(df)}, previous_dates: {type(previous_dates)}")
         # NOTE: if run didn't lead to changed date, return values
         if passed:
-            # logger.debug(f"Date check passed, returning.")
             return df, previous_dates
         # NOTE: if date was changed, rerun with new date
         else:
-            # logger.warning(f"Date check failed, running recursion")
+            logger.warning(f"Date check failed, running recursion")
             df, previous_dates = cls.check_date(df, item, previous_dates)
             return df, previous_dates
 
@@ -708,13 +673,10 @@ class IridaControl(Control):
         # NOTE: sort by and exclude from
         sorts = ['submitted_date', "target", "genus"]
         exclude = ['name', 'genera']
-        # logger.debug(df.columns)
         modes = [item for item in df.columns if item not in sorts and item not in exclude]
-        # logger.debug(f"Modes coming out: {modes}")
         # NOTE: Set descending for any columns that have "{mode}" in the header.
         ascending = [False if item == "target" else True for item in sorts]
         df = df.sort_values(by=sorts, ascending=ascending)
-        # logger.debug(df[df.isna().any(axis=1)])
         # NOTE: actual chart construction is done by
         return df, modes
 

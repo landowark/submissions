@@ -17,7 +17,6 @@ from io import BytesIO
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
-# logger.debug("Table for ReagentType/Reagent relations")
 reagentroles_reagents = Table(
     "_reagentroles_reagents",
     Base.metadata,
@@ -26,7 +25,6 @@ reagentroles_reagents = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for EquipmentRole/Equipment relations")
 equipmentroles_equipment = Table(
     "_equipmentroles_equipment",
     Base.metadata,
@@ -35,7 +33,6 @@ equipmentroles_equipment = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for Equipment/Process relations")
 equipment_processes = Table(
     "_equipment_processes",
     Base.metadata,
@@ -44,7 +41,6 @@ equipment_processes = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for EquipmentRole/Process relations")
 equipmentroles_processes = Table(
     "_equipmentroles_processes",
     Base.metadata,
@@ -53,7 +49,6 @@ equipmentroles_processes = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for SubmissionType/Process relations")
 submissiontypes_processes = Table(
     "_submissiontypes_processes",
     Base.metadata,
@@ -62,7 +57,6 @@ submissiontypes_processes = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for KitType/Process relations")
 kittypes_processes = Table(
     "_kittypes_processes",
     Base.metadata,
@@ -71,7 +65,6 @@ kittypes_processes = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for TipRole/Tips relations")
 tiproles_tips = Table(
     "_tiproles_tips",
     Base.metadata,
@@ -80,7 +73,6 @@ tiproles_tips = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for Process/TipRole relations")
 process_tiprole = Table(
     "_process_tiprole",
     Base.metadata,
@@ -89,7 +81,6 @@ process_tiprole = Table(
     extend_existing=True
 )
 
-# logger.debug("Table for Equipment/Tips relations")
 equipment_tips = Table(
     "_equipment_tips",
     Base.metadata,
@@ -116,7 +107,7 @@ class KitType(BaseClass):
         cascade="all, delete-orphan",
     )
 
-    # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
+    # NOTE: creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
     reagent_roles = association_proxy("kit_reagentrole_associations", "reagent_role",
                                       creator=lambda RT: KitTypeReagentRoleAssociation(
                                           reagent_role=RT))  #: Association proxy to KitTypeReagentRoleAssociation
@@ -152,18 +143,14 @@ class KitType(BaseClass):
         """
         match submission_type:
             case SubmissionType():
-                # logger.debug(f"Getting reagents by SubmissionType {submission_type}")
                 relevant_associations = [item for item in self.kit_reagentrole_associations if
                                          item.submission_type == submission_type]
             case str():
-                # logger.debug(f"Getting reagents by str {submission_type}")
                 relevant_associations = [item for item in self.kit_reagentrole_associations if
                                          item.submission_type.name == submission_type]
             case _:
-                # logger.debug(f"Getting reagents")
                 relevant_associations = [item for item in self.kit_reagentrole_associations]
         if required:
-            # logger.debug(f"Filtering by required.")
             return (item.reagent_role for item in relevant_associations if item.required == 1)
         else:
             return (item.reagent_role for item in relevant_associations)
@@ -181,18 +168,14 @@ class KitType(BaseClass):
         # NOTE: Account for submission_type variable type.
         match submission_type:
             case str():
-                # logger.debug(f"Constructing xl map with str {submission_type}")
                 assocs = [item for item in self.kit_reagentrole_associations if
                           item.submission_type.name == submission_type]
             case SubmissionType():
-                # logger.debug(f"Constructing xl map with SubmissionType {submission_type}")
                 assocs = [item for item in self.kit_reagentrole_associations if item.submission_type == submission_type]
             case _:
                 raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
-        # logger.debug("Get all KitTypeReagentTypeAssociation for SubmissionType")
         for assoc in assocs:
             try:
-                # logger.debug(f"Yielding: {assoc.reagent_role.name}, {assoc.uses}")
                 yield assoc.reagent_role.name, assoc.uses
             except TypeError:
                 continue
@@ -220,27 +203,22 @@ class KitType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match used_for:
             case str():
-                # logger.debug(f"Looking up kit type by used_for str: {used_for}")
                 query = query.filter(cls.used_for.any(name=used_for))
             case SubmissionType():
-                # logger.debug(f"Looking up kit type by used_for SubmissionType: {used_for}")
                 query = query.filter(cls.used_for.contains(used_for))
             case _:
                 pass
         match name:
             case str():
-                # logger.debug(f"Looking up kit type by name str: {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
                 pass
         match id:
             case int():
-                # logger.debug(f"Looking up kit type by id int: {id}")
                 query = query.filter(cls.id == id)
                 limit = 1
             case str():
-                # logger.debug(f"Looking up kit type by id str: {id}")
                 query = query.filter(cls.id == int(id))
                 limit = 1
             case _:
@@ -262,10 +240,7 @@ class KitType(BaseClass):
             dict: Dictionary containing relevant info for SubmissionType construction
         """
         base_dict = dict(name=self.name, reagent_roles=[], equipment_roles=[])
-        # base_dict['reagent roles'] = []
-        # base_dict['equipment roles'] = []
         for k, v in self.construct_xl_map_for_use(submission_type=submission_type):
-            # logger.debug(f"Value: {v}")
             try:
                 assoc = next(item for item in self.kit_reagentrole_associations if item.reagent_role.name == k)
             except StopIteration as e:
@@ -280,10 +255,8 @@ class KitType(BaseClass):
             except StopIteration:
                 continue
             for kk, vv in assoc.to_export_dict(extraction_kit=self).items():
-                # logger.debug(f"{kk}:{vv}")
                 v[kk] = vv
             base_dict['equipment_roles'].append(v)
-        # logger.debug(f"KT returning {base_dict}")
         return base_dict
 
 
@@ -347,28 +320,19 @@ class ReagentRole(BaseClass):
         else:
             match kit_type:
                 case str():
-                    # logger.debug(f"Lookup ReagentType by kittype str {kit_type}")
                     kit_type = KitType.query(name=kit_type)
                 case _:
                     pass
             match reagent:
                 case str():
-                    # logger.debug(f"Lookup ReagentType by reagent str {reagent}")
                     reagent = Reagent.query(lot=reagent)
                 case _:
                     pass
             assert reagent.role
-            # logger.debug(f"Looking up reagent type for {type(kit_type)} {kit_type} and {type(reagent)} {reagent}")
-            # logger.debug(f"Kit reagent types: {kit_type.reagent_types}")
             result = set(kit_type.reagent_roles).intersection(reagent.role)
-            # logger.debug(f"Result: {result}")
-            # try:
             return next((item for item in result), None)
-            # except IndexError:
-            #     return None
         match name:
             case str():
-                # logger.debug(f"Looking up reagent type by name str: {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
@@ -457,7 +421,6 @@ class Reagent(BaseClass, LogMixin):
             rtype = reagent_role.name.replace("_", " ")
         except AttributeError:
             rtype = "Unknown"
-        # logger.debug(f"Role for {self.name}: {rtype}")
         # NOTE: Calculate expiry with EOL from ReagentType
         try:
             place_holder = self.expiry + reagent_role.eol_ext
@@ -493,14 +456,11 @@ class Reagent(BaseClass, LogMixin):
             Report: Result of operation
         """
         report = Report()
-        # logger.debug(f"Attempting update of last used reagent type at intersection of ({self}), ({kit})")
         rt = ReagentRole.query(kit_type=kit, reagent=self, limit=1)
         if rt is not None:
-            # logger.debug(f"got reagenttype {rt}")
             assoc = KitTypeReagentRoleAssociation.query(kit_type=kit, reagent_role=rt)
             if assoc is not None:
                 if assoc.last_used != self.lot:
-                    # logger.debug(f"Updating {assoc} last used to {self.lot}")
                     assoc.last_used = self.lot
                     result = assoc.save()
                     report.add_result(result)
@@ -539,23 +499,19 @@ class Reagent(BaseClass, LogMixin):
                 pass
         match role:
             case str():
-                # logger.debug(f"Looking up reagents by reagent type str: {reagent_type}")
                 query = query.join(cls.role).filter(ReagentRole.name == role)
             case ReagentRole():
-                # logger.debug(f"Looking up reagents by reagent type ReagentType: {reagent_type}")
                 query = query.filter(cls.role.contains(role))
             case _:
                 pass
         match name:
             case str():
-                # logger.debug(f"Looking up reagent by name str: {name}")
                 # NOTE: Not limited due to multiple reagents having same name.
                 query = query.filter(cls.name == name)
             case _:
                 pass
         match lot:
             case str():
-                # logger.debug(f"Looking up reagent by lot number str: {lot}")
                 query = query.filter(cls.lot == lot)
                 # NOTE: In this case limit number returned.
                 limit = 1
@@ -579,7 +535,6 @@ class Reagent(BaseClass, LogMixin):
                     case "expiry":
                         if isinstance(value, str):
                             field_value = datetime.strptime(value, "%Y-%m-%d")
-                            # field_value.replace(tzinfo=timezone)
                         elif isinstance(value, date):
                             field_value = datetime.combine(value, datetime.min.time())
                         else:
@@ -589,7 +544,6 @@ class Reagent(BaseClass, LogMixin):
                         continue
                     case _:
                         field_value = value
-                # logger.debug(f"Setting reagent {key} to {field_value}")
                 self.__setattr__(key, field_value)
             self.save()
 
@@ -634,25 +588,19 @@ class Discount(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match organization:
             case Organization():
-                # logger.debug(f"Looking up discount with organization Organization: {organization}")
                 query = query.filter(cls.client == Organization)
             case str():
-                # logger.debug(f"Looking up discount with organization str: {organization}")
                 query = query.join(Organization).filter(Organization.name == organization)
             case int():
-                # logger.debug(f"Looking up discount with organization id: {organization}")
                 query = query.join(Organization).filter(Organization.id == organization)
             case _:
                 pass
         match kit_type:
             case KitType():
-                # logger.debug(f"Looking up discount with kit type KitType: {kit_type}")
                 query = query.filter(cls.kit == kit_type)
             case str():
-                # logger.debug(f"Looking up discount with kit type str: {kit_type}")
                 query = query.join(KitType).filter(KitType.name == kit_type)
             case int():
-                # logger.debug(f"Looking up discount with kit type id: {kit_type}")
                 query = query.join(KitType).filter(KitType.id == kit_type)
             case _:
                 pass
@@ -723,7 +671,6 @@ class SubmissionType(BaseClass):
         return submission_type.template_file
 
     def get_template_file_sheets(self) -> List[str]:
-        logger.debug(f"Submission type to get sheets for: {self.name}")
         """
         Gets names of sheet in the stored blank form.
 
@@ -768,7 +715,6 @@ class SubmissionType(BaseClass):
             dict: Map of locations
         """
         info = {k: v for k, v in self.info_map.items() if k != "custom"}
-        logger.debug(f"Info map: {info}")
         match mode:
             case "read":
                 output = {k: v[mode] for k, v in info.items() if v[mode]}
@@ -844,11 +790,9 @@ class SubmissionType(BaseClass):
         """
         match equipment_role:
             case str():
-                # logger.debug(f"Getting processes for equipmentrole str {equipment_role}")
                 relevant = [item.get_all_processes(kit) for item in self.submissiontype_equipmentrole_associations if
                             item.equipment_role.name == equipment_role]
             case EquipmentRole():
-                # logger.debug(f"Getting processes for equipmentrole EquipmentRole {equipment_role}")
                 relevant = [item.get_all_processes(kit) for item in self.submissiontype_equipmentrole_associations if
                             item.equipment_role == equipment_role]
             case _:
@@ -886,14 +830,12 @@ class SubmissionType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Looking up submission type by name str: {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
                 pass
         match key:
             case str():
-                # logger.debug(f"Looking up submission type by info-map key str: {key}")
                 query = query.filter(cls.info_map.op('->')(key) is not None)
             case _:
                 pass
@@ -946,7 +888,6 @@ class SubmissionType(BaseClass):
                 import_dict = yaml.load(stream=f, Loader=yaml.Loader)
             else:
                 raise Exception(f"Filetype {filepath.suffix} not supported.")
-        # logger.debug(pformat(import_dict))
         try:
             submission_type = cls.query(name=import_dict['name'])
         except KeyError:
@@ -1076,23 +1017,17 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match submission_type:
             case SubmissionType():
-                # logger.debug(f"Looking up {cls.__name__} by SubmissionType {submission_type}")
                 query = query.filter(cls.submission_type == submission_type)
             case str():
-                # logger.debug(f"Looking up {cls.__name__} by name {submission_type}")
                 query = query.join(SubmissionType).filter(SubmissionType.name == submission_type)
             case int():
-                # logger.debug(f"Looking up {cls.__name__} by id {submission_type}")
                 query = query.join(SubmissionType).filter(SubmissionType.id == submission_type)
         match kit_type:
             case KitType():
-                # logger.debug(f"Looking up {cls.__name__} by KitType {kit_type}")
                 query = query.filter(cls.kit_type == kit_type)
             case str():
-                # logger.debug(f"Looking up {cls.__name__} by name {kit_type}")
                 query = query.join(KitType).filter(KitType.name == kit_type)
             case int():
-                # logger.debug(f"Looking up {cls.__name__} by id {kit_type}")
                 query = query.join(KitType).filter(KitType.id == kit_type)
         limit = query.count()
         return cls.execute_query(query=query, limit=limit)
@@ -1107,7 +1042,6 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         exclude = ['_sa_instance_state', 'submission_types_id', 'kits_id', 'submission_type', 'kit_type']
         base_dict = {k: v for k, v in self.__dict__.items() if k not in exclude}
         base_dict['kit_type'] = self.kit_type.to_export_dict(submission_type=self.submission_type)
-        # logger.debug(f"STKTA returning: {base_dict}")
         return base_dict
 
 
@@ -1128,10 +1062,11 @@ class KitTypeReagentRoleAssociation(BaseClass):
     kit_type = relationship(KitType,
                             back_populates="kit_reagentrole_associations")  #: relationship to associated KitType
 
-    # reference to the "ReagentType" object
+    # NOTE: reference to the "ReagentType" object
     reagent_role = relationship(ReagentRole,
                                 back_populates="reagentrole_kit_associations")  #: relationship to associated ReagentType
 
+    # NOTE: reference to the "SubmissionType" object
     submission_type = relationship(SubmissionType,
                                    back_populates="submissiontype_kit_rt_associations")  #: relationship to associated SubmissionType
 
@@ -1203,19 +1138,15 @@ class KitTypeReagentRoleAssociation(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match kit_type:
             case KitType():
-                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by kit_type KitType {kit_type}")
                 query = query.filter(cls.kit_type == kit_type)
             case str():
-                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by kit_type str {kit_type}")
                 query = query.join(KitType).filter(KitType.name == kit_type)
             case _:
                 pass
         match reagent_role:
             case ReagentRole():
-                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by reagent_type ReagentType {reagent_type}")
                 query = query.filter(cls.reagent_role == reagent_role)
             case str():
-                # logger.debug(f"Lookup KitTypeReagentTypeAssociation by reagent_type ReagentType {reagent_type}")
                 query = query.join(ReagentRole).filter(ReagentRole.name == reagent_role)
             case _:
                 pass
@@ -1242,7 +1173,6 @@ class KitTypeReagentRoleAssociation(BaseClass):
         Returns:
             Generator: Generates of reagents.
         """
-        # logger.debug(f"Attempting lookup of reagents by type: {reagent.type}")
         reagents = self.reagent_role.instances
         try:
             regex = self.uses['exclude_regex']
@@ -1309,7 +1239,6 @@ class SubmissionReagentAssociation(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match reagent:
             case Reagent() | str():
-                # logger.debug(f"Lookup SubmissionReagentAssociation by reagent Reagent {reagent}")
                 if isinstance(reagent, str):
                     reagent = Reagent.query(lot=reagent)
                 query = query.filter(cls.reagent == reagent)
@@ -1319,10 +1248,8 @@ class SubmissionReagentAssociation(BaseClass):
             case BasicSubmission() | str():
                 if isinstance(submission, str):
                     submission = BasicSubmission.query(rsl_plate_num=submission)
-                # logger.debug(f"Lookup SubmissionReagentAssociation by submission BasicSubmission {submission}")
                 query = query.filter(cls.submission == submission)
             case int():
-                # logger.debug(f"Lookup SubmissionReagentAssociation by submission id {submission}")
                 submission = BasicSubmission.query(id=submission)
                 query = query.join(BasicSubmission).filter(BasicSubmission.id == submission)
             case _:
@@ -1439,21 +1366,18 @@ class Equipment(BaseClass, LogMixin):
         query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Lookup Equipment by name str {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
                 pass
         match nickname:
             case str():
-                # logger.debug(f"Lookup Equipment by nickname str {nickname}")
                 query = query.filter(cls.nickname == nickname)
                 limit = 1
             case _:
                 pass
         match asset_number:
             case str():
-                # logger.debug(f"Lookup Equipment by asset_number str {asset_number}")
                 query = query.filter(cls.asset_number == asset_number)
                 limit = 1
             case _:
@@ -1569,11 +1493,9 @@ class EquipmentRole(BaseClass):
             PydEquipmentRole: This EquipmentRole as PydEquipmentRole
         """
         from backend.validators.pydant import PydEquipmentRole
-        # logger.debug("Creating list of PydEquipment in this role")
         equipment = [item.to_pydantic(submission_type=submission_type, extraction_kit=extraction_kit) for item in
                      self.instances]
         pyd_dict = self.to_dict()
-        # logger.debug("Creating list of Processes in this role")
         pyd_dict['processes'] = self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit)
         return PydEquipmentRole(equipment=equipment, **pyd_dict)
 
@@ -1595,14 +1517,12 @@ class EquipmentRole(BaseClass):
         query = cls.__database_session__.query(cls)
         match id:
             case int():
-                # logger.debug(f"Lookup EquipmentRole by id {id}")
                 query = query.filter(cls.id == id)
                 limit = 1
             case _:
                 pass
         match name:
             case str():
-                # logger.debug(f"Lookup EquipmentRole by name str {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
@@ -1622,7 +1542,6 @@ class EquipmentRole(BaseClass):
             List[Process]: List of processes
         """
         if isinstance(submission_type, str):
-            # logger.debug(f"Checking if str {submission_type} exists")
             submission_type = SubmissionType.query(name=submission_type)
         if isinstance(extraction_kit, str):
             extraction_kit = KitType.query(name=extraction_kit)
@@ -1808,7 +1727,6 @@ class Process(BaseClass):
         query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Lookup Process with name str {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
@@ -1892,13 +1810,11 @@ class Tips(BaseClass, LogMixin):
         query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Lookup Equipment by name str {name}")
                 query = query.filter(cls.name == name)
             case _:
                 pass
         match lot:
             case str():
-                # logger.debug(f"Lookup Equipment by nickname str {nickname}")
                 query = query.filter(cls.lot == lot)
                 limit = 1
             case _:

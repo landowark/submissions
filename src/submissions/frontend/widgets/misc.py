@@ -1,6 +1,6 @@
-'''
+"""
 Contains miscellaneous widgets for frontend functions
-'''
+"""
 import math
 from datetime import date
 from PyQt6.QtGui import QPageLayout, QPageSize, QStandardItem, QIcon
@@ -8,7 +8,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout,
     QLineEdit, QComboBox, QDialog,
-    QDialogButtonBox, QDateEdit, QPushButton, QFormLayout, QWidget, QHBoxLayout, QSizePolicy
+    QDialogButtonBox, QDateEdit, QPushButton, QWidget, QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize, QMarginsF
 from tools import jinja_template_loading
@@ -66,7 +66,6 @@ class AddReagentForm(QDialog):
             self.type_input.addItems([item.name for item in ReagentRole.query() if kit in item.kit_types])
         else:
             self.type_input.addItems([item.name for item in ReagentRole.query()])
-        # logger.debug(f"Trying to find index of {reagent_type}")
         # NOTE: convert input to user-friendly string?
         try:
             reagent_role = reagent_role.replace("_", " ").title()
@@ -106,7 +105,6 @@ class AddReagentForm(QDialog):
         """
         Updates reagent names form field with examples from reagent type
         """
-        # logger.debug(self.type_input.currentText())
         self.name_input.clear()
         lookup = Reagent.query(role=self.type_input.currentText())
         self.name_input.addItems(list(set([item.name for item in lookup])))
@@ -145,7 +143,8 @@ def save_pdf(obj: QWebEngineView, filename: Path):
     obj.page().printToPdf(filename.absolute().__str__(), page_layout)
 
 
-# subclass
+# NOTE: subclass
+
 class CheckableComboBox(QComboBox):
     # once there is a checkState set, it is rendered
     # here we assume default Unchecked
@@ -162,7 +161,6 @@ class CheckableComboBox(QComboBox):
         return item.checkState() == Qt.CheckState.Checked
 
     def changed(self):
-        logger.debug("emitting updated")
         self.updated.emit()
 
 

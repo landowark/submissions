@@ -45,7 +45,6 @@ class SubmissionDetails(QDialog):
         self.btn.clicked.connect(self.save_pdf)
         self.back = QPushButton("Back")
         self.back.setFixedWidth(100)
-        # self.back.clicked.connect(self.back_function)
         self.back.clicked.connect(self.webview.back)
         self.layout.addWidget(self.back, 0, 0, 1, 1)
         self.layout.addWidget(self.btn, 0, 1, 1, 9)
@@ -70,7 +69,6 @@ class SubmissionDetails(QDialog):
         if "Submission" in title:
             self.btn.setEnabled(True)
             self.export_plate = title.split(" ")[-1]
-            # logger.debug(f"Updating export plate to: {self.export_plate}")
         else:
             self.btn.setEnabled(False)
         try:
@@ -78,7 +76,6 @@ class SubmissionDetails(QDialog):
         except IndexError as e:
             check = title
         if title == check:
-            # logger.debug("Disabling back button")
             self.back.setEnabled(False)
         else:
             self.back.setEnabled(True)
@@ -91,7 +88,6 @@ class SubmissionDetails(QDialog):
         Args:
             sample (str): Submitter Id of the sample.
         """
-        # logger.debug(f"Details: {sample}")
         if isinstance(sample, str):
             sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
@@ -114,7 +110,6 @@ class SubmissionDetails(QDialog):
         base_dict = reagent.to_sub_dict(extraction_kit=self.kit, full_data=True)
         env = jinja_template_loading()
         temp_name = "reagent_details.html"
-        # logger.debug(f"Returning template: {temp_name}")
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
@@ -147,29 +142,23 @@ class SubmissionDetails(QDialog):
         Args:
             submission (str | BasicSubmission): Submission of interest.
         """
-        # logger.debug(f"Details for: {submission}")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         self.rsl_plate_num = submission.rsl_plate_num
         self.base_dict = submission.to_dict(full_data=True)
-        # logger.debug(f"Submission details data:\n{pformat({k:v for k,v in self.base_dict.items() if k == 'reagents'})}")
         # NOTE: don't want id
-        # logger.debug(f"Creating barcode.")
-        # logger.debug(f"Making platemap...")
         self.base_dict['platemap'] = submission.make_plate_map(sample_list=submission.hitpick_plate())
         self.base_dict['excluded'] = submission.get_default_info("details_ignore")
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        # logger.debug(f"Submission_details: {pformat(self.base_dict)}")
-        # logger.debug(f"User is power user: {is_power_user()}")
         self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
 
     @pyqtSlot(str)
     def sign_off(self, submission: str | BasicSubmission):
-        logger.debug(f"Signing off on {submission} - ({getuser()})")
+        logger.info(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         submission.signed_by = getuser()
@@ -195,7 +184,6 @@ class SubmissionComment(QDialog):
         super().__init__(parent)
         try:
             self.app = parent.parent().parent().parent().parent().parent().parent
-            # logger.debug(f"App: {self.app}")
         except AttributeError:
             pass
         self.submission = submission
@@ -225,5 +213,4 @@ class SubmissionComment(QDialog):
             return None
         dt = datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")
         full_comment = {"name": commenter, "time": dt, "text": comment}
-        # logger.debug(f"Full comment: {full_comment}")
         return full_comment

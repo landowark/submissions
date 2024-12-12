@@ -65,7 +65,6 @@ class Organization(BaseClass):
                 pass
         match name:
             case str():
-                # logger.debug(f"Looking up organization with name starting with: {name}")
                 query = query.filter(cls.name.startswith(name))
                 limit = 1
             case _:
@@ -159,21 +158,18 @@ class Contact(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"Looking up contact with name: {name}")
                 query = query.filter(cls.name == name.title())
                 limit = 1
             case _:
                 pass
         match email:
             case str():
-                # logger.debug(f"Looking up contact with email: {name}")
                 query = query.filter(cls.email == email)
                 limit = 1
             case _:
                 pass
         match phone:
             case str():
-                # logger.debug(f"Looking up contact with phone: {name}")
                 query = query.filter(cls.phone == phone)
                 limit = 1
             case _:

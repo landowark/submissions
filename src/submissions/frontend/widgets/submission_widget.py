@@ -1,9 +1,9 @@
-'''
+"""
 Contains all submission related frontend functions
-'''
+"""
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
-    QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QBoxLayout, QHBoxLayout, QGridLayout
+    QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
 from . import select_open_file, select_save_file
@@ -34,7 +34,6 @@ class MyQComboBox(QComboBox):
         super(MyQComboBox, self).__init__(*args, **kwargs)
         self.scrollWidget = scrollWidget
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        logger.debug(f"Scrollwidget: {scrollWidget}")
 
     def wheelEvent(self, *args, **kwargs):
         if self.hasFocus():
@@ -61,14 +60,12 @@ class MyQDateEdit(QDateEdit):
 
 
 class SubmissionFormContainer(QWidget):
-    # A signal carrying a path
+    # NOTE: A signal carrying a path
     import_drag = pyqtSignal(Path)
 
     def __init__(self, parent: QWidget) -> None:
-        # logger.debug(f"Setting form widget...")
         super().__init__(parent)
         self.app = self.parent().parent()
-        # logger.debug(f"App: {self.app}")
         self.report = Report()
         self.setStyleSheet('background-color: light grey;')
         self.setAcceptDrops(True)
@@ -89,7 +86,6 @@ class SubmissionFormContainer(QWidget):
         Sets filename when file dropped
         """
         fname = Path([u.toLocalFile() for u in event.mimeData().urls()][0])
-        # logger.debug(f"App: {self.app}")
         self.app.last_dir = fname.parent
         self.import_drag.emit(fname)
 
@@ -127,7 +123,6 @@ class SubmissionFormContainer(QWidget):
         # NOTE: set file dialog
         if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
-        # logger.debug(f"Attempting to parse file: {fname}")
         if not fname:
             report.add_result(Result(msg=f"File {fname.__str__()} not found.", status="critical"))
             return report
@@ -139,14 +134,10 @@ class SubmissionFormContainer(QWidget):
             return
         except AttributeError:
             self.prsr = SheetParser(filepath=fname)
-        # logger.debug(f"Submission dictionary:\n{pformat(self.prsr.sub)}")
         self.pyd = self.prsr.to_pydantic()
-        # logger.debug(f"Pydantic result: \n\n{pformat(self.pyd)}\n\n")
         self.form = self.pyd.to_form(parent=self)
         self.layout().addWidget(self.form)
         return report
-        # logger.debug(f"Outgoing report: {self.report.results}")
-        # logger.debug(f"All attributes of submission container:\n{pformat(self.__dict__)}")
 
     @report_result
     def add_reagent(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
@@ -172,14 +163,12 @@ class SubmissionFormContainer(QWidget):
         if dlg.exec():
             # NOTE: extract form info
             info = dlg.parse_form()
-            # logger.debug(f"Reagent info: {info}")
             # NOTE: create reagent object
             reagent = PydReagent(ctx=self.app.ctx, **info, missing=False)
             # NOTE: send reagent to db
             sqlobj, result = reagent.toSQL()
             sqlobj.save()
             report.add_result(result)
-            # logger.debug(f"Reagent: {reagent}, Report: {report}")
             return reagent, report
 
 
@@ -189,7 +178,6 @@ class SubmissionFormWidget(QWidget):
 
     def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
-        # logger.debug(f"Disable: {disable}")
         if disable is None:
             disable = []
         self.app = parent.app
@@ -200,17 +188,13 @@ class SubmissionFormWidget(QWidget):
         defaults = st.get_default_info("form_recover", "form_ignore", submission_type=self.pyd.submission_type['value'])
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
-        # logger.debug(f"Attempting to extend ignore list with {self.pyd.submission_type['value']}")
         self.layout = QVBoxLayout()
         for k in list(self.pyd.model_fields.keys()) + list(self.pyd.model_extra.keys()):
-            # logger.debug(f"Creating widget: {k}")
             if k in self.ignore:
                 logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
             try:
-                # logger.debug(f"Key: {k}, Disable: {disable}")
                 check = k in disable
-                # logger.debug(f"Check: {check}")
             except TypeError:
                 check = False
             try:
@@ -225,7 +209,6 @@ class SubmissionFormWidget(QWidget):
                                             sub_obj=st, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
-            # if k == "extraction_kit":
             if k in self.__class__.update_reagent_fields:
                 add_widget.input.currentTextChanged.connect(self.scrape_reagents)
                 self.disabler = self.DisableReagents(self)
@@ -236,15 +219,10 @@ class SubmissionFormWidget(QWidget):
         self.scrape_reagents(self.extraction_kit)
 
     def disable_reagents(self):
+        """
+        Disables all ReagentFormWidgets in this form/
+        """
         for reagent in self.findChildren(self.ReagentFormWidget):
-            # if self.disabler.checkbox.isChecked():
-            #     # reagent.setVisible(True)
-            #     # with QSignalBlocker(self.disabler.checkbox) as b:
-            #     reagent.flip_check()
-            # else:
-            #     # reagent.setVisible(False)
-            #     # with QSignalBlocker(self.disabler.checkbox) as b:
-            #     reagent.check.setChecked(False)
             reagent.flip_check(self.disabler.checkbox.isChecked())
 
 
@@ -263,7 +241,6 @@ class SubmissionFormWidget(QWidget):
         Returns:
             self.InfoItem: Form widget to hold name:value
         """
-        # logger.debug(f"Key: {key}, Disable: {disable}")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if key not in self.ignore:
@@ -276,7 +253,6 @@ class SubmissionFormWidget(QWidget):
                 case _:
                     widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
                                            sub_obj=sub_obj)
-            # logger.debug(f"Setting widget enabled to: {not disable}")
             if disable:
                 widget.input.setEnabled(False)
                 widget.input.setToolTip("Widget disabled to protect database integrity.")
@@ -298,24 +274,20 @@ class SubmissionFormWidget(QWidget):
         """
         self.extraction_kit = args[0]
         report = Report()
-        logger.debug(f"Extraction kit: {self.extraction_kit}")
         # NOTE: Remove previous reagent widgets
         try:
             old_reagents = self.find_widgets()
         except AttributeError:
             logger.error(f"Couldn't find old reagents.")
             old_reagents = []
-        # logger.debug(f"\n\nAttempting to clear: {old_reagents}\n\n")
         for reagent in old_reagents:
             if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
                 reagent.setParent(None)
         reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
-        # logger.debug(f"Got reagents: {pformat(reagents)}")
         for reagent in reagents:
             add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
             self.layout.addWidget(add_widget)
         report.add_result(integrity_report)
-        # logger.debug(f"Outgoing report: {report.results}")
         if hasattr(self.pyd, "csv"):
             export_csv_btn = QPushButton("Export CSV")
             export_csv_btn.setObjectName("export_csv_btn")
@@ -326,6 +298,7 @@ class SubmissionFormWidget(QWidget):
         self.layout.addWidget(submit_btn)
         submit_btn.clicked.connect(self.submit_new_sample_function)
         self.setLayout(self.layout)
+        self.disabler.checkbox.setChecked(True)
         return report
 
     def clear_form(self):
@@ -365,23 +338,16 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         result = self.parse_form()
         report.add_result(result)
-        # logger.debug(f"Submission: {pformat(self.pyd)}")
-        # logger.debug("Checking kit integrity...")
         if self.disabler.checkbox.isChecked():
             _, result = self.pyd.check_kit_integrity()
             report.add_result(result)
         if len(result.results) > 0:
             return
-        # logger.debug(f"PYD before transformation into SQL:\n\n{self.pyd}\n\n")
         base_submission, result = self.pyd.to_sql()
-        # logger.debug(f"SQL object: {pformat(base_submission.__dict__)}")
-        # logger.debug(f"Base submission: {base_submission.to_dict()}")
         # NOTE: check output message for issues
-        # logger.debug(f"Result of to_sql: {result}")
         try:
             trigger = result.results[-1]
             code = trigger.code
-            # logger.debug(f"Code from return: {code}")
         except IndexError as e:
             logger.error(result.results)
             logger.error(f"Problem getting error code: {e}")
@@ -408,11 +374,8 @@ class SubmissionFormWidget(QWidget):
                 pass
         # NOTE: add reagents to submission object
         for reagent in base_submission.reagents:
-            # logger.debug(f"Updating: {reagent} with {reagent.lot}")
             reagent.update_last_used(kit=base_submission.extraction_kit)
-        # logger.debug(f"Final reagents: {pformat(base_submission.reagents)}")
         save_output = base_submission.save()
-        # logger.debug(f"Save output: {save_output}")
         # NOTE: update summary sheet
         self.app.table_widget.sub_wid.setData()
         # NOTE: reset form
@@ -423,7 +386,6 @@ class SubmissionFormWidget(QWidget):
             check = True
         if check:
             self.setParent(None)
-        # logger.debug(f"All attributes of obj: {pformat(self.__dict__)}")
         return report
 
     def export_csv_function(self, fname: Path | None = None):
@@ -454,7 +416,6 @@ class SubmissionFormWidget(QWidget):
         info = {}
         reagents = []
         for widget in self.findChildren(QWidget):
-            # logger.debug(f"Parsed widget of type {type(widget)}")
             match widget:
                 case self.ReagentFormWidget():
                     reagent, _ = widget.parse_form()
@@ -464,16 +425,10 @@ class SubmissionFormWidget(QWidget):
                     field, value = widget.parse_form()
                     if field is not None:
                         info[field] = value
-        # logger.debug(f"Info: {pformat(info)}")
-        logger.debug(f"Reagents going into pyd: {pformat(reagents)}")
         self.pyd.reagents = reagents
-        logger.debug(f"Reagents after insertion in pyd: {pformat(self.pyd.reagents)}")
-        # logger.debug(f"Attrs not in info: {[k for k, v in self.__dict__.items() if k not in info.keys()]}")
         for item in self.recover:
-            # logger.debug(f"Attempting to recover: {item}")
             if hasattr(self, item):
                 value = getattr(self, item)
-                # logger.debug(f"Setting {item}")
                 info[item] = value
         for k, v in info.items():
             self.pyd.set_attribute(key=k, value=v)
@@ -551,9 +506,6 @@ class SubmissionFormWidget(QWidget):
             except (TypeError, KeyError):
                 pass
             obj = parent.parent().parent()
-            # logger.debug(f"Object: {obj}")
-            # logger.debug(f"Parent: {parent.parent()}")
-            # logger.debug(f"Creating widget for: {key}")
             match key:
                 case 'submitting_lab':
                     add_widget = MyQComboBox(scrollWidget=parent)
@@ -567,7 +519,6 @@ class SubmissionFormWidget(QWidget):
                         looked_up_lab = Organization.query(name=value, limit=1)
                     except AttributeError:
                         looked_up_lab = None
-                    # logger.debug(f"\n\nLooked up lab: {looked_up_lab}")
                     if looked_up_lab:
                         try:
                             labs.remove(str(looked_up_lab.name))
@@ -586,12 +537,9 @@ class SubmissionFormWidget(QWidget):
                     # NOTE: create combobox to hold looked up kits
                     add_widget = MyQComboBox(scrollWidget=parent)
                     # NOTE: lookup existing kits by 'submission_type' decided on by sheetparser
-                    # logger.debug(f"Looking up kits used for {submission_type}")
                     uses = [item.name for item in submission_type.kit_types]
                     obj.uses = uses
-                    # logger.debug(f"Kits received for {submission_type}: {uses}")
                     if check_not_nan(value):
-                        # logger.debug(f"The extraction kit in parser was: {value}")
                         try:
                             uses.insert(0, uses.pop(uses.index(value)))
                         except ValueError:
@@ -626,7 +574,6 @@ class SubmissionFormWidget(QWidget):
                     else:
                         # NOTE: anything else gets added in as a line edit
                         add_widget = QLineEdit()
-                        # logger.debug(f"Setting widget text to {str(value).replace('_', ' ')}")
                         add_widget.setText(str(value).replace("_", " "))
                         add_widget.setToolTip(f"Enter value for {key}")
             if add_widget is not None:
@@ -725,7 +672,6 @@ class SubmissionFormWidget(QWidget):
             if not self.lot.isEnabled():
                 return None, report
             lot = self.lot.currentText()
-            # logger.debug(f"Using this lot for the reagent {self.reagent}: {lot}")
             wanted_reagent = Reagent.query(lot=lot, role=self.reagent.role)
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
             if wanted_reagent is None:
@@ -741,7 +687,6 @@ class SubmissionFormWidget(QWidget):
                     return wanted_reagent, report
                 else:
                     # NOTE: In this case we will have an empty reagent and the submission will fail kit integrity check
-                    # logger.debug("Will not add reagent.")
                     report.add_result(Result(msg="Failed integrity check", status="Critical"))
                     return None, report
             else:
@@ -791,7 +736,6 @@ class SubmissionFormWidget(QWidget):
                 looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
                                                                    kit_type=extraction_kit)
                 relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
-                logger.debug(f"Relevant reagents for {reagent}: {relevant_reagents}")
                 # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
                 if str(reagent.lot) not in relevant_reagents:
                     if check_not_nan(reagent.lot):
@@ -803,7 +747,6 @@ class SubmissionFormWidget(QWidget):
                             looked_up_reg = None
                         if isinstance(looked_up_reg, list):
                             looked_up_reg = None
-                        # logger.debug(f"Because there was no reagent listed for {reagent.lot}, we will insert the last lot used: {looked_up_reg}")
                         if looked_up_reg:
                             try:
                                 relevant_reagents.remove(str(looked_up_reg.lot))
@@ -812,15 +755,11 @@ class SubmissionFormWidget(QWidget):
                             relevant_reagents.insert(0, str(looked_up_reg.lot))
                 else:
                     if len(relevant_reagents) > 1:
-                        # logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. Moving to front of list.")
                         idx = relevant_reagents.index(str(reagent.lot))
-                        # logger.debug(f"The index we got for {reagent.lot} in {relevant_reagents} was {idx}")
                         moved_reag = relevant_reagents.pop(idx)
                         relevant_reagents.insert(0, moved_reag)
                     else:
-                        # logger.debug(f"Found {reagent.lot} in relevant reagents: {relevant_reagents}. But no need to move due to short list.")
                         pass
-                logger.debug(f"New relevant reagents: {relevant_reagents}")
                 self.setObjectName(f"lot_{reagent.role}")
                 self.addItems(relevant_reagents)
                 self.setToolTip(f"Enter lot number for the reagent used for {reagent.role}")

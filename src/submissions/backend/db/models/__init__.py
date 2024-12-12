@@ -3,7 +3,6 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging
-
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
@@ -131,7 +130,6 @@ class BaseClass(Base):
             search = name.title().replace(" ", "")
         else:
             search = name
-        logger.debug(f"Searching for subclass: {search}")
         return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
 
     @classmethod
@@ -146,9 +144,7 @@ class BaseClass(Base):
             List[Any]: Results of sqlalchemy query.
         """
         query: Query = cls.__database_session__.query(cls)
-        # logger.debug(f"Queried model. Now running searches in {kwargs}")
         for k, v in kwargs.items():
-            # logger.debug(f"Running fuzzy search for attribute: {k} with value {v}")
             # NOTE: Not sure why this is necessary, but it is.
             search = f"%{v}%"
             try:
@@ -200,9 +196,7 @@ class BaseClass(Base):
             model = cls
         if query is None:
             query: Query = cls.__database_session__.query(model)
-        # logger.debug(f"Grabbing singles using {model.get_default_info}")
         singles = model.get_default_info('singles')
-        # logger.info(f"Querying: {model}, with kwargs: {kwargs}")
         for k, v in kwargs.items():
             logger.info(f"Using key: {k} with value: {v}")
             try:
@@ -227,7 +221,6 @@ class BaseClass(Base):
         """
         Add the object to the database and commit
         """
-        # logger.debug(f"Saving object: {pformat(self.__dict__)}")
         report = Report()
         try:
             self.__database_session__.add(self)

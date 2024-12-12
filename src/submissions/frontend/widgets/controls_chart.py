@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import (
     QWidget, QComboBox, QPushButton
 )
 from PyQt6.QtCore import QSignalBlocker
-
 from backend import ChartReportMaker
 from backend.db import ControlType, IridaControl
 import logging
@@ -21,12 +20,9 @@ class ControlsViewer(InfoPane):
 
     def __init__(self, parent: QWidget, archetype: str) -> None:
         super().__init__(parent)
-        logger.debug(f"Incoming Archetype: {archetype}")
         self.archetype = ControlType.query(name=archetype)
         if not self.archetype:
             return
-        logger.debug(f"Archetype set as: {self.archetype}")
-        # logger.debug(f"\n\n{self.app}\n\n")
         # NOTE: set tab2 layout
         self.control_sub_typer = QComboBox()
         # NOTE: fetch types of controls
@@ -54,12 +50,6 @@ class ControlsViewer(InfoPane):
         self.save_button.pressed.connect(self.save_png)
         self.export_button.pressed.connect(self.save_excel)
 
-    # def save_chart_function(self):
-    #     self.fig.save_figure(parent=self)
-    #
-    # def save_data_function(self):
-    #     self.fig.save_data(parent=self)
-
     @report_result
     def update_data(self, *args, **kwargs):
         """
@@ -71,20 +61,6 @@ class ControlsViewer(InfoPane):
             self.mode_sub_typer.disconnect()
         except TypeError:
             pass
-        # NOTE: correct start date being more recent than end date and rerun
-        # if self.datepicker.start_date.date() > self.datepicker.end_date.date():
-        #     threemonthsago = self.datepicker.end_date.date().addDays(-60)
-        #     msg = f"Start date after end date is not allowed! Setting to {threemonthsago.toString()}."
-        #     logger.warning(msg)
-        #     # NOTE: block signal that will rerun controls getter and set start date Without triggering this function again
-        #     with QSignalBlocker(self.datepicker.start_date) as blocker:
-        #         self.datepicker.start_date.setDate(threemonthsago)
-        #     self.update_data()
-        #     report.add_result(Result(owner=self.__str__(), msg=msg, status="Warning"))
-        #     return report
-        # # NOTE: convert to python useable date objects
-        # self.start_date = self.datepicker.start_date.date().toPyDate()
-        # self.end_date = self.datepicker.end_date.date().toPyDate()
         self.con_sub_type = self.control_sub_typer.currentText()
         self.mode = self.mode_typer.currentText()
         self.mode_sub_typer.clear()
@@ -104,7 +80,6 @@ class ControlsViewer(InfoPane):
             self.mode_sub_typer.clear()
             self.mode_sub_typer.setEnabled(False)
         self.chart_maker_function()
-        # return report
 
     @report_result
     def chart_maker_function(self, *args, **kwargs):
@@ -119,14 +94,11 @@ class ControlsViewer(InfoPane):
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """
         report = Report()
-        # logger.debug(f"Control getter context: \n\tControl type: {self.con_sub_type}\n\tMode: {self.mode}\n\tStart \
-        #     Date: {self.start_date}\n\tEnd Date: {self.end_date}")
         # NOTE: set the mode_sub_type for kraken
         if self.mode_sub_typer.currentText() == "":
             self.mode_sub_type = None
         else:
             self.mode_sub_type = self.mode_sub_typer.currentText()
-        logger.debug(f"Subtype: {self.mode_sub_type}")
         months = self.diff_month(self.start_date, self.end_date)
         # NOTE: query all controls using the type/start and end dates from the gui
         chart_settings = dict(sub_type=self.con_sub_type, start_date=self.start_date, end_date=self.end_date,
@@ -136,14 +108,11 @@ class ControlsViewer(InfoPane):
         self.report_obj = ChartReportMaker(df=self.fig.df, sheet_name=self.archetype.name)
         if issubclass(self.fig.__class__, CustomFigure):
             self.save_button.setEnabled(True)
-        # logger.debug(f"Updating figure...")
         # NOTE: construct html for webview
         try:
             html = self.fig.to_html()
         except AttributeError:
             html = ""
-        # logger.debug(f"The length of html code is: {len(html)}")
         self.webview.setHtml(html)
         self.webview.update()
-        # logger.debug("Figure updated... I hope.")
         return report

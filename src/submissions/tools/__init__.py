@@ -27,14 +27,14 @@ timezone = tz("America/Winnipeg")
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-logger.debug(f"Package dir: {project_path}")
+logger.info(f"Package dir: {project_path}")
 
 if platform.system() == "Windows":
     os_config_dir = "AppData/local"
-    print(f"Got platform Windows, config_dir: {os_config_dir}")
+    logger.info(f"Got platform Windows, config_dir: {os_config_dir}")
 else:
     os_config_dir = ".config"
-    print(f"Got platform other, config_dir: {os_config_dir}")
+    logger.info(f"Got platform other, config_dir: {os_config_dir}")
 
 main_aux_dir = Path.home().joinpath(f"{os_config_dir}/submissions")
 
@@ -184,7 +184,6 @@ def convert_nans_to_nones(input_str) -> str | None:
     Returns:
         str: _description_
     """
-    # logger.debug(f"Input value of: {input_str}")
     if check_not_nan(input_str):
         return input_str
     return None
@@ -512,7 +511,6 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
     Returns:
         Settings: Pydantic settings object
     """
-    # logger.debug(f"Creating settings...")
     if isinstance(settings_path, str):
         settings_path = Path(settings_path)
 
@@ -566,7 +564,6 @@ def get_config(settings_path: Path | str | None = None) -> Settings:
                 default_settings = yaml.load(dset, Loader=yaml.Loader)
             settings = Settings(**default_settings)
             settings.save(settings_path=settings_path)
-    # logger.debug(f"Using {settings_path} for config file.")
     with open(settings_path, "r") as stream:
         settings = yaml.load(stream, Loader=yaml.Loader)
     return Settings(**settings)
@@ -755,7 +752,6 @@ def setup_lookup(func):
                     raise ValueError("Could not sanitize dictionary in query. Make sure you parse it first.")
             elif v is not None:
                 sanitized_kwargs[k] = v
-        # logger.debug(f"sanitized kwargs: {sanitized_kwargs}")
         return func(*args, **sanitized_kwargs)
 
     return wrapper
@@ -800,7 +796,6 @@ class Result(BaseModel, arbitrary_types_allowed=True):
                 logger.error(f"Exception origin: {origin}")
                 if "unique constraint failed:" in origin:
                     field = " ".join(origin.split(".")[1:]).replace("_", " ").upper()
-                    # logger.debug(field)
                     value = f"{field} doesn't have a unique value.\nIt must be changed."
                 else:
                     value = f"Got unknown integrity error: {value}"
@@ -844,7 +839,6 @@ class Report(BaseModel):
                 except AttributeError:
                     logger.error(f"Problem adding result.")
             case Report():
-                # logger.debug(f"Adding all results in report to new report")
                 for res in result.results:
                     logger.info(f"Adding {res} from {result} to results.")
                     self.results.append(res)
@@ -934,7 +928,7 @@ def check_authorization(func):
     """
 
     def wrapper(*args, **kwargs):
-        logger.debug(f"Checking authorization")
+        logger.info(f"Checking authorization")
         if is_power_user():
             return func(*args, **kwargs)
         else:
@@ -957,7 +951,7 @@ def report_result(func):
 
     """
     def wrapper(*args, **kwargs):
-        logger.debug(f"Report result being called by {func.__name__}")
+        logger.info(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
         match output:
             case Report():
@@ -970,14 +964,13 @@ def report_result(func):
             case _:
                 report = None
                 return report
-        logger.debug(f"Got report: {report}")
+        logger.info(f"Got report: {report}")
         try:
             results = report.results
         except AttributeError:
             logger.error("No results available")
             results = []
         for iii, result in enumerate(results):
-            logger.debug(f"Result {iii}: {result}")
             try:
                 dlg = result.report()
                 dlg.exec()
@@ -990,7 +983,6 @@ def report_result(func):
                 true_output = true_output[0]
         else:
             true_output = None
-        # logger.debug(f"Returning true output: {true_output}")
         return true_output
     return wrapper
 

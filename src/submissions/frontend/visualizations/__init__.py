@@ -41,7 +41,6 @@ class CustomFigure(Figure):
         """
         if modes:
             ytitle = modes[0]
-        # logger.debug("Creating visibles list for each mode.")
         self.update_layout(
             xaxis_title="Submitted Date (* - Date parsed from fastq file creation date)",
             yaxis_title=ytitle,
@@ -79,7 +78,6 @@ class CustomFigure(Figure):
         rng = [1]
         if months > 2:
             rng += [iii for iii in range(3, months, 3)]
-        # logger.debug(f"Making buttons for months: {rng}")
         buttons = [dict(count=iii, label=f"{iii}m", step="month", stepmode="backward") for iii in rng]
         if months > date.today().month:
             buttons += [dict(count=1, label="YTD", step="year", stepmode="todate")]
@@ -116,24 +114,6 @@ class CustomFigure(Figure):
                     {"visible": mode_vis},
                     {"yaxis.title.text": mode},
                 ])
-
-    # def save_figure(self, group_name: str = "plotly_output", parent: QWidget | None = None):
-    #     """
-    #     Writes plotly figure to html file.
-    #
-    #     Args:
-    #         figs ():
-    #         settings (dict): settings passed down from click
-    #         fig (Figure): input figure object
-    #         group_name (str): controltype
-    #     """
-    #
-    #     output = select_save_file(obj=parent, default_name=group_name, extension="png")
-    #     self.write_image(output.absolute().__str__(), engine="kaleido")
-    #
-    # def save_data(self, group_name: str = "plotly_export", parent:QWidget|None=None):
-    #     output = select_save_file(obj=parent, default_name=group_name, extension="xlsx")
-    #     self.df.to_excel(output.absolute().__str__(), engine="openpyxl", index=False)
 
     def to_html(self) -> str:
         """

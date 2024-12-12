@@ -27,13 +27,11 @@ from .turnaround import TurnaroundTime
 from .omni_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
-# logger.info("Hello, I am a logger")
 
 
 class App(QMainWindow):
 
     def __init__(self, ctx: Settings = None):
-        # logger.debug(f"Initializing main window...")
         super().__init__()
         qInstallMessageHandler(lambda x, y, z: None)
         self.ctx = ctx
@@ -68,7 +66,6 @@ class App(QMainWindow):
         """
         adds items to menu bar
         """
-        # logger.debug(f"Creating menu bar...")
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         editMenu = menuBar.addMenu("&Edit")
@@ -82,7 +79,6 @@ class App(QMainWindow):
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.yamlExportAction)
         fileMenu.addAction(self.yamlImportAction)
-        # methodsMenu.addAction(self.searchLog)
         methodsMenu.addAction(self.searchSample)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
@@ -92,27 +88,20 @@ class App(QMainWindow):
         """
         adds items to toolbar
         """
-        # logger.debug(f"Creating toolbar...")
         toolbar = QToolBar("My main toolbar")
         self.addToolBar(toolbar)
         toolbar.addAction(self.addReagentAction)
-        # toolbar.addAction(self.addKitAction)
-        # toolbar.addAction(self.addOrgAction)
 
     def _createActions(self):
         """
         creates actions
         """
-        # logger.debug(f"Creating actions...")
         self.importAction = QAction("&Import Submission", self)
         self.addReagentAction = QAction("Add Reagent", self)
-        # self.addKitAction = QAction("Import Kit", self)
-        # self.addOrgAction = QAction("Import Org", self)
         self.joinExtractionAction = QAction("Link Extraction Logs")
         self.joinPCRAction = QAction("Link PCR Logs")
         self.helpAction = QAction("&About", self)
         self.docsAction = QAction("&Docs", self)
-        # self.searchLog = QAction("Search Log", self)
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
         self.yamlExportAction = QAction("Export Type Example", self)
@@ -123,14 +112,12 @@ class App(QMainWindow):
         """
         connect menu and tool bar item to functions
         """
-        # logger.debug(f"Connecting actions...")
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
-        # self.searchLog.triggered.connect(self.runSearch)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
         self.yamlExportAction.triggered.connect(self.export_ST_yaml)
@@ -145,7 +132,6 @@ class App(QMainWindow):
         j_env = jinja_template_loading()
         template = j_env.get_template("project.html")
         html = template.render(info=self.ctx.package.__dict__)
-        # logger.debug(html)
         about = HTMLPop(html=html, title="About")
         about.exec()
 
@@ -157,7 +143,6 @@ class App(QMainWindow):
             url = Path(sys._MEIPASS).joinpath("files", "docs", "index.html")
         else:
             url = Path("docs\\build\\index.html").absolute()
-        # logger.debug(f"Attempting to open {url}")
         webbrowser.get('windows-default').open(f"file://{url.__str__()}")
 
     def openGithub(self):
@@ -176,10 +161,6 @@ class App(QMainWindow):
             html = markdown(f.read())
         instr = HTMLPop(html=html, title="Instructions")
         instr.exec()
-
-    # def runSearch(self):
-    #     dlg = LogParser(self)
-    #     dlg.exec()
 
     def runSampleSearch(self):
         """
@@ -253,7 +234,6 @@ class App(QMainWindow):
 class AddSubForm(QWidget):
 
     def __init__(self, parent: QWidget):
-        # logger.debug(f"Initializating subform...")
         super(QWidget, self).__init__(parent)
         self.layout = QVBoxLayout(self)
         # NOTE: Initialize tab screen

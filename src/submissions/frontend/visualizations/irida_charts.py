@@ -3,13 +3,12 @@ Functions for constructing irida controls graphs using plotly.
 """
 from datetime import date
 from pprint import pformat
-from typing import Generator
 import plotly.express as px
 import pandas as pd
 from PyQt6.QtWidgets import QWidget
 from . import CustomFigure
 import logging
-from tools import get_unique_values_in_df_column, divide_chunks
+from tools import get_unique_values_in_df_column
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

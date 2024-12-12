@@ -35,7 +35,6 @@ class Summary(InfoPane):
     def update_data(self):
         super().update_data()
         orgs = [self.org_select.itemText(i) for i in range(self.org_select.count()) if self.org_select.itemChecked(i)]
-        # logger.debug(f"Getting report from {self.start_date} to {self.end_date} using {orgs}")
         self.report_obj = ReportMaker(start_date=self.start_date, end_date=self.end_date, organizations=orgs)
         self.webview.setHtml(self.report_obj.html)
         if self.report_obj.subs:

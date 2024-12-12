@@ -21,9 +21,7 @@ class EquipmentUsage(QDialog):
         self.setWindowTitle(f"Equipment Checklist - {submission.rsl_plate_num}")
         self.used_equipment = self.submission.get_used_equipment()
         self.kit = self.submission.extraction_kit
-        # logger.debug(f"Existing equipment: {self.used_equipment}")
         self.opt_equipment = submission.submission_type.get_equipment()
-        # logger.debug(f"EquipmentRoles: {self.opt_equipment}")
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self.populate_form()
@@ -38,7 +36,6 @@ class EquipmentUsage(QDialog):
         self.buttonBox.rejected.connect(self.reject)
         label = self.LabelRow(parent=self)
         self.layout.addWidget(label)
-        # logger.debug("Creating widgets for equipment")
         for eq in self.opt_equipment:
             widg = eq.to_form(parent=self, used=self.used_equipment)
             self.layout.addWidget(widg)
@@ -124,9 +121,7 @@ class RoleComboBox(QWidget):
         Changes processes when equipment is changed
         """
         equip = self.box.currentText()
-        # logger.debug(f"Updating equipment: {equip}")
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
-        # logger.debug(f"Using: {equip2}")
         with QSignalBlocker(self.process) as blocker:
             self.process.clear()
         self.process.addItems([item for item in equip2.processes if item in self.role.processes])
@@ -136,7 +131,6 @@ class RoleComboBox(QWidget):
         Changes what tips are available when process is changed
         """
         process = self.process.currentText().strip()
-        # logger.debug(f"Checking process: {process} for equipment {self.role.name}")
         process = Process.query(name=process)
         if process.tip_roles:
             for iii, tip_role in enumerate(process.tip_roles):
@@ -144,7 +138,6 @@ class RoleComboBox(QWidget):
                 tip_choices = [item.name for item in tip_role.instances]
                 widget.setEditable(False)
                 widget.addItems(tip_choices)
-                # logger.debug(f"Tiprole: {tip_role.__dict__}")
                 widget.setObjectName(f"tips_{tip_role.name}")
                 widget.setMinimumWidth(200)
                 widget.setMaximumWidth(200)
@@ -169,7 +162,6 @@ class RoleComboBox(QWidget):
         eq = Equipment.query(name=self.box.currentText())
         tips = [PydTips(name=item.currentText(), role=item.objectName().lstrip("tips").lstrip("_")) for item in
                 self.findChildren(QComboBox) if item.objectName().startswith("tips")]
-        # logger.debug(tips)
         try:
             return PydEquipment(
                 name=eq.name,

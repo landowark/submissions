@@ -3,7 +3,6 @@ contains writer objects for pushing values to submission sheet templates.
 """
 import logging
 from copy import copy
-from datetime import date
 from operator import itemgetter
 from pprint import pformat
 from typing import List, Generator, Tuple
@@ -111,7 +110,6 @@ class InfoWriter(object):
             info_dict (dict): Dictionary of information to write.
             sub_object (BasicSubmission | None, optional): Submission object containing methods. Defaults to None.
         """
-        logger.debug(f"Info_dict coming into InfoWriter: {pformat(info_dict)}")
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
@@ -121,7 +119,6 @@ class InfoWriter(object):
         self.xl = xl
         self.info_map = submission_type.construct_info_map(mode='write')
         self.info = self.reconcile_map(info_dict, self.info_map)
-        # logger.debug(pformat(self.info))
 
     def reconcile_map(self, info_dict: dict, info_map: dict) -> Generator[(Tuple[str, dict]), None, None]:
         """
@@ -170,7 +167,6 @@ class InfoWriter(object):
                 logger.error(f"No locations for {k}, skipping")
                 continue
             for loc in locations:
-                logger.debug(f"Writing {k} to {loc['sheet']}, row: {loc['row']}, column: {loc['column']}")
                 sheet = self.xl[loc['sheet']]
                 try:
                     sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
@@ -247,8 +243,6 @@ class ReagentWriter(object):
             for v in reagent.values():
                 if not isinstance(v, dict):
                     continue
-                # logger.debug(
-                # f"Writing {reagent['type']} {k} to {reagent['sheet']}, row: {v['row']}, column: {v['column']}")
                 sheet.cell(row=v['row'], column=v['column'], value=v['value'])
         return self.xl
 
@@ -288,7 +282,6 @@ class SampleWriter(object):
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
             sample = self.submission_type.get_submission_class().custom_sample_writer(sample)
-            logger.debug(f"Writing sample: {sample}")
             for assoc in zip(sample['row'], sample['column'], sample['submission_rank']):
                 new = dict(row=assoc[0], column=assoc[1], submission_rank=assoc[2])
                 for k, v in sample.items():
@@ -369,9 +362,8 @@ class EquipmentWriter(object):
                 mp_info = equipment_map[equipment['role']]
             except KeyError:
                 logger.error(f"No {equipment['role']} in {pformat(equipment_map)}")
-            # logger.debug(f"{equipment['role']} map: {mp_info}")
+                mp_info = None
             placeholder = copy(equipment)
-            # if mp_info == {}:
             if not mp_info:
                 for jj, (k, v) in enumerate(equipment.items(), start=1):
                     dicto = dict(value=v, row=ii, column=jj)
@@ -381,7 +373,6 @@ class EquipmentWriter(object):
                     try:
                         dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
                     except KeyError as e:
-                        # logger.error(f"Keyerror: {e}")
                         continue
                     placeholder[k] = dicto
                 if "asset_number" not in mp_info.keys():
@@ -400,17 +391,12 @@ class EquipmentWriter(object):
             Workbook: Workbook with equipment written
         """
         for equipment in self.equipment:
-            try:
-                sheet = self.xl[equipment['sheet']]
-            except KeyError:
+            if not equipment['sheet'] in self.xl.sheetnames:
                 self.xl.create_sheet("Equipment")
-            finally:
-                sheet = self.xl[equipment['sheet']]
+            sheet = self.xl[equipment['sheet']]
             for k, v in equipment.items():
                 if not isinstance(v, dict):
                     continue
-                # logger.debug(
-                #     f"Writing {k}: {v['value']} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
                 if isinstance(v['value'], list):
                     v['value'] = v['value'][0]
                 try:
@@ -455,7 +441,6 @@ class TipWriter(object):
             return
         for ii, tips in enumerate(tips_list, start=1):
             mp_info = tips_map[tips.role]
-            # logger.debug(f"{tips['role']} map: {mp_info}")
             placeholder = {}
             if mp_info == {}:
                 for jj, (k, v) in enumerate(tips.__dict__.items(), start=1):
@@ -466,14 +451,12 @@ class TipWriter(object):
                     try:
                         dicto = dict(value=v, row=mp_info[k]['row'], column=mp_info[k]['column'])
                     except KeyError as e:
-                        # logger.error(f"Keyerror: {e}")
                         continue
                     placeholder[k] = dicto
             try:
                 placeholder['sheet'] = mp_info['sheet']
             except KeyError:
                 placeholder['sheet'] = "Tips"
-            # logger.debug(f"Final output of {tips['role']} : {placeholder}")
             yield placeholder
 
     def write_tips(self) -> Workbook:
@@ -484,17 +467,12 @@ class TipWriter(object):
             Workbook: Workbook with tips written
         """
         for tips in self.tips:
-            try:
-                sheet = self.xl[tips['sheet']]
-            except KeyError:
+            if not tips['sheet'] in self.xl.sheetnames:
                 self.xl.create_sheet("Tips")
-            finally:
-                sheet = self.xl[tips['sheet']]
+            sheet = self.xl[tips['sheet']]
             for k, v in tips.items():
                 if not isinstance(v, dict):
                     continue
-                # logger.debug(
-                #     f"Writing {k}: {v['value']} to {equipment['sheet']}, row: {v['row']}, column: {v['column']}")
                 if isinstance(v['value'], list):
                     v['value'] = v['value'][0]
                 try:

@@ -9,7 +9,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from tools import jinja_template_loading
 import logging
 from backend.db import models
-from typing import Any, Literal
+from typing import Literal
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

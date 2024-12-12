@@ -1,6 +1,6 @@
-'''
+"""
 Contains widgets specific to the submission summary and submission details.
-'''
+"""
 import logging
 from pprint import pformat
 from PyQt6.QtWidgets import QTableView, QMenu
@@ -107,20 +107,16 @@ class SubmissionsSheet(QTableView):
         Args:
             event (_type_): the item of interest
         """
-        # logger.debug(event.__dict__)
         id = self.selectionModel().currentIndex()
         id = id.sibling(id.row(), 0).data()
         submission = BasicSubmission.query(id=id)
-        # logger.debug(f"Event submission: {submission}")
         self.menu = QMenu(self)
         self.con_actions = submission.custom_context_events()
-        # logger.debug(f"Menu options: {self.con_actions}")
         for k in self.con_actions.keys():
-            # logger.debug(f"Adding {k}")
             action = QAction(k, self)
             action.triggered.connect(lambda _, action_name=k: self.triggered_action(action_name=action_name))
             self.menu.addAction(action)
-        # add other required actions
+        # NOTE: add other required actions
         self.menu.popup(QCursor.pos())
 
     def triggered_action(self, action_name: str):
@@ -130,8 +126,6 @@ class SubmissionsSheet(QTableView):
         Args:
             action_name (str): name of the action from the menu
         """
-        # logger.debug(f"Action: {action_name}")
-        # logger.debug(f"Responding with {self.con_actions[action_name]}")
         func = self.con_actions[action_name]
         func(obj=self)
 
@@ -179,7 +173,6 @@ class SubmissionsSheet(QTableView):
             if sub is None:
                 continue
             try:
-                # logger.debug(f"Found submission: {sub.rsl_plate_num}")
                 count += 1
             except AttributeError:
                 continue

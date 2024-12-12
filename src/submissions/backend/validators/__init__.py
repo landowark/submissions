@@ -24,11 +24,9 @@ class RSLNamer(object):
         filename = Path(filename) if Path(filename).exists() else filename
         self.submission_type = sub_type
         if not self.submission_type:
-            # logger.debug("Creating submission type because none exists")
             self.submission_type = self.retrieve_submission_type(filename=filename)
         logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type:
-            # logger.debug("Retrieving BasicSubmission subclass")
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(submission_type=sub_type))
             if not data:
@@ -52,7 +50,6 @@ class RSLNamer(object):
             str: parsed submission type
         """
         def st_from_path(filename:Path) -> str:
-            # logger.info(f"Using path method for {filename}.")
             if filename.exists():
                 wb = load_workbook(filename)
                 try:
@@ -73,12 +70,9 @@ class RSLNamer(object):
             if filename.startswith("tmp"):
                 return "Bacterial Culture"
             regex = BasicSubmission.construct_regex()
-            # logger.info(f"Using string method for {filename}.")
-            # logger.debug(f"Using regex: {regex}")
             m = regex.search(filename)
             try:
                 submission_type = m.lastgroup
-                # logger.debug(f"Got submission type: {submission_type}")
             except AttributeError as e:
                 submission_type = None
                 logger.critical(f"No submission type found or submission type found!: {e}")
@@ -98,7 +92,6 @@ class RSLNamer(object):
         if check:
             if "pytest" in sys.modules:
                 raise ValueError("Submission Type came back as None.")
-            # logger.debug("Final option, ask the user for submission type")
             from frontend.widgets import ObjectSelector
             dlg = ObjectSelector(title="Couldn't parse submission type.",
                                  message="Please select submission type from list below.", obj_type=SubmissionType)
@@ -116,21 +109,17 @@ class RSLNamer(object):
             regex (str): string to construct pattern
             filename (str): string to be parsed
         """
-        logger.info(f"Input string to be parsed: {filename}")
         if regex is None:
             regex = BasicSubmission.construct_regex()
         else:
-            # logger.debug(f"Incoming regex: {regex}")
             try:
                 regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
             except re.error as e:
                 regex = BasicSubmission.construct_regex()
-        logger.info(f"Using regex: {regex}")
         match filename:
             case Path():
                 m = regex.search(filename.stem)
             case str():
-                # logger.debug(f"Using string method.")
                 m = regex.search(filename)
             case _:
                 m = None
@@ -141,7 +130,6 @@ class RSLNamer(object):
                 parsed_name = None
         else:
             parsed_name = None
-        # logger.debug(f"Got parsed submission name: {parsed_name}")
         return parsed_name
 
     @classmethod
@@ -187,8 +175,6 @@ class RSLNamer(object):
         Returns:
             str: output file name.
         """
-        # logger.debug(f"Kwargs: {kwargs}")
-        # logger.debug(f"Template: {template}")
         environment = jinja_template_loading()
         template = environment.from_string(template)
         return template.render(**kwargs)

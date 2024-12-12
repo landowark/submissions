@@ -19,11 +19,10 @@ def import_irida(ctx:Settings):
     existing_controls = [item.name for item in IridaControl.query()]
     prm_list = ", ".join([f"'{thing}'" for thing in existing_controls])
     ctrl_db_path = ctx.directory_path.joinpath("submissions_parser_output", "submissions.db")
-    # print(f"Incoming settings: {pformat(ctx)}")
     try:
         conn = sqlite3.connect(ctrl_db_path)
     except AttributeError as e:
-        print(f"Error, could not import from irida due to {e}")
+        logger.error(f"Error, could not import from irida due to {e}")
         return
     sql = f"SELECT name, submitted_date, submission_id, contains, matches, kraken, subtype, refseq_version, " \
           f"kraken2_version, kraken2_db_version, sample_id FROM _iridacontrol INNER JOIN _control on _control.id " \
@@ -32,8 +31,6 @@ def import_irida(ctx:Settings):
     records = [dict(name=row[0], submitted_date=row[1], submission_id=row[2], contains=row[3], matches=row[4], kraken=row[5],
                     subtype=row[6], refseq_version=row[7], kraken2_version=row[8], kraken2_db_version=row[9],
                     sample_id=row[10]) for row in cursor]
-    # incoming_controls = set(item['name'] for item in records)
-    # relevant = list(incoming_controls - existing_controls)
     for record in records:
         instance = IridaControl.query(name=record['name'])
         if instance:
@@ -52,5 +49,4 @@ def import_irida(ctx:Settings):
         if sample:
             instance.sample = sample
             instance.submission = sample.submissions[0]
-        # pprint(instance.__dict__)
         instance.save()

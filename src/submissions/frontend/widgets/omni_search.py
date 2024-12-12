@@ -1,6 +1,6 @@
-'''
+"""
 Search box that performs fuzzy search for samples
-'''
+"""
 from pprint import pformat
 from typing import Tuple, Any, List
 from pandas import DataFrame
@@ -39,7 +39,6 @@ class SearchBox(QDialog):
         else:
             self.sub_class = None
         self.results = SearchResults(parent=self, object_type=self.object_type, extras=self.extras, **kwargs)
-        # logger.debug(f"results: {self.results}")
         self.layout.addWidget(self.results, 5, 0)
         self.setLayout(self.layout)
         self.setWindowTitle(f"Search {self.object_type.__name__}")
@@ -51,7 +50,6 @@ class SearchBox(QDialog):
         Changes form inputs based on sample type
         """
         deletes = [item for item in self.findChildren(FieldSearch)]
-        # logger.debug(deletes)
         for item in deletes:
             item.setParent(None)
         # NOTE: Handle any subclasses
@@ -62,7 +60,6 @@ class SearchBox(QDialog):
                 self.object_type = self.original_type
             else:
                 self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
-        logger.debug(f"{self.object_type} searchables: {self.object_type.searchables}")
         for iii, searchable in enumerate(self.object_type.searchables):
             widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
             widget.setObjectName(searchable)
@@ -85,10 +82,9 @@ class SearchBox(QDialog):
         Shows dataframe of relevant samples.
         """
         fields = self.parse_form()
-        # logger.debug(f"Got fields: {fields}")
         sample_list_creator = self.object_type.fuzzy_search(**fields)
         data = self.object_type.results_to_df(objects=sample_list_creator)
-        # Setting results moved to here from __init__ 202411118
+        # NOTE: Setting results moved to here from __init__ 202411118
         self.results.setData(df=data)
 
 
@@ -154,7 +150,6 @@ class SearchResults(QTableView):
 
     def parse_row(self, x):
         context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
-        logger.debug(f"Context: {context}")
         try:
             object = self.object_type.query(**context)
         except KeyError:
