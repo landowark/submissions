@@ -8,6 +8,7 @@ if check_if_app():
 # setup custom logger
 logger = setup_logger(verbosity=3)
 
+# from backend.scripts import modules
 from backend import scripts
 from PyQt6.QtWidgets import QApplication
 from frontend.widgets.app import App
@@ -22,11 +23,12 @@ def run_startup():
     for script in startup_scripts:
         try:
             func = getattr(scripts, script)
+            # func = modules[script]
         except AttributeError as e:
             logger.error(f"Couldn't run startup script {script} due to {e}")
             continue
         logger.info(f"Running startup script: {func.__name__}")
-        func(ctx)
+        func.script(ctx)
 
 
 def run_teardown():
@@ -38,11 +40,12 @@ def run_teardown():
     for script in teardown_scripts:
         try:
             func = getattr(scripts, script)
+            # func = modules[script]
         except AttributeError as e:
             logger.error(f"Couldn't run teardown script {script} due to {e}")
             continue
         logger.info(f"Running teardown script: {func.__name__}")
-        func(ctx)
+        func.script(ctx)
 
 if __name__ == '__main__':
     run_startup()

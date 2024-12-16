@@ -7,7 +7,8 @@ from backend.db import IridaControl, ControlType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-def import_irida(ctx:Settings):
+
+def script(ctx:Settings):
     """
     Grabs Irida controls from secondary database.
 

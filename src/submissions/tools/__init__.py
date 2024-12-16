@@ -483,18 +483,14 @@ class Settings(BaseSettings, extra="allow"):
                     continue
                 match v:
                     case Path():
-                        # print("Path")
                         if v.is_dir():
-                            # print("dir")
                             v = v.absolute().__str__()
                         elif v.is_file():
-                            # print("file")
                             v = v.parent.absolute().__str__()
                         else:
                             v = v.__str__()
                     case _:
                         pass
-                # print(f"Key: {k}, Value: {v}")
                 dicto[k] = v
             with open(settings_path, 'w') as f:
                 yaml.dump(dicto, f)
@@ -1009,8 +1005,6 @@ def create_holidays_for_year(year: int|None=None) -> List[date]:
     holidays = [date(year, 1, 1), date(year, 7,1), date(year, 9, 30),
                 date(year, 11, 11), date(year, 12, 25), date(year, 12, 26),
                 date(year+1, 1, 1)]
-    # August Civic
-    # holidays.append(find_nth_monday(year, 8))
     # Labour Day
     holidays.append(find_nth_monday(year, 9))
     # Thanksgiving

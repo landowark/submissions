@@ -1,3 +1,7 @@
+# 202412.04
+
+- Update of wastewater to allow for duplex PCR primers.
+
 ## 202412.03
 
 - Automated truncating of object names longer than 64 chars going into _auditlog

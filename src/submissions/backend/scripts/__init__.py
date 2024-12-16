@@ -1,7 +1,8 @@
-from .irida import import_irida
+from pathlib import Path
+import importlib
 
-def hello(ctx):
-    print("\n\nHello! Welcome to Robotics Submission Tracker.\n\n")
-
-def goodbye(ctx):
-    print("\n\nGoodbye. Thank you for using Robotics Submission Tracker.\n\n")
+p = Path(__file__).parent.absolute()
+subs = [item.stem for item in p.glob("*.py") if "__" not in item.stem]
+modules = {}
+for sub in subs:
+    importlib.import_module(f"backend.scripts.{sub}")

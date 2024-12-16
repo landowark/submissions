@@ -502,7 +502,6 @@ class PydSubmission(BaseModel, extra='allow'):
             dlg = ObjectSelector(title="Missing Submitting Lab",
                                  message="We need a submitting lab. Please select from the list.",
                                  obj_type=Organization)
-
             if dlg.exec():
                 value['value'] = dlg.parse_form()
             else:

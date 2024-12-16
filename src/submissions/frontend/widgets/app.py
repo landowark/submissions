@@ -60,7 +60,6 @@ class App(QMainWindow):
         self._connectActions()
         self.show()
         self.statusBar().showMessage('Ready', 5000)
-        self.backup_database()
 
     def _createMenuBar(self):
         """
@@ -168,28 +167,6 @@ class App(QMainWindow):
         """
         dlg = SearchBox(self, object_type=BasicSample, extras=[])
         dlg.exec()
-
-    def backup_database(self):
-        """
-        Copies the database into the backup directory the first time it is opened every month.
-        """
-        month = date.today().strftime("%Y-%m")
-        current_month_bak = Path(self.ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve()
-        logger.info(f"Here is the db directory: {self.ctx.database_path}")
-        logger.info(f"Here is the backup directory: {self.ctx.backup_path}")
-        match self.ctx.database_schema:
-            case "sqlite":
-                db_path = self.ctx.database_path.joinpath(self.ctx.database_name).with_suffix(".db")
-                current_month_bak = current_month_bak.with_suffix(".db")
-                if not current_month_bak.exists() and "Archives" not in db_path.__str__():
-                    logger.info("No backup found for this month, backing up database.")
-                    try:
-                        shutil.copyfile(db_path, current_month_bak)
-                    except PermissionError as e:
-                        logger.error(f"Couldn't backup database due to: {e}")
-            case "postgresql+psycopg2":
-                logger.warning(f"Backup function not yet implemented for psql")
-                current_month_bak = current_month_bak.with_suffix(".psql")
 
     def export_ST_yaml(self):
         """

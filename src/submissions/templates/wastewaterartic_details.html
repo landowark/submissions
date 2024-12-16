@@ -12,9 +12,9 @@
     {% if sub['gel_info'] %}
     <br/>
     <h3><u>Gel Box:</u></h3>
-    {% if sub['gel_image'] %}
+    {% if sub['gel_image_actual'] %}
         <br/>
-        <img align='left' height="400px" width="600px" src="data:image/jpeg;base64,{{ sub['gel_image'] | safe }}">
+        <img align='left' height="400px" width="600px" src="data:image/jpeg;base64,{{ sub['gel_image_actual'] | safe }}">
     {% endif %}
     <br/>
         <table style="width:100%; border: 1px solid black; border-collapse: collapse;">

@@ -83,7 +83,6 @@ class ControlsViewer(InfoPane):
 
     @report_result
     def chart_maker_function(self, *args, **kwargs):
-        # TODO: Generalize this by moving as much code as possible to IridaControl
         """
         Create html chart for controls reporting
 
@@ -94,7 +93,7 @@ class ControlsViewer(InfoPane):
             Tuple[QMainWindow, dict]: Collection of new main app window and result dict
         """
         report = Report()
-        # NOTE: set the mode_sub_type for kraken
+        # NOTE: set the mode_sub_type for kraken. Disabled in PCRControl
         if self.mode_sub_typer.currentText() == "":
             self.mode_sub_type = None
         else:

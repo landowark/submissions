@@ -2,6 +2,8 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
+
+from collections import OrderedDict
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
@@ -559,7 +561,7 @@ class BasicSubmission(BaseClass, LogMixin):
             except AttributeError as e:
                 logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
 
-    def update_subsampassoc(self, sample: BasicSample, input_dict: dict):
+    def update_subsampassoc(self, sample: BasicSample, input_dict: dict) -> SubmissionSampleAssociation:
         """
         Update a joined submission sample association.
 
@@ -568,7 +570,7 @@ class BasicSubmission(BaseClass, LogMixin):
             input_dict (dict): values to be updated
 
         Returns:
-            Result: _description_
+            SubmissionSampleAssociation: Updated association
         """
         try:
             assoc = next(item for item in self.submission_sample_associations if item.sample == sample)
@@ -583,14 +585,14 @@ class BasicSubmission(BaseClass, LogMixin):
                 # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
             except AttributeError:
                 logger.error(f"Can't set {k} to {v}")
-        result = assoc.save()
-        return result
+        return assoc
 
     def update_reagentassoc(self, reagent: Reagent, role: str):
         from backend.db import SubmissionReagentAssociation
         # NOTE: get the first reagent assoc that fills the given role.
         try:
-            assoc = next(item for item in self.submission_reagent_associations if item.reagent and role in [role.name for role in item.reagent.role])
+            assoc = next(item for item in self.submission_reagent_associations if
+                         item.reagent and role in [role.name for role in item.reagent.role])
             assoc.reagent = reagent
         except StopIteration as e:
             logger.error(f"Association for {role} not found, creating new association.")
@@ -611,7 +613,8 @@ class BasicSubmission(BaseClass, LogMixin):
             missing = value in ['', 'None', None]
             match key:
                 case "reagents":
-                    field_value = [item.to_pydantic(extraction_kit=self.extraction_kit) for item in self.submission_reagent_associations]
+                    field_value = [item.to_pydantic(extraction_kit=self.extraction_kit) for item in
+                                   self.submission_reagent_associations]
                 case "samples":
                     field_value = [item.to_pydantic() for item in self.submission_sample_associations]
                 case "equipment":
@@ -643,7 +646,8 @@ class BasicSubmission(BaseClass, LogMixin):
                         continue
             new_dict[key] = field_value
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
-        return PydSubmission(**new_dict)
+        dicto.update(new_dict)
+        return PydSubmission(**dicto)
 
     def save(self, original: bool = True):
         """
@@ -1006,7 +1010,7 @@ class BasicSubmission(BaseClass, LogMixin):
     @setup_lookup
     def query(cls,
               submission_type: str | SubmissionType | None = None,
-              submission_type_name: str|None = None,
+              submission_type_name: str | None = None,
               id: int | str | None = None,
               rsl_plate_num: str | None = None,
               start_date: date | str | int | None = None,
@@ -1287,7 +1291,7 @@ class BasicSubmission(BaseClass, LogMixin):
         writer = pyd.to_writer()
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
-    def get_turnaround_time(self) -> Tuple[int|None, bool|None]:
+    def get_turnaround_time(self) -> Tuple[int | None, bool | None]:
         try:
             completed = self.completed_date.date()
         except AttributeError:
@@ -1295,7 +1299,8 @@ class BasicSubmission(BaseClass, LogMixin):
         return self.calculate_turnaround(start_date=self.submitted_date.date(), end_date=completed)
 
     @classmethod
-    def calculate_turnaround(cls, start_date:date|None=None, end_date:date|None=None) -> Tuple[int|None, bool|None]:
+    def calculate_turnaround(cls, start_date: date | None = None, end_date: date | None = None) -> Tuple[
+        int | None, bool | None]:
         if 'pytest' not in sys.modules:
             from tools import ctx
         else:
@@ -1499,7 +1504,7 @@ class Wastewater(BasicSubmission):
         output = []
         for sample in samples:
             # NOTE: remove '-{target}' from controls
-            sample['sample'] = re.sub('-N\\d$', '', sample['sample'])
+            sample['sample'] = re.sub('-N\\d*$', '', sample['sample'])
             # NOTE: if sample is already in output skip
             if sample['sample'] in [item['sample'] for item in output]:
                 logger.warning(f"Already have {sample['sample']}")
@@ -1509,7 +1514,7 @@ class Wastewater(BasicSubmission):
             # NOTE: Set assessment
             sample[f"{sample['target'].lower()}_status"] = sample['assessment']
             # NOTE: Get sample having other target
-            other_targets = [s for s in samples if re.sub('-N\\d$', '', s['sample']) == sample['sample']]
+            other_targets = [s for s in samples if re.sub('-N\\d*$', '', s['sample']) == sample['sample']]
             for s in other_targets:
                 sample[f"ct_{s['target'].lower()}"] = s['ct'] if isinstance(s['ct'], float) else 0.0
                 sample[f"{s['target'].lower()}_status"] = s['assessment']
@@ -1613,7 +1618,9 @@ class Wastewater(BasicSubmission):
                 sample_dict = next(item for item in pcr_samples if item['sample'] == sample.rsl_number)
             except StopIteration:
                 continue
-            self.update_subsampassoc(sample=sample, input_dict=sample_dict)
+            assoc = self.update_subsampassoc(sample=sample, input_dict=sample_dict)
+            result = assoc.save()
+            report.add_result(result)
         controltype = ControlType.query(name="PCR Control")
         submitted_date = datetime.strptime(" ".join(parser.pcr['run_start_date/time'].split(" ")[:-1]),
                                            "%Y-%m-%d %I:%M:%S %p")
@@ -1623,6 +1630,27 @@ class Wastewater(BasicSubmission):
             new_control.controltype = controltype
             new_control.submission = self
             new_control.save()
+        return report
+
+    def update_subsampassoc(self, sample: BasicSample, input_dict: dict):
+        """
+        Updates a joined submission sample association by assigning ct values to n1 or n2 based on alphabetical sorting.
+
+        Args:
+            sample (BasicSample): Associated sample.
+            input_dict (dict): values to be updated
+
+        Returns:
+            SubmissionSampleAssociation: Updated association
+        """
+        assoc = super().update_subsampassoc(sample=sample, input_dict=input_dict)
+        targets = {k: input_dict[k] for k in sorted(input_dict.keys()) if k.startswith("ct_")}
+        assert 0 < len(targets) <= 2
+        for i, v in enumerate(targets.values(), start=1):
+            update_key = f"ct_n{i}"
+            if getattr(assoc, update_key) is None:
+                setattr(assoc, update_key, v)
+        return assoc
 
 
 class WastewaterArtic(BasicSubmission):
@@ -1661,7 +1689,7 @@ class WastewaterArtic(BasicSubmission):
         else:
             output['artic_technician'] = self.artic_technician
         output['gel_info'] = self.gel_info
-        output['gel_image_path'] = self.gel_image
+        output['gel_image'] = self.gel_image
         output['dna_core_submission_number'] = self.dna_core_submission_number
         output['source_plates'] = self.source_plates
         output['artic_date'] = self.artic_date or self.submitted_date
@@ -1988,7 +2016,6 @@ class WastewaterArtic(BasicSubmission):
             egel_section = custom_fields['egel_info']
             # NOTE: print json field gel results to Egel results
             worksheet = input_excel[egel_section['sheet']]
-            # TODO: Move all this into a seperate function?
             start_row = egel_section['start_row'] - 1
             start_column = egel_section['start_column'] - 3
             for row, ki in enumerate(info['gel_info']['value'], start=1):
@@ -2003,10 +2030,10 @@ class WastewaterArtic(BasicSubmission):
                         logger.error(f"Failed {kj['name']} with value {kj['value']} to row {row}, column {column}")
         else:
             logger.warning("No gel info found.")
-        if check_key_or_attr(key='gel_image_path', interest=info, check_none=True):
+        if check_key_or_attr(key='gel_image', interest=info, check_none=True):
             worksheet = input_excel[egel_section['sheet']]
             with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
-                z = zipped.extract(info['gel_image_path']['value'], Path(TemporaryDirectory().name))
+                z = zipped.extract(info['gel_image']['value'], Path(TemporaryDirectory().name))
                 img = OpenpyxlImage(z)
                 img.height = 400  # insert image height in pixels as float or int (e.g. 305.5)
                 img.width = 600
@@ -2041,9 +2068,9 @@ class WastewaterArtic(BasicSubmission):
             headers = [item['name'] for item in base_dict['gel_info'][0]['values']]
             base_dict['headers'] = [''] * (4 - len(headers))
             base_dict['headers'] += headers
-        if check_key_or_attr(key='gel_image_path', interest=base_dict, check_none=True):
+        if check_key_or_attr(key='gel_image', interest=base_dict, check_none=True):
             with ZipFile(cls.__directory_path__.joinpath("submission_imgs.zip")) as zipped:
-                base_dict['gel_image'] = base64.b64encode(zipped.read(base_dict['gel_image_path'])).decode('utf-8')
+                base_dict['gel_image_actual'] = base64.b64encode(zipped.read(base_dict['gel_image'])).decode('utf-8')
         return base_dict, template
 
     def custom_context_events(self) -> dict:
