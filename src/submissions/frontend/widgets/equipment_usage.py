@@ -160,7 +160,7 @@ class RoleComboBox(QWidget):
             PydEquipment|None: PydEquipment matching form
         """
         eq = Equipment.query(name=self.box.currentText())
-        tips = [PydTips(name=item.currentText(), role=item.objectName().lstrip("tips").lstrip("_")) for item in
+        tips = [PydTips(name=item.currentText(), role=item.objectName().lstrip("tips").lstrip("_"), lot="") for item in
                 self.findChildren(QComboBox) if item.objectName().startswith("tips")]
         try:
             return PydEquipment(

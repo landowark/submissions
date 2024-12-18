@@ -295,7 +295,8 @@ class PydTips(BaseModel):
         Returns:
             SubmissionTipsAssociation: Association between queried tips and submission
         """
-        tips = Tips.query(name=self.name, lot=self.lot, limit=1)
+        tips = Tips.query(name=self.name, limit=1)
+        logger.debug(f"Tips query has yielded: {tips}")
         assoc = SubmissionTipsAssociation.query(tip_id=tips.id, submission_id=submission.id, role=self.role, limit=1)
         if assoc is None:
             assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
@@ -900,17 +901,20 @@ class PydSubmission(BaseModel, extra='allow'):
         return render
 
     # @report_result
-    def check_kit_integrity(self, extraction_kit: str | dict | None = None) -> Tuple[List[PydReagent], Report]:
+    def check_kit_integrity(self, extraction_kit: str | dict | None = None, exempt:List[PydReagent]=[]) -> Tuple[
+        List[PydReagent], Report]:
         """
         Ensures all reagents expected in kit are listed in Submission
        
         Args:
-            reagenttypes (list | None, optional): List to check against complete list. Defaults to None.
+            extraction_kit (str | dict | None, optional): kit to be checked. Defaults to None.
+            exempt (List[PydReagent], optional): List of reagents that don't need to be checked. Defaults to []
 
         Returns:
-            Report: Result object containing a message and any missing components.
+            Tuple[List[PydReagent], Report]: List of reagents and Result object containing a message and any missing components.
         """
         report = Report()
+        # logger.debug(f"The following reagents are exempt from the kit integrity check:\n{exempt}")
         if isinstance(extraction_kit, str):
             extraction_kit = dict(value=extraction_kit)
         if extraction_kit is not None and extraction_kit != self.extraction_kit['value']:
@@ -922,7 +926,8 @@ class PydSubmission(BaseModel, extra='allow'):
         expected_check = [item.role for item in ext_kit_rtypes]
         output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
         missing_check = [item.role for item in output_reagents]
-        missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check]
+        missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check and rt.role not in exempt]
+        # logger.debug(f"Missing reagents: {missing_reagents}")
         missing_reagents += [rt for rt in output_reagents if rt.missing]
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
         # NOTE: if lists are equal return no problem
@@ -930,8 +935,8 @@ class PydSubmission(BaseModel, extra='allow'):
             result = None
         else:
             result = Result(
-                msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.role.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
-                status="Warning")
+                    msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.role.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
+                    status="Warning")
         report.add_result(result)
         return output_reagents, report
 

@@ -332,7 +332,6 @@ class KitType(BaseClass):
         return new_kit
 
 
-
 class ReagentRole(BaseClass):
     """
     Base of reagent type abstract

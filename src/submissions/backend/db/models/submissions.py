@@ -1265,7 +1265,9 @@ class BasicSubmission(BaseClass, LogMixin):
                     logger.error(f"Couldn't save association with {equip} due to {e}")
                 if equip.tips:
                     for tips in equip.tips:
+                        logger.debug(f"Attempting to add tips assoc: {tips} (pydantic)")
                         tassoc = tips.to_sql(submission=self)
+                        logger.debug(f"Attempting to add tips assoc: {tips.__dict__} (sql)")
                         if tassoc not in self.submission_tips_associations:
                             tassoc.save()
                         else:

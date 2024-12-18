@@ -1,6 +1,6 @@
 import sys, os
 from tools import ctx, setup_logger, check_if_app
-
+from threading import Thread
 # environment variable must be set to enable qtwebengine in network path
 if check_if_app():
     os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = "1"
@@ -23,12 +23,12 @@ def run_startup():
     for script in startup_scripts:
         try:
             func = getattr(scripts, script)
-            # func = modules[script]
         except AttributeError as e:
             logger.error(f"Couldn't run startup script {script} due to {e}")
             continue
         logger.info(f"Running startup script: {func.__name__}")
-        func.script(ctx)
+        thread = Thread(target=func.script, args=(ctx, ))
+        thread.start()
 
 
 def run_teardown():
@@ -45,7 +45,8 @@ def run_teardown():
             logger.error(f"Couldn't run teardown script {script} due to {e}")
             continue
         logger.info(f"Running teardown script: {func.__name__}")
-        func.script(ctx)
+        thread = Thread(target=func.script, args=(ctx,))
+        thread.start()
 
 if __name__ == '__main__':
     run_startup()

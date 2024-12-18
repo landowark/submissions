@@ -269,7 +269,7 @@ from .controls import *
 from .organizations import *
 from .kits import *
 from .submissions import *
-from .audit import AuditLog
+from .audit import *
 
 # NOTE: Add a creator to the submission for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator

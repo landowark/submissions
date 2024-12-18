@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
-from . import select_open_file, select_save_file
+from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result
@@ -338,11 +338,15 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         result = self.parse_form()
         report.add_result(result)
+        # allow = not all([item.lot.isEnabled() for item in self.findChildren(self.ReagentFormWidget)])
+        exempt = [item.reagent.role for item in self.findChildren(self.ReagentFormWidget) if not item.lot.isEnabled()]
+        # if allow:
+        #     logger.warning(f"Some reagents are disabled, allowing incomplete kit.")
         if self.disabler.checkbox.isChecked():
-            _, result = self.pyd.check_kit_integrity()
+            _, result = self.pyd.check_kit_integrity(exempt=exempt)
             report.add_result(result)
         if len(result.results) > 0:
-            return
+            return report
         base_submission, result = self.pyd.to_sql()
         # NOTE: check output message for issues
         try:
