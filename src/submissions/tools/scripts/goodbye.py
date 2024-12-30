@@ -1,5 +1,9 @@
 """
 Test script for teardown_scripts
 """
-def script(ctx):
+
+from .. import register_script
+
+@register_script
+def goodbye(ctx):
     print("\n\nGoodbye. Thank you for using Robotics Submission Tracker.\n\n")

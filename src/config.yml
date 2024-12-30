@@ -4,4 +4,3 @@ database_schema: null
 database_user: null
 database_password: null
 database_name: null
-logging_enabled: false

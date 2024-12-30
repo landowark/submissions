@@ -31,7 +31,6 @@
 - [x] Create platemap image from html for export to pdf.
 - [x] Move plate map maker to submission.
 - [x] Finish Equipment Parser (add in regex to id asset_number)
-- [ ] Complete info_map in the SubmissionTypeCreator widget.
 - [x] Update Artic and add in equipment listings... *sigh*.
 - [x] Fix WastewaterAssociations not in Session error.
     - Done... I think?

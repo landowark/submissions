@@ -901,7 +901,7 @@ class PydSubmission(BaseModel, extra='allow'):
         return render
 
     # @report_result
-    def check_kit_integrity(self, extraction_kit: str | dict | None = None, exempt:List[PydReagent]=[]) -> Tuple[
+    def check_kit_integrity(self, extraction_kit: str | dict | None = None, exempt: List[PydReagent] = []) -> Tuple[
         List[PydReagent], Report]:
         """
         Ensures all reagents expected in kit are listed in Submission
@@ -929,16 +929,40 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check and rt.role not in exempt]
         # logger.debug(f"Missing reagents: {missing_reagents}")
         missing_reagents += [rt for rt in output_reagents if rt.missing]
+        logger.debug(pformat(missing_reagents))
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
         # NOTE: if lists are equal return no problem
         if len(missing_reagents) == 0:
             result = None
         else:
             result = Result(
-                    msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.role.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
-                    status="Warning")
+                msg=f"The excel sheet you are importing is missing some reagents expected by the kit.\n\nIt looks like you are missing: {[item.role.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kit.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
+                status="Warning")
         report.add_result(result)
-        return output_reagents, report
+        return output_reagents, report, missing_reagents
+
+    def check_reagent_expiries(self, exempt: List[PydReagent]=[]):
+        report = Report()
+        expired = []
+        for reagent in self.reagents:
+            if reagent not in exempt:
+                role_expiry = ReagentRole.query(name=reagent.role).eol_ext
+                try:
+                    dt = datetime.combine(reagent.expiry, datetime.min.time())
+                except TypeError:
+                    continue
+                if datetime.now() > dt + role_expiry:
+                    expired.append(f"{reagent.role}, {reagent.lot}: {reagent.expiry} + {role_expiry.days}")
+        if expired:
+            output = '\n'.join(expired)
+            result = Result(status="Warning",
+                            msg = f"The following reagents are expired:\n\n{output}"
+                            )
+            report.add_result(result)
+        return report
+
+
+
 
     def export_csv(self, filename: Path | str):
         try:

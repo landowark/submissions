@@ -15,7 +15,7 @@ from __init__ import project_path
 from backend import SubmissionType, Reagent, BasicSample
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
 from .functions import select_save_file, select_open_file
-from datetime import date
+# from datetime import date
 from .pop_ups import HTMLPop, AlertPop
 from .misc import Pagifier
 import logging, webbrowser, sys, shutil

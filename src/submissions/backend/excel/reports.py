@@ -145,6 +145,7 @@ class ReportMaker(object):
             if cell.row > 1:
                 cell.style = 'Currency'
 
+
 class TurnaroundMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type:str):

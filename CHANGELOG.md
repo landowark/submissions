@@ -1,6 +1,11 @@
+# 202412.05
+
+- Switched startup/teardown scripts to decorator registration.
+
 # 202412.04
 
 - Update of wastewater to allow for duplex PCR primers.
+- Addition of expiry check after kit integrity check.
 
 ## 202412.03
 

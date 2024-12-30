@@ -283,11 +283,13 @@ class SubmissionFormWidget(QWidget):
         for reagent in old_reagents:
             if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
                 reagent.setParent(None)
-        reagents, integrity_report = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
+        reagents, integrity_report, missing_reagents = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
+        expiry_report = self.pyd.check_reagent_expiries(exempt=missing_reagents)
         for reagent in reagents:
             add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
             self.layout.addWidget(add_widget)
         report.add_result(integrity_report)
+        report.add_result(expiry_report)
         if hasattr(self.pyd, "csv"):
             export_csv_btn = QPushButton("Export CSV")
             export_csv_btn.setObjectName("export_csv_btn")
@@ -338,13 +340,11 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         result = self.parse_form()
         report.add_result(result)
-        # allow = not all([item.lot.isEnabled() for item in self.findChildren(self.ReagentFormWidget)])
         exempt = [item.reagent.role for item in self.findChildren(self.ReagentFormWidget) if not item.lot.isEnabled()]
-        # if allow:
-        #     logger.warning(f"Some reagents are disabled, allowing incomplete kit.")
         if self.disabler.checkbox.isChecked():
-            _, result = self.pyd.check_kit_integrity(exempt=exempt)
+            _, result, _ = self.pyd.check_kit_integrity(exempt=exempt)
             report.add_result(result)
+            # result = self.pyd.check_reagent_expiries(exempt=exempt)
         if len(result.results) > 0:
             return report
         base_submission, result = self.pyd.to_sql()

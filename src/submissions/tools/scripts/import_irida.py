@@ -2,25 +2,25 @@ import logging, sqlite3, json
 from pprint import pformat, pprint
 from datetime import datetime
 from tools import Settings
-from backend import BasicSample
-from backend.db import IridaControl, ControlType
+
 from sqlalchemy.orm import Session
+from .. import register_script
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-
-def script(ctx: Settings):
+@register_script
+def import_irida(ctx: Settings):
     """
     Grabs Irida controls from secondary database.
 
     Args:
         ctx (Settings): Settings inherited from app.
     """
+    from backend import BasicSample
+    from backend.db import IridaControl, ControlType
     # NOTE: Because the main session will be busy in another thread, this requires a new session.
     new_session = Session(ctx.database_session.get_bind())
-    # ct = ControlType.query(name="Irida Control")
     ct = new_session.query(ControlType).filter(ControlType.name == "Irida Control").first()
-    # existing_controls = [item.name for item in IridaControl.query()]
     existing_controls = [item.name for item in new_session.query(IridaControl)]
     prm_list = ", ".join([f"'{thing}'" for thing in existing_controls])
     ctrl_db_path = ctx.directory_path.joinpath("submissions_parser_output", "submissions.db")

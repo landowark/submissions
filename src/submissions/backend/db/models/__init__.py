@@ -24,6 +24,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class LogMixin(Base):
     __abstract__ = True
 
+    @property
     def truncated_name(self):
         name = str(self)
         if len(name) > 64:

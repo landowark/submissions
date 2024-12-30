@@ -32,5 +32,3 @@ class PCRFigure(CustomFigure):
             scatter = px.scatter()
         self.add_traces(scatter.data)
         self.update_traces(marker={'size': 15})
-
-

@@ -1,16 +1,16 @@
 """
 script meant to copy database data to new file. Currently for Sqlite only
 """
-import logging, shutil
+import logging, shutil, pyodbc
 from datetime import date
 from pathlib import Path
 from tools import Settings
-import pyodbc
+from .. import register_script
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-
-def script(ctx: Settings):
+@register_script
+def backup_database(ctx: Settings):
     """
     Copies the database into the backup directory the first time it is opened every month.
     """

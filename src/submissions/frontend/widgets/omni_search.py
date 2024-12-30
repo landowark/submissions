@@ -1,5 +1,5 @@
 """
-Search box that performs fuzzy search for samples
+Search box that performs fuzzy search for various object types
 """
 from pprint import pformat
 from typing import Tuple, Any, List

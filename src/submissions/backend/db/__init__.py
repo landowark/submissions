@@ -21,10 +21,10 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     if ctx.database_schema == "sqlite":
         execution_phrase = "PRAGMA foreign_keys=ON"
     else:
-        print("Nothing to execute, returning")
+        # print("Nothing to execute, returning")
         cursor.close()
         return
-    print(f"Executing {execution_phrase} in sql.")
+    print(f"Executing '{execution_phrase}' in sql.")
     cursor.execute(execution_phrase)
     cursor.close()
 
@@ -34,7 +34,7 @@ from .models import *
 
 def update_log(mapper, connection, target):
     state = inspect(target)
-    object_name = state.object.truncated_name()
+    object_name = state.object.truncated_name
     update = dict(user=getuser(), time=datetime.now(), object=object_name, changes=[])
     for attr in state.attrs:
         hist = attr.load_history()

@@ -174,6 +174,7 @@ class SubmissionDetails(QDialog):
         fname = select_save_file(obj=self, default_name=self.export_plate, extension="pdf")
         save_pdf(obj=self.webview, filename=fname)
 
+
 class SubmissionComment(QDialog):
     """
     a window for adding comment text to a submission

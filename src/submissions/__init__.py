@@ -14,7 +14,7 @@ def get_week_of_month() -> int:
     Gets the current week number of the month.
 
     Returns:
-        int:
+        int: 1 if first week of month, etc.
     """
     for ii, week in enumerate(calendar.monthcalendar(date.today().year, date.today().month)):
         if day in week:

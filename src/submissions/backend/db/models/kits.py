@@ -738,7 +738,13 @@ class SubmissionType(BaseClass):
         return f"<SubmissionType({self.name})>"
 
     @classmethod
-    def retrieve_template_file(cls):
+    def retrieve_template_file(cls) -> bytes:
+        """
+        Grabs the default excel template file.
+
+        Returns:
+            bytes: The excel sheet.
+        """
         submission_type = cls.query(name="Bacterial Culture")
         return submission_type.template_file
 

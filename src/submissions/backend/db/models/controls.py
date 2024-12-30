@@ -368,7 +368,7 @@ class IridaControl(Control):
                            polymorphic_load="inline",
                            inherit_condition=(id == Control.id))
 
-    @validates("sub_type")
+    @validates("subtype")
     def enforce_subtype_literals(self, key: str, value: str) -> str:
         """
         Validates sub_type field with acceptable values
