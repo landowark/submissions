@@ -4,11 +4,11 @@ from datetime import datetime
 from tools import Settings
 
 from sqlalchemy.orm import Session
-from .. import register_script
+# from .. import register_script
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-@register_script
+# @register_script
 def import_irida(ctx: Settings):
     """
     Grabs Irida controls from secondary database.

@@ -8,6 +8,8 @@ import time
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 import logging, re, yaml, sys, os, stat, platform, getpass, inspect, json, numpy as np, pandas as pd
+from threading import Thread
+
 from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
@@ -239,6 +241,27 @@ def get_first_blank_df_row(df: pd.DataFrame) -> int:
     return df.shape[0] + 1
 
 
+def timer(func):
+    """
+    Performs timing of wrapped function
+
+    Args:
+        func (__function__): incoming function
+
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        value = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        run_time = end_time - start_time
+        logger.debug(f"Finished {func.__name__}() in {run_time:.4f} secs")
+        return value
+
+    return wrapper
+
+
 # Settings
 
 class Settings(BaseSettings, extra="allow"):
@@ -421,7 +444,7 @@ class Settings(BaseSettings, extra="allow"):
 
         super().__init__(*args, **kwargs)
         self.set_from_db()
-        # self.set_startup_teardown()
+        self.set_scripts()
         # pprint(f"User settings:\n{self.__dict__}")
 
     def set_from_db(self):
@@ -460,7 +483,38 @@ class Settings(BaseSettings, extra="allow"):
         p = Path(__file__).parent.joinpath("scripts").absolute()
         subs = [item.stem for item in p.glob("*.py") if "__" not in item.stem]
         for sub in subs:
-            importlib.import_module(f"tools.scripts.{sub}")
+            mod = importlib.import_module(f"tools.scripts.{sub}")
+            try:
+                func = mod.__getattribute__(sub)
+            except AttributeError:
+                try:
+                    func = mod.__getattribute__("script")
+                except AttributeError:
+                    continue
+            if sub in self.startup_scripts.keys():
+                self.startup_scripts[sub] = func
+            if sub in self.teardown_scripts.keys():
+                self.teardown_scripts[sub] = func
+
+    @timer
+    def run_startup(self):
+        """
+        Runs startup scripts.
+        """
+        for script in self.startup_scripts.values():
+            logger.info(f"Running startup script: {script.__name__}")
+            thread = Thread(target=script, args=(ctx,))
+            thread.start()
+
+    @timer
+    def run_teardown(self):
+        """
+        Runs teardown scripts.
+        """
+        for script in self.teardown_scripts.values():
+            logger.info(f"Running teardown script: {script.__name__}")
+            thread = Thread(target=script, args=(ctx,))
+            thread.start()
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
@@ -1037,37 +1091,4 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
     return sorted(holidays)
 
 
-def timer(func):
-    """
-    Performs timing of wrapped function
-
-    Args:
-        func (__function__): incoming function
-
-    """
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        value = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        run_time = end_time - start_time
-        logger.debug(f"Finished {func.__name__}() in {run_time:.4f} secs")
-        return value
-
-    return wrapper
-
-
 ctx = get_config(None)
-
-
-def register_script(func):
-    """Register a function as a plug-in"""
-    if func.__name__ in ctx.startup_scripts.keys():
-        ctx.startup_scripts[func.__name__] = func
-    if func.__name__ in ctx.teardown_scripts.keys():
-        ctx.teardown_scripts[func.__name__] = func
-    return func
-
-
-ctx.set_scripts()
