@@ -4,11 +4,9 @@ from datetime import datetime
 from tools import Settings
 
 from sqlalchemy.orm import Session
-# from .. import register_script
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# @register_script
 def import_irida(ctx: Settings):
     """
     Grabs Irida controls from secondary database.
@@ -38,7 +36,6 @@ def import_irida(ctx: Settings):
              subtype=row[6], refseq_version=row[7], kraken2_version=row[8], kraken2_db_version=row[9],
              sample_id=row[10]) for row in cursor]
     for record in records:
-        # instance = IridaControl.query(name=record['name'])
         instance = new_session.query(IridaControl).filter(IridaControl.name == record['name']).first()
         if instance:
             logger.warning(f"Irida Control {instance.name} already exists, skipping.")
@@ -49,19 +46,13 @@ def import_irida(ctx: Settings):
                 assert isinstance(record[thing], dict)
             else:
                 record[thing] = {}
-        # record['matches'] = json.loads(record['matches'])
-        # assert isinstance(record['matches'], dict)
-        # record['kraken'] = json.loads(record['kraken'])
-        # assert isinstance(record['kraken'], dict)
         record['submitted_date'] = datetime.strptime(record['submitted_date'], "%Y-%m-%d %H:%M:%S.%f")
         assert isinstance(record['submitted_date'], datetime)
         instance = IridaControl(controltype=ct, **record)
-        # sample = BasicSample.query(submitter_id=instance.name)
         sample = new_session.query(BasicSample).filter(BasicSample.submitter_id == instance.name).first()
         if sample:
             instance.sample = sample
             instance.submission = sample.submissions[0]
-        # instance.save()
         new_session.add(instance)
     new_session.commit()
     new_session.close()

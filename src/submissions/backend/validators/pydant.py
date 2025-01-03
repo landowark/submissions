@@ -645,6 +645,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("contact")
     @classmethod
     def get_contact_from_org(cls, value, values):
+        logger.debug(f"Value coming in: {value}")
         match value:
             case dict():
                 if isinstance(value['value'], tuple):
@@ -653,14 +654,26 @@ class PydSubmission(BaseModel, extra='allow'):
                 value = dict(value=value[0], missing=False)
             case _:
                 value = dict(value=value, missing=False)
+        logger.debug(f"Value after match: {value}")
         check = Contact.query(name=value['value'])
-        if check is None:
-            org = Organization.query(name=values.data['submitting_lab']['value'])
-            contact = org.contacts[0].name
+        logger.debug(f"Check came back with {check}")
+        if not isinstance(check, Contact):
+            org = values.data['submitting_lab']['value']
+            logger.debug(f"Checking organization: {org}")
+            if isinstance(org, str):
+                org = Organization.query(name=values.data['submitting_lab']['value'], limit=1)
+            if isinstance(org, Organization):
+                contact = org.contacts[0].name
+            else:
+                logger.warning(f"All attempts at defaulting Contact failed, returning: {value}")
+                return value
             if isinstance(contact, tuple):
                 contact = contact[0]
-            return dict(value=contact, missing=True)
+            value = dict(value=f"Defaulted to: {contact}", missing=True)
+            logger.debug(f"Value after query: {value}")
+            return
         else:
+            logger.debug(f"Value after bypass check: {value}")
             return value
 
     def __init__(self, run_custom: bool = False, **data):
@@ -982,6 +995,17 @@ class PydContact(BaseModel):
     name: str
     phone: str | None
     email: str | None
+
+    @field_validator("phone")
+    @classmethod
+    def enforce_phone_number(cls, value):
+        area_regex = re.compile(r"^\(?(\d{3})\)?(-| )?")
+        if len(value) > 8:
+            match = area_regex.match(value)
+            logger.debug(f"Match: {match.group(1)}")
+            value = area_regex.sub(f"({match.group(1).strip()}) ", value)
+            logger.debug(f"Output phone: {value}")
+        return value
 
     def toSQL(self) -> Contact:
         """

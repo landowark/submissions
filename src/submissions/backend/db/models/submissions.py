@@ -7,6 +7,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
+from inspect import isclass
 from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
@@ -175,7 +176,7 @@ class BasicSubmission(BaseClass, LogMixin):
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
                          'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-                         'controls'] + recover,
+                         'controls', "origin_plate"] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         ))
@@ -352,7 +353,10 @@ class BasicSubmission(BaseClass, LogMixin):
         try:
             contact = self.contact.name
         except AttributeError as e:
-            contact = "NA"
+            try:
+                contact = f"Defaulted to: {self.submitting_lab.contacts[0].name}"
+            except (AttributeError, IndexError):
+                contact = "NA"
         try:
             contact_phone = self.contact.phone
         except AttributeError:
@@ -627,8 +631,14 @@ class BasicSubmission(BaseClass, LogMixin):
                         continue
                 case "tips":
                     field_value = [item.to_pydantic() for item in self.submission_tips_associations]
-                case "submission_type" | "contact":
+                case "submission_type":
                     field_value = dict(value=self.__getattribute__(key).name, missing=missing)
+                # case "contact":
+                #     try:
+                #         field_value = dict(value=self.__getattribute__(key).name, missing=missing)
+                #     except AttributeError:
+                #         contact = self.submitting_lab.contacts[0]
+                #         field_value = dict(value=contact.name, missing=True)
                 case "plate_number":
                     key = 'rsl_plate_num'
                     field_value = dict(value=self.rsl_plate_num, missing=missing)
@@ -640,10 +650,13 @@ class BasicSubmission(BaseClass, LogMixin):
                 case _:
                     try:
                         key = key.lower().replace(" ", "_")
-                        field_value = dict(value=self.__getattribute__(key), missing=missing)
+                        if isclass(value):
+                            field_value = dict(value=self.__getattribute__(key).name, missing=missing)
+                        else:
+                            field_value = dict(value=self.__getattribute__(key), missing=missing)
                     except AttributeError:
                         logger.error(f"{key} is not available in {self}")
-                        continue
+                        field_value = dict(value="NA", missing=True)
             new_dict[key] = field_value
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
         dicto.update(new_dict)
@@ -1505,6 +1518,7 @@ class Wastewater(BasicSubmission):
         # NOTE: Due to having to run through samples in for loop we need to convert to list.
         output = []
         for sample in samples:
+            logger.debug(sample)
             # NOTE: remove '-{target}' from controls
             sample['sample'] = re.sub('-N\\d*$', '', sample['sample'])
             # NOTE: if sample is already in output skip
@@ -1512,14 +1526,16 @@ class Wastewater(BasicSubmission):
                 logger.warning(f"Already have {sample['sample']}")
                 continue
             # NOTE: Set ct values
+            logger.debug(f"Sample ct: {sample['ct']}")
             sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
             # NOTE: Set assessment
-            sample[f"{sample['target'].lower()}_status"] = sample['assessment']
+            logger.debug(f"Sample assessemnt: {sample['assessment']}")
+            # sample[f"{sample['target'].lower()}_status"] = sample['assessment']
             # NOTE: Get sample having other target
             other_targets = [s for s in samples if re.sub('-N\\d*$', '', s['sample']) == sample['sample']]
             for s in other_targets:
                 sample[f"ct_{s['target'].lower()}"] = s['ct'] if isinstance(s['ct'], float) else 0.0
-                sample[f"{s['target'].lower()}_status"] = s['assessment']
+                # sample[f"{s['target'].lower()}_status"] = s['assessment']
             try:
                 del sample['ct']
             except KeyError:
@@ -2915,7 +2931,8 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         sample['background_color'] = f"rgb({red}, {grn}, {blu})"
         try:
             sample[
-                'tooltip'] += f"<br>- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})<br>- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
+                # 'tooltip'] += f"<br>- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})<br>- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
+                'tooltip'] += f"<br>- ct N1: {'{:.2f}'.format(self.ct_n1)}<br>- ct N2: {'{:.2f}'.format(self.ct_n2)}"
         except (TypeError, AttributeError) as e:
             logger.error(f"Couldn't set tooltip for {self.sample.rsl_number}. Looks like there isn't PCR data.")
         return sample

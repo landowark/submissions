@@ -7,9 +7,9 @@ import importlib
 import time
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
-import logging, re, yaml, sys, os, stat, platform, getpass, inspect, json, numpy as np, pandas as pd
+import logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd
 from threading import Thread
-
+from inspect import getmembers, isfunction, stack
 from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
@@ -478,23 +478,25 @@ class Settings(BaseSettings, extra="allow"):
 
     def set_scripts(self):
         """
-        Imports all functions from "scripts" folder which will run their @registers, adding them to ctx scripts
+        Imports all functions from "scripts" folder, adding them to ctx scripts
         """
-        p = Path(__file__).parent.joinpath("scripts").absolute()
-        subs = [item.stem for item in p.glob("*.py") if "__" not in item.stem]
-        for sub in subs:
-            mod = importlib.import_module(f"tools.scripts.{sub}")
-            try:
-                func = mod.__getattribute__(sub)
-            except AttributeError:
-                try:
-                    func = mod.__getattribute__("script")
-                except AttributeError:
-                    continue
-            if sub in self.startup_scripts.keys():
-                self.startup_scripts[sub] = func
-            if sub in self.teardown_scripts.keys():
-                self.teardown_scripts[sub] = func
+        if check_if_app():
+            p = Path(sys._MEIPASS).joinpath("files", "scripts")
+        else:
+            p = Path(__file__).parents[2].joinpath("scripts").absolute()
+        if p.__str__() not in sys.path:
+            sys.path.append(p.__str__())
+        modules = p.glob("[!__]*.py")
+        for module in modules:
+            mod = importlib.import_module(module.stem)
+            for function in getmembers(mod, isfunction):
+                name = function[0]
+                func = function[1]
+                # NOTE: assign function based on its name being in config: startup/teardown
+                if name in self.startup_scripts.keys():
+                    self.startup_scripts[name] = func
+                if name in self.teardown_scripts.keys():
+                    self.teardown_scripts[name] = func
 
     @timer
     def run_startup(self):
@@ -502,9 +504,12 @@ class Settings(BaseSettings, extra="allow"):
         Runs startup scripts.
         """
         for script in self.startup_scripts.values():
-            logger.info(f"Running startup script: {script.__name__}")
-            thread = Thread(target=script, args=(ctx,))
-            thread.start()
+            try:
+                logger.info(f"Running startup script: {script.__name__}")
+                thread = Thread(target=script, args=(ctx,))
+                thread.start()
+            except AttributeError:
+                logger.error(f"Couldn't run startup script: {script}")
 
     @timer
     def run_teardown(self):
@@ -512,9 +517,12 @@ class Settings(BaseSettings, extra="allow"):
         Runs teardown scripts.
         """
         for script in self.teardown_scripts.values():
-            logger.info(f"Running teardown script: {script.__name__}")
-            thread = Thread(target=script, args=(ctx,))
-            thread.start()
+            try:
+                logger.info(f"Running teardown script: {script.__name__}")
+                thread = Thread(target=script, args=(ctx,))
+                thread.start()
+            except AttributeError:
+                logger.error(f"Couldn't run teardown script: {script}")
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
@@ -874,7 +882,7 @@ class Result(BaseModel, arbitrary_types_allowed=True):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.owner = inspect.stack()[1].function
+        self.owner = stack()[1].function
 
     def report(self):
         from frontend.widgets.pop_ups import AlertPop

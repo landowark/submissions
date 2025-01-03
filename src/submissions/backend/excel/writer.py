@@ -171,9 +171,9 @@ class InfoWriter(object):
                 try:
                     sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
                 except AttributeError as e:
-                    logger.error(f"Can't write {k} to that cell due to {e}")
+                    logger.error(f"Can't write {k} to that cell due to AttributeError: {e}")
                 except ValueError as e:
-                    logger.error(f"Can't write {v} to that cell due to {e}")
+                    logger.error(f"Can't write {v} to that cell due to ValueError: {e}")
                     sheet.cell(row=loc['row'], column=loc['column'], value=v['value'].name)
         return self.sub_object.custom_info_writer(self.xl, info=final_info, custom_fields=self.info_map['custom'])
 

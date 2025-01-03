@@ -7,7 +7,7 @@ from pandas import DataFrame
 from PyQt6.QtCore import QSortFilterProxyModel
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
-    QTableView, QWidget, QLineEdit, QGridLayout, QComboBox
+    QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox
 )
 from .submission_table import pandasModel
 import logging
@@ -20,7 +20,7 @@ class SearchBox(QDialog):
     The full search widget.
     """
 
-    def __init__(self, parent, object_type: Any, extras: List[str], **kwargs):
+    def __init__(self, parent, object_type: Any, extras: List[str], returnable: bool = False, **kwargs):
         super().__init__(parent)
         self.object_type = self.original_type = object_type
         self.extras = extras
@@ -44,6 +44,14 @@ class SearchBox(QDialog):
         self.setWindowTitle(f"Search {self.object_type.__name__}")
         self.update_widgets()
         self.update_data()
+        if returnable:
+            QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            self.buttonBox = QDialogButtonBox(QBtn)
+            self.buttonBox.accepted.connect(self.accept)
+            self.buttonBox.rejected.connect(self.reject)
+            self.layout.addWidget(self.buttonBox, self.layout.rowCount(), 0, 1, 2)
+            self.results.doubleClicked.disconnect()
+            self.results.doubleClicked.connect(self.accept)
 
     def update_widgets(self):
         """
@@ -63,7 +71,7 @@ class SearchBox(QDialog):
         for iii, searchable in enumerate(self.object_type.searchables):
             widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
             widget.setObjectName(searchable)
-            self.layout.addWidget(widget, 1+iii, 0)
+            self.layout.addWidget(widget, 1 + iii, 0)
             widget.search_widget.textChanged.connect(self.update_data)
         self.update_data()
 
@@ -86,6 +94,13 @@ class SearchBox(QDialog):
         data = self.object_type.results_to_df(objects=sample_list_creator)
         # NOTE: Setting results moved to here from __init__ 202411118
         self.results.setData(df=data)
+
+    def return_selected_rows(self):
+        rows = sorted(set(index.row() for index in
+                          self.results.selectedIndexes()))
+        for index in rows:
+            output = {column:self.results.model().data(self.results.model().index(index, ii)) for ii, column in enumerate(self.results.data.columns)}
+            yield output
 
 
 class FieldSearch(QWidget):

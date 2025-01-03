@@ -12,8 +12,8 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
-from backend import SubmissionType, Reagent, BasicSample
-from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size
+from backend import SubmissionType, Reagent, BasicSample, Organization
+from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user
 from .functions import select_save_file, select_open_file
 # from datetime import date
 from .pop_ups import HTMLPop, AlertPop
@@ -25,6 +25,7 @@ from .controls_chart import ControlsViewer
 from .summary import Summary
 from .turnaround import TurnaroundTime
 from .omni_search import SearchBox
+from .omni_manager import ManagerWindow
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -69,7 +70,7 @@ class App(QMainWindow):
         fileMenu = menuBar.addMenu("&File")
         editMenu = menuBar.addMenu("&Edit")
         # NOTE: Creating menus using a title
-        methodsMenu = menuBar.addMenu("&Methods")
+        methodsMenu = menuBar.addMenu("&Search")
         maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
@@ -82,6 +83,9 @@ class App(QMainWindow):
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
         editMenu.addAction(self.editReagentAction)
+        editMenu.addAction(self.manageOrgsAction)
+        if not is_power_user():
+            editMenu.setEnabled(False)
 
     def _createToolBar(self):
         """
@@ -106,6 +110,7 @@ class App(QMainWindow):
         self.yamlExportAction = QAction("Export Type Example", self)
         self.yamlImportAction = QAction("Import Type Template", self)
         self.editReagentAction = QAction("Edit Reagent", self)
+        self.manageOrgsAction = QAction("Manage Clients", self)
 
     def _connectActions(self):
         """
@@ -123,6 +128,7 @@ class App(QMainWindow):
         self.yamlImportAction.triggered.connect(self.import_ST_yaml)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
         self.editReagentAction.triggered.connect(self.edit_reagent)
+        self.manageOrgsAction.triggered.connect(self.manage_orgs)
 
     def showAbout(self):
         """
@@ -207,6 +213,11 @@ class App(QMainWindow):
     def update_data(self):
         self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
+    def manage_orgs(self):
+        dlg = ManagerWindow(parent=self, object_type=Organization, extras=[])
+        if dlg.exec():
+            new_org = dlg.parse_form()
+            logger.debug(new_org.__dict__)
 
 class AddSubForm(QWidget):
 

@@ -5,11 +5,9 @@ import logging, shutil, pyodbc
 from datetime import date
 from pathlib import Path
 from tools import Settings
-# from .. import register_script
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# @register_script
 def backup_database(ctx: Settings):
     """
     Copies the database into the backup directory the first time it is opened every month.

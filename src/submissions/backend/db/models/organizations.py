@@ -124,6 +124,8 @@ class Contact(BaseClass):
     Base of Contact
     """
 
+    searchables =[]
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: contact name
     email = Column(String(64))  #: contact email

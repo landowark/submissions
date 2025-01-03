@@ -12,6 +12,7 @@ from typing import Any, List
 from pathlib import Path
 from tools import report_result
 
+
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
     sys.path.append(Path(__file__).parents[4].absolute().joinpath("tests").__str__())
@@ -167,7 +168,10 @@ class BaseClass(Base):
         Returns:
             Dataframe
         """
-        records = [obj.to_sub_dict(**kwargs) for obj in objects]
+        try:
+            records = [obj.to_sub_dict(**kwargs) for obj in objects]
+        except AttributeError:
+            records = [obj.to_dict() for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod
@@ -232,6 +236,15 @@ class BaseClass(Base):
             self.__database_session__.rollback()
             report.add_result(Result(msg=e, status="Critical"))
             return report
+
+    def to_dict(self):
+        return {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state", "id"]}
+
+    @classmethod
+    def get_pydantic_model(cls):
+        from backend.validators import pydant
+        model = getattr(pydant, f"Pyd{cls.__name__}")
+        return model
 
 
 class ConfigItem(BaseClass):

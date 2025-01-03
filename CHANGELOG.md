@@ -1,3 +1,7 @@
+# 202412.06
+
+- Switched startup/teardown scripts to importlib/getattr addition to ctx.
+
 # 202412.05
 
 - Switched startup/teardown scripts to decorator registration.
