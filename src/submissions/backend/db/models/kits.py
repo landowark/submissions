@@ -608,7 +608,7 @@ class Reagent(BaseClass, LogMixin):
                         if isinstance(value, str):
                             field_value = datetime.strptime(value, "%Y-%m-%d")
                         elif isinstance(value, date):
-                            field_value = datetime.combine(value, datetime.min.time())
+                            field_value = datetime.combine(value, datetime.max.time())
                         else:
                             field_value = value
                         field_value.replace(tzinfo=timezone)

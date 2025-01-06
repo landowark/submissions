@@ -449,7 +449,10 @@ class Settings(BaseSettings, extra="allow"):
 
     def set_from_db(self):
         if 'pytest' in sys.modules:
-            output = dict(power_users=['lwark', 'styson', 'ruwang'])
+            output = dict(power_users=['lwark', 'styson', 'ruwang'],
+                          startup_scripts=dict(hello=None),
+                          teardown_scripts=dict(goodbye=None)
+                          )
         else:
             # print(f"Hello from database settings getter.")
             # print(self.__dict__)

@@ -117,7 +117,7 @@ class App(QMainWindow):
         connect menu and tool bar item to functions
         """
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
-        self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
+        self.addReagentAction.triggered.connect(self.table_widget.formwidget.new_add_reagent)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)

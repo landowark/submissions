@@ -1,3 +1,11 @@
+# 202501.02
+
+- Fixed bug where Wastewater ENs were not receiving rsl_number and therefore not getting PCR data.
+
+# 202501.01
+
+- Created Client Manager to be run by super users.
+
 # 202412.06
 
 - Switched startup/teardown scripts to importlib/getattr addition to ctx.

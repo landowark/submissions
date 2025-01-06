@@ -144,7 +144,9 @@ class PydReagent(BaseModel):
                     case "expiry":
                         if isinstance(value, str):
                             value = date(year=1970, month=1, day=1)
-                        value = datetime.combine(value, datetime.min.time())
+                        # NOTE: if min time is used, any reagent set to expire today (Bac postive control, eg) will have expired at midnight and therefore be flagged.
+                        # NOTE: Make expiry at date given, plus now time + 1 hour
+                        value = datetime.combine(value, datetime.max.time())
                         reagent.expiry = value.replace(tzinfo=timezone)
                     case _:
                         try:
@@ -826,7 +828,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 case item if item in instance.timestamps():
                     logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
                     if isinstance(value, date):
-                        value = datetime.combine(value, datetime.min.time())
+                        value = datetime.combine(value, datetime.max.time())
                         value = value.replace(tzinfo=timezone)
                     elif isinstance(value, str):
                         value: datetime = datetime.strptime(value, "%Y-%m-%d")
@@ -961,7 +963,7 @@ class PydSubmission(BaseModel, extra='allow'):
             if reagent not in exempt:
                 role_expiry = ReagentRole.query(name=reagent.role).eol_ext
                 try:
-                    dt = datetime.combine(reagent.expiry, datetime.min.time())
+                    dt = datetime.combine(reagent.expiry, datetime.max.time())
                 except TypeError:
                     continue
                 if datetime.now() > dt + role_expiry:

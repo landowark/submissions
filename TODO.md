@@ -1,3 +1,4 @@
+- [ ] Find a way to merge AddEdit with ReagentAdder
 - [x] Find a way to merge omni_search and sample_search
 - [x] Allow parsing of custom fields to a json 'custom' field in _basicsubmissions
 - [x] Upgrade to generators when returning lists.

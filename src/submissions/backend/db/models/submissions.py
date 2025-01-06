@@ -1503,6 +1503,25 @@ class Wastewater(BasicSubmission):
         return input_dict
 
     @classmethod
+    def parse_samples(cls, input_dict: dict) -> dict:
+        """
+        Update sample dictionary with type specific information. Extends parent
+
+        Args:
+            input_dict (dict): Input sample dictionary
+
+        Returns:
+            dict: Updated sample dictionary
+        """
+        input_dict = super().parse_samples(input_dict=input_dict)
+        # NOTE: Had to put in this section due to ENs not having rsl_number and therefore not getting PCR results.
+        check = check_key_or_attr("rsl_number", input_dict)
+        if not check:
+            input_dict['rsl_number'] = input_dict['submitter_id']
+        # logger.debug(pformat(input_dict, indent=4))
+        return input_dict
+
+    @classmethod
     def parse_pcr(cls, xl: Workbook, rsl_plate_num: str) -> Generator[dict, None, None]:
         """
         Perform parsing of pcr info. Since most of our PC outputs are the same format, this should work for most.
@@ -1633,6 +1652,7 @@ class Wastewater(BasicSubmission):
         self.save(original=False)
         for sample in self.samples:
             try:
+                # NOTE: Fix for ENs which have no rsl_number...
                 sample_dict = next(item for item in pcr_samples if item['sample'] == sample.rsl_number)
             except StopIteration:
                 continue
@@ -2539,7 +2559,7 @@ class WastewaterSample(BasicSample):
         Custom sample parser. Extends parent
 
         Args:
-            input_dict (dict): Basic parser results.
+            input_dict (dict): Basic parser results for this sample.
 
         Returns:
             dict: Updated parser results.
@@ -2554,6 +2574,8 @@ class WastewaterSample(BasicSample):
             output_dict['rsl_number'] = "RSL-WW-" + output_dict['ww_processing_num']
         if output_dict['ww_full_sample_id'] is not None and output_dict["submitter_id"] in disallowed:
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
+        check = check_key_or_attr("rsl_number", output_dict, check_none=True)
+        # logger.debug(pformat(output_dict, indent=4))
         return output_dict
 
     @classmethod

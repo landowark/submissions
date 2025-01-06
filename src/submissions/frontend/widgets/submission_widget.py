@@ -19,6 +19,7 @@ from backend.db import (
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
 from .misc import AddReagentForm
+from .omni_add_edit import AddEdit
 from typing import List, Tuple
 from datetime import date
 
@@ -138,6 +139,15 @@ class SubmissionFormContainer(QWidget):
         self.form = self.pyd.to_form(parent=self)
         self.layout().addWidget(self.form)
         return report
+
+
+    def new_add_reagent(self):
+        instance = Reagent()
+        dlg = AddEdit(parent=self, instance=instance)
+        if dlg.exec():
+            obj = dlg.parse_form()
+            print(obj)
+
 
     @report_result
     def add_reagent(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
