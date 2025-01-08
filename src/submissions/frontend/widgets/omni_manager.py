@@ -110,7 +110,7 @@ class ManagerWindow(QDialog):
         return self.instance
 
     def add_new(self):
-        dlg = AddEdit(parent=self, instance=self.object_type())
+        dlg = AddEdit(parent=self, instance=self.object_type(), manager=self.object_type.__name__.lower())
         if dlg.exec():
             new_instance = dlg.parse_form()
             # logger.debug(new_instance.__dict__)
@@ -182,7 +182,7 @@ class EditRelationship(QWidget):
     def add_new(self, instance: Any = None):
         if not instance:
             instance = self.entity()
-        dlg = AddEdit(self, instance=instance)
+        dlg = AddEdit(self, instance=instance, manager=self.parent().object_type.__name__.lower())
         if dlg.exec():
             new_instance = dlg.parse_form()
             # logger.debug(new_instance.__dict__)
@@ -190,16 +190,15 @@ class EditRelationship(QWidget):
             if isinstance(addition, InstrumentedList):
                 addition.append(new_instance)
             self.parent().instance.save()
+
         self.parent().update_data()
 
     def add_existing(self):
         dlg = SearchBox(self, object_type=self.entity, returnable=True, extras=[])
         if dlg.exec():
             rows = dlg.return_selected_rows()
-            # print(f"Rows selected: {[row for row in rows]}")
             for row in rows:
                 instance = self.entity.query(**row)
-                # logger.debug(instance)
                 addition = getattr(self.parent().instance, self.objectName())
                 if isinstance(addition, InstrumentedList):
                     addition.append(instance)

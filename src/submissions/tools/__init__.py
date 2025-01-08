@@ -1032,18 +1032,19 @@ def report_result(func):
     def wrapper(*args, **kwargs):
         logger.info(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
+        # logger.debug(f"Function output: {output}")
         match output:
             case Report():
                 report = output
             case tuple():
-                try:
-                    report = [item for item in output if isinstance(item, Report)][0]
-                except IndexError:
-                    report = None
+                # try:
+                report = next((item for item in output if isinstance(item, Report)), None)
+                # except IndexError:
+                #     report = None
             case _:
-                report = None
-                return report
-        logger.info(f"Got report: {report}")
+                report = Report()
+                # return report
+        # logger.info(f"Got report: {report}")
         try:
             results = report.results
         except AttributeError:
@@ -1058,6 +1059,7 @@ def report_result(func):
                 logger.error(result.msg)
         if output:
             true_output = tuple(item for item in output if not isinstance(item, Report))
+            # logger.debug(f"True output: {true_output}")
             if len(true_output) == 1:
                 true_output = true_output[0]
         else:

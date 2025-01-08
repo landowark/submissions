@@ -286,6 +286,10 @@ class Control(BaseClass):
         """
         return None
 
+    def delete(self):
+        self.__database_session__.delete(self)
+        self.__database_session__.commit()
+
 
 class PCRControl(Control):
     """
@@ -296,7 +300,7 @@ class PCRControl(Control):
     subtype = Column(String(16))  #: PC or NC
     target = Column(String(16))  #: N1, N2, etc.
     ct = Column(FLOAT) #: PCR result
-    reagent_lot = Column(String(64), ForeignKey("_reagent.name", ondelete="SET NULL",
+    reagent_lot = Column(String(64), ForeignKey("_reagent.lot", ondelete="SET NULL",
                                                 name="fk_reagent_lot"))
     reagent = relationship("Reagent", foreign_keys=reagent_lot) #: reagent used for this control
 

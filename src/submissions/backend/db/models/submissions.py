@@ -936,14 +936,20 @@ class BasicSubmission(BaseClass, LogMixin):
             Generator[dict, None, None]: Dictionaries of row values.
         """
         location_map = cls.get_submission_type().sample_map['pcr_controls']
+        # logger.debug(f"Location map: {location_map}")
         submission = cls.query(rsl_plate_num=rsl_plate_num)
         name_column = 1
         for item in location_map:
+            logger.debug(f"Checking {item}")
             worksheet = xl[item['sheet']]
             for iii, row in enumerate(worksheet.iter_rows(max_row=len(worksheet['A']), max_col=name_column), start=1):
+                logger.debug(f"Checking row {row}, {iii}")
                 for cell in row:
+                    logger.debug(f"Checking cell: {cell}, with value {cell.value} against {item['name']}")
                     if cell.value == item['name']:
-                        subtype, target = item['name'].split("-")
+                        subtype, _ = item['name'].split("-")
+                        target = item['target']
+                        logger.debug(f"Subtype: {subtype}, target: {target}")
                         ct = worksheet.cell(row=iii, column=item['ct_column']).value
                         # NOTE: Kind of a stop gap solution to find control reagents.
                         if subtype == "PC":
@@ -955,6 +961,9 @@ class BasicSubmission(BaseClass, LogMixin):
                             ctrl = next((assoc.reagent for assoc in submission.submission_reagent_associations
                                          if any(["molecular grade water" in item.name.lower() for item in
                                                  assoc.reagent.role])), None)
+                        else:
+                            ctrl = None
+                        logger.debug(f"Control reagent: {ctrl.__dict__}")
                         try:
                             ct = float(ct)
                         except ValueError:
@@ -963,13 +972,15 @@ class BasicSubmission(BaseClass, LogMixin):
                             ctrl = ctrl.lot
                         else:
                             ctrl = None
-                        yield dict(
-                            name=f"{rsl_plate_num}<{item['name']}>",
+                        output = dict(
+                            name=f"{rsl_plate_num}<{item['name']}-{target}>",
                             ct=ct,
                             subtype=subtype,
                             target=target,
                             reagent_lot=ctrl
                         )
+                        logger.debug(f"Control output: {pformat(output)}")
+                        yield output
 
     @classmethod
     def filename_template(cls) -> str:
@@ -1663,10 +1674,12 @@ class Wastewater(BasicSubmission):
         submitted_date = datetime.strptime(" ".join(parser.pcr['run_start_date/time'].split(" ")[:-1]),
                                            "%Y-%m-%d %I:%M:%S %p")
         for control in pcr_controls:
+            logger.debug(f"Control coming into save: {control}")
             new_control = PCRControl(**control)
             new_control.submitted_date = submitted_date
             new_control.controltype = controltype
             new_control.submission = self
+            logger.debug(f"Control coming into save: {new_control.__dict__}")
             new_control.save()
         return report
 

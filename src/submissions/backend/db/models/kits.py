@@ -541,6 +541,24 @@ class Reagent(BaseClass, LogMixin):
         return report
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Reagent:
+        from backend.validators.pydant import PydReagent
+        new = False
+        instance = cls.query(**kwargs)
+        if not instance or isinstance(instance, list):
+            if "role" not in kwargs:
+                try:
+                    kwargs['role'] = kwargs['name']
+                except KeyError:
+                    pass
+            instance = PydReagent(**kwargs)
+            new = True
+            instance, _ = instance.toSQL()
+        logger.debug(f"Instance: {instance}")
+        return instance, new
+
+
+    @classmethod
     @setup_lookup
     def query(cls,
               id: int | None = None,

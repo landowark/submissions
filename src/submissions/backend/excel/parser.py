@@ -257,9 +257,10 @@ class ReagentParser(object):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
         self.map = self.fetch_kit_info_map(submission_type=submission_type)
+        logger.debug(f"Setting map: {self.map}")
         self.xl = xl
 
-    @report_result
+    # @report_result
     def fetch_kit_info_map(self, submission_type: str | SubmissionType) -> Tuple[Report, dict]:
         """
         Gets location of kit reagents from database
@@ -298,7 +299,8 @@ class ReagentParser(object):
                                          msg=f"No kit map found for {self.kit_object.name}.\n\n"
                                              f"Are you sure you put the right kit in:\n\n{location_string}?",
                                          status="Critical"))
-        return report, reagent_map
+        logger.debug(f"Here is the map coming out: {reagent_map}")
+        return reagent_map
 
     def parse_reagents(self) -> Generator[dict, None, None]:
         """
@@ -310,7 +312,7 @@ class ReagentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
-            if relevant == {}:
+            if not relevant:
                 continue
             for item in relevant:
                 try:

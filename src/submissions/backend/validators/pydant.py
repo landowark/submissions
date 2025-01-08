@@ -22,8 +22,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class PydReagent(BaseModel):
     lot: str | None
     role: str | None
-    expiry: date | Literal['NA'] | None
-    name: str | None
+    expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
+    name: str | None = Field(default=None, validate_default=True)
     missing: bool = Field(default=True)
     comment: str | None = Field(default="", validate_default=True)
 
@@ -79,6 +79,8 @@ class PydReagent(BaseModel):
                 case str():
                     return parse(value)
                 case date():
+                    return datetime.combine(value, datetime.max.time())
+                case datetime():
                     return value
                 case _:
                     return convert_nans_to_nones(str(value))
@@ -939,6 +941,7 @@ class PydSubmission(BaseModel, extra='allow'):
                           ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
         # NOTE: Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.role for item in ext_kit_rtypes]
+        logger.debug(self.reagents)
         output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
         missing_check = [item.role for item in output_reagents]
         missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check and rt.role not in exempt]
@@ -956,7 +959,7 @@ class PydSubmission(BaseModel, extra='allow'):
         report.add_result(result)
         return output_reagents, report, missing_reagents
 
-    def check_reagent_expiries(self, exempt: List[PydReagent]=[]):
+    def check_reagent_expiries(self, exempt: List[PydReagent] = []):
         report = Report()
         expired = []
         for reagent in self.reagents:
@@ -971,13 +974,10 @@ class PydSubmission(BaseModel, extra='allow'):
         if expired:
             output = '\n'.join(expired)
             result = Result(status="Warning",
-                            msg = f"The following reagents are expired:\n\n{output}"
+                            msg=f"The following reagents are expired:\n\n{output}"
                             )
             report.add_result(result)
         return report
-
-
-
 
     def export_csv(self, filename: Path | str):
         try:
@@ -1009,14 +1009,34 @@ class PydContact(BaseModel):
             logger.debug(f"Output phone: {value}")
         return value
 
-    def toSQL(self) -> Contact:
+    def toSQL(self) -> Tuple[Contact, Report]:
         """
-        Converts this instance into a backend.db.models.organization.Contact instance
+        Converts this instance into a backend.db.models.organization. Contact instance.
+        Does not query for existing contacts.
 
         Returns:
             Contact: Contact instance
         """
-        return Contact(name=self.name, phone=self.phone, email=self.email)
+        report = Report()
+        instance = Contact.query(name=self.name, phone=self.phone, email=self.email)
+        if not instance or isinstance(instance, list):
+            instance = Contact()
+        try:
+            all_fields = self.model_fields + self.model_extra
+        except TypeError:
+            all_fields = self.model_fields
+        for field in all_fields:
+            value = getattr(self, field)
+            match field:
+                case "organization":
+                    value = [Organization.query(name=value)]
+                case _:
+                    pass
+            try:
+                instance.__setattr__(field, value)
+            except AttributeError as e:
+                logger.error(f"Could not set {instance} {field} to {value} due to {e}")
+        return instance, report
 
 
 class PydOrganization(BaseModel):

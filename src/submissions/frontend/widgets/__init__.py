@@ -16,3 +16,5 @@ from .submission_table import *
 from .submission_widget import *
 from .summary import *
 from .turnaround import *
+from .omni_add_edit import *
+from .omni_manager import *

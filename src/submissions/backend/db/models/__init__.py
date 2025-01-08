@@ -243,7 +243,10 @@ class BaseClass(Base):
     @classmethod
     def get_pydantic_model(cls):
         from backend.validators import pydant
-        model = getattr(pydant, f"Pyd{cls.__name__}")
+        try:
+            model = getattr(pydant, f"Pyd{cls.__name__}")
+        except AttributeError:
+            return None
         return model
 
 

@@ -140,14 +140,22 @@ class SubmissionFormContainer(QWidget):
         self.layout().addWidget(self.form)
         return report
 
-
-    def new_add_reagent(self):
-        instance = Reagent()
+    @report_result
+    def new_add_reagent(self, instance: Reagent | None = None):
+        report = Report()
+        if not instance:
+            instance = Reagent()
         dlg = AddEdit(parent=self, instance=instance)
         if dlg.exec():
-            obj = dlg.parse_form()
-            print(obj)
-
+            reagent, result = dlg.parse_form()
+            reagent.missing = False
+            logger.debug(f"Reagent: {reagent}, result: {result}")
+            report.add_result(result)
+            # NOTE: send reagent to db
+            sqlobj, result = reagent.toSQL()
+            sqlobj.save()
+            report.add_result(result)
+            return reagent, report
 
     @report_result
     def add_reagent(self, reagent_lot: str | None = None, reagent_role: str | None = None, expiry: date | None = None,
@@ -183,7 +191,6 @@ class SubmissionFormContainer(QWidget):
 
 
 class SubmissionFormWidget(QWidget):
-
     update_reagent_fields = ['extraction_kit']
 
     def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
@@ -234,7 +241,6 @@ class SubmissionFormWidget(QWidget):
         """
         for reagent in self.findChildren(self.ReagentFormWidget):
             reagent.flip_check(self.disabler.checkbox.isChecked())
-
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
                       extraction_kit: str | None = None, sub_obj: BasicSubmission | None = None,
@@ -294,8 +300,10 @@ class SubmissionFormWidget(QWidget):
             if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
                 reagent.setParent(None)
         reagents, integrity_report, missing_reagents = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
+        logger.debug(f"Reagents: {reagents}")
         expiry_report = self.pyd.check_reagent_expiries(exempt=missing_reagents)
         for reagent in reagents:
+
             add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
             self.layout.addWidget(add_widget)
         report.add_result(integrity_report)
@@ -432,7 +440,7 @@ class SubmissionFormWidget(QWidget):
         for widget in self.findChildren(QWidget):
             match widget:
                 case self.ReagentFormWidget():
-                    reagent, _ = widget.parse_form()
+                    reagent = widget.parse_form()
                     if reagent is not None:
                         reagents.append(reagent)
                 case self.InfoItem():
@@ -440,6 +448,7 @@ class SubmissionFormWidget(QWidget):
                     if field is not None:
                         info[field] = value
         self.pyd.reagents = reagents
+        logger.debug(f"Reagents from form: {reagents}")
         for item in self.recover:
             if hasattr(self, item):
                 value = getattr(self, item)
@@ -661,7 +670,7 @@ class SubmissionFormWidget(QWidget):
             # NOTE: If changed set self.missing to True and update self.label
             self.lot.currentTextChanged.connect(self.updated)
 
-        def flip_check(self, checked:bool):
+        def flip_check(self, checked: bool):
             with QSignalBlocker(self.check) as b:
                 self.check.setChecked(checked)
                 self.lot.setEnabled(checked)
@@ -675,6 +684,7 @@ class SubmissionFormWidget(QWidget):
             else:
                 self.parent().disabler.checkbox.setChecked(True)
 
+        @report_result
         def parse_form(self) -> Tuple[PydReagent | None, Report]:
             """
             Pulls form info into PydReagent
@@ -686,18 +696,23 @@ class SubmissionFormWidget(QWidget):
             if not self.lot.isEnabled():
                 return None, report
             lot = self.lot.currentText()
-            wanted_reagent = Reagent.query(lot=lot, role=self.reagent.role)
+            wanted_reagent, new = Reagent.query_or_create(lot=lot, role=self.reagent.role)
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
-            if wanted_reagent is None:
+            logger.debug(f"Wanted reagent: {wanted_reagent}, New: {new}")
+            # if wanted_reagent is None:
+            if new:
                 dlg = QuestionAsker(title=f"Add {lot}?",
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
+
                 if dlg.exec():
-                    wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot,
-                                                                        reagent_role=self.reagent.role,
-                                                                        expiry=self.reagent.expiry,
-                                                                        name=self.reagent.name,
-                                                                        kit=self.extraction_kit
-                                                                        )
+                    # wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot,
+                    #                                                     reagent_role=self.reagent.role,
+                    #                                                     expiry=self.reagent.expiry,
+                    #                                                     name=self.reagent.name,
+                    #                                                     kit=self.extraction_kit
+                    #                                                     )
+                    wanted_reagent = self.parent().parent().new_add_reagent(instance=wanted_reagent)
+
                     return wanted_reagent, report
                 else:
                     # NOTE: In this case we will have an empty reagent and the submission will fail kit integrity check
@@ -707,10 +722,13 @@ class SubmissionFormWidget(QWidget):
                 # NOTE: Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name
                 # from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
                 rt = ReagentRole.query(name=self.reagent.role)
+                logger.debug(f"Reagent role: {rt}")
                 if rt is None:
                     rt = ReagentRole.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
-                return PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
-                                  expiry=wanted_reagent.expiry, missing=False), report
+                final = PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
+                                   expiry=wanted_reagent.expiry.date(), missing=False)
+                logger.debug(f"Final Reagent: {final}")
+                return final, report
 
         def updated(self):
             """
