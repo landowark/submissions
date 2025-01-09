@@ -140,6 +140,7 @@ class Contact(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
+              id: int | None = None,
               name: str | None = None,
               email: str | None = None,
               phone: str | None = None,
@@ -158,6 +159,12 @@ class Contact(BaseClass):
             Contact|List[Contact]: Contact(s) of interest.
         """
         query: Query = cls.__database_session__.query(cls)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case _:
+                pass
         match name:
             case str():
                 query = query.filter(cls.name == name.title())
@@ -177,3 +184,4 @@ class Contact(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+

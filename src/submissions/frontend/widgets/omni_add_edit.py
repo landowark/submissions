@@ -79,10 +79,11 @@ class EditProperty(QWidget):
 
     def __init__(self, parent: AddEdit, key: str, column_type: Any, value):
         super().__init__(parent)
+        self.name = key
         self.label = QLabel(key.title().replace("_", " "))
         self.layout = QGridLayout()
         self.layout.addWidget(self.label, 0, 0, 1, 1)
-        self.setObjectName(key)
+        self.setObjectName(f"{key}:")
         match column_type['class_attr'].property:
             case ColumnProperty():
                 self.column_property_set(column_type, value=value)
@@ -100,9 +101,9 @@ class EditProperty(QWidget):
         self.is_list = relationship_property['class_attr'].property.uselist
         choices = [item.name for item in self.property_class.query()]
         try:
-            instance_value = getattr(self.parent().instance, self.objectName().strip(":"))
+            instance_value = getattr(self.parent().instance, self.name)
         except AttributeError:
-            logger.debug(f"Unable to get instance {self.parent().instance} attribute: {self.objectName()}")
+            logger.error(f"Unable to get instance {self.parent().instance} attribute: {self.name}")
             instance_value = None
         if isinstance(instance_value, list):
             instance_value = next((item.name for item in instance_value), None)
@@ -126,6 +127,11 @@ class EditProperty(QWidget):
             case _:
                 logger.error(f"{column_property} not a supported property.")
                 self.widget = None
+        try:
+            tooltip_text = self.parent().object_type.add_edit_tooltips[self.name]
+            self.widget.setToolTip(tooltip_text)
+        except KeyError:
+            pass
 
     def parse_form(self):
         try:
@@ -145,4 +151,4 @@ class EditProperty(QWidget):
                 #     value = self.property_class.query(name=prelim)
             case _:
                 value = None
-        return self.objectName(), value
+        return self.name, value

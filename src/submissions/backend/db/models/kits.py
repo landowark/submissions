@@ -260,7 +260,8 @@ class KitType(BaseClass):
         return base_dict
 
     @classmethod
-    def import_from_yml(cls, submission_type:str|SubmissionType, filepath: Path | str | None = None, import_dict: dict | None = None) -> KitType:
+    def import_from_yml(cls, submission_type: str | SubmissionType, filepath: Path | str | None = None,
+                        import_dict: dict | None = None) -> KitType:
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if filepath:
@@ -557,7 +558,6 @@ class Reagent(BaseClass, LogMixin):
         logger.debug(f"Instance: {instance}")
         return instance, new
 
-
     @classmethod
     @setup_lookup
     def query(cls,
@@ -636,6 +636,12 @@ class Reagent(BaseClass, LogMixin):
                         field_value = value
                 self.__setattr__(key, field_value)
             self.save()
+
+    @classproperty
+    def add_edit_tooltips(self):
+        return dict(
+            expiry="Use exact date on reagent.\nEOL will be calculated from kit automatically"
+        )
 
 
 class Discount(BaseClass):

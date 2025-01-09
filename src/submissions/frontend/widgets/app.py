@@ -217,7 +217,7 @@ class App(QMainWindow):
         dlg = ManagerWindow(parent=self, object_type=Organization, extras=[])
         if dlg.exec():
             new_org = dlg.parse_form()
-            logger.debug(new_org.__dict__)
+            # logger.debug(new_org.__dict__)
 
 class AddSubForm(QWidget):
 

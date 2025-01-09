@@ -1,8 +1,10 @@
+from operator import itemgetter
 from typing import Any, List
 from PyQt6.QtCore import QSortFilterProxyModel, Qt
+from PyQt6.QtGui import QAction, QCursor
 from PyQt6.QtWidgets import (
     QLabel, QDialog,
-    QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QPushButton, QDialogButtonBox, QDateEdit
+    QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QPushButton, QDialogButtonBox, QDateEdit, QMenu
 )
 from sqlalchemy import String, TIMESTAMP
 from sqlalchemy.orm import InstrumentedAttribute
@@ -14,7 +16,6 @@ from backend import db
 import logging
 from .omni_add_edit import AddEdit
 from .omni_search import SearchBox
-
 from frontend.widgets.submission_table import pandasModel
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -168,6 +169,9 @@ class EditRelationship(QWidget):
         self.layout.addWidget(self.existing_button, 0, 7, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.setLayout(self.layout)
         self.set_data()
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        self.table.setSortingEnabled(True)
 
     def parse_row(self, x):
         context = {item: x.sibling(x.row(), self.data.columns.get_loc(item)).data() for item in self.data.columns}
@@ -175,7 +179,6 @@ class EditRelationship(QWidget):
             object = self.entity.query(**context)
         except KeyError:
             object = None
-        # logger.debug(object)
         self.table.doubleClicked.disconnect()
         self.add_edit(instance=object)
 
@@ -185,12 +188,10 @@ class EditRelationship(QWidget):
         dlg = AddEdit(self, instance=instance, manager=self.parent().object_type.__name__.lower())
         if dlg.exec():
             new_instance = dlg.parse_form()
-            # logger.debug(new_instance.__dict__)
             addition = getattr(self.parent().instance, self.objectName())
             if isinstance(addition, InstrumentedList):
                 addition.append(new_instance)
             self.parent().instance.save()
-
         self.parent().update_data()
 
     def add_existing(self):
@@ -215,12 +216,34 @@ class EditRelationship(QWidget):
             self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for item in self.extras]
         except (KeyError, AttributeError):
             self.columns_of_interest = []
-        # try:
-        #     self.data['id'] = self.data['id'].apply(str)
-        #     self.data['id'] = self.data['id'].str.zfill(3)
-        # except (TypeError, KeyError) as e:
-        #     logger.error(f"Couldn't format id string: {e}")
+        try:
+            self.data['id'] = self.data['id'].apply(str)
+            self.data['id'] = self.data['id'].str.zfill(4)
+        except KeyError as e:
+            logger.error(f"Could not alter id to string due to {e}")
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(pandasModel(self.data))
         self.table.setModel(proxy_model)
         self.table.doubleClicked.connect(self.parse_row)
+
+    def contextMenuEvent(self, event):
+        """
+        Creates actions for right click menu events.
+
+        Args:
+            event (_type_): the item of interest
+        """
+        id = self.table.selectionModel().currentIndex()
+        id = int(id.sibling(id.row(), 0).data())
+        object = self.entity.query(id=id)
+        self.menu = QMenu(self)
+        action = QAction(f"Remove {object.name}", self)
+        action.triggered.connect(lambda: self.remove_item(object=object))
+        self.menu.addAction(action)
+        self.menu.popup(QCursor.pos())
+
+    def remove_item(self, object):
+        editor = getattr(self.parent().instance, self.objectName().lower())
+        editor.remove(object)
+        self.parent().instance.save()
+        self.parent().update_data()

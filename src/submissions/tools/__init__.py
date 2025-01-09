@@ -2,7 +2,7 @@
 Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
-
+import builtins
 import importlib
 import time
 from datetime import date, datetime, timedelta
@@ -1102,6 +1102,14 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
     holidays.append(easter(year) - timedelta(days=2))
     holidays.append(easter(year) + timedelta(days=1))
     return sorted(holidays)
+
+
+class classproperty(property):
+    def __get__(self, owner_self, owner_cls):
+        return self.fget(owner_cls)
+
+
+builtins.classproperty = classproperty
 
 
 ctx = get_config(None)

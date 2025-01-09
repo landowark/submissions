@@ -238,7 +238,9 @@ class BaseClass(Base):
             return report
 
     def to_dict(self):
-        return {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state", "id"]}
+        dicto = {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state"]}
+        dicto = {'id': dicto.pop('id'), **dicto}
+        return dicto
 
     @classmethod
     def get_pydantic_model(cls):
@@ -248,6 +250,10 @@ class BaseClass(Base):
         except AttributeError:
             return None
         return model
+
+    @classproperty
+    def add_edit_tooltips(self):
+        return dict()
 
 
 class ConfigItem(BaseClass):
