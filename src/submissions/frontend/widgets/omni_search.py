@@ -68,7 +68,11 @@ class SearchBox(QDialog):
                 self.object_type = self.original_type
             else:
                 self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
-        for iii, searchable in enumerate(self.object_type.searchables):
+        try:
+            search_fields = self.object_type.searchables
+        except AttributeError:
+            search_fields = []
+        for iii, searchable in enumerate(search_fields):
             widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
             widget.setObjectName(searchable)
             self.layout.addWidget(widget, 1 + iii, 0)
@@ -142,7 +146,10 @@ class SearchResults(QTableView):
         self.context = kwargs
         self.parent = parent
         self.object_type = object_type
-        self.extras = extras + self.object_type.searchables
+        try:
+            self.extras = extras + self.object_type.searchables
+        except AttributeError:
+            self.extras = extras
 
     def setData(self, df: DataFrame) -> None:
         """

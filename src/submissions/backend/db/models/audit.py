@@ -24,7 +24,7 @@ class AuditLog(Base):
     changes = Column(JSON)
 
     def __repr__(self):
-        return f"<{self.user} @ {self.time}>"
+        return f"<{self.object}: {self.user} @ {self.time}>"
 
     @classmethod
     def query(cls, start_date: date | str | int | None = None, end_date: date | str | int | None = None) -> List["AuditLog"]:

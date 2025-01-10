@@ -11,7 +11,7 @@ import logging
 
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 
-from tools import Report, Result
+from tools import Report, Result, report_result
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -23,7 +23,7 @@ class AddEdit(QDialog):
         self.instance = instance
         self.object_type = instance.__class__
         self.layout = QGridLayout(self)
-        logger.debug(f"Manager: {manager}")
+        # logger.debug(f"Manager: {manager}")
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
@@ -36,7 +36,7 @@ class AddEdit(QDialog):
             fields = {'name': fields.pop('name'), **fields}
         except KeyError:
             pass
-        logger.debug(pformat(fields, indent=4))
+        # logger.debug(pformat(fields, indent=4))
         height_counter = 0
         for key, field in fields.items():
             try:
@@ -47,7 +47,7 @@ class AddEdit(QDialog):
                 logger.debug(f"{key} property: {type(field['class_attr'].property)}")
                 # widget = EditProperty(self, key=key, column_type=field.property.expression.type,
                 #                           value=getattr(self.instance, key))
-                logger.debug(f"Column type: {field}, Value: {value}")
+                # logger.debug(f"Column type: {field}, Value: {value}")
                 widget = EditProperty(self, key=key, column_type=field, value=value)
             except AttributeError as e:
                 logger.error(f"Problem setting widget {key}: {e}")
@@ -60,6 +60,7 @@ class AddEdit(QDialog):
         self.setMinimumSize(600, 50 * height_counter)
         self.setLayout(self.layout)
 
+    @report_result
     def parse_form(self) -> Tuple[BaseModel, Report]:
         report = Report()
         parsed = {result[0].strip(":"): result[1] for result in [item.parse_form() for item in self.findChildren(EditProperty)] if result[0]}

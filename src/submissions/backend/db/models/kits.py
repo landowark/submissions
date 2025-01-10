@@ -129,8 +129,10 @@ class KitType(BaseClass):
         """
         return f"<KitType({self.name})>"
 
-    def get_reagents(self, required: bool = False, submission_type: str | SubmissionType | None = None) -> Generator[
-        ReagentRole, None, None]:
+    def get_reagents(self,
+                     required: bool = False,
+                     submission_type: str | SubmissionType | None = None
+                     ) -> Generator[ReagentRole, None, None]:
         """
         Return ReagentTypes linked to kit through KitTypeReagentTypeAssociation.
 
@@ -192,13 +194,13 @@ class KitType(BaseClass):
         Lookup a list of or single KitType.
 
         Args:
-        name (str, optional): Name of desired kit (returns single instance). Defaults to None.
-        used_for (str | Submissiontype | None, optional): Submission type the kit is used for. Defaults to None.
-        id (int | None, optional): Kit id in the database. Defaults to None.
-        limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
+            name (str, optional): Name of desired kit (returns single instance). Defaults to None.
+            used_for (str | Submissiontype | None, optional): Submission type the kit is used for. Defaults to None.
+            id (int | None, optional): Kit id in the database. Defaults to None.
+            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-        KitType|List[KitType]: KitType(s) of interest.
+            KitType|List[KitType]: KitType(s) of interest.
         """
         query: Query = cls.__database_session__.query(cls)
         match used_for:
@@ -240,23 +242,23 @@ class KitType(BaseClass):
             dict: Dictionary containing relevant info for SubmissionType construction
         """
         base_dict = dict(name=self.name, reagent_roles=[], equipment_roles=[])
-        for k, v in self.construct_xl_map_for_use(submission_type=submission_type):
+        for key, value in self.construct_xl_map_for_use(submission_type=submission_type):
             try:
-                assoc = next(item for item in self.kit_reagentrole_associations if item.reagent_role.name == k)
+                assoc = next(item for item in self.kit_reagentrole_associations if item.reagent_role.name == key)
             except StopIteration as e:
                 continue
             for kk, vv in assoc.to_export_dict().items():
-                v[kk] = vv
-            base_dict['reagent_roles'].append(v)
-        for k, v in submission_type.construct_field_map("equipment"):
+                value[kk] = vv
+            base_dict['reagent_roles'].append(value)
+        for key, value in submission_type.construct_field_map("equipment"):
             try:
                 assoc = next(item for item in submission_type.submissiontype_equipmentrole_associations if
-                             item.equipment_role.name == k)
+                             item.equipment_role.name == key)
             except StopIteration:
                 continue
             for kk, vv in assoc.to_export_dict(extraction_kit=self).items():
-                v[kk] = vv
-            base_dict['equipment_roles'].append(v)
+                value[kk] = vv
+            base_dict['equipment_roles'].append(value)
         return base_dict
 
     @classmethod
@@ -402,6 +404,7 @@ class ReagentRole(BaseClass):
                 case _:
                     pass
             assert reagent.role
+            # NOTE: Get all roles common to the reagent and the kit.
             result = set(kit_type.reagent_roles).intersection(reagent.role)
             return next((item for item in result), None)
         match name:
@@ -500,7 +503,7 @@ class Reagent(BaseClass, LogMixin):
         except (TypeError, AttributeError) as e:
             place_holder = date.today()
             logger.error(f"We got a type error setting {self.lot} expiry: {e}. setting to today for testing")
-        # NOTE: The notation for not having an expiry is 1970.1.1
+        # NOTE: The notation for not having an expiry is 1970.01.01
         if self.expiry.year == 1970:
             place_holder = "NA"
         else:
@@ -555,7 +558,7 @@ class Reagent(BaseClass, LogMixin):
             instance = PydReagent(**kwargs)
             new = True
             instance, _ = instance.toSQL()
-        logger.debug(f"Instance: {instance}")
+        logger.info(f"Instance from query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -609,33 +612,70 @@ class Reagent(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
+    def set_attribute(self, key, value):
+        match key:
+            case "lot":
+                value = value.upper()
+            case "role":
+                match value:
+                    case ReagentRole():
+                        role = value
+                    case str():
+                        role = ReagentRole.query(name=value, limit=1)
+                    case _:
+                        return
+                if role and role not in self.role:
+                    self.role.append(role)
+                return
+            case "comment":
+                return
+            case "expiry":
+                if isinstance(value, str):
+                    value = date(year=1970, month=1, day=1)
+                # NOTE: if min time is used, any reagent set to expire today (Bac postive control, eg) will have expired at midnight and therefore be flagged.
+                # NOTE: Make expiry at date given, plus maximum time = end of day
+                value = datetime.combine(value, datetime.max.time())
+                value = value.replace(tzinfo=timezone)
+            case _:
+                pass
+                logger.debug(f"Role to be set to: {value}")
+        try:
+            self.__setattr__(key, value)
+        except AttributeError as e:
+            logger.error(f"Could not set {key} due to {e}")
+
+
     @check_authorization
     def edit_from_search(self, obj, **kwargs):
-        from frontend.widgets.misc import AddReagentForm
+        from frontend.widgets.omni_add_edit import AddEdit
         role = ReagentRole.query(kwargs['role'])
         if role:
             role_name = role.name
         else:
             role_name = None
-        dlg = AddReagentForm(reagent_lot=self.lot, reagent_role=role_name, expiry=self.expiry, reagent_name=self.name)
+        # dlg = AddReagentForm(reagent_lot=self.lot, reagent_role=role_name, expiry=self.expiry, reagent_name=self.name)
+        dlg = AddEdit(parent=None, instance=self)
         if dlg.exec():
-            vars = dlg.parse_form()
-            for key, value in vars.items():
-                match key:
-                    case "expiry":
-                        if isinstance(value, str):
-                            field_value = datetime.strptime(value, "%Y-%m-%d")
-                        elif isinstance(value, date):
-                            field_value = datetime.combine(value, datetime.max.time())
-                        else:
-                            field_value = value
-                        field_value.replace(tzinfo=timezone)
-                    case "role":
-                        continue
-                    case _:
-                        field_value = value
-                self.__setattr__(key, field_value)
+            pyd = dlg.parse_form()
+            for field in pyd.model_fields:
+                self.set_attribute(field, pyd.__getattribute__(field))
+            # for key, value in vars.items():
+            #     match key:
+            #         case "expiry":
+            #             if isinstance(value, str):
+            #                 field_value = datetime.strptime(value, "%Y-%m-%d")
+            #             elif isinstance(value, date):
+            #                 field_value = datetime.combine(value, datetime.max.time())
+            #             else:
+            #                 field_value = value
+            #             field_value.replace(tzinfo=timezone)
+            #         case "role":
+            #             continue
+            #         case _:
+            #             field_value = value
+            #     self.__setattr__(key, field_value)
             self.save()
+            # print(self.__dict__)
 
     @classproperty
     def add_edit_tooltips(self):
@@ -767,7 +807,7 @@ class SubmissionType(BaseClass):
         Grabs the default excel template file.
 
         Returns:
-            bytes: The excel sheet.
+            bytes: The Excel sheet.
         """
         submission_type = cls.query(name="Bacterial Culture")
         return submission_type.template_file
@@ -787,13 +827,13 @@ class SubmissionType(BaseClass):
     def set_template_file(self, filepath: Path | str):
         """
 
-        Sets the binary store to an excel file.
+        Sets the binary store to an Excel file.
 
         Args:
             filepath (Path | str): Path to the template file.
 
         Raises:
-            ValueError: Raised if file is not excel file.
+            ValueError: Raised if file is not Excel file.
         """
         if isinstance(filepath, str):
             filepath = Path(filepath)

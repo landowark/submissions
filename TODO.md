@@ -1,4 +1,6 @@
-- [ ] Find a way to merge AddEdit with ReagentAdder
+- [ ] Stop displacing date on Irida controls and just do what Turnaround time does.
+- [ ] Get Manager window working for KitType, maybe SubmissionType
+- [x] Find a way to merge AddEdit with ReagentAdder
 - [x] Find a way to merge omni_search and sample_search
 - [x] Allow parsing of custom fields to a json 'custom' field in _basicsubmissions
 - [x] Upgrade to generators when returning lists.
@@ -13,7 +15,7 @@
 - [x] Fix Artic RSLNamer
 - [x] Put "Not applicable" reagents in to_dict() method.
     - Currently in to_pydantic().
-- [x] Critical: Convert Json lits to dicts so I can have them update properly without using crashy Sqlalchemy-json
+- [x] Critical: Convert Json list to dicts so I can have them update properly without using crashy Sqlalchemy-json
     - Was actually not necessary.
 - [x] Fix Parsed/Missing mix ups.
 - [x] Have sample parser check for controls and add to reagents?

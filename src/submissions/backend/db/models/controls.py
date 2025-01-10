@@ -255,6 +255,7 @@ class Control(BaseClass):
                         f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
             case _:
                 pass
+        # NOTE: if attrs passed in and this cls doesn't have all attributes in attr
         if attrs and any([not hasattr(cls, attr) for attr in attrs.keys()]):
             # NOTE: looks for first model that has all included kwargs
             try:
@@ -272,6 +273,9 @@ class Control(BaseClass):
         
         Args:
             parent (QWidget): chart holding widget to add buttons to.
+
+        Returns:
+            None: Child methods will return things.
         """
         return None
 
@@ -284,7 +288,7 @@ class Control(BaseClass):
             chart_settings (dict): settings passed down from chart widget
             ctx (Settings): settings passed down from gui
         """
-        return None
+        return Report(), None
 
     def delete(self):
         self.__database_session__.delete(self)
@@ -315,8 +319,14 @@ class PCRControl(Control):
         Returns:
             dict: Output dict of name, ct, subtype, target, reagent_lot and submitted_date
         """        
-        return dict(name=self.name, ct=self.ct, subtype=self.subtype, target=self.target, reagent_lot=self.reagent_lot,
-                    submitted_date=self.submitted_date.date())
+        return dict(
+            name=self.name,
+            ct=self.ct,
+            subtype=self.subtype,
+            target=self.target,
+            reagent_lot=self.reagent_lot,
+            submitted_date=self.submitted_date.date()
+        )
 
     @classmethod
     @report_result
@@ -403,9 +413,9 @@ class IridaControl(Control):
             kraken = self.kraken
         except TypeError:
             kraken = {}
-        kraken_cnt_total = sum([kraken[item]['kraken_count'] for item in kraken])
+        kraken_cnt_total = sum([item['kraken_count'] for item in kraken.values()])
         new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'],
-                           kraken_percent="{0:.0%}".format(kraken[item]['kraken_count'] / kraken_cnt_total),
+                           kraken_percent=f"{kraken[item]['kraken_count'] / kraken_cnt_total:0.2%}",
                            target=item in self.controltype.targets)
                       for item in kraken]
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
@@ -479,6 +489,7 @@ class IridaControl(Control):
     @classmethod
     def make_parent_buttons(cls, parent: QWidget) -> None:
         """
+        Creates buttons for controlling
 
         Args:
             parent (QWidget): chart holding widget to add buttons to.
@@ -486,6 +497,7 @@ class IridaControl(Control):
         """
         super().make_parent_buttons(parent=parent)
         rows = parent.layout.rowCount() - 2
+        # NOTE: check box for consolidating off-target items
         checker = QCheckBox(parent)
         checker.setChecked(True)
         checker.setObjectName("irida_check")
@@ -703,6 +715,12 @@ class IridaControl(Control):
             df = df[df.name not in exclude]
         return df
 
-    def to_pydantic(self):
+    def to_pydantic(self) -> "PydIridaControl":
+        """
+        Constructs a pydantic version of this object.
+
+        Returns:
+            PydIridaControl: This object as a pydantic model.
+        """
         from backend.validators import PydIridaControl
         return PydIridaControl(**self.__dict__)

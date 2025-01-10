@@ -4,6 +4,7 @@ Contains all models for sqlalchemy
 from __future__ import annotations
 import sys, logging
 from pandas import DataFrame
+from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
 from sqlalchemy.ext.declarative import declared_attr
@@ -17,6 +18,7 @@ from tools import report_result
 if 'pytest' in sys.modules:
     sys.path.append(Path(__file__).parents[4].absolute().joinpath("tests").__str__())
 
+# NOTE: For inheriting in LogMixin
 Base: DeclarativeMeta = declarative_base()
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -31,6 +33,7 @@ class LogMixin(Base):
         if len(name) > 64:
             name = name.replace("<", "").replace(">", "")
         if len(name) > 64:
+            # NOTE: As if re'agent'
             name = name.replace("agent", "")
         if len(name) > 64:
             name = f"...{name[-61:]}"
@@ -116,7 +119,7 @@ class BaseClass(Base):
         return dict(singles=singles)
 
     @classmethod
-    def find_regular_subclass(cls, name: str | None = None) -> Any:
+    def find_regular_subclass(cls, name: str = "") -> Any:
         """
 
         Args:
@@ -126,8 +129,9 @@ class BaseClass(Base):
             Any: Subclass of this object
 
         """
-        if not name:
-            return cls
+        # if not name:
+        #     logger.warning("You need to include a name of what you're looking for.")
+        #     return cls
         if " " in name:
             search = name.title().replace(" ", "")
         else:
@@ -171,7 +175,7 @@ class BaseClass(Base):
         try:
             records = [obj.to_sub_dict(**kwargs) for obj in objects]
         except AttributeError:
-            records = [obj.to_dict() for obj in objects]
+            records = [obj.to_omnigui_dict() for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod
@@ -190,7 +194,7 @@ class BaseClass(Base):
         Execute sqlalchemy query with relevant defaults.
 
         Args:
-            model (Any, optional): model to be queried. Defaults to None
+            model (Any, optional): model to be queried, allows for plugging in. Defaults to None
             query (Query, optional): input query object. Defaults to None
             limit (int): Maximum number of results. (0 = all). Defaults to 0
 
@@ -237,13 +241,28 @@ class BaseClass(Base):
             report.add_result(Result(msg=e, status="Critical"))
             return report
 
-    def to_dict(self):
+    def to_omnigui_dict(self) -> dict:
+        """
+        For getting any object in an omni-thing friendly output.
+
+        Returns:
+            dict: Dictionary of object minus _sa_instance_state with id at the front.
+        """
         dicto = {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state"]}
-        dicto = {'id': dicto.pop('id'), **dicto}
+        try:
+            dicto = {'id': dicto.pop('id'), **dicto}
+        except KeyError:
+            pass
         return dicto
 
     @classmethod
-    def get_pydantic_model(cls):
+    def get_pydantic_model(cls) -> BaseModel:
+        """
+        Gets the pydantic model corresponding to this object.
+
+        Returns:
+            Pydantic model with name "Pyd{cls.__name__}"
+        """
         from backend.validators import pydant
         try:
             model = getattr(pydant, f"Pyd{cls.__name__}")
@@ -252,7 +271,13 @@ class BaseClass(Base):
         return model
 
     @classproperty
-    def add_edit_tooltips(self):
+    def add_edit_tooltips(self) -> dict:
+        """
+        Gets tooltips for Omni-add-edit
+
+        Returns:
+            dict: custom dictionary for this class.
+        """
         return dict()
 
 
@@ -270,7 +295,7 @@ class ConfigItem(BaseClass):
     @classmethod
     def get_config_items(cls, *args) -> ConfigItem | List[ConfigItem]:
         """
-        Get desired config items from database
+        Get desired config items, or all from database
 
         Returns:
             ConfigItem|List[ConfigItem]: Config item(s)
@@ -283,6 +308,7 @@ class ConfigItem(BaseClass):
             case 1:
                 config_items = query.filter(cls.key == args[0]).first()
             case _:
+                # NOTE: All items whose key field is in args.
                 config_items = query.filter(cls.key.in_(args)).all()
         return config_items
 

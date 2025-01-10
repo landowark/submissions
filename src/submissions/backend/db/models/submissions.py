@@ -375,7 +375,10 @@ class BasicSubmission(BaseClass, LogMixin):
         output["contact_phone"] = contact_phone
         output["custom"] = custom
         output["controls"] = controls
-        output["completed_date"] = self.completed_date
+        try:
+            output["completed_date"] = self.completed_date.strftime("%Y-%m-%d")
+        except AttributeError:
+            output["completed_date"] = self.completed_date
         return output
 
     def calculate_column_count(self) -> int:

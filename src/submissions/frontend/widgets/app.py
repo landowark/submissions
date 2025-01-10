@@ -12,7 +12,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
-from backend import SubmissionType, Reagent, BasicSample, Organization
+from backend import SubmissionType, Reagent, BasicSample, Organization, KitType
 from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user
 from .functions import select_save_file, select_open_file
 # from datetime import date
@@ -84,6 +84,7 @@ class App(QMainWindow):
         maintenanceMenu.addAction(self.joinPCRAction)
         editMenu.addAction(self.editReagentAction)
         editMenu.addAction(self.manageOrgsAction)
+        # editMenu.addAction(self.manageKitsAction)
         if not is_power_user():
             editMenu.setEnabled(False)
 
@@ -111,6 +112,7 @@ class App(QMainWindow):
         self.yamlImportAction = QAction("Import Type Template", self)
         self.editReagentAction = QAction("Edit Reagent", self)
         self.manageOrgsAction = QAction("Manage Clients", self)
+        self.manageKitsAction = QAction("Manage Kits", self)
 
     def _connectActions(self):
         """
@@ -129,6 +131,7 @@ class App(QMainWindow):
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
         self.editReagentAction.triggered.connect(self.edit_reagent)
         self.manageOrgsAction.triggered.connect(self.manage_orgs)
+        self.manageKitsAction.triggered.connect(self.manage_kits)
 
     def showAbout(self):
         """
@@ -218,6 +221,11 @@ class App(QMainWindow):
         if dlg.exec():
             new_org = dlg.parse_form()
             # logger.debug(new_org.__dict__)
+
+    def manage_kits(self):
+        dlg = ManagerWindow(parent=self, object_type=KitType, extras=[])
+        if dlg.exec():
+            print(dlg.parse_form())
 
 class AddSubForm(QWidget):
 

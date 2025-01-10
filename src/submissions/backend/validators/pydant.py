@@ -48,7 +48,7 @@ class PydReagent(BaseModel):
     def rescue_type_with_lookup(cls, value, values):
         if value is None and values.data['lot'] is not None:
             try:
-                return Reagent.query(lot=values.data['lot'].name)
+                return Reagent.query(lot=values.data['lot']).name
             except AttributeError:
                 return value
         return value
@@ -133,28 +133,8 @@ class PydReagent(BaseModel):
             for key, value in self.__dict__.items():
                 if isinstance(value, dict):
                     value = value['value']
-                # NOTE: set fields based on keys in dictionary
-                match key:
-                    case "lot":
-                        reagent.lot = value.upper()
-                    case "role":
-                        reagent_role = ReagentRole.query(name=value)
-                        if reagent_role is not None:
-                            reagent.role.append(reagent_role)
-                    case "comment":
-                        continue
-                    case "expiry":
-                        if isinstance(value, str):
-                            value = date(year=1970, month=1, day=1)
-                        # NOTE: if min time is used, any reagent set to expire today (Bac postive control, eg) will have expired at midnight and therefore be flagged.
-                        # NOTE: Make expiry at date given, plus now time + 1 hour
-                        value = datetime.combine(value, datetime.max.time())
-                        reagent.expiry = value.replace(tzinfo=timezone)
-                    case _:
-                        try:
-                            reagent.__setattr__(key, value)
-                        except AttributeError:
-                            logger.error(f"Couldn't set {key} to {value}")
+                # NOTE: reagent method sets fields based on keys in dictionary
+                reagent.set_attribute(key, value)
                 if submission is not None and reagent not in submission.reagents:
                     assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
                     assoc.comments = self.comment
@@ -830,7 +810,7 @@ class PydSubmission(BaseModel, extra='allow'):
                 case item if item in instance.timestamps():
                     logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
                     if isinstance(value, date):
-                        value = datetime.combine(value, datetime.max.time())
+                        value = datetime.combine(value, datetime.now().time())
                         value = value.replace(tzinfo=timezone)
                     elif isinstance(value, str):
                         value: datetime = datetime.strptime(value, "%Y-%m-%d")
