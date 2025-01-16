@@ -175,7 +175,7 @@ class BaseClass(Base):
         try:
             records = [obj.to_sub_dict(**kwargs) for obj in objects]
         except AttributeError:
-            records = [obj.to_omnigui_dict() for obj in objects]
+            records = [obj.omnigui_dict for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod
@@ -241,7 +241,8 @@ class BaseClass(Base):
             report.add_result(Result(msg=e, status="Critical"))
             return report
 
-    def to_omnigui_dict(self) -> dict:
+    @property
+    def omnigui_dict(self) -> dict:
         """
         For getting any object in an omni-thing friendly output.
 
@@ -255,8 +256,8 @@ class BaseClass(Base):
             pass
         return dicto
 
-    @classmethod
-    def get_pydantic_model(cls) -> BaseModel:
+    @classproperty
+    def pydantic_model(cls) -> BaseModel:
         """
         Gets the pydantic model corresponding to this object.
 
@@ -271,7 +272,7 @@ class BaseClass(Base):
         return model
 
     @classproperty
-    def add_edit_tooltips(self) -> dict:
+    def add_edit_tooltips(cls) -> dict:
         """
         Gets tooltips for Omni-add-edit
 

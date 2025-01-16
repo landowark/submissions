@@ -19,7 +19,7 @@ class EquipmentUsage(QDialog):
         super().__init__(parent)
         self.submission = submission
         self.setWindowTitle(f"Equipment Checklist - {submission.rsl_plate_num}")
-        self.used_equipment = self.submission.get_used_equipment()
+        self.used_equipment = self.submission.used_equipment
         self.kit = self.submission.extraction_kit
         self.opt_equipment = submission.submission_type.get_equipment()
         self.layout = QVBoxLayout()

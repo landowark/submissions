@@ -147,14 +147,16 @@ class SubmissionFormContainer(QWidget):
             instance = Reagent()
         dlg = AddEdit(parent=self, instance=instance)
         if dlg.exec():
-            reagent, result = dlg.parse_form()
+            reagent = dlg.parse_form()
             reagent.missing = False
-            logger.debug(f"Reagent: {reagent}, result: {result}")
-            report.add_result(result)
+            # logger.debug(f"Reagent: {reagent}, result: {result}")
+            # report.add_result(result)
             # NOTE: send reagent to db
-            sqlobj, result = reagent.toSQL()
+            sqlobj = reagent.to_sql()
             sqlobj.save()
-            report.add_result(result)
+            logger.debug(f"Reagent added!")
+            report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
+            # report.add_result(result)
             return reagent, report
 
     @report_result
@@ -184,10 +186,10 @@ class SubmissionFormContainer(QWidget):
             # NOTE: create reagent object
             reagent = PydReagent(ctx=self.app.ctx, **info, missing=False)
             # NOTE: send reagent to db
-            sqlobj, result = reagent.toSQL()
+            sqlobj = reagent.to_sql()
             sqlobj.save()
-            report.add_result(result)
-            return reagent, report
+            # report.add_result(result)
+            return reagent
 
 
 class SubmissionFormWidget(QWidget):
@@ -201,7 +203,7 @@ class SubmissionFormWidget(QWidget):
         self.pyd = submission
         self.missing_info = []
         self.submission_type = SubmissionType.query(name=self.pyd.submission_type['value'])
-        st = self.submission_type.get_submission_class()
+        st = self.submission_type.submission_class
         defaults = st.get_default_info("form_recover", "form_ignore", submission_type=self.pyd.submission_type['value'])
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
@@ -443,6 +445,9 @@ class SubmissionFormWidget(QWidget):
                     reagent = widget.parse_form()
                     if reagent is not None:
                         reagents.append(reagent)
+                    else:
+                        report.add_result(Result(msg="Failed integrity check", status="Critical"))
+                        return report
                 case self.InfoItem():
                     field, value = widget.parse_form()
                     if field is not None:
@@ -523,7 +528,7 @@ class SubmissionFormWidget(QWidget):
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             if sub_obj is None:
-                sub_obj = submission_type.get_submission_class()
+                sub_obj = submission_type.submission_class
             try:
                 value = value['value']
             except (TypeError, KeyError):
@@ -585,7 +590,7 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(cats)
                     add_widget.setToolTip("Enter submission category or select from list.")
                 case _:
-                    if key in sub_obj.timestamps():
+                    if key in sub_obj.timestamps:
                         add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
                         # NOTE: sets submitted date based on date found in excel sheet
                         try:
@@ -696,7 +701,7 @@ class SubmissionFormWidget(QWidget):
             if not self.lot.isEnabled():
                 return None, report
             lot = self.lot.currentText()
-            wanted_reagent, new = Reagent.query_or_create(lot=lot, role=self.reagent.role)
+            wanted_reagent, new = Reagent.query_or_create(lot=lot, role=self.reagent.role, expiry=self.reagent.expiry)
             # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
             logger.debug(f"Wanted reagent: {wanted_reagent}, New: {new}")
             # if wanted_reagent is None:
@@ -705,18 +710,13 @@ class SubmissionFormWidget(QWidget):
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
 
                 if dlg.exec():
-                    # wanted_reagent = self.parent().parent().add_reagent(reagent_lot=lot,
-                    #                                                     reagent_role=self.reagent.role,
-                    #                                                     expiry=self.reagent.expiry,
-                    #                                                     name=self.reagent.name,
-                    #                                                     kit=self.extraction_kit
-                    #                                                     )
                     wanted_reagent = self.parent().parent().new_add_reagent(instance=wanted_reagent)
-
+                    logger.debug(f"Reagent added!")
+                    report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
                     return wanted_reagent, report
                 else:
                     # NOTE: In this case we will have an empty reagent and the submission will fail kit integrity check
-                    report.add_result(Result(msg="Failed integrity check", status="Critical"))
+
                     return None, report
             else:
                 # NOTE: Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name

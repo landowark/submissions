@@ -20,7 +20,7 @@ class SearchBox(QDialog):
     The full search widget.
     """
 
-    def __init__(self, parent, object_type: Any, extras: List[str], returnable: bool = False, **kwargs):
+    def __init__(self, parent, object_type: Any, extras: List[dict], returnable: bool = False, **kwargs):
         super().__init__(parent)
         self.object_type = self.original_type = object_type
         self.extras = extras
@@ -73,8 +73,9 @@ class SearchBox(QDialog):
         except AttributeError:
             search_fields = []
         for iii, searchable in enumerate(search_fields):
-            widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
-            widget.setObjectName(searchable)
+            widget = FieldSearch(parent=self, label=searchable['label'], field_name=searchable['field'])
+            # widget = FieldSearch(parent=self, label=k, field_name=v)
+            widget.setObjectName(searchable['field'])
             self.layout.addWidget(widget, 1 + iii, 0)
             widget.search_widget.textChanged.connect(self.update_data)
         self.update_data()
@@ -150,14 +151,16 @@ class SearchResults(QTableView):
             self.extras = extras + self.object_type.searchables
         except AttributeError:
             self.extras = extras
+        logger.debug(f"Extras: {self.extras}")
 
     def setData(self, df: DataFrame) -> None:
         """
         sets data in model
         """
+
         self.data = df
         try:
-            self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for item in self.extras]
+            self.columns_of_interest = [dict(name=item['field'], column=self.data.columns.get_loc(item['field'])) for item in self.extras]
         except KeyError:
             self.columns_of_interest = []
         try:

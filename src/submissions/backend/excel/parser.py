@@ -59,25 +59,27 @@ class SheetParser(object):
         Pulls basic information from the excel sheet
         """
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
-        info = parser.parse_info()
-        self.info_map = parser.map
-        # NOTE: in order to accommodate generic submission types we have to check for the type in the excel sheet and
-        # rerun accordingly
+        # info = parser.parsed_info
+        self.info_map = parser.info_map
+        # NOTE: in order to accommodate generic submission types we have to check for the type in the excel sheet and rerun accordingly
         try:
-            check = info['submission_type']['value'] not in [None, "None", "", " "]
-        except KeyError:
+            check = parser.parsed_info['submission_type']['value'] not in [None, "None", "", " "]
+        except KeyError as e:
+            logger.error(f"Couldn't check submission type due to KeyError: {e}")
             return
         logger.info(
-            f"Checking for updated submission type: {self.submission_type.name} against new: {info['submission_type']['value']}")
-        if self.submission_type.name != info['submission_type']['value']:
+            f"Checking for updated submission type: {self.submission_type.name} against new: {parser.parsed_info['submission_type']['value']}")
+        if self.submission_type.name != parser.parsed_info['submission_type']['value']:
             if check:
-                self.submission_type = SubmissionType.query(name=info['submission_type']['value'])
+                # NOTE: If initial submission type doesn't match parsed submission type, defer to parsed submission type.
+                self.submission_type = SubmissionType.query(name=parser.parsed_info['submission_type']['value'])
                 logger.info(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
                 self.parse_info()
             else:
                 self.submission_type = RSLNamer.retrieve_submission_type(filename=self.filepath)
                 self.parse_info()
-        [self.sub.__setitem__(k, v) for k, v in info.items()]
+        for k, v in parser.parsed_info.items():
+            self.sub.__setitem__(k, v)
 
     def parse_reagents(self, extraction_kit: str | None = None):
         """
@@ -90,28 +92,28 @@ class SheetParser(object):
             extraction_kit = self.sub['extraction_kit']
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=extraction_kit)
-        self.sub['reagents'] = parser.parse_reagents()
+        self.sub['reagents'] = parser.parsed_reagents
 
     def parse_samples(self):
         """
         Calls sample parser to pull info from the excel sheet
         """
         parser = SampleParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['samples'] = parser.parse_samples()
+        self.sub['samples'] = parser.parsed_samples
 
     def parse_equipment(self):
         """
         Calls equipment parser to pull info from the excel sheet
         """
         parser = EquipmentParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['equipment'] = parser.parse_equipment()
+        self.sub['equipment'] = parser.parsed_equipment
 
     def parse_tips(self):
         """
         Calls tips parser to pull info from the excel sheet
         """
         parser = TipParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['tips'] = parser.parse_tips()
+        self.sub['tips'] = parser.parsed_tips
 
     def import_kit_validation_check(self):
         """
@@ -156,23 +158,23 @@ class InfoParser(object):
         if sub_object is None:
             sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
         self.submission_type_obj = submission_type
+        self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
         self.sub_object = sub_object
-        self.map = self.fetch_submission_info_map()
         self.xl = xl
 
-    def fetch_submission_info_map(self) -> dict:
+    @property
+    def info_map(self) -> dict:
         """
         Gets location of basic info from the submission_type object in the database.
 
         Returns:
             dict: Location map of all info for this submission type
         """
-        self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
-        info_map = self.sub_object.construct_info_map(submission_type=self.submission_type_obj, mode="read")
         # NOTE: Get the parse_info method from the submission type specified
-        return info_map
+        return self.sub_object.construct_info_map(submission_type=self.submission_type_obj, mode="read")
 
-    def parse_info(self) -> dict:
+    @property
+    def parsed_info(self) -> dict:
         """
         Pulls basic info from the excel sheet.
 
@@ -184,7 +186,7 @@ class InfoParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             relevant = []
-            for k, v in self.map.items():
+            for k, v in self.info_map.items():
                 # NOTE: If the value is hardcoded put it in the dictionary directly. Ex. Artic kit
                 if k == "custom":
                     continue
@@ -215,7 +217,7 @@ class InfoParser(object):
                     case "submitted_date":
                         value, missing = is_missing(value)
                     # NOTE: is field a JSON? Includes: Extraction info, PCR info, comment, custom
-                    case thing if thing in self.sub_object.jsons():
+                    case thing if thing in self.sub_object.jsons:
                         value, missing = is_missing(value)
                         if missing: continue
                         value = dict(name=f"Parser_{sheet}", text=value, time=datetime.now())
@@ -232,7 +234,7 @@ class InfoParser(object):
                     except (KeyError, IndexError):
                         continue
         # NOTE: Return after running the parser components held in submission object.
-        return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl, custom_fields=self.map['custom'])
+        return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl, custom_fields=self.info_map['custom'])
 
 
 class ReagentParser(object):
@@ -252,16 +254,17 @@ class ReagentParser(object):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type_obj = submission_type
+        if not sub_object:
+            sub_object = submission_type.submission_class
         self.sub_object = sub_object
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
-        self.map = self.fetch_kit_info_map(submission_type=submission_type)
-        logger.debug(f"Setting map: {self.map}")
+        # self.kit_map = self.kit_map(submission_type=submission_type)
         self.xl = xl
 
-    # @report_result
-    def fetch_kit_info_map(self, submission_type: str | SubmissionType) -> Tuple[Report, dict]:
+    @property
+    def kit_map(self) -> dict:
         """
         Gets location of kit reagents from database
 
@@ -271,38 +274,41 @@ class ReagentParser(object):
         Returns:
             dict: locations of reagent info for the kit.
         """
-        report = Report()
-        if isinstance(submission_type, dict):
-            submission_type = submission_type['value']
-        if isinstance(submission_type, str):
-            submission_type = SubmissionType.query(name=submission_type)
-        reagent_map = {k: v for k, v in self.kit_object.construct_xl_map_for_use(submission_type)}
+        # report = Report()
+        # if isinstance(submission_type, dict):
+        #     submission_type = submission_type['value']
+        # if isinstance(submission_type, str):
+        #     submission_type = SubmissionType.query(name=submission_type)
+        logger.debug("Running kit map")
+        associations, self.kit_object = self.kit_object.construct_xl_map_for_use(submission_type=self.submission_type_obj)
+        reagent_map = {k: v for k, v in associations.items() if k != 'info'}
         try:
             del reagent_map['info']
         except KeyError:
             pass
-        # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
-        if not reagent_map:
-            temp_kit_object = self.submission_type_obj.get_default_kit()
-            if temp_kit_object:
-                self.kit_object = temp_kit_object
-                logger.warning(f"Attempting to salvage with default kit {self.kit_object} and submission_type: {self.submission_type_obj}")
-                return self.fetch_kit_info_map(submission_type=self.submission_type_obj)
-            else:
-                logger.error(f"Still no reagent map, displaying error.")
-                try:
-                    ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]
-                    location_string = f"Sheet: {ext_kit_loc['sheet']}, Row: {ext_kit_loc['row']}, Column: {ext_kit_loc['column']}?"
-                except (IndexError, KeyError):
-                    location_string = ""
-                report.add_result(Result(owner=__name__, code=0,
-                                         msg=f"No kit map found for {self.kit_object.name}.\n\n"
-                                             f"Are you sure you put the right kit in:\n\n{location_string}?",
-                                         status="Critical"))
-        logger.debug(f"Here is the map coming out: {reagent_map}")
+        # # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
+        # if not reagent_map:
+        #     temp_kit_object = self.submission_type_obj.default_kit
+        #     if temp_kit_object:
+        #         self.kit_object = temp_kit_object
+        #         logger.warning(f"Attempting to salvage with default kit {self.kit_object} and submission_type: {self.submission_type_obj}")
+        #         return self.fetch_kit_map(submission_type=self.submission_type_obj)
+        #     else:
+        #         logger.error(f"Still no reagent map, displaying error.")
+        #         try:
+        #             ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]
+        #             location_string = f"Sheet: {ext_kit_loc['sheet']}, Row: {ext_kit_loc['row']}, Column: {ext_kit_loc['column']}?"
+        #         except (IndexError, KeyError):
+        #             location_string = ""
+        #         report.add_result(Result(owner=__name__, code=0,
+        #                                  msg=f"No kit map found for {self.kit_object.name}.\n\n"
+        #                                      f"Are you sure you put the right kit in:\n\n{location_string}?",
+        #                                  status="Critical"))
+        # logger.debug(f"Here is the map coming out: {reagent_map}")
         return reagent_map
 
-    def parse_reagents(self) -> Generator[dict, None, None]:
+    @property
+    def parsed_reagents(self) -> Generator[dict, None, None]:
         """
         Extracts reagent information from the Excel form.
 
@@ -311,7 +317,7 @@ class ReagentParser(object):
         """
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
-            relevant = {k.strip(): v for k, v in self.map.items() if sheet in self.map[k]['sheet']}
+            relevant = {k.strip(): v for k, v in self.kit_map.items() if sheet in self.kit_map[k]['sheet']}
             if not relevant:
                 continue
             for item in relevant:
@@ -367,11 +373,14 @@ class SampleParser(object):
                 f"Sample parser attempting to fetch submission class with polymorphic identity: {self.submission_type}")
             sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.sub_object = sub_object
-        self.sample_info_map = self.fetch_sample_info_map(submission_type=submission_type, sample_map=sample_map)
-        self.plate_map_samples = self.parse_plate_map()
-        self.lookup_samples = self.parse_lookup_table()
+        self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
+        self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
+        # self.sample_map = self.sample_map(submission_type=submission_type, sample_map=sample_map)
+        # self.plate_map_samples = self.parse_plate_map()
+        # self.lookup_samples = self.parse_lookup_table()
 
-    def fetch_sample_info_map(self, submission_type: str, sample_map: dict | None = None) -> dict:
+    @property
+    def sample_map(self) -> dict:
         """
         Gets info locations in excel book for submission type.
 
@@ -381,15 +390,16 @@ class SampleParser(object):
         Returns:
             dict: Info locations.
         """
-        self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
-        self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
-        if sample_map is None:
-            sample_info_map = self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
-        else:
-            sample_info_map = sample_map
-        return sample_info_map
 
-    def parse_plate_map(self) -> List[dict]:
+        # if sample_map is None:
+        #     sample_info_map = self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
+        # else:
+        #     sample_info_map = sample_map
+        # return sample_info_map
+        return self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
+
+    @property
+    def plate_map_samples(self) -> List[dict]:
         """
         Parse sample location/name from plate map
 
@@ -397,7 +407,7 @@ class SampleParser(object):
             List[dict]: List of sample ids and locations.
         """
         invalids = [0, "0", "EMPTY"]
-        smap = self.sample_info_map['plate_map']
+        smap = self.sample_map['plate_map']
         ws = self.xl[smap['sheet']]
         plate_map_samples = []
         for ii, row in enumerate(range(smap['start_row'], smap['end_row'] + 1), start=1):
@@ -414,7 +424,8 @@ class SampleParser(object):
                     pass
         return plate_map_samples
 
-    def parse_lookup_table(self) -> List[dict]:
+    @property
+    def lookup_samples(self) -> List[dict]:
         """
         Parse misc info from lookup table.
 
@@ -422,7 +433,7 @@ class SampleParser(object):
             List[dict]: List of basic sample info.
         """
 
-        lmap = self.sample_info_map['lookup_table']
+        lmap = self.sample_map['lookup_table']
         ws = self.xl[lmap['sheet']]
         lookup_samples = []
         for ii, row in enumerate(range(lmap['start_row'], lmap['end_row'] + 1), start=1):
@@ -441,7 +452,8 @@ class SampleParser(object):
                 lookup_samples.append(self.samp_object.parse_sample(row_dict))
         return lookup_samples
 
-    def parse_samples(self) -> Generator[dict, None, None]:
+    @property
+    def parsed_samples(self) -> Generator[dict, None, None]:
         """
         Merges sample info from lookup table and plate map.
 
@@ -461,7 +473,7 @@ class SampleParser(object):
                     pass
                 yield new
         else:
-            merge_on_id = self.sample_info_map['lookup_table']['merge_on_id']
+            merge_on_id = self.sample_map['lookup_table']['merge_on_id']
             logger.info(f"Merging sample info using {merge_on_id}")
             plate_map_samples = sorted(copy(self.plate_map_samples), key=itemgetter('id'))
             lookup_samples = sorted(copy(self.lookup_samples), key=itemgetter(merge_on_id))
@@ -507,9 +519,10 @@ class EquipmentParser(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        self.map = self.fetch_equipment_map()
+        # self.equipment_map = self.fetch_equipment_map()
 
-    def fetch_equipment_map(self) -> dict:
+    @property
+    def equipment_map(self) -> dict:
         """
         Gets the map of equipment locations in the submission type's spreadsheet
 
@@ -528,14 +541,15 @@ class EquipmentParser(object):
         Returns:
             str: asset number
         """
-        regex = Equipment.get_regex()
+        regex = Equipment.manufacturer_regex
         try:
             return regex.search(input).group().strip("-")
         except AttributeError as e:
             logger.error(f"Error getting asset number for {input}: {e}")
             return input
 
-    def parse_equipment(self) -> Generator[dict, None, None]:
+    @property
+    def parsed_equipment(self) -> Generator[dict, None, None]:
         """
         Scrapes equipment from xl sheet
 
@@ -545,7 +559,7 @@ class EquipmentParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             try:
-                relevant = {k: v for k, v in self.map.items() if v['sheet'] == sheet}
+                relevant = {k: v for k, v in self.equipment_map.items() if v['sheet'] == sheet}
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
@@ -566,7 +580,7 @@ class EquipmentParser(object):
                                nickname=eq.nickname)
                 except AttributeError:
                     logger.error(f"Unable to add {eq} to list.")
-
+                    continue
 
 class TipParser(object):
     """
@@ -583,9 +597,10 @@ class TipParser(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        self.map = self.fetch_tip_map()
+        # self.map = self.fetch_tip_map()
 
-    def fetch_tip_map(self) -> dict:
+    @property
+    def tip_map(self) -> dict:
         """
         Gets the map of equipment locations in the submission type's spreadsheet
 
@@ -594,7 +609,8 @@ class TipParser(object):
         """
         return {k: v for k, v in self.submission_type.construct_field_map("tip")}
 
-    def parse_tips(self) -> List[dict]:
+    @property
+    def parsed_tips(self) -> Generator[dict, None, None]:
         """
         Scrapes equipment from xl sheet
 
@@ -604,7 +620,7 @@ class TipParser(object):
         for sheet in self.xl.sheetnames:
             ws = self.xl[sheet]
             try:
-                relevant = {k: v for k, v in self.map.items() if v['sheet'] == sheet}
+                relevant = {k: v for k, v in self.tip_map.items() if v['sheet'] == sheet}
             except (TypeError, KeyError) as e:
                 logger.error(f"Error creating relevant equipment list: {e}")
                 continue
@@ -653,11 +669,12 @@ class PCRParser(object):
         else:
             self.submission_obj = submission
             rsl_plate_num = self.submission_obj.rsl_plate_num
-        self.pcr = self.parse_general()
+        # self.pcr = self.parse_general()
         self.samples = self.submission_obj.parse_pcr(xl=self.xl, rsl_plate_num=rsl_plate_num)
         self.controls = self.submission_obj.parse_pcr_controls(xl=self.xl, rsl_plate_num=rsl_plate_num)
 
-    def parse_general(self):
+    @property
+    def pcr_info(self) -> dict:
         """
         Parse general info rows for all types of PCR results
 

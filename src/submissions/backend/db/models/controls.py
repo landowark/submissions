@@ -81,7 +81,8 @@ class ControlType(BaseClass):
         subtypes = sorted(list(jsoner[genera].keys()), reverse=True)
         return subtypes
 
-    def get_instance_class(self) -> Control:
+    @property
+    def instance_class(self) -> Control:
         """
         Retrieves the Control class associated with this controltype
 
@@ -314,7 +315,7 @@ class PCRControl(Control):
 
     def to_sub_dict(self) -> dict:
         """
-        Creates dictionary of fields for this object
+        Creates dictionary of fields for this object.
 
         Returns:
             dict: Output dict of name, ct, subtype, target, reagent_lot and submitted_date
@@ -471,8 +472,8 @@ class IridaControl(Control):
                 _dict[key] = data[genus][key]
             yield _dict
 
-    @classmethod
-    def get_modes(cls) -> List[str]:
+    @classproperty
+    def modes(cls) -> List[str]:
         """
         Get all control modes from database
 

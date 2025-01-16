@@ -20,11 +20,11 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     if ctx.database_schema == "sqlite":
         execution_phrase = "PRAGMA foreign_keys=ON"
+        print(f"Executing '{execution_phrase}' in sql.")
     else:
         # print("Nothing to execute, returning")
         cursor.close()
         return
-    print(f"Executing '{execution_phrase}' in sql.")
     cursor.execute(execution_phrase)
     cursor.close()
 
@@ -33,6 +33,17 @@ from .models import *
 
 
 def update_log(mapper, connection, target):
+    """
+    Updates log table whenever an object with LogMixin is updated.
+
+    Args:
+        mapper ():
+        connection ():
+        target ():
+
+    Returns:
+        None
+    """
     state = inspect(target)
     object_name = state.object.truncated_name
     update = dict(user=getuser(), time=datetime.now(), object=object_name, changes=[])
@@ -43,6 +54,7 @@ def update_log(mapper, connection, target):
         if attr.key == "custom":
             continue
         added = [str(item) for item in hist.added]
+        # NOTE: Attributes left out to save space
         if attr.key in ['artic_technician', 'submission_sample_associations', 'submission_reagent_associations',
                         'submission_equipment_associations', 'submission_tips_associations', 'contact_id', 'gel_info',
                         'gel_controls', 'source_plates']:

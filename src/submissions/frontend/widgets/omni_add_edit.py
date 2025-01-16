@@ -65,11 +65,11 @@ class AddEdit(QDialog):
         report = Report()
         parsed = {result[0].strip(":"): result[1] for result in [item.parse_form() for item in self.findChildren(EditProperty)] if result[0]}
         logger.debug(parsed)
-        model = self.object_type.get_pydantic_model()
+        model = self.object_type.pydantic_model
         # NOTE: Hand-off to pydantic model for validation.
         # NOTE: Also, why am I not just using the toSQL method here. I could write one for contacts.
         model = model(**parsed)
-        # output, result = model.toSQL()
+        # output, result = model.to_sql()
         # report.add_result(result)
         # if len(report.results) < 1:
         #     report.add_result(Result(msg="Added new regeant.", icon="Information", owner=__name__))

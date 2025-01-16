@@ -193,7 +193,7 @@ class App(QMainWindow):
 
     @check_authorization
     def edit_reagent(self, *args, **kwargs):
-        dlg = SearchBox(parent=self, object_type=Reagent, extras=['role'])
+        dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="role")])
         dlg.exec()
 
     @check_authorization

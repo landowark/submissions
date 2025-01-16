@@ -30,8 +30,7 @@ class ControlsViewer(InfoPane):
         self.control_sub_typer.addItems(con_sub_types)
         # NOTE: create custom widget to get types of analysis -- disabled by PCR control
         self.mode_typer = QComboBox()
-        mode_types = IridaControl.get_modes()
-        self.mode_typer.addItems(mode_types)
+        self.mode_typer.addItems(IridaControl.modes)
         # NOTE: create custom widget to get subtypes of analysis -- disabled by PCR control
         self.mode_sub_typer = QComboBox()
         self.mode_sub_typer.setEnabled(False)
@@ -43,7 +42,7 @@ class ControlsViewer(InfoPane):
         self.layout.addWidget(self.control_sub_typer, 1, 0, 1, 4)
         self.layout.addWidget(self.mode_typer, 2, 0, 1, 4)
         self.layout.addWidget(self.mode_sub_typer, 3, 0, 1, 4)
-        self.archetype.get_instance_class().make_parent_buttons(parent=self)
+        self.archetype.instance_class.make_parent_buttons(parent=self)
         self.update_data()
         self.control_sub_typer.currentIndexChanged.connect(self.update_data)
         self.mode_typer.currentIndexChanged.connect(self.update_data)
@@ -70,7 +69,7 @@ class ControlsViewer(InfoPane):
         except AttributeError:
             sub_types = []
         # NOTE: added in allowed to have subtypes in case additions made in future.
-        if sub_types and self.mode.lower() in self.archetype.get_instance_class().subtyping_allowed:
+        if sub_types and self.mode.lower() in self.archetype.instance_class.subtyping_allowed:
             # NOTE: block signal that will rerun controls getter and update mode_sub_typer
             with QSignalBlocker(self.mode_sub_typer) as blocker:
                 self.mode_sub_typer.addItems(sub_types)
@@ -103,7 +102,7 @@ class ControlsViewer(InfoPane):
         chart_settings = dict(sub_type=self.con_sub_type, start_date=self.start_date, end_date=self.end_date,
                               mode=self.mode,
                               sub_mode=self.mode_sub_type, parent=self, months=months)
-        self.fig = self.archetype.get_instance_class().make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
+        self.fig = self.archetype.instance_class.make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
         self.report_obj = ChartReportMaker(df=self.fig.df, sheet_name=self.archetype.name)
         if issubclass(self.fig.__class__, CustomFigure):
             self.save_button.setEnabled(True)

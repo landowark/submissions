@@ -45,7 +45,7 @@ class SheetWriter(object):
         template = self.submission_type.template_file
         if not template:
             logger.error(f"No template file found, falling back to Bacterial Culture")
-            template = SubmissionType.retrieve_template_file()
+            template = SubmissionType.basic_template
         workbook = load_workbook(BytesIO(template))
         self.xl = workbook
         self.write_info()
@@ -155,8 +155,11 @@ class InfoWriter(object):
         """
         final_info = {}
         for k, v in self.info:
-            if k == "custom":
-                continue
+            match k:
+                case "custom":
+                    continue
+                # case "comment":
+
             # NOTE: merge all comments to fit in single cell.
             if k == "comment" and isinstance(v['value'], list):
                 json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
@@ -170,6 +173,7 @@ class InfoWriter(object):
             for loc in locations:
                 sheet = self.xl[loc['sheet']]
                 try:
+                    logger.debug(f"Writing {v['value']} to row {loc['row']} and column {loc['column']}")
                     sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
                 except AttributeError as e:
                     logger.error(f"Can't write {k} to that cell due to AttributeError: {e}")
@@ -196,9 +200,13 @@ class ReagentWriter(object):
         self.xl = xl
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
+        self.submission_type_obj = submission_type
         if isinstance(extraction_kit, str):
             extraction_kit = KitType.query(name=extraction_kit)
-        reagent_map = {k: v for k, v in extraction_kit.construct_xl_map_for_use(submission_type)}
+        self.kit_object = extraction_kit
+        associations, self.kit_object = self.kit_object.construct_xl_map_for_use(
+            submission_type=self.submission_type_obj)
+        reagent_map = {k: v for k, v in associations.items()}
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
     def reconcile_map(self, reagent_list: List[dict], reagent_map: dict) -> Generator[dict, None, None]:
@@ -264,7 +272,7 @@ class SampleWriter(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        self.sample_map = submission_type.construct_sample_map()['lookup_table']
+        self.sample_map = submission_type.sample_map['lookup_table']
         # NOTE: exclude any samples without a submission rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
         self.samples = sorted(samples, key=itemgetter('submission_rank'))
@@ -282,7 +290,7 @@ class SampleWriter(object):
         """
         multiples = ['row', 'column', 'assoc_id', 'submission_rank']
         for sample in sample_list:
-            sample = self.submission_type.get_submission_class().custom_sample_writer(sample)
+            sample = self.submission_type.submission_class.custom_sample_writer(sample)
             for assoc in zip(sample['row'], sample['column'], sample['submission_rank']):
                 new = dict(row=assoc[0], column=assoc[1], submission_rank=assoc[2])
                 for k, v in sample.items():
@@ -354,7 +362,7 @@ class EquipmentWriter(object):
             equipment_map (dict): Dictionary of equipment locations
 
         Returns:
-            List[dict]: List of merged dictionaries 
+            List[dict]: List of merged dictionaries
         """
         if equipment_list is None:
             return

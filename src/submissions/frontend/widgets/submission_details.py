@@ -93,7 +93,7 @@ class SubmissionDetails(QDialog):
         base_dict = sample.to_sub_dict(full_data=True)
         exclude = ['submissions', 'excluded', 'colour', 'tooltip']
         base_dict['excluded'] = exclude
-        template = sample.get_details_template()
+        template = sample.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
@@ -147,7 +147,7 @@ class SubmissionDetails(QDialog):
         self.rsl_plate_num = submission.rsl_plate_num
         self.base_dict = submission.to_dict(full_data=True)
         # NOTE: don't want id
-        self.base_dict['platemap'] = submission.make_plate_map(sample_list=submission.hitpick_plate())
+        self.base_dict['platemap'] = submission.make_plate_map(sample_list=submission.hitpicked)
         self.base_dict['excluded'] = submission.get_default_info("details_ignore")
         self.base_dict, self.template = submission.get_details_template(base_dict=self.base_dict)
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])

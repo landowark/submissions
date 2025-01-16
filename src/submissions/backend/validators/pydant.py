@@ -73,7 +73,7 @@ class PydReagent(BaseModel):
         if value is not None:
             match value:
                 case int():
-                    return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2).date()
+                    return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
                 case 'NA':
                     return value
                 case str():
@@ -117,7 +117,8 @@ class PydReagent(BaseModel):
         fields = list(self.model_fields.keys()) + extras
         return {k: getattr(self, k) for k in fields}
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, Report]:
+    @report_result
+    def to_sql(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, Report]:
         """
         Converts this instance into a backend.db.models.kit.Reagent instance
 
@@ -128,6 +129,7 @@ class PydReagent(BaseModel):
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
         reagent = Reagent.query(lot=self.lot, name=self.name)
+        logger.debug(f"Reagent: {reagent}")
         if reagent is None:
             reagent = Reagent()
             for key, value in self.__dict__.items():
@@ -140,7 +142,6 @@ class PydReagent(BaseModel):
                     assoc.comments = self.comment
                 else:
                     assoc = None
-            report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
         else:
             if submission is not None and reagent not in submission.reagents:
                 submission.update_reagentassoc(reagent=reagent, role=self.role)
@@ -160,7 +161,7 @@ class PydSample(BaseModel, extra='allow'):
     def validate_model(cls, data):
         model = BasicSample.find_polymorphic_subclass(polymorphic_identity=data.sample_type)
         for k, v in data.model_extra.items():
-            if k in model.timestamps():
+            if k in model.timestamps:
                 if isinstance(v, str):
                     v = datetime.strptime(v, "%Y-%m-%d")
                 data.__setattr__(k, v)
@@ -202,7 +203,7 @@ class PydSample(BaseModel, extra='allow'):
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         return {k: getattr(self, k) for k in fields}
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[
+    def to_sql(self, submission: BasicSubmission | str = None) -> Tuple[
         BasicSample, List[SubmissionSampleAssociation], Result | None]:
         """
         Converts this instance into a backend.db.models.submissions.Sample object
@@ -271,7 +272,7 @@ class PydTips(BaseModel):
 
     def to_sql(self, submission: BasicSubmission) -> SubmissionTipsAssociation:
         """
-        Con
+        Convert this object to the SQL version for database storage.
 
         Args:
             submission (BasicSubmission): A submission object to associate tips represented here.
@@ -280,10 +281,10 @@ class PydTips(BaseModel):
             SubmissionTipsAssociation: Association between queried tips and submission
         """
         tips = Tips.query(name=self.name, limit=1)
-        logger.debug(f"Tips query has yielded: {tips}")
-        assoc = SubmissionTipsAssociation.query(tip_id=tips.id, submission_id=submission.id, role=self.role, limit=1)
-        if assoc is None:
-            assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
+        # logger.debug(f"Tips query has yielded: {tips}")
+        assoc = SubmissionTipsAssociation.query_or_create(tips=tips, submission=submission, role=self.role, limit=1)
+        # if assoc is None:
+        #     assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
         return assoc
 
 
@@ -316,7 +317,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             pass
         return value
 
-    def toSQL(self, submission: BasicSubmission | str = None) -> Tuple[Equipment, SubmissionEquipmentAssociation]:
+    def to_sql(self, submission: BasicSubmission | str = None, extraction_kit: KitType | str = None) -> Tuple[Equipment, SubmissionEquipmentAssociation]:
         """
         Creates Equipment and SubmssionEquipmentAssociations for this PydEquipment
 
@@ -328,6 +329,8 @@ class PydEquipment(BaseModel, extra='ignore'):
         """
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
+        if isinstance(extraction_kit, str):
+            extraction_kit = KitType.query(name=extraction_kit)
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
             logger.error("No equipment found. Returning None.")
@@ -343,7 +346,12 @@ class PydEquipment(BaseModel, extra='ignore'):
             if assoc is None:
                 assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
                 # TODO: This seems precarious. What if there is more than one process?
-                process = Process.query(name=self.processes[0])
+                # NOTE: It looks like the way fetching the processes is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
+                # NOTE: I need to find a way to filter this by the kit involved.
+                if len(self.processes) > 1:
+                    process = Process.query(submission_type=submission.get_submission_type(), extraction_kit=extraction_kit, equipment_role=self.role)
+                else:
+                    process = Process.query(name=self.processes[0])
                 if process is None:
                     logger.error(f"Found unknown process: {process}.")
                 assoc.process = process
@@ -405,10 +413,12 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator('equipment', mode='before')
     @classmethod
     def convert_equipment_dict(cls, value):
-        if isinstance(value, Generator):
-            return [PydEquipment(**equipment) for equipment in value]
         if isinstance(value, dict):
             return value['value']
+        if isinstance(value, Generator):
+            return [PydEquipment(**equipment) for equipment in value]
+        if not value:
+            return []
         return value
 
     @field_validator('comment', mode='before')
@@ -443,12 +453,11 @@ class PydSubmission(BaseModel, extra='allow'):
     def strip_datetime_string(cls, value):
         match value['value']:
             case date():
-                return value
+                output = datetime.combine(value['value'], datetime.min.time())
             case datetime():
-                return value.date()
+                pass
             case int():
-                return dict(value=datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2).date(),
-                            missing=True)
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2)
             case str():
                 string = re.sub(r"(_|-)\d(R\d)?$", "", value['value'])
                 try:
@@ -456,12 +465,15 @@ class PydSubmission(BaseModel, extra='allow'):
                 except ParserError as e:
                     logger.error(f"Problem parsing date: {e}")
                     try:
-                        output = dict(value=parse(string.replace("-", "")).date(), missing=True)
+                        output = parse(string.replace("-", "")).date()
                     except Exception as e:
                         logger.error(f"Problem with parse fallback: {e}")
-                return output
+                        return value
             case _:
                 raise ValueError(f"Could not get datetime from {value['value']}")
+        value['value'] = output.replace(tzinfo=timezone)
+        return value
+
 
     @field_validator("submitting_lab", mode="before")
     @classmethod
@@ -511,7 +523,7 @@ class PydSubmission(BaseModel, extra='allow'):
             if "pytest" in sys.modules and sub_type.replace(" ", "") == "BasicSubmission":
                 output = "RSL-BS-Test001"
             else:
-                output = RSLNamer(filename=values.data['filepath'].__str__(), sub_type=sub_type,
+                output = RSLNamer(filename=values.data['filepath'].__str__(), submission_type=sub_type,
                                   data=values.data).parsed_name
             return dict(value=output, missing=True)
 
@@ -653,9 +665,9 @@ class PydSubmission(BaseModel, extra='allow'):
                 return value
             if isinstance(contact, tuple):
                 contact = contact[0]
-            value = dict(value=f"Defaulted to: {contact}", missing=True)
+            value = dict(value=f"Defaulted to: {contact}", missing=False)
             logger.debug(f"Value after query: {value}")
-            return
+            return value
         else:
             logger.debug(f"Value after bypass check: {value}")
             return value
@@ -665,7 +677,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # NOTE: this could also be done with default_factory
         self.submission_object = BasicSubmission.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
-        self.namer = RSLNamer(self.rsl_plate_num['value'], sub_type=self.submission_type['value'])
+        self.namer = RSLNamer(self.rsl_plate_num['value'], submission_type=self.submission_type['value'])
         if run_custom:
             self.submission_object.custom_validation(pyd=self)
 
@@ -777,10 +789,10 @@ class PydSubmission(BaseModel, extra='allow'):
             match key:
                 case "reagents":
                     for reagent in self.reagents:
-                        reagent, _ = reagent.toSQL(submission=instance)
+                        reagent = reagent.to_sql(submission=instance)
                 case "samples":
                     for sample in self.samples:
-                        sample, associations, _ = sample.toSQL(submission=instance)
+                        sample, associations, _ = sample.to_sql(submission=instance)
                         for assoc in associations:
                             if assoc is not None:
                                 if assoc not in instance.submission_sample_associations:
@@ -791,7 +803,7 @@ class PydSubmission(BaseModel, extra='allow'):
                     for equip in self.equipment:
                         if equip is None:
                             continue
-                        equip, association = equip.toSQL(submission=instance)
+                        equip, association = equip.to_sql(submission=instance, extraction_kit=self.extraction_kit)
                         if association is not None:
                             instance.submission_equipment_associations.append(association)
                 case "tips":
@@ -807,7 +819,7 @@ class PydSubmission(BaseModel, extra='allow'):
                                 instance.submission_tips_associations.append(association)
                             else:
                                 logger.warning(f"Tips association {association} is already present in {instance}")
-                case item if item in instance.timestamps():
+                case item if item in instance.timestamps:
                     logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
                     if isinstance(value, date):
                         value = datetime.combine(value, datetime.now().time())
@@ -818,7 +830,7 @@ class PydSubmission(BaseModel, extra='allow'):
                     else:
                         value = value
                     instance.set_attribute(key=key, value=value)
-                case item if item in instance.jsons():
+                case item if item in instance.jsons:
                     try:
                         ii = value.items()
                     except AttributeError:
@@ -989,7 +1001,7 @@ class PydContact(BaseModel):
             logger.debug(f"Output phone: {value}")
         return value
 
-    def toSQL(self) -> Tuple[Contact, Report]:
+    def to_sql(self) -> Tuple[Contact, Report]:
         """
         Converts this instance into a backend.db.models.organization. Contact instance.
         Does not query for existing contacts.
@@ -1024,7 +1036,7 @@ class PydOrganization(BaseModel):
     cost_centre: str
     contacts: List[PydContact] | None
 
-    def toSQL(self) -> Organization:
+    def to_sql(self) -> Organization:
         """
         Converts this instance into a backend.db.models.organization.Organization instance.
 
@@ -1055,7 +1067,7 @@ class PydReagentRole(BaseModel):
             return timedelta(days=value)
         return value
 
-    def toSQL(self, kit: KitType) -> ReagentRole:
+    def to_sql(self, kit: KitType) -> ReagentRole:
         """
         Converts this instance into a backend.db.models.ReagentType instance
 
@@ -1082,7 +1094,7 @@ class PydKit(BaseModel):
     name: str
     reagent_roles: List[PydReagentRole] = []
 
-    def toSQL(self) -> Tuple[KitType, Report]:
+    def to_sql(self) -> Tuple[KitType, Report]:
         """
         Converts this instance into a backend.db.models.kits.KitType instance
 
@@ -1093,7 +1105,7 @@ class PydKit(BaseModel):
         instance = KitType.query(name=self.name)
         if instance is None:
             instance = KitType(name=self.name)
-            [item.toSQL(instance) for item in self.reagent_roles]
+            [item.to_sql(instance) for item in self.reagent_roles]
         return instance, report
 
 

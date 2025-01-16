@@ -1,6 +1,7 @@
 '''
 Contains functions for generating summary reports
 '''
+import sys
 from pprint import pformat
 from pandas import DataFrame, ExcelWriter
 import logging
@@ -8,7 +9,7 @@ from pathlib import Path
 from datetime import date
 from typing import Tuple
 from backend.db.models import BasicSubmission
-from tools import jinja_template_loading, get_first_blank_df_row, row_map
+from tools import jinja_template_loading, get_first_blank_df_row, row_map, ctx
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -18,6 +19,9 @@ env = jinja_template_loading()
 
 
 class ReportArchetype(object):
+    """
+    Made for children to inherit 'write_report", etc.
+    """
 
     def write_report(self, filename: Path | str, obj: QWidget | None = None):
         """
@@ -168,7 +172,21 @@ class TurnaroundMaker(ReportArchetype):
         Returns:
 
         """
-        days, tat_ok = sub.get_turnaround_time()
+        if 'pytest' not in sys.modules:
+            from tools import ctx
+        else:
+            from test_settings import ctx
+        days = sub.turnaround_time
+        try:
+            tat = sub.get_default_info("turnaround_time")
+        except (AttributeError, KeyError):
+            tat = None
+        if not tat:
+            tat = ctx.TaT_threshold
+        try:
+            tat_ok = days <= tat
+        except TypeError:
+            return {}
         return dict(name=str(sub.rsl_plate_num), days=days, submitted_date=sub.submitted_date,
                         completed_date=sub.completed_date, acceptable=tat_ok)
 
@@ -178,6 +196,4 @@ class ChartReportMaker(ReportArchetype):
     def __init__(self, df: DataFrame, sheet_name):
         self.df = df
         self.sheet_name = sheet_name
-
-
 

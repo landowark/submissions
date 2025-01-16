@@ -19,21 +19,22 @@ class RSLNamer(object):
     Object that will enforce proper formatting on RSL plate names.
     """
 
-    def __init__(self, filename: str, sub_type: str | None = None, data: dict | None = None):
+    def __init__(self, filename: str, submission_type: str | None = None, data: dict | None = None):
         # NOTE: Preferred method is path retrieval, but might also need validation for just string.
         filename = Path(filename) if Path(filename).exists() else filename
-        self.submission_type = sub_type
+        self.submission_type = submission_type
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
         logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type:
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(submission_type=sub_type))
+            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(submission_type=submission_type))
             if not data:
                 data = dict(submission_type=self.submission_type)
             if "submission_type" not in data.keys():
                 data['submission_type'] = self.submission_type
             self.parsed_name = self.sub_object.enforce_name(instr=self.parsed_name, data=data)
+            logger.info(f"Parsed name: {self.parsed_name}")
 
     @classmethod
     def retrieve_submission_type(cls, filename: str | Path) -> str:
@@ -57,7 +58,7 @@ class RSLNamer(object):
                     categories = wb.properties.category.split(";")
                     submission_type = next(item.strip().title() for item in categories)
                 except (StopIteration, AttributeError):
-                    sts = {item.name: item.get_template_file_sheets() for item in SubmissionType.query() if item.template_file}
+                    sts = {item.name: item.template_file_sheets for item in SubmissionType.query() if item.template_file}
                     try:
                         submission_type = next(k.title() for k,v in sts.items() if wb.sheetnames==v)
                     except StopIteration:
@@ -69,7 +70,7 @@ class RSLNamer(object):
         def st_from_str(filename:str) -> str:
             if filename.startswith("tmp"):
                 return "Bacterial Culture"
-            regex = BasicSubmission.construct_regex()
+            regex = BasicSubmission.regex
             m = regex.search(filename)
             try:
                 submission_type = m.lastgroup
@@ -94,14 +95,15 @@ class RSLNamer(object):
                 raise ValueError("Submission Type came back as None.")
             from frontend.widgets import ObjectSelector
             dlg = ObjectSelector(title="Couldn't parse submission type.",
-                                 message="Please select submission type from list below.", obj_type=SubmissionType)
+                                 message="Please select submission type from list below.",
+                                 obj_type=SubmissionType)
             if dlg.exec():
                 submission_type = dlg.parse_form()
         submission_type = submission_type.replace("_", " ")
         return submission_type
 
     @classmethod
-    def retrieve_rsl_number(cls, filename: str | Path, regex: str | None = None):
+    def retrieve_rsl_number(cls, filename: str | Path, regex: re.Pattern | None = None):
         """
         Uses regex to retrieve the plate number and submission type from an input string
 
@@ -110,12 +112,7 @@ class RSLNamer(object):
             filename (str): string to be parsed
         """
         if regex is None:
-            regex = BasicSubmission.construct_regex()
-        else:
-            try:
-                regex = re.compile(rf'{regex}', re.IGNORECASE | re.VERBOSE)
-            except re.error as e:
-                regex = BasicSubmission.construct_regex()
+            regex = BasicSubmission.regex
         match filename:
             case Path():
                 m = regex.search(filename.stem)
@@ -135,7 +132,7 @@ class RSLNamer(object):
     @classmethod
     def construct_new_plate_name(cls, data: dict) -> str:
         """
-        Make a brand new plate name from submission data.
+        Make a brand-new plate name from submission data.
 
         Args:
             data (dict): incoming submission data
@@ -179,7 +176,13 @@ class RSLNamer(object):
         template = environment.from_string(template)
         return template.render(**kwargs)
 
-    def calculate_repeat(self):
+    def calculate_repeat(self) -> str:
+        """
+        Determines what repeat number this plate is.
+
+        Returns:
+            str: Repeat number.
+        """
         regex = re.compile(r"-\d(?P<repeat>R\d)")
         m = regex.search(self.parsed_name)
         if m is not None:

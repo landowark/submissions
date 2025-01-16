@@ -188,7 +188,7 @@ class EditRelationship(QWidget):
         dlg = AddEdit(self, instance=instance, manager=self.parent().object_type.__name__.lower())
         if dlg.exec():
             new_instance = dlg.parse_form()
-            new_instance, result = new_instance.toSQL()
+            new_instance, result = new_instance.to_sql()
             logger.debug(f"New instance: {new_instance}")
             addition = getattr(self.parent().instance, self.objectName())
             if isinstance(addition, InstrumentedList):
@@ -213,7 +213,7 @@ class EditRelationship(QWidget):
         sets data in model
         """
         # logger.debug(self.data)
-        self.data = DataFrame.from_records([item.to_omnigui_dict() for item in self.data])
+        self.data = DataFrame.from_records([item.omnigui_dict for item in self.data])
         try:
             self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for item in self.extras]
         except (KeyError, AttributeError):

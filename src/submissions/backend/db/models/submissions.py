@@ -2,8 +2,6 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
-
-from collections import OrderedDict
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
@@ -12,7 +10,7 @@ from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
-from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin
+from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin, SubmissionReagentAssociation
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -25,12 +23,14 @@ from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
     report_result, create_holidays_for_year
 from datetime import datetime, date, timedelta
-from typing import List, Any, Tuple, Literal, Generator
+from typing import List, Any, Tuple, Literal, Generator, Type
 from dateutil.parser import parse
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
 from PIL import Image
+
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -126,7 +126,7 @@ class BasicSubmission(BaseClass, LogMixin):
     def __repr__(self) -> str:
         return f"<Submission({self.rsl_plate_num})>"
 
-    @classmethod
+    @classproperty
     def jsons(cls) -> List[str]:
         """
         Get list of JSON db columns
@@ -136,10 +136,10 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         output = [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
         if issubclass(cls, BasicSubmission) and not cls.__name__ == "BasicSubmission":
-            output += BasicSubmission.jsons()
+            output += BasicSubmission.jsons
         return output
 
-    @classmethod
+    @classproperty
     def timestamps(cls) -> List[str]:
         """
         Get list of TIMESTAMP columns
@@ -149,7 +149,7 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         output = [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         if issubclass(cls, BasicSubmission) and not cls.__name__ == "BasicSubmission":
-            output += BasicSubmission.timestamps()
+            output += BasicSubmission.timestamps
         return output
 
     @classmethod
@@ -259,7 +259,8 @@ class BasicSubmission(BaseClass, LogMixin):
         Returns:
             dict: sample location map
         """
-        return cls.get_submission_type(submission_type).construct_sample_map()
+        # return cls.get_submission_type(submission_type).construct_sample_map()
+        return cls.get_submission_type(submission_type).sample_map
 
     def generate_associations(self, name: str, extra: str | None = None):
         try:
@@ -277,6 +278,7 @@ class BasicSubmission(BaseClass, LogMixin):
         Constructs dictionary used in submissions summary
 
         Args:
+            report (bool, optional): indicates if to be used for a report. Defaults to False.
             full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
             backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
 
@@ -323,7 +325,8 @@ class BasicSubmission(BaseClass, LogMixin):
                 logger.error(f"We got an error retrieving reagents: {e}")
                 reagents = []
             finally:
-                for k, v in self.extraction_kit.construct_xl_map_for_use(self.submission_type):
+                dicto, _ = self.extraction_kit.construct_xl_map_for_use(self.submission_type)
+                for k, v in dicto.items():
                     if k == 'info':
                         continue
                     if not any([item['role'] == k for item in reagents]):
@@ -381,7 +384,8 @@ class BasicSubmission(BaseClass, LogMixin):
             output["completed_date"] = self.completed_date
         return output
 
-    def calculate_column_count(self) -> int:
+    @property
+    def column_count(self) -> int:
         """
         Calculate the number of columns in this submission 
 
@@ -391,13 +395,14 @@ class BasicSubmission(BaseClass, LogMixin):
         columns = set([assoc.column for assoc in self.submission_sample_associations])
         return len(columns)
 
-    def calculate_base_cost(self):
+
+    def calculate_base_cost(self) -> None:
         """
         Calculates cost of the plate
         """
         # NOTE: Calculate number of columns based on largest column number
         try:
-            cols_count_96 = self.calculate_column_count()
+            cols_count_96 = self.column_count
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # NOTE: Get kit associated with this submission
@@ -418,14 +423,15 @@ class BasicSubmission(BaseClass, LogMixin):
                 logger.error(f"Calculation error: {e}")
         self.run_cost = round(self.run_cost, 2)
 
-    def hitpick_plate(self) -> list:
+    @property
+    def hitpicked(self) -> list:
         """
         Returns positve sample locations for plate
 
         Returns:
             list: list of hitpick dictionaries for each sample
         """
-        output_list = [assoc.to_hitpick() for assoc in self.submission_sample_associations]
+        output_list = [assoc.hitpicked for assoc in self.submission_sample_associations]
         return output_list
 
     @classmethod
@@ -454,7 +460,8 @@ class BasicSubmission(BaseClass, LogMixin):
         html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
         return html + "<br/>"
 
-    def get_used_equipment(self) -> List[str]:
+    @property
+    def used_equipment(self) -> Generator[str, None, None]:
         """
         Gets EquipmentRole names associated with this BasicSubmission
 
@@ -490,6 +497,7 @@ class BasicSubmission(BaseClass, LogMixin):
                    'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
                    'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
                    'tips', 'gel_image_path', 'custom']
+        # NOTE: dataframe equals dataframe of all columns not in exclude
         df = df.loc[:, ~df.columns.isin(exclude)]
         if chronologic:
             try:
@@ -531,7 +539,7 @@ class BasicSubmission(BaseClass, LogMixin):
                     field_value = value
             case "ctx" | "csv" | "filepath" | "equipment" | "controls":
                 return
-            case item if item in self.jsons():
+            case item if item in self.jsons:
                 match key:
                     case "custom" | "source_plates":
                         existing = value
@@ -549,7 +557,7 @@ class BasicSubmission(BaseClass, LogMixin):
                             if isinstance(value, list):
                                 existing += value
                             else:
-                                if value is not None:
+                                if value:
                                     existing.append(value)
                 self.__setattr__(key, existing)
                 # NOTE: Make sure this gets updated by telling SQLAlchemy it's been modified.
@@ -636,12 +644,6 @@ class BasicSubmission(BaseClass, LogMixin):
                     field_value = [item.to_pydantic() for item in self.submission_tips_associations]
                 case "submission_type":
                     field_value = dict(value=self.__getattribute__(key).name, missing=missing)
-                # case "contact":
-                #     try:
-                #         field_value = dict(value=self.__getattribute__(key).name, missing=missing)
-                #     except AttributeError:
-                #         contact = self.submitting_lab.contacts[0]
-                #         field_value = dict(value=contact.name, missing=True)
                 case "plate_number":
                     key = 'rsl_plate_num'
                     field_value = dict(value=self.rsl_plate_num, missing=missing)
@@ -677,7 +679,7 @@ class BasicSubmission(BaseClass, LogMixin):
         return super().save()
 
     @classmethod
-    def get_regex(cls, submission_type: SubmissionType | str | None = None) -> str:
+    def get_regex(cls, submission_type: SubmissionType | str | None = None) -> re.Pattern:
         """
         Gets the regex string for identifying a certain class of submission.
 
@@ -685,18 +687,26 @@ class BasicSubmission(BaseClass, LogMixin):
             submission_type (SubmissionType | str | None, optional): submission type of interest. Defaults to None.
 
         Returns:
-            str: _description_
+            str: String from which regex will be compiled.
         """
+        # logger.debug(f"Class for regex: {cls}")
         try:
-            return cls.get_submission_type(submission_type).defaults['regex']
+            regex = cls.get_submission_type(submission_type).defaults['regex']
         except AttributeError as e:
             logger.error(f"Couldn't get submission type for {cls.__mapper_args__['polymorphic_identity']}")
-            return ""
+            regex = None
+        try:
+            regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
+        except re.error as e:
+            regex = cls.construct_regex()
+        # logger.debug(f"Returning regex: {regex}")
+        return regex
+
 
     # NOTE: Polymorphic functions
 
-    @classmethod
-    def construct_regex(cls) -> re.Pattern:
+    @classproperty
+    def regex(cls) -> re.Pattern:
         """
         Constructs catchall regex.
 
@@ -762,7 +772,9 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         input_dict['custom'] = {}
         for k, v in custom_fields.items():
+            logger.debug(f"Custom info parser getting type: {v['type']}")
             match v['type']:
+                # NOTE: 'exempt' type not currently used
                 case "exempt":
                     continue
                 case "cell":
@@ -796,7 +808,7 @@ class BasicSubmission(BaseClass, LogMixin):
     @classmethod
     def custom_validation(cls, pyd: "PydSubmission") -> "PydSubmission":
         """
-        Performs any final custom parsing of the excel file.
+        Performs any final parsing of the pydantic object that only needs to be done for this cls.
 
         Args:
             input_dict (dict): Parser product up to this point.
@@ -849,6 +861,14 @@ class BasicSubmission(BaseClass, LogMixin):
 
     @classmethod
     def custom_sample_writer(self, sample: dict) -> dict:
+        """
+        Performs any final alterations to sample writing unique to this submission type.
+        Args:
+            sample (dict): Dictionary of sample values.
+
+        Returns:
+            dict: Finalized dictionary.
+        """
         return sample
 
     @classmethod
@@ -884,7 +904,7 @@ class BasicSubmission(BaseClass, LogMixin):
             logger.error(f"Error making outstr: {e}, sending to RSLNamer to make new plate name.")
             outstr = RSLNamer.construct_new_plate_name(data=data)
         try:
-            # NOTE: Grab plate number
+            # NOTE: Grab plate number as number after a -|_ not followed by another number
             plate_number = re.search(r"(?:(-|_)\d)(?!\d)", outstr).group().strip("_").strip("-")
         except AttributeError as e:
             plate_number = "1"
@@ -910,7 +930,7 @@ class BasicSubmission(BaseClass, LogMixin):
 
         Args:
             xl (pd.DataFrame): pcr info form
-            rsl_plate_number (str): rsl plate num of interest
+            rsl_plate_num (str): rsl plate num of interest
 
         Returns:
             Generator[dict, None, None]: Updated samples
@@ -943,16 +963,16 @@ class BasicSubmission(BaseClass, LogMixin):
         submission = cls.query(rsl_plate_num=rsl_plate_num)
         name_column = 1
         for item in location_map:
-            logger.debug(f"Checking {item}")
+            # logger.debug(f"Checking {item}")
             worksheet = xl[item['sheet']]
             for iii, row in enumerate(worksheet.iter_rows(max_row=len(worksheet['A']), max_col=name_column), start=1):
-                logger.debug(f"Checking row {row}, {iii}")
+                # logger.debug(f"Checking row {row}, {iii}")
                 for cell in row:
-                    logger.debug(f"Checking cell: {cell}, with value {cell.value} against {item['name']}")
+                    # logger.debug(f"Checking cell: {cell}, with value {cell.value} against {item['name']}")
                     if cell.value == item['name']:
                         subtype, _ = item['name'].split("-")
                         target = item['target']
-                        logger.debug(f"Subtype: {subtype}, target: {target}")
+                        # logger.debug(f"Subtype: {subtype}, target: {target}")
                         ct = worksheet.cell(row=iii, column=item['ct_column']).value
                         # NOTE: Kind of a stop gap solution to find control reagents.
                         if subtype == "PC":
@@ -966,7 +986,7 @@ class BasicSubmission(BaseClass, LogMixin):
                                                  assoc.reagent.role])), None)
                         else:
                             ctrl = None
-                        logger.debug(f"Control reagent: {ctrl.__dict__}")
+                        # logger.debug(f"Control reagent: {ctrl.__dict__}")
                         try:
                             ct = float(ct)
                         except ValueError:
@@ -982,7 +1002,7 @@ class BasicSubmission(BaseClass, LogMixin):
                             target=target,
                             reagent_lot=ctrl
                         )
-                        logger.debug(f"Control output: {pformat(output)}")
+                        # logger.debug(f"Control output: {pformat(output)}")
                         yield output
 
     @classmethod
@@ -1010,7 +1030,7 @@ class BasicSubmission(BaseClass, LogMixin):
         return samples
 
     @classmethod
-    def get_details_template(cls, base_dict: dict) -> Template:
+    def get_details_template(cls, base_dict: dict) -> Tuple[dict, Template]:
         """
         Get the details jinja template for the correct class
 
@@ -1040,8 +1060,8 @@ class BasicSubmission(BaseClass, LogMixin):
               submission_type_name: str | None = None,
               id: int | str | None = None,
               rsl_plate_num: str | None = None,
-              start_date: date | str | int | None = None,
-              end_date: date | str | int | None = None,
+              start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None,
               reagent: Reagent | str | None = None,
               chronologic: bool = False,
               limit: int = 0,
@@ -1065,6 +1085,7 @@ class BasicSubmission(BaseClass, LogMixin):
         Returns:
             models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
         """
+        from ... import SubmissionReagentAssociation
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         if submission_type is not None:
             model = cls.find_polymorphic_subclass(polymorphic_identity=submission_type)
@@ -1078,41 +1099,48 @@ class BasicSubmission(BaseClass, LogMixin):
             logger.warning(f"Start date with no end date, using today.")
             end_date = date.today()
         if end_date is not None and start_date is None:
-            logger.warning(f"End date with no start date, using Jan 1, 2023")
+            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
             start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            logger.warning(f"End date with no start date, using first submission date: {start_date}")
         if start_date is not None:
             match start_date:
-                case date() | datetime():
-                    start_date = start_date.strftime("%Y-%m-%d")
+                case date():
+                    pass
+                case datetime():
+                    start_date = start_date.date()
                 case int():
                     start_date = datetime.fromordinal(
-                        datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
+                        datetime(1900, 1, 1).toordinal() + start_date - 2).date()
                 case _:
-                    start_date = parse(start_date).strftime("%Y-%m-%d")
+                    start_date = parse(start_date).date()
+            # start_date = start_date.strftime("%Y-%m-%d")
             match end_date:
-                case date() | datetime():
-                    end_date = end_date + timedelta(days=1)
-                    end_date = end_date.strftime("%Y-%m-%d")
+                case date():
+                    pass
+                case datetime():
+                    end_date = end_date# + timedelta(days=1)
+                    # pass
                 case int():
-                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date() \
-                               + timedelta(days=1)
-                    end_date = end_date.strftime("%Y-%m-%d")
+                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date()# \
+                               # + timedelta(days=1)
                 case _:
-                    end_date = parse(end_date) + timedelta(days=1)
-                    end_date = end_date.strftime("%Y-%m-%d")
-            if start_date == end_date:
-                start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
-                query = query.filter(model.submitted_date == start_date)
-            else:
-                query = query.filter(model.submitted_date.between(start_date, end_date))
+                    end_date = parse(end_date).date()# + timedelta(days=1)
+            # end_date = end_date.strftime("%Y-%m-%d")
+            start_date = datetime.combine(start_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
+            end_date = datetime.combine(end_date, datetime.max.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
+            # if start_date == end_date:
+            #     start_date = start_date.strftime("%Y-%m-%d %H:%M:%S.%f")
+            #     query = query.filter(model.submitted_date == start_date)
+            # else:
+            query = query.filter(model.submitted_date.between(start_date, end_date))
         # NOTE: by reagent (for some reason)
         match reagent:
             case str():
-                query = query.join(model.submission_reagent_associations).filter(
-                    SubmissionSampleAssociation.reagent.lot == reagent)
+                query = query.join(SubmissionReagentAssociation).join(Reagent).filter(
+                    Reagent.lot == reagent)
             case Reagent():
-                query = query.join(model.submission_reagent_associations).join(
-                    SubmissionSampleAssociation.reagent).filter(Reagent.lot == reagent)
+                query = query.join(SubmissionReagentAssociation).filter(
+                    SubmissionReagentAssociation.reagent == reagent)
             case _:
                 pass
         # NOTE: by rsl number (returns only a single value)
@@ -1217,6 +1245,7 @@ class BasicSubmission(BaseClass, LogMixin):
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_num}?\n")
         if msg.exec():
             try:
+                # NOTE: backs up file as xlsx, same as export.
                 self.backup(fname=fname, full_backup=True)
             except BadZipfile:
                 logger.error("Couldn't open zipfile for writing.")
@@ -1285,16 +1314,16 @@ class BasicSubmission(BaseClass, LogMixin):
         if dlg.exec():
             equipment = dlg.parse_form()
             for equip in equipment:
-                _, assoc = equip.toSQL(submission=self)
+                _, assoc = equip.to_sql(submission=self)
                 try:
                     assoc.save()
                 except AttributeError as e:
                     logger.error(f"Couldn't save association with {equip} due to {e}")
                 if equip.tips:
                     for tips in equip.tips:
-                        logger.debug(f"Attempting to add tips assoc: {tips} (pydantic)")
+                        # logger.debug(f"Attempting to add tips assoc: {tips} (pydantic)")
                         tassoc = tips.to_sql(submission=self)
-                        logger.debug(f"Attempting to add tips assoc: {tips.__dict__} (sql)")
+                        # logger.debug(f"Attempting to add tips assoc: {tips.__dict__} (sql)")
                         if tassoc not in self.submission_tips_associations:
                             tassoc.save()
                         else:
@@ -1320,7 +1349,8 @@ class BasicSubmission(BaseClass, LogMixin):
         writer = pyd.to_writer()
         writer.xl.save(filename=fname.with_suffix(".xlsx"))
 
-    def get_turnaround_time(self) -> Tuple[int | None, bool | None]:
+    @property
+    def turnaround_time(self) -> int:
         try:
             completed = self.completed_date.date()
         except AttributeError:
@@ -1328,25 +1358,24 @@ class BasicSubmission(BaseClass, LogMixin):
         return self.calculate_turnaround(start_date=self.submitted_date.date(), end_date=completed)
 
     @classmethod
-    def calculate_turnaround(cls, start_date: date | None = None, end_date: date | None = None) -> Tuple[
-        int | None, bool | None]:
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
+    def calculate_turnaround(cls, start_date: date | None = None, end_date: date | None = None) -> int:
+        """
+        Calculates number of business days between data submitted and date completed
+
+        Args:
+            start_date (date, optional): Date submitted. defaults to None.
+            end_date (date, optional): Date completed. defaults to None.
+
+        Returns:
+            int: Number of business days.
+        """
         if not end_date:
-            return None, None
+            return None
         try:
             delta = np.busday_count(start_date, end_date, holidays=create_holidays_for_year(start_date.year)) + 1
         except ValueError:
-            return None, None
-        try:
-            tat = cls.get_default_info("turnaround_time")
-        except (AttributeError, KeyError):
-            tat = None
-        if not tat:
-            tat = ctx.TaT_threshold
-        return delta, delta <= tat
+            return None
+        return delta
 
 
 # NOTE: Below are the custom submission types
@@ -1385,7 +1414,7 @@ class BacterialCulture(BasicSubmission):
         return template
 
     @classmethod
-    def custom_validation(cls, pyd) -> dict:
+    def custom_validation(cls, pyd) -> "PydSubmission":
         """
         Extends parent. Currently finds control sample and adds to reagents.
 
@@ -1395,7 +1424,7 @@ class BacterialCulture(BasicSubmission):
             info_map (dict | None, optional): _description_. Defaults to None.
 
         Returns:
-            dict: Updated dictionary.
+            PydSubmission: Updated pydantic.
         """
         from . import ControlType
         pyd = super().custom_validation(pyd)
@@ -1549,9 +1578,10 @@ class Wastewater(BasicSubmission):
         """
         samples = [item for item in super().parse_pcr(xl=xl, rsl_plate_num=rsl_plate_num)]
         # NOTE: Due to having to run through samples in for loop we need to convert to list.
+        # NOTE: Also, you can't change the size of a list while iterating it, so don't even think about it.
         output = []
         for sample in samples:
-            logger.debug(sample)
+            # logger.debug(sample)
             # NOTE: remove '-{target}' from controls
             sample['sample'] = re.sub('-N\\d*$', '', sample['sample'])
             # NOTE: if sample is already in output skip
@@ -1559,7 +1589,7 @@ class Wastewater(BasicSubmission):
                 logger.warning(f"Already have {sample['sample']}")
                 continue
             # NOTE: Set ct values
-            logger.debug(f"Sample ct: {sample['ct']}")
+            # logger.debug(f"Sample ct: {sample['ct']}")
             sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
             # NOTE: Set assessment
             logger.debug(f"Sample assessemnt: {sample['assessment']}")
@@ -1578,7 +1608,7 @@ class Wastewater(BasicSubmission):
             except KeyError:
                 pass
             output.append(sample)
-        # NOTE: And then convert back to list ot keep fidelity with parent method.
+        # NOTE: And then convert back to list to keep fidelity with parent method.
         for sample in output:
             yield sample
 
@@ -1644,7 +1674,7 @@ class Wastewater(BasicSubmission):
         return events
 
     @report_result
-    def link_pcr(self, obj):
+    def link_pcr(self, obj) -> Report:
         """
         PYQT6 function to add PCR info to this submission
 
@@ -1660,7 +1690,8 @@ class Wastewater(BasicSubmission):
             report.add_result(Result(msg="No file selected, cancelling.", status="Warning"))
             return report
         parser = PCRParser(filepath=fname, submission=self)
-        self.set_attribute("pcr_info", parser.pcr)
+        self.set_attribute("pcr_info", parser.pcr_info)
+        # NOTE: These are generators here, need to expand.
         pcr_samples = [sample for sample in parser.samples]
         pcr_controls = [control for control in parser.controls]
         self.save(original=False)
@@ -1674,19 +1705,19 @@ class Wastewater(BasicSubmission):
             result = assoc.save()
             report.add_result(result)
         controltype = ControlType.query(name="PCR Control")
-        submitted_date = datetime.strptime(" ".join(parser.pcr['run_start_date/time'].split(" ")[:-1]),
+        submitted_date = datetime.strptime(" ".join(parser.pcr_info['run_start_date/time'].split(" ")[:-1]),
                                            "%Y-%m-%d %I:%M:%S %p")
         for control in pcr_controls:
-            logger.debug(f"Control coming into save: {control}")
+            # logger.debug(f"Control coming into save: {control}")
             new_control = PCRControl(**control)
             new_control.submitted_date = submitted_date
             new_control.controltype = controltype
             new_control.submission = self
-            logger.debug(f"Control coming into save: {new_control.__dict__}")
+            # logger.debug(f"Control coming into save: {new_control.__dict__}")
             new_control.save()
         return report
 
-    def update_subsampassoc(self, sample: BasicSample, input_dict: dict):
+    def update_subsampassoc(self, sample: BasicSample, input_dict: dict) -> SubmissionSampleAssociation:
         """
         Updates a joined submission sample association by assigning ct values to n1 or n2 based on alphabetical sorting.
 
@@ -1722,7 +1753,7 @@ class WastewaterArtic(BasicSubmission):
     artic_date = Column(TIMESTAMP)  #: Date Artic Performed
     ngs_date = Column(TIMESTAMP)  #: Date submission received
     gel_date = Column(TIMESTAMP)  #: Date submission received
-    gel_barcode = Column(String(16))
+    gel_barcode = Column(String(16)) #: Identifier for the used gel.
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic",
                            polymorphic_load="inline",
@@ -1769,6 +1800,16 @@ class WastewaterArtic(BasicSubmission):
         from openpyxl_image_loader.sheet_image_loader import SheetImageLoader
 
         def scrape_image(wb: Workbook, info_dict: dict) -> Image or None:
+            """
+            Pulls image from excel workbook
+
+            Args:
+                wb (Workbook): Workbook of interest.
+                info_dict (dict): Location map.
+
+            Returns:
+                Image or None: Image of interest.
+            """
             ws = wb[info_dict['sheet']]
             img_loader = SheetImageLoader(ws)
             for ii in range(info_dict['start_row'], info_dict['end_row'] + 1):
@@ -1805,7 +1846,7 @@ class WastewaterArtic(BasicSubmission):
             if datum['plate'] in ["None", None, ""]:
                 continue
             else:
-                datum['plate'] = RSLNamer(filename=datum['plate'], sub_type="Wastewater").parsed_name
+                datum['plate'] = RSLNamer(filename=datum['plate'], submission_type="Wastewater").parsed_name
         if xl is not None:
             try:
                 input_dict['csv'] = xl["hitpicks_csv_to_export"]
@@ -1864,6 +1905,7 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             str: Updated name.
         """
+        logger.debug(f"Incoming String: {instr}")
         try:
             # NOTE: Deal with PCR file.
             instr = re.sub(r"Artic", "", instr, flags=re.IGNORECASE)
@@ -1900,8 +1942,7 @@ class WastewaterArtic(BasicSubmission):
             input_dict['source_plate_number'] = int(input_dict['source_plate_number'])
         except (ValueError, KeyError):
             input_dict['source_plate_number'] = 0
-        # NOTE: Because generate_sample_object needs the submitter_id and the artic has the "({origin well})"
-        # at the end, this has to be done here. No moving to sqlalchemy object :(
+        # NOTE: Because generate_sample_object needs the submitter_id and the artic has the "({origin well})" at the end, this has to be done here. No moving to sqlalchemy object :(
         input_dict['submitter_id'] = re.sub(r"\s\(.+\)\s?$", "", str(input_dict['submitter_id'])).strip()
         try:
             input_dict['ww_processing_num'] = input_dict['sample_name_(lims)']
@@ -1988,7 +2029,11 @@ class WastewaterArtic(BasicSubmission):
         except AttributeError:
             plate_num = "1"
         plate_num = plate_num.strip("-")
-        repeat_num = re.search(r"R(?P<repeat>\d)?$", "PBS20240426-2R").groups()[0]
+        # repeat_num = re.search(r"R(?P<repeat>\d)?$", "PBS20240426-2R").groups()[0]
+        try:
+            repeat_num = re.search(r"R(?P<repeat>\d)?$", processed).groups()[0]
+        except:
+            repeat_num = None
         if repeat_num is None and "R" in plate_num:
             repeat_num = "1"
         plate_num = re.sub(r"R", rf"R{repeat_num}", plate_num)
@@ -2192,7 +2237,7 @@ class BasicSample(BaseClass, LogMixin):
     Base of basic sample which polymorphs into BCSample and WWSample
     """
 
-    searchables = ['submitter_id']
+    searchables = [dict(label="Submitter ID", field="submitter_id")]
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     submitter_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
@@ -2242,7 +2287,7 @@ class BasicSample(BaseClass, LogMixin):
         except AttributeError:
             return f"<Sample({self.submitter_id})"
 
-    @classmethod
+    @classproperty
     def timestamps(cls) -> List[str]:
         """
         Constructs a list of all attributes stored as SQL Timestamps
@@ -2252,7 +2297,7 @@ class BasicSample(BaseClass, LogMixin):
         """
         output = [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         if issubclass(cls, BasicSample) and not cls.__name__ == "BasicSample":
-            output += BasicSample.timestamps()
+            output += BasicSample.timestamps
         return output
 
     def to_sub_dict(self, full_data: bool = False) -> dict:
@@ -2293,7 +2338,7 @@ class BasicSample(BaseClass, LogMixin):
 
     @classmethod
     def find_polymorphic_subclass(cls, polymorphic_identity: str | None = None,
-                                  attrs: dict | None = None) -> BasicSample:
+                                  attrs: dict | None = None) -> Type[BasicSample]:
         """
         Retrieves subclasses of BasicSample based on type name.
 
@@ -2340,8 +2385,8 @@ class BasicSample(BaseClass, LogMixin):
         """
         return input_dict
 
-    @classmethod
-    def get_details_template(cls) -> Template:
+    @classproperty
+    def details_template(cls) -> Template:
         """
         Get the details jinja template for the correct class
 
@@ -2458,15 +2503,15 @@ class BasicSample(BaseClass, LogMixin):
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
-    @classmethod
-    def get_searchables(cls) -> List[dict]:
-        """
-        Delivers a list of fields that can be used in fuzzy search.
-
-        Returns:
-            List[str]: List of fields.
-        """
-        return [dict(label="Submitter ID", field="submitter_id")]
+    # @classmethod
+    # def get_searchables(cls) -> List[dict]:
+    #     """
+    #     Delivers a list of fields that can be used in fuzzy search.
+    #
+    #     Returns:
+    #         List[str]: List of fields.
+    #     """
+    #     return [dict(label="Submitter ID", field="submitter_id")]
 
     @classmethod
     def samples_to_df(cls, sample_list: List[BasicSample], **kwargs) -> pd.DataFrame:
@@ -2504,6 +2549,16 @@ class BasicSample(BaseClass, LogMixin):
             pass
 
     def edit_from_search(self, obj, **kwargs):
+        """
+        Function called form search. "Edit" is dependent on function as this one just shows details.
+
+        Args:
+            obj (__type__): Parent widget.
+            **kwargs (): Required for all edit from search functions.
+
+        Returns:
+
+        """
         self.show_details(obj)
 
 
@@ -2514,7 +2569,7 @@ class WastewaterSample(BasicSample):
     Derivative wastewater sample
     """
 
-    searchables = BasicSample.searchables + ['ww_processing_num', 'ww_full_sample_id', 'rsl_number']
+    # searchables = BasicSample.searchables + ['ww_processing_num', 'ww_full_sample_id', 'rsl_number']
 
     id = Column(INTEGER, ForeignKey('_basicsample.id'), primary_key=True)
     ww_processing_num = Column(String(64))  #: wastewater processing number
@@ -2594,15 +2649,15 @@ class WastewaterSample(BasicSample):
         # logger.debug(pformat(output_dict, indent=4))
         return output_dict
 
-    @classmethod
-    def get_searchables(cls) -> List[str]:
+    @classproperty
+    def searchables(cls) -> List[dict]:
         """
         Delivers a list of fields that can be used in fuzzy search. Extends parent.
 
         Returns:
             List[str]: List of fields.
         """
-        searchables = super().get_searchables()
+        searchables = super().searchables
         for item in ["ww_processing_num", "ww_full_sample_id", "rsl_number"]:
             label = item.strip("ww_").replace("_", " ").replace("rsl", "RSL").title()
             searchables.append(dict(label=label, field=item))
@@ -2726,7 +2781,8 @@ class SubmissionSampleAssociation(BaseClass):
         from backend.validators import PydSample
         return PydSample(**self.to_sub_dict())
 
-    def to_hitpick(self) -> dict | None:
+    @property
+    def hitpicked(self) -> dict | None:
         """
         Outputs a dictionary usable for html plate maps.
 
@@ -2948,14 +3004,15 @@ class WastewaterAssociation(SubmissionSampleAssociation):
             logger.error(f"Couldn't check positives for {self.sample.rsl_number}. Looks like there isn't PCR data.")
         return sample
 
-    def to_hitpick(self) -> dict | None:
+    @property
+    def hitpicked(self) -> dict | None:
         """
         Outputs a dictionary usable for html plate maps. Extends parent
 
         Returns:
             dict: dictionary of sample id, row and column in elution plate
         """
-        sample = super().to_hitpick()
+        sample = super().hitpicked
         try:
             scaler = max([self.ct_n1, self.ct_n2])
         except TypeError:

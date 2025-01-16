@@ -53,7 +53,6 @@ main_form_style = '''
                         QComboBox:!editable, QDateEdit {
                             background-color:light gray;
                         }
-
                 '''
 
 page_size = 250
