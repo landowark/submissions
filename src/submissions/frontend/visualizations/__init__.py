@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import QWidget
 import plotly, logging
 from plotly.graph_objects import Figure
 import pandas as pd
-from frontend.widgets.functions import select_save_file
 from tools import divide_chunks
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -65,7 +64,8 @@ class CustomFigure(Figure):
         )
         assert isinstance(self, CustomFigure)
 
-    def make_plotly_buttons(self, months: int = 6) -> Generator[dict, None, None]:
+    @classmethod
+    def make_plotly_buttons(cls, months: int = 6) -> Generator[dict, None, None]:
         """
         Creates html buttons to zoom in on date areas
 
@@ -115,7 +115,8 @@ class CustomFigure(Figure):
                     {"yaxis.title.text": mode},
                 ])
 
-    def to_html(self) -> str:
+    @property
+    def html(self) -> str:
         """
         Creates final html code from plotly
 

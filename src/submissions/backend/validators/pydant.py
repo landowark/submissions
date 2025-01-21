@@ -641,7 +641,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("contact")
     @classmethod
     def get_contact_from_org(cls, value, values):
-        logger.debug(f"Value coming in: {value}")
+        # logger.debug(f"Value coming in: {value}")
         match value:
             case dict():
                 if isinstance(value['value'], tuple):
@@ -650,12 +650,12 @@ class PydSubmission(BaseModel, extra='allow'):
                 value = dict(value=value[0], missing=False)
             case _:
                 value = dict(value=value, missing=False)
-        logger.debug(f"Value after match: {value}")
+        # logger.debug(f"Value after match: {value}")
         check = Contact.query(name=value['value'])
-        logger.debug(f"Check came back with {check}")
+        # logger.debug(f"Check came back with {check}")
         if not isinstance(check, Contact):
             org = values.data['submitting_lab']['value']
-            logger.debug(f"Checking organization: {org}")
+            # logger.debug(f"Checking organization: {org}")
             if isinstance(org, str):
                 org = Organization.query(name=values.data['submitting_lab']['value'], limit=1)
             if isinstance(org, Organization):
@@ -666,10 +666,10 @@ class PydSubmission(BaseModel, extra='allow'):
             if isinstance(contact, tuple):
                 contact = contact[0]
             value = dict(value=f"Defaulted to: {contact}", missing=False)
-            logger.debug(f"Value after query: {value}")
+            # logger.debug(f"Value after query: {value}")
             return value
         else:
-            logger.debug(f"Value after bypass check: {value}")
+            # logger.debug(f"Value after bypass check: {value}")
             return value
 
     def __init__(self, run_custom: bool = False, **data):
@@ -879,6 +879,7 @@ class PydSubmission(BaseModel, extra='allow'):
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
 
         Args:
+            disable (list, optional): a list of widgets to be disabled in the form. Defaults to None.
             parent (QWidget): parent widget of the constructed object
 
         Returns:
@@ -911,7 +912,7 @@ class PydSubmission(BaseModel, extra='allow'):
 
     # @report_result
     def check_kit_integrity(self, extraction_kit: str | dict | None = None, exempt: List[PydReagent] = []) -> Tuple[
-        List[PydReagent], Report]:
+        List[PydReagent], Report, List[PydReagent]]:
         """
         Ensures all reagents expected in kit are listed in Submission
        
@@ -933,13 +934,11 @@ class PydSubmission(BaseModel, extra='allow'):
                           ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
         # NOTE: Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.role for item in ext_kit_rtypes]
-        logger.debug(self.reagents)
         output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
         missing_check = [item.role for item in output_reagents]
         missing_reagents = [rt for rt in ext_kit_rtypes if rt.role not in missing_check and rt.role not in exempt]
         # logger.debug(f"Missing reagents: {missing_reagents}")
         missing_reagents += [rt for rt in output_reagents if rt.missing]
-        logger.debug(pformat(missing_reagents))
         output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
         # NOTE: if lists are equal return no problem
         if len(missing_reagents) == 0:
@@ -956,13 +955,13 @@ class PydSubmission(BaseModel, extra='allow'):
         expired = []
         for reagent in self.reagents:
             if reagent not in exempt:
-                role_expiry = ReagentRole.query(name=reagent.role).eol_ext
+                role_eol = ReagentRole.query(name=reagent.role).eol_ext
                 try:
                     dt = datetime.combine(reagent.expiry, datetime.max.time())
                 except TypeError:
                     continue
-                if datetime.now() > dt + role_expiry:
-                    expired.append(f"{reagent.role}, {reagent.lot}: {reagent.expiry} + {role_expiry.days}")
+                if datetime.now() > dt + role_eol:
+                    expired.append(f"{reagent.role}, {reagent.lot}: {reagent.expiry.date()} + {role_eol.days}")
         if expired:
             output = '\n'.join(expired)
             result = Result(status="Warning",
@@ -996,11 +995,12 @@ class PydContact(BaseModel):
         area_regex = re.compile(r"^\(?(\d{3})\)?(-| )?")
         if len(value) > 8:
             match = area_regex.match(value)
-            logger.debug(f"Match: {match.group(1)}")
+            # logger.debug(f"Match: {match.group(1)}")
             value = area_regex.sub(f"({match.group(1).strip()}) ", value)
-            logger.debug(f"Output phone: {value}")
+            # logger.debug(f"Output phone: {value}")
         return value
 
+    @report_result
     def to_sql(self) -> Tuple[Contact, Report]:
         """
         Converts this instance into a backend.db.models.organization. Contact instance.
@@ -1036,6 +1036,18 @@ class PydOrganization(BaseModel):
     cost_centre: str
     contacts: List[PydContact] | None
 
+    @field_validator("contacts", mode="before")
+    @classmethod
+    def string_to_list(cls, value):
+        if isinstance(value, str):
+            value = Contact.query(name=value)
+            try:
+                value = [value.to_pydantic()]
+            except AttributeError:
+                return None
+        return value
+
+
     def to_sql(self) -> Organization:
         """
         Converts this instance into a backend.db.models.organization.Organization instance.
@@ -1047,10 +1059,14 @@ class PydOrganization(BaseModel):
         for field in self.model_fields:
             match field:
                 case "contacts":
-                    value = [item.to_sql() for item in getattr(self, field)]
+                    value = getattr(self, field)
+                    if value:
+                        value = [item.to_sql() for item in value if item]
                 case _:
                     value = getattr(self, field)
-            instance.__setattr__(name=field, value=value)
+            logger.debug(f"Setting {field} to {value}")
+            if value:
+                setattr(instance, field, value)
         return instance
 
 
@@ -1105,7 +1121,8 @@ class PydKit(BaseModel):
         instance = KitType.query(name=self.name)
         if instance is None:
             instance = KitType(name=self.name)
-            [item.to_sql(instance) for item in self.reagent_roles]
+            for role in self.reagent_roles:
+                role.to_sql(instance)
         return instance, report
 
 
@@ -1162,7 +1179,8 @@ class PydIridaControl(BaseModel, extra='ignore'):
     contains: list | dict  #: unstructured hashes in contains.tsv for each organism
     matches: list | dict  #: unstructured hashes in matches.tsv for each organism
     kraken: list | dict  #: unstructured output from kraken_report
-    subtype: str  #: EN-NOS, MCS-NOS, etc
+    # subtype: str  #: EN-NOS, MCS-NOS, etc
+    subtype: Literal["ATCC49226", "ATCC49619", "EN-NOS", "EN-SSTI", "MCS-NOS", "MCS-SSTI", "SN-NOS", "SN-SSTI"]
     refseq_version: str  #: version of refseq used in fastq parsing
     kraken2_version: str
     kraken2_db_version: str
@@ -1170,6 +1188,13 @@ class PydIridaControl(BaseModel, extra='ignore'):
     submitted_date: datetime  #: Date submitted to Robotics
     submission_id: int
     controltype_name: str
+
+    @field_validator("refseq_version", "kraken2_version", "kraken2_db_version", mode='before')
+    @classmethod
+    def enforce_string(cls, value):
+        if not value:
+            value = ""
+        return value
 
     def to_sql(self):
         instance = IridaControl.query(name=self.name)

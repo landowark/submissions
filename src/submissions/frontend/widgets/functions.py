@@ -1,8 +1,11 @@
-'''
+"""
 functions used by all windows in the application's frontend
-'''
+"""
 from pathlib import Path
 import logging
+from PyQt6.QtCore import QMarginsF
+from PyQt6.QtGui import QPageLayout, QPageSize
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QMainWindow, QFileDialog
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -60,3 +63,21 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])
     obj.last_dir = fname.parent
     return fname
+
+
+def save_pdf(obj: QWebEngineView, filename: Path):
+    """
+    Handles printing to PDF
+
+    Args:
+        obj (): Parent object
+        filename (): Where to save pdf.
+
+    Returns:
+        None
+    """
+    page_layout = QPageLayout()
+    page_layout.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    page_layout.setOrientation(QPageLayout.Orientation.Portrait)
+    page_layout.setMargins(QMarginsF(25, 25, 25, 25))
+    obj.page().printToPdf(filename.absolute().__str__(), page_layout)

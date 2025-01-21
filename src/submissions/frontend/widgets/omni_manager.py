@@ -1,4 +1,6 @@
-from operator import itemgetter
+"""
+Provides a screen for managing all attributes of a database object.
+"""
 from typing import Any, List
 from PyQt6.QtCore import QSortFilterProxyModel, Qt
 from PyQt6.QtGui import QAction, QCursor
@@ -49,21 +51,22 @@ class ManagerWindow(QDialog):
             self.layout.addWidget(self.sub_class, 0, 0)
         else:
             self.sub_class = None
-        # self.layout.addWidget(self.buttonBox, self.layout.rowCount(), 0)
         self.options = QComboBox(self)
         self.options.setObjectName("options")
         self.update_options()
         self.setLayout(self.layout)
         self.setWindowTitle(f"Manage {self.object_type.__name__}")
 
-    def update_options(self):
+    def update_options(self) -> None:
         """
         Changes form inputs based on sample type
         """
-
         if self.sub_class:
             self.object_type = getattr(db, self.sub_class.currentText())
         options = [item.name for item in self.object_type.query()]
+        logger.debug(f"self.instance: {self.instance}")
+        if self.instance:
+            options.insert(0, options.pop(options.index(self.instance.name)))
         self.options.clear()
         self.options.addItems(options)
         self.options.setEditable(False)
@@ -75,23 +78,34 @@ class ManagerWindow(QDialog):
         self.add_button.clicked.connect(self.add_new)
         self.update_data()
 
-    def update_data(self):
+    def update_data(self) -> None:
+        """
+        Performs updating of widgets on first run and after options change.
+
+        Returns:
+            None
+        """
+        # NOTE: Remove all old widgets.
         deletes = [item for item in self.findChildren(EditProperty)] + \
                   [item for item in self.findChildren(EditRelationship)] + \
                   [item for item in self.findChildren(QDialogButtonBox)]
         for item in deletes:
             item.setParent(None)
+        # NOTE: Find the instance this manager will update
         self.instance = self.object_type.query(name=self.options.currentText())
         fields = {k: v for k, v in self.object_type.__dict__.items() if
                   isinstance(v, InstrumentedAttribute) and k != "id"}
         for key, field in fields.items():
-            # logger.debug(f"Key: {key}, Value: {field}")
             match field.property:
+                # NOTE: ColumnProperties will be directly edited.
                 case ColumnProperty():
+                    # NOTE: field.property.expression.type gives db column type eg. STRING or TIMESTAMP
                     widget = EditProperty(self, key=key, column_type=field.property.expression.type,
                                           value=getattr(self.instance, key))
+                # NOTE: RelationshipDeclareds will be given a list of existing related objects.
                 case _RelationshipDeclared():
                     if key != "submissions":
+                        # NOTE: field.comparator.entity.class_ gives the relationship class
                         widget = EditRelationship(self, key=key, entity=field.comparator.entity.class_,
                                                   value=getattr(self.instance, key))
                     else:
@@ -100,11 +114,18 @@ class ManagerWindow(QDialog):
                     continue
             if widget:
                 self.layout.addWidget(widget, self.layout.rowCount(), 0, 1, 2)
+        # NOTE: Add OK|Cancel to bottom of dialog.
         self.layout.addWidget(self.buttonBox, self.layout.rowCount(), 0, 1, 2)
 
-    def parse_form(self):
+    def parse_form(self) -> Any:
+        """
+        Returns the instance associated with this window.
+
+        Returns:
+            Any: The instance with updated fields.
+        """
+        # TODO: Need Relationship property here too?
         results = [item.parse_form() for item in self.findChildren(EditProperty)]
-        # logger.debug(results)
         for result in results:
             # logger.debug(result)
             self.instance.__setattr__(result[0], result[1])
@@ -113,9 +134,10 @@ class ManagerWindow(QDialog):
     def add_new(self):
         dlg = AddEdit(parent=self, instance=self.object_type(), manager=self.object_type.__name__.lower())
         if dlg.exec():
-            new_instance = dlg.parse_form()
-            # logger.debug(new_instance.__dict__)
+            new_pyd = dlg.parse_form()
+            new_instance = new_pyd.to_sql()
             new_instance.save()
+            self.instance = new_instance
             self.update_options()
 
 
@@ -222,10 +244,13 @@ class EditRelationship(QWidget):
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(4)
         except KeyError as e:
-            logger.error(f"Could not alter id to string due to {e}")
+            logger.error(f"Could not alter id to string due to KeyError: {e}")
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(pandasModel(self.data))
         self.table.setModel(proxy_model)
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        self.table.setSortingEnabled(True)
         self.table.doubleClicked.connect(self.parse_row)
 
     def contextMenuEvent(self, event):

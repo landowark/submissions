@@ -2,9 +2,9 @@
 Search box that performs fuzzy search for various object types
 """
 from pprint import pformat
-from typing import Tuple, Any, List
+from typing import Tuple, Any, List, Generator
 from pandas import DataFrame
-from PyQt6.QtCore import QSortFilterProxyModel
+from PyQt6.QtCore import QSortFilterProxyModel, QModelIndex
 from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
     QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox
@@ -74,7 +74,6 @@ class SearchBox(QDialog):
             search_fields = []
         for iii, searchable in enumerate(search_fields):
             widget = FieldSearch(parent=self, label=searchable['label'], field_name=searchable['field'])
-            # widget = FieldSearch(parent=self, label=k, field_name=v)
             widget.setObjectName(searchable['field'])
             self.layout.addWidget(widget, 1 + iii, 0)
             widget.search_widget.textChanged.connect(self.update_data)
@@ -100,11 +99,17 @@ class SearchBox(QDialog):
         # NOTE: Setting results moved to here from __init__ 202411118
         self.results.setData(df=data)
 
-    def return_selected_rows(self):
-        rows = sorted(set(index.row() for index in
-                          self.results.selectedIndexes()))
+    def return_selected_rows(self) -> Generator[dict, None, None]:
+        """
+        Yields data from selected rows
+
+        Returns:
+            dict: Dictionary of column name: data
+        """
+        rows = sorted(set(index.row() for index in self.results.selectedIndexes()))
         for index in rows:
-            output = {column:self.results.model().data(self.results.model().index(index, ii)) for ii, column in enumerate(self.results.data.columns)}
+            output = {column: self.results.model().data(self.results.model().index(index, ii)) for ii, column in
+                      enumerate(self.results.data.columns)}
             yield output
 
 
@@ -130,7 +135,13 @@ class FieldSearch(QWidget):
         """
         self.parent().update_data()
 
-    def parse_form(self) -> Tuple:
+    def parse_form(self) -> Tuple[str, str]:
+        """
+        Gets object name and widget value.
+
+        Returns:
+            Tuple(str, str): Key, value to be used in constructing a dictionary.
+        """
         field_value = self.search_widget.text()
         if field_value == "":
             field_value = None
@@ -147,6 +158,7 @@ class SearchResults(QTableView):
         self.context = kwargs
         self.parent = parent
         self.object_type = object_type
+
         try:
             self.extras = extras + self.object_type.searchables
         except AttributeError:
@@ -160,7 +172,8 @@ class SearchResults(QTableView):
 
         self.data = df
         try:
-            self.columns_of_interest = [dict(name=item['field'], column=self.data.columns.get_loc(item['field'])) for item in self.extras]
+            self.columns_of_interest = [dict(name=item['field'], column=self.data.columns.get_loc(item['field'])) for
+                                        item in self.extras]
         except KeyError:
             self.columns_of_interest = []
         try:
@@ -171,9 +184,21 @@ class SearchResults(QTableView):
         proxy_model = QSortFilterProxyModel()
         proxy_model.setSourceModel(pandasModel(self.data))
         self.setModel(proxy_model)
+        self.resizeColumnsToContents()
+        self.resizeRowsToContents()
+        self.setSortingEnabled(True)
         self.doubleClicked.connect(self.parse_row)
 
-    def parse_row(self, x):
+    def parse_row(self, x: QModelIndex) -> None:
+        """
+        Runs the self.object_type edit from search method for row X.
+
+        Args:
+            x (QModelIndex): Row to be parsed.
+
+        Returns:
+            None
+        """
         context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
         try:
             object = self.object_type.query(**context)

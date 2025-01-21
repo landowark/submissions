@@ -99,18 +99,24 @@ class ControlsViewer(InfoPane):
             self.mode_sub_type = self.mode_sub_typer.currentText()
         months = self.diff_month(self.start_date, self.end_date)
         # NOTE: query all controls using the type/start and end dates from the gui
-        chart_settings = dict(sub_type=self.con_sub_type, start_date=self.start_date, end_date=self.end_date,
-                              mode=self.mode,
-                              sub_mode=self.mode_sub_type, parent=self, months=months)
+        chart_settings = dict(
+            sub_type=self.con_sub_type,
+            start_date=self.start_date,
+            end_date=self.end_date,
+            mode=self.mode,
+            sub_mode=self.mode_sub_type,
+            parent=self,
+            months=months
+        )
         self.fig = self.archetype.instance_class.make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
         self.report_obj = ChartReportMaker(df=self.fig.df, sheet_name=self.archetype.name)
         if issubclass(self.fig.__class__, CustomFigure):
             self.save_button.setEnabled(True)
         # NOTE: construct html for webview
-        try:
-            html = self.fig.to_html()
-        except AttributeError:
-            html = ""
-        self.webview.setHtml(html)
+        # try:
+        #     html = self.fig.html
+        # except AttributeError:
+        #     html = ""
+        self.webview.setHtml(self.fig.html)
         self.webview.update()
         return report

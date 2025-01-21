@@ -8,9 +8,8 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
 from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
-from tools import is_power_user, jinja_template_loading, timezone
-from .functions import select_save_file
-from .misc import save_pdf
+from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent
+from .functions import select_save_file, save_pdf
 from pathlib import Path
 import logging
 from getpass import getuser
@@ -30,13 +29,11 @@ class SubmissionDetails(QDialog):
     def __init__(self, parent, sub: BasicSubmission | BasicSample | Reagent) -> None:
 
         super().__init__(parent)
-        try:
-            self.app = parent.parent().parent().parent().parent().parent().parent()
-        except AttributeError:
-            self.app = None
+        self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
         self.webview.setMinimumSize(900, 500)
         self.webview.setMaximumWidth(900)
+        # NOTE: Decide if exporting should be allowed.
         self.webview.loadFinished.connect(self.activate_export)
         self.layout = QGridLayout()
         # NOTE: button to export a pdf version
@@ -61,9 +58,16 @@ class SubmissionDetails(QDialog):
                 self.sample_details(sample=sub)
             case Reagent():
                 self.reagent_details(reagent=sub)
+        # NOTE: Used to maintain javascript functions.
         self.webview.page().setWebChannel(self.channel)
 
-    def activate_export(self):
+    def activate_export(self) -> None:
+        """
+        Determines if export pdf should be active.
+
+        Returns:
+            None
+        """
         title = self.webview.title()
         self.setWindowTitle(title)
         if "Submission" in title:
@@ -103,6 +107,13 @@ class SubmissionDetails(QDialog):
 
     @pyqtSlot(str, str)
     def reagent_details(self, reagent: str | Reagent, kit: str | KitType):
+        """
+        Changes details view to summary of Reagent
+
+        Args:
+            kit (str | KitType): Name of kit.
+            reagent (str | Reagent): Lot number of the reagent
+        """
         if isinstance(reagent, str):
             reagent = Reagent.query(lot=reagent)
         if isinstance(kit, str):
@@ -124,6 +135,17 @@ class SubmissionDetails(QDialog):
 
     @pyqtSlot(str, str, str)
     def update_reagent(self, old_lot: str, new_lot: str, expiry: str):
+        """
+        Designed to allow editing reagent in details view (depreciated)
+
+        Args:
+            old_lot ():
+            new_lot ():
+            expiry ():
+
+        Returns:
+
+        """
         expiry = datetime.strptime(expiry, "%Y-%m-%d")
         reagent = Reagent.query(lot=old_lot)
         if reagent:
@@ -157,7 +179,16 @@ class SubmissionDetails(QDialog):
         self.webview.setHtml(self.html)
 
     @pyqtSlot(str)
-    def sign_off(self, submission: str | BasicSubmission):
+    def sign_off(self, submission: str | BasicSubmission) -> None:
+        """
+        Allows power user to signify a submission is complete.
+
+        Args:
+            submission (str | BasicSubmission): Submission to be completed
+
+        Returns:
+            None
+        """
         logger.info(f"Signing off on {submission} - ({getuser()})")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
@@ -183,10 +214,7 @@ class SubmissionComment(QDialog):
     def __init__(self, parent, submission: BasicSubmission) -> None:
 
         super().__init__(parent)
-        try:
-            self.app = parent.parent().parent().parent().parent().parent().parent
-        except AttributeError:
-            pass
+        self.app = get_application_from_parent(parent)
         self.submission = submission
         self.setWindowTitle(f"{self.submission.rsl_plate_num} Submission Comment")
         # NOTE: create text field

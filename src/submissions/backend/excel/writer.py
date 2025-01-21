@@ -158,12 +158,15 @@ class InfoWriter(object):
             match k:
                 case "custom":
                     continue
-                # case "comment":
-
-            # NOTE: merge all comments to fit in single cell.
-            if k == "comment" and isinstance(v['value'], list):
-                json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
-                v['value'] = "\n".join(json_join)
+                case "comment":
+                    # NOTE: merge all comments to fit in single cell.
+                    if isinstance(v['value'], list):
+                        json_join = [item['text'] for item in v['value'] if 'text' in item.keys()]
+                        v['value'] = "\n".join(json_join)
+                case thing if thing in self.sub_object.timestamps:
+                    v['value'] = v['value'].date()
+                case _:
+                    pass
             final_info[k] = v
             try:
                 locations = v['locations']
@@ -252,6 +255,11 @@ class ReagentWriter(object):
             for v in reagent.values():
                 if not isinstance(v, dict):
                     continue
+                match v['value']:
+                    case datetime():
+                        v['value'] = v['value'].date()
+                    case _:
+                        pass
                 sheet.cell(row=v['row'], column=v['column'], value=v['value'])
         return self.xl
 

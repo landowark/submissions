@@ -180,9 +180,9 @@ class KitType(BaseClass):
                 pass
             case _:
                 raise ValueError(f"Wrong variable type: {type(submission_type)} used!")
-        logger.debug(f"Submission type: {submission_type}, Kit: {self}")
+        # logger.debug(f"Submission type: {submission_type}, Kit: {self}")
         assocs = [item for item in self.kit_reagentrole_associations if item.submission_type == submission_type]
-        logger.debug(f"Associations: {assocs}")
+        # logger.debug(f"Associations: {assocs}")
         # NOTE: rescue with submission type's default kit.
         if not assocs:
             logger.error(
@@ -211,7 +211,7 @@ class KitType(BaseClass):
         #     except TypeError:
         #         continue
         output = {assoc.reagent_role.name: assoc.uses for assoc in assocs}
-        logger.debug(f"Output: {output}")
+        # logger.debug(f"Output: {output}")
         return output, new_kit
 
     @classmethod
@@ -1718,7 +1718,7 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, equipment_id: int, submission_id: int, role: str | None = None, limit: int = 0, **kwargs) \
+    def query(cls, equipment_id: int|None=None, submission_id: int|None=None, role: str | None = None, limit: int = 0, **kwargs) \
             -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.equipment_id == equipment_id)
@@ -2013,7 +2013,8 @@ class SubmissionTipsAssociation(BaseClass):
 
     @classmethod
     def query_or_create(cls, tips, submission, role: str, **kwargs):
-        instance = cls.query(tip_id=tips.id, role=role, submission_id=submission.id, limit=1, **kwargs)
+        kwargs['limit'] = 1
+        instance = cls.query(tip_id=tips.id, role=role, submission_id=submission.id, **kwargs)
         if instance is None:
             instance = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=role)
         return instance

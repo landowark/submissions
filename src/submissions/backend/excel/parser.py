@@ -279,7 +279,7 @@ class ReagentParser(object):
         #     submission_type = submission_type['value']
         # if isinstance(submission_type, str):
         #     submission_type = SubmissionType.query(name=submission_type)
-        logger.debug("Running kit map")
+        # logger.debug("Running kit map")
         associations, self.kit_object = self.kit_object.construct_xl_map_for_use(submission_type=self.submission_type_obj)
         reagent_map = {k: v for k, v in associations.items() if k != 'info'}
         try:

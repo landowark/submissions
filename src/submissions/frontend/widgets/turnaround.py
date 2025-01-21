@@ -31,7 +31,13 @@ class TurnaroundTime(InfoPane):
         self.submission_typer.currentTextChanged.connect(self.update_data)
         self.update_data()
 
-    def update_data(self):
+    def update_data(self) -> None:
+        """
+        Sets data in the info pane
+
+        Returns:
+            None
+        """
         super().update_data()
         months = self.diff_month(self.start_date, self.end_date)
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date)
@@ -47,4 +53,4 @@ class TurnaroundTime(InfoPane):
         else:
             threshold = None
         self.fig = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold, months=months)
-        self.webview.setHtml(self.fig.to_html())
+        self.webview.setHtml(self.fig.html)

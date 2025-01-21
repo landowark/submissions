@@ -2,15 +2,13 @@
 Gel box for artic quality control
 """
 from operator import itemgetter
-from PyQt6.QtWidgets import (QWidget, QDialog, QGridLayout,
-                             QLabel, QLineEdit, QDialogButtonBox,
-                             QTextEdit, QComboBox
-                             )
+from PyQt6.QtWidgets import (
+    QWidget, QDialog, QGridLayout, QLabel, QLineEdit, QDialogButtonBox, QTextEdit, QComboBox
+)
 import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
 from PIL import Image
-import numpy as np
-import logging
+import logging, numpy as np
 from pprint import pformat
 from typing import Tuple, List
 from pathlib import Path
@@ -103,7 +101,8 @@ class ControlsForm(QWidget):
         except TypeError:
             tt_text = None
         for iii, item in enumerate(
-                ["Negative Control Key", "Description", "Results - 65 C", "Results - 63 C", "Results - Spike"]):
+                ["Negative Control Key", "Description", "Results - 65 C", "Results - 63 C", "Results - Spike"]
+        ):
             label = QLabel(item)
             self.layout.addWidget(label, 0, iii, 1, 1)
             if iii > 1:

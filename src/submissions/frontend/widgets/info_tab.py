@@ -6,8 +6,8 @@ from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout
 from tools import Report, report_result, Result
-from .misc import StartEndDatePicker, save_pdf
-from .functions import select_save_file
+from .misc import StartEndDatePicker
+from .functions import select_save_file, save_pdf
 import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -38,8 +38,7 @@ class InfoPane(QWidget):
             lastmonth = self.datepicker.end_date.date().addDays(-31)
             msg = f"Start date after end date is not allowed! Setting to {lastmonth.toString()}."
             logger.warning(msg)
-            # NOTE: block signal that will rerun controls getter and set start date
-            # Without triggering this function again
+            # NOTE: block signal that will rerun controls getter and set start date without triggering this function again
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(lastmonth)
             self.update_data()

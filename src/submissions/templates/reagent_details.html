@@ -10,11 +10,12 @@
     <h2><u>Reagent Details for {{ reagent['name'] }} - {{ reagent['lot'] }}</u></h2>
     {{ super() }}
     <p>{% for key, value in reagent.items() if key not in reagent['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>
+<!--        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>-->
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
     {% endfor %}</p>
-    {% if permission %}
-        <button type="button" id="save_btn">Save</button>
-    {% endif %}
+<!--    {% if permission %}-->
+<!--        <button type="button" id="save_btn">Save</button>-->
+<!--    {% endif %}-->
     {% if reagent['submissions'] %}<h2>Submissions:</h2>
         {% for submission in reagent['submissions'] %}
         <p><b><a class="data-link" id="{{ submission }}">{{ submission }}:</a></b> {{ reagent['role'] }}</p>

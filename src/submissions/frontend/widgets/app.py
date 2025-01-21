@@ -1,6 +1,7 @@
 """
 Constructs main application.
 """
+import getpass
 from pprint import pformat
 from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (
@@ -13,9 +14,10 @@ from pathlib import Path
 from markdown import markdown
 from __init__ import project_path
 from backend import SubmissionType, Reagent, BasicSample, Organization, KitType
-from tools import check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user
+from tools import (
+    check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user, under_development
+)
 from .functions import select_save_file, select_open_file
-# from datetime import date
 from .pop_ups import HTMLPop, AlertPop
 from .misc import Pagifier
 import logging, webbrowser, sys, shutil
@@ -84,7 +86,8 @@ class App(QMainWindow):
         maintenanceMenu.addAction(self.joinPCRAction)
         editMenu.addAction(self.editReagentAction)
         editMenu.addAction(self.manageOrgsAction)
-        # editMenu.addAction(self.manageKitsAction)
+        if getpass.getuser() == "lwark":
+            editMenu.addAction(self.manageKitsAction)
         if not is_power_user():
             editMenu.setEnabled(False)
 
@@ -119,7 +122,7 @@ class App(QMainWindow):
         connect menu and tool bar item to functions
         """
         self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
-        self.addReagentAction.triggered.connect(self.table_widget.formwidget.new_add_reagent)
+        self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
@@ -177,6 +180,11 @@ class App(QMainWindow):
         dlg = SearchBox(self, object_type=BasicSample, extras=[])
         dlg.exec()
 
+    @check_authorization
+    def edit_reagent(self, *args, **kwargs):
+        dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="role")])
+        dlg.exec()
+
     def export_ST_yaml(self):
         """
         Copies submission type yaml to file system for editing and remport
@@ -192,12 +200,17 @@ class App(QMainWindow):
         shutil.copyfile(yaml_path, fname)
 
     @check_authorization
-    def edit_reagent(self, *args, **kwargs):
-        dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="role")])
-        dlg.exec()
-
-    @check_authorization
     def import_ST_yaml(self, *args, **kwargs):
+        """
+        Imports a yml form into a submission type.
+
+        Args:
+            *args ():
+            **kwargs ():
+
+        Returns:
+
+        """
         fname = select_open_file(obj=self, file_extension="yml")
         if not fname:
             logger.info(f"Import cancelled.")
@@ -220,9 +233,11 @@ class App(QMainWindow):
         dlg = ManagerWindow(parent=self, object_type=Organization, extras=[])
         if dlg.exec():
             new_org = dlg.parse_form()
+            new_org.save()
             # logger.debug(new_org.__dict__)
 
-    def manage_kits(self):
+    @under_development
+    def manage_kits(self, *args, **kwargs):
         dlg = ManagerWindow(parent=self, object_type=KitType, extras=[])
         if dlg.exec():
             print(dlg.parse_form())

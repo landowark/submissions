@@ -1,17 +1,18 @@
+"""
+A widget to handle adding/updating any database object.
+"""
 from datetime import date
 from pprint import pformat
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 from pydantic import BaseModel
 from PyQt6.QtWidgets import (
-    QLabel, QDialog, QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QPushButton, QDialogButtonBox, QDateEdit
+    QLabel, QDialog, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox, QDateEdit, QSpinBox, QDoubleSpinBox
 )
-from sqlalchemy import String, TIMESTAMP
+from sqlalchemy import String, TIMESTAMP, INTEGER, FLOAT
 from sqlalchemy.orm import InstrumentedAttribute, ColumnProperty
 import logging
-
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-
-from tools import Report, Result, report_result
+from tools import Report, report_result
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -23,7 +24,6 @@ class AddEdit(QDialog):
         self.instance = instance
         self.object_type = instance.__class__
         self.layout = QGridLayout(self)
-        # logger.debug(f"Manager: {manager}")
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
@@ -36,7 +36,6 @@ class AddEdit(QDialog):
             fields = {'name': fields.pop('name'), **fields}
         except KeyError:
             pass
-        # logger.debug(pformat(fields, indent=4))
         height_counter = 0
         for key, field in fields.items():
             try:
@@ -45,9 +44,6 @@ class AddEdit(QDialog):
                 value = None
             try:
                 logger.debug(f"{key} property: {type(field['class_attr'].property)}")
-                # widget = EditProperty(self, key=key, column_type=field.property.expression.type,
-                #                           value=getattr(self.instance, key))
-                # logger.debug(f"Column type: {field}, Value: {value}")
                 widget = EditProperty(self, key=key, column_type=field, value=value)
             except AttributeError as e:
                 logger.error(f"Problem setting widget {key}: {e}")
@@ -64,15 +60,11 @@ class AddEdit(QDialog):
     def parse_form(self) -> Tuple[BaseModel, Report]:
         report = Report()
         parsed = {result[0].strip(":"): result[1] for result in [item.parse_form() for item in self.findChildren(EditProperty)] if result[0]}
-        logger.debug(parsed)
+        # logger.debug(parsed)
         model = self.object_type.pydantic_model
         # NOTE: Hand-off to pydantic model for validation.
         # NOTE: Also, why am I not just using the toSQL method here. I could write one for contacts.
         model = model(**parsed)
-        # output, result = model.to_sql()
-        # report.add_result(result)
-        # if len(report.results) < 1:
-        #     report.add_result(Result(msg="Added new regeant.", icon="Information", owner=__name__))
         return model, report
 
 
@@ -84,7 +76,7 @@ class EditProperty(QWidget):
         self.label = QLabel(key.title().replace("_", " "))
         self.layout = QGridLayout()
         self.layout.addWidget(self.label, 0, 0, 1, 1)
-        self.setObjectName(f"{key}:")
+        self.setObjectName(key)
         match column_type['class_attr'].property:
             case ColumnProperty():
                 self.column_property_set(column_type, value=value)
@@ -97,15 +89,15 @@ class EditProperty(QWidget):
         self.setLayout(self.layout)
 
     def relationship_property_set(self, relationship_property, value=None):
-        # print(relationship_property)
         self.property_class = relationship_property['class_attr'].property.entity.class_
         self.is_list = relationship_property['class_attr'].property.uselist
-        choices = [item.name for item in self.property_class.query()]
+        choices = [""] + [item.name for item in self.property_class.query()]
         try:
-            instance_value = getattr(self.parent().instance, self.name)
+            instance_value = getattr(self.parent().instance, self.objectName())
         except AttributeError:
-            logger.error(f"Unable to get instance {self.parent().instance} attribute: {self.name}")
+            logger.error(f"Unable to get instance {self.parent().instance} attribute: {self.objectName()}")
             instance_value = None
+        # NOTE: get the value for the current instance and move it to the front.
         if isinstance(instance_value, list):
             instance_value = next((item.name for item in instance_value), None)
         if instance_value:
@@ -120,6 +112,16 @@ class EditProperty(QWidget):
                     value = ""
                 self.widget = QLineEdit(self)
                 self.widget.setText(value)
+            case INTEGER():
+                if not value:
+                    value = 1
+                self.widget = QSpinBox()
+                self.widget.setValue(value)
+            case FLOAT():
+                if not value:
+                    value = 1.0
+                self.widget = QDoubleSpinBox()
+                self.widget.setValue(value)
             case TIMESTAMP():
                 self.widget = QDateEdit(self, calendarPopup=True)
                 if not value:
@@ -129,12 +131,13 @@ class EditProperty(QWidget):
                 logger.error(f"{column_property} not a supported property.")
                 self.widget = None
         try:
-            tooltip_text = self.parent().object_type.add_edit_tooltips[self.name]
+            tooltip_text = self.parent().object_type.add_edit_tooltips[self.objectName()]
             self.widget.setToolTip(tooltip_text)
         except KeyError:
             pass
 
     def parse_form(self):
+        # NOTE: Make sure there's a widget.
         try:
             check = self.widget
         except AttributeError:
@@ -146,10 +149,12 @@ class EditProperty(QWidget):
                 value = self.widget.date().toPyDate()
             case QComboBox():
                 value = self.widget.currentText()
+            case QSpinBox() | QDoubleSpinBox():
+                value = self.widget.value()
                 # if self.is_list:
                 #     value = [self.property_class.query(name=prelim)]
                 # else:
                 #     value = self.property_class.query(name=prelim)
             case _:
                 value = None
-        return self.name, value
+        return self.objectName(), value

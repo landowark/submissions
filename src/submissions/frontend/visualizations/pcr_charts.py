@@ -17,10 +17,10 @@ class PCRFigure(CustomFigure):
                  months: int = 6):
         super().__init__(df=df, modes=modes, settings=settings)
         self.df = df
-        try:
-            months = int(settings['months'])
-        except KeyError:
-            months = 6
+        # try:
+        #     months = int(settings['months'])
+        # except KeyError:
+        #     months = 6
         self.construct_chart(df=df)
 
     def construct_chart(self, df: pd.DataFrame):

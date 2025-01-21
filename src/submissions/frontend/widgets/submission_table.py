@@ -65,12 +65,6 @@ class SubmissionsSheet(QTableView):
     """
 
     def __init__(self, parent) -> None:
-        """
-        initialize
-
-        Args:
-            ctx (dict): settings passed from gui
-        """
         super().__init__(parent)
         self.app = self.parent()
         self.report = Report()
@@ -107,7 +101,9 @@ class SubmissionsSheet(QTableView):
         Args:
             event (_type_): the item of interest
         """
+        # NOTE: Get current row index
         id = self.selectionModel().currentIndex()
+        # NOTE: Convert to data in id column (i.e. column 0)
         id = id.sibling(id.row(), 0).data()
         submission = BasicSubmission.query(id=id)
         self.menu = QMenu(self)

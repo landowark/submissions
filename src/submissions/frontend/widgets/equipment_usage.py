@@ -3,8 +3,9 @@ Creates forms that the user can enter equipment info into.
 '''
 from pprint import pformat
 from PyQt6.QtCore import Qt, QSignalBlocker
-from PyQt6.QtWidgets import (QDialog, QComboBox, QCheckBox,
-                             QLabel, QWidget, QVBoxLayout, QDialogButtonBox, QGridLayout)
+from PyQt6.QtWidgets import (
+    QDialog, QComboBox, QCheckBox, QLabel, QWidget, QVBoxLayout, QDialogButtonBox, QGridLayout
+)
 from backend.db.models import Equipment, BasicSubmission, Process
 from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
 import logging
@@ -36,8 +37,8 @@ class EquipmentUsage(QDialog):
         self.buttonBox.rejected.connect(self.reject)
         label = self.LabelRow(parent=self)
         self.layout.addWidget(label)
-        for eq in self.opt_equipment:
-            widg = eq.to_form(parent=self, used=self.used_equipment)
+        for equipment in self.opt_equipment:
+            widg = equipment.to_form(parent=self, used=self.used_equipment)
             self.layout.addWidget(widg)
             widg.update_processes()
         self.layout.addWidget(self.buttonBox)
@@ -64,6 +65,7 @@ class EquipmentUsage(QDialog):
                     continue
 
     class LabelRow(QWidget):
+        """Provides column headers"""
 
         def __init__(self, parent) -> None:
             super().__init__(parent)

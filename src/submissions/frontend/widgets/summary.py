@@ -32,7 +32,13 @@ class Summary(InfoPane):
         self.update_data()
 
 
-    def update_data(self):
+    def update_data(self) -> None:
+        """
+        Sets data in the info pane
+
+        Returns:
+            None
+        """
         super().update_data()
         orgs = [self.org_select.itemText(i) for i in range(self.org_select.count()) if self.org_select.itemChecked(i)]
         self.report_obj = ReportMaker(start_date=self.start_date, end_date=self.end_date, organizations=orgs)

@@ -185,3 +185,6 @@ class Contact(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
+    def to_pydantic(self) -> "PydContact":
+        from backend.validators import PydContact
+        return PydContact(name=self.name, email=self.email, phone=self.phone)

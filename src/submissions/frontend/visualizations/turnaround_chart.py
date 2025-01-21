@@ -19,10 +19,10 @@ class TurnaroundChart(CustomFigure):
                  months: int = 6):
         super().__init__(df=df, modes=modes, settings=settings)
         self.df = df
-        try:
-            months = int(settings['months'])
-        except KeyError:
-            months = 6
+        # try:
+        #     months = int(settings['months'])
+        # except KeyError:
+        #     months = 6
         self.construct_chart()
         if threshold:
             self.add_hline(y=threshold)
