@@ -1022,8 +1022,7 @@ def check_authorization(func):
             report = Report()
             report.add_result(
                 Result(owner=func.__str__(), code=1, msg=error_msg, status="warning"))
-            return report
-
+            return report, kwargs
     return wrapper
 
 
@@ -1068,7 +1067,7 @@ def report_result(func):
     def wrapper(*args, **kwargs):
         logger.info(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
-        # logger.debug(f"Function output: {output}")
+        print(f"Function output: {output}")
         match output:
             case Report():
                 report = output
@@ -1084,19 +1083,44 @@ def report_result(func):
         for iii, result in enumerate(results):
             try:
                 dlg = result.report()
-                dlg.exec()
+                if "testing" in args:
+                    return report
+                else:
+                    dlg.exec()
             except Exception as e:
                 logger.error(f"Problem reporting due to {e}")
                 logger.error(result.msg)
         if output:
-            true_output = tuple(item for item in output if not isinstance(item, Report))
-            if len(true_output) == 1:
-                true_output = true_output[0]
+            print(f"Output going into checking: {output}")
+            if is_list_etc(output):
+                print(f"Output of type {type(output)} is iterable")
+                true_output = tuple(item for item in output if not isinstance(item, Report))
+                if len(true_output) == 1:
+                    true_output = true_output[0]
+            else:
+                print(f"Output is of type {type(output)}")
+                if isinstance(output, Report):
+                    true_output = None
+                else:
+                    true_output = output
         else:
             true_output = None
         return true_output
     return wrapper
 
+
+def is_list_etc(object):
+    match object:
+        case str(): #: I don't want to iterate strings, so hardcoding that
+            return False
+        case Report():
+            return False
+        case _:
+            try:
+                check = iter(object)
+            except TypeError:
+                check = False
+            return check
 
 def create_holidays_for_year(year: int | None = None) -> List[date]:
     def find_nth_monday(year, month, occurence: int | None = None, day: int | None = None):
