@@ -684,7 +684,7 @@ class SubmissionFormWidget(QWidget):
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
 
                 if dlg.exec():
-                    wanted_reagent = self.parent().parent().new_add_reagent(instance=wanted_reagent)
+                    wanted_reagent = self.parent.parent().add_reagent(instance=wanted_reagent)
                     return wanted_reagent, report
                 else:
                     # NOTE: In this case we will have an empty reagent and the submission will fail kit integrity check

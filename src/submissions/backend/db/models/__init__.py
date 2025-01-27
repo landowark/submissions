@@ -6,13 +6,12 @@ import sys, logging
 from pandas import DataFrame
 from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List
 from pathlib import Path
-from tools import report_result
-
+from tools import report_result, list_sort_dict
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -49,6 +48,30 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
     singles = ['id']
+    omni_removes = ['submissions']
+    omni_sort = ["name"]
+
+    @classproperty
+    def skip_on_edit(cls):
+        if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
+            return True
+        else:
+            return False
+
+    @classproperty
+    def aliases(cls):
+        return [cls.__name__.lower()]
+
+    @classproperty
+    def level(cls):
+        if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
+            return 2
+        else:
+            return 1
+
+    @classproperty
+    def query_alias(cls):
+        return cls.__name__.lower()
 
     @classmethod
     @declared_attr
@@ -175,7 +198,7 @@ class BaseClass(Base):
         try:
             records = [obj.to_sub_dict(**kwargs) for obj in objects]
         except AttributeError:
-            records = [obj.omnigui_dict for obj in objects]
+            records = [{k:v['instance_attr'] for k, v in obj.to_omnigui_dict(**kwargs).items()} for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod
@@ -249,11 +272,25 @@ class BaseClass(Base):
         Returns:
             dict: Dictionary of object minus _sa_instance_state with id at the front.
         """
-        dicto = {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state"]}
+        # dicto = {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state"]}
+        dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
+                 for key in dir(self.__class__) if
+                 isinstance(getattr(self.__class__, key), InstrumentedAttribute) and key not in self.omni_removes
+                 }
+        for k, v in dicto.items():
+            try:
+                v['instance_attr'] = v['instance_attr'].name
+            except AttributeError:
+                continue
+        try:
+            dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.omni_sort)
+        except TypeError as e:
+            logger.error(f"Could not sort {self.__class__.__name__} by list due to :{e}")
         try:
             dicto = {'id': dicto.pop('id'), **dicto}
         except KeyError:
             pass
+        # logger.debug(f"{self.__class__.__name__} omnigui dict:\n\n{pformat(dicto)}")
         return dicto
 
     @classproperty
@@ -268,6 +305,7 @@ class BaseClass(Base):
         try:
             model = getattr(pydant, f"Pyd{cls.__name__}")
         except AttributeError:
+            logger.warning(f"Couldn't get {cls.__name__} pydantic model.")
             return None
         return model
 
@@ -280,6 +318,13 @@ class BaseClass(Base):
             dict: custom dictionary for this class.
         """
         return dict()
+
+    @classmethod
+    def relevant_relationships(cls, relationship_instance):
+        query_kwargs = {relationship_instance.query_alias:relationship_instance}
+        return cls.query(**query_kwargs)
+
+
 
 
 class ConfigItem(BaseClass):

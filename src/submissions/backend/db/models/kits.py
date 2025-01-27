@@ -7,6 +7,7 @@ from pprint import pformat
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import date, datetime, timedelta
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone
 from typing import List, Literal, Generator, Any, Tuple
@@ -95,6 +96,8 @@ class KitType(BaseClass):
     Base of kits used in submission processing
     """
 
+    query_alias = "kit_type"
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of kit
     submissions = relationship("BasicSubmission", back_populates="extraction_kit")  #: submissions this kit was used for
@@ -129,6 +132,10 @@ class KitType(BaseClass):
         """
         return f"<KitType({self.name})>"
 
+    @classproperty
+    def aliases(cls):
+        return super().aliases + [cls.query_alias, "kit_types"]
+
     def get_reagents(self,
                      required: bool = False,
                      submission_type: str | SubmissionType | None = None
@@ -157,7 +164,7 @@ class KitType(BaseClass):
         else:
             return (item.reagent_role for item in relevant_associations)
 
-    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Tuple[dict|None, KitType]:
+    def construct_xl_map_for_use(self, submission_type: str | SubmissionType) -> Tuple[dict | None, KitType]:
         """
         Creates map of locations in Excel workbook for a SubmissionType
 
@@ -402,12 +409,14 @@ class ReagentRole(BaseClass):
               name: str | None = None,
               kit_type: KitType | str | None = None,
               reagent: Reagent | str | None = None,
+              id: int | None = None,
               limit: int = 0,
               ) -> ReagentRole | List[ReagentRole]:
         """
         Lookup reagent types in the database.
 
         Args:
+            id (id | None, optional): Id of the object. Defaults to None.
             name (str | None, optional): Reagent type name. Defaults to None.
             kit_type (KitType | str | None, optional): Kit the type of interest belongs to. Defaults to None.
             reagent (Reagent | str | None, optional): Concrete instance of the type of interest. Defaults to None.
@@ -445,6 +454,12 @@ class ReagentRole(BaseClass):
                 limit = 1
             case _:
                 pass
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case _:
+                pass
         return cls.execute_query(query=query, limit=limit)
 
     def to_pydantic(self) -> "PydReagent":
@@ -476,7 +491,7 @@ class Reagent(BaseClass, LogMixin):
     Concrete reagent instance
     """
 
-    searchables = [dict(label="Lot", field="lot")]
+
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     role = relationship("ReagentRole", back_populates="instances",
@@ -503,6 +518,10 @@ class Reagent(BaseClass, LogMixin):
         else:
             name = f"<Reagent({self.role.name}-{self.lot})>"
         return name
+
+    @classproperty
+    def searchables(cls):
+        return [dict(label="Lot", field="lot")]
 
     def to_sub_dict(self, extraction_kit: KitType = None, full_data: bool = False, **kwargs) -> dict:
         """
@@ -581,7 +600,7 @@ class Reagent(BaseClass, LogMixin):
         from backend.validators.pydant import PydReagent
         new = False
         disallowed = ['expiry']
-        sanitized_kwargs = {k:v for k,v in kwargs.items() if k not in disallowed}
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
         instance = cls.query(**sanitized_kwargs)
         if not instance or isinstance(instance, list):
             if "role" not in kwargs:
@@ -700,6 +719,8 @@ class Discount(BaseClass):
     Relationship table for client labs for certain kits.
     """
 
+    skip_on_edit = True
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     kit = relationship("KitType")  #: joined parent reagent type
     kit_id = Column(INTEGER, ForeignKey("_kittype.id", ondelete='SET NULL', name="fk_kit_type_id"))  #: id of joined kit
@@ -811,6 +832,14 @@ class SubmissionType(BaseClass):
             str: Representation of this object.
         """
         return f"<SubmissionType({self.name})>"
+
+    @classproperty
+    def aliases(cls):
+        return super().aliases + ["submission_types", "submission_type"]
+
+    @classproperty
+    def omni_removes(cls):
+        return super().omni_removes + ["template_file", "defaults", "instances"]
 
     @classproperty
     def basic_template(cls) -> bytes:
@@ -1063,6 +1092,10 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
     Abstract of relationship between kits and their submission type.
     """
 
+    omni_removes = BaseClass.omni_removes + ["submission_types_id", "kits_id"]
+    omni_sort = ["submission_type", "kit_type"]
+    level = 2
+
     submission_types_id = Column(INTEGER, ForeignKey("_submissiontype.id"),
                                  primary_key=True)  #: id of joined submission type
     kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True)  #: id of joined kit
@@ -1093,12 +1126,17 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         """
         return f"<SubmissionTypeKitTypeAssociation({self.submission_type.name}&{self.kit_type.name})>"
 
+    @property
+    def name(self):
+        return f"{self.submission_type.name} -> {self.kit_type.name}"
+
     @classmethod
     @setup_lookup
     def query(cls,
               submission_type: SubmissionType | str | int | None = None,
               kit_type: KitType | str | int | None = None,
-              limit: int = 0
+              limit: int = 0,
+              **kwargs
               ) -> SubmissionTypeKitTypeAssociation | List[SubmissionTypeKitTypeAssociation]:
         """
         Lookup SubmissionTypeKitTypeAssociations of interest.
@@ -1126,7 +1164,9 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
                 query = query.join(KitType).filter(KitType.name == kit_type)
             case int():
                 query = query.join(KitType).filter(KitType.id == kit_type)
-        limit = query.count()
+        if kit_type is not None and submission_type is not None:
+            limit = 1
+        # limit = query.count()
         return cls.execute_query(query=query, limit=limit)
 
     def to_export_dict(self):
@@ -1147,6 +1187,9 @@ class KitTypeReagentRoleAssociation(BaseClass):
     table containing reagenttype/kittype associations
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
+
+    omni_removes = BaseClass.omni_removes + ["submission_type_id", "kits_id", "reagent_roles_id", "last_used"]
+    omni_sort = ["submission_type", "kit_type", "reagent_role", "required", "uses"]
 
     reagent_roles_id = Column(INTEGER, ForeignKey("_reagentrole.id"),
                               primary_key=True)  #: id of associated reagent type
@@ -1175,6 +1218,10 @@ class KitTypeReagentRoleAssociation(BaseClass):
 
     def __repr__(self) -> str:
         return f"<KitTypeReagentRoleAssociation({self.kit_type} & {self.reagent_role})>"
+
+    @property
+    def name(self):
+        return f"{self.kit_type.name} -> {self.reagent_role.name}"
 
     @validates('required')
     def validate_required(self, key, value):
@@ -1219,7 +1266,8 @@ class KitTypeReagentRoleAssociation(BaseClass):
     def query(cls,
               kit_type: KitType | str | None = None,
               reagent_role: ReagentRole | str | None = None,
-              limit: int = 0
+              limit: int = 0,
+              **kwargs
               ) -> KitTypeReagentRoleAssociation | List[KitTypeReagentRoleAssociation]:
         """
         Lookup junction of ReagentType and KitType
@@ -1279,6 +1327,12 @@ class KitTypeReagentRoleAssociation(BaseClass):
                              not check_regex_match(pattern=regex, check=str(reagent.lot))]
         for rel_reagent in relevant_reagents:
             yield rel_reagent
+
+    @property
+    def omnigui_dict(self) -> dict:
+        dicto = super().omnigui_dict
+        dicto['required']['instance_attr'] = bool(dicto['required']['instance_attr'])
+        return dicto
 
 
 class SubmissionReagentAssociation(BaseClass):
@@ -1420,7 +1474,7 @@ class Equipment(BaseClass, LogMixin):
 
     def get_processes(self, submission_type: str | SubmissionType | None = None,
                       extraction_kit: str | KitType | None = None,
-                      equipment_role: str | EquipmentRole | None=None) -> List[str]:
+                      equipment_role: str | EquipmentRole | None = None) -> List[str]:
         """
         Get all processes associated with this Equipment for a given SubmissionType
 
@@ -1498,7 +1552,8 @@ class Equipment(BaseClass, LogMixin):
             PydEquipment: pydantic equipment object
         """
         from backend.validators.pydant import PydEquipment
-        processes = self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit, equipment_role=role)
+        processes = self.get_processes(submission_type=submission_type, extraction_kit=extraction_kit,
+                                       equipment_role=role)
         return PydEquipment(processes=processes, role=role,
                             **self.to_dict(processes=False))
 
@@ -1718,7 +1773,8 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, equipment_id: int|None=None, submission_id: int|None=None, role: str | None = None, limit: int = 0, **kwargs) \
+    def query(cls, equipment_id: int | None = None, submission_id: int | None = None, role: str | None = None,
+              limit: int = 0, **kwargs) \
             -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.equipment_id == equipment_id)
@@ -1819,9 +1875,10 @@ class Process(BaseClass):
               name: str | None = None,
               id: int | None = None,
               submission_type: str | SubmissionType | None = None,
-              extraction_kit : str | KitType | None = None,
+              extraction_kit: str | KitType | None = None,
               equipment_role: str | KitType | None = None,
-              limit: int = 0) -> Process | List[Process]:
+              limit: int = 0,
+              **kwargs) -> Process | List[Process]:
         """
         Lookup Processes
 
@@ -1875,6 +1932,8 @@ class Process(BaseClass):
     @check_authorization
     def save(self):
         super().save()
+
+    # @classmethod
 
 
 class TipRole(BaseClass):
@@ -2018,7 +2077,6 @@ class SubmissionTipsAssociation(BaseClass):
         if instance is None:
             instance = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=role)
         return instance
-
 
     def to_pydantic(self):
         from backend.validators import PydTips

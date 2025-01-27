@@ -931,6 +931,17 @@ def rreplace(s: str, old: str, new: str) -> str:
     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
 
 
+def list_sort_dict(input_dict: dict, sort_list: list) -> dict:
+    # sort_list.reverse()
+    sort_list = reversed(sort_list)
+    for item in sort_list:
+        try:
+            input_dict = {item: input_dict.pop(item), **input_dict}
+        except KeyError:
+            continue
+    return input_dict
+
+
 def remove_key_from_list_of_dicts(input_list: list, key: str) -> list:
     """
     Removes a key from all dictionaries in a list of dictionaries
@@ -1067,7 +1078,6 @@ def report_result(func):
     def wrapper(*args, **kwargs):
         logger.info(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
-        print(f"Function output: {output}")
         match output:
             case Report():
                 report = output
@@ -1091,14 +1101,11 @@ def report_result(func):
                 logger.error(f"Problem reporting due to {e}")
                 logger.error(result.msg)
         if output:
-            print(f"Output going into checking: {output}")
             if is_list_etc(output):
-                print(f"Output of type {type(output)} is iterable")
                 true_output = tuple(item for item in output if not isinstance(item, Report))
                 if len(true_output) == 1:
                     true_output = true_output[0]
             else:
-                print(f"Output is of type {type(output)}")
                 if isinstance(output, Report):
                     true_output = None
                 else:

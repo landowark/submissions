@@ -28,6 +28,8 @@ class Organization(BaseClass):
     Base of organization
     """
 
+
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: organization name
     submissions = relationship("BasicSubmission",
@@ -124,8 +126,6 @@ class Contact(BaseClass):
     Base of Contact
     """
 
-    searchables = []
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: contact name
     email = Column(String(64))  #: contact email
@@ -136,6 +136,10 @@ class Contact(BaseClass):
 
     def __repr__(self) -> str:
         return f"<Contact({self.name})>"
+
+    @classproperty
+    def searchables(cls):
+        return []
 
     @classmethod
     @setup_lookup

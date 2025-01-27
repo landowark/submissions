@@ -1960,6 +1960,7 @@ class WastewaterArtic(BasicSubmission):
             input_dict['rsl_number'] = cls.en_adapter(input_str=input_dict['submitter_id'])
         # NOTE: Check for extraction negative control (Robotics)
         if re.search(rf"^{year}-(RSL)", input_dict['submitter_id']):
+            logger.debug(f"Found {year}-(RSL), so we are going to run PBS adapter:")
             input_dict['rsl_number'] = cls.pbs_adapter(input_str=input_dict['submitter_id'])
         return input_dict
 
@@ -2019,7 +2020,9 @@ class WastewaterArtic(BasicSubmission):
         """
         # NOTE: Remove letters.
         processed = input_str.replace("RSL", "")
+        # NOTE: Remove brackets at end
         processed = re.sub(r"\(.*\)$", "", processed).strip()
+        # NOTE: Remove any non-R letters at end.
         processed = re.sub(r"[A-QS-Z]+\d*", "", processed)
         # NOTE: Remove trailing '-' if any
         processed = processed.strip("-")
@@ -2037,6 +2040,8 @@ class WastewaterArtic(BasicSubmission):
         if repeat_num is None and "R" in plate_num:
             repeat_num = "1"
         plate_num = re.sub(r"R", rf"R{repeat_num}", plate_num)
+        # NOTE: Remove any redundant -digits
+        processed = re.sub(r"-\d$", "", processed)
         day = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, day, "")
         month = re.search(r"\d{2}$", processed).group()
@@ -2237,8 +2242,6 @@ class BasicSample(BaseClass, LogMixin):
     Base of basic sample which polymorphs into BCSample and WWSample
     """
 
-    searchables = [dict(label="Submitter ID", field="submitter_id")]
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     submitter_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
     sample_type = Column(String(32))  #: mode_sub_type of sample
@@ -2286,6 +2289,10 @@ class BasicSample(BaseClass, LogMixin):
             return f"<{self.sample_type.replace('_', ' ').title().replace(' ', '')}({self.submitter_id})>"
         except AttributeError:
             return f"<Sample({self.submitter_id})"
+
+    @classproperty
+    def searchables(cls):
+        return [dict(label="Submitter ID", field="submitter_id")]
 
     @classproperty
     def timestamps(cls) -> List[str]:
@@ -2657,7 +2664,7 @@ class WastewaterSample(BasicSample):
         Returns:
             List[str]: List of fields.
         """
-        searchables = super().searchables
+        searchables = deepcopy(super().searchables)
         for item in ["ww_processing_num", "ww_full_sample_id", "rsl_number"]:
             label = item.strip("ww_").replace("_", " ").replace("rsl", "RSL").title()
             searchables.append(dict(label=label, field=item))

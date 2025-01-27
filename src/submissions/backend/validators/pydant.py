@@ -1205,3 +1205,33 @@ class PydIridaControl(BaseModel, extra='ignore'):
             if instance.__getattribute__(key) != field_value:
                 instance.__setattr__(key, field_value)
         return instance
+
+
+class PydProcess(BaseModel, extra="allow"):
+    name: str
+    submission_types: List[str]
+    equipment: List[str]
+    equipment_roles: List[str]
+    kit_types: List[str]
+    tip_roles: List[str]
+
+    @field_validator("submission_types", "equipment", "equipment_roles", "kit_types", "tip_roles", mode="before")
+    @classmethod
+    def enforce_list(cls, value):
+        if not isinstance(value, list):
+            return [value]
+        return value
+
+    def to_sql(self):
+        instance = Process.query(name=self.name)
+        if not instance:
+            instance = Process()
+        dicto = instance.omnigui_dict
+        for key in self.model_fields:
+            # field_value = self.__getattribute__(key)
+            # if instance.__getattribute__(key) != field_value:
+            #     instance.__setattr__(key, field_value)
+            test = dicto[key]
+            print(f"Attribute: {test['class_attr'].property}")
+
+        return instance

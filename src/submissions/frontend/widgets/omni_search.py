@@ -1,6 +1,7 @@
 """
 Search box that performs fuzzy search for various object types
 """
+from copy import deepcopy
 from pprint import pformat
 from typing import Tuple, Any, List, Generator
 from pandas import DataFrame
@@ -22,7 +23,8 @@ class SearchBox(QDialog):
 
     def __init__(self, parent, object_type: Any, extras: List[dict], returnable: bool = False, **kwargs):
         super().__init__(parent)
-        self.object_type = self.original_type = object_type
+        self.object_type = object_type
+        self.original_type = object_type
         self.extras = extras
         self.context = kwargs
         self.layout = QGridLayout(self)
@@ -43,7 +45,7 @@ class SearchBox(QDialog):
         self.setLayout(self.layout)
         self.setWindowTitle(f"Search {self.object_type.__name__}")
         self.update_widgets()
-        self.update_data()
+        # self.update_data()
         if returnable:
             QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
             self.buttonBox = QDialogButtonBox(QBtn)
@@ -57,21 +59,30 @@ class SearchBox(QDialog):
         """
         Changes form inputs based on sample type
         """
+        search_fields = []
+        logger.debug(f"Search fields: {search_fields}")
         deletes = [item for item in self.findChildren(FieldSearch)]
         for item in deletes:
             item.setParent(None)
         # NOTE: Handle any subclasses
         if not self.sub_class:
+            logger.warning(f"No subclass selected.")
             self.update_data()
+            return
         else:
             if self.sub_class.currentText() == "Any":
                 self.object_type = self.original_type
             else:
                 self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
-        try:
-            search_fields = self.object_type.searchables
-        except AttributeError:
-            search_fields = []
+        # logger.debug(f"Object type: {self.object_type} - {self.object_type.searchables}")
+        # logger.debug(f"Original type: {self.original_type} - {self.original_type.searchables}")
+        for item in self.object_type.searchables:
+            if item['field'] in [item['field'] for item in search_fields]:
+                logger.debug(f"Already have {item['field']}")
+                continue
+            else:
+                search_fields.append(item)
+        logger.debug(f"Search fields: {search_fields}")
         for iii, searchable in enumerate(search_fields):
             widget = FieldSearch(parent=self, label=searchable['label'], field_name=searchable['field'])
             widget.setObjectName(searchable['field'])
@@ -120,6 +131,7 @@ class FieldSearch(QWidget):
 
     def __init__(self, parent, label, field_name):
         super().__init__(parent)
+        self.setParent(parent)
         self.layout = QVBoxLayout(self)
         label_widget = QLabel(label)
         self.layout.addWidget(label_widget)
@@ -158,9 +170,8 @@ class SearchResults(QTableView):
         self.context = kwargs
         self.parent = parent
         self.object_type = object_type
-
         try:
-            self.extras = extras + self.object_type.searchables
+            self.extras = extras + [item for item in deepcopy(self.object_type.searchables)]
         except AttributeError:
             self.extras = extras
         logger.debug(f"Extras: {self.extras}")
