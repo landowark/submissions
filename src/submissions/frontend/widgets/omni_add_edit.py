@@ -1,6 +1,7 @@
 """
 A widget to handle adding/updating any database object.
 """
+from copy import deepcopy
 from datetime import date
 from pprint import pformat
 from typing import Any, Tuple
@@ -14,7 +15,6 @@ from sqlalchemy.orm import InstrumentedAttribute, ColumnProperty
 import logging
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from tools import Report, report_result
-from backend import db
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -26,9 +26,11 @@ class AddEdit(QDialog):
         logger.debug(f"Managers: {managers}")
         self.instance = instance
         self.object_type = instance.__class__
+        # self.managers = deepcopy(managers)
         self.managers = managers
         if instance.level < 2:
             try:
+                logger.debug(f"Parent instance: {self.parent().instance}")
                 self.managers.add(self.parent().instance)
             except AttributeError:
                 pass
@@ -38,8 +40,8 @@ class AddEdit(QDialog):
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        logger.debug(f"Fields: {pformat(self.instance.omnigui_dict)}")
-        fields = {k: v for k, v in self.instance.omnigui_dict.items() if "id" not in k}
+        # logger.debug(f"Fields: {pformat(self.instance.omnigui_instance_dict)}")
+        fields = {k: v for k, v in self.instance.omnigui_instance_dict.items() if "id" not in k}
         # NOTE: Move 'name' to the front
         try:
             fields = {'name': fields.pop('name'), **fields}
@@ -67,12 +69,15 @@ class AddEdit(QDialog):
 
     @report_result
     def parse_form(self) -> Tuple[BaseModel, Report]:
-        from backend.validators import pydant
         report = Report()
         parsed = {result[0].strip(":"): result[1] for result in
                   [item.parse_form() for item in self.findChildren(EditProperty)] if result[0]}
         logger.debug(f"Parsed form: {parsed}")
         model = self.object_type.pydantic_model
+        logger.debug(f"Model type: {model.__name__}")
+        if model.__name__ == "PydElastic":
+            logger.debug(f"We have an elastic model.")
+            parsed['instance'] = self.instance
         # NOTE: Hand-off to pydantic model for validation.
         # NOTE: Also, why am I not just using the toSQL method here. I could write one for contacts.
         model = model(**parsed)

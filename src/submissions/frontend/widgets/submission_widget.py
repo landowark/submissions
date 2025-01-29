@@ -341,7 +341,7 @@ class SubmissionFormWidget(QWidget):
             # result = self.pyd.check_reagent_expiries(exempt=exempt)
         if len(result.results) > 0:
             return report
-        base_submission, result = self.pyd.to_sql()
+        base_submission = self.pyd.to_sql()
         # NOTE: check output message for issues
         try:
             trigger = result.results[-1]
@@ -693,7 +693,7 @@ class SubmissionFormWidget(QWidget):
                 # NOTE: Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
                 rt = ReagentRole.query(name=self.reagent.role)
                 if rt is None:
-                    rt = ReagentRole.query(kit_type=self.extraction_kit, reagent=wanted_reagent)
+                    rt = ReagentRole.query(kittype=self.extraction_kit, reagent=wanted_reagent)
                 final = PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
                                    expiry=wanted_reagent.expiry.date(), missing=False)
                 return final, report
@@ -733,8 +733,8 @@ class SubmissionFormWidget(QWidget):
             def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
                 super().__init__(scrollWidget=scrollWidget)
                 self.setEditable(True)
-                looked_up_rt = KitTypeReagentRoleAssociation.query(reagent_role=reagent.role,
-                                                                   kit_type=extraction_kit)
+                looked_up_rt = KitTypeReagentRoleAssociation.query(reagentrole=reagent.role,
+                                                                   kittype=extraction_kit)
                 relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
                 # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
                 if str(reagent.lot) not in relevant_reagents:

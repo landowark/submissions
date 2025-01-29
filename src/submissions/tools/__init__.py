@@ -16,11 +16,14 @@ from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
 from pathlib import Path
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, InstrumentedAttribute
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Tuple, Literal, List, Generator
+
+from sqlalchemy.orm.relationships import _RelationshipDeclared
+
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
@@ -811,6 +814,37 @@ def setup_lookup(func):
                 sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)
     return wrapper
+
+
+def check_object_in_managers(managers: list, object_name: object):
+    for manager in managers:
+        logger.debug(f"Manager: {manager}, Key: {object_name}")
+        if object_name in manager.aliases:
+            return manager
+        relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
+                         if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
+        relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
+        for relationship in relationships:
+            if relationship.key == object_name:
+                logger.debug(f"Checking {relationship.key}")
+                try:
+                    rel_obj = getattr(manager, relationship.key)
+                    if rel_obj is not None:
+                        logger.debug(f"Returning {rel_obj}")
+                        return rel_obj
+                except AttributeError:
+                    pass
+            if "association" in relationship.key:
+                try:
+                    logger.debug(f"Checking association {relationship.key}")
+                    rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
+                                    if getattr(item, object_name) is not None), None)
+                    if rel_obj is not None:
+                        logger.debug(f"Returning {rel_obj}")
+                        return rel_obj
+                except AttributeError:
+                    pass
+    return None
 
 
 def get_application_from_parent(widget):

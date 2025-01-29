@@ -157,7 +157,7 @@ class RSLNamer(object):
         if "rsl_plate_num" in data.keys():
             plate_number = data['rsl_plate_num'].split("-")[-1][0]
         else:
-            previous = BasicSubmission.query(start_date=today, end_date=today, submission_type=data['submission_type'])
+            previous = BasicSubmission.query(start_date=today, end_date=today, submissiontype=data['submission_type'])
             plate_number = len(previous) + 1
         return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
 
@@ -191,5 +191,5 @@ class RSLNamer(object):
             return ""
 
 
-from .pydant import PydSubmission, PydKit, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
-    PydEquipment, PydEquipmentRole, PydTips, PydPCRControl, PydIridaControl
+from .pydant import PydSubmission, PydKitType, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
+    PydEquipment, PydEquipmentRole, PydTips, PydPCRControl, PydIridaControl, PydProcess, PydElastic

@@ -10,6 +10,9 @@ from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
+
+from sqlalchemy.ext.hybrid import hybrid_property
+
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin, SubmissionReagentAssociation
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
 from sqlalchemy.orm import relationship, validates, Query
@@ -125,6 +128,14 @@ class BasicSubmission(BaseClass, LogMixin):
 
     def __repr__(self) -> str:
         return f"<Submission({self.rsl_plate_num})>"
+
+    @hybrid_property
+    def kittype(self):
+        return self.extraction_kit
+
+    @hybrid_property
+    def organization(self):
+        return self.submitting_lab
 
     @classproperty
     def jsons(cls) -> List[str]:
@@ -488,7 +499,7 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         # NOTE: use lookup function to create list of dicts
         subs = [item.to_dict() for item in
-                cls.query(submission_type=submission_type, limit=limit, chronologic=chronologic, page=page,
+                cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
         df = pd.DataFrame.from_records(subs)
         # NOTE: Exclude sub information
@@ -1056,7 +1067,7 @@ class BasicSubmission(BaseClass, LogMixin):
     @classmethod
     @setup_lookup
     def query(cls,
-              submission_type: str | SubmissionType | None = None,
+              submissiontype: str | SubmissionType | None = None,
               submission_type_name: str | None = None,
               id: int | str | None = None,
               rsl_plate_num: str | None = None,
@@ -1087,8 +1098,8 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         from ... import SubmissionReagentAssociation
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
-        if submission_type is not None:
-            model = cls.find_polymorphic_subclass(polymorphic_identity=submission_type)
+        if submissiontype is not None:
+            model = cls.find_polymorphic_subclass(polymorphic_identity=submissiontype)
         elif len(kwargs) > 0:
             # NOTE: find the subclass containing the relevant attributes
             model = cls.find_polymorphic_subclass(attrs=kwargs)
@@ -1196,7 +1207,7 @@ class BasicSubmission(BaseClass, LogMixin):
         if kwargs == {}:
             raise ValueError("Need to narrow down query or the first available instance will be returned.")
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        instance = cls.query(submission_type=submission_type, limit=1, **sanitized_kwargs)
+        instance = cls.query(submissiontype=submission_type, limit=1, **sanitized_kwargs)
         if instance is None:
             used_class = cls.find_polymorphic_subclass(attrs=kwargs, polymorphic_identity=submission_type)
             instance = used_class(**sanitized_kwargs)

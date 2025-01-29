@@ -14,6 +14,8 @@ from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone
 from backend.db.models import *
 from sqlalchemy.exc import StatementError, IntegrityError
+from sqlalchemy.orm.properties import ColumnProperty
+from sqlalchemy.orm.relationships import _RelationshipDeclared
 from PyQt6.QtWidgets import QWidget
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -203,6 +205,7 @@ class PydSample(BaseModel, extra='allow'):
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         return {k: getattr(self, k) for k in fields}
 
+    @report_result
     def to_sql(self, submission: BasicSubmission | str = None) -> Tuple[
         BasicSample, List[SubmissionSampleAssociation], Result | None]:
         """
@@ -270,6 +273,7 @@ class PydTips(BaseModel):
             value = value.name
         return value
 
+    @report_result
     def to_sql(self, submission: BasicSubmission) -> SubmissionTipsAssociation:
         """
         Convert this object to the SQL version for database storage.
@@ -280,12 +284,13 @@ class PydTips(BaseModel):
         Returns:
             SubmissionTipsAssociation: Association between queried tips and submission
         """
+        report = Report()
         tips = Tips.query(name=self.name, limit=1)
         # logger.debug(f"Tips query has yielded: {tips}")
         assoc = SubmissionTipsAssociation.query_or_create(tips=tips, submission=submission, role=self.role, limit=1)
         # if assoc is None:
         #     assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
-        return assoc
+        return assoc, report
 
 
 class PydEquipment(BaseModel, extra='ignore'):
@@ -317,6 +322,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             pass
         return value
 
+    @report_result
     def to_sql(self, submission: BasicSubmission | str = None, extraction_kit: KitType | str = None) -> Tuple[Equipment, SubmissionEquipmentAssociation]:
         """
         Creates Equipment and SubmssionEquipmentAssociations for this PydEquipment
@@ -327,6 +333,7 @@ class PydEquipment(BaseModel, extra='ignore'):
         Returns:
             Tuple[Equipment, SubmissionEquipmentAssociation]: SQL objects
         """
+        report = Report()
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         if isinstance(extraction_kit, str):
@@ -349,7 +356,7 @@ class PydEquipment(BaseModel, extra='ignore'):
                 # NOTE: It looks like the way fetching the processes is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
                 # NOTE: I need to find a way to filter this by the kit involved.
                 if len(self.processes) > 1:
-                    process = Process.query(submission_type=submission.get_submission_type(), extraction_kit=extraction_kit, equipment_role=self.role)
+                    process = Process.query(submissiontype=submission.get_submission_type(), kittype=extraction_kit, equipmentrole=self.role)
                 else:
                     process = Process.query(name=self.processes[0])
                 if process is None:
@@ -362,7 +369,7 @@ class PydEquipment(BaseModel, extra='ignore'):
         else:
             logger.warning(f"No submission found")
             assoc = None
-        return equipment, assoc
+        return equipment, assoc, report
 
     def improved_dict(self) -> dict:
         """
@@ -762,6 +769,7 @@ class PydSubmission(BaseModel, extra='allow'):
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
 
+    @report_result
     def to_sql(self) -> Tuple[BasicSubmission, Report]:
         """
         Converts this instance into a backend.db.models.submissions.BasicSubmission instance
@@ -867,7 +875,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # NOTE: Apply any discounts that are applicable for client and kit.
         try:
             discounts = [item.amount for item in
-                         Discount.query(kit_type=instance.extraction_kit, organization=instance.submitting_lab)]
+                         Discount.query(kittype=instance.extraction_kit, organization=instance.submitting_lab)]
             if len(discounts) > 0:
                 instance.run_cost = instance.run_cost - sum(discounts)
         except Exception as e:
@@ -1047,7 +1055,7 @@ class PydOrganization(BaseModel):
                 return None
         return value
 
-
+    @report_result
     def to_sql(self) -> Organization:
         """
         Converts this instance into a backend.db.models.organization.Organization instance.
@@ -1055,6 +1063,7 @@ class PydOrganization(BaseModel):
         Returns:
            Organization: Organization instance
         """
+        report = Report()
         instance = Organization()
         for field in self.model_fields:
             match field:
@@ -1067,7 +1076,7 @@ class PydOrganization(BaseModel):
             logger.debug(f"Setting {field} to {value}")
             if value:
                 setattr(instance, field, value)
-        return instance
+        return instance, report
 
 
 class PydReagentRole(BaseModel):
@@ -1083,6 +1092,7 @@ class PydReagentRole(BaseModel):
             return timedelta(days=value)
         return value
 
+    @report_result
     def to_sql(self, kit: KitType) -> ReagentRole:
         """
         Converts this instance into a backend.db.models.ReagentType instance
@@ -1093,23 +1103,25 @@ class PydReagentRole(BaseModel):
         Returns:
             ReagentRole: ReagentType instance
         """
+        report = Report()
         instance: ReagentRole = ReagentRole.query(name=self.name)
         if instance is None:
             instance = ReagentRole(name=self.name, eol_ext=self.eol_ext)
         try:
-            assoc = KitTypeReagentRoleAssociation.query(reagent_role=instance, kit_type=kit)
+            assoc = KitTypeReagentRoleAssociation.query(reagentrole=instance, kittype=kit)
         except StatementError:
             assoc = None
         if assoc is None:
             assoc = KitTypeReagentRoleAssociation(kit_type=kit, reagent_role=instance, uses=self.uses,
                                                   required=self.required)
-        return instance
+        return instance, report
 
 
-class PydKit(BaseModel):
+class PydKitType(BaseModel):
     name: str
     reagent_roles: List[PydReagentRole] = []
 
+    @report_result
     def to_sql(self) -> Tuple[KitType, Report]:
         """
         Converts this instance into a backend.db.models.kits.KitType instance
@@ -1163,7 +1175,9 @@ class PydPCRControl(BaseModel):
     submission_id: int
     controltype_name: str
 
+    @report_result
     def to_sql(self):
+        report = Report
         instance = PCRControl.query(name=self.name)
         if not instance:
             instance = PCRControl()
@@ -1171,7 +1185,7 @@ class PydPCRControl(BaseModel):
             field_value = self.__getattribute__(key)
             if instance.__getattribute__(key) != field_value:
                 instance.__setattr__(key, field_value)
-        return instance
+        return instance, report
 
 
 class PydIridaControl(BaseModel, extra='ignore'):
@@ -1196,7 +1210,9 @@ class PydIridaControl(BaseModel, extra='ignore'):
             value = ""
         return value
 
+    @report_result
     def to_sql(self):
+        report = Report()
         instance = IridaControl.query(name=self.name)
         if not instance:
             instance = IridaControl()
@@ -1204,7 +1220,7 @@ class PydIridaControl(BaseModel, extra='ignore'):
             field_value = self.__getattribute__(key)
             if instance.__getattribute__(key) != field_value:
                 instance.__setattr__(key, field_value)
-        return instance
+        return instance, report
 
 
 class PydProcess(BaseModel, extra="allow"):
@@ -1222,16 +1238,62 @@ class PydProcess(BaseModel, extra="allow"):
             return [value]
         return value
 
+    @report_result
     def to_sql(self):
+        report = Report()
         instance = Process.query(name=self.name)
         if not instance:
             instance = Process()
-        dicto = instance.omnigui_dict
-        for key in self.model_fields:
-            # field_value = self.__getattribute__(key)
-            # if instance.__getattribute__(key) != field_value:
-            #     instance.__setattr__(key, field_value)
-            test = dicto[key]
-            print(f"Attribute: {test['class_attr'].property}")
+        # dicto = instance.omnigui_instance_dict
+        fields = [item for item in self.model_fields]
+        for field in fields:
+            logger.debug(f"Field: {field}")
+            try:
+                field_type = getattr(instance.__class__, field).property
+            except AttributeError:
+                logger.error(f"No attribute: {field} in {instance.__class__}")
+                continue
+            match field_type:
+                case _RelationshipDeclared():
+                    logger.debug(f"{field} is a relationship with {field_type.entity.class_}")
+                    query_str = getattr(self, field)
+                    if isinstance(query_str, list):
+                        query_str = query_str[0]
+                    if query_str in ["", " ", None]:
+                        continue
+                    logger.debug(f"Querying {field_type.entity.class_} with name {query_str}")
+                    field_value = field_type.entity.class_.query(name=query_str)
+                    logger.debug(f"{field} query result: {field_value}")
+                case ColumnProperty():
+                    logger.debug(f"{field} is a property.")
+                    field_value = getattr(self, field)
+            instance.set_attribute(key=field, value=field_value)
+        return instance, report
 
-        return instance
+
+class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
+    """Allows for creation of arbitrary pydantic models"""
+    instance: BaseClass
+
+    @report_result
+    def to_sql(self):
+        print(self.instance)
+        fields = [item for item in self.model_extra]
+        for field in fields:
+            try:
+                field_type = getattr(self.instance.__class__, field).property
+            except AttributeError:
+                logger.error(f"No attribute: {field} in {self.instance.__class__}")
+                continue
+            match field_type:
+                case _RelationshipDeclared():
+                    logger.debug(f"{field} is a relationship with {field_type.entity.class_}")
+                    field_value = field_type.entity.class_.argument.query(name=getattr(self, field))
+                    logger.debug(f"{field} query result: {field_value}")
+                case ColumnProperty():
+                    logger.debug(f"{field} is a property.")
+                    field_value = getattr(self, field)
+            self.instance.__setattr__(field, field_value)
+        return self.instance
+
+

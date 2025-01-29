@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.exc import ArgumentError
+from sqlalchemy.exc import ArgumentError, InvalidRequestError
 from typing import Any, List
 from pathlib import Path
 from tools import report_result, list_sort_dict
@@ -48,7 +48,7 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
     singles = ['id']
-    omni_removes = ['submissions']
+    omni_removes = ['submissions', "omnigui_class_dict", "omnigui_instance_dict"]
     omni_sort = ["name"]
 
     @classproperty
@@ -60,7 +60,7 @@ class BaseClass(Base):
 
     @classproperty
     def aliases(cls):
-        return [cls.__name__.lower()]
+        return [cls.query_alias]
 
     @classproperty
     def level(cls):
@@ -198,7 +198,7 @@ class BaseClass(Base):
         try:
             records = [obj.to_sub_dict(**kwargs) for obj in objects]
         except AttributeError:
-            records = [{k:v['instance_attr'] for k, v in obj.to_omnigui_dict(**kwargs).items()} for obj in objects]
+            records = [{k:v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod
@@ -233,7 +233,11 @@ class BaseClass(Base):
             logger.info(f"Using key: {k} with value: {v}")
             try:
                 attr = getattr(model, k)
-                query = query.filter(attr == v)
+                # NOTE: account for attrs that use list.
+                if attr.property.uselist:
+                    query = query.filter(attr.contains(v))
+                else:
+                    query = query.filter(attr == v)
             except (ArgumentError, AttributeError) as e:
                 logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
             if k in singles:
@@ -265,14 +269,13 @@ class BaseClass(Base):
             return report
 
     @property
-    def omnigui_dict(self) -> dict:
+    def omnigui_instance_dict(self) -> dict:
         """
         For getting any object in an omni-thing friendly output.
 
         Returns:
             dict: Dictionary of object minus _sa_instance_state with id at the front.
         """
-        # dicto = {k: v for k, v in self.__dict__.items() if k not in ["_sa_instance_state"]}
         dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
                  for key in dir(self.__class__) if
                  isinstance(getattr(self.__class__, key), InstrumentedAttribute) and key not in self.omni_removes
@@ -306,7 +309,7 @@ class BaseClass(Base):
             model = getattr(pydant, f"Pyd{cls.__name__}")
         except AttributeError:
             logger.warning(f"Couldn't get {cls.__name__} pydantic model.")
-            return None
+            return pydant.PydElastic
         return model
 
     @classproperty
@@ -323,6 +326,32 @@ class BaseClass(Base):
     def relevant_relationships(cls, relationship_instance):
         query_kwargs = {relationship_instance.query_alias:relationship_instance}
         return cls.query(**query_kwargs)
+
+    def __setattr__(self, key, value):
+        try:
+            field_type = getattr(self.__class__, key)
+        except AttributeError:
+            return super().__setattr__(key, value)
+        try:
+            check = field_type.property.uselist
+        except AttributeError:
+            check = False
+        if check:
+            logger.debug(f"Setting with uselist")
+            if self.__getattribute__(key) is not None:
+                if isinstance(value, list):
+                    value = self.__getattribute__(key) + value
+                else:
+                    value = self.__getattribute__(key) + [value]
+            else:
+                value = [value]
+        else:
+            if isinstance(value, list):
+                if len(value) == 1:
+                    value = value[0]
+                else:
+                    raise ValueError("Object is too long to parse a single value.")
+        return super().__setattr__(key, value)
 
 
 

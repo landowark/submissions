@@ -146,7 +146,7 @@ class Control(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
-              submission_type: str | None = None,
+              submissiontype: str | None = None,
               subtype: str | None = None,
               start_date: date | str | int | None = None,
               end_date: date | str | int | None = None,
@@ -169,13 +169,13 @@ class Control(BaseClass):
         """
         from backend.db import SubmissionType
         query: Query = cls.__database_session__.query(cls)
-        match submission_type:
+        match submissiontype:
             case str():
                 from backend import BasicSubmission, SubmissionType
-                query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submission_type)
+                query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submissiontype)
             case SubmissionType():
                 from backend import BasicSubmission
-                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name == submission_type.name)
+                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name == submissiontype.name)
             case _:
                 pass
                 # NOTE: by control type
@@ -347,7 +347,7 @@ class PCRControl(Control):
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
         report = Report()
-        controls = cls.query(submission_type=chart_settings['sub_type'], start_date=chart_settings['start_date'],
+        controls = cls.query(submissiontype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
         df = DataFrame.from_records(data)

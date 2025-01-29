@@ -6,6 +6,7 @@ import json, yaml, logging
 from pathlib import Path
 from pprint import pformat
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
 from tools import check_authorization, setup_lookup, yaml_regex_creator
@@ -37,6 +38,10 @@ class Organization(BaseClass):
     cost_centre = Column(String())  #: cost centre used by org for payment
     contacts = relationship("Contact", back_populates="organization",
                             secondary=orgs_contacts)  #: contacts involved with this org
+
+    @hybrid_property
+    def contact(self):
+        return self.contacts
 
     def __repr__(self) -> str:
         return f"<Organization({self.name})>"

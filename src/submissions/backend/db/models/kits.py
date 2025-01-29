@@ -96,7 +96,8 @@ class KitType(BaseClass):
     Base of kits used in submission processing
     """
 
-    query_alias = "kit_type"
+    # query_alias = "kit_type"
+    omni_sort = BaseClass.omni_sort + ["kit_submissiontype_associations", "kit_reagentrole_associations", "processes"]
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of kit
@@ -134,7 +135,12 @@ class KitType(BaseClass):
 
     @classproperty
     def aliases(cls):
-        return super().aliases + [cls.query_alias, "kit_types"]
+        return super().aliases + [cls.query_alias, "kit_types", "kit_type"]
+
+    @hybrid_property
+    def submissiontype(self):
+        """Alias used_for field to allow query with SubmissionType query alias"""
+        return self.used_for
 
     def get_reagents(self,
                      required: bool = False,
@@ -227,7 +233,8 @@ class KitType(BaseClass):
               name: str = None,
               used_for: str | SubmissionType | None = None,
               id: int | None = None,
-              limit: int = 0
+              limit: int = 0,
+              **kwargs
               ) -> KitType | List[KitType]:
         """
         Lookup a list of or single KitType.
@@ -264,7 +271,7 @@ class KitType(BaseClass):
                 limit = 1
             case _:
                 pass
-        return cls.execute_query(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @check_authorization
     def save(self):
@@ -407,10 +414,11 @@ class ReagentRole(BaseClass):
     @setup_lookup
     def query(cls,
               name: str | None = None,
-              kit_type: KitType | str | None = None,
+              kittype: KitType | str | None = None,
               reagent: Reagent | str | None = None,
               id: int | None = None,
               limit: int = 0,
+              **kwargs
               ) -> ReagentRole | List[ReagentRole]:
         """
         Lookup reagent types in the database.
@@ -429,14 +437,14 @@ class ReagentRole(BaseClass):
             ReagentRole|List[ReagentRole]: ReagentRole or list of ReagentRoles matching filter.
         """
         query: Query = cls.__database_session__.query(cls)
-        if (kit_type is not None and reagent is None) or (reagent is not None and kit_type is None):
+        if (kittype is not None and reagent is None) or (reagent is not None and kittype is None):
             raise ValueError("Cannot filter without both reagent and kit type.")
-        elif kit_type is None and reagent is None:
+        elif kittype is None and reagent is None:
             pass
         else:
-            match kit_type:
+            match kittype:
                 case str():
-                    kit_type = KitType.query(name=kit_type)
+                    kittype = KitType.query(name=kittype)
                 case _:
                     pass
             match reagent:
@@ -446,7 +454,7 @@ class ReagentRole(BaseClass):
                     pass
             assert reagent.role
             # NOTE: Get all roles common to the reagent and the kit.
-            result = set(kit_type.reagent_roles).intersection(reagent.role)
+            result = set(kittype.reagent_roles).intersection(reagent.role)
             return next((item for item in result), None)
         match name:
             case str():
@@ -491,8 +499,6 @@ class Reagent(BaseClass, LogMixin):
     Concrete reagent instance
     """
 
-
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     role = relationship("ReagentRole", back_populates="instances",
                         secondary=reagentroles_reagents)  #: joined parent reagent type
@@ -522,6 +528,11 @@ class Reagent(BaseClass, LogMixin):
     @classproperty
     def searchables(cls):
         return [dict(label="Lot", field="lot")]
+
+    @hybrid_property
+    def reagentrole(self):
+        """Alias role field to allow query with ReagentRole query alias"""
+        return self.role
 
     def to_sub_dict(self, extraction_kit: KitType = None, full_data: bool = False, **kwargs) -> dict:
         """
@@ -583,9 +594,9 @@ class Reagent(BaseClass, LogMixin):
             Report: Result of operation
         """
         report = Report()
-        rt = ReagentRole.query(kit_type=kit, reagent=self, limit=1)
+        rt = ReagentRole.query(kittype=kit, reagent=self, limit=1)
         if rt is not None:
-            assoc = KitTypeReagentRoleAssociation.query(kit_type=kit, reagent_role=rt)
+            assoc = KitTypeReagentRoleAssociation.query(kittype=kit, reagentrole=rt)
             if assoc is not None:
                 if assoc.last_used != self.lot:
                     assoc.last_used = self.lot
@@ -621,7 +632,8 @@ class Reagent(BaseClass, LogMixin):
               role: str | ReagentRole | None = None,
               lot: str | None = None,
               name: str | None = None,
-              limit: int = 0
+              limit: int = 0,
+              **kwargs
               ) -> Reagent | List[Reagent]:
         """
         Lookup a list of reagents from the database.
@@ -643,6 +655,8 @@ class Reagent(BaseClass, LogMixin):
                 limit = 1
             case _:
                 pass
+        # if not role and "reagentrole" in kwargs.keys():
+        #     role = kwargs['reagentrole']
         match role:
             case str():
                 query = query.join(cls.role).filter(ReagentRole.name == role)
@@ -663,7 +677,7 @@ class Reagent(BaseClass, LogMixin):
                 limit = 1
             case _:
                 pass
-        return cls.execute_query(query=query, limit=limit)
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
     def set_attribute(self, key, value):
         match key:
@@ -741,7 +755,7 @@ class Discount(BaseClass):
     @setup_lookup
     def query(cls,
               organization: Organization | str | int | None = None,
-              kit_type: KitType | str | int | None = None,
+              kittype: KitType | str | int | None = None,
               ) -> Discount | List[Discount]:
         """
         Lookup discount objects (union of kit and organization)
@@ -763,13 +777,13 @@ class Discount(BaseClass):
                 query = query.join(Organization).filter(Organization.id == organization)
             case _:
                 pass
-        match kit_type:
+        match kittype:
             case KitType():
-                query = query.filter(cls.kit == kit_type)
+                query = query.filter(cls.kit == kittype)
             case str():
-                query = query.join(KitType).filter(KitType.name == kit_type)
+                query = query.join(KitType).filter(KitType.name == kittype)
             case int():
-                query = query.join(KitType).filter(KitType.id == kit_type)
+                query = query.join(KitType).filter(KitType.id == kittype)
             case _:
                 pass
         return cls.execute_query(query=query)
@@ -832,6 +846,14 @@ class SubmissionType(BaseClass):
             str: Representation of this object.
         """
         return f"<SubmissionType({self.name})>"
+
+    @hybrid_property
+    def kittype(self):
+        return self.kit_types
+
+    @hybrid_property
+    def process(self):
+        return self.processes
 
     @classproperty
     def aliases(cls):
@@ -990,7 +1012,8 @@ class SubmissionType(BaseClass):
     def query(cls,
               name: str | None = None,
               key: str | None = None,
-              limit: int = 0
+              limit: int = 0,
+              **kwargs
               ) -> SubmissionType | List[SubmissionType]:
         """
         Lookup submission type in the database by a number of parameters
@@ -1124,7 +1147,23 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         Returns:
             str: Representation of this object
         """
-        return f"<SubmissionTypeKitTypeAssociation({self.submission_type.name}&{self.kit_type.name})>"
+        try:
+            submission_type_name = self.submission_type.name
+        except AttributeError:
+            submission_type_name = "None"
+        try:
+            kit_type_name = self.kit_type.name
+        except AttributeError:
+            kit_type_name = "None"
+        return f"<SubmissionTypeKitTypeAssociation({submission_type_name}&{kit_type_name})>"
+
+    @hybrid_property
+    def kittype(self):
+        return self.kit_type
+
+    @hybrid_property
+    def submissiontype(self):
+        return self.submission_type
 
     @property
     def name(self):
@@ -1133,8 +1172,8 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
-              submission_type: SubmissionType | str | int | None = None,
-              kit_type: KitType | str | int | None = None,
+              submissiontype: SubmissionType | str | int | None = None,
+              kittype: KitType | str | int | None = None,
               limit: int = 0,
               **kwargs
               ) -> SubmissionTypeKitTypeAssociation | List[SubmissionTypeKitTypeAssociation]:
@@ -1150,21 +1189,21 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
             SubmissionTypeKitTypeAssociation|List[SubmissionTypeKitTypeAssociation]: SubmissionTypeKitTypeAssociation(s) of interest
         """
         query: Query = cls.__database_session__.query(cls)
-        match submission_type:
+        match submissiontype:
             case SubmissionType():
-                query = query.filter(cls.submission_type == submission_type)
+                query = query.filter(cls.submission_type == submissiontype)
             case str():
-                query = query.join(SubmissionType).filter(SubmissionType.name == submission_type)
+                query = query.join(SubmissionType).filter(SubmissionType.name == submissiontype)
             case int():
-                query = query.join(SubmissionType).filter(SubmissionType.id == submission_type)
-        match kit_type:
+                query = query.join(SubmissionType).filter(SubmissionType.id == submissiontype)
+        match kittype:
             case KitType():
-                query = query.filter(cls.kit_type == kit_type)
+                query = query.filter(cls.kit_type == kittype)
             case str():
-                query = query.join(KitType).filter(KitType.name == kit_type)
+                query = query.join(KitType).filter(KitType.name == kittype)
             case int():
-                query = query.join(KitType).filter(KitType.id == kit_type)
-        if kit_type is not None and submission_type is not None:
+                query = query.join(KitType).filter(KitType.id == kittype)
+        if kittype is not None and submissiontype is not None:
             limit = 1
         # limit = query.count()
         return cls.execute_query(query=query, limit=limit)
@@ -1221,7 +1260,10 @@ class KitTypeReagentRoleAssociation(BaseClass):
 
     @property
     def name(self):
-        return f"{self.kit_type.name} -> {self.reagent_role.name}"
+        try:
+            return f"{self.kit_type.name} -> {self.reagent_role.name}"
+        except AttributeError:
+            return "Blank KitTypeReagentRole"
 
     @validates('required')
     def validate_required(self, key, value):
@@ -1238,6 +1280,8 @@ class KitTypeReagentRoleAssociation(BaseClass):
         Returns:
             _type_: value
         """
+        if isinstance(value, bool):
+            value = int(value)
         if not 0 <= value < 2:
             raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
         return value
@@ -1264,8 +1308,8 @@ class KitTypeReagentRoleAssociation(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
-              kit_type: KitType | str | None = None,
-              reagent_role: ReagentRole | str | None = None,
+              kittype: KitType | str | None = None,
+              reagentrole: ReagentRole | str | None = None,
               limit: int = 0,
               **kwargs
               ) -> KitTypeReagentRoleAssociation | List[KitTypeReagentRoleAssociation]:
@@ -1281,21 +1325,21 @@ class KitTypeReagentRoleAssociation(BaseClass):
             models.KitTypeReagentTypeAssociation|List[models.KitTypeReagentTypeAssociation]: Junction of interest.
         """
         query: Query = cls.__database_session__.query(cls)
-        match kit_type:
+        match kittype:
             case KitType():
-                query = query.filter(cls.kit_type == kit_type)
+                query = query.filter(cls.kit_type == kittype)
             case str():
-                query = query.join(KitType).filter(KitType.name == kit_type)
+                query = query.join(KitType).filter(KitType.name == kittype)
             case _:
                 pass
-        match reagent_role:
+        match reagentrole:
             case ReagentRole():
-                query = query.filter(cls.reagent_role == reagent_role)
+                query = query.filter(cls.reagent_role == reagentrole)
             case str():
-                query = query.join(ReagentRole).filter(ReagentRole.name == reagent_role)
+                query = query.join(ReagentRole).filter(ReagentRole.name == reagentrole)
             case _:
                 pass
-        if kit_type is not None and reagent_role is not None:
+        if kittype is not None and reagentrole is not None:
             limit = 1
         return cls.execute_query(query=query, limit=limit)
 
@@ -1329,8 +1373,8 @@ class KitTypeReagentRoleAssociation(BaseClass):
             yield rel_reagent
 
     @property
-    def omnigui_dict(self) -> dict:
-        dicto = super().omnigui_dict
+    def omnigui_instance_dict(self) -> dict:
+        dicto = super().omnigui_instance_dict
         dicto['required']['instance_attr'] = bool(dicto['required']['instance_attr'])
         return dicto
 
@@ -1801,6 +1845,14 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
     equipment_role = relationship(EquipmentRole,
                                   back_populates="equipmentrole_submissiontype_associations")  #: associated equipment
 
+    @hybrid_property
+    def submissiontype(self):
+        return self.submission_type
+
+    @hybrid_property
+    def equipmentrole(self):
+        return self.equipment_role
+
     @validates('static')
     def validate_static(self, key, value):
         """
@@ -1847,6 +1899,8 @@ class Process(BaseClass):
     A Process is a method used by a piece of equipment.
     """
 
+    level = 2
+
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     name = Column(String(64), unique=True)  #: Process name
     submission_types = relationship("SubmissionType", back_populates='processes',
@@ -1869,14 +1923,24 @@ class Process(BaseClass):
         """
         return f"<Process({self.name})>"
 
+    def set_attribute(self, key, value):
+        match key:
+            case "name":
+                self.name = value
+            case _:
+                field = getattr(self, key)
+                if value not in field:
+                    field.append(value)
+
+
     @classmethod
     @setup_lookup
     def query(cls,
               name: str | None = None,
               id: int | None = None,
-              submission_type: str | SubmissionType | None = None,
-              extraction_kit: str | KitType | None = None,
-              equipment_role: str | KitType | None = None,
+              submissiontype: str | SubmissionType | None = None,
+              kittype: str | KitType | None = None,
+              equipmentrole: str | KitType | None = None,
               limit: int = 0,
               **kwargs) -> Process | List[Process]:
         """
@@ -1891,28 +1955,28 @@ class Process(BaseClass):
             Process|List[Process]: Process(es) matching criteria
         """
         query = cls.__database_session__.query(cls)
-        match submission_type:
+        match submissiontype:
             case str():
-                submission_type = SubmissionType.query(name=submission_type)
-                query = query.filter(cls.submission_types.contains(submission_type))
+                submissiontype = SubmissionType.query(name=submissiontype)
+                query = query.filter(cls.submission_types.contains(submissiontype))
             case SubmissionType():
-                query = query.filter(cls.submission_types.contains(submission_type))
+                query = query.filter(cls.submission_types.contains(submissiontype))
             case _:
                 pass
-        match extraction_kit:
+        match kittype:
             case str():
-                extraction_kit = KitType.query(name=extraction_kit)
-                query = query.filter(cls.kit_types.contains(extraction_kit))
+                kittype = KitType.query(name=kittype)
+                query = query.filter(cls.kit_types.contains(kittype))
             case KitType():
-                query = query.filter(cls.kit_types.contains(extraction_kit))
+                query = query.filter(cls.kit_types.contains(kittype))
             case _:
                 pass
-        match equipment_role:
+        match equipmentrole:
             case str():
-                equipment_role = EquipmentRole.query(name=equipment_role)
-                query = query.filter(cls.equipment_roles.contains(equipment_role))
+                equipmentrole = EquipmentRole.query(name=equipmentrole)
+                query = query.filter(cls.equipment_roles.contains(equipmentrole))
             case EquipmentRole():
-                query = query.filter(cls.equipment_roles.contains(equipment_role))
+                query = query.filter(cls.equipment_roles.contains(equipmentrole))
             case _:
                 pass
         match name:
@@ -1983,6 +2047,10 @@ class Tips(BaseClass, LogMixin):
 
     submissions = association_proxy("tips_submission_associations", 'submission')
 
+    @hybrid_property
+    def tiprole(self):
+        return self.role
+
     def __repr__(self):
         return f"<Tips({self.name})>"
 
@@ -2032,6 +2100,14 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
                                    back_populates="submissiontype_tiprole_associations")  #: associated submission
     tip_role = relationship(TipRole,
                             back_populates="tiprole_submissiontype_associations")  #: associated equipment
+
+    @hybrid_property
+    def submissiontype(self):
+        return self.submission_type
+
+    @hybrid_property
+    def tiprole(self):
+        return self.tip_role
 
     @check_authorization
     def save(self):

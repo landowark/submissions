@@ -1,6 +1,8 @@
 """
 Provides a screen for managing all attributes of a database object.
 """
+from copy import deepcopy
+from pprint import pformat
 from typing import Any, List
 from PyQt6.QtCore import QSortFilterProxyModel, Qt
 from PyQt6.QtGui import QAction, QCursor
@@ -17,6 +19,8 @@ from sqlalchemy.orm.relationships import _RelationshipDeclared
 from pandas import DataFrame
 from backend import db
 import logging
+
+from tools import check_object_in_managers
 from .omni_add_edit import AddEdit
 from .omni_search import SearchBox
 from frontend.widgets.submission_table import pandasModel
@@ -33,6 +37,7 @@ class ManagerWindow(QDialog):
         super().__init__(parent)
         self.object_type = self.original_type = object_type
         self.instance = None
+        # self.managers = deepcopy(managers)
         self.managers = managers
         try:
             self.managers.add(self.parent().instance)
@@ -68,28 +73,35 @@ class ManagerWindow(QDialog):
         """
         Changes form inputs based on sample type
         """
+        # logger.debug(f"Instance: {self.instance}")
         if self.sub_class:
             self.object_type = getattr(db, self.sub_class.currentText())
-        logger.debug(f"From update options, managers: {self.managers}")
+        # logger.debug(f"From update options, managers: {self.managers}")
         try:
             query_kwargs = {self.parent().instance.query_alias: self.parent().instance}
         except AttributeError as e:
-            logger.debug(f"Couldn't set query kwargs due to: {e}")
+            # logger.debug(f"Couldn't set query kwargs due to: {e}")
             query_kwargs = {}
-        logger.debug(f"Query kwargs: {query_kwargs}")
+        # logger.debug(f"Query kwargs: {query_kwargs}")
         options = [item.name for item in self.object_type.query(**query_kwargs)]
-        logger.debug(f"self.object_type: {self.object_type}")
+        # logger.debug(f"self.object_type: {self.object_type}")
         if self.instance:
-            options.insert(0, options.pop(options.index(self.instance.name)))
+            try:
+                inserter = options.pop(options.index(self.instance.name))
+            except ValueError:
+                inserter = self.instance.name
+            options.insert(0, inserter)
         self.options.clear()
         self.options.addItems(options)
         self.options.setEditable(False)
         self.options.setMinimumWidth(self.minimumWidth())
         self.layout.addWidget(self.options, 1, 0, 1, 1)
-        self.add_button = QPushButton("Add New")
-        self.layout.addWidget(self.add_button, 1, 1, 1, 1)
+        if len(options) > 0:
+            self.add_button = QPushButton("Add New")
+            self.layout.addWidget(self.add_button, 1, 1, 1, 1)
+            self.add_button.clicked.connect(self.add_new)
         self.options.currentTextChanged.connect(self.update_data)
-        self.add_button.clicked.connect(self.add_new)
+        # logger.debug(f"Instance: {self.instance}")
         self.update_data()
 
     def update_data(self) -> None:
@@ -105,26 +117,34 @@ class ManagerWindow(QDialog):
                   [item for item in self.findChildren(QDialogButtonBox)]
         for item in deletes:
             item.setParent(None)
+        # logger.debug(f"Current options text lower: {self.options.currentText().lower()}")
         # NOTE: Find the instance this manager will update
-        logger.debug(f"Querying with {self.options.currentText()}")
-        self.instance = self.object_type.query(name=self.options.currentText(), limit=1)
-        logger.debug(f"Instance: {self.instance}")
-        fields = {k: v for k, v in self.instance.omnigui_dict.items() if
-                  isinstance(v['class_attr'], InstrumentedAttribute) and k != "id"}
-        # logger.debug(f"Instance fields: {fields}")
+        if "blank" not in self.options.currentText().lower() and self.options.currentText() != "":
+            # logger.debug(f"Querying with {self.options.currentText()}")
+            self.instance = self.object_type.query(name=self.options.currentText(), limit=1)
+        # logger.debug(f"Instance: {self.instance}")
+        if not self.instance:
+            self.instance = self.object_type()
+            # logger.debug(f"self.instance: {self.instance}")
+        fields = {k: v for k, v in self.instance.omnigui_instance_dict.items() if
+                      isinstance(v['class_attr'], InstrumentedAttribute) and k != "id"}
         for key, field in fields.items():
+            try:
+                value = getattr(self.instance, key)
+            except AttributeError:
+                value = None
             match field['class_attr'].property:
                 # NOTE: ColumnProperties will be directly edited.
                 case ColumnProperty():
                     # NOTE: field.property.expression.type gives db column type eg. STRING or TIMESTAMP
                     widget = EditProperty(self, key=key, column_type=field,
-                                          value=getattr(self.instance, key))
+                                          value=value)
                 # NOTE: RelationshipDeclareds will be given a list of existing related objects.
                 case _RelationshipDeclared():
                     if key != "submissions":
                         # NOTE: field.comparator.entity.class_ gives the relationship class
                         widget = EditRelationship(self, key=key, entity=field['class_attr'].comparator.entity.class_,
-                                                  value=getattr(self.instance, key))
+                                                  value=value)
                     else:
                         continue
                 case _:
@@ -144,18 +164,28 @@ class ManagerWindow(QDialog):
         # TODO: Need Relationship property here too?
         results = [item.parse_form() for item in self.findChildren(EditProperty)]
         for result in results:
-            # logger.debug(result)
-            self.instance.__setattr__(result[0], result[1])
+            logger.debug(f"Incoming result: {result}")
+            setattr(self.instance, result['field'], result['value'])
+            logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
+        results = [item.parse_form() for item in self.findChildren(EditRelationship)]
+        for result in results:
+            logger.debug(f"Incoming result: {result}")
+            setattr(self.instance, result['field'], result['value'])
+            logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
         return self.instance
 
     def add_new(self):
-        dlg = AddEdit(parent=self, instance=self.object_type(), managers=self.managers)
-        if dlg.exec():
-            new_pyd = dlg.parse_form()
-            new_instance = new_pyd.to_sql()
-            new_instance.save()
-            self.instance = new_instance
-            self.update_options()
+        # dlg = AddEdit(parent=self, instance=self.object_type(), managers=self.managers)
+        # if dlg.exec():
+        #     new_pyd = dlg.parse_form()
+        #     new_instance = new_pyd.to_sql()
+        #     # new_instance.save()
+        #     logger.debug(f"New instance: {new_instance}")
+        #     self.instance = new_instance
+        #     self.update_options()
+        new_instance = self.object_type()
+        self.instance = new_instance
+        self.update_options()
 
 
 class EditProperty(QWidget):
@@ -165,7 +195,8 @@ class EditProperty(QWidget):
         self.label = QLabel(key.title().replace("_", " "))
         self.layout = QGridLayout()
         self.layout.addWidget(self.label, 0, 0, 1, 1)
-        logger.debug(f"Column type: {column_type}")
+        self.setObjectName(key)
+        # logger.debug(f"Column type: {column_type}")
         match column_type['class_attr'].property.expression.type:
             case String():
                 self.widget = QLineEdit(self)
@@ -203,35 +234,51 @@ class EditProperty(QWidget):
                 value = self.widget.text()
             case QDateEdit():
                 value = self.widget.date()
+            case QSpinBox() | QDoubleSpinBox():
+                value = self.widget.value()
+            case QCheckBox():
+                value = self.widget.isChecked()
             case _:
                 value = None
-        return self.objectName(), value
+        return dict(field=self.objectName(), value=value)
 
 
 class EditRelationship(QWidget):
 
     def __init__(self, parent, key: str, entity: Any, value):
         super().__init__(parent)
-        self.entity = entity #: The class of interest
-        self.data = value
+        self.entity = entity  #: The class of interest
+        self.setParent(parent)
+        # logger.debug(f"Edit relationship entity: {self.entity}")
         self.label = QLabel(key.title().replace("_", " "))
-        self.setObjectName(key)
-        self.table = QTableView()
+        self.setObjectName(key) #: key is the name of the relationship this represents
+        self.relationship = getattr(self.parent().instance.__class__, key)
+        # logger.debug(f"self.relationship: {self.relationship}")
+        # logger.debug(f"Relationship uses list: {self.relationship.property.uselist}")
+        self.data = value
+        # logger.debug(f"Data for edit relationship: {self.data}")
+        self.widget = QTableView()
+        self.set_data()
         self.add_button = QPushButton("Add New")
         self.add_button.clicked.connect(self.add_new)
         self.existing_button = QPushButton("Add Existing")
         self.existing_button.clicked.connect(self.add_existing)
-        self.existing_button.setEnabled(self.entity.level == 1)
+        # self.existing_button.setEnabled(self.entity.level == 1)
+        if not self.relationship.property.uselist and len(self.data) >= 1:
+            self.add_button.setEnabled(False)
+            self.existing_button.setEnabled(False)
+        logger.debug(f"Checked manager for check: {check_object_in_managers(self.parent().managers, self.objectName())}")
+        if check_object_in_managers(self.parent().managers, self.objectName()):
+            self.widget.setEnabled(False)
+            self.add_button.setEnabled(False)
+            self.existing_button.setEnabled(False)
         self.layout = QGridLayout()
         self.layout.addWidget(self.label, 0, 0, 1, 5)
-        self.layout.addWidget(self.table, 1, 0, 1, 8)
+        self.layout.addWidget(self.widget, 1, 0, 1, 8)
         self.layout.addWidget(self.add_button, 0, 6, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.layout.addWidget(self.existing_button, 0, 7, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.setLayout(self.layout)
-        self.set_data()
-        self.table.resizeColumnsToContents()
-        self.table.resizeRowsToContents()
-        self.table.setSortingEnabled(True)
+        # self.set_data()
 
     def parse_row(self, x):
         context = {item: x.sibling(x.row(), self.data.columns.get_loc(item)).data() for item in self.data.columns}
@@ -239,34 +286,42 @@ class EditRelationship(QWidget):
             object = self.entity.query(**context)
         except KeyError:
             object = None
-        self.table.doubleClicked.disconnect()
+        self.widget.doubleClicked.disconnect()
         self.add_edit(instance=object)
 
     def add_new(self, instance: Any = None):
         # NOTE: if an existing instance is not being edited, create a new instance
         if not instance:
             instance = self.entity()
-        # if self.parent().object_type.level == 2:
         managers = self.parent().managers
-        # else:
-        #     managers = self.parent().managers + [self.parent().instance]
-        match instance.level:
-            case 1:
-                dlg = AddEdit(self.parent(), instance=instance, managers=managers)
-            case 2:
-                dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], managers=managers)
-            case _:
-                return
+        logger.debug(f"Managers going into add new: {managers}")
+        # match instance.level:
+        #     case 1:
+        #         dlg = AddEdit(self.parent(), instance=instance, managers=managers)
+        #     case 2:
+        #         dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], managers=managers)
+        #     case _:
+        #         return
+        dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], managers=managers)
         if dlg.exec():
             new_instance = dlg.parse_form()
-            new_instance = new_instance.to_sql()
-            logger.debug(f"New instance: {new_instance}")
-            addition = getattr(self.parent().instance, self.objectName())
-            logger.debug(f"Addition: {addition}")
+            logger.debug(f"New instance before transformation attempt: {new_instance}")
+            try:
+                new_instance = new_instance.to_sql()
+            except AttributeError as e:
+                logger.error(f"Couldn't convert {new_instance} to sql due to {e}")
+            logger.debug(f"New instance after transformation attempt: {new_instance.__dict__}")
+            # addition = getattr(self.parent().instance, self.objectName())
+            # logger.debug(f"Addition: {addition}")
+            # if self.relationship.property.uselist:
+            #     addition.append(instance)
+            # else:
+            #     addition = instance
+            # setattr(self.parent().instance, self.objectName(), new_instance)
+            logger.debug(f"Parent instance after insert: {getattr(self.parent().instance, self.objectName())}")
             # NOTE: Saving currently disabled
-            # if isinstance(addition, InstrumentedList):
-            #     addition.append(new_instance)
             # self.parent().instance.save()
+            return new_instance
         self.parent().update_data()
 
     def add_existing(self):
@@ -274,16 +329,24 @@ class EditRelationship(QWidget):
         if dlg.exec():
             rows = dlg.return_selected_rows()
             for row in rows:
-                logger.debug(f"Querying with {row}")
+                # logger.debug(f"Querying with {row}")
                 instance = self.entity.query(**row)
-                logger.debug(f"Queried instance: {instance}")
-                addition = getattr(self.parent().instance, self.objectName())
-                logger.debug(f"Addition: {addition}")
+                # logger.debug(f"Queried instance: {instance}")
+                # logger.debug(f"Checking field type: {self.objectName()}")
+                # addition = getattr(self.parent().instance, self.objectName())
+                # logger.debug(f"Instance object: {addition}")
                 # NOTE: Saving currently disabled
-                # if isinstance(addition, InstrumentedList):
+                # if self.relationship.property.uselist:
                 #     addition.append(instance)
+                # else:
+                #     addition = instance
+                setattr(self.parent().instance, self.objectName(), instance)
                 # self.parent().instance.save()
-            self.parent().update_data()
+            # self.parent().update_data()
+            #     yield instance
+
+    def set_choices(self) -> None:
+        pass
 
     def set_data(self) -> None:
         """
@@ -291,26 +354,38 @@ class EditRelationship(QWidget):
         """
         # logger.debug(self.data)
         if not isinstance(self.data, list):
-            self.data = [self.data]
-        records = [{k: v['instance_attr'] for k, v in item.omnigui_dict.items()} for item in self.data]
-        # logger.debug(f"Records: {records}")
-        self.data = DataFrame.from_records(records)
+            if self.data is not None:
+                self.data = [self.data]
+            else:
+                self.data = []
+        checked_manager = check_object_in_managers(self.parent().managers, self.objectName())
+        logger.debug(f"Returned checked_manager: {checked_manager}")
+        if checked_manager is not None:
+            if not self.data:
+                self.data = [checked_manager]
+        # logger.debug(f"Data: {self.data}")
         try:
-            self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for item in self.extras]
+            records = [{k: v['instance_attr'] for k, v in item.omnigui_instance_dict.items()} for item in self.data]
+        except AttributeError:
+            records = []
+        # logger.debug(f"Records: {records}")
+        self.df = DataFrame.from_records(records)
+        try:
+            self.columns_of_interest = [dict(name=item, column=self.df.columns.get_loc(item)) for item in self.extras]
         except (KeyError, AttributeError):
             self.columns_of_interest = []
         try:
-            self.data['id'] = self.data['id'].apply(str)
-            self.data['id'] = self.data['id'].str.zfill(4)
+            self.df['id'] = self.df['id'].apply(str)
+            self.df['id'] = self.df['id'].str.zfill(4)
         except KeyError as e:
             logger.error(f"Could not alter id to string due to KeyError: {e}")
         proxy_model = QSortFilterProxyModel()
-        proxy_model.setSourceModel(pandasModel(self.data))
-        self.table.setModel(proxy_model)
-        self.table.resizeColumnsToContents()
-        self.table.resizeRowsToContents()
-        self.table.setSortingEnabled(True)
-        self.table.doubleClicked.connect(self.parse_row)
+        proxy_model.setSourceModel(pandasModel(self.df))
+        self.widget.setModel(proxy_model)
+        self.widget.resizeColumnsToContents()
+        self.widget.resizeRowsToContents()
+        self.widget.setSortingEnabled(True)
+        self.widget.doubleClicked.connect(self.parse_row)
 
     def contextMenuEvent(self, event):
         """
@@ -319,16 +394,23 @@ class EditRelationship(QWidget):
         Args:
             event (_type_): the item of interest
         """
-        id = self.table.selectionModel().currentIndex()
+        print(self.widget.isEnabled())
+        if not self.widget.isEnabled():
+            logger.warning(f"{self.objectName()} is disabled.")
+            return
+        id = self.widget.selectionModel().currentIndex()
         # NOTE: the overly complicated {column_name: row_value} dictionary construction
-        row_data = {self.data.columns[column]: self.table.model().index(id.row(), column).data() for column in
-                    range(self.table.model().columnCount())}
+        row_data = {self.df.columns[column]: self.widget.model().index(id.row(), column).data() for column in
+                    range(self.widget.model().columnCount())}
         object = self.entity.query(**row_data)
         if isinstance(object, list):
             object = object[0]
-        logger.debug(object)
+        # logger.debug(object)
         self.menu = QMenu(self)
-        action = QAction(f"Remove {object.name}", self)
+        try:
+            action = QAction(f"Remove {object.name}", self)
+        except AttributeError:
+            action = QAction(f"Remove object", self)
         action.triggered.connect(lambda: self.remove_item(object=object))
         self.menu.addAction(action)
         self.menu.popup(QCursor.pos())
@@ -338,3 +420,6 @@ class EditRelationship(QWidget):
         editor.remove(object)
         self.parent().instance.save()
         self.parent().update_data()
+
+    def parse_form(self):
+        return dict(field=self.objectName(), value=self.data)
