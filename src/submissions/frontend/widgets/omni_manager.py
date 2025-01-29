@@ -43,7 +43,7 @@ class ManagerWindow(QDialog):
             self.managers.add(self.parent().instance)
         except AttributeError:
             pass
-        logger.debug(f"Managers: {managers}")
+        # logger.debug(f"Managers: {managers}")
         self.extras = extras
         self.context = kwargs
         self.layout = QGridLayout(self)
@@ -154,6 +154,11 @@ class ManagerWindow(QDialog):
         # NOTE: Add OK|Cancel to bottom of dialog.
         self.layout.addWidget(self.buttonBox, self.layout.rowCount(), 0, 1, 2)
 
+
+    def add_new_relation(self, field: str):
+        pass
+
+
     def parse_form(self) -> Any:
         """
         Returns the instance associated with this window.
@@ -164,14 +169,16 @@ class ManagerWindow(QDialog):
         # TODO: Need Relationship property here too?
         results = [item.parse_form() for item in self.findChildren(EditProperty)]
         for result in results:
-            logger.debug(f"Incoming result: {result}")
+            # logger.debug(f"Incoming result: {result}")
             setattr(self.instance, result['field'], result['value'])
-            logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
+            # logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
         results = [item.parse_form() for item in self.findChildren(EditRelationship)]
         for result in results:
             logger.debug(f"Incoming result: {result}")
-            setattr(self.instance, result['field'], result['value'])
+            if not getattr(self.instance, result['field']):
+                setattr(self.instance, result['field'], result['value'])
             logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
+        logger.debug(f"Instance coming from parsed form: {self.instance.__dict__}")
         return self.instance
 
     def add_new(self):
@@ -267,8 +274,9 @@ class EditRelationship(QWidget):
         if not self.relationship.property.uselist and len(self.data) >= 1:
             self.add_button.setEnabled(False)
             self.existing_button.setEnabled(False)
-        logger.debug(f"Checked manager for check: {check_object_in_managers(self.parent().managers, self.objectName())}")
-        if check_object_in_managers(self.parent().managers, self.objectName()):
+        checked_manager = check_object_in_managers(self.parent().managers, self.objectName())
+        logger.debug(f"Checked manager for check: {checked_manager}")
+        if checked_manager:
             self.widget.setEnabled(False)
             self.add_button.setEnabled(False)
             self.existing_button.setEnabled(False)
@@ -294,34 +302,21 @@ class EditRelationship(QWidget):
         if not instance:
             instance = self.entity()
         managers = self.parent().managers
-        logger.debug(f"Managers going into add new: {managers}")
-        # match instance.level:
-        #     case 1:
-        #         dlg = AddEdit(self.parent(), instance=instance, managers=managers)
-        #     case 2:
-        #         dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], managers=managers)
-        #     case _:
-        #         return
+        # logger.debug(f"Managers going into add new: {managers}")
         dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], managers=managers)
         if dlg.exec():
             new_instance = dlg.parse_form()
-            logger.debug(f"New instance before transformation attempt: {new_instance}")
-            try:
-                new_instance = new_instance.to_sql()
-            except AttributeError as e:
-                logger.error(f"Couldn't convert {new_instance} to sql due to {e}")
-            logger.debug(f"New instance after transformation attempt: {new_instance.__dict__}")
-            # addition = getattr(self.parent().instance, self.objectName())
-            # logger.debug(f"Addition: {addition}")
-            # if self.relationship.property.uselist:
-            #     addition.append(instance)
-            # else:
-            #     addition = instance
+            # logger.debug(f"New instance before transformation attempt: {new_instance}")
+            # try:
+            #     new_instance = new_instance.to_sql()
+            # except AttributeError as e:
+            #     logger.error(f"Couldn't convert {new_instance} to sql due to {e}")
+            # # logger.debug(f"New instance after transformation attempt: {new_instance.__dict__}")
             # setattr(self.parent().instance, self.objectName(), new_instance)
-            logger.debug(f"Parent instance after insert: {getattr(self.parent().instance, self.objectName())}")
-            # NOTE: Saving currently disabled
+            # # logger.debug(f"Parent instance after insert: {getattr(self.parent().instance, self.objectName())}")
+            # # NOTE: Saving currently disabled
             # self.parent().instance.save()
-            return new_instance
+            # return new_instance
         self.parent().update_data()
 
     def add_existing(self):
@@ -342,7 +337,7 @@ class EditRelationship(QWidget):
                 #     addition = instance
                 setattr(self.parent().instance, self.objectName(), instance)
                 # self.parent().instance.save()
-            # self.parent().update_data()
+            self.parent().update_data()
             #     yield instance
 
     def set_choices(self) -> None:
@@ -359,10 +354,11 @@ class EditRelationship(QWidget):
             else:
                 self.data = []
         checked_manager = check_object_in_managers(self.parent().managers, self.objectName())
-        logger.debug(f"Returned checked_manager: {checked_manager}")
+        # logger.debug(f"Returned checked_manager: {checked_manager}")
         if checked_manager is not None:
             if not self.data:
                 self.data = [checked_manager]
+                # setattr(self.parent().instance, self.objectName(), checked_manager)
         # logger.debug(f"Data: {self.data}")
         try:
             records = [{k: v['instance_attr'] for k, v in item.omnigui_instance_dict.items()} for item in self.data]
