@@ -148,6 +148,7 @@ def check_key_or_attr(key: str, interest: dict | object, check_none: bool = Fals
             return False
 
 
+
 def check_not_nan(cell_contents) -> bool:
     """
     Check to ensure excel sheet cell contents are not blank.
@@ -816,22 +817,22 @@ def setup_lookup(func):
     return wrapper
 
 
-def check_object_in_managers(managers: list, object_name: object):
+def check_object_in_managers(managers: list, object_name: object) -> Tuple[Any, bool]:
     for manager in managers:
-        logger.debug(f"Manager: {manager}, Key: {object_name}")
+        logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
         if object_name in manager.aliases:
-            return manager
+            return manager, True
         relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
                          if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
         relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
         for relationship in relationships:
-            if relationship.key == object_name:
+            if relationship.key == object_name and "association" not in relationship.key:
                 logger.debug(f"Checking {relationship.key}")
                 try:
                     rel_obj = getattr(manager, relationship.key)
                     if rel_obj is not None:
                         logger.debug(f"Returning {rel_obj}")
-                        return rel_obj
+                        return rel_obj, False
                 except AttributeError:
                     pass
             if "association" in relationship.key:
@@ -841,10 +842,10 @@ def check_object_in_managers(managers: list, object_name: object):
                                     if getattr(item, object_name) is not None), None)
                     if rel_obj is not None:
                         logger.debug(f"Returning {rel_obj}")
-                        return rel_obj
+                        return rel_obj, False
                 except AttributeError:
                     pass
-    return None
+    return None, None
 
 
 def get_application_from_parent(widget):
@@ -1162,6 +1163,7 @@ def is_list_etc(object):
             except TypeError:
                 check = False
             return check
+
 
 def create_holidays_for_year(year: int | None = None) -> List[date]:
     def find_nth_monday(year, month, occurence: int | None = None, day: int | None = None):

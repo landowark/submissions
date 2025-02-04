@@ -175,6 +175,7 @@ class SubmissionDetails(QDialog):
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
+        # logger.debug(f"Base dictionary of submission {self.rsl_plate_num}: {pformat(self.base_dict)}")
         self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
 

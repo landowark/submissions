@@ -10,7 +10,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import date, datetime, timedelta
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone
-from typing import List, Literal, Generator, Any, Tuple
+from typing import List, Literal, Generator, Any, Tuple, Dict, AnyStr
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization, LogMixin
@@ -861,7 +861,7 @@ class SubmissionType(BaseClass):
 
     @classproperty
     def omni_removes(cls):
-        return super().omni_removes + ["template_file", "defaults", "instances"]
+        return super().omni_removes + ["defaults", "instances"]
 
     @classproperty
     def basic_template(cls) -> bytes:
@@ -1167,7 +1167,10 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
 
     @property
     def name(self):
-        return f"{self.submission_type.name} -> {self.kit_type.name}"
+        try:
+            return f"{self.submission_type.name} -> {self.kit_type.name}"
+        except AttributeError:
+            return "Blank SubmissionTypeKitTypeAssociation"
 
     @classmethod
     @setup_lookup
@@ -1376,6 +1379,16 @@ class KitTypeReagentRoleAssociation(BaseClass):
     def omnigui_instance_dict(self) -> dict:
         dicto = super().omnigui_instance_dict
         dicto['required']['instance_attr'] = bool(dicto['required']['instance_attr'])
+        return dicto
+
+    @classproperty
+    def json_edit_fields(cls) -> dict:
+        dicto = dict(
+                    sheet="str",
+                    expiry=dict(column="int", row="int"),
+                    lot=dict(column="int", row="int"),
+                    name=dict(column="int", row="int")
+            )
         return dicto
 
 
@@ -1931,7 +1944,6 @@ class Process(BaseClass):
                 field = getattr(self, key)
                 if value not in field:
                     field.append(value)
-
 
     @classmethod
     @setup_lookup

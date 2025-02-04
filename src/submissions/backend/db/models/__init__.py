@@ -6,11 +6,14 @@ import sys, logging
 from pandas import DataFrame
 from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError, InvalidRequestError
 from typing import Any, List
 from pathlib import Path
+
+from sqlalchemy.orm.relationships import _RelationshipDeclared
+
 from tools import report_result, list_sort_dict
 
 # NOTE: Load testing environment
@@ -48,7 +51,7 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
     singles = ['id']
-    omni_removes = ['submissions', "omnigui_class_dict", "omnigui_instance_dict"]
+    omni_removes = ["id", 'submissions', "omnigui_class_dict", "omnigui_instance_dict"]
     omni_sort = ["name"]
 
     @classproperty
@@ -198,7 +201,7 @@ class BaseClass(Base):
         try:
             records = [obj.to_sub_dict(**kwargs) for obj in objects]
         except AttributeError:
-            records = [{k:v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
+            records = [{k: v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod
@@ -324,36 +327,76 @@ class BaseClass(Base):
 
     @classmethod
     def relevant_relationships(cls, relationship_instance):
-        query_kwargs = {relationship_instance.query_alias:relationship_instance}
+        query_kwargs = {relationship_instance.query_alias: relationship_instance}
         return cls.query(**query_kwargs)
 
+    def check_all_attributes(self, attributes: dict):
+        logger.debug(f"Incoming attributes: {attributes}")
+        for key, value in attributes.items():
+            # print(getattr(self.__class__, key).property)
+            if value.lower() == "none":
+                value = None
+            self_value = getattr(self, key)
+            class_attr = getattr(self.__class__, key)
+            match class_attr.property:
+                case ColumnProperty():
+                    match class_attr.type:
+                        case INTEGER():
+                            if value.lower() == "true":
+                                value = 1
+                            elif value.lower() == "false":
+                                value = 0
+                            else:
+                                value = int(value)
+                        case FLOAT():
+                            value = float(value)
+                case _RelationshipDeclared():
+                    try:
+                        self_value = self_value.name
+                    except AttributeError:
+                        pass
+                    if class_attr.property.uselist:
+                        self_value = self_value.__str__()
+            logger.debug(f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
+            if self_value != value:
+                output = False
+                logger.debug(f"Value {key} is False, returning.")
+                return output
+        return True
+
     def __setattr__(self, key, value):
+        logger.debug(f"Attempting to set {key} to {pformat(value)}")
         try:
             field_type = getattr(self.__class__, key)
         except AttributeError:
             return super().__setattr__(key, value)
-        try:
-            check = field_type.property.uselist
-        except AttributeError:
-            check = False
-        if check:
-            logger.debug(f"Setting with uselist")
-            if self.__getattribute__(key) is not None:
-                if isinstance(value, list):
-                    value = self.__getattribute__(key) + value
-                else:
-                    value = self.__getattribute__(key) + [value]
-            else:
-                value = [value]
+        if isinstance(field_type, InstrumentedAttribute):
+            logger.debug(f"{key} is an InstrumentedAttribute.")
+            match field_type.property:
+                case ColumnProperty():
+                    logger.debug(f"Setting ColumnProperty to {value}")
+                    return super().__setattr__(key, value)
+                case _RelationshipDeclared():
+                    logger.debug(f"Setting _RelationshipDeclared to {value}")
+                    if field_type.property.uselist:
+                        logger.debug(f"Setting with uselist")
+                        if self.__getattribute__(key) is not None:
+                            if isinstance(value, list):
+                                value = self.__getattribute__(key) + value
+                            else:
+                                value = self.__getattribute__(key) + [value]
+                        else:
+                            value = [value]
+                        return super().__setattr__(key, value)
+                    else:
+                        if isinstance(value, list):
+                            if len(value) == 1:
+                                value = value[0]
+                            else:
+                                raise ValueError("Object is too long to parse a single value.")
+                        return super().__setattr__(key, value)
         else:
-            if isinstance(value, list):
-                if len(value) == 1:
-                    value = value[0]
-                else:
-                    raise ValueError("Object is too long to parse a single value.")
-        return super().__setattr__(key, value)
-
-
+            super().__setattr__(key, value)
 
 
 class ConfigItem(BaseClass):

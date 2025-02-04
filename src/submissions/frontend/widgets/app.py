@@ -230,7 +230,7 @@ class App(QMainWindow):
         self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
     def manage_orgs(self):
-        dlg = ManagerWindow(parent=self, object_type=Organization, extras=[])
+        dlg = ManagerWindow(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
             new_org = dlg.parse_form()
             new_org.save()
@@ -238,9 +238,11 @@ class App(QMainWindow):
 
     @under_development
     def manage_kits(self, *args, **kwargs):
-        dlg = ManagerWindow(parent=self, object_type=KitType, extras=[])
+        dlg = ManagerWindow(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
-            print(dlg.parse_form())
+            output = dlg.parse_form()
+            assert isinstance(output, KitType)
+            output.save()
 
 class AddSubForm(QWidget):
 
