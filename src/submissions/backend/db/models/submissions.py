@@ -417,9 +417,11 @@ class BasicSubmission(BaseClass, LogMixin):
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # NOTE: Get kit associated with this submission
+        logger.debug(f"Checking associations with submission type: {self.submission_type_name}")
         assoc = next((item for item in self.extraction_kit.kit_submissiontype_associations if
                       item.submission_type == self.submission_type),
                      None)
+        logger.debug(f"Got association: {assoc}")
         # NOTE: If every individual cost is 0 this is probably an old plate.
         if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
             try:
@@ -1325,7 +1327,10 @@ class BasicSubmission(BaseClass, LogMixin):
         if dlg.exec():
             equipment = dlg.parse_form()
             for equip in equipment:
+                logger.debug(f"Parsed equipment: {equip}")
                 _, assoc = equip.to_sql(submission=self)
+                logger.debug(f"Got equipment association: {assoc.__dict__}")
+
                 try:
                     assoc.save()
                 except AttributeError as e:

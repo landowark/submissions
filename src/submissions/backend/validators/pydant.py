@@ -355,12 +355,14 @@ class PydEquipment(BaseModel, extra='ignore'):
                 # TODO: This seems precarious. What if there is more than one process?
                 # NOTE: It looks like the way fetching the processes is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
                 # NOTE: I need to find a way to filter this by the kit involved.
+
                 if len(self.processes) > 1:
                     process = Process.query(submissiontype=submission.get_submission_type(), kittype=extraction_kit, equipmentrole=self.role)
                 else:
                     process = Process.query(name=self.processes[0])
                 if process is None:
                     logger.error(f"Found unknown process: {process}.")
+                logger.debug(f"Using process: {process}")
                 assoc.process = process
                 assoc.role = self.role
             else:
@@ -779,8 +781,10 @@ class PydSubmission(BaseModel, extra='allow'):
         """
         report = Report()
         dicto = self.improved_dict()
+        logger.debug(f"Pydantic submission type: {self.submission_type['value']}")
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
+        logger.debug(f"Created or queried instance: {instance}")
         report.add_result(result)
         self.handle_duplicate_samples()
         for key, value in dicto.items():
@@ -864,6 +868,7 @@ class PydSubmission(BaseModel, extra='allow'):
                             continue
                     else:
                         logger.warning(f"{key} already == {value} so no updating.")
+        logger.debug(f"Entering cost calculation for {instance}")
         try:
             instance.calculate_base_cost()
         except (TypeError, AttributeError) as e:

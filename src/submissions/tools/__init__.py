@@ -817,34 +817,36 @@ def setup_lookup(func):
     return wrapper
 
 
-def check_object_in_managers(managers: list, object_name: object) -> Tuple[Any, bool]:
-    for manager in managers:
-        logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
-        if object_name in manager.aliases:
-            return manager, True
-        relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
-                         if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
-        relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
-        for relationship in relationships:
-            if relationship.key == object_name and "association" not in relationship.key:
-                logger.debug(f"Checking {relationship.key}")
-                try:
-                    rel_obj = getattr(manager, relationship.key)
-                    if rel_obj is not None:
-                        logger.debug(f"Returning {rel_obj}")
-                        return rel_obj, False
-                except AttributeError:
-                    pass
-            if "association" in relationship.key:
-                try:
-                    logger.debug(f"Checking association {relationship.key}")
-                    rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
-                                    if getattr(item, object_name) is not None), None)
-                    if rel_obj is not None:
-                        logger.debug(f"Returning {rel_obj}")
-                        return rel_obj, False
-                except AttributeError:
-                    pass
+def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
+    # for manager in managers:
+    if manager is None:
+        return None, False
+    logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
+    if object_name in manager.aliases:
+        return manager, True
+    relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
+                     if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
+    relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
+    for relationship in relationships:
+        if relationship.key == object_name and "association" not in relationship.key:
+            logger.debug(f"Checking {relationship.key}")
+            try:
+                rel_obj = getattr(manager, relationship.key)
+                if rel_obj is not None:
+                    logger.debug(f"Returning {rel_obj}")
+                    return rel_obj, False
+            except AttributeError:
+                pass
+        if "association" in relationship.key:
+            try:
+                logger.debug(f"Checking association {relationship.key}")
+                rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
+                                if getattr(item, object_name) is not None), None)
+                if rel_obj is not None:
+                    logger.debug(f"Returning {rel_obj}")
+                    return rel_obj, False
+            except AttributeError:
+                pass
     return None, None
 
 

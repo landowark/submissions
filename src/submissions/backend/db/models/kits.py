@@ -380,6 +380,9 @@ class KitType(BaseClass):
                 new_process.equipment_roles.append(new_role)
         return new_kit
 
+    def to_pydantic(self):
+        pass
+
 
 class ReagentRole(BaseClass):
     """
@@ -1232,6 +1235,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
 
     omni_removes = BaseClass.omni_removes + ["submission_type_id", "kits_id", "reagent_roles_id", "last_used"]
     omni_sort = ["submission_type", "kit_type", "reagent_role", "required", "uses"]
+    omni_inheritable = ["submission_type", "kit_type"]
 
     reagent_roles_id = Column(INTEGER, ForeignKey("_reagentrole.id"),
                               primary_key=True)  #: id of associated reagent type

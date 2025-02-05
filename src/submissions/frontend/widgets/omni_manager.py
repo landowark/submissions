@@ -17,7 +17,7 @@ from sqlalchemy.orm.properties import ColumnProperty
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from pandas import DataFrame
 from backend import db
-from tools import check_object_in_managers
+from tools import check_object_in_manager
 from .omni_search import SearchBox
 from frontend.widgets.submission_table import pandasModel
 
@@ -32,18 +32,22 @@ class ManagerWindow(QDialog):
     def __init__(self, parent,
                  object_type: Any,
                  extras: List[str],
-                 managers: set = set(),
+                 manager: Any | None = None,
                  add_edit: Literal['add', 'edit'] = 'edit',
                  **kwargs):
         super().__init__(parent)
-        self.object_type = self.original_type = object_type
+        self.class_object = self.original_type = object_type
         self.add_edit = add_edit
+        # NOTE: Should I pass in an instance?
         self.instance = None
-        self.managers = managers
-        try:
-            self.managers.add(self.parent().instance)
-        except AttributeError:
-            pass
+        if manager is None:
+            try:
+                self.manager = self.parent().instance
+            except AttributeError:
+                self.manager = None
+        else:
+            self.manager = manager
+
         # logger.debug(f"Managers: {managers}")
         self.extras = extras
         self.context = kwargs
@@ -53,7 +57,7 @@ class ManagerWindow(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.setMinimumSize(600, 600)
-        sub_classes = ["Any"] + [cls.__name__ for cls in self.object_type.__subclasses__()]
+        sub_classes = ["Any"] + [cls.__name__ for cls in self.class_object.__subclasses__()]
         if len(sub_classes) > 1:
             self.sub_class = QComboBox(self)
             self.sub_class.setObjectName("sub_class")
@@ -71,7 +75,7 @@ class ManagerWindow(QDialog):
         else:
             self.update_data(initial=True)
         self.setLayout(self.layout)
-        self.setWindowTitle(f"Manage {self.object_type.__name__} - Managers: {self.managers}")
+        self.setWindowTitle(f"Manage {self.class_object.__name__} - Manager: {self.manager}")
 
     def update_options(self) -> None:
         """
@@ -79,7 +83,7 @@ class ManagerWindow(QDialog):
         """
         # logger.debug(f"Instance: {self.instance}")
         if self.sub_class:
-            self.object_type = getattr(db, self.sub_class.currentText())
+            self.class_object = getattr(db, self.sub_class.currentText())
         # logger.debug(f"From update options, managers: {self.managers}")
         try:
             query_kwargs = {self.parent().instance.query_alias: self.parent().instance}
@@ -87,8 +91,8 @@ class ManagerWindow(QDialog):
             # logger.debug(f"Couldn't set query kwargs due to: {e}")
             query_kwargs = {}
         # logger.debug(f"Query kwargs: {query_kwargs}")
-        options = [item.name for item in self.object_type.query(**query_kwargs)]
-        # logger.debug(f"self.object_type: {self.object_type}")
+        options = [item.name for item in self.class_object.query(**query_kwargs)]
+        # logger.debug(f"self.class_object: {self.class_object}")
         if self.instance:
             try:
                 inserter = options.pop(options.index(self.instance.name))
@@ -108,7 +112,7 @@ class ManagerWindow(QDialog):
         # logger.debug(f"Instance: {self.instance}")
         self.update_data()
 
-    def update_data(self, initial:bool=False) -> None:
+    def update_data(self, initial: bool = False) -> None:
         """
         Performs updating of widgets on first run and after options change.
 
@@ -130,10 +134,10 @@ class ManagerWindow(QDialog):
         # if check:
         if self.add_edit == "edit" and initial:
             # logger.debug(f"Querying with {self.options.currentText()}")
-            self.instance = self.object_type.query(name=self.options.currentText(), limit=1)
+            self.instance = self.class_object.query(name=self.options.currentText(), limit=1)
         # logger.debug(f"Instance: {self.instance}")
         if not self.instance:
-            self.instance = self.object_type()
+            self.instance = self.class_object()
             # logger.debug(f"self.instance: {self.instance}")
         fields = self.instance.omnigui_instance_dict
         for key, field in fields.items():
@@ -150,8 +154,8 @@ class ManagerWindow(QDialog):
                 # NOTE: RelationshipDeclareds will be given a list of existing related objects.
                 case _RelationshipDeclared():
                     if key != "submissions":
-                        # NOTE: field.comparator.entity.class_ gives the relationship class
-                        widget = EditRelationship(self, key=key, entity=field['class_attr'].comparator.entity.class_,
+                        # NOTE: field.comparator.class_object.class_ gives the relationship class
+                        widget = EditRelationship(self, key=key, class_object=field['class_attr'].comparator.entity.class_,
                                                   value=value)
                     else:
                         continue
@@ -185,7 +189,7 @@ class ManagerWindow(QDialog):
         return self.instance
 
     def add_new(self):
-        new_instance = self.object_type()
+        new_instance = self.class_object()
         self.instance = new_instance
         self.update_options()
 
@@ -207,6 +211,7 @@ class ManagerWindow(QDialog):
                 else:
                     value = current_value + [data]
             setattr(self.instance, name, value)
+            self.instance.save()
 
     def toggle_textedit(self, caller_child=None):
         already_exists = self.findChildren(LargeTextEdit)
@@ -217,7 +222,7 @@ class ManagerWindow(QDialog):
                 name = "No Caller"
             logger.debug(f"Name: {name}, instance: {self.instance}")
             textedit = LargeTextEdit(parent=self, key=name)
-            self.layout.addWidget(textedit, 1, self.layout.columnCount(), self.layout.rowCount()-1, 1)
+            self.layout.addWidget(textedit, 1, self.layout.columnCount(), self.layout.rowCount() - 1, 1)
             data = getattr(self.instance, name)
             logger.debug(f"Data: {data}")
             data = json.dumps(data, indent=4)
@@ -288,14 +293,15 @@ class EditProperty(QWidget):
 
 class EditRelationship(QWidget):
 
-    def __init__(self, parent, key: str, entity: Any, value):
+    def __init__(self, parent, key: str, class_object: Any, value):
         super().__init__(parent)
-        self.entity = entity  #: The class of interest
+        self.class_object = class_object  #: The class of interest
         self.setParent(parent)
-        # logger.debug(f"Edit relationship entity: {self.entity}")
+        # logger.debug(f"Edit relationship class_object: {self.class_object}")
         self.label = QLabel(key.title().replace("_", " "))
-        self.setObjectName(key) #: key is the name of the relationship this represents
-        self.relationship = getattr(self.parent().instance.__class__, key) #: relationship object for type differentiation
+        self.setObjectName(key)  #: key is the name of the relationship this represents
+        self.relationship = getattr(self.parent().instance.__class__,
+                                    key)  #: relationship object for type differentiation
         # logger.debug(f"self.relationship: {self.relationship}")
         # logger.debug(f"Relationship uses list: {self.relationship.property.uselist}")
         # NOTE: value is a database object in this case.
@@ -306,7 +312,7 @@ class EditRelationship(QWidget):
         self.add_button.clicked.connect(self.add_new)
         self.existing_button = QPushButton("Add Existing")
         self.existing_button.clicked.connect(self.add_existing)
-        # self.existing_button.setEnabled(self.entity.level == 1)
+        # self.existing_button.setEnabled(self.class_object.level == 1)
         if not isinstance(value, list):
             if value is not None:
                 value = [value]
@@ -314,10 +320,12 @@ class EditRelationship(QWidget):
                 value = []
         self.data = value
         # self.update_buttons()
-        checked_manager, is_primary = check_object_in_managers(self.parent().managers, self.objectName())
+        checked_manager, is_primary = check_object_in_manager(self.parent().manager, self.objectName())
         if checked_manager:
             logger.debug(f"Checked manager for {self.objectName()}: {checked_manager}")
-            if checked_manager is not None and not self.data:
+            logger.debug(f"Omni will inherit: {self.class_object.omni_inheritable} from {self.parent().class_object}")
+            if checked_manager is not None and not self.data and self.objectName() in self.parent().class_object.omni_inheritable:
+                logger.debug(f"Setting {checked_manager} in self.data")
                 self.data = [checked_manager]
             if not self.relationship.property.uselist:
                 self.add_button.setEnabled(False)
@@ -344,7 +352,7 @@ class EditRelationship(QWidget):
     def parse_row(self, x):
         context = {item: x.sibling(x.row(), self.df.columns.get_loc(item)).data() for item in self.df.columns}
         try:
-            object = self.entity.query(**context)
+            object = self.class_object.query(**context)
         except KeyError:
             object = None
         self.widget.doubleClicked.disconnect()
@@ -353,39 +361,28 @@ class EditRelationship(QWidget):
     def add_new(self, instance: Any = None):
         # NOTE: if an existing instance is not being edited, create a new instance
         if not instance:
-            instance = self.entity()
-        managers = self.parent().managers
+            instance = self.class_object()
+        manager = self.parent().manager
         # logger.debug(f"Managers going into add new: {managers}")
-        dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], managers=managers, add_edit="add")
+        dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], manager=manager, add_edit="add")
         if dlg.exec():
             new_instance = dlg.parse_form()
-            self.parent().__setattr__(self.objectName(), new_instance)
-            # logger.debug(f"New instance before transformation attempt: {new_instance}")
-            # try:
-            #     new_instance = new_instance.to_sql()
-            # except AttributeError as e:
-            #     logger.error(f"Couldn't convert {new_instance} to sql due to {e}")
-            # # logger.debug(f"New instance after transformation attempt: {new_instance.__dict__}")
-            # setattr(self.parent().instance, self.objectName(), new_instance)
-            # # logger.debug(f"Parent instance after insert: {getattr(self.parent().instance, self.objectName())}")
-            # # NOTE: Saving currently disabled
-            # self.parent().instance.save()
-            # return new_instance
-        self.parent().update_data()
+            # NOTE: My custom __setattr__ should take care of any list problems.
+            self.parent().instance.__setattr__(self.objectName(), new_instance)
+            self.parent().instance.save()
+            self.parent().update_data()
 
     def add_existing(self):
-        dlg = SearchBox(self, object_type=self.entity, returnable=True, extras=[])
+        dlg = SearchBox(self, object_type=self.class_object, returnable=True, extras=[])
         if dlg.exec():
             rows = dlg.return_selected_rows()
             for row in rows:
                 # logger.debug(f"Querying with {row}")
-                instance = self.entity.query(**row)
-                setattr(self.parent().instance, self.objectName(), instance)
-                # self.parent().instance.save()
-            self.parent().update_data()
-
-    def set_choices(self) -> None:
-        pass
+                instance = self.class_object.query(**row)
+                # NOTE: My custom __setattr__ should take care of any list problems.
+                self.parent().instance.__setattr__(self.objectName(), instance)
+                self.parent().instance.save()
+                self.parent().update_data()
 
     def set_data(self) -> None:
         """
@@ -457,7 +454,7 @@ class EditRelationship(QWidget):
         logger.debug(f"Attempting to remove {object} from {self.parent().instance.__dict__}")
         editor = getattr(self.parent().instance, self.objectName().lower())
         logger.debug(f"Editor: {editor}")
-        if object in self.parent().managers:
+        if object == self.parent().manager:
             logger.error(f"Can't remove manager object.")
             return
         try:
@@ -473,7 +470,7 @@ class EditRelationship(QWidget):
             setattr(self.parent().instance, self.objectName().lower(), None)
         except ValueError as e:
             logger.error(f"Remove failed for {self.objectName().lower()} due to {e}.")
-        # self.parent().instance.save()
+        self.parent().instance.save()
         # self.parent().update_data()
         self.set_data()
 
@@ -483,7 +480,7 @@ class EditRelationship(QWidget):
 
 class JsonEditButton(QWidget):
 
-    def __init__(self, parent, key:str):
+    def __init__(self, parent, key: str):
         super().__init__(parent)
         self.setParent(parent)
         self.setObjectName(key)
@@ -499,7 +496,7 @@ class JsonEditScreen(QDialog):
 
     def __init__(self, parent, key: str):
         super().__init__(parent)
-        self.class_obj = parent.object_type
+        self.class_obj = parent.class_object
         self.layout = QGridLayout()
         self.setWindowTitle(key)
         self.json_field = self.class_obj.json_edit_fields
@@ -604,7 +601,7 @@ class DictionaryJsonSubEdit(QWidget):
 
 class LargeTextEdit(QWidget):
 
-    def __init__(self, parent, key:str):
+    def __init__(self, parent, key: str):
         super().__init__(parent)
         self.setParent(parent)
         self.setObjectName(key)

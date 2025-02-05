@@ -53,6 +53,7 @@ class BaseClass(Base):
     singles = ['id']
     omni_removes = ["id", 'submissions', "omnigui_class_dict", "omnigui_instance_dict"]
     omni_sort = ["name"]
+    omni_inheritable = []
 
     @classproperty
     def skip_on_edit(cls):
@@ -330,7 +331,15 @@ class BaseClass(Base):
         query_kwargs = {relationship_instance.query_alias: relationship_instance}
         return cls.query(**query_kwargs)
 
-    def check_all_attributes(self, attributes: dict):
+    def check_all_attributes(self, attributes: dict) -> bool:
+        """
+
+        Args:
+            attributes (dict): A dictionary of attributes to be check for equivalence
+
+        Returns:
+            bool: If a single unequivocal value is found will be false, else true.
+        """
         logger.debug(f"Incoming attributes: {attributes}")
         for key, value in attributes.items():
             # print(getattr(self.__class__, key).property)
@@ -365,7 +374,11 @@ class BaseClass(Base):
         return True
 
     def __setattr__(self, key, value):
-        logger.debug(f"Attempting to set {key} to {pformat(value)}")
+        """
+        Custom dunder method to handle potential list relationship issues.
+        """
+        if key != "_sa_instance_state":
+            logger.debug(f"Attempting to set {key} to {pformat(value)}")
         try:
             field_type = getattr(self.__class__, key)
         except AttributeError:
@@ -395,8 +408,10 @@ class BaseClass(Base):
                             else:
                                 raise ValueError("Object is too long to parse a single value.")
                         return super().__setattr__(key, value)
+                case _:
+                    return super().__setattr__(key, value)
         else:
-            super().__setattr__(key, value)
+            return super().__setattr__(key, value)
 
 
 class ConfigItem(BaseClass):
