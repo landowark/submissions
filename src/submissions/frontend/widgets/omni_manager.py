@@ -211,7 +211,7 @@ class ManagerWindow(QDialog):
                 else:
                     value = current_value + [data]
             setattr(self.instance, name, value)
-            self.instance.save()
+            # self.instance.save()
 
     def toggle_textedit(self, caller_child=None):
         already_exists = self.findChildren(LargeTextEdit)
@@ -369,7 +369,7 @@ class EditRelationship(QWidget):
             new_instance = dlg.parse_form()
             # NOTE: My custom __setattr__ should take care of any list problems.
             self.parent().instance.__setattr__(self.objectName(), new_instance)
-            self.parent().instance.save()
+            # self.parent().instance.save()
             self.parent().update_data()
 
     def add_existing(self):
@@ -381,7 +381,7 @@ class EditRelationship(QWidget):
                 instance = self.class_object.query(**row)
                 # NOTE: My custom __setattr__ should take care of any list problems.
                 self.parent().instance.__setattr__(self.objectName(), instance)
-                self.parent().instance.save()
+                # self.parent().instance.save()
                 self.parent().update_data()
 
     def set_data(self) -> None:

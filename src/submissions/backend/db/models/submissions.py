@@ -10,9 +10,7 @@ from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
-
 from sqlalchemy.ext.hybrid import hybrid_property
-
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin, SubmissionReagentAssociation
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
 from sqlalchemy.orm import relationship, validates, Query
@@ -24,7 +22,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result, create_holidays_for_year
+    report_result, create_holidays_for_year, check_dictionary_inclusion_equality
 from datetime import datetime, date, timedelta
 from typing import List, Any, Tuple, Literal, Generator, Type
 from dateutil.parser import parse
@@ -558,12 +556,14 @@ class BasicSubmission(BaseClass, LogMixin):
                         existing = value
                     case _:
                         existing = self.__getattribute__(key)
+                        logger.debug(f"Existing value is {pformat(existing)}")
                         if value in ['', 'null', None]:
                             logger.error(f"No value given, not setting.")
                             return
                         if existing is None:
                             existing = []
-                        if value in existing:
+                        # if value in existing:
+                        if check_dictionary_inclusion_equality(existing, value):
                             logger.warning("Value already exists. Preventing duplicate addition.")
                             return
                         else:
@@ -572,6 +572,7 @@ class BasicSubmission(BaseClass, LogMixin):
                             else:
                                 if value:
                                     existing.append(value)
+
                 self.__setattr__(key, existing)
                 # NOTE: Make sure this gets updated by telling SQLAlchemy it's been modified.
                 flag_modified(self, key)
@@ -1223,10 +1224,19 @@ class BasicSubmission(BaseClass, LogMixin):
             if "submitted_date" not in kwargs.keys():
                 instance.submitted_date = date.today()
         else:
+            from frontend.widgets.pop_ups import QuestionAsker
             logger.warning(f"Found existing instance: {instance}, asking to overwrite.")
-            code = 1
-            msg = "This submission already exists.\nWould you like to overwrite?"
-        report.add_result(Result(msg=msg, code=code))
+        #     code = 1
+        #     msg = "This submission already exists.\nWould you like to overwrite?"
+        # report.add_result(Result(msg=msg, code=code))
+            dlg = QuestionAsker(title="Overwrite?", message="This submission already exists.\nWould you like to overwrite?")
+            if dlg.exec():
+                pass
+            else:
+                code = 1
+                msg = "This submission already exists.\nWould you like to overwrite?"
+                report.add_result(Result(msg=msg, code=code))
+                return None, report
         return instance, report
 
     # NOTE: Custom context events for the ui
@@ -1528,6 +1538,7 @@ class Wastewater(BasicSubmission):
                 dummy_samples.append(thing)
             output['origin_plate'] = self.__class__.make_plate_map(sample_list=dummy_samples, plate_rows=4,
                                                                    plate_columns=6)
+        # logger.debug(f"PCR info: {output['pcr_info']}")
         return output
 
     @classmethod

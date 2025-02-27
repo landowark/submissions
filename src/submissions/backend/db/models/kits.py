@@ -15,6 +15,7 @@ from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization, LogMixin
 from io import BytesIO
+from inspect import getouterframes, currentframe
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -228,6 +229,20 @@ class KitType(BaseClass):
         return output, new_kit
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[KitType, bool]:
+        from backend.validators.pydant import PydKitType
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = PydKitType(**kwargs)
+            new = True
+            instance = instance.to_sql()
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
+
+    @classmethod
     @setup_lookup
     def query(cls,
               name: str = None,
@@ -380,8 +395,27 @@ class KitType(BaseClass):
                 new_process.equipment_roles.append(new_role)
         return new_kit
 
-    def to_pydantic(self):
-        pass
+    def to_omni(self, expand: bool = False) -> "OmniKitType":
+        from backend.validators.omni_gui_objects import OmniKitType
+        # logger.debug(f"self.name: {self.name}")
+        # level = len(getouterframes(currentframe()))
+        # logger.warning(f"Function level is {level}")
+        if expand:
+            processes = [item.to_omni() for item in self.processes]
+            kit_reagentrole_associations = [item.to_omni() for item in self.kit_reagentrole_associations]
+            kit_submissiontype_associations = [item.to_omni() for item in self.kit_submissiontype_associations]
+        else:
+            processes = [item.name for item in self.processes]
+            kit_reagentrole_associations = [item.name for item in self.kit_reagentrole_associations]
+            kit_submissiontype_associations = [item.name for item in self.kit_submissiontype_associations]
+        data = dict(
+            name=self.name,
+            processes=processes,
+            kit_reagentrole_associations=kit_reagentrole_associations,
+            kit_submissiontype_associations=kit_submissiontype_associations
+        )
+        logger.debug(f"Creating omni for {pformat(data)}")
+        return OmniKitType(instance_object=self, **data)
 
 
 class ReagentRole(BaseClass):
@@ -412,6 +446,20 @@ class ReagentRole(BaseClass):
             str: Representation of object
         """
         return f"<ReagentRole({self.name})>"
+
+    @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[ReagentRole, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
 
     @classmethod
     @setup_lookup
@@ -495,6 +543,11 @@ class ReagentRole(BaseClass):
     @check_authorization
     def save(self):
         super().save()
+
+    def to_omni(self, expand: bool=False):
+        from backend.validators.omni_gui_objects import OmniReagentRole
+        logger.debug(f"Constructing OmniReagentRole with name {self.name}")
+        return OmniReagentRole(instance_object=self, name=self.name, eol_ext=self.eol_ext)
 
 
 class Reagent(BaseClass, LogMixin):
@@ -1011,6 +1064,20 @@ class SubmissionType(BaseClass):
         return BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.name)
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[SubmissionType, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
+
+    @classmethod
     @setup_lookup
     def query(cls,
               name: str | None = None,
@@ -1112,6 +1179,43 @@ class SubmissionType(BaseClass):
             Organization.import_from_yml(filepath=filepath)
         return submission_type
 
+    def to_omni(self, expand: bool = False):
+        from backend.validators.omni_gui_objects import OmniSubmissionType
+        # level = len(getouterframes(currentframe()))
+        # logger.warning(f"Function level is {level}")
+        # try:
+        #     info_map = self.submission_type.info_map
+        # except AttributeError:
+        #     info_map = {}
+        # try:
+        #     defaults = self.submission_type.defaults
+        # except AttributeError:
+        #     defaults = {}
+        # try:
+        #     sample_map = self.submission_type.sample_map
+        # except AttributeError:
+        #     sample_map = {}
+        try:
+            template_file = self.template_file
+        except AttributeError:
+            template_file = bytes()
+        if expand:
+            try:
+                processes = [item.to_omni() for item in self.processes]
+            except AttributeError:
+                processes = []
+        else:
+            processes = [item.name for item in self.processes]
+        return OmniSubmissionType(
+            instance_object=self,
+            name=self.name,
+            info_map=self.info_map,
+            defaults=self.defaults,
+            template_file=template_file,
+            processes=processes,
+            sample_map=self.sample_map
+        )
+
 
 class SubmissionTypeKitTypeAssociation(BaseClass):
     """
@@ -1164,9 +1268,17 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
     def kittype(self):
         return self.kit_type
 
+    @kittype.setter
+    def kittype(self, value):
+        self.kit_type = value
+
     @hybrid_property
     def submissiontype(self):
         return self.submission_type
+
+    @submissiontype.setter
+    def submissiontype(self, value):
+        self.submission_type = value
 
     @property
     def name(self):
@@ -1174,6 +1286,20 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
             return f"{self.submission_type.name} -> {self.kit_type.name}"
         except AttributeError:
             return "Blank SubmissionTypeKitTypeAssociation"
+
+    @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[SubmissionTypeKitTypeAssociation, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
 
     @classmethod
     @setup_lookup
@@ -1225,6 +1351,36 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         base_dict = {k: v for k, v in self.__dict__.items() if k not in exclude}
         base_dict['kit_type'] = self.kit_type.to_export_dict(submission_type=self.submission_type)
         return base_dict
+
+    def to_omni(self, expand: bool = False):
+        from backend.validators.omni_gui_objects import OmniSubmissionTypeKitTypeAssociation
+        # level = len(getouterframes(currentframe()))
+        # logger.warning(f"Function level is {level}")
+        if expand:
+            try:
+                submissiontype = self.submission_type.to_omni()
+            except AttributeError:
+                submissiontype = ""
+            try:
+                kittype = self.kit_type.to_omni()
+            except AttributeError:
+                kittype = ""
+        else:
+            submissiontype = self.submission_type.name
+            kittype = self.kit_type.name
+        # try:
+        #     processes = [item.to_omni() for item in self.submission_type.processes]
+        # except AttributeError:
+        #     processes = []
+        return OmniSubmissionTypeKitTypeAssociation(
+            instance_object=self,
+            submissiontype=submissiontype,
+            kittype=kittype,
+            mutable_cost_column=self.mutable_cost_column,
+            mutable_cost_sample=self.mutable_cost_sample,
+            constant_cost=self.constant_cost
+            # processes=processes,
+        )
 
 
 class KitTypeReagentRoleAssociation(BaseClass):
@@ -1313,10 +1469,25 @@ class KitTypeReagentRoleAssociation(BaseClass):
         return value
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[KitTypeReagentRoleAssociation, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
+
+    @classmethod
     @setup_lookup
     def query(cls,
               kittype: KitType | str | None = None,
               reagentrole: ReagentRole | str | None = None,
+              submissiontype: SubmissionType | str | None = None,
               limit: int = 0,
               **kwargs
               ) -> KitTypeReagentRoleAssociation | List[KitTypeReagentRoleAssociation]:
@@ -1346,6 +1517,14 @@ class KitTypeReagentRoleAssociation(BaseClass):
                 query = query.join(ReagentRole).filter(ReagentRole.name == reagentrole)
             case _:
                 pass
+        match submissiontype:
+            case SubmissionType():
+                query = query.filter(cls.submission_type == submissiontype)
+            case str():
+                query = query.join(SubmissionType).filter(SubmissionType.name == submissiontype)
+            case _:
+                pass
+        pass
         if kittype is not None and reagentrole is not None:
             limit = 1
         return cls.execute_query(query=query, limit=limit)
@@ -1388,12 +1567,45 @@ class KitTypeReagentRoleAssociation(BaseClass):
     @classproperty
     def json_edit_fields(cls) -> dict:
         dicto = dict(
-                    sheet="str",
-                    expiry=dict(column="int", row="int"),
-                    lot=dict(column="int", row="int"),
-                    name=dict(column="int", row="int")
-            )
+            sheet="str",
+            expiry=dict(column="int", row="int"),
+            lot=dict(column="int", row="int"),
+            name=dict(column="int", row="int")
+        )
         return dicto
+
+    def to_omni(self, expand: bool = False) -> "OmniReagentRole":
+        from backend.validators.omni_gui_objects import OmniKitTypeReagentRoleAssociation
+        try:
+            eol_ext = self.reagent_role.eol_ext
+        except AttributeError:
+            eol_ext = timedelta(days=0)
+        if expand:
+            try:
+                submission_type = self.submission_type.to_omni()
+            except AttributeError:
+                submission_type = ""
+            try:
+                kit_type = self.kit_type.to_omni()
+            except AttributeError:
+                kit_type = ""
+            try:
+                reagent_role = self.reagent_role.to_omni()
+            except AttributeError:
+                reagent_role = ""
+        else:
+            submission_type = self.submission_type.name
+            kit_type = self.kit_type.name
+            reagent_role = self.reagent_role.name
+        return OmniKitTypeReagentRoleAssociation(
+            instance_object=self,
+            reagent_role=reagent_role,
+            eol_ext=eol_ext,
+            required=self.required,
+            submission_type=submission_type,
+            kit_type=kit_type,
+            uses=self.uses
+        )
 
 
 class SubmissionReagentAssociation(BaseClass):
@@ -1717,8 +1929,27 @@ class EquipmentRole(BaseClass):
         return PydEquipmentRole(equipment=equipment, **pyd_dict)
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[EquipmentRole, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
+
+    @classmethod
     @setup_lookup
-    def query(cls, name: str | None = None, id: int | None = None, limit: int = 0) -> EquipmentRole | List[
+    def query(cls,
+              name: str | None = None,
+              id: int | None = None,
+              limit: int = 0,
+              **kwargs
+              ) -> EquipmentRole | List[
         EquipmentRole]:
         """
         Lookup Equipment roles.
@@ -1778,6 +2009,10 @@ class EquipmentRole(BaseClass):
         """
         processes = self.get_processes(submission_type=submission_type, extraction_kit=kit_type)
         return dict(role=self.name, processes=[item for item in processes])
+
+    def to_omni(self, expand: bool = False) -> "OmniEquipmentRole":
+        from backend.validators.omni_gui_objects import OmniEquipmentRole
+        return OmniEquipmentRole(instance_object=self, name=self.name)
 
 
 class SubmissionEquipmentAssociation(BaseClass):
@@ -1950,6 +2185,20 @@ class Process(BaseClass):
                     field.append(value)
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[Process, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
+
+    @classmethod
     @setup_lookup
     def query(cls,
               name: str | None = None,
@@ -2013,7 +2262,15 @@ class Process(BaseClass):
     def save(self):
         super().save()
 
-    # @classmethod
+    def to_omni(self, expand: bool = False):
+        from backend.validators.omni_gui_objects import OmniProcess
+        return OmniProcess(
+            instance_object=self,
+            name=self.name,
+            submission_types=[item.to_omni() for item in self.submission_types],
+            equipment_roles=[item.to_omni() for item in self.equipment_roles],
+            tip_roles=[item.to_omni() for item in self.tip_roles]
+        )
 
 
 class TipRole(BaseClass):
@@ -2034,12 +2291,50 @@ class TipRole(BaseClass):
 
     submission_types = association_proxy("tiprole_submissiontype_associations", "submission_type")
 
+    @hybrid_property
+    def tips(self):
+        return self.instances
+
     def __repr__(self):
         return f"<TipRole({self.name})>"
+
+    @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[TipRole, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
+
+    @classmethod
+    @setup_lookup
+    def query(cls, name: str | None = None, limit: int = 0, **kwargs) -> TipRole | List[TipRole]:
+        query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
     @check_authorization
     def save(self):
         super().save()
+
+    def to_omni(self, expand: bool = False):
+        from backend.validators.omni_gui_objects import OmniTipRole
+        return OmniTipRole(
+            instance_object=self,
+            name=self.name,
+            tips=[item.to_omni() for item in self.tips]
+        )
 
 
 class Tips(BaseClass, LogMixin):
@@ -2069,6 +2364,20 @@ class Tips(BaseClass, LogMixin):
 
     def __repr__(self):
         return f"<Tips({self.name})>"
+
+    @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[Tips, bool]:
+        new = False
+        disallowed = ['expiry']
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}")
+        return instance, new
 
     @classmethod
     def query(cls, name: str | None = None, lot: str | None = None, limit: int = 0, **kwargs) -> Tips | List[Tips]:
@@ -2101,6 +2410,13 @@ class Tips(BaseClass, LogMixin):
     def save(self):
         super().save()
 
+    def to_omni(self, expand: bool = True):
+        from backend.validators.omni_gui_objects import OmniTips
+        return OmniTips(
+            instance_object=self,
+            name=self.name
+        )
+
 
 class SubmissionTypeTipRoleAssociation(BaseClass):
     """
@@ -2128,6 +2444,9 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
     @check_authorization
     def save(self):
         super().save()
+
+    def to_omni(self):
+        pass
 
 
 class SubmissionTipsAssociation(BaseClass):

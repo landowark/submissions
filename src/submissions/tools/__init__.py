@@ -821,7 +821,7 @@ def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bo
     # for manager in managers:
     if manager is None:
         return None, False
-    logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
+    # logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
     if object_name in manager.aliases:
         return manager, True
     relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
@@ -1113,7 +1113,7 @@ def report_result(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        logger.info(f"Report result being called by {func.__name__}")
+        # logger.info(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
         match output:
             case Report():
@@ -1199,6 +1199,28 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
     holidays.append(easter(year) - timedelta(days=2))
     holidays.append(easter(year) + timedelta(days=1))
     return sorted(holidays)
+
+
+def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -> bool:
+    """
+    Determines if a dictionary is in a list of dictionaries (possible ordering issue with just using dict in list)
+
+    Args:
+        listo (List[dict): List of dictionaries to compare to.
+        dicto (dict): Dictionary to compare.
+
+    Returns:
+        bool: True if dicto is equal to any dictionary in the list.
+    """
+    logger.debug(f"Comparing: {listo} and {dicto}")
+    if isinstance(dicto, list) and isinstance(listo, list):
+        return listo == dicto
+    elif isinstance(dicto, dict) and isinstance(listo, dict):
+        return listo == dicto
+    elif isinstance(dicto, dict) and isinstance(listo, list):
+        return any([dicto == d for d in listo])
+    else:
+        raise TypeError(f"Unsupported variable: {type(listo)}")
 
 
 class classproperty(property):

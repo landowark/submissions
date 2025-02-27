@@ -333,6 +333,7 @@ class BaseClass(Base):
 
     def check_all_attributes(self, attributes: dict) -> bool:
         """
+        Checks this instance against a dictionary of attributes to determine if they are a match.
 
         Args:
             attributes (dict): A dictionary of attributes to be check for equivalence
@@ -345,9 +346,16 @@ class BaseClass(Base):
             # print(getattr(self.__class__, key).property)
             if value.lower() == "none":
                 value = None
+            logger.debug(f"Attempting to grab attribute: {key}")
             self_value = getattr(self, key)
             class_attr = getattr(self.__class__, key)
-            match class_attr.property:
+            logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
+            if isinstance(class_attr, property):
+                filter = "property"
+            else:
+                filter = class_attr.property
+            match filter:
+            # match class_attr:
                 case ColumnProperty():
                     match class_attr.type:
                         case INTEGER():
@@ -359,13 +367,25 @@ class BaseClass(Base):
                                 value = int(value)
                         case FLOAT():
                             value = float(value)
+                case "property":
+                    pass
                 case _RelationshipDeclared():
+                    logger.debug(f"Checking {self_value}")
                     try:
                         self_value = self_value.name
                     except AttributeError:
                         pass
                     if class_attr.property.uselist:
                         self_value = self_value.__str__()
+            try:
+                logger.debug(f"Check if {self_value.__class__} is subclass of {self.__class__}")
+                check = issubclass(self_value.__class__, self.__class__)
+            except TypeError as e:
+                logger.error(f"Couldn't check if {self_value.__class__} is subclass of {self.__class__} due to {e}")
+                check = False
+            if check:
+                logger.debug(f"Checking for subclass name.")
+                self_value = self_value.name
             logger.debug(f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
             if self_value != value:
                 output = False
@@ -393,13 +413,15 @@ class BaseClass(Base):
                     logger.debug(f"Setting _RelationshipDeclared to {value}")
                     if field_type.property.uselist:
                         logger.debug(f"Setting with uselist")
-                        if self.__getattribute__(key) is not None:
+                        existing = self.__getattribute__(key)
+                        if existing is not None:
                             if isinstance(value, list):
-                                value = self.__getattribute__(key) + value
+                                value = existing + value
                             else:
-                                value = self.__getattribute__(key) + [value]
+                                value = existing + [value]
                         else:
                             value = [value]
+                        value = list(set(value))
                         return super().__setattr__(key, value)
                     else:
                         if isinstance(value, list):

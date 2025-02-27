@@ -371,6 +371,9 @@ class SubmissionFormWidget(QWidget):
             case _:
                 pass
         # NOTE: add reagents to submission object
+        if base_submission is None:
+            # self.app.table_widget.sub_wid.setData()
+            return
         for reagent in base_submission.reagents:
             reagent.update_last_used(kit=base_submission.extraction_kit)
         save_output = base_submission.save()

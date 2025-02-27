@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QScrollArea, QMainWindow,
     QToolBar
 )
+import pickle
 from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
@@ -238,11 +239,17 @@ class App(QMainWindow):
 
     @under_development
     def manage_kits(self, *args, **kwargs):
-        dlg = ManagerWindow(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
+        from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
+        dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
             output = dlg.parse_form()
-            assert isinstance(output, KitType)
-            output.save()
+            # assert isinstance(output, KitType)
+            # output.save()
+            logger.debug(f"Kit output: {pformat(output.__dict__)}")
+            # output.to_sql()
+            with open(f"{output.name}.obj", "wb") as f:
+                pickle.dump(output, f)
+
 
 class AddSubForm(QWidget):
 

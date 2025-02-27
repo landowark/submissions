@@ -483,7 +483,6 @@ class PydSubmission(BaseModel, extra='allow'):
         value['value'] = output.replace(tzinfo=timezone)
         return value
 
-
     @field_validator("submitting_lab", mode="before")
     @classmethod
     def rescue_submitting_lab(cls, value):
@@ -772,7 +771,7 @@ class PydSubmission(BaseModel, extra='allow'):
         return missing_info, missing_reagents
 
     @report_result
-    def to_sql(self) -> Tuple[BasicSubmission, Report]:
+    def to_sql(self) -> Tuple[BasicSubmission | None, Report]:
         """
         Converts this instance into a backend.db.models.submissions.BasicSubmission instance
 
@@ -782,12 +781,19 @@ class PydSubmission(BaseModel, extra='allow'):
         report = Report()
         dicto = self.improved_dict()
         logger.debug(f"Pydantic submission type: {self.submission_type['value']}")
+        logger.debug(f"Pydantic improved_dict: {pformat(dicto)}")
+        # At this point, pcr_info is not duplicated
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
-        logger.debug(f"Created or queried instance: {instance}")
+        # logger.debug(f"Created or queried instance: {instance}")
+        if instance is None:
+            report.add_result(Result(msg="Overwrite Cancelled."))
+            return None, report
         report.add_result(result)
         self.handle_duplicate_samples()
         for key, value in dicto.items():
+            logger.debug(f"Checking key {key}, value {value}")
+            # At this point, pcr_info is not duplicated.
             if isinstance(value, dict):
                 try:
                     value = value['value']
@@ -843,6 +849,8 @@ class PydSubmission(BaseModel, extra='allow'):
                         value = value
                     instance.set_attribute(key=key, value=value)
                 case item if item in instance.jsons:
+                    # At this point pcr_info is not duplicated
+                    logger.debug(f"Validating json value: {item} to value:{pformat(value)}")
                     try:
                         ii = value.items()
                     except AttributeError:
@@ -851,7 +859,9 @@ class PydSubmission(BaseModel, extra='allow'):
                         if isinstance(v, datetime):
                             value[k] = v.strftime("%Y-%m-%d %H:%M:%S")
                         else:
-                            value[k] = v
+                            pass
+                    logger.debug(f"Setting json value: {item} to value:{pformat(value)}")
+                    # At this point, pcr_info is not duplicated.
                     instance.set_attribute(key=key, value=value)
                 case _:
                     try:
@@ -899,6 +909,10 @@ class PydSubmission(BaseModel, extra='allow'):
             SubmissionFormWidget: Submission form widget
         """
         from frontend.widgets.submission_widget import SubmissionFormWidget
+        try:
+            logger.debug(f"PCR info: {self.pcr_info}")
+        except AttributeError:
+            pass
         return SubmissionFormWidget(parent=parent, submission=self, disable=disable)
 
     def to_writer(self) -> "SheetWriter":
@@ -1124,7 +1138,7 @@ class PydReagentRole(BaseModel):
 
 class PydKitType(BaseModel):
     name: str
-    reagent_roles: List[PydReagentRole] = []
+    reagent_roles: List[PydReagent] = []
 
     @report_result
     def to_sql(self) -> Tuple[KitType, Report]:
