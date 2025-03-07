@@ -1,8 +1,7 @@
 """
 Provides a screen for managing all attributes of a database object.
 """
-import json, logging
-import sys
+import json, logging, sys
 from json.decoder import JSONDecodeError
 from datetime import datetime, timedelta
 from pprint import pformat
@@ -108,7 +107,6 @@ class ManagerWindow(QDialog):
         self.options.setEditable(False)
         self.options.setMinimumWidth(self.minimumWidth())
         self.layout.addWidget(self.options, 1, 0, 1, 1)
-        # if len(options) > 0:
         self.add_button = QPushButton("Add New")
         self.layout.addWidget(self.add_button, 1, 1, 1, 1)
         self.add_button.clicked.connect(self.add_new)
@@ -191,7 +189,6 @@ class ManagerWindow(QDialog):
         results = [item.parse_form() for item in self.findChildren(EditRelationship)]
         for result in results:
             logger.debug(f"Incoming relationship result: {result}")
-            # if not getattr(self.omni_object, result['field']):
             setattr(self.omni_object, result['field'], result['value'])
             # logger.debug(f"Set result: {getattr(self.omni_object, result['field'])}")
         # logger.debug(f"Instance coming from parsed form: {self.omni_object.__dict__}")
@@ -242,8 +239,6 @@ class EditProperty(QWidget):
                 self.widget.setValue(value.days)
             case dict():
                 self.widget = JsonEditButton(parent=self, key=key, value=value)
-                # self.widget.viewButton.clicked.connect(lambda: self.parent().toggle_textedit(self.widget))
-                # self.widget.addButton.clicked.connect(lambda: self.parent().add_to_json(self.widget))
             case bytes():
                 self.widget = QLabel("BLOB Under construction")
             case _:
@@ -281,19 +276,12 @@ class EditRelationship(QWidget):
         self.label = QLabel(key.title().replace("_", " "))
         self.setObjectName(key)  #: key is the name of the relationship this represents
         logger.debug(f"Checking relationship for {self.parent().class_object}: {key}")
-        # try:
-        # self.relationship = getattr(self.parent().instance.__class__, key)
         self.relationship = getattr(self.parent().class_object, key)
-        #: relationship object for type differentiation
-        # except AttributeError:
-        #     logger.warning(f"Could not get relationship for: {key}.")
-        #     self.relationship = None
         self.widget = QTableView()
         self.add_button = QPushButton("Add New")
         self.add_button.clicked.connect(self.add_new)
         self.existing_button = QPushButton("Add Existing")
         self.existing_button.clicked.connect(self.add_existing)
-        # self.existing_button.setEnabled(self.class_object.level == 1)
         if not isinstance(value, list):
             if value not in [None, ""]:
                 value = [value]
@@ -305,15 +293,6 @@ class EditRelationship(QWidget):
         logger.debug(f"Parent manager: {self.parent().manager}")
         checked_manager, is_primary = check_object_in_manager(self.parent().manager, self.objectName())
         if checked_manager:
-            logger.debug(f"Checked manager for {self.objectName()}: {checked_manager}")
-            # logger.debug(f"Omni will inherit: {self.class_object.omni_inheritable} from {self.parent().class_object}")
-            # if checked_manager is not None:# and not self.data:# and self.objectName() in self.parent().class_object.omni_inheritable:
-            #     # logger.debug(f"Setting {checked_manager} in self.data")
-            #     # if isinstance(checked_manager, InstrumentedList):
-            #     #     self.data = [item.to_omni() for item in checked_manager]
-            #     # else:
-            #     #     self.data = [checked_manager.to_omni()]
-            #     self.data = [checked_manager]
             if not self.data:
                 self.data = [checked_manager]
         try:
@@ -367,7 +346,6 @@ class EditRelationship(QWidget):
         # logger.debug(f"Creating manager window for {instance}")
         manager = self.parent().manager
         # logger.debug(f"Managers going into add new: {managers}")
-        # dlg = ManagerWindow(self.parent(), object_type=instance.__class__, extras=[], manager=manager, add_edit="add")
         dlg = ManagerWindow(self.parent(), instance=instance, extras=[], manager=manager, add_edit=add_edit)
         if dlg.exec():
             new_instance = dlg.parse_form()
@@ -378,7 +356,6 @@ class EditRelationship(QWidget):
             else:
                 instance.__dict__.update(new_instance.__dict__)
             logger.debug(f"Final instance: {pformat(instance.__dict__)}")
-            # self.parent().instance.save()
             self.parent().update_data()
 
     def add_existing(self):
@@ -392,7 +369,6 @@ class EditRelationship(QWidget):
                 if isinstance(instance, list):
                     instance = instance[0]
                 self.parent().omni_object.__setattr__(self.objectName(), instance.to_omni())
-                # self.parent().instance.save()
                 self.parent().update_data()
 
     def set_data(self) -> None:
@@ -401,7 +377,6 @@ class EditRelationship(QWidget):
         """
         # logger.debug(f"Self.data: {self.data}")
         try:
-            # records = [{k: v['instance_attr'] for k, v in item.omnigui_instance_dict.items()} for item in self.data]
             records = [item.to_dataframe_dict() for item in self.data]
         except AttributeError:
             records = []
@@ -423,7 +398,6 @@ class EditRelationship(QWidget):
         self.widget.resizeRowsToContents()
         self.widget.setSortingEnabled(True)
         self.widget.doubleClicked.connect(self.parse_row)
-        # self.update_buttons()
 
     def contextMenuEvent(self, event):
         """
@@ -469,18 +443,8 @@ class EditRelationship(QWidget):
 
     def remove_item(self, object):
         logger.debug(f"Attempting to remove {object} from {self.parent().instance.__dict__}")
-        # editor = getattr(self.parent().instance, self.objectName().lower())
         editor = getattr(self.parent().omni_object, self.objectName().lower())
         logger.debug(f"Editor: {editor}")
-        # if object == self.parent().manager:
-        #     logger.error(f"Can't remove manager object.")
-        #     return
-        # logger.debug(f"Object: {object}")
-        # try:
-        #     self.data.remove(object)
-        # except (AttributeError, ValueError) as e:
-        #     logger.error(f"Couldn't remove object from self.data due to: {e}")
-        #     self.data = []
         try:
             # logger.debug(f"Using remove technique")
             editor.remove(object)
@@ -492,8 +456,6 @@ class EditRelationship(QWidget):
         logger.debug(f"Setting {self.objectName()} to {editor}")
         setattr(self.parent().omni_object, self.objectName().lower(), editor)
         logger.debug(f"After set: {getattr(self.parent().omni_object, self.objectName().lower())}")
-        # self.parent().instance.save()
-        # self.parent().update_data()
         self.set_data()
         self.update_buttons()
 
@@ -551,7 +513,6 @@ class JsonEditButton(QWidget):
 
     def toggle_textedit(self):
         self.edit_box.setVisible(not self.edit_box.isVisible())
-        # data = getattr(self.omni_object, name)
         # logger.debug(f"Data: {data}")
         data = json.dumps(self.data, indent=4)
         self.edit_box.widget.setText(data)
@@ -624,7 +585,6 @@ class JsonEditScreen(QDialog):
                     output.append(value)
             else:
                 raise ValueError(f"Inappropriate data type: {type(self.json_field)}")
-            # output[key] = value
         return output
 
 

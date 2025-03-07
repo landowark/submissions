@@ -1,7 +1,5 @@
 from __future__ import annotations
-import logging
-import sys
-
+import logging, sys
 from pydantic import BaseModel, field_validator, Field
 from typing import List, ClassVar
 from backend.db.models import *
@@ -37,7 +35,6 @@ class BaseOmni(BaseModel):
         """
         logger.debug(f"Incoming attributes: {attributes}")
         for key, value in attributes.items():
-            # print(getattr(self.__class__, key).property)
             if value.lower() == "none":
                 value = None
             logger.debug(f"Attempting to grab attribute: {key}")
@@ -127,7 +124,6 @@ class BaseOmni(BaseModel):
                             if issubclass(value.__class__, self.__class__):
                                 value = value.to_sql()
                             value = [value]
-                        # value = list(set(value))
                         logger.debug(f"Final value for {key}: {value}")
                         return super().__setattr__(key, value)
                     else:
@@ -243,7 +239,6 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
     mutable_cost_column: float = Field(default=0.0, description="property")
     mutable_cost_sample: float = Field(default=0.0, description="property")
     constant_cost: float = Field(default=0.0, description="property")
-    # processes: List[OmniProcess] | List[str] = Field(default=[], description="relationship", title="Process")
 
     def __repr__(self):
         if isinstance(self.submissiontype, str):
@@ -313,7 +308,6 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         else:
             kittype = KitType.query(name=self.kittype)
         # logger.debug(f"Self kittype: {self.kittype}")
-        # kittype = KitType.query(name=self.kittype)
         logger.debug(f"Query or create with {kittype}, {submissiontype}")
         instance, is_new = self.class_object.query_or_create(kittype=kittype, submissiontype=submissiontype)
         instance.mutable_cost_column = self.mutable_cost_column
@@ -352,7 +346,6 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
             kit_type = self.kit_type.name
         else:
             kit_type = self.kit_type
-        # name = f"{kit_type} -> {self.reagent_role}"
         # logger.debug(f"Using name: {name}")
         if isinstance(self.reagent_role, OmniReagentRole):
             reagent_role = self.reagent_role.name
@@ -360,7 +353,6 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
             reagent_role = self.reagent_role
         return dict(
             reagent_role=reagent_role,
-            # name=self.reagent_role.name,
             submission_type=submission_type,
             kit_type=kit_type
         )
@@ -381,7 +373,6 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
         logger.debug(f"KTRRAssoc uses: {self.uses}")
         instance.uses = self.uses
         logger.debug(f"KitTypeReagentRoleAssociation: {pformat(instance.__dict__)}")
-
         return instance
 
 
@@ -464,8 +455,6 @@ class OmniTipRole(BaseOmni):
         instance, new = self.class_object.query_or_create(name=self.name)
         for tips in self.tips:
             tips.to_sql()
-            # if new_assoc not in instance.instances:
-            #     instance.instances.append(new_assoc)
         return instance
 
 

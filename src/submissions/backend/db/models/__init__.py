@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.exc import ArgumentError, InvalidRequestError
+from sqlalchemy.exc import ArgumentError
 from typing import Any, List
 from pathlib import Path
 
@@ -156,9 +156,6 @@ class BaseClass(Base):
             Any: Subclass of this object
 
         """
-        # if not name:
-        #     logger.warning("You need to include a name of what you're looking for.")
-        #     return cls
         if " " in name:
             search = name.title().replace(" ", "")
         else:
@@ -343,7 +340,6 @@ class BaseClass(Base):
         """
         logger.debug(f"Incoming attributes: {attributes}")
         for key, value in attributes.items():
-            # print(getattr(self.__class__, key).property)
             if value.lower() == "none":
                 value = None
             logger.debug(f"Attempting to grab attribute: {key}")
@@ -355,7 +351,6 @@ class BaseClass(Base):
             else:
                 filter = class_attr.property
             match filter:
-            # match class_attr:
                 case ColumnProperty():
                     match class_attr.type:
                         case INTEGER():
@@ -397,8 +392,6 @@ class BaseClass(Base):
         """
         Custom dunder method to handle potential list relationship issues.
         """
-        # if key != "_sa_instance_state":
-        #     logger.debug(f"Attempting to set {key} to {pformat(value)}")
         try:
             field_type = getattr(self.__class__, key)
         except AttributeError:
