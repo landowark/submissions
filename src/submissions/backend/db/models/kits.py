@@ -3,6 +3,7 @@ All kit and reagent related models
 """
 from __future__ import annotations
 import json, zipfile, yaml, logging, re
+import sys
 from pprint import pformat
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
@@ -231,6 +232,7 @@ class KitType(BaseClass):
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[KitType, bool]:
         from backend.validators.pydant import PydKitType
+        from backend.validators.omni_gui_objects import BaseOmni
         new = False
         disallowed = ['expiry']
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
@@ -1074,7 +1076,7 @@ class SubmissionType(BaseClass):
             new = True
         for k, v in sanitized_kwargs.items():
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance}")
+        logger.info(f"Instance from submissiontype query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -1298,7 +1300,7 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
             new = True
         for k, v in sanitized_kwargs.items():
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance}")
+        logger.info(f"Instance from SubmissionTypeKitTypeAssociation query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -1428,6 +1430,22 @@ class KitTypeReagentRoleAssociation(BaseClass):
         except AttributeError:
             return "Blank KitTypeReagentRole"
 
+    @hybrid_property
+    def submissiontype(self):
+        return self.submission_type
+
+    @submissiontype.setter
+    def submissiontype(self, value):
+        self.submission_type = value
+
+    @hybrid_property
+    def kittype(self):
+        return self.kit_type
+
+    @kittype.setter
+    def kittype(self, value):
+        self.kit_type = value
+
     @validates('required')
     def validate_required(self, key, value):
         """
@@ -1478,8 +1496,31 @@ class KitTypeReagentRoleAssociation(BaseClass):
             instance = cls()
             new = True
         for k, v in sanitized_kwargs.items():
+            logger.debug(f"Key: {k} has value: {v}")
+            match k:
+                case "kittype" | "kit_type":
+                    k = "kit_type"
+                    if isinstance(v, str):
+                        v = KitType.query(name=v)
+                    else:
+                        v = v.instance_object
+                case "submissiontype" | "submission_type":
+                    k = "submission_type"
+                    if isinstance(v, str):
+                        v = SubmissionType.query(name=v)
+                    else:
+                        v = v.instance_object
+                case "reagentrole" | "reagent_role":
+                    k = "reagent_role"
+                    if isinstance(v, str):
+                        v = ReagentRole.query(name=v)
+                    else:
+                        v = v.instance_object
+                case _:
+                    pass
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance}")
+        logger.info(f"Instance from query or create: {instance.__dict__}")
+        # sys.exit()
         return instance, new
 
     @classmethod

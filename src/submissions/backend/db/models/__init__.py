@@ -397,8 +397,8 @@ class BaseClass(Base):
         """
         Custom dunder method to handle potential list relationship issues.
         """
-        if key != "_sa_instance_state":
-            logger.debug(f"Attempting to set {key} to {pformat(value)}")
+        # if key != "_sa_instance_state":
+        #     logger.debug(f"Attempting to set {key} to {pformat(value)}")
         try:
             field_type = getattr(self.__class__, key)
         except AttributeError:
@@ -407,21 +407,25 @@ class BaseClass(Base):
             logger.debug(f"{key} is an InstrumentedAttribute.")
             match field_type.property:
                 case ColumnProperty():
-                    logger.debug(f"Setting ColumnProperty to {value}")
+                    # logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
-                    logger.debug(f"Setting _RelationshipDeclared to {value}")
+                    logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
                     if field_type.property.uselist:
                         logger.debug(f"Setting with uselist")
                         existing = self.__getattribute__(key)
+                        # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
                         if existing is not None:
+                            logger.debug(f"{key} Existing: {existing}, incoming: {value}")
                             if isinstance(value, list):
-                                value = existing + value
+                                # value = existing + value
+                                value = value
                             else:
                                 value = existing + [value]
                         else:
                             value = [value]
                         value = list(set(value))
+                        logger.debug(f"Final value for {key}: {value}")
                         return super().__setattr__(key, value)
                     else:
                         if isinstance(value, list):
@@ -429,6 +433,7 @@ class BaseClass(Base):
                                 value = value[0]
                             else:
                                 raise ValueError("Object is too long to parse a single value.")
+                                # value = value
                         return super().__setattr__(key, value)
                 case _:
                     return super().__setattr__(key, value)

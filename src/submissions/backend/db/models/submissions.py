@@ -460,6 +460,7 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         rows = range(1, plate_rows + 1)
         columns = range(1, plate_columns + 1)
+        logger.debug(f"sample list for plate map: {pformat(sample_list)}")
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         output_samples = [next((item for item in sample_list if item['row'] == row and item['column'] == column),
@@ -1536,6 +1537,7 @@ class Wastewater(BasicSubmission):
                     continue
                 thing['tooltip'] = f"Sample Name: {thing['name']}\nWell: {thing['sample_location']}"
                 dummy_samples.append(thing)
+            logger.debug(f"Dummy samples for 24 well: {pformat(dummy_samples)}")
             output['origin_plate'] = self.__class__.make_plate_map(sample_list=dummy_samples, plate_rows=4,
                                                                    plate_columns=6)
         # logger.debug(f"PCR info: {output['pcr_info']}")

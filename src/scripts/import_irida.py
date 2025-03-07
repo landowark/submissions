@@ -52,7 +52,12 @@ def import_irida(ctx: Settings):
         sample = new_session.query(BasicSample).filter(BasicSample.submitter_id == instance.name).first()
         if sample:
             instance.sample = sample
-            instance.submission = sample.submissions[0]
+            try:
+                instance.submission = sample.submissions[0]
+            except IndexError:
+                logger.error(f"Could not get sample for {sample}")
+                instance.submission = None
+            # instance.submission = sample.submission[0]
         new_session.add(instance)
     new_session.commit()
     new_session.close()

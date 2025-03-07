@@ -242,6 +242,7 @@ class App(QMainWindow):
         from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
         dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
+            logger.debug("\n\nBeginning parsing\n\n")
             output = dlg.parse_form()
             # assert isinstance(output, KitType)
             # output.save()
@@ -249,6 +250,11 @@ class App(QMainWindow):
             # output.to_sql()
             with open(f"{output.name}.obj", "wb") as f:
                 pickle.dump(output, f)
+            logger.debug("\n\nBeginning transformation\n\n")
+            sql = output.to_sql()
+            with open(f"{output.name}.sql", "wb") as f:
+                pickle.dump(sql, f)
+            sql.save()
 
 
 class AddSubForm(QWidget):
