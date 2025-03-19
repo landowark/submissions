@@ -1244,6 +1244,7 @@ class PydIridaControl(BaseModel, extra='ignore'):
 
 class PydProcess(BaseModel, extra="allow"):
     name: str
+    version: str = Field(default="1")
     submission_types: List[str]
     equipment: List[str]
     equipment_roles: List[str]

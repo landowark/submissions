@@ -32,7 +32,6 @@ from jinja2 import Template
 from PIL import Image
 
 
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -460,7 +459,7 @@ class BasicSubmission(BaseClass, LogMixin):
         """
         rows = range(1, plate_rows + 1)
         columns = range(1, plate_columns + 1)
-        logger.debug(f"sample list for plate map: {pformat(sample_list)}")
+        # logger.debug(f"sample list for plate map: {pformat(sample_list)}")
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         output_samples = [next((item for item in sample_list if item['row'] == row and item['column'] == column),
@@ -1340,8 +1339,7 @@ class BasicSubmission(BaseClass, LogMixin):
             for equip in equipment:
                 logger.debug(f"Parsed equipment: {equip}")
                 _, assoc = equip.to_sql(submission=self)
-                logger.debug(f"Got equipment association: {assoc.__dict__}")
-
+                logger.debug(f"Got equipment association: {assoc} for {equip}")
                 try:
                     assoc.save()
                 except AttributeError as e:
@@ -1487,6 +1485,55 @@ class BacterialCulture(BasicSubmission):
         """
         input_dict = super().custom_info_parser(input_dict=input_dict, xl=xl, custom_fields=custom_fields)
         return input_dict
+
+    def custom_context_events(self) -> dict:
+        """
+        Sets context events for main widget
+
+        Returns:
+            dict: Context menu items for this instance.
+        """
+        events = super().custom_context_events()
+        events['Import Concentration'] = self.import_concentration
+        return events
+
+    @report_result
+    def import_concentration(self, obj) -> Report:
+        from frontend.widgets import select_open_file
+        from backend.excel.parser import ConcentrationParser
+        report = Report()
+        fname = select_open_file(obj=obj, file_extension="xlsx")
+        if not fname:
+            report.add_result(Result(msg="No file selected, cancelling.", status="Warning"))
+            return report
+        parser = ConcentrationParser(filepath=fname, submission=self)
+        conc_samples = [sample for sample in parser.samples]
+        for sample in self.samples:
+            logger.debug(f"Sample {sample.submitter_id}")
+            try:
+                # NOTE: Fix for ENs which have no rsl_number...
+                sample_dict = next(item for item in conc_samples if item['submitter_id'] == sample.submitter_id)
+            except StopIteration:
+                continue
+            logger.debug(f"Sample {sample.submitter_id} conc. = {sample_dict['concentration']}")
+            if sample_dict['concentration']:
+                sample.concentration = sample_dict['concentration']
+            else:
+                continue
+            sample.save()
+        # logger.debug(conc_samples)
+        return report
+
+    @classmethod
+    def parse_concentration(cls, xl: Workbook, rsl_plate_num: str) -> Generator[dict, None, None]:
+        lookup_table = cls.get_submission_type().sample_map['lookup_table']
+        logger.debug(lookup_table)
+        main_sheet = xl[lookup_table['sheet']]
+        for row in main_sheet.iter_rows(min_row=lookup_table['start_row'], max_row=lookup_table['end_row']):
+            idx = row[0].row
+            sample = dict(submitter_id=main_sheet.cell(row=idx, column=lookup_table['sample_columns']['submitter_id']).value)
+            sample['concentration'] = main_sheet.cell(row=idx, column=lookup_table['sample_columns']['concentration']).value
+            yield sample
 
 
 class Wastewater(BasicSubmission):
@@ -2598,7 +2645,7 @@ class BasicSample(BaseClass, LogMixin):
         self.show_details(obj)
 
 
-# Below are the custom sample types
+# NOTE: Below are the custom sample types
 
 class WastewaterSample(BasicSample):
     """

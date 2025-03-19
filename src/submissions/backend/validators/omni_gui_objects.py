@@ -10,7 +10,6 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class BaseOmni(BaseModel):
-
     instance_object: Any | None = Field(default=None)
 
     def __repr__(self):
@@ -23,66 +22,106 @@ class BaseOmni(BaseModel):
     def aliases(cls):
         return cls.class_object.aliases
 
+    # NOTE: Okay, this will not work for editing, since by definition not all attributes will line up.
+    #     def check_all_attributes(self, attributes: dict) -> bool:
+    #         """
+    #         Checks this instance against a dictionary of attributes to determine if they are a match.
+    #
+    #         Args:
+    #             attributes (dict): A dictionary of attributes to be check for equivalence
+    #
+    #         Returns:
+    #             bool: If a single unequivocal value is found will be false, else true.
+    #         """
+    #         logger.debug(f"Incoming attributes: {attributes}")
+    #         for key, value in attributes.items():
+    #             logger.debug(f"Comparing value class: {value.__class__} to omni class")
+    #             if isinstance(value, str):
+    #                 try:
+    #                     check = value.lower() == "none"
+    #                 except AttributeError:
+    #                     continue
+    #                 if check:
+    #                     value = None
+    #             logger.debug(f"Attempting to grab attribute: {key}")
+    #             try:
+    #                 self_value = getattr(self, key)
+    #                 class_attr = getattr(self.class_object, key)
+    #             except AttributeError:
+    #                 continue
+    #             try:
+    #                 logger.debug(f"Check if {self_value.__class__} is subclass of {BaseOmni}")
+    #                 check = issubclass(self_value.__class__, BaseOmni)
+    #             except TypeError as e:
+    #                 logger.error(f"Couldn't check if {self_value.__class__} is subclass of {BaseOmni} due to {e}")
+    #                 check = False
+    #             if check:
+    #                 logger.debug(f"Checking for subclass name.")
+    #                 self_value = self_value.name
+    #             try:
+    #                 logger.debug(f"Check if {value.__class__} is subclass of {BaseOmni}")
+    #                 check = issubclass(value.__class__, BaseOmni)
+    #             except TypeError as e:
+    #                 logger.error(f"Couldn't check if {value.__class__} is subclass of {BaseOmni} due to {e}")
+    #                 check = False
+    #             if check:
+    #                 logger.debug(f"Checking for subclass name.")
+    #                 value = value.name
+    #             logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
+    #             if isinstance(class_attr, property):
+    #                 filter = "property"
+    #             else:
+    #                 filter = class_attr.property
+    #             match filter:
+    #                 case ColumnProperty():
+    #                     match class_attr.type:
+    #                         case INTEGER():
+    #                             if value.lower() == "true":
+    #                                 value = 1
+    #                             elif value.lower() == "false":
+    #                                 value = 0
+    #                             else:
+    #                                 value = int(value)
+    #                         case FLOAT():
+    #                             value = float(value)
+    #                 case "property":
+    #                     pass
+    #                 case _RelationshipDeclared():
+    #                     logger.debug(f"Checking relationship value: {self_value}")
+    #                     try:
+    #                         self_value = self_value.name
+    #                     except AttributeError:
+    #                         pass
+    #                     if class_attr.property.uselist:
+    #                         self_value = self_value.__str__()
+    #             logger.debug(
+    #                 f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
+    #             if self_value != value:
+    #                 output = False
+    #                 logger.debug(f"Value {key} is False, returning.")
+    #                 return output
+    #         return True
+
     def check_all_attributes(self, attributes: dict) -> bool:
-        """
-        Checks this instance against a dictionary of attributes to determine if they are a match.
-
-        Args:
-            attributes (dict): A dictionary of attributes to be check for equivalence
-
-        Returns:
-            bool: If a single unequivocal value is found will be false, else true.
-        """
         logger.debug(f"Incoming attributes: {attributes}")
+        attributes = {k : v for k, v in attributes.items() if k in self.list_searchables.keys()}
         for key, value in attributes.items():
-            if value.lower() == "none":
-                value = None
-            logger.debug(f"Attempting to grab attribute: {key}")
-            self_value = getattr(self, key)
-            class_attr = getattr(self.class_object, key)
-            # logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
-            if isinstance(class_attr, property):
-                filter = "property"
-            else:
-                filter = class_attr.property
-            match filter:
-                case ColumnProperty():
-                    match class_attr.type:
-                        case INTEGER():
-                            if value.lower() == "true":
-                                value = 1
-                            elif value.lower() == "false":
-                                value = 0
-                            else:
-                                value = int(value)
-                        case FLOAT():
-                            value = float(value)
-                case "property":
-                    pass
-                case _RelationshipDeclared():
-                    logger.debug(f"Checking {self_value}")
-                    try:
-                        self_value = self_value.name
-                    except AttributeError:
-                        pass
-                    if class_attr.property.uselist:
-                        self_value = self_value.__str__()
             try:
-                logger.debug(f"Check if {self_value.__class__} is subclass of {self.__class__}")
-                check = issubclass(self_value.__class__, self.__class__)
+                logger.debug(f"Check if {value.__class__} is subclass of {BaseOmni}")
+                check = issubclass(value.__class__, BaseOmni)
             except TypeError as e:
-                logger.error(f"Couldn't check if {self_value.__class__} is subclass of {self.__class__} due to {e}")
+                logger.error(f"Couldn't check if {value.__class__} is subclass of {BaseOmni} due to {e}")
                 check = False
             if check:
                 logger.debug(f"Checking for subclass name.")
-                self_value = self_value.name
-            logger.debug(
-                f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
-            if self_value != value:
-                output = False
-                logger.debug(f"Value {key} is False, returning.")
-                return output
+                value = value.name
+            self_value = self.list_searchables[key]
+            if value != self_value:
+                logger.debug(f"Value {key} is False, these are not the same object.")
+                return False
+        logger.debug("Everything checks out, these are the same object.")
         return True
+
 
     def __setattr__(self, key, value):
         try:
@@ -174,6 +213,13 @@ class OmniSubmissionType(BaseOmni):
     def rescue_info_map_none(cls, value):
         if not value:
             return {}
+        return value
+
+    @field_validator("template_file", mode="before")
+    @classmethod
+    def provide_blank_template_file(cls, value):
+        if value is None:
+            value = bytes()
         return value
 
     def __init__(self, instance_object: Any, **data):
@@ -296,7 +342,6 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
             constant_cost=self.constant_cost
         )
 
-
     def to_sql(self):
         logger.debug(f"Self kittype: {self.submissiontype}")
         if issubclass(self.submissiontype.__class__, BaseOmni):
@@ -315,6 +360,18 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         instance.constant_cost = self.constant_cost
         return instance
 
+    @property
+    def list_searchables(self):
+        if isinstance(self.kittype, OmniKitType):
+            kit = self.kittype.name
+        else:
+            kit = self.kittype
+        if isinstance(self.submissiontype, OmniSubmissionType):
+            subtype = self.submissiontype.name
+        else:
+            subtype = self.submissiontype
+        return dict(kittype=kit, submissiontype=subtype)
+
 
 class OmniKitTypeReagentRoleAssociation(BaseOmni):
     class_object: ClassVar[Any] = KitTypeReagentRoleAssociation
@@ -325,6 +382,11 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
     submission_type: str | OmniSubmissionType = Field(default="", description="relationship", title="SubmissionType")
     kit_type: str | OmniKitType = Field(default="", description="relationship", title="KitType")
 
+    def __repr__(self):
+        try:
+            return f"<OmniKitTypeReagentRoleAssociation({self.kit_type.name}&{self.reagent_role.name})>"
+        except AttributeError:
+            return f"<OmniKitTypeReagentRoleAssociation(NO NAME)>"
 
     @field_validator("uses", mode="before")
     @classmethod
@@ -362,18 +424,45 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
             reagent_role = self.reagent_role.name
         else:
             reagent_role = self.reagent_role
+        if issubclass(self.submission_type.__class__, BaseOmni):
+            submissiontype = self.submission_type.name
+        else:
+            submissiontype = self.submission_type
+        if issubclass(self.kit_type.__class__, BaseOmni):
+            kittype = self.kit_type.name
+        else:
+            kittype = self.kit_type
         instance, new = self.class_object.query_or_create(
             reagentrole=reagent_role,
-            kittype=self.kit_type,
-            submissiontype=self.submission_type
+            kittype=kittype,
+            submissiontype=submissiontype
         )
+        logger.debug(f"KitTypeReagentRoleAssociation coming out of query_or_create: {instance.__dict__}\nnew: {new}")
         if new:
+            logger.warning(f"This is a new instance: {instance.__dict__}")
             reagent_role = self.reagent_role.to_sql()
             instance.reagent_role = reagent_role
         logger.debug(f"KTRRAssoc uses: {self.uses}")
         instance.uses = self.uses
+        instance.required = int(self.required)
         logger.debug(f"KitTypeReagentRoleAssociation: {pformat(instance.__dict__)}")
         return instance
+
+    @property
+    def list_searchables(self):
+        if isinstance(self.kit_type, OmniKitType):
+            kit = self.kit_type.name
+        else:
+            kit = self.kit_type
+        if isinstance(self.submission_type, OmniSubmissionType):
+            subtype = self.submission_type.name
+        else:
+            subtype = self.submission_type
+        if isinstance(self.reagent_role, OmniReagentRole):
+            reagentrole = self.reagent_role.name
+        else:
+            reagentrole = self.reagent_role
+        return dict(kit_type=kit, submission_type=subtype, reagent_role=reagentrole)
 
 
 class OmniEquipmentRole(BaseOmni):
@@ -463,6 +552,7 @@ class OmniProcess(BaseOmni):
 
     # NOTE: How am I going to figure out relatioinships without getting into recursion issues?
     name: str = Field(default="", description="property")  #: Process name
+    # version: str = Field(default="", description="property")  #: Version (string to account for "in_use" or whatever)
     submission_types: List[OmniSubmissionType] | List[str] = Field(default=[], description="relationship",
                                                                    title="SubmissionType")
     equipment_roles: List[OmniEquipmentRole] | List[str] = Field(default=[], description="relationship",
@@ -491,6 +581,13 @@ class OmniProcess(BaseOmni):
             return ""
         return value
 
+    # @field_validator("version", mode="before")
+    # @classmethod
+    # def rescue_name_none(cls, value):
+    #     if not value:
+    #         return "1"
+    #     return value
+
     def to_sql(self):
         instance, new = self.class_object.query_or_create(name=self.name)
         for st in self.submission_types:
@@ -507,17 +604,21 @@ class OmniProcess(BaseOmni):
                 instance.tip_roles.append(new_assoc)
         return instance
 
+    @property
+    def list_searchables(self):
+        return dict(name=self.name)
+
 
 class OmniKitType(BaseOmni):
     class_object: ClassVar[Any] = KitType
 
     name: str = Field(default="", description="property")
     kit_submissiontype_associations: List[OmniSubmissionTypeKitTypeAssociation] | List[str] = Field(default=[],
-                                                                                        description="relationship",
-                                                                                        title="SubmissionTypeKitTypeAssociation")
+                                                                                                    description="relationship",
+                                                                                                    title="SubmissionTypeKitTypeAssociation")
     kit_reagentrole_associations: List[OmniKitTypeReagentRoleAssociation] | List[str] = Field(default=[],
-                                                                                  description="relationship",
-                                                                                  title="KitTypeReagentRoleAssociation")
+                                                                                              description="relationship",
+                                                                                              title="KitTypeReagentRoleAssociation")
     processes: List[OmniProcess] | List[str] = Field(default=[], description="relationship", title="Process")
 
     @field_validator("name", mode="before")
@@ -548,8 +649,9 @@ class OmniKitType(BaseOmni):
             if new_assoc not in new_rr:
                 logger.debug(f"Adding {new_assoc} to kit_reagentrole_associations")
                 new_rr.append(new_assoc)
-        logger.debug(f"Setting kit_reagentrole_associations to {new_rr}")
+        logger.debug(f"Setting kit_reagentrole_associations to {pformat([item.__dict__ for item in new_rr])}")
         kit.kit_reagentrole_associations = new_rr
+        # sys.exit()
         new_st = []
         for st_assoc in self.kit_submissiontype_associations:
             new_assoc = st_assoc.to_sql()

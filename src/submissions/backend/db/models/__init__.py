@@ -46,7 +46,7 @@ class BaseClass(Base):
     """
     Abstract class to pass ctx values to all SQLAlchemy objects.
     """
-    __abstract__ = True  #: NOTE: Will not be added to DB
+    __abstract__ = True  #: NOTE: Will not be added to DB as a table
 
     __table_args__ = {'extend_existing': True}  #: Will only add new columns
 
@@ -54,6 +54,7 @@ class BaseClass(Base):
     omni_removes = ["id", 'submissions', "omnigui_class_dict", "omnigui_instance_dict"]
     omni_sort = ["name"]
     omni_inheritable = []
+    searchables = []
 
     @classproperty
     def skip_on_edit(cls):
@@ -416,7 +417,10 @@ class BaseClass(Base):
                             else:
                                 value = existing + [value]
                         else:
-                            value = [value]
+                            if isinstance(value, list):
+                                value = value
+                            else:
+                                value = [value]
                         value = list(set(value))
                         logger.debug(f"Final value for {key}: {value}")
                         return super().__setattr__(key, value)

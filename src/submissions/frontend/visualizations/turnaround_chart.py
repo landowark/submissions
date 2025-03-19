@@ -19,10 +19,6 @@ class TurnaroundChart(CustomFigure):
                  months: int = 6):
         super().__init__(df=df, modes=modes, settings=settings)
         self.df = df
-        # try:
-        #     months = int(settings['months'])
-        # except KeyError:
-        #     months = 6
         self.construct_chart()
         if threshold:
             self.add_hline(y=threshold)
@@ -31,20 +27,26 @@ class TurnaroundChart(CustomFigure):
     def construct_chart(self, df: pd.DataFrame | None = None):
         if df:
             self.df = df
-        self.df = self.df[self.df.days.notnull()]
-        self.df = self.df.sort_values(['submitted_date', 'name'], ascending=[True, True]).reset_index(drop=True)
-        self.df = self.df.reset_index().rename(columns={"index": "idx"})
         try:
+            self.df = self.df[self.df.days.notnull()]
+            self.df = self.df.sort_values(['submitted_date', 'name'], ascending=[True, True]).reset_index(drop=True)
+            self.df = self.df.reset_index().rename(columns={"index": "idx"})
             scatter = px.scatter(data_frame=self.df, x='idx', y="days",
                                  hover_data=["name", "submitted_date", "completed_date", "days"],
                                  color="acceptable", color_discrete_map={True: "green", False: "red"}
                                  )
-        except ValueError:
+        except (ValueError, AttributeError):
             scatter = px.scatter()
         self.add_traces(scatter.data)
         self.update_traces(marker={'size': 15})
-        tickvals = self.df['idx'].tolist()
-        ticklabels = self.df['name'].tolist()
+        try:
+            tickvals = self.df['idx'].tolist()
+        except KeyError:
+            tickvals = []
+        try:
+            ticklabels = self.df['name'].tolist()
+        except KeyError:
+            ticklabels = []
         self.update_layout(
             xaxis=dict(
                 tickmode='array',

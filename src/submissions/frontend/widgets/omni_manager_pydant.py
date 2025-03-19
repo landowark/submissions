@@ -37,7 +37,7 @@ class ManagerWindow(QDialog):
         super().__init__(parent)
         # NOTE: Should I pass in an instance?
         self.instance = instance
-        logger.debug(f"Setting instance: {self.instance}")
+        # logger.debug(f"Setting instance: {self.instance}")
         if not self.instance:
             self.class_object = self.original_type = object_type
         else:
@@ -131,7 +131,7 @@ class ManagerWindow(QDialog):
             self.omni_object = self.instance.to_omni(expand=True)
         else:
             self.omni_object = self.instance
-        logger.debug(f"Created omni_object: {self.omni_object.__dict__}")
+        # logger.debug(f"Created omni_object: {self.omni_object.__dict__}")
         self.update_data()
 
     def update_data(self) -> None:
@@ -154,6 +154,7 @@ class ManagerWindow(QDialog):
                 value = getattr(self.omni_object, key)
             except AttributeError:
                 value = None
+            # logger.debug(f"Got value {value} for key {key}")
             match info.description:
                 # NOTE: ColumnProperties will be directly edited.
                 case "property":
@@ -163,7 +164,11 @@ class ManagerWindow(QDialog):
                 # NOTE: RelationshipDeclareds will be given a list of existing related objects.
                 case "relationship":
                     # NOTE: field.comparator.class_object.class_ gives the relationship class
-                    # logger.debug(f"Creating relationship widget with value: {value}")
+                    # try:
+                    #     logger.debug(
+                    #         f"Creating relationship widget with value: {[pformat(item.__dict__) for item in value]}")
+                    # except AttributeError:
+                    #     logger.debug(f"Creating relationship widget with value: {value}")
                     widget = EditRelationship(self, key=key, class_object=info.title, value=value)
                 case _:
                     continue
@@ -182,13 +187,13 @@ class ManagerWindow(QDialog):
         # TODO: Need Relationship property here too?
         results = [item.parse_form() for item in self.findChildren(EditProperty)]
         for result in results:
-            logger.debug(f"Incoming property result: {result}")
+            # logger.debug(f"Incoming property result: {result}")
             setattr(self.omni_object, result['field'], result['value'])
             # NOTE: Getting 'None' back here.
-            logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
+            # logger.debug(f"Set result: {getattr(self.instance, result['field'])}")
         results = [item.parse_form() for item in self.findChildren(EditRelationship)]
         for result in results:
-            logger.debug(f"Incoming relationship result: {result}")
+            # logger.debug(f"Incoming relationship result: {result}")
             setattr(self.omni_object, result['field'], result['value'])
             # logger.debug(f"Set result: {getattr(self.omni_object, result['field'])}")
         # logger.debug(f"Instance coming from parsed form: {self.omni_object.__dict__}")
@@ -270,12 +275,12 @@ class EditRelationship(QWidget):
         from backend.db import models
         super().__init__(parent)
         self.class_object = getattr(models, class_object)
-        logger.debug(f"Class object: {self.class_object}")
+        # logger.debug(f"Class object: {self.class_object}")
         self.setParent(parent)
         # logger.debug(f"Edit relationship class_object: {self.class_object}")
         self.label = QLabel(key.title().replace("_", " "))
         self.setObjectName(key)  #: key is the name of the relationship this represents
-        logger.debug(f"Checking relationship for {self.parent().class_object}: {key}")
+        # logger.debug(f"Checking relationship for {self.parent().class_object}: {key}")
         self.relationship = getattr(self.parent().class_object, key)
         self.widget = QTableView()
         self.add_button = QPushButton("Add New")
@@ -288,15 +293,15 @@ class EditRelationship(QWidget):
             else:
                 value = []
         self.data = value
-        logger.debug(f"Set data: {self.data}")
+        # logger.debug(f"Set data: {self.data}")
         # self.update_buttons()
-        logger.debug(f"Parent manager: {self.parent().manager}")
+        # logger.debug(f"Parent manager: {self.parent().manager}")
         checked_manager, is_primary = check_object_in_manager(self.parent().manager, self.objectName())
         if checked_manager:
             if not self.data:
                 self.data = [checked_manager]
         try:
-            logger.debug(f"Relationship {key} uses list: {self.relationship.property.uselist}")
+            # logger.debug(f"Relationship {key} uses list: {self.relationship.property.uselist}")
             check = not self.relationship.property.uselist and len(self.data) >= 1
         except AttributeError:
             check = True
@@ -336,9 +341,9 @@ class EditRelationship(QWidget):
         self.widget.doubleClicked.disconnect()
         self.add_edit(instance=object)
 
-    def add_new(self, instance: Any = None, add_edit: Literal["add", "edit"] = "add"):
+    def add_new(self, instance: Any = None, add_edit: Literal["add", "edit"] = "add", index: int | None = None):
         if add_edit == "edit":
-            logger.debug(f"Editing instance: {instance.__dict__}")
+            logger.debug(f"\n\nEditing instance: {instance.__dict__}\n\n")
         # NOTE: if an existing instance is not being edited, create a new instance
         if not instance:
             # logger.debug(f"Creating new instance of {self.class_object}")
@@ -352,10 +357,27 @@ class EditRelationship(QWidget):
             logger.debug(f"New instance: {pformat(new_instance.__dict__)}")
             # NOTE: Somewhere between this and the next logger, I'm losing the uses data.
             if add_edit == "add":
+                logger.debug("Setting as new object")
                 self.parent().omni_object.__setattr__(self.objectName(), new_instance)
             else:
-                instance.__dict__.update(new_instance.__dict__)
-            logger.debug(f"Final instance: {pformat(instance.__dict__)}")
+                logger.debug("Updating dictionary")
+                obj = getattr(self.parent().omni_object, self.objectName())
+                if isinstance(obj, list):
+                    logger.debug(f"This is a list")
+                    # obj = obj[index]
+                    try:
+                        # NOTE: Okay, this will not work for editing, since by definition not all attributes will line up.
+                        # NOTE: Set items to search by in the Omni object itself?
+                        obj = next((item for item in obj if item.check_all_attributes(new_instance.__dict__)))
+                    except StopIteration:
+                        logger.error(f"Couldn't find object in list.")
+                        return
+                logger.debug(f"Updating \n{pformat(obj)} with \n{pformat(new_instance.__dict__)}")
+                obj.__dict__.update(new_instance.__dict__)
+            #     # self.parent().omni_object.__setattr__(self.objectName(), obj)
+            #     # instance.__dict__.update(new_instance.__dict__)
+            logger.debug(f"Final instance: {pformat(self.parent().omni_object.__dict__)}")
+            # NOTE: somewhere in the update_data I'm losing changes.
             self.parent().update_data()
 
     def add_existing(self):
@@ -415,9 +437,9 @@ class EditRelationship(QWidget):
         row_data = {self.df.columns[column]: self.widget.model().index(id.row(), column).data() for column in
                     range(self.widget.model().columnCount())}
         # logger.debug(f"Row data: {row_data}")
-        logger.debug(f"Attempting to grab {self.objectName()} from {self.parent().omni_object}")
+        # logger.debug(f"Attempting to grab {self.objectName()} from {self.parent().omni_object}")
         object = getattr(self.parent().omni_object, self.objectName())
-        logger.debug(f"Initial object: {object}")
+        # logger.debug(f"Initial object: {object}")
         if isinstance(object, list):
             try:
                 object = next((item for item in object if item.check_all_attributes(attributes=row_data)))
@@ -437,14 +459,15 @@ class EditRelationship(QWidget):
             edit_action = QAction(f"Edit {object.name}", self)
         except AttributeError:
             edit_action = QAction(f"Edit object", self)
-        edit_action.triggered.connect(lambda: self.add_new(instance=object.instance_object, add_edit="edit"))
+        edit_action.triggered.connect(
+            lambda: self.add_new(instance=object.instance_object, add_edit="edit", index=id.row()))
         self.menu.addAction(edit_action)
         self.menu.popup(QCursor.pos())
 
     def remove_item(self, object):
-        logger.debug(f"Attempting to remove {object} from {self.parent().instance.__dict__}")
+        # logger.debug(f"Attempting to remove {object} from {self.parent().instance.__dict__}")
         editor = getattr(self.parent().omni_object, self.objectName().lower())
-        logger.debug(f"Editor: {editor}")
+        # logger.debug(f"Editor: {editor}")
         try:
             # logger.debug(f"Using remove technique")
             editor.remove(object)
@@ -453,9 +476,9 @@ class EditRelationship(QWidget):
             setattr(self.parent().omni_object, self.objectName().lower(), None)
         except ValueError as e:
             logger.error(f"Remove failed for {self.objectName().lower()} due to {e}.")
-        logger.debug(f"Setting {self.objectName()} to {editor}")
+        # logger.debug(f"Setting {self.objectName()} to {editor}")
         setattr(self.parent().omni_object, self.objectName().lower(), editor)
-        logger.debug(f"After set: {getattr(self.parent().omni_object, self.objectName().lower())}")
+        # logger.debug(f"After set: {getattr(self.parent().omni_object, self.objectName().lower())}")
         self.set_data()
         self.update_buttons()
 
@@ -466,7 +489,10 @@ class EditRelationship(QWidget):
         except AttributeError:
             check = False
         if check and isinstance(self.data, list):
-            output_data = self.data[0]
+            try:
+                output_data = self.data[0]
+            except IndexError:
+                output_data = []
         else:
             output_data = self.data
         return dict(field=self.objectName(), value=output_data)
@@ -476,7 +502,7 @@ class JsonEditButton(QWidget):
 
     def __init__(self, parent, key: str, value: str = ""):
         super().__init__(parent)
-        logger.debug(f"Setting jsonedit data to: {value}")
+        # logger.debug(f"Setting jsonedit data to: {value}")
         self.data = value
         self.setParent(parent)
         self.setObjectName(key)
@@ -495,7 +521,7 @@ class JsonEditButton(QWidget):
         self.edit_box.widget.textChanged.connect(self.set_json_to_text)
 
     def set_json_to_text(self):
-        logger.debug(self.edit_box.widget.toPlainText())
+        # logger.debug(self.edit_box.widget.toPlainText())
         text = self.edit_box.widget.toPlainText()
         try:
             jsoner = json.loads(text)
@@ -529,7 +555,11 @@ class JsonEditScreen(QDialog):
         try:
             self.json_field = getattr(self.class_obj, f"{parameter}_json_edit_fields")
         except AttributeError:
-            self.json_field = self.class_obj.json_edit_fields
+            try:
+                self.json_field = self.class_obj.json_edit_fields
+            except AttributeError:
+                logger.error(f"No json fields to edit.")
+                return
         match self.json_field:
             case dict():
                 for key, value in self.json_field.items():

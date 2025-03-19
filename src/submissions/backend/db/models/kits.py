@@ -858,13 +858,207 @@ class SubmissionType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(128), unique=True)  #: name of submission type
-    info_map = Column(JSON)  #: Where basic information is found in the excel workbook corresponding to this type.
+    info_map = Column(JSON)  #: Where parsable information is found in the excel workbook corresponding to this type.
     defaults = Column(JSON)  #: Basic information about this submission type
     instances = relationship("BasicSubmission", backref="submission_type")  #: Concrete instances of this type.
     template_file = Column(BLOB)  #: Blank form for this type stored as binary.
     processes = relationship("Process", back_populates="submission_types",
                              secondary=submissiontypes_processes)  #: Relation to equipment processes used for this type.
     sample_map = Column(JSON)  #: Where sample information is found in the excel sheet corresponding to this type.
+
+    """
+    Example info_map (Bacterial Culture)
+    NOTE: read locations will be appended to write locations. 
+    
+    {
+        "comment": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 34,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "contact": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 4,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "contact_phone": {
+            "read": [],
+            "write": [
+                {
+                    "column": 2,
+                    "row": 5,
+                    "sheet": "Sample List"
+                }
+            ]
+        },
+        "cost_centre": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 6,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "custom": {},
+        "extraction_kit": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 5,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "rsl_plate_num": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 13,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "sample_count": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 4,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "signed_by": {
+            "read": [],
+            "write": [
+                {
+                    "column": 2,
+                    "row": 15,
+                    "sheet": "Sample List"
+                }
+            ]
+        },
+        "submission_category": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 6,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submission_type": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 3,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submitted_date": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 3,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submitter_plate_num": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 2,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "submitting_lab": {
+            "read": [
+                {
+                    "column": 4,
+                    "row": 2,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        },
+        "technician": {
+            "read": [
+                {
+                    "column": 2,
+                    "row": 14,
+                    "sheet": "Sample List"
+                }
+            ],
+            "write": []
+        }
+    }
+    """
+
+    """
+    Example defaults (for Bacterial Culture)
+    
+    {
+        "abbreviation": "BC",
+        "details_ignore": [
+            "controls"
+        ],
+        "form_ignore": [
+            "controls",
+            "cost_centre"
+        ],
+        "regex": "(?P<Bacterial_Culture>RSL(?:-|_)?BC(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)",
+        "sample_type": "Bacterial Culture Sample",
+        "turnaround_time": 3
+    }
+    """
+
+    """
+    Example sample_map (Bacterial Culture)
+    
+    {
+        "lookup_table": {
+            "end_row": 132,
+            "merge_on_id": "submitter_id",
+            "sample_columns": {
+                "column": 6,
+                "concentration": 4,
+                "organism": 3,
+                "row": 5,
+                "submitter_id": 2
+            },
+            "sheet": "Sample List",
+            "start_row": 37
+        },
+        "plate_map": {
+            "end_column": 13,
+            "end_row": 14,
+            "sheet": "Plate Map",
+            "start_column": 2,
+            "start_row": 7
+        }
+    }
+    """
 
     submissiontype_kit_associations = relationship(
         "SubmissionTypeKitTypeAssociation",
@@ -1218,6 +1412,11 @@ class SubmissionType(BaseClass):
             sample_map=self.sample_map
         )
 
+    @classproperty
+    def info_map_json_edit_fields(cls):
+        dicto = dict()
+        return dicto
+
 
 class SubmissionTypeKitTypeAssociation(BaseClass):
     """
@@ -1519,7 +1718,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
                 case _:
                     pass
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance.__dict__}")
+        logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
         # sys.exit()
         return instance, new
 
@@ -2196,6 +2395,7 @@ class Process(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     name = Column(String(64), unique=True)  #: Process name
+    # version = Column(String(32))
     submission_types = relationship("SubmissionType", back_populates='processes',
                                     secondary=submissiontypes_processes)  #: relation to SubmissionType
     equipment = relationship("Equipment", back_populates='processes',
@@ -2208,6 +2408,7 @@ class Process(BaseClass):
                              secondary=kittypes_processes)  #: relation to KitType
     tip_roles = relationship("TipRole", back_populates='processes',
                              secondary=process_tiprole)  #: relation to KitType
+
 
     def __repr__(self) -> str:
         """
@@ -2308,6 +2509,7 @@ class Process(BaseClass):
         return OmniProcess(
             instance_object=self,
             name=self.name,
+            # version=self.version,
             submission_types=[item.to_omni() for item in self.submission_types],
             equipment_roles=[item.to_omni() for item in self.equipment_roles],
             tip_roles=[item.to_omni() for item in self.tip_roles]

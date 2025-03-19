@@ -677,10 +677,7 @@ class PCRParser(object):
     def pcr_info(self) -> dict:
         """
         Parse general info rows for all types of PCR results
-
-        Args:
-            sheet_name (str): Name of sheet in excel workbook that holds info.
-         """
+        """
         info_map = self.submission_obj.get_submission_type().sample_map['pcr_general_info']
         sheet = self.xl[info_map['sheet']]
         iter_rows = sheet.iter_rows(min_row=info_map['start_row'], max_row=info_map['end_row'])
@@ -695,3 +692,27 @@ class PCRParser(object):
             pcr[key] = value
         pcr['imported_by'] = getuser()
         return pcr
+
+
+class ConcentrationParser(object):
+
+    def __init__(self, filepath: Path | None = None, submission: BasicSubmission | None = None) -> None:
+        if filepath is None:
+            logger.error('No filepath given.')
+            self.xl = None
+        else:
+            try:
+                self.xl = load_workbook(filepath)
+            except ValueError as e:
+                logger.error(f'Incorrect value: {e}')
+                self.xl = None
+            except PermissionError:
+                logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
+                return None
+        if submission is None:
+            self.submission_obj = BacterialCulture
+            rsl_plate_num = None
+        else:
+            self.submission_obj = submission
+            rsl_plate_num = self.submission_obj.rsl_plate_num
+        self.samples = self.submission_obj.parse_concentration(xl=self.xl, rsl_plate_num=rsl_plate_num)

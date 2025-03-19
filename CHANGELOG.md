@@ -1,3 +1,12 @@
+# 202503.04
+
+- Kit editor debugging.
+- Fixed missing search bar in Edit Reagent.
+
+# 202503.03
+
+- Kit editor pre-release.
+
 # 202501.02
 
 - Fixed bug where Wastewater ENs were not receiving rsl_number and therefore not getting PCR data.
