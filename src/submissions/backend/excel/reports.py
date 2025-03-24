@@ -1,6 +1,6 @@
-'''
+"""
 Contains functions for generating summary reports
-'''
+"""
 import itertools
 import sys
 from pprint import pformat
@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import date
 from typing import Tuple
 from backend.db.models import BasicSubmission, IridaControl
-from tools import jinja_template_loading, get_first_blank_df_row, row_map, ctx
+from tools import jinja_template_loading, get_first_blank_df_row, row_map
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -36,6 +36,7 @@ class ReportArchetype(object):
             filename = Path(filename)
         filename = filename.absolute()
         self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
+        self.df.index += 1
         self.df.to_excel(self.writer, sheet_name=self.sheet_name)
         self.writer.close()
 

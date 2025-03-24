@@ -1,3 +1,7 @@
+# 202503.05
+
+- Added concentrations chart tab.
+
 # 202503.04
 
 - Kit editor debugging.

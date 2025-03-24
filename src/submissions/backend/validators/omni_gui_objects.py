@@ -22,86 +22,6 @@ class BaseOmni(BaseModel):
     def aliases(cls):
         return cls.class_object.aliases
 
-    # NOTE: Okay, this will not work for editing, since by definition not all attributes will line up.
-    #     def check_all_attributes(self, attributes: dict) -> bool:
-    #         """
-    #         Checks this instance against a dictionary of attributes to determine if they are a match.
-    #
-    #         Args:
-    #             attributes (dict): A dictionary of attributes to be check for equivalence
-    #
-    #         Returns:
-    #             bool: If a single unequivocal value is found will be false, else true.
-    #         """
-    #         logger.debug(f"Incoming attributes: {attributes}")
-    #         for key, value in attributes.items():
-    #             logger.debug(f"Comparing value class: {value.__class__} to omni class")
-    #             if isinstance(value, str):
-    #                 try:
-    #                     check = value.lower() == "none"
-    #                 except AttributeError:
-    #                     continue
-    #                 if check:
-    #                     value = None
-    #             logger.debug(f"Attempting to grab attribute: {key}")
-    #             try:
-    #                 self_value = getattr(self, key)
-    #                 class_attr = getattr(self.class_object, key)
-    #             except AttributeError:
-    #                 continue
-    #             try:
-    #                 logger.debug(f"Check if {self_value.__class__} is subclass of {BaseOmni}")
-    #                 check = issubclass(self_value.__class__, BaseOmni)
-    #             except TypeError as e:
-    #                 logger.error(f"Couldn't check if {self_value.__class__} is subclass of {BaseOmni} due to {e}")
-    #                 check = False
-    #             if check:
-    #                 logger.debug(f"Checking for subclass name.")
-    #                 self_value = self_value.name
-    #             try:
-    #                 logger.debug(f"Check if {value.__class__} is subclass of {BaseOmni}")
-    #                 check = issubclass(value.__class__, BaseOmni)
-    #             except TypeError as e:
-    #                 logger.error(f"Couldn't check if {value.__class__} is subclass of {BaseOmni} due to {e}")
-    #                 check = False
-    #             if check:
-    #                 logger.debug(f"Checking for subclass name.")
-    #                 value = value.name
-    #             logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
-    #             if isinstance(class_attr, property):
-    #                 filter = "property"
-    #             else:
-    #                 filter = class_attr.property
-    #             match filter:
-    #                 case ColumnProperty():
-    #                     match class_attr.type:
-    #                         case INTEGER():
-    #                             if value.lower() == "true":
-    #                                 value = 1
-    #                             elif value.lower() == "false":
-    #                                 value = 0
-    #                             else:
-    #                                 value = int(value)
-    #                         case FLOAT():
-    #                             value = float(value)
-    #                 case "property":
-    #                     pass
-    #                 case _RelationshipDeclared():
-    #                     logger.debug(f"Checking relationship value: {self_value}")
-    #                     try:
-    #                         self_value = self_value.name
-    #                     except AttributeError:
-    #                         pass
-    #                     if class_attr.property.uselist:
-    #                         self_value = self_value.__str__()
-    #             logger.debug(
-    #                 f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
-    #             if self_value != value:
-    #                 output = False
-    #                 logger.debug(f"Value {key} is False, returning.")
-    #                 return output
-    #         return True
-
     def check_all_attributes(self, attributes: dict) -> bool:
         logger.debug(f"Incoming attributes: {attributes}")
         attributes = {k : v for k, v in attributes.items() if k in self.list_searchables.keys()}
@@ -121,7 +41,6 @@ class BaseOmni(BaseModel):
                 return False
         logger.debug("Everything checks out, these are the same object.")
         return True
-
 
     def __setattr__(self, key, value):
         try:
@@ -393,6 +312,13 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
     def rescue_uses_none(cls, value):
         if not value:
             return {}
+        return value
+
+    @field_validator("required", mode="before")
+    @classmethod
+    def rescue_required_none(cls, value):
+        if not value:
+            value = 1
         return value
 
     def __init__(self, instance_object: Any, **data):
