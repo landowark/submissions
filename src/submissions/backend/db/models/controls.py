@@ -725,3 +725,7 @@ class IridaControl(Control):
         """
         from backend.validators import PydIridaControl
         return PydIridaControl(**self.__dict__)
+
+    @property
+    def is_positive_control(self):
+        return not self.subtype.lower().startswith("en")

@@ -1,7 +1,7 @@
 """
 Constructs main application.
 """
-import getpass
+import getpass, logging, webbrowser, sys, shutil
 from pprint import pformat
 from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (
@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QScrollArea, QMainWindow,
     QToolBar
 )
-import pickle
+# import pickle
 from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
@@ -21,12 +21,12 @@ from tools import (
 from .functions import select_save_file, select_open_file
 from .pop_ups import HTMLPop, AlertPop
 from .misc import Pagifier
-import logging, webbrowser, sys, shutil
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .summary import Summary
 from .turnaround import TurnaroundTime
+from .concentrations import Concentrations
 from .omni_search import SearchBox
 from .omni_manager import ManagerWindow
 
@@ -244,16 +244,14 @@ class App(QMainWindow):
         if dlg.exec():
             logger.debug("\n\nBeginning parsing\n\n")
             output = dlg.parse_form()
-            # assert isinstance(output, KitType)
-            # output.save()
             logger.debug(f"Kit output: {pformat(output.__dict__)}")
-            # output.to_sql()
-            with open(f"{output.name}.obj", "wb") as f:
-                pickle.dump(output, f)
+            # with open(f"{output.name}.obj", "wb") as f:
+            #     pickle.dump(output, f)
             logger.debug("\n\nBeginning transformation\n\n")
             sql = output.to_sql()
-            with open(f"{output.name}.sql", "wb") as f:
-                pickle.dump(sql, f)
+            assert isinstance(sql, KitType)
+            # with open(f"{output.name}.sql", "wb") as f:
+            #     pickle.dump(sql, f)
             sql.save()
 
 
@@ -269,10 +267,12 @@ class AddSubForm(QWidget):
         self.tab3 = QWidget()
         self.tab4 = QWidget()
         self.tab5 = QWidget()
+        self.tab6 = QWidget()
         self.tabs.resize(300, 200)
         # NOTE: Add tabs
         self.tabs.addTab(self.tab1, "Submissions")
         self.tabs.addTab(self.tab2, "Irida Controls")
+        self.tabs.addTab(self.tab6, "Concentrations")
         self.tabs.addTab(self.tab3, "PCR Controls")
         self.tabs.addTab(self.tab4, "Cost Report")
         self.tabs.addTab(self.tab5, "Turnaround Times")
@@ -315,6 +315,10 @@ class AddSubForm(QWidget):
         self.tab5.layout = QVBoxLayout(self)
         self.tab5.layout.addWidget(turnaround)
         self.tab5.setLayout(self.tab5.layout)
+        concentration = Concentrations(self)
+        self.tab6.layout = QVBoxLayout(self)
+        self.tab6.layout.addWidget(concentration)
+        self.tab6.setLayout(self.tab6.layout)
         # NOTE: add tabs to main widget
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)

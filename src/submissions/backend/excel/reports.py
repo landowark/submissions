@@ -1,6 +1,7 @@
 '''
 Contains functions for generating summary reports
 '''
+import itertools
 import sys
 from pprint import pformat
 from pandas import DataFrame, ExcelWriter
@@ -8,7 +9,7 @@ import logging
 from pathlib import Path
 from datetime import date
 from typing import Tuple
-from backend.db.models import BasicSubmission
+from backend.db.models import BasicSubmission, IridaControl
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, ctx
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
@@ -152,11 +153,12 @@ class ReportMaker(object):
 
 class TurnaroundMaker(ReportArchetype):
 
-    def __init__(self, start_date: date, end_date: date, submission_type:str):
+    def __init__(self, start_date: date, end_date: date, submission_type: str):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, submission_type_name=submission_type, page_size=0)
+        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
+                                          submission_type_name=submission_type, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
         self.sheet_name = "Turnaround"
@@ -188,7 +190,31 @@ class TurnaroundMaker(ReportArchetype):
         except TypeError:
             return {}
         return dict(name=str(sub.rsl_plate_num), days=days, submitted_date=sub.submitted_date,
-                        completed_date=sub.completed_date, acceptable=tat_ok)
+                    completed_date=sub.completed_date, acceptable=tat_ok)
+
+
+class ConcentrationMaker(ReportArchetype):
+
+    def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture"):
+        self.start_date = start_date
+        self.end_date = end_date
+        # NOTE: Set page size to zero to override limiting query size.
+        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
+                                          submission_type_name=submission_type, page_size=0)
+        self.controls = list(itertools.chain.from_iterable([sub.controls for sub in self.subs]))
+        self.records = [self.build_record(control) for control in self.controls]
+        self.df = DataFrame.from_records(self.records)
+        self.sheet_name = "Concentration"
+
+    @classmethod
+    def build_record(cls, control: IridaControl) -> dict:
+        positive = control.is_positive_control
+        concentration = control.sample.concentration
+        if not concentration:
+            concentration = 0
+        return dict(name=control.name,
+                    submission=str(control.submission.rsl_plate_num), concentration=concentration,
+                    submitted_date=control.submitted_date, positive=positive)
 
 
 class ChartReportMaker(ReportArchetype):
@@ -196,4 +222,3 @@ class ChartReportMaker(ReportArchetype):
     def __init__(self, df: DataFrame, sheet_name):
         self.df = df
         self.sheet_name = sheet_name
-
