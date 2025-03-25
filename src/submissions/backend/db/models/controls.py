@@ -262,7 +262,7 @@ class Control(BaseClass):
             try:
                 model = next(subclass for subclass in cls.__subclasses__() if
                              all([hasattr(subclass, attr) for attr in attrs.keys()]))
-            except StopIteration as e:
+            except StopIteration:
                 raise AttributeError(
                     f"Couldn't find existing class/subclass of {cls} with all attributes:\n{pformat(attrs.keys())}")
         return model
@@ -286,6 +286,7 @@ class Control(BaseClass):
         Dummy operation to be overridden by child classes.
 
         Args:
+            parent (QWidget): widget to add chart to.
             chart_settings (dict): settings passed down from chart widget
             ctx (Settings): settings passed down from gui
         """
@@ -663,7 +664,7 @@ class IridaControl(Control):
             return df, previous_dates
         # NOTE: if date was changed, rerun with new date
         else:
-            logger.warning(f"Date check failed, running recursion")
+            logger.warning(f"Date check failed, running recursion.")
             df, previous_dates = cls.check_date(df, item, previous_dates)
             return df, previous_dates
 

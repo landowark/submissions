@@ -56,23 +56,23 @@ class BaseClass(Base):
     omni_inheritable = []
     searchables = []
 
-    @classproperty
-    def skip_on_edit(cls):
-        if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
-            return True
-        else:
-            return False
+    # @classproperty
+    # def skip_on_edit(cls):
+    #     if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
+    #         return True
+    #     else:
+    #         return False
 
     @classproperty
     def aliases(cls):
         return [cls.query_alias]
 
-    @classproperty
-    def level(cls):
-        if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
-            return 2
-        else:
-            return 1
+    # @classproperty
+    # def level(cls):
+    #     if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
+    #         return 2
+    #     else:
+    #         return 1
 
     @classproperty
     def query_alias(cls):
@@ -187,8 +187,9 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
-    def results_to_df(cls, objects: list, **kwargs) -> DataFrame:
+    def results_to_df(cls, objects: list|None=None, **kwargs) -> DataFrame:
         """
+        Converts class sub_dicts into a Dataframe for all instances of the class.
 
         Args:
             objects (list): Objects to be converted to dataframe.
@@ -197,10 +198,16 @@ class BaseClass(Base):
         Returns:
             Dataframe
         """
-        try:
-            records = [obj.to_sub_dict(**kwargs) for obj in objects]
-        except AttributeError:
-            records = [{k: v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
+        if not objects:
+            try:
+                records = [obj.to_sub_dict(**kwargs) for obj in cls.query()]
+            except AttributeError:
+                records = [obj.to_dict(**kwargs) for obj in cls.query(page_size=0)]
+        else:
+            try:
+                records = [obj.to_sub_dict(**kwargs) for obj in objects]
+            except AttributeError:
+                records = [{k: v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
         return DataFrame.from_records(records)
 
     @classmethod

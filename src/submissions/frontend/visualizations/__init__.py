@@ -134,3 +134,5 @@ class CustomFigure(Figure):
 
 from .irida_charts import IridaFigure
 from .pcr_charts import PCRFigure
+from .concentrations_chart import ConcentrationsChart
+from .turnaround_chart import TurnaroundChart

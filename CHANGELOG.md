@@ -1,6 +1,7 @@
 # 202503.05
 
 - Added concentrations chart tab.
+- Saving report xlsx/pdf now inserts report class name in file name.
 
 # 202503.04
 

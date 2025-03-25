@@ -31,7 +31,6 @@ from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
 from PIL import Image
 
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -1584,7 +1583,7 @@ class Wastewater(BasicSubmission):
                     continue
                 thing['tooltip'] = f"Sample Name: {thing['name']}\nWell: {thing['sample_location']}"
                 dummy_samples.append(thing)
-            logger.debug(f"Dummy samples for 24 well: {pformat(dummy_samples)}")
+            # logger.debug(f"Dummy samples for 24 well: {pformat(dummy_samples)}")
             output['origin_plate'] = self.__class__.make_plate_map(sample_list=dummy_samples, plate_rows=4,
                                                                    plate_columns=6)
         # logger.debug(f"PCR info: {output['pcr_info']}")
@@ -2772,7 +2771,12 @@ class BacterialCultureSample(BasicSample):
         sample['concentration'] = self.concentration
         if self.control is not None:
             sample['colour'] = [0, 128, 0]
-            sample['tooltip'] = f"Control: {self.control.controltype.name} - {self.control.controltype.targets}"
+            target = next((v for k,v in self.control.controltype.targets.items() if k == self.control.subtype), "Not Available")
+            try:
+                target = ", ".join(target)
+            except:
+                target = "None"
+            sample['tooltip'] = f"\nControl: {self.control.controltype.name} - {target}"
         return sample
 
 
