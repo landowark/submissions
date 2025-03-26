@@ -29,8 +29,6 @@ class Organization(BaseClass):
     Base of organization
     """
 
-
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: organization name
     submissions = relationship("BasicSubmission",
@@ -43,8 +41,8 @@ class Organization(BaseClass):
     def contact(self):
         return self.contacts
 
-    def __repr__(self) -> str:
-        return f"<Organization({self.name})>"
+    # def __repr__(self) -> str:
+    #     return f"<Organization({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -139,8 +137,8 @@ class Contact(BaseClass):
                                 secondary=orgs_contacts)  #: relationship to joined organization
     submissions = relationship("BasicSubmission", back_populates="contact")  #: submissions this contact has submitted
 
-    def __repr__(self) -> str:
-        return f"<Contact({self.name})>"
+    # def __repr__(self) -> str:
+    #     return f"<Contact({self.name})>"
 
     @classproperty
     def searchables(cls):

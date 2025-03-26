@@ -19,10 +19,6 @@ class IridaFigure(CustomFigure):
 
         super().__init__(df=df, modes=modes, settings=settings)
         self.df = df
-        # try:
-        #     months = int(settings['months'])
-        # except KeyError:
-        #     months = 6
         self.construct_chart(df=df, modes=modes, start_date=settings['start_date'], end_date=settings['end_date'])
 
 

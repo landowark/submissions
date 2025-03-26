@@ -288,8 +288,6 @@ class PydTips(BaseModel):
         tips = Tips.query(name=self.name, limit=1)
         # logger.debug(f"Tips query has yielded: {tips}")
         assoc = SubmissionTipsAssociation.query_or_create(tips=tips, submission=submission, role=self.role, limit=1)
-        # if assoc is None:
-        #     assoc = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=self.role)
         return assoc, report
 
 
@@ -355,14 +353,13 @@ class PydEquipment(BaseModel, extra='ignore'):
                 # TODO: This seems precarious. What if there is more than one process?
                 # NOTE: It looks like the way fetching the processes is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
                 # NOTE: I need to find a way to filter this by the kit involved.
-
                 if len(self.processes) > 1:
                     process = Process.query(submissiontype=submission.get_submission_type(), kittype=extraction_kit, equipmentrole=self.role)
                 else:
                     process = Process.query(name=self.processes[0])
                 if process is None:
                     logger.error(f"Found unknown process: {process}.")
-                logger.debug(f"Using process: {process}")
+                # logger.debug(f"Using process: {process}")
                 assoc.process = process
                 assoc.role = self.role
             else:
@@ -746,7 +743,16 @@ class PydSubmission(BaseModel, extra='allow'):
             output = {k: self.filter_field(k) for k in fields}
         return output
 
-    def filter_field(self, key: str):
+    def filter_field(self, key: str) -> Any:
+        """
+        Attempts to get value from field dictionary
+
+        Args:
+            key (str): name of the field of interest
+
+        Returns:
+            Any (): Value found.
+        """
         item = getattr(self, key)
         match item:
             case dict():
@@ -780,9 +786,8 @@ class PydSubmission(BaseModel, extra='allow'):
         """
         report = Report()
         dicto = self.improved_dict()
-        logger.debug(f"Pydantic submission type: {self.submission_type['value']}")
-        logger.debug(f"Pydantic improved_dict: {pformat(dicto)}")
-        # At this point, pcr_info is not duplicated
+        # logger.debug(f"Pydantic submission type: {self.submission_type['value']}")
+        # logger.debug(f"Pydantic improved_dict: {pformat(dicto)}")
         instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
         # logger.debug(f"Created or queried instance: {instance}")
@@ -792,8 +797,7 @@ class PydSubmission(BaseModel, extra='allow'):
         report.add_result(result)
         self.handle_duplicate_samples()
         for key, value in dicto.items():
-            logger.debug(f"Checking key {key}, value {value}")
-            # At this point, pcr_info is not duplicated.
+            # logger.debug(f"Checking key {key}, value {value}")
             if isinstance(value, dict):
                 try:
                     value = value['value']
@@ -849,8 +853,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         value = value
                     instance.set_attribute(key=key, value=value)
                 case item if item in instance.jsons:
-                    # At this point pcr_info is not duplicated
-                    logger.debug(f"Validating json value: {item} to value:{pformat(value)}")
+                    # logger.debug(f"Validating json value: {item} to value:{pformat(value)}")
                     try:
                         ii = value.items()
                     except AttributeError:
@@ -860,8 +863,7 @@ class PydSubmission(BaseModel, extra='allow'):
                             value[k] = v.strftime("%Y-%m-%d %H:%M:%S")
                         else:
                             pass
-                    logger.debug(f"Setting json value: {item} to value:{pformat(value)}")
-                    # At this point, pcr_info is not duplicated.
+                    # logger.debug(f"Setting json value: {item} to value:{pformat(value)}")
                     instance.set_attribute(key=key, value=value)
                 case _:
                     try:
@@ -878,7 +880,6 @@ class PydSubmission(BaseModel, extra='allow'):
                             continue
                     else:
                         logger.warning(f"{key} already == {value} so no updating.")
-        logger.debug(f"Entering cost calculation for {instance}")
         try:
             instance.calculate_base_cost()
         except (TypeError, AttributeError) as e:
@@ -937,7 +938,6 @@ class PydSubmission(BaseModel, extra='allow'):
             "/", "")
         return render
 
-    # @report_result
     def check_kit_integrity(self, extraction_kit: str | dict | None = None, exempt: List[PydReagent] = []) -> Tuple[
         List[PydReagent], Report, List[PydReagent]]:
         """
@@ -1212,7 +1212,6 @@ class PydIridaControl(BaseModel, extra='ignore'):
     contains: list | dict  #: unstructured hashes in contains.tsv for each organism
     matches: list | dict  #: unstructured hashes in matches.tsv for each organism
     kraken: list | dict  #: unstructured output from kraken_report
-    # subtype: str  #: EN-NOS, MCS-NOS, etc
     subtype: Literal["ATCC49226", "ATCC49619", "EN-NOS", "EN-SSTI", "MCS-NOS", "MCS-SSTI", "SN-NOS", "SN-SSTI"]
     refseq_version: str  #: version of refseq used in fastq parsing
     kraken2_version: str
@@ -1264,7 +1263,6 @@ class PydProcess(BaseModel, extra="allow"):
         instance = Process.query(name=self.name)
         if not instance:
             instance = Process()
-        # dicto = instance.omnigui_instance_dict
         fields = [item for item in self.model_fields]
         for field in fields:
             logger.debug(f"Field: {field}")
@@ -1315,5 +1313,3 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
                     field_value = getattr(self, field)
             self.instance.__setattr__(field, field_value)
         return self.instance
-
-

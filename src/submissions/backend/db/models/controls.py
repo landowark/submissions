@@ -2,6 +2,8 @@
 All control related models.
 """
 from __future__ import annotations
+
+import itertools
 from pprint import pformat
 from PyQt6.QtWidgets import QWidget, QCheckBox, QLabel
 from pandas import DataFrame
@@ -16,7 +18,6 @@ from typing import List, Literal, Tuple, Generator
 from dateutil.parser import parse
 from re import Pattern
 
-
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -29,8 +30,8 @@ class ControlType(BaseClass):
     targets = Column(JSON)  #: organisms checked for
     instances = relationship("Control", back_populates="controltype")  #: control samples created of this type.
 
-    def __repr__(self) -> str:
-        return f"<ControlType({self.name})>"
+    # def __repr__(self) -> str:
+    #     return f"<ControlType({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -88,7 +89,7 @@ class ControlType(BaseClass):
 
         Returns:
             Control: Associated Control class
-        """        
+        """
         return Control.find_polymorphic_subclass(polymorphic_identity=self.name)
 
     @classmethod
@@ -103,7 +104,7 @@ class ControlType(BaseClass):
         return (k for k, v in ct.items() if v)
 
     @classmethod
-    def build_positive_regex(cls, control_type:str) -> Pattern:
+    def build_positive_regex(cls, control_type: str) -> Pattern:
         """
         Creates a re.Pattern that will look for positive control types
 
@@ -305,10 +306,10 @@ class PCRControl(Control):
     id = Column(INTEGER, ForeignKey('_control.id'), primary_key=True)
     subtype = Column(String(16))  #: PC or NC
     target = Column(String(16))  #: N1, N2, etc.
-    ct = Column(FLOAT) #: PCR result
+    ct = Column(FLOAT)  #: PCR result
     reagent_lot = Column(String(64), ForeignKey("_reagent.lot", ondelete="SET NULL",
                                                 name="fk_reagent_lot"))
-    reagent = relationship("Reagent", foreign_keys=reagent_lot) #: reagent used for this control
+    reagent = relationship("Reagent", foreign_keys=reagent_lot)  #: reagent used for this control
 
     __mapper_args__ = dict(polymorphic_identity="PCR Control",
                            polymorphic_load="inline",
@@ -320,7 +321,7 @@ class PCRControl(Control):
 
         Returns:
             dict: Output dict of name, ct, subtype, target, reagent_lot and submitted_date
-        """        
+        """
         return dict(
             name=self.name,
             ct=self.ct,
@@ -343,7 +344,7 @@ class PCRControl(Control):
 
         Returns:
             Tuple[Report, "PCRFigure"]: Report of status and resulting figure.
-        """        
+        """
         from frontend.visualizations.pcr_charts import PCRFigure
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
@@ -352,6 +353,7 @@ class PCRControl(Control):
                              end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
         df = DataFrame.from_records(data)
+        # NOTE: Get all PCR controls with ct over 0
         try:
             df = df[df.ct > 0.0]
         except AttributeError:
@@ -361,11 +363,11 @@ class PCRControl(Control):
 
     def to_pydantic(self):
         from backend.validators import PydPCRControl
-        return PydPCRControl(**self.to_sub_dict(), controltype_name=self.controltype_name, submission_id=self.submission_id)
+        return PydPCRControl(**self.to_sub_dict(), controltype_name=self.controltype_name,
+                             submission_id=self.submission_id)
 
 
 class IridaControl(Control):
-
     subtyping_allowed = ['kraken']
 
     id = Column(INTEGER, ForeignKey('_control.id'), primary_key=True)
@@ -379,10 +381,18 @@ class IridaControl(Control):
     sample = relationship("BacterialCultureSample", back_populates="control")  #: This control's submission sample
     sample_id = Column(INTEGER,
                        ForeignKey("_basicsample.id", ondelete="SET NULL", name="cont_BCS_id"))  #: sample id key
-    
+
     __mapper_args__ = dict(polymorphic_identity="Irida Control",
                            polymorphic_load="inline",
                            inherit_condition=(id == Control.id))
+
+    @property
+    def targets(self):
+        if self.controltype.targets:
+            return list(itertools.chain.from_iterable([value for key, value in self.controltype.targets.items()
+                                                       if key == self.subtype]))
+        else:
+            return ["None"]
 
     @validates("subtype")
     def enforce_subtype_literals(self, key: str, value: str) -> str:
@@ -398,7 +408,7 @@ class IridaControl(Control):
 
         Returns:
             str: Validated string.
-        """        
+        """
         acceptables = ['ATCC49226', 'ATCC49619', 'EN-NOS', "EN-SSTI", "MCS-NOS", "MCS-SSTI", "SN-NOS", "SN-SSTI"]
         if value.upper() not in acceptables:
             raise KeyError(f"Sub-type must be in {acceptables}")
@@ -416,19 +426,15 @@ class IridaControl(Control):
         except TypeError:
             kraken = {}
         kraken_cnt_total = sum([item['kraken_count'] for item in kraken.values()])
-        new_kraken = [dict(name=item, kraken_count=kraken[item]['kraken_count'],
-                           kraken_percent=f"{kraken[item]['kraken_count'] / kraken_cnt_total:0.2%}",
-                           target=item in self.controltype.targets)
-                      for item in kraken]
+        new_kraken = [dict(name=key, kraken_count=value['kraken_count'],
+                           kraken_percent=f"{value['kraken_count'] / kraken_cnt_total:0.2%}",
+                           target=key in self.controltype.targets)
+                      for key, value in kraken.items()]
         new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
-        if self.controltype.targets:
-            targets = self.controltype.targets
-        else:
-            targets = ["None"]
         output = dict(
             name=self.name,
             type=self.controltype.name,
-            targets=", ".join(targets),
+            targets=", ".join(self.targets),
             kraken=new_kraken[0:10]
         )
         return output
@@ -521,7 +527,7 @@ class IridaControl(Control):
 
         Returns:
             Tuple[Report, "IridaFigure"]: Report of status and resulting figure.
-        """        
+        """
         from frontend.visualizations import IridaFigure
         try:
             checker = parent.findChild(QCheckBox, name="irida_check")

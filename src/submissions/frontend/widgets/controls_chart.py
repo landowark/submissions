@@ -113,10 +113,6 @@ class ControlsViewer(InfoPane):
         if issubclass(self.fig.__class__, CustomFigure):
             self.save_button.setEnabled(True)
         # NOTE: construct html for webview
-        # try:
-        #     html = self.fig.html
-        # except AttributeError:
-        #     html = ""
         self.webview.setHtml(self.fig.html)
         self.webview.update()
         return report

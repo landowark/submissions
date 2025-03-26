@@ -3,10 +3,8 @@ Construct turnaround time charts
 """
 from pprint import pformat
 from . import CustomFigure
-import plotly.express as px
-import pandas as pd
 from PyQt6.QtWidgets import QWidget
-import logging
+import logging, plotly.express as px, pandas as pd
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

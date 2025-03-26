@@ -16,7 +16,6 @@ from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, Organization, LogMixin
 from io import BytesIO
-from inspect import getouterframes, currentframe
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -98,7 +97,6 @@ class KitType(BaseClass):
     Base of kits used in submission processing
     """
 
-    # query_alias = "kit_type"
     omni_sort = BaseClass.omni_sort + ["kit_submissiontype_associations", "kit_reagentrole_associations", "processes"]
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -127,13 +125,6 @@ class KitType(BaseClass):
     used_for = association_proxy("kit_submissiontype_associations", "submission_type",
                                  creator=lambda ST: SubmissionTypeKitTypeAssociation(
                                      submission_type=ST))  #: Association proxy to SubmissionTypeKitTypeAssociation
-
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: A representation of the object.
-        """
-        return f"<KitType({self.name})>"
 
     @classproperty
     def aliases(cls):
@@ -187,9 +178,7 @@ class KitType(BaseClass):
         # NOTE: Account for submission_type variable type.
         match submission_type:
             case str():
-                # assocs = [item for item in self.kit_reagentrole_associations if
-                #           item.submission_type.name == submission_type]
-                logger.debug(f"Query for {submission_type}")
+                # logger.debug(f"Query for {submission_type}")
                 submission_type = SubmissionType.query(name=submission_type)
             case SubmissionType():
                 pass
@@ -213,18 +202,12 @@ class KitType(BaseClass):
                 )
                 if dlg.exec():
                     dlg_result = dlg.parse_form()
-                    logger.debug(f"Dialog result: {dlg_result}")
+                    # logger.debug(f"Dialog result: {dlg_result}")
                     new_kit = self.__class__.query(name=dlg_result)
-                    logger.debug(f"Query result: {new_kit}")
-                    # return new_kit.construct_xl_map_for_use(submission_type=submission_type)
+                    # logger.debug(f"Query result: {new_kit}")
                 else:
                     return None, new_kit
             assocs = [item for item in new_kit.kit_reagentrole_associations if item.submission_type == submission_type]
-        # for assoc in assocs:
-        #     try:
-        #         yield assoc.reagent_role.name, assoc.uses
-        #     except TypeError:
-        #         continue
         output = {assoc.reagent_role.name: assoc.uses for assoc in assocs}
         # logger.debug(f"Output: {output}")
         return output, new_kit
@@ -232,7 +215,6 @@ class KitType(BaseClass):
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[KitType, bool]:
         from backend.validators.pydant import PydKitType
-        from backend.validators.omni_gui_objects import BaseOmni
         new = False
         disallowed = ['expiry']
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
@@ -248,7 +230,7 @@ class KitType(BaseClass):
     @setup_lookup
     def query(cls,
               name: str = None,
-              used_for: str | SubmissionType | None = None,
+              submissiontype: str | SubmissionType | None = None,
               id: int | None = None,
               limit: int = 0,
               **kwargs
@@ -266,11 +248,11 @@ class KitType(BaseClass):
             KitType|List[KitType]: KitType(s) of interest.
         """
         query: Query = cls.__database_session__.query(cls)
-        match used_for:
+        match submissiontype:
             case str():
-                query = query.filter(cls.used_for.any(name=used_for))
+                query = query.filter(cls.submissiontype.any(name=submissiontype))
             case SubmissionType():
-                query = query.filter(cls.used_for.contains(used_for))
+                query = query.filter(cls.submissiontype.contains(submissiontype))
             case _:
                 pass
         match name:
@@ -399,9 +381,6 @@ class KitType(BaseClass):
 
     def to_omni(self, expand: bool = False) -> "OmniKitType":
         from backend.validators.omni_gui_objects import OmniKitType
-        # logger.debug(f"self.name: {self.name}")
-        # level = len(getouterframes(currentframe()))
-        # logger.warning(f"Function level is {level}")
         if expand:
             processes = [item.to_omni() for item in self.processes]
             kit_reagentrole_associations = [item.to_omni() for item in self.kit_reagentrole_associations]
@@ -425,6 +404,8 @@ class ReagentRole(BaseClass):
     Base of reagent type abstract
     """
 
+    skip_on_edit = False
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of role reagent plays
     instances = relationship("Reagent", back_populates="role",
@@ -441,13 +422,6 @@ class ReagentRole(BaseClass):
     kit_types = association_proxy("reagentrole_kit_associations", "kit_type",
                                   creator=lambda kit: KitTypeReagentRoleAssociation(
                                       kit_type=kit))  #: Association proxy to KitTypeReagentRoleAssociation
-
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of object
-        """
-        return f"<ReagentRole({self.name})>"
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[ReagentRole, bool]:
@@ -603,7 +577,6 @@ class Reagent(BaseClass, LogMixin):
         Returns:
             dict: representation of the reagent's attributes
         """
-
         if extraction_kit is not None:
             # NOTE: Get the intersection of this reagent's ReagentType and all ReagentTypes in KitType
             reagent_role = next((item for item in set(self.role).intersection(extraction_kit.reagent_roles)),
@@ -713,8 +686,6 @@ class Reagent(BaseClass, LogMixin):
                 limit = 1
             case _:
                 pass
-        # if not role and "reagentrole" in kwargs.keys():
-        #     role = kwargs['reagentrole']
         match role:
             case str():
                 query = query.join(cls.role).filter(ReagentRole.name == role)
@@ -772,6 +743,7 @@ class Reagent(BaseClass, LogMixin):
     @check_authorization
     def edit_from_search(self, obj, **kwargs):
         from frontend.widgets.omni_add_edit import AddEdit
+        # logger.debug(f"Calling edit_from_search for {self.name}")
         dlg = AddEdit(parent=None, instance=self)
         if dlg.exec():
             pyd = dlg.parse_form()
@@ -1377,20 +1349,6 @@ class SubmissionType(BaseClass):
 
     def to_omni(self, expand: bool = False):
         from backend.validators.omni_gui_objects import OmniSubmissionType
-        # level = len(getouterframes(currentframe()))
-        # logger.warning(f"Function level is {level}")
-        # try:
-        #     info_map = self.submission_type.info_map
-        # except AttributeError:
-        #     info_map = {}
-        # try:
-        #     defaults = self.submission_type.defaults
-        # except AttributeError:
-        #     defaults = {}
-        # try:
-        #     sample_map = self.submission_type.sample_map
-        # except AttributeError:
-        #     sample_map = {}
         try:
             template_file = self.template_file
         except AttributeError:
@@ -1555,8 +1513,6 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
 
     def to_omni(self, expand: bool = False):
         from backend.validators.omni_gui_objects import OmniSubmissionTypeKitTypeAssociation
-        # level = len(getouterframes(currentframe()))
-        # logger.warning(f"Function level is {level}")
         if expand:
             try:
                 submissiontype = self.submission_type.to_omni()
@@ -1569,10 +1525,6 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         else:
             submissiontype = self.submission_type.name
             kittype = self.kit_type.name
-        # try:
-        #     processes = [item.to_omni() for item in self.submission_type.processes]
-        # except AttributeError:
-        #     processes = []
         return OmniSubmissionTypeKitTypeAssociation(
             instance_object=self,
             submissiontype=submissiontype,
@@ -1580,7 +1532,6 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
             mutable_cost_column=self.mutable_cost_column,
             mutable_cost_sample=self.mutable_cost_sample,
             constant_cost=self.constant_cost
-            # processes=processes,
         )
 
 
@@ -1719,7 +1670,6 @@ class KitTypeReagentRoleAssociation(BaseClass):
                     pass
             setattr(instance, k, v)
         logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
-        # sys.exit()
         return instance, new
 
     @classmethod
@@ -1854,6 +1804,8 @@ class SubmissionReagentAssociation(BaseClass):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
+    skip_on_edit = True
+
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated reagent
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
     comments = Column(String(1024))  #: Comments about reagents
@@ -1869,10 +1821,10 @@ class SubmissionReagentAssociation(BaseClass):
             str: Representation of this SubmissionReagentAssociation
         """
         try:
-            return f"<{self.submission.rsl_plate_num} & {self.reagent.lot}>"
+            return f"<SubmissionReagentAssociation({self.submission.rsl_plate_num} & {self.reagent.lot})>"
         except AttributeError:
             logger.error(f"Reagent {self.reagent.lot} submission association {self.reagent_id} has no submissions!")
-            return f"<Unknown Submission & {self.reagent.lot}>"
+            return f"<SubmissionReagentAssociation(Unknown Submission & {self.reagent.lot})>"
 
     def __init__(self, reagent=None, submission=None):
         if isinstance(reagent, list):
@@ -1963,12 +1915,12 @@ class Equipment(BaseClass, LogMixin):
     submissions = association_proxy("equipment_submission_associations",
                                     "submission")  #: proxy to equipment_submission_associations.submission
 
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: representation of this Equipment
-        """
-        return f"<Equipment({self.name})>"
+    # def __repr__(self) -> str:
+    #     """
+    #     Returns:
+    #         str: representation of this Equipment
+    #     """
+    #     return f"<Equipment({self.name})>"
 
     def to_dict(self, processes: bool = False) -> dict:
         """
@@ -1987,7 +1939,7 @@ class Equipment(BaseClass, LogMixin):
 
     def get_processes(self, submission_type: str | SubmissionType | None = None,
                       extraction_kit: str | KitType | None = None,
-                      equipment_role: str | EquipmentRole | None = None) -> List[str]:
+                      equipment_role: str | EquipmentRole | None = None) -> Generator[Process, None, None]:
         """
         Get all processes associated with this Equipment for a given SubmissionType
 
@@ -2133,12 +2085,12 @@ class EquipmentRole(BaseClass):
     submission_types = association_proxy("equipmentrole_submissiontype_associations",
                                          "submission_type")  #: proxy to equipmentrole_submissiontype_associations.submission_type
 
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this EquipmentRole
-        """
-        return f"<EquipmentRole({self.name})>"
+    # def __repr__(self) -> str:
+    #     """
+    #     Returns:
+    #         str: Representation of this EquipmentRole
+    #     """
+    #     return f"<EquipmentRole({self.name})>"
 
     def to_dict(self) -> dict:
         """
@@ -2395,7 +2347,6 @@ class Process(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     name = Column(String(64), unique=True)  #: Process name
-    # version = Column(String(32))
     submission_types = relationship("SubmissionType", back_populates='processes',
                                     secondary=submissiontypes_processes)  #: relation to SubmissionType
     equipment = relationship("Equipment", back_populates='processes',
@@ -2410,12 +2361,12 @@ class Process(BaseClass):
                              secondary=process_tiprole)  #: relation to KitType
 
 
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this Process
-        """
-        return f"<Process({self.name})>"
+    # def __repr__(self) -> str:
+    #     """
+    #     Returns:
+    #         str: Representation of this Process
+    #     """
+    #     return f"<Process({self.name})>"
 
     def set_attribute(self, key, value):
         match key:
@@ -2506,13 +2457,20 @@ class Process(BaseClass):
 
     def to_omni(self, expand: bool = False):
         from backend.validators.omni_gui_objects import OmniProcess
+        if expand:
+            submission_types = [item.to_omni() for item in self.submission_types]
+            equipment_roles = [item.to_omni() for item in self.equipment_roles]
+            tip_roles = [item.to_omni() for item in self.tip_roles]
+        else:
+            submission_types = [item.name for item in self.submission_types]
+            equipment_roles = [item.name for item in self.equipment_roles]
+            tip_roles = [item.name for item in self.tip_roles]
         return OmniProcess(
             instance_object=self,
             name=self.name,
-            # version=self.version,
-            submission_types=[item.to_omni() for item in self.submission_types],
-            equipment_roles=[item.to_omni() for item in self.equipment_roles],
-            tip_roles=[item.to_omni() for item in self.tip_roles]
+            submission_types=submission_types,
+            equipment_roles=equipment_roles,
+            tip_roles=tip_roles
         )
 
 
@@ -2538,8 +2496,8 @@ class TipRole(BaseClass):
     def tips(self):
         return self.instances
 
-    def __repr__(self):
-        return f"<TipRole({self.name})>"
+    # def __repr__(self):
+    #     return f"<TipRole({self.name})>"
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[TipRole, bool]:
@@ -2573,10 +2531,14 @@ class TipRole(BaseClass):
 
     def to_omni(self, expand: bool = False):
         from backend.validators.omni_gui_objects import OmniTipRole
+        if expand:
+            tips = [item.to_omni() for item in self.tips]
+        else:
+            tips = [item.name for item in self.tips]
         return OmniTipRole(
             instance_object=self,
             name=self.name,
-            tips=[item.to_omni() for item in self.tips]
+            tips=tips
         )
 
 
@@ -2605,8 +2567,8 @@ class Tips(BaseClass, LogMixin):
     def tiprole(self):
         return self.role
 
-    def __repr__(self):
-        return f"<Tips({self.name})>"
+    # def __repr__(self):
+    #     return f"<Tips({self.name})>"
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Tips, bool]:

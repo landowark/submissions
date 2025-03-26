@@ -59,7 +59,6 @@ class SheetParser(object):
         Pulls basic information from the excel sheet
         """
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
-        # info = parser.parsed_info
         self.info_map = parser.info_map
         # NOTE: in order to accommodate generic submission types we have to check for the type in the excel sheet and rerun accordingly
         try:
@@ -274,37 +273,12 @@ class ReagentParser(object):
         Returns:
             dict: locations of reagent info for the kit.
         """
-        # report = Report()
-        # if isinstance(submission_type, dict):
-        #     submission_type = submission_type['value']
-        # if isinstance(submission_type, str):
-        #     submission_type = SubmissionType.query(name=submission_type)
-        # logger.debug("Running kit map")
         associations, self.kit_object = self.kit_object.construct_xl_map_for_use(submission_type=self.submission_type_obj)
         reagent_map = {k: v for k, v in associations.items() if k != 'info'}
         try:
             del reagent_map['info']
         except KeyError:
             pass
-        # # NOTE: If reagent map is empty, maybe the wrong kit was given, check if there's only one kit for that submission type and use it if so.
-        # if not reagent_map:
-        #     temp_kit_object = self.submission_type_obj.default_kit
-        #     if temp_kit_object:
-        #         self.kit_object = temp_kit_object
-        #         logger.warning(f"Attempting to salvage with default kit {self.kit_object} and submission_type: {self.submission_type_obj}")
-        #         return self.fetch_kit_map(submission_type=self.submission_type_obj)
-        #     else:
-        #         logger.error(f"Still no reagent map, displaying error.")
-        #         try:
-        #             ext_kit_loc = self.submission_type_obj.info_map['extraction_kit']['read'][0]
-        #             location_string = f"Sheet: {ext_kit_loc['sheet']}, Row: {ext_kit_loc['row']}, Column: {ext_kit_loc['column']}?"
-        #         except (IndexError, KeyError):
-        #             location_string = ""
-        #         report.add_result(Result(owner=__name__, code=0,
-        #                                  msg=f"No kit map found for {self.kit_object.name}.\n\n"
-        #                                      f"Are you sure you put the right kit in:\n\n{location_string}?",
-        #                                  status="Critical"))
-        # logger.debug(f"Here is the map coming out: {reagent_map}")
         return reagent_map
 
     @property
@@ -375,9 +349,6 @@ class SampleParser(object):
         self.sub_object = sub_object
         self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
         self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
-        # self.sample_map = self.sample_map(submission_type=submission_type, sample_map=sample_map)
-        # self.plate_map_samples = self.parse_plate_map()
-        # self.lookup_samples = self.parse_lookup_table()
 
     @property
     def sample_map(self) -> dict:
@@ -391,11 +362,6 @@ class SampleParser(object):
             dict: Info locations.
         """
 
-        # if sample_map is None:
-        #     sample_info_map = self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
-        # else:
-        #     sample_info_map = sample_map
-        # return sample_info_map
         return self.sub_object.construct_sample_map(submission_type=self.submission_type_obj)
 
     @property
@@ -519,7 +485,6 @@ class EquipmentParser(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        # self.equipment_map = self.fetch_equipment_map()
 
     @property
     def equipment_map(self) -> dict:
@@ -597,7 +562,6 @@ class TipParser(object):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type = submission_type
         self.xl = xl
-        # self.map = self.fetch_tip_map()
 
     @property
     def tip_map(self) -> dict:
@@ -669,7 +633,6 @@ class PCRParser(object):
         else:
             self.submission_obj = submission
             rsl_plate_num = self.submission_obj.rsl_plate_num
-        # self.pcr = self.parse_general()
         self.samples = self.submission_obj.parse_pcr(xl=self.xl, rsl_plate_num=rsl_plate_num)
         self.controls = self.submission_obj.parse_pcr_controls(xl=self.xl, rsl_plate_num=rsl_plate_num)
 

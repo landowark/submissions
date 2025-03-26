@@ -1,5 +1,5 @@
 from __future__ import annotations
-import logging, sys
+import logging
 from pydantic import BaseModel, field_validator, Field
 from typing import List, ClassVar
 from backend.db.models import *
@@ -16,7 +16,7 @@ class BaseOmni(BaseModel):
         try:
             return f"<{self.__class__.__name__}({self.name})>"
         except AttributeError:
-            return f"<{self.__class__.__name__}(NO NAME)>"
+            return f"<{self.__class__.__name__}({self.__repr_name__})>"
 
     @classproperty
     def aliases(cls):
@@ -478,7 +478,6 @@ class OmniProcess(BaseOmni):
 
     # NOTE: How am I going to figure out relatioinships without getting into recursion issues?
     name: str = Field(default="", description="property")  #: Process name
-    # version: str = Field(default="", description="property")  #: Version (string to account for "in_use" or whatever)
     submission_types: List[OmniSubmissionType] | List[str] = Field(default=[], description="relationship",
                                                                    title="SubmissionType")
     equipment_roles: List[OmniEquipmentRole] | List[str] = Field(default=[], description="relationship",
@@ -507,13 +506,6 @@ class OmniProcess(BaseOmni):
             return ""
         return value
 
-    # @field_validator("version", mode="before")
-    # @classmethod
-    # def rescue_name_none(cls, value):
-    #     if not value:
-    #         return "1"
-    #     return value
-
     def to_sql(self):
         instance, new = self.class_object.query_or_create(name=self.name)
         for st in self.submission_types:
@@ -539,12 +531,8 @@ class OmniKitType(BaseOmni):
     class_object: ClassVar[Any] = KitType
 
     name: str = Field(default="", description="property")
-    kit_submissiontype_associations: List[OmniSubmissionTypeKitTypeAssociation] | List[str] = Field(default=[],
-                                                                                                    description="relationship",
-                                                                                                    title="SubmissionTypeKitTypeAssociation")
-    kit_reagentrole_associations: List[OmniKitTypeReagentRoleAssociation] | List[str] = Field(default=[],
-                                                                                              description="relationship",
-                                                                                              title="KitTypeReagentRoleAssociation")
+    kit_submissiontype_associations: List[OmniSubmissionTypeKitTypeAssociation] | List[str] = Field(default=[], description="relationship", title="SubmissionTypeKitTypeAssociation")
+    kit_reagentrole_associations: List[OmniKitTypeReagentRoleAssociation] | List[str] = Field(default=[], description="relationship", title="KitTypeReagentRoleAssociation")
     processes: List[OmniProcess] | List[str] = Field(default=[], description="relationship", title="Process")
 
     @field_validator("name", mode="before")
@@ -577,7 +565,6 @@ class OmniKitType(BaseOmni):
                 new_rr.append(new_assoc)
         logger.debug(f"Setting kit_reagentrole_associations to {pformat([item.__dict__ for item in new_rr])}")
         kit.kit_reagentrole_associations = new_rr
-        # sys.exit()
         new_st = []
         for st_assoc in self.kit_submissiontype_associations:
             new_assoc = st_assoc.to_sql()

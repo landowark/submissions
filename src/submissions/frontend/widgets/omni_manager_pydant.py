@@ -120,7 +120,6 @@ class ManagerWindow(QDialog):
                 # logger.debug(f"Querying with {self.options.currentText()}")
                 self.instance = self.class_object.query(name=self.options.currentText(), limit=1)
             except AttributeError:
-                # self.instance = None
                 pass
         # logger.debug(f"Instance: {self.instance}")
         if not self.instance:
@@ -164,11 +163,6 @@ class ManagerWindow(QDialog):
                 # NOTE: RelationshipDeclareds will be given a list of existing related objects.
                 case "relationship":
                     # NOTE: field.comparator.class_object.class_ gives the relationship class
-                    # try:
-                    #     logger.debug(
-                    #         f"Creating relationship widget with value: {[pformat(item.__dict__) for item in value]}")
-                    # except AttributeError:
-                    #     logger.debug(f"Creating relationship widget with value: {value}")
                     widget = EditRelationship(self, key=key, class_object=info.title, value=value)
                 case _:
                     continue
@@ -294,7 +288,6 @@ class EditRelationship(QWidget):
                 value = []
         self.data = value
         # logger.debug(f"Set data: {self.data}")
-        # self.update_buttons()
         # logger.debug(f"Parent manager: {self.parent().manager}")
         checked_manager, is_primary = check_object_in_manager(self.parent().manager, self.objectName())
         if checked_manager:
@@ -374,8 +367,6 @@ class EditRelationship(QWidget):
                         return
                 logger.debug(f"Updating \n{pformat(obj)} with \n{pformat(new_instance.__dict__)}")
                 obj.__dict__.update(new_instance.__dict__)
-            #     # self.parent().omni_object.__setattr__(self.objectName(), obj)
-            #     # instance.__dict__.update(new_instance.__dict__)
             logger.debug(f"Final instance: {pformat(self.parent().omni_object.__dict__)}")
             # NOTE: somewhere in the update_data I'm losing changes.
             self.parent().update_data()

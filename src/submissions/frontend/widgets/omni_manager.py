@@ -47,7 +47,6 @@ class ManagerWindow(QDialog):
                 self.manager = None
         else:
             self.manager = manager
-
         # logger.debug(f"Managers: {managers}")
         self.extras = extras
         self.context = kwargs
@@ -104,7 +103,6 @@ class ManagerWindow(QDialog):
         self.options.setEditable(False)
         self.options.setMinimumWidth(self.minimumWidth())
         self.layout.addWidget(self.options, 1, 0, 1, 1)
-        # if len(options) > 0:
         self.add_button = QPushButton("Add New")
         self.layout.addWidget(self.add_button, 1, 1, 1, 1)
         self.add_button.clicked.connect(self.add_new)
@@ -126,12 +124,6 @@ class ManagerWindow(QDialog):
         for item in deletes:
             item.setParent(None)
         # logger.debug(f"Current options text lower: {self.options.currentText().lower()}")
-        # NOTE: Find the instance this manager will update
-        # try:
-        #     check = "blank" not in self.options.currentText().lower() and self.options.currentText() != ""
-        # except AttributeError:
-        #     check = False
-        # if check:
         if self.add_edit == "edit" and initial:
             # logger.debug(f"Querying with {self.options.currentText()}")
             self.instance = self.class_object.query(name=self.options.currentText(), limit=1)
@@ -173,7 +165,6 @@ class ManagerWindow(QDialog):
         Returns:
             Any: The instance with updated fields.
         """
-        # TODO: Need Relationship property here too?
         results = [item.parse_form() for item in self.findChildren(EditProperty)]
         for result in results:
             # logger.debug(f"Incoming result: {result}")
@@ -211,7 +202,6 @@ class ManagerWindow(QDialog):
                 else:
                     value = current_value + [data]
             setattr(self.instance, name, value)
-            # self.instance.save()
 
     def toggle_textedit(self, caller_child=None):
         already_exists = self.findChildren(LargeTextEdit)
@@ -305,7 +295,6 @@ class EditRelationship(QWidget):
         # logger.debug(f"self.relationship: {self.relationship}")
         # logger.debug(f"Relationship uses list: {self.relationship.property.uselist}")
         # NOTE: value is a database object in this case.
-
         # logger.debug(f"Data for edit relationship: {self.data}")
         self.widget = QTableView()
         self.add_button = QPushButton("Add New")
@@ -319,7 +308,6 @@ class EditRelationship(QWidget):
             else:
                 value = []
         self.data = value
-        # self.update_buttons()
         checked_manager, is_primary = check_object_in_manager(self.parent().manager, self.objectName())
         if checked_manager:
             logger.debug(f"Checked manager for {self.objectName()}: {checked_manager}")
@@ -369,7 +357,6 @@ class EditRelationship(QWidget):
             new_instance = dlg.parse_form()
             # NOTE: My custom __setattr__ should take care of any list problems.
             self.parent().instance.__setattr__(self.objectName(), new_instance)
-            # self.parent().instance.save()
             self.parent().update_data()
 
     def add_existing(self):
@@ -381,7 +368,6 @@ class EditRelationship(QWidget):
                 instance = self.class_object.query(**row)
                 # NOTE: My custom __setattr__ should take care of any list problems.
                 self.parent().instance.__setattr__(self.objectName(), instance)
-                # self.parent().instance.save()
                 self.parent().update_data()
 
     def set_data(self) -> None:
@@ -420,7 +406,6 @@ class EditRelationship(QWidget):
         Args:
             event (_type_): the item of interest
         """
-        # print(self.widget.isEnabled())
         if not self.widget.isEnabled():
             logger.warning(f"{self.objectName()} is disabled.")
             return
@@ -471,7 +456,6 @@ class EditRelationship(QWidget):
         except ValueError as e:
             logger.error(f"Remove failed for {self.objectName().lower()} due to {e}.")
         self.parent().instance.save()
-        # self.parent().update_data()
         self.set_data()
 
     def parse_form(self):
@@ -555,7 +539,6 @@ class JsonEditScreen(QDialog):
                     output.append(value)
             else:
                 raise ValueError(f"Inappropriate data type: {type(self.json_field)}")
-            # output[key] = value
         return output
 
 

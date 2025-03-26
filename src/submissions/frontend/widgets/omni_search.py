@@ -45,7 +45,6 @@ class SearchBox(QDialog):
         self.setLayout(self.layout)
         self.setWindowTitle(f"Search {self.object_type.__name__}")
         self.update_widgets()
-        # self.update_data()
         if returnable:
             QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
             self.buttonBox = QDialogButtonBox(QBtn)
@@ -60,7 +59,6 @@ class SearchBox(QDialog):
         Changes form inputs based on sample type
         """
         search_fields = []
-        # search_fields = self.object_type.searchables
         logger.debug(f"Search fields: {search_fields}")
         deletes = [item for item in self.findChildren(FieldSearch)]
         for item in deletes:
@@ -69,7 +67,6 @@ class SearchBox(QDialog):
         if not self.sub_class:
             logger.warning(f"No subclass selected.")
             self.update_data()
-            # return
         else:
             if self.sub_class.currentText() == "Any":
                 self.object_type = self.original_type

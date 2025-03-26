@@ -56,6 +56,12 @@ class BaseClass(Base):
     omni_inheritable = []
     searchables = []
 
+    def __repr__(self) -> str:
+        try:
+            return f"<{self.__class__.__name__}({self.name})>"
+        except AttributeError:
+            return f"<{self.__class__.__name__}({self.__name__})>"
+
     # @classproperty
     # def skip_on_edit(cls):
     #     if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
@@ -443,6 +449,9 @@ class BaseClass(Base):
                     return super().__setattr__(key, value)
         else:
             return super().__setattr__(key, value)
+
+    def delete(self):
+        logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
 
 class ConfigItem(BaseClass):

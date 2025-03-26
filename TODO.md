@@ -1,6 +1,7 @@
-- [ ] Can my "to_dict", "to_sub_dict", "to_pydantic" methods be rewritten as properties?
+- [ ] Change "Manage Organizations" to the Pydantic version.
+- [x] Can my "to_dict", "to_sub_dict", "to_pydantic" methods be rewritten as properties?
 - [ ] Stop displacing date on Irida controls and just do what Turnaround time does.
-- [ ] Get Manager window working for KitType, maybe SubmissionType
+- [x] Get Manager window working for KitType, maybe SubmissionType
 - [x] Find a way to merge AddEdit with ReagentAdder
 - [x] Find a way to merge omni_search and sample_search
 - [x] Allow parsing of custom fields to a json 'custom' field in _basicsubmissions

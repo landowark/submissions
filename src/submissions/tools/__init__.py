@@ -2,16 +2,11 @@
 Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
-import builtins
-import importlib
-import time
+import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
-import logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd
 from threading import Thread
 from inspect import getmembers, isfunction, stack
-from types import GeneratorType
-
 from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers
@@ -19,11 +14,9 @@ from pathlib import Path
 from sqlalchemy.orm import Session, InstrumentedAttribute
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 from typing import Any, Tuple, Literal, List, Generator
-
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
@@ -146,7 +139,6 @@ def check_key_or_attr(key: str, interest: dict | object, check_none: bool = Fals
                 else:
                     return True
             return False
-
 
 
 def check_not_nan(cell_contents) -> bool:
@@ -432,7 +424,6 @@ class Settings(BaseSettings, extra="allow"):
             return package
 
     def __init__(self, *args, **kwargs):
-
         super().__init__(*args, **kwargs)
         self.set_from_db()
         self.set_scripts()
@@ -1231,3 +1222,29 @@ class classproperty(property):
 builtins.classproperty = classproperty
 
 ctx = get_config(None)
+
+class Settings2(BaseSettings, extra="allow"):
+
+    model_config = SettingsConfigDict(yaml_file="C:\\Users\lwark\AppData\Local\submissions\config\config.yml",
+                                      yaml_file_encoding='utf-8')
+
+    @classmethod
+    def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            YamlConfigSettingsSource(settings_cls),
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+        )
+
+
+
+

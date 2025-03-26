@@ -28,12 +28,12 @@ class AddEdit(QDialog):
         self.object_type = instance.__class__
         # self.managers = deepcopy(managers)
         self.managers = managers
-        if instance.level < 2:
-            try:
-                logger.debug(f"Parent instance: {self.parent().instance}")
-                self.managers.add(self.parent().instance)
-            except AttributeError:
-                pass
+        # if instance.level < 2:
+        #     try:
+        #         logger.debug(f"Parent instance: {self.parent().instance}")
+        #         self.managers.add(self.parent().instance)
+        #     except AttributeError:
+        #         pass
         logger.debug(f"Managers: {managers}")
         self.layout = QGridLayout(self)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -111,14 +111,13 @@ class EditProperty(QWidget):
             case _:
                 logger.error(f"{column_type} not a supported type.")
                 return
-        # if not self.is_list:
         self.layout.addWidget(self.label, 0, 0, 1, 1)
         self.layout.addWidget(self.widget, 0, 1, 1, 3)
         self.setLayout(self.layout)
 
     def relationship_property_set(self, relationship, value=None):
         self.widget = QComboBox()
-        logger.debug(self.parent().managers)
+        # logger.debug(self.parent().managers)
         for manager in self.parent().managers:
             if self.name in manager.aliases:
                 logger.debug(f"Name: {self.name} is in aliases: {manager.aliases}")

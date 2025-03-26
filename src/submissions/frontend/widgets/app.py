@@ -230,7 +230,9 @@ class App(QMainWindow):
     def update_data(self):
         self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
+    # TODO: Change this to the Pydantic version.
     def manage_orgs(self):
+        from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
         dlg = ManagerWindow(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
             new_org = dlg.parse_form()
@@ -245,13 +247,9 @@ class App(QMainWindow):
             logger.debug("\n\nBeginning parsing\n\n")
             output = dlg.parse_form()
             logger.debug(f"Kit output: {pformat(output.__dict__)}")
-            # with open(f"{output.name}.obj", "wb") as f:
-            #     pickle.dump(output, f)
             logger.debug("\n\nBeginning transformation\n\n")
             sql = output.to_sql()
             assert isinstance(sql, KitType)
-            # with open(f"{output.name}.sql", "wb") as f:
-            #     pickle.dump(sql, f)
             sql.save()
 
 

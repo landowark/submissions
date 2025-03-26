@@ -315,8 +315,6 @@ class SubmissionFormWidget(QWidget):
             query = self.findChildren(QWidget, name=object_name)
         else:
             query = self.findChildren(QWidget)
-        # if object_name is not None:
-        #     query = [widget for widget in query if widget.objectName() == object_name]
         return query
 
     @report_result
@@ -338,7 +336,6 @@ class SubmissionFormWidget(QWidget):
         if self.disabler.checkbox.isChecked():
             _, result, _ = self.pyd.check_kit_integrity(exempt=exempt)
             report.add_result(result)
-            # result = self.pyd.check_reagent_expiries(exempt=exempt)
         if len(result.results) > 0:
             return report
         base_submission = self.pyd.to_sql()
@@ -372,7 +369,6 @@ class SubmissionFormWidget(QWidget):
                 pass
         # NOTE: add reagents to submission object
         if base_submission is None:
-            # self.app.table_widget.sub_wid.setData()
             return
         for reagent in base_submission.reagents:
             reagent.update_last_used(kit=base_submission.extraction_kit)
@@ -752,11 +748,9 @@ class SubmissionFormWidget(QWidget):
                             looked_up_reg = None
                         if looked_up_reg:
                             try:
-                                # relevant_reagents.remove(str(looked_up_reg.lot))
                                 relevant_reagents.insert(0, relevant_reagents.pop(relevant_reagents.index(looked_up_reg.lot)))
                             except ValueError as e:
                                 logger.error(f"Error reordering relevant reagents: {e}")
-                            # relevant_reagents.insert(0, str(looked_up_reg.lot))
                 else:
                     if len(relevant_reagents) > 1:
                         idx = relevant_reagents.index(str(reagent.lot))

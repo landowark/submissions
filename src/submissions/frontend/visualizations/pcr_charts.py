@@ -3,10 +3,8 @@ Functions for constructing irida controls graphs using plotly.
 """
 from pprint import pformat
 from . import CustomFigure
-import plotly.express as px
-import pandas as pd
 from PyQt6.QtWidgets import QWidget
-import logging
+import logging, plotly.express as px, pandas as pd
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -17,10 +15,6 @@ class PCRFigure(CustomFigure):
                  months: int = 6):
         super().__init__(df=df, modes=modes, settings=settings)
         self.df = df
-        # try:
-        #     months = int(settings['months'])
-        # except KeyError:
-        #     months = 6
         self.construct_chart(df=df)
 
     def construct_chart(self, df: pd.DataFrame):

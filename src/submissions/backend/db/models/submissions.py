@@ -402,7 +402,6 @@ class BasicSubmission(BaseClass, LogMixin):
         columns = set([assoc.column for assoc in self.submission_sample_associations])
         return len(columns)
 
-
     def calculate_base_cost(self) -> None:
         """
         Calculates cost of the plate
@@ -733,7 +732,7 @@ class BasicSubmission(BaseClass, LogMixin):
 
     @classmethod
     def find_polymorphic_subclass(cls, polymorphic_identity: str | SubmissionType | None = None,
-                                  attrs: dict | None = None):
+                                  attrs: dict | None = None) -> BasicSubmission:
         """
         Find subclass based on polymorphic identity or relevant attributes.
 

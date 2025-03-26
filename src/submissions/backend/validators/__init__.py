@@ -28,7 +28,8 @@ class RSLNamer(object):
         logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type:
             self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(submission_type=submission_type))
+            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
+                submission_type=submission_type))
             if not data:
                 data = dict(submission_type=self.submission_type)
             if "submission_type" not in data.keys():
@@ -50,24 +51,36 @@ class RSLNamer(object):
         Returns:
             str: parsed submission type
         """
-        def st_from_path(filename:Path) -> str:
-            if filename.exists():
-                wb = load_workbook(filename)
+
+        def st_from_path(filepath: Path) -> str:
+            """
+            Sub def to get submissiontype from a file path
+
+            Args:
+                filepath ():
+
+            Returns:
+
+            """
+            if filepath.exists():
+                wb = load_workbook(filepath)
                 try:
                     # NOTE: Gets first category in the metadata.
                     categories = wb.properties.category.split(";")
                     submission_type = next(item.strip().title() for item in categories)
                 except (StopIteration, AttributeError):
-                    sts = {item.name: item.template_file_sheets for item in SubmissionType.query() if item.template_file}
+                    sts = {item.name: item.template_file_sheets for item in SubmissionType.query() if
+                           item.template_file}
                     try:
-                        submission_type = next(k.title() for k,v in sts.items() if wb.sheetnames==v)
+                        submission_type = next(k.title() for k, v in sts.items() if wb.sheetnames == v)
                     except StopIteration:
-                        # NOTE: On failure recurse using filename as string for string method
-                        submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
+                        # NOTE: On failure recurse using filepath as string for string method
+                        submission_type = cls.retrieve_submission_type(filename=filepath.stem.__str__())
             else:
-                submission_type = cls.retrieve_submission_type(filename=filename.stem.__str__())
+                submission_type = cls.retrieve_submission_type(filename=filepath.stem.__str__())
             return submission_type
-        def st_from_str(filename:str) -> str:
+
+        def st_from_str(filename: str) -> str:
             if filename.startswith("tmp"):
                 return "Bacterial Culture"
             regex = BasicSubmission.regex
@@ -78,9 +91,10 @@ class RSLNamer(object):
                 submission_type = None
                 logger.critical(f"No submission type found or submission type found!: {e}")
             return submission_type
+
         match filename:
             case Path():
-                submission_type = st_from_path(filename=filename)
+                submission_type = st_from_path(filepath=filename)
             case str():
                 submission_type = st_from_str(filename=filename)
             case _:
