@@ -22,6 +22,8 @@ from .omni_add_edit import AddEdit
 from typing import List, Tuple
 from datetime import date
 
+from .sample_checker import SampleChecker
+
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
@@ -135,8 +137,16 @@ class SubmissionFormContainer(QWidget):
         except AttributeError:
             self.prsr = SheetParser(filepath=fname)
         self.pyd = self.prsr.to_pydantic()
-        self.form = self.pyd.to_form(parent=self)
-        self.layout().addWidget(self.form)
+        # logger.debug(f"Samples: {pformat(self.pyd.samples)}")
+        checker = SampleChecker(self, "Sample Checker", self.pyd)
+        if checker.exec():
+            logger.debug(pformat(self.pyd.samples))
+            self.form = self.pyd.to_form(parent=self)
+            self.layout().addWidget(self.form)
+        else:
+            message = "Submission cancelled."
+            logger.warning(message)
+            report.add_result(Result(msg=message, owner=self.__class__.__name__, status="Warning"))
         return report
 
     @report_result

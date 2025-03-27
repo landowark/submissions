@@ -714,7 +714,6 @@ class BasicSubmission(BaseClass, LogMixin):
         # logger.debug(f"Returning regex: {regex}")
         return regex
 
-
     # NOTE: Polymorphic functions
 
     @classproperty
@@ -1130,13 +1129,13 @@ class BasicSubmission(BaseClass, LogMixin):
                 case date():
                     pass
                 case datetime():
-                    end_date = end_date# + timedelta(days=1)
+                    end_date = end_date  # + timedelta(days=1)
                     # pass
                 case int():
-                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date()# \
-                               # + timedelta(days=1)
+                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date()  # \
+                    # + timedelta(days=1)
                 case _:
-                    end_date = parse(end_date).date()# + timedelta(days=1)
+                    end_date = parse(end_date).date()  # + timedelta(days=1)
             # end_date = end_date.strftime("%Y-%m-%d")
             start_date = datetime.combine(start_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
             end_date = datetime.combine(end_date, datetime.max.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -1224,10 +1223,11 @@ class BasicSubmission(BaseClass, LogMixin):
         else:
             from frontend.widgets.pop_ups import QuestionAsker
             logger.warning(f"Found existing instance: {instance}, asking to overwrite.")
-        #     code = 1
-        #     msg = "This submission already exists.\nWould you like to overwrite?"
-        # report.add_result(Result(msg=msg, code=code))
-            dlg = QuestionAsker(title="Overwrite?", message="This submission already exists.\nWould you like to overwrite?")
+            #     code = 1
+            #     msg = "This submission already exists.\nWould you like to overwrite?"
+            # report.add_result(Result(msg=msg, code=code))
+            dlg = QuestionAsker(title="Overwrite?",
+                                message="This submission already exists.\nWould you like to overwrite?")
             if dlg.exec():
                 pass
             else:
@@ -1529,9 +1529,22 @@ class BacterialCulture(BasicSubmission):
         main_sheet = xl[lookup_table['sheet']]
         for row in main_sheet.iter_rows(min_row=lookup_table['start_row'], max_row=lookup_table['end_row']):
             idx = row[0].row
-            sample = dict(submitter_id=main_sheet.cell(row=idx, column=lookup_table['sample_columns']['submitter_id']).value)
-            sample['concentration'] = main_sheet.cell(row=idx, column=lookup_table['sample_columns']['concentration']).value
+            sample = dict(
+                submitter_id=main_sheet.cell(row=idx, column=lookup_table['sample_columns']['submitter_id']).value)
+            sample['concentration'] = main_sheet.cell(row=idx,
+                                                      column=lookup_table['sample_columns']['concentration']).value
             yield sample
+
+    def get_provisional_controls(self):
+        if self.controls:
+            provs = (control.sample for control in self.controls)
+        else:
+            regex = re.compile(r"^(ATCC)|(MCS)|(EN)")
+            provs = (sample for sample in self.samples if bool(regex.match(sample.submitter_id)))
+        for prov in provs:
+            prov.submission = self.rsl_plate_num
+            prov.submitted_date = self.submitted_date
+            yield prov
 
 
 class Wastewater(BasicSubmission):
@@ -1827,7 +1840,7 @@ class WastewaterArtic(BasicSubmission):
     artic_date = Column(TIMESTAMP)  #: Date Artic Performed
     ngs_date = Column(TIMESTAMP)  #: Date submission received
     gel_date = Column(TIMESTAMP)  #: Date submission received
-    gel_barcode = Column(String(16)) #: Identifier for the used gel.
+    gel_barcode = Column(String(16))  #: Identifier for the used gel.
 
     __mapper_args__ = dict(polymorphic_identity="Wastewater Artic",
                            polymorphic_load="inline",
@@ -2767,10 +2780,14 @@ class BacterialCultureSample(BasicSample):
         sample = super().to_sub_dict(full_data=full_data)
         sample['name'] = self.submitter_id
         sample['organism'] = self.organism
-        sample['concentration'] = self.concentration
+        try:
+            sample['concentration'] = f"{float(self.concentration):.2f}"
+        except TypeError:
+            sample['concentration'] = 0.0
         if self.control is not None:
             sample['colour'] = [0, 128, 0]
-            target = next((v for k,v in self.control.controltype.targets.items() if k == self.control.subtype), "Not Available")
+            target = next((v for k, v in self.control.controltype.targets.items() if k == self.control.subtype),
+                          "Not Available")
             try:
                 target = ", ".join(target)
             except:

@@ -202,19 +202,21 @@ class ConcentrationMaker(ReportArchetype):
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
                                           submission_type_name=submission_type, page_size=0)
-        self.controls = list(itertools.chain.from_iterable([sub.controls for sub in self.subs]))
+        # self.known_controls = list(itertools.chain.from_iterable([sub.controls for sub in self.subs]))
+        self.controls = list(itertools.chain.from_iterable([sub.get_provisional_controls() for sub in self.subs]))
         self.records = [self.build_record(control) for control in self.controls]
         self.df = DataFrame.from_records(self.records)
         self.sheet_name = "Concentration"
 
     @classmethod
-    def build_record(cls, control: IridaControl) -> dict:
-        positive = control.is_positive_control
-        concentration = control.sample.concentration
-        if not concentration:
-            concentration = 0
-        return dict(name=control.name,
-                    submission=str(control.submission.rsl_plate_num), concentration=concentration,
+    def build_record(cls, control) -> dict:
+        positive = not control.submitter_id.lower().startswith("en")
+        try:
+            concentration = float(control.concentration)
+        except (TypeError, ValueError):
+            concentration = 0.0
+        return dict(name=control.submitter_id,
+                    submission=str(control.submission), concentration=concentration,
                     submitted_date=control.submitted_date, positive=positive)
 
 

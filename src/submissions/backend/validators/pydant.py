@@ -195,16 +195,6 @@ class PydSample(BaseModel, extra='allow'):
                 pass
         return value
 
-    def improved_dict(self) -> dict:
-        """
-        Constructs a dictionary consisting of model.fields and model.extras
-
-        Returns:
-            dict: Information dictionary
-        """
-        fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
-        return {k: getattr(self, k) for k in fields}
-
     @report_result
     def to_sql(self, submission: BasicSubmission | str = None) -> Tuple[
         BasicSample, List[SubmissionSampleAssociation], Result | None]:
@@ -1009,6 +999,18 @@ class PydSubmission(BaseModel, extra='allow'):
             c = csv.writer(f)
             for r in worksheet.rows:
                 c.writerow([cell.value for cell in r])
+
+    @property
+    def sample_list(self) -> List[dict]:
+        samples = []
+        for sample in self.samples:
+            sample = sample.improved_dict()
+            sample['row'] = sample['row'][0]
+            sample['column'] = sample['column'][0]
+            sample['submission_rank'] = sample['submission_rank'][0]
+            samples.append(sample)
+        samples = sorted(samples, key=itemgetter("submission_rank"))
+        return samples
 
 
 class PydContact(BaseModel):

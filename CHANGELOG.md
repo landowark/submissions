@@ -1,5 +1,6 @@
 # 202503.05
 
+- Created Sample verification before import.
 - Shuttered tools.get_config and moved to new inclusive Settings class.
 - Added concentrations chart tab.
 - Saving report xlsx/pdf now inserts report class name in file name.
