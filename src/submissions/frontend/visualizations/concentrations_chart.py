@@ -34,7 +34,7 @@ class ConcentrationsChart(CustomFigure):
             # logger.debug(f"DF after changes:\n{self.df}")
             scatter = px.scatter(data_frame=self.df, x='submission', y="concentration",
                                  hover_data=["name", "submission", "submitted_date", "concentration"],
-                                 color="positive", color_discrete_map={True: "red", False: "green"}
+                                 color="positive", color_discrete_map={"positive": "red", "negative": "green", "sample":"orange"}
                                  )
         except (ValueError, AttributeError) as e:
             logger.error(f"Error constructing chart: {e}")

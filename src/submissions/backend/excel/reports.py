@@ -2,6 +2,7 @@
 Contains functions for generating summary reports
 """
 import itertools
+import re
 import sys
 from pprint import pformat
 from pandas import DataFrame, ExcelWriter
@@ -211,8 +212,13 @@ class ConcentrationMaker(ReportArchetype):
 
     @classmethod
     def build_record(cls, control) -> dict:
-
-        positive = not control.submitter_id.lower().startswith("en")
+        regex = re.compile(r"^(ATCC)|(MCS)", flags=re.IGNORECASE)
+        if bool(regex.match(control.submitter_id)):
+            positive = "positive"
+        elif control.submitter_id.lower().startswith("en"):
+            positive = "negative"
+        else:
+            positive = "sample"
         try:
             concentration = float(control.concentration)
         except (TypeError, ValueError):

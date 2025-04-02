@@ -1880,34 +1880,34 @@ class Wastewater(BasicSubmission):
             new_control.save()
         return report
 
-    def update_subsampassoc(self, assoc: SubmissionSampleAssociation, input_dict: dict) -> SubmissionSampleAssociation:
-        """
-        Updates a joined submission sample association by assigning ct values to n1 or n2 based on alphabetical sorting.
-
-        Args:
-            sample (BasicSample): Associated sample.
-            input_dict (dict): values to be updated
-
-        Returns:
-            SubmissionSampleAssociation: Updated association
-        """
-        # logger.debug(f"Input dict: {pformat(input_dict)}")
-        #
-        assoc = super().update_subsampassoc(assoc=assoc, input_dict=input_dict)
-        # targets = {k: input_dict[k] for k in sorted(input_dict.keys()) if k.startswith("ct_")}
-        # assert 0 < len(targets) <= 2
-        # for k, v in targets.items():
-        #     # logger.debug(f"Setting sample {sample} with key {k} to value {v}")
-        #     # update_key = f"ct_n{i}"
-        #     current_value = getattr(assoc, k)
-        #     logger.debug(f"Current value came back as: {current_value}")
-        #     if current_value is None:
-        #         setattr(assoc, k, v)
-        #     else:
-        #         logger.debug(f"Have a value already, {current_value}... skipping.")
-        if assoc.column == 3:
-            logger.debug(f"Final association for association {assoc}:\n{pformat(assoc.__dict__)}")
-        return assoc
+    # def update_subsampassoc(self, assoc: SubmissionSampleAssociation, input_dict: dict) -> SubmissionSampleAssociation:
+    #     """
+    #     Updates a joined submission sample association by assigning ct values to n1 or n2 based on alphabetical sorting.
+    #
+    #     Args:
+    #         sample (BasicSample): Associated sample.
+    #         input_dict (dict): values to be updated
+    #
+    #     Returns:
+    #         SubmissionSampleAssociation: Updated association
+    #     """
+    #     # logger.debug(f"Input dict: {pformat(input_dict)}")
+    #     #
+    #     assoc = super().update_subsampassoc(assoc=assoc, input_dict=input_dict)
+    #     # targets = {k: input_dict[k] for k in sorted(input_dict.keys()) if k.startswith("ct_")}
+    #     # assert 0 < len(targets) <= 2
+    #     # for k, v in targets.items():
+    #     #     # logger.debug(f"Setting sample {sample} with key {k} to value {v}")
+    #     #     # update_key = f"ct_n{i}"
+    #     #     current_value = getattr(assoc, k)
+    #     #     logger.debug(f"Current value came back as: {current_value}")
+    #     #     if current_value is None:
+    #     #         setattr(assoc, k, v)
+    #     #     else:
+    #     #         logger.debug(f"Have a value already, {current_value}... skipping.")
+    #     if assoc.column == 3:
+    #         logger.debug(f"Final association for association {assoc}:\n{pformat(assoc.__dict__)}")
+    #     return assoc
 
 
 class WastewaterArtic(BasicSubmission):
