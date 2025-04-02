@@ -196,20 +196,22 @@ class TurnaroundMaker(ReportArchetype):
 
 class ConcentrationMaker(ReportArchetype):
 
-    def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture"):
+    def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture",
+                 controls_only: bool = True):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
                                           submission_type_name=submission_type, page_size=0)
         # self.known_controls = list(itertools.chain.from_iterable([sub.controls for sub in self.subs]))
-        self.controls = list(itertools.chain.from_iterable([sub.get_provisional_controls() for sub in self.subs]))
-        self.records = [self.build_record(control) for control in self.controls]
+        self.samples = list(itertools.chain.from_iterable([sub.get_provisional_controls(controls_only=controls_only) for sub in self.subs]))
+        self.records = [self.build_record(sample) for sample in self.samples]
         self.df = DataFrame.from_records(self.records)
         self.sheet_name = "Concentration"
 
     @classmethod
     def build_record(cls, control) -> dict:
+
         positive = not control.submitter_id.lower().startswith("en")
         try:
             concentration = float(control.concentration)

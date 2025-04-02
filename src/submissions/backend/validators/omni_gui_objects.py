@@ -366,7 +366,10 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
         logger.debug(f"KitTypeReagentRoleAssociation coming out of query_or_create: {instance.__dict__}\nnew: {new}")
         if new:
             logger.warning(f"This is a new instance: {instance.__dict__}")
-            reagent_role = self.reagent_role.to_sql()
+            try:
+                reagent_role = self.reagent_role.to_sql()
+            except AttributeError:
+                reagent_role = ReagentRole.query(name=self.reagent_role)
             instance.reagent_role = reagent_role
         logger.debug(f"KTRRAssoc uses: {self.uses}")
         instance.uses = self.uses
@@ -509,15 +512,24 @@ class OmniProcess(BaseOmni):
     def to_sql(self):
         instance, new = self.class_object.query_or_create(name=self.name)
         for st in self.submission_types:
-            new_assoc = st.to_sql()
+            try:
+                new_assoc = st.to_sql()
+            except AttributeError:
+                new_assoc = SubmissionType.query(name=st)
             if new_assoc not in instance.submission_types:
                 instance.submission_types.append(new_assoc)
         for er in self.equipment_roles:
-            new_assoc = er.to_sql()
+            try:
+                new_assoc = er.to_sql()
+            except AttributeError:
+                new_assoc = EquipmentRole.query(name=er)
             if new_assoc not in instance.equipment_roles:
                 instance.equipment_roles.append(new_assoc)
         for tr in self.tip_roles:
-            new_assoc = tr.to_sql()
+            try:
+                new_assoc = tr.to_sql()
+            except AttributeError:
+                new_assoc = TipRole.query(name=tr)
             if new_assoc not in instance.tip_roles:
                 instance.tip_roles.append(new_assoc)
         return instance

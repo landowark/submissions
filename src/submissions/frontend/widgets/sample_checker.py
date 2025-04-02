@@ -1,7 +1,7 @@
 
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Generator
 
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
@@ -37,7 +37,7 @@ class SampleChecker(QDialog):
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        html = template.render(samples=pyd.sample_list, css=css)
+        html = template.render(samples=self.formatted_list, css=css)
         self.webview.setHtml(html)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -59,8 +59,19 @@ class SampleChecker(QDialog):
             item = next((sample for sample in self.pyd.samples if int(submission_rank) in sample.submission_rank))
         except StopIteration:
             logger.error(f"Unable to find sample {submission_rank}")
+            return
         item.__setattr__(key, value)
 
+    @property
+    def formatted_list(self) -> List[dict]:
+        output = []
+        for sample in self.pyd.sample_list:
+            if sample['submitter_id'] in [item['submitter_id'] for item in output]:
+                sample['color'] = "red"
+            else:
+                sample['color'] = "black"
+            output.append(sample)
+        return output
 
 
 

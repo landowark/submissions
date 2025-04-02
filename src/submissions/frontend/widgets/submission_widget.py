@@ -140,7 +140,7 @@ class SubmissionFormContainer(QWidget):
         # logger.debug(f"Samples: {pformat(self.pyd.samples)}")
         checker = SampleChecker(self, "Sample Checker", self.pyd)
         if checker.exec():
-            logger.debug(pformat(self.pyd.samples))
+            # logger.debug(pformat(self.pyd.samples))
             self.form = self.pyd.to_form(parent=self)
             self.layout().addWidget(self.form)
         else:

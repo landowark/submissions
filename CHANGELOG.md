@@ -1,3 +1,7 @@
+# 202504.01
+
+- Added in checkbox to use all samples in Concentrations tab (very slow).
+
 # 202503.05
 
 - Created Sample verification before import.

@@ -60,7 +60,7 @@ class BaseClass(Base):
         try:
             return f"<{self.__class__.__name__}({self.name})>"
         except AttributeError:
-            return f"<{self.__class__.__name__}({self.__name__})>"
+            return f"<{self.__class__.__name__}(Unknown)>"
 
     # @classproperty
     # def skip_on_edit(cls):
@@ -411,13 +411,13 @@ class BaseClass(Base):
         except AttributeError:
             return super().__setattr__(key, value)
         if isinstance(field_type, InstrumentedAttribute):
-            logger.debug(f"{key} is an InstrumentedAttribute.")
+            # logger.debug(f"{key} is an InstrumentedAttribute.")
             match field_type.property:
                 case ColumnProperty():
                     # logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
-                    logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
+                    # logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
                     if field_type.property.uselist:
                         logger.debug(f"Setting with uselist")
                         existing = self.__getattribute__(key)

@@ -2,6 +2,8 @@
 Models for the main submission and sample types.
 """
 from __future__ import annotations
+
+import pickle
 from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
@@ -588,7 +590,39 @@ class BasicSubmission(BaseClass, LogMixin):
             except AttributeError as e:
                 logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
 
-    def update_subsampassoc(self, sample: BasicSample, input_dict: dict) -> SubmissionSampleAssociation:
+    # def update_subsampassoc(self, sample: BasicSample, input_dict: dict) -> SubmissionSampleAssociation:
+    #     """
+    #     Update a joined submission sample association.
+    #
+    #     Args:
+    #         sample (BasicSample): Associated sample.
+    #         input_dict (dict): values to be updated
+    #
+    #     Returns:
+    #         SubmissionSampleAssociation: Updated association
+    #     """
+    #     try:
+    #         logger.debug(f"Searching for sample {sample} at column {input_dict['column']} and row {input_dict['row']}")
+    #         assoc = next((item for item in self.submission_sample_associations
+    #                      if item.sample == sample and
+    #                      item.row == input_dict['row'] and
+    #                      item.column == input_dict['column']))
+    #         logger.debug(f"Found assoc {pformat(assoc.__dict__)}")
+    #     except StopIteration:
+    #         report = Report()
+    #         report.add_result(
+    #             Result(msg=f"Couldn't find submission sample association for {sample.submitter_id}", status="Warning"))
+    #         return report
+    #     for k, v in input_dict.items():
+    #         try:
+    #             # logger.debug(f"Setting assoc {assoc} with key {k} to value {v}")
+    #             setattr(assoc, k, v)
+    #             # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
+    #         except AttributeError:
+    #             logger.error(f"Can't set {k} to {v}")
+    #     return assoc
+
+    def update_subsampassoc(self, assoc: SubmissionSampleAssociation, input_dict: dict) -> SubmissionSampleAssociation:
         """
         Update a joined submission sample association.
 
@@ -599,19 +633,26 @@ class BasicSubmission(BaseClass, LogMixin):
         Returns:
             SubmissionSampleAssociation: Updated association
         """
-        try:
-            assoc = next(item for item in self.submission_sample_associations if item.sample == sample)
-        except StopIteration:
-            report = Report()
-            report.add_result(
-                Result(msg=f"Couldn't find submission sample association for {sample.submitter_id}", status="Warning"))
-            return report
+        # try:
+        #     logger.debug(f"Searching for sample {sample} at column {input_dict['column']} and row {input_dict['row']}")
+        #     assoc = next((item for item in self.submission_sample_associations
+        #                  if item.sample == sample and
+        #                  item.row == input_dict['row'] and
+        #                  item.column == input_dict['column']))
+        #     logger.debug(f"Found assoc {pformat(assoc.__dict__)}")
+        # except StopIteration:
+        #     report = Report()
+        #     report.add_result(
+        #         Result(msg=f"Couldn't find submission sample association for {sample.submitter_id}", status="Warning"))
+        #     return report
         for k, v in input_dict.items():
             try:
+                # logger.debug(f"Setting assoc {assoc} with key {k} to value {v}")
                 setattr(assoc, k, v)
                 # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
             except AttributeError:
-                logger.error(f"Can't set {k} to {v}")
+                # logger.error(f"Can't set {k} to {v}")
+                pass
         return assoc
 
     def update_reagentassoc(self, reagent: Reagent, role: str):
@@ -949,10 +990,12 @@ class BasicSubmission(BaseClass, LogMixin):
         pcr_sample_map = cls.get_submission_type().sample_map['pcr_samples']
         main_sheet = xl[pcr_sample_map['main_sheet']]
         fields = {k: v for k, v in pcr_sample_map.items() if k not in ['main_sheet', 'start_row']}
+        logger.debug(f"Fields: {fields}")
         for row in main_sheet.iter_rows(min_row=pcr_sample_map['start_row']):
             idx = row[0].row
             sample = {}
             for k, v in fields.items():
+                # logger.debug(f"Checking key: {k} with value {v}")
                 sheet = xl[v['sheet']]
                 sample[k] = sheet.cell(row=idx, column=v['column']).value
             yield sample
@@ -1535,12 +1578,15 @@ class BacterialCulture(BasicSubmission):
                                                       column=lookup_table['sample_columns']['concentration']).value
             yield sample
 
-    def get_provisional_controls(self):
-        if self.controls:
-            provs = (control.sample for control in self.controls)
+    def get_provisional_controls(self, controls_only: bool = True):
+        if controls_only:
+            if self.controls:
+                provs = (control.sample for control in self.controls)
+            else:
+                regex = re.compile(r"^(ATCC)|(MCS)|(EN)")
+                provs = (sample for sample in self.samples if bool(regex.match(sample.submitter_id)))
         else:
-            regex = re.compile(r"^(ATCC)|(MCS)|(EN)")
-            provs = (sample for sample in self.samples if bool(regex.match(sample.submitter_id)))
+            provs = self.samples
         for prov in provs:
             prov.submission = self.rsl_plate_num
             prov.submitted_date = self.submitted_date
@@ -1668,7 +1714,7 @@ class Wastewater(BasicSubmission):
         # NOTE: Also, you can't change the size of a list while iterating it, so don't even think about it.
         output = []
         for sample in samples:
-            # logger.debug(sample)
+            logger.debug(sample)
             # NOTE: remove '-{target}' from controls
             sample['sample'] = re.sub('-N\\d*$', '', sample['sample'])
             # NOTE: if sample is already in output skip
@@ -1679,7 +1725,7 @@ class Wastewater(BasicSubmission):
             # logger.debug(f"Sample ct: {sample['ct']}")
             sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
             # NOTE: Set assessment
-            logger.debug(f"Sample assessemnt: {sample['assessment']}")
+            # logger.debug(f"Sample assessemnt: {sample['assessment']}")
             # sample[f"{sample['target'].lower()}_status"] = sample['assessment']
             # NOTE: Get sample having other target
             other_targets = [s for s in samples if re.sub('-N\\d*$', '', s['sample']) == sample['sample']]
@@ -1694,6 +1740,11 @@ class Wastewater(BasicSubmission):
                 del sample['assessment']
             except KeyError:
                 pass
+            # logger.debug(sample)
+            row = int(row_keys[sample['well'][:1]])
+            column = int(sample['well'][1:])
+            sample['row'] = row
+            sample['column'] = column
             output.append(sample)
         # NOTE: And then convert back to list to keep fidelity with parent method.
         for sample in output:
@@ -1779,18 +1830,43 @@ class Wastewater(BasicSubmission):
         parser = PCRParser(filepath=fname, submission=self)
         self.set_attribute("pcr_info", parser.pcr_info)
         # NOTE: These are generators here, need to expand.
-        pcr_samples = [sample for sample in parser.samples]
+        pcr_samples = sorted([sample for sample in parser.samples], key=itemgetter('column'))
+        logger.debug(f"Samples from parser: {pformat(pcr_samples)}")
+        # NOTE: Samples from parser check out.
         pcr_controls = [control for control in parser.controls]
         self.save(original=False)
-        for sample in self.samples:
+        for assoc in self.submission_sample_associations:
+            logger.debug(f"Checking pcr_samples for {assoc.sample.rsl_number}, {assoc.sample.ww_full_sample_id} at "
+                         f"column {assoc.column} and row {assoc.row}")
+            # NOTE: Associations of interest do exist in the submission, are not being found below
+            # Okay, I've found the problem, at last, the problem is that only one RSL number is saved for each sample,
+            # Even though each instance of say "25-YUL13-PU3-0320" has multiple RSL numbers in the excel sheet.
+            # so, yeah, the submitters need to make sure that there are unique values for each one.
             try:
-                # NOTE: Fix for ENs which have no rsl_number...
-                sample_dict = next(item for item in pcr_samples if item['sample'] == sample.rsl_number)
+                sample_dict = next(item for item in pcr_samples if item['sample'] == assoc.sample.rsl_number
+                                   and item['row'] == assoc.row and item['column'] == assoc.column)
+                logger.debug(
+                    f"Found sample {sample_dict} at index {pcr_samples.index(sample_dict)}: {pcr_samples[pcr_samples.index(sample_dict)]}")
             except StopIteration:
+                logger.error(f"Couldn't find {assoc} in the Parser samples")
                 continue
-            assoc = self.update_subsampassoc(sample=sample, input_dict=sample_dict)
+            logger.debug(f"Length of pcr_samples: {len(pcr_samples)}")
+            assoc = self.update_subsampassoc(assoc=assoc, input_dict=sample_dict)
             result = assoc.save()
-            report.add_result(result)
+            if result:
+                report.add_result(result)
+        # for sample in self.samples:
+        #     logger.debug(f"Checking pcr_samples for {sample.rsl_number}, {sample.ww_full_sample_id}")
+        #     try:
+        #         # NOTE: Fix for ENs which have no rsl_number...
+        #         sample_dict = next(item for item in pcr_samples if item['sample'] == sample.rsl_number)
+        #         logger.debug(f"Found sample {sample_dict} at index {pcr_samples.index(sample_dict)}: {pcr_samples[pcr_samples.index(sample_dict)]}")
+        #     except StopIteration:
+        #         logger.error(f"Couldn't find {sample} in the Parser samples")
+        #         continue
+        #     assoc = self.update_subsampassoc(sample=sample, input_dict=sample_dict)
+        #     result = assoc.save()
+        #     report.add_result(result)
         controltype = ControlType.query(name="PCR Control")
         submitted_date = datetime.strptime(" ".join(parser.pcr_info['run_start_date/time'].split(" ")[:-1]),
                                            "%Y-%m-%d %I:%M:%S %p")
@@ -1804,7 +1880,7 @@ class Wastewater(BasicSubmission):
             new_control.save()
         return report
 
-    def update_subsampassoc(self, sample: BasicSample, input_dict: dict) -> SubmissionSampleAssociation:
+    def update_subsampassoc(self, assoc: SubmissionSampleAssociation, input_dict: dict) -> SubmissionSampleAssociation:
         """
         Updates a joined submission sample association by assigning ct values to n1 or n2 based on alphabetical sorting.
 
@@ -1815,13 +1891,22 @@ class Wastewater(BasicSubmission):
         Returns:
             SubmissionSampleAssociation: Updated association
         """
-        assoc = super().update_subsampassoc(sample=sample, input_dict=input_dict)
-        targets = {k: input_dict[k] for k in sorted(input_dict.keys()) if k.startswith("ct_")}
-        assert 0 < len(targets) <= 2
-        for i, v in enumerate(targets.values(), start=1):
-            update_key = f"ct_n{i}"
-            if getattr(assoc, update_key) is None:
-                setattr(assoc, update_key, v)
+        # logger.debug(f"Input dict: {pformat(input_dict)}")
+        #
+        assoc = super().update_subsampassoc(assoc=assoc, input_dict=input_dict)
+        # targets = {k: input_dict[k] for k in sorted(input_dict.keys()) if k.startswith("ct_")}
+        # assert 0 < len(targets) <= 2
+        # for k, v in targets.items():
+        #     # logger.debug(f"Setting sample {sample} with key {k} to value {v}")
+        #     # update_key = f"ct_n{i}"
+        #     current_value = getattr(assoc, k)
+        #     logger.debug(f"Current value came back as: {current_value}")
+        #     if current_value is None:
+        #         setattr(assoc, k, v)
+        #     else:
+        #         logger.debug(f"Have a value already, {current_value}... skipping.")
+        if assoc.column == 3:
+            logger.debug(f"Final association for association {assoc}:\n{pformat(assoc.__dict__)}")
         return assoc
 
 
@@ -2105,14 +2190,20 @@ class WastewaterArtic(BasicSubmission):
         Returns:
             str: output name
         """
+        logger.debug(f"PBS adapter on {input_str}")
         # NOTE: Remove letters.
         processed = input_str.replace("RSL", "")
+        # logger.debug(processed)
         # NOTE: Remove brackets at end
         processed = re.sub(r"\(.*\)$", "", processed).strip()
+        logger.debug(processed)
+        processed = re.sub(r"-RPT", "", processed, flags=re.IGNORECASE)
         # NOTE: Remove any non-R letters at end.
         processed = re.sub(r"[A-QS-Z]+\d*", "", processed)
+        logger.debug(processed)
         # NOTE: Remove trailing '-' if any
         processed = processed.strip("-")
+        logger.debug(processed)
         try:
             plate_num = re.search(r"\-\d{1}R?\d?$", processed).group()
             processed = rreplace(processed, plate_num, "")
@@ -2126,16 +2217,24 @@ class WastewaterArtic(BasicSubmission):
             repeat_num = None
         if repeat_num is None and "R" in plate_num:
             repeat_num = "1"
-        plate_num = re.sub(r"R", rf"R{repeat_num}", plate_num)
+        try:
+            plate_num = re.sub(r"R", rf"R{repeat_num}", plate_num)
+        except AttributeError:
+            logger.error(f"Problem re-evaluating plate number for {processed}")
+        logger.debug(processed)
         # NOTE: Remove any redundant -digits
         processed = re.sub(r"-\d$", "", processed)
+        logger.debug(processed)
         day = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, day, "")
+        logger.debug(processed)
         month = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, month, "")
         processed = processed.replace("--", "")
+        logger.debug(processed)
         year = re.search(r'^(?:\d{2})?\d{2}', processed).group()
         year = f"20{year}"
+        logger.debug(processed)
         final_en_name = f"PBS{year}{month}{day}-{plate_num}"
         return final_en_name
 

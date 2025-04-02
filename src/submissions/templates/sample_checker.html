@@ -15,7 +15,7 @@
         &emsp;&emsp;Submitter ID&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Row&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Column<br/>
         {% for sample in samples %}
             {{ '%02d' % sample['submission_rank'] }}
-            <input type="text" id="{{ sample['submission_rank'] }}_id" name="submitter_id" value="{{ sample['submitter_id'] }}" size="40">
+            <input type="text" id="{{ sample['submission_rank'] }}_id" name="submitter_id" value="{{ sample['submitter_id'] }}" size="40" style="color:{{ sample['color'] }};">>
             <input type="number" id="{{ sample['submission_rank'] }}_row" name="row" value="{{ sample['row'] }}" size="5", min="1">
             <input type="number" id="{{ sample['submission_rank'] }}_col" name="column" value="{{ sample['column'] }}" size="5", min="1">
             <br/>
