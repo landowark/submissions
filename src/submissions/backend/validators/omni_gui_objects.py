@@ -593,3 +593,57 @@ class OmniKitType(BaseOmni):
         for item in kit.kit_reagentrole_associations:
             logger.debug(f"KTRRassoc: {item.__dict__}")
         return kit
+
+
+class OmniOrganization(BaseOmni):
+
+    class_object: ClassVar[Any] = Organization
+
+    name: str = Field(default="", description="property")
+    cost_centre: str = Field(default="", description="property")
+    # TODO: add in List[OmniContacts]
+    contact: List[str] | List[OmniContact] = Field(default=[], description="relationship", title="Contact")
+
+    def __init__(self, instance_object: Any, **data):
+        logger.debug(f"Incoming data: {data}")
+        super().__init__(**data)
+        self.instance_object = instance_object
+
+    def to_dataframe_dict(self):
+        return dict(
+            name=self.name,
+            cost_centre=self.cost_centre,
+            contacts=self.contact
+        )
+
+
+class OmniContact(BaseOmni):
+
+    class_object: ClassVar[Any] = Contact
+
+    name: str = Field(default="", description="property")
+    email: str = Field(default="", description="property")
+    phone: str = Field(default="", description="property")
+
+    @property
+    def list_searchables(self):
+        return dict(name=self.name, email=self.email)
+
+    def __init__(self, instance_object: Any, **data):
+        super().__init__(**data)
+        self.instance_object = instance_object
+
+    def to_dataframe_dict(self):
+        return dict(
+            name=self.name,
+            email=self.email,
+            phone=self.phone
+        )
+
+    def to_sql(self):
+        contact, is_new = Contact.query_or_create(name=self.name, email=self.email, phone=self.phone)
+        if is_new:
+            logger.debug(f"New contact made: {contact}")
+        else:
+            logger.debug(f"Contact retrieved: {contact}")
+        return contact

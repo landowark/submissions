@@ -10,7 +10,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
 from tools import check_authorization, setup_lookup, yaml_regex_creator
-from typing import List
+from typing import List, Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -123,6 +123,20 @@ class Organization(BaseClass):
                 organ.contacts.append(cont)
             organ.save()
 
+    def to_omni(self, expand: bool = False):
+        from backend.validators.omni_gui_objects import OmniOrganization
+        if self.cost_centre:
+            cost_centre = self.cost_centre
+        else:
+            cost_centre = "NA"
+        if self.name:
+            name = self.name
+        else:
+            name = "NA"
+        return OmniOrganization(instance_object=self,
+                                name=name, cost_centre=cost_centre,
+                                contact=[item.to_omni() for item in self.contacts])
+
 
 class Contact(BaseClass):
     """
@@ -143,6 +157,20 @@ class Contact(BaseClass):
     @classproperty
     def searchables(cls):
         return []
+
+    @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[Contact, bool]:
+        new = False
+        disallowed = []
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            setattr(instance, k, v)
+        logger.info(f"Instance from contact query or create: {instance}")
+        return instance, new
 
     @classmethod
     @setup_lookup
@@ -195,3 +223,22 @@ class Contact(BaseClass):
     def to_pydantic(self) -> "PydContact":
         from backend.validators import PydContact
         return PydContact(name=self.name, email=self.email, phone=self.phone)
+
+    def to_omni(self, expand: bool = False):
+        from backend.validators.omni_gui_objects import OmniContact
+        if self.email:
+            email = self.email
+        else:
+            email = "NA"
+        if self.name:
+            name = self.name
+        else:
+            name = "NA"
+        if self.phone:
+            phone = self.phone
+        else:
+            phone = "NA"
+        return OmniContact(instance_object=self,
+                                name=name, email=email,
+                                phone=phone)
+

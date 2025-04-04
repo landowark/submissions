@@ -9,17 +9,19 @@ from PyQt6.QtWidgets import (
     QHBoxLayout, QScrollArea, QMainWindow,
     QToolBar
 )
-# import pickle
 from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
+from pandas import ExcelWriter
 from __init__ import project_path
-from backend import SubmissionType, Reagent, BasicSample, Organization, KitType
+from backend import SubmissionType, Reagent, BasicSample, Organization, KitType, BasicSubmission
 from tools import (
-    check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user, under_development
+    check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
+    under_development
 )
-from .functions import select_save_file, select_open_file
-from .pop_ups import HTMLPop, AlertPop
+from .date_type_picker import DateTypePicker
+from .functions import select_save_file
+from .pop_ups import HTMLPop
 from .misc import Pagifier
 from .submission_table import SubmissionsSheet
 from .submission_widget import SubmissionFormContainer
@@ -80,7 +82,7 @@ class App(QMainWindow):
         helpMenu.addAction(self.docsAction)
         helpMenu.addAction(self.githubAction)
         fileMenu.addAction(self.importAction)
-        # fileMenu.addAction(self.yamlExportAction)
+        fileMenu.addAction(self.archiveSubmissionsAction)
         # fileMenu.addAction(self.yamlImportAction)
         methodsMenu.addAction(self.searchSample)
         maintenanceMenu.addAction(self.joinExtractionAction)
@@ -112,8 +114,7 @@ class App(QMainWindow):
         self.docsAction = QAction("&Docs", self)
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
-        # self.yamlExportAction = QAction("Export Type Example", self)
-        # self.yamlImportAction = QAction("Import Type Template", self)
+        self.archiveSubmissionsAction = QAction("Submissions to Excel", self)
         self.editReagentAction = QAction("Edit Reagent", self)
         self.manageOrgsAction = QAction("Manage Clients", self)
         self.manageKitsAction = QAction("Manage Kits", self)
@@ -130,8 +131,7 @@ class App(QMainWindow):
         self.docsAction.triggered.connect(self.openDocs)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
-        # self.yamlExportAction.triggered.connect(self.export_ST_yaml)
-        # self.yamlImportAction.triggered.connect(self.import_ST_yaml)
+        self.archiveSubmissionsAction.triggered.connect(self.submissions_to_excel)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
         self.editReagentAction.triggered.connect(self.edit_reagent)
         self.manageOrgsAction.triggered.connect(self.manage_orgs)
@@ -186,60 +186,18 @@ class App(QMainWindow):
         dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="role")])
         dlg.exec()
 
-    # def export_ST_yaml(self):
-    #     """
-    #     Copies submission type yaml to file system for editing and remport
-    #
-    #     Returns:
-    #         None
-    #     """
-    #     if check_if_app():
-    #         yaml_path = Path(sys._MEIPASS).joinpath("files", "resources", "viral_culture.yml")
-    #     else:
-    #         yaml_path = project_path.joinpath("src", "submissions", "resources", "viral_culture.yml")
-    #     fname = select_save_file(obj=self, default_name="Submission Type Template.yml", extension="yml")
-    #     shutil.copyfile(yaml_path, fname)
-
-    # @check_authorization
-    # def import_ST_yaml(self, *args, **kwargs):
-    #     """
-    #     Imports a yml form into a submission type.
-    #
-    #     Args:
-    #         *args ():
-    #         **kwargs ():
-    #
-    #     Returns:
-    #
-    #     """
-    #     fname = select_open_file(obj=self, file_extension="yml")
-    #     if not fname:
-    #         logger.info(f"Import cancelled.")
-    #         return
-    #     ap = AlertPop(message="This function will proceed in the debug window.", status="Warning", owner=self)
-    #     ap.exec()
-    #     st = SubmissionType.import_from_json(filepath=fname)
-    #     if st:
-    #         # NOTE: Do not delete the print statement below.
-    #         choice = input("Save the above submission type? [y/N]: ")
-    #         if choice.lower() == "y":
-    #             pass
-    #         else:
-    #             logger.warning("Save of submission type cancelled.")
-
     def update_data(self):
         self.table_widget.sub_wid.setData(page=self.table_widget.pager.page_anchor, page_size=page_size)
 
     # TODO: Change this to the Pydantic version.
     def manage_orgs(self):
         from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
-        dlg = ManagerWindow(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
+        # dlg = ManagerWindow(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
+        dlg = ManagerWindowPyd(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
             new_org = dlg.parse_form()
             new_org.save()
-            # logger.debug(new_org.__dict__)
 
-    @under_development
     def manage_kits(self, *args, **kwargs):
         from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
         dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
@@ -251,6 +209,17 @@ class App(QMainWindow):
             sql = output.to_sql()
             assert isinstance(sql, KitType)
             sql.save()
+
+    @under_development
+    def submissions_to_excel(self, *args, **kwargs):
+        dlg = DateTypePicker(self)
+        if dlg.exec():
+            output = dlg.parse_form()
+            df = BasicSubmission.archive_submissions(**output)
+            filepath = select_save_file(self, f"Submissions {output['start_date']}-{output['end_date']}", "xlsx")
+            writer = ExcelWriter(filepath, "openpyxl")
+            df.to_excel(writer)
+            writer.close()
 
 
 class AddSubForm(QWidget):

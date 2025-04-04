@@ -3,6 +3,7 @@ Models for the main submission and sample types.
 """
 from __future__ import annotations
 
+import itertools
 import pickle
 from copy import deepcopy
 from getpass import getuser
@@ -12,6 +13,8 @@ from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
+
+from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin, SubmissionReagentAssociation
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
@@ -287,6 +290,7 @@ class BasicSubmission(BaseClass, LogMixin):
         Constructs dictionary used in submissions summary
 
         Args:
+            expand (bool, optional): indicates if generators to be expanded. Defaults to False.
             report (bool, optional): indicates if to be used for a report. Defaults to False.
             full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
             backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
@@ -392,6 +396,33 @@ class BasicSubmission(BaseClass, LogMixin):
         except AttributeError:
             output["completed_date"] = self.completed_date
         return output
+
+    @classmethod
+    def archive_submissions(cls, start_date: date | datetime | str | int | None = None,
+                            end_date: date | datetime | str | int | None = None,
+                            submissiontype: List[str] | None = None):
+        if submissiontype:
+            if isinstance(submissiontype, str):
+                submissiontype = [submissiontype]
+            query_out = []
+            for sub_type in submissiontype:
+                subs = cls.query(page_size=0, start_date=start_date, end_date=end_date, submissiontype=sub_type)
+                # logger.debug(f"Sub results: {subs}")
+                query_out.append(subs)
+            query_out = list(itertools.chain.from_iterable(query_out))
+        else:
+            query_out = cls.query(page_size=0, start_date=start_date, end_date=end_date)
+        records = []
+        for sub in query_out:
+            output = sub.to_dict(full_data=True)
+            for k, v in output.items():
+                if isinstance(v, types.GeneratorType):
+                    output[k] = [item for item in v]
+            records.append(output)
+        df = DataFrame.from_records(records)
+        df.sort_values(by="id", inplace=True)
+        df.set_index("id", inplace=True)
+        return df
 
     @property
     def column_count(self) -> int:
@@ -590,61 +621,18 @@ class BasicSubmission(BaseClass, LogMixin):
             except AttributeError as e:
                 logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
 
-    # def update_subsampassoc(self, sample: BasicSample, input_dict: dict) -> SubmissionSampleAssociation:
-    #     """
-    #     Update a joined submission sample association.
-    #
-    #     Args:
-    #         sample (BasicSample): Associated sample.
-    #         input_dict (dict): values to be updated
-    #
-    #     Returns:
-    #         SubmissionSampleAssociation: Updated association
-    #     """
-    #     try:
-    #         logger.debug(f"Searching for sample {sample} at column {input_dict['column']} and row {input_dict['row']}")
-    #         assoc = next((item for item in self.submission_sample_associations
-    #                      if item.sample == sample and
-    #                      item.row == input_dict['row'] and
-    #                      item.column == input_dict['column']))
-    #         logger.debug(f"Found assoc {pformat(assoc.__dict__)}")
-    #     except StopIteration:
-    #         report = Report()
-    #         report.add_result(
-    #             Result(msg=f"Couldn't find submission sample association for {sample.submitter_id}", status="Warning"))
-    #         return report
-    #     for k, v in input_dict.items():
-    #         try:
-    #             # logger.debug(f"Setting assoc {assoc} with key {k} to value {v}")
-    #             setattr(assoc, k, v)
-    #             # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
-    #         except AttributeError:
-    #             logger.error(f"Can't set {k} to {v}")
-    #     return assoc
-
     def update_subsampassoc(self, assoc: SubmissionSampleAssociation, input_dict: dict) -> SubmissionSampleAssociation:
         """
         Update a joined submission sample association.
 
         Args:
-            sample (BasicSample): Associated sample.
-            input_dict (dict): values to be updated
+            assoc (SubmissionSampleAssociation): Sample association to be updated.
+            input_dict (dict): updated values to insert.
 
         Returns:
             SubmissionSampleAssociation: Updated association
         """
-        # try:
-        #     logger.debug(f"Searching for sample {sample} at column {input_dict['column']} and row {input_dict['row']}")
-        #     assoc = next((item for item in self.submission_sample_associations
-        #                  if item.sample == sample and
-        #                  item.row == input_dict['row'] and
-        #                  item.column == input_dict['column']))
-        #     logger.debug(f"Found assoc {pformat(assoc.__dict__)}")
-        # except StopIteration:
-        #     report = Report()
-        #     report.add_result(
-        #         Result(msg=f"Couldn't find submission sample association for {sample.submitter_id}", status="Warning"))
-        #     return report
+        # NOTE: No longer searches for association here, done in caller function
         for k, v in input_dict.items():
             try:
                 # logger.debug(f"Setting assoc {assoc} with key {k} to value {v}")
@@ -771,8 +759,8 @@ class BasicSubmission(BaseClass, LogMixin):
         return regex
 
     @classmethod
-    def find_polymorphic_subclass(cls, polymorphic_identity: str | SubmissionType | None = None,
-                                  attrs: dict | None = None) -> BasicSubmission:
+    def find_polymorphic_subclass(cls, polymorphic_identity: str | SubmissionType | list | None = None,
+                                  attrs: dict | None = None) -> BasicSubmission | List[BasicSubmission]:
         """
         Find subclass based on polymorphic identity or relevant attributes.
 
@@ -795,6 +783,13 @@ class BasicSubmission(BaseClass, LogMixin):
                 except Exception as e:
                     logger.error(
                         f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
+            case list():
+                output = []
+                for identity in polymorphic_identity:
+                    if isinstance(identity, SubmissionType):
+                        identity = polymorphic_identity.name
+                    output.append(cls.__mapper__.polymorphic_map[identity].class_)
+                return output
             case _:
                 pass
         if attrs and any([not hasattr(cls, attr) for attr in attrs.keys()]):
@@ -1855,18 +1850,6 @@ class Wastewater(BasicSubmission):
             result = assoc.save()
             if result:
                 report.add_result(result)
-        # for sample in self.samples:
-        #     logger.debug(f"Checking pcr_samples for {sample.rsl_number}, {sample.ww_full_sample_id}")
-        #     try:
-        #         # NOTE: Fix for ENs which have no rsl_number...
-        #         sample_dict = next(item for item in pcr_samples if item['sample'] == sample.rsl_number)
-        #         logger.debug(f"Found sample {sample_dict} at index {pcr_samples.index(sample_dict)}: {pcr_samples[pcr_samples.index(sample_dict)]}")
-        #     except StopIteration:
-        #         logger.error(f"Couldn't find {sample} in the Parser samples")
-        #         continue
-        #     assoc = self.update_subsampassoc(sample=sample, input_dict=sample_dict)
-        #     result = assoc.save()
-        #     report.add_result(result)
         controltype = ControlType.query(name="PCR Control")
         submitted_date = datetime.strptime(" ".join(parser.pcr_info['run_start_date/time'].split(" ")[:-1]),
                                            "%Y-%m-%d %I:%M:%S %p")
@@ -1879,35 +1862,6 @@ class Wastewater(BasicSubmission):
             # logger.debug(f"Control coming into save: {new_control.__dict__}")
             new_control.save()
         return report
-
-    # def update_subsampassoc(self, assoc: SubmissionSampleAssociation, input_dict: dict) -> SubmissionSampleAssociation:
-    #     """
-    #     Updates a joined submission sample association by assigning ct values to n1 or n2 based on alphabetical sorting.
-    #
-    #     Args:
-    #         sample (BasicSample): Associated sample.
-    #         input_dict (dict): values to be updated
-    #
-    #     Returns:
-    #         SubmissionSampleAssociation: Updated association
-    #     """
-    #     # logger.debug(f"Input dict: {pformat(input_dict)}")
-    #     #
-    #     assoc = super().update_subsampassoc(assoc=assoc, input_dict=input_dict)
-    #     # targets = {k: input_dict[k] for k in sorted(input_dict.keys()) if k.startswith("ct_")}
-    #     # assert 0 < len(targets) <= 2
-    #     # for k, v in targets.items():
-    #     #     # logger.debug(f"Setting sample {sample} with key {k} to value {v}")
-    #     #     # update_key = f"ct_n{i}"
-    #     #     current_value = getattr(assoc, k)
-    #     #     logger.debug(f"Current value came back as: {current_value}")
-    #     #     if current_value is None:
-    #     #         setattr(assoc, k, v)
-    #     #     else:
-    #     #         logger.debug(f"Have a value already, {current_value}... skipping.")
-    #     if assoc.column == 3:
-    #         logger.debug(f"Final association for association {assoc}:\n{pformat(assoc.__dict__)}")
-    #     return assoc
 
 
 class WastewaterArtic(BasicSubmission):
@@ -2196,14 +2150,14 @@ class WastewaterArtic(BasicSubmission):
         # logger.debug(processed)
         # NOTE: Remove brackets at end
         processed = re.sub(r"\(.*\)$", "", processed).strip()
-        logger.debug(processed)
+        # logger.debug(processed)
         processed = re.sub(r"-RPT", "", processed, flags=re.IGNORECASE)
         # NOTE: Remove any non-R letters at end.
         processed = re.sub(r"[A-QS-Z]+\d*", "", processed)
-        logger.debug(processed)
+        # logger.debug(processed)
         # NOTE: Remove trailing '-' if any
         processed = processed.strip("-")
-        logger.debug(processed)
+        # logger.debug(processed)
         try:
             plate_num = re.search(r"\-\d{1}R?\d?$", processed).group()
             processed = rreplace(processed, plate_num, "")
@@ -2221,20 +2175,20 @@ class WastewaterArtic(BasicSubmission):
             plate_num = re.sub(r"R", rf"R{repeat_num}", plate_num)
         except AttributeError:
             logger.error(f"Problem re-evaluating plate number for {processed}")
-        logger.debug(processed)
+        # logger.debug(processed)
         # NOTE: Remove any redundant -digits
         processed = re.sub(r"-\d$", "", processed)
-        logger.debug(processed)
+        # logger.debug(processed)
         day = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, day, "")
-        logger.debug(processed)
+        # logger.debug(processed)
         month = re.search(r"\d{2}$", processed).group()
         processed = rreplace(processed, month, "")
         processed = processed.replace("--", "")
-        logger.debug(processed)
+        # logger.debug(processed)
         year = re.search(r'^(?:\d{2})?\d{2}', processed).group()
         year = f"20{year}"
-        logger.debug(processed)
+        # logger.debug(processed)
         final_en_name = f"PBS{year}{month}{day}-{plate_num}"
         return final_en_name
 
@@ -2881,7 +2835,7 @@ class BacterialCultureSample(BasicSample):
         sample['organism'] = self.organism
         try:
             sample['concentration'] = f"{float(self.concentration):.2f}"
-        except TypeError:
+        except (TypeError, ValueError):
             sample['concentration'] = 0.0
         if self.control is not None:
             sample['colour'] = [0, 128, 0]

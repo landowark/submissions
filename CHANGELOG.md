@@ -1,5 +1,6 @@
 # 202504.01
 
+- Added in method to backup submissions to xlsx (partly).
 - Added in checkbox to use all samples in Concentrations tab (very slow).
 
 # 202503.05

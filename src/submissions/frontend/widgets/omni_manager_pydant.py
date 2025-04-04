@@ -269,6 +269,7 @@ class EditRelationship(QWidget):
         from backend.db import models
         super().__init__(parent)
         self.class_object = getattr(models, class_object)
+        logger.debug(f"Attempt value: {value}")
         # logger.debug(f"Class object: {self.class_object}")
         self.setParent(parent)
         # logger.debug(f"Edit relationship class_object: {self.class_object}")
@@ -388,7 +389,7 @@ class EditRelationship(QWidget):
         """
         sets data in model
         """
-        # logger.debug(f"Self.data: {self.data}")
+        logger.debug(f"Self.data: {self.data}")
         try:
             records = [item.to_dataframe_dict() for item in self.data]
         except AttributeError:

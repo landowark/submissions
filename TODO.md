@@ -1,4 +1,4 @@
-- [ ] Change "Manage Organizations" to the Pydantic version.
+- [x] Change "Manage Organizations" to the Pydantic version.
 - [x] Can my "to_dict", "to_sub_dict", "to_pydantic" methods be rewritten as properties?
 - [ ] Stop displacing date on Irida controls and just do what Turnaround time does.
 - [x] Get Manager window working for KitType, maybe SubmissionType

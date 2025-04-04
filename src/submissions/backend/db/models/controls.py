@@ -425,17 +425,23 @@ class IridaControl(Control):
             kraken = self.kraken
         except TypeError:
             kraken = {}
-        kraken_cnt_total = sum([item['kraken_count'] for item in kraken.values()])
-        new_kraken = [dict(name=key, kraken_count=value['kraken_count'],
+        try:
+            kraken_cnt_total = sum([item['kraken_count'] for item in kraken.values()])
+        except AttributeError:
+            kraken_cnt_total = 0
+        try:
+            new_kraken = [dict(name=key, kraken_count=value['kraken_count'],
                            kraken_percent=f"{value['kraken_count'] / kraken_cnt_total:0.2%}",
                            target=key in self.controltype.targets)
                       for key, value in kraken.items()]
-        new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)
+            new_kraken = sorted(new_kraken, key=itemgetter('kraken_count'), reverse=True)[0:10]
+        except (AttributeError, ZeroDivisionError):
+            new_kraken = []
         output = dict(
             name=self.name,
             type=self.controltype.name,
             targets=", ".join(self.targets),
-            kraken=new_kraken[0:10]
+            kraken=new_kraken
         )
         return output
 

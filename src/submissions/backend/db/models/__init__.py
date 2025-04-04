@@ -60,28 +60,26 @@ class BaseClass(Base):
         try:
             return f"<{self.__class__.__name__}({self.name})>"
         except AttributeError:
-            return f"<{self.__class__.__name__}(Unknown)>"
-
-    # @classproperty
-    # def skip_on_edit(cls):
-    #     if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
-    #         return True
-    #     else:
-    #         return False
+            return f"<{self.__class__.__name__}(Name Unavailable)>"
 
     @classproperty
-    def aliases(cls):
+    def aliases(cls) -> List[str]:
+        """
+        List of other names this class might be known by.
+
+        Returns:
+            List[str]: List of names
+        """
         return [cls.query_alias]
 
-    # @classproperty
-    # def level(cls):
-    #     if "association" in cls.__name__.lower() or cls.__name__.lower() == "discount":
-    #         return 2
-    #     else:
-    #         return 1
-
     @classproperty
-    def query_alias(cls):
+    def query_alias(cls) -> str:
+        """
+        What to query this class as.
+
+        Returns:
+            str: query name
+        """
         return cls.__name__.lower()
 
     @classmethod
@@ -153,21 +151,23 @@ class BaseClass(Base):
         return dict(singles=singles)
 
     @classmethod
-    def find_regular_subclass(cls, name: str = "") -> Any:
+    def find_regular_subclass(cls, name: str|None = None) -> Any:
         """
-
         Args:
             name (str): name of subclass of interest.
 
         Returns:
-            Any: Subclass of this object
-
+            Any: Subclass of this object.
         """
-        if " " in name:
-            search = name.title().replace(" ", "")
+        if name:
+            if " " in name:
+                search = name.title().replace(" ", "")
+            else:
+                search = name
+            return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
         else:
-            search = name
-        return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
+            return cls.__subclasses__()
+
 
     @classmethod
     def fuzzy_search(cls, **kwargs) -> List[Any]:
@@ -193,7 +193,7 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
-    def results_to_df(cls, objects: list|None=None, **kwargs) -> DataFrame:
+    def results_to_df(cls, objects: list | None = None, **kwargs) -> DataFrame:
         """
         Converts class sub_dicts into a Dataframe for all instances of the class.
 
@@ -395,7 +395,8 @@ class BaseClass(Base):
             if check:
                 logger.debug(f"Checking for subclass name.")
                 self_value = self_value.name
-            logger.debug(f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
+            logger.debug(
+                f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
             if self_value != value:
                 output = False
                 logger.debug(f"Value {key} is False, returning.")
