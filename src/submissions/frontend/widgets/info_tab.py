@@ -1,7 +1,7 @@
 """
 A pane to show info e.g. cost reports and turnaround times.
 """
-from datetime import date
+from datetime import date, datetime
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout
@@ -32,8 +32,11 @@ class InfoPane(QWidget):
     @report_result
     def update_data(self, *args, **kwargs):
         report = Report()
+        # self.start_date = self.datepicker.start_date.date().toPyDate()
+        # self.end_date = self.datepicker.end_date.date().toPyDate()
         self.start_date = self.datepicker.start_date.date().toPyDate()
         self.end_date = self.datepicker.end_date.date().toPyDate()
+        logger.debug(f"Start date: {self.start_date}, End date: {self.end_date}")
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():
             lastmonth = self.datepicker.end_date.date().addDays(-31)
             msg = f"Start date after end date is not allowed! Setting to {lastmonth.toString()}."

@@ -1,3 +1,6 @@
+- [x] Apply below fix to all other date-based queries.
+- [x] Fix Control graph chart bug that excludes today's controls.
+- [x] Convert logger to a custom class.
 - [x] Change "Manage Organizations" to the Pydantic version.
 - [x] Can my "to_dict", "to_sub_dict", "to_pydantic" methods be rewritten as properties?
 - [ ] Stop displacing date on Irida controls and just do what Turnaround time does.

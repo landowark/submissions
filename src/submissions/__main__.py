@@ -1,12 +1,15 @@
+import logging
 import sys, os
-from tools import ctx, setup_logger, check_if_app
+from tools import ctx, check_if_app, CustomLogger
 
 # NOTE: environment variable must be set to enable qtwebengine in network path
 if check_if_app():
     os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = "1"
 
 # NOTE: setup custom logger
-logger = setup_logger(verbosity=3)
+logging.setLoggerClass(CustomLogger)
+# logger = logging.getLogger("submissions")
+# logger = setup_logger(verbosity=3)
 
 from PyQt6.QtWidgets import QApplication
 from frontend.widgets.app import App

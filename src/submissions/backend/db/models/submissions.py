@@ -27,7 +27,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result, create_holidays_for_year, check_dictionary_inclusion_equality
+    report_result, create_holidays_for_year, check_dictionary_inclusion_equality, rectify_query_date
 from datetime import datetime, date, timedelta
 from typing import List, Any, Tuple, Literal, Generator, Type
 from dateutil.parser import parse
@@ -1152,35 +1152,37 @@ class BasicSubmission(BaseClass, LogMixin):
             start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
             logger.warning(f"End date with no start date, using first submission date: {start_date}")
         if start_date is not None:
-            match start_date:
-                case date():
-                    pass
-                case datetime():
-                    start_date = start_date.date()
-                case int():
-                    start_date = datetime.fromordinal(
-                        datetime(1900, 1, 1).toordinal() + start_date - 2).date()
-                case _:
-                    start_date = parse(start_date).date()
-            # start_date = start_date.strftime("%Y-%m-%d")
-            match end_date:
-                case date():
-                    pass
-                case datetime():
-                    end_date = end_date  # + timedelta(days=1)
-                    # pass
-                case int():
-                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date()  # \
-                    # + timedelta(days=1)
-                case _:
-                    end_date = parse(end_date).date()  # + timedelta(days=1)
-            # end_date = end_date.strftime("%Y-%m-%d")
-            start_date = datetime.combine(start_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
-            end_date = datetime.combine(end_date, datetime.max.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
-            # if start_date == end_date:
-            #     start_date = start_date.strftime("%Y-%m-%d %H:%M:%S.%f")
-            #     query = query.filter(model.submitted_date == start_date)
-            # else:
+            # match start_date:
+            #     case date():
+            #         pass
+            #     case datetime():
+            #         start_date = start_date.date()
+            #     case int():
+            #         start_date = datetime.fromordinal(
+            #             datetime(1900, 1, 1).toordinal() + start_date - 2).date()
+            #     case _:
+            #         start_date = parse(start_date).date()
+            # # start_date = start_date.strftime("%Y-%m-%d")
+            # match end_date:
+            #     case date():
+            #         pass
+            #     case datetime():
+            #         end_date = end_date  # + timedelta(days=1)
+            #         # pass
+            #     case int():
+            #         end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date()  # \
+            #         # + timedelta(days=1)
+            #     case _:
+            #         end_date = parse(end_date).date()  # + timedelta(days=1)
+            # # end_date = end_date.strftime("%Y-%m-%d")
+            # start_date = datetime.combine(start_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
+            # end_date = datetime.combine(end_date, datetime.max.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
+            # # if start_date == end_date:
+            # #     start_date = start_date.strftime("%Y-%m-%d %H:%M:%S.%f")
+            # #     query = query.filter(model.submitted_date == start_date)
+            # # else:
+            start_date = rectify_query_date(start_date)
+            end_date = rectify_query_date(end_date, eod=True)
             query = query.filter(model.submitted_date.between(start_date, end_date))
         # NOTE: by reagent (for some reason)
         match reagent:

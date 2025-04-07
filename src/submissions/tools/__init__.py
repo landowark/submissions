@@ -8,8 +8,9 @@ from json import JSONDecodeError
 from threading import Thread
 from inspect import getmembers, isfunction, stack
 from dateutil.easter import easter
+from dateutil.parser import parse
 from jinja2 import Environment, FileSystemLoader
-from logging import handlers
+from logging import handlers, Logger
 from pathlib import Path
 from sqlalchemy.orm import Session, InstrumentedAttribute
 from sqlalchemy import create_engine, text, MetaData
@@ -294,6 +295,7 @@ class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
 
 class CustomFormatter(logging.Formatter):
+
     class bcolors:
         HEADER = '\033[95m'
         OKBLUE = '\033[94m'
@@ -337,6 +339,42 @@ class StreamToLogger(object):
     def write(self, buf):
         for line in buf.rstrip().splitlines():
             self.logger.log(self.log_level, line.rstrip())
+
+
+class CustomLogger(Logger):
+
+    def __init__(self, name: str = "submissions", level=logging.DEBUG):
+        super().__init__(name, level)
+        self.extra_info = None
+        ch = logging.StreamHandler(stream=sys.stdout)
+        ch.name = "Stream"
+        ch.setLevel(self.level)
+        # NOTE: create formatter and add it to the handlers
+        ch.setFormatter(CustomFormatter())
+        # NOTE: add the handlers to the logger
+        self.addHandler(ch)
+        sys.excepthook = self.handle_exception
+
+    def info(self, msg, *args, xtra=None, **kwargs):
+        extra_info = xtra if xtra is not None else self.extra_info
+        super().info(msg, *args, extra=extra_info, **kwargs)
+
+    @classmethod
+    def handle_exception(cls, exc_type, exc_value, exc_traceback):
+        """
+        System won't halt after error, except KeyboardInterrupt
+
+        Args:
+            exc_value ():
+            exc_traceback ():
+
+        Returns:
+
+        """
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
 
 def setup_logger(verbosity: int = 3):
@@ -856,6 +894,35 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
         return any([dicto == d for d in listo])
     else:
         raise TypeError(f"Unsupported variable: {type(listo)}")
+
+
+def rectify_query_date(input_date, eod: bool = False) -> str:
+    """
+    Converts input into a datetime string for querying purposes
+
+    Args:
+        eod (bool, optional): Whether to use max time to indicate end of day.
+        input_date ():
+
+    Returns:
+        datetime: properly formated datetime
+    """
+    match input_date:
+        case datetime():
+            output_date = input_date.strftime("%Y-%m-%d %H:%M:%S")
+        case date():
+            if eod:
+                addition_time = datetime.max.time()
+            else:
+                addition_time = datetime.min.time()
+            output_date = datetime.combine(input_date, addition_time)
+            output_date = output_date.strftime("%Y-%m-%d %H:%M:%S")
+        case int():
+            output_date = datetime.fromordinal(
+                datetime(1900, 1, 1).toordinal() + input_date - 2).date().strftime("%Y-%m-%d %H:%M:%S")
+        case _:
+            output_date = parse(input_date).strftime("%Y-%m-%d %H:%M:%S")
+    return output_date
 
 
 class classproperty(property):

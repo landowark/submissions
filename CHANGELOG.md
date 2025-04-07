@@ -1,3 +1,7 @@
+# 202504.02
+
+- Refined query-by-date to use start/end of day times to improve accuracy.
+
 # 202504.01
 
 - Added in method to backup submissions to xlsx (partly).

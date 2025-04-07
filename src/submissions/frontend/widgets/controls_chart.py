@@ -108,6 +108,7 @@ class ControlsViewer(InfoPane):
             parent=self,
             months=months
         )
+        logger.debug(f"Chart settings: {chart_settings}")
         self.fig = self.archetype.instance_class.make_chart(chart_settings=chart_settings, parent=self, ctx=self.app.ctx)
         self.report_obj = ChartReportMaker(df=self.fig.df, sheet_name=self.archetype.name)
         if issubclass(self.fig.__class__, CustomFigure):

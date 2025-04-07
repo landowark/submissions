@@ -12,7 +12,8 @@ from sqlalchemy.orm import relationship, Query, validates
 import logging, re
 from operator import itemgetter
 from . import BaseClass
-from tools import setup_lookup, report_result, Result, Report, Settings, get_unique_values_in_df_column, super_splitter
+from tools import setup_lookup, report_result, Result, Report, Settings, get_unique_values_in_df_column, super_splitter, \
+    rectify_query_date
 from datetime import date, datetime, timedelta
 from typing import List, Literal, Tuple, Generator
 from dateutil.parser import parse
@@ -149,8 +150,8 @@ class Control(BaseClass):
     def query(cls,
               submissiontype: str | None = None,
               subtype: str | None = None,
-              start_date: date | str | int | None = None,
-              end_date: date | str | int | None = None,
+              start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None,
               name: str | None = None,
               limit: int = 0, **kwargs
               ) -> Control | List[Control]:
@@ -201,22 +202,30 @@ class Control(BaseClass):
             logger.warning(f"End date with no start date, using 90 days ago.")
             start_date = date.today() - timedelta(days=90)
         if start_date is not None:
-            match start_date:
-                case date():
-                    start_date = start_date.strftime("%Y-%m-%d")
-                case int():
-                    start_date = datetime.fromordinal(
-                        datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
-                case _:
-                    start_date = parse(start_date).strftime("%Y-%m-%d")
-            match end_date:
-                case date():
-                    end_date = end_date.strftime("%Y-%m-%d")
-                case int():
-                    end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
-                        "%Y-%m-%d")
-                case _:
-                    end_date = parse(end_date).strftime("%Y-%m-%d")
+            # match start_date:
+            #     case datetime():
+            #         start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
+            #     case date():
+            #         start_date = datetime.combine(start_date, datetime.min.time())
+            #         start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
+            #     case int():
+            #         start_date = datetime.fromordinal(
+            #             datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d %H:%M:%S")
+            #     case _:
+            #         start_date = parse(start_date).strftime("%Y-%m-%d %H:%M:%S")
+            start_date = rectify_query_date(start_date)
+            end_date = rectify_query_date(end_date, eod=True)
+            # match end_date:
+            #     case datetime():
+            #         end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
+            #     case date():
+            #         end_date = datetime.combine(end_date, datetime.max.time())
+            #         end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
+            #     case int():
+            #         end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
+            #             "%Y-%m-%d %H:%M:%S")
+            #     case _:
+            #         end_date = parse(end_date).strftime("%Y-%m-%d %H:%M:%S")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         match name:
             case str():
