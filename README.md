@@ -88,27 +88,9 @@ This is meant to import .xlsx files created from the Design & Analysis Software
 	2. Recommendation is to use less than 6 month date range keeping in mind that higher data density will affect performance (with kraken being the worst so far)
 4. Analysis type and subtype can be set using the drop-down menus. (Only kraken has a subtype so far).
 
-## Adding new Kit:
+## Adding/Editing Kits:
 
-1. Click "Add Kit" tab in the tab bar.
-2. Select the Submission type from the drop-down menu.
-3. Fill in the kit name (required) and other fields (optional).
-4. For each reagent type in the kit click the "Add Reagent Type" button.
-5. Fill in the name of the reagent type. Alternatively select from already existing types in the drop-down.
-6. Fill in the reagent location in the Excel submission sheet.
-	1. For example if the reagent name is in a sheet called "Reagent Info" in row 12, column 1, type "Reagent Info" in the "Excel Location Sheet Name" field. 
-	2. Set 12 in the "Name Row" and 1 in the "Name Column".
-	3. Repeat 6b for the Lot and the Expiry row and columns.
-7. Click the "Submit" button at the top.
-
-## Linking Extraction Logs:
-
-1. Click "Monthly" -> "Link Extraction Logs".
-2. Chose the .csv file taken from the extraction table run logs folder.
-
-## Linking PCR Logs:
-1. Click "Monthly" -> "Link PCR Logs".
-2. Chose the .csv file taken from the PCR table run logs folder.
+Under Construction
 
 ## SETUP:
 

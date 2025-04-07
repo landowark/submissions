@@ -1,5 +1,6 @@
 # 202504.02
 
+- Added cscscience gitlab remote.
 - Refined query-by-date to use start/end of day times to improve accuracy.
 
 # 202504.01
