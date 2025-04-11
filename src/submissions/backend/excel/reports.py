@@ -1,17 +1,14 @@
 """
 Contains functions for generating summary reports
 """
-import itertools
-import re
-import sys
+import re, sys, logging
 from pprint import pformat
 from pandas import DataFrame, ExcelWriter
-import logging
 from pathlib import Path
 from datetime import date
-from typing import Tuple
-from backend.db.models import BasicSubmission, IridaControl
-from tools import jinja_template_loading, get_first_blank_df_row, row_map
+from typing import Tuple, List
+from backend.db.models import BasicSubmission
+from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -198,14 +195,15 @@ class TurnaroundMaker(ReportArchetype):
 class ConcentrationMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture",
-                 controls_only: bool = True):
+                 # controls_only: bool = True):
+                 include: List[str] = []):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
                                           submission_type_name=submission_type, page_size=0)
-        # self.known_controls = list(itertools.chain.from_iterable([sub.controls for sub in self.subs]))
-        self.samples = list(itertools.chain.from_iterable([sub.get_provisional_controls(controls_only=controls_only) for sub in self.subs]))
+        # self.samples = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.subs])
+        self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
         self.records = [self.build_record(sample) for sample in self.samples]
         self.df = DataFrame.from_records(self.records)
         self.sheet_name = "Concentration"

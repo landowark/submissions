@@ -80,26 +80,25 @@ class RSLNamer(object):
                 submission_type = cls.retrieve_submission_type(filename=filepath.stem.__str__())
             return submission_type
 
-        def st_from_str(filename: str) -> str:
-            if filename.startswith("tmp"):
+        def st_from_str(file_name: str) -> str:
+            if file_name.startswith("tmp"):
                 return "Bacterial Culture"
             regex = BasicSubmission.regex
-            m = regex.search(filename)
+            m = regex.search(file_name)
             try:
-                submission_type = m.lastgroup
+                sub_type = m.lastgroup
             except AttributeError as e:
-                submission_type = None
+                sub_type = None
                 logger.critical(f"No submission type found or submission type found!: {e}")
-            return submission_type
+            return sub_type
 
         match filename:
             case Path():
                 submission_type = st_from_path(filepath=filename)
             case str():
-                submission_type = st_from_str(filename=filename)
+                submission_type = st_from_str(file_name=filename)
             case _:
                 raise TypeError(f"Unsupported filename type: {type(filename)}.")
-                submission_type = None
         try:
             check = submission_type is None
         except UnboundLocalError:
@@ -137,7 +136,7 @@ class RSLNamer(object):
         if m is not None:
             try:
                 parsed_name = m.group().upper().strip(".")
-            except:
+            except AttributeError:
                 parsed_name = None
         else:
             parsed_name = None

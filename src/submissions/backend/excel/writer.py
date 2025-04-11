@@ -176,7 +176,7 @@ class InfoWriter(object):
             for loc in locations:
                 sheet = self.xl[loc['sheet']]
                 try:
-                    logger.debug(f"Writing {v['value']} to row {loc['row']} and column {loc['column']}")
+                    # logger.debug(f"Writing {v['value']} to row {loc['row']} and column {loc['column']}")
                     sheet.cell(row=loc['row'], column=loc['column'], value=v['value'])
                 except AttributeError as e:
                     logger.error(f"Can't write {k} to that cell due to AttributeError: {e}")

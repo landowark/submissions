@@ -2,11 +2,11 @@
 Contains all operations for creating charts, graphs and visual effects.
 '''
 from datetime import timedelta, date
+from pathlib import Path
 from typing import Generator
 from PyQt6.QtWidgets import QWidget
-import plotly, logging
+import pandas as pd, logging
 from plotly.graph_objects import Figure
-import pandas as pd
 from tools import divide_chunks
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -123,12 +123,16 @@ class CustomFigure(Figure):
         Returns:
             str: html string
         """
-        html = '<html><body>'
+        html = f'<html><body>'
         if self is not None:
-            html += plotly.offline.plot(self, output_type='div', include_plotlyjs='cdn')
+            # NOTE: Just cannot get this load from string to freaking work.
+            html += self.to_html(include_plotlyjs='cdn', full_html=False)
+            # html += plotly.offline.plot(self, output_type='div', include_plotlyjs=True)
         else:
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'
+        with open("test.html", "w", encoding="utf-8") as f:
+            f.write(html)
         return html
 
 

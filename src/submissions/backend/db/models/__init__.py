@@ -11,9 +11,7 @@ from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List
 from pathlib import Path
-
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-
 from tools import report_result, list_sort_dict
 
 # NOTE: Load testing environment
@@ -48,7 +46,7 @@ class BaseClass(Base):
     """
     __abstract__ = True  #: NOTE: Will not be added to DB as a table
 
-    __table_args__ = {'extend_existing': True}  #: Will only add new columns
+    __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
     singles = ['id']
     omni_removes = ["id", 'submissions', "omnigui_class_dict", "omnigui_instance_dict"]
@@ -308,7 +306,6 @@ class BaseClass(Base):
             dicto = {'id': dicto.pop('id'), **dicto}
         except KeyError:
             pass
-        # logger.debug(f"{self.__class__.__name__} omnigui dict:\n\n{pformat(dicto)}")
         return dicto
 
     @classproperty
@@ -337,11 +334,6 @@ class BaseClass(Base):
         """
         return dict()
 
-    @classmethod
-    def relevant_relationships(cls, relationship_instance):
-        query_kwargs = {relationship_instance.query_alias: relationship_instance}
-        return cls.query(**query_kwargs)
-
     def check_all_attributes(self, attributes: dict) -> bool:
         """
         Checks this instance against a dictionary of attributes to determine if they are a match.
@@ -352,14 +344,14 @@ class BaseClass(Base):
         Returns:
             bool: If a single unequivocal value is found will be false, else true.
         """
-        logger.debug(f"Incoming attributes: {attributes}")
+        # logger.debug(f"Incoming attributes: {attributes}")
         for key, value in attributes.items():
             if value.lower() == "none":
                 value = None
-            logger.debug(f"Attempting to grab attribute: {key}")
+            # logger.debug(f"Attempting to grab attribute: {key}")
             self_value = getattr(self, key)
             class_attr = getattr(self.__class__, key)
-            logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
+            # logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
             if isinstance(class_attr, property):
                 filter = "property"
             else:
@@ -379,7 +371,7 @@ class BaseClass(Base):
                 case "property":
                     pass
                 case _RelationshipDeclared():
-                    logger.debug(f"Checking {self_value}")
+                    # logger.debug(f"Checking {self_value}")
                     try:
                         self_value = self_value.name
                     except AttributeError:
@@ -387,19 +379,18 @@ class BaseClass(Base):
                     if class_attr.property.uselist:
                         self_value = self_value.__str__()
             try:
-                logger.debug(f"Check if {self_value.__class__} is subclass of {self.__class__}")
+                # logger.debug(f"Check if {self_value.__class__} is subclass of {self.__class__}")
                 check = issubclass(self_value.__class__, self.__class__)
             except TypeError as e:
                 logger.error(f"Couldn't check if {self_value.__class__} is subclass of {self.__class__} due to {e}")
                 check = False
             if check:
-                logger.debug(f"Checking for subclass name.")
+                # logger.debug(f"Checking for subclass name.")
                 self_value = self_value.name
-            logger.debug(
-                f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
+            # logger.debug(f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
             if self_value != value:
                 output = False
-                logger.debug(f"Value {key} is False, returning.")
+                # logger.debug(f"Value {key} is False, returning.")
                 return output
         return True
 
@@ -444,7 +435,6 @@ class BaseClass(Base):
                                 value = value[0]
                             else:
                                 raise ValueError("Object is too long to parse a single value.")
-                                # value = value
                         return super().__setattr__(key, value)
                 case _:
                     return super().__setattr__(key, value)
@@ -453,6 +443,32 @@ class BaseClass(Base):
 
     def delete(self):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
+
+    def rectify_query_date(input_date, eod: bool = False) -> str:
+        """
+        Converts input into a datetime string for querying purposes
+
+        Args:
+            eod (bool, optional): Whether to use max time to indicate end of day.
+            input_date ():
+
+        Returns:
+            datetime: properly formated datetime
+        """
+        match input_date:
+            case datetime() | date():
+                output_date = input_date#.strftime("%Y-%m-%d %H:%M:%S")
+            case int():
+                output_date = datetime.fromordinal(
+                    datetime(1900, 1, 1).toordinal() + input_date - 2)#.date().strftime("%Y-%m-%d %H:%M:%S")
+            case _:
+                output_date = parse(input_date)#.strftime("%Y-%m-%d %H:%M:%S")
+        if eod:
+            addition_time = datetime.max.time()
+        else:
+            addition_time = datetime.min.time()
+        output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
+        return output_date
 
 
 class ConfigItem(BaseClass):

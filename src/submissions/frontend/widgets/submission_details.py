@@ -92,6 +92,7 @@ class SubmissionDetails(QDialog):
         Args:
             sample (str): Submitter Id of the sample.
         """
+        logger.debug(f"Sample details.")
         if isinstance(sample, str):
             sample = BasicSample.query(submitter_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
@@ -102,6 +103,8 @@ class SubmissionDetails(QDialog):
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         html = template.render(sample=base_dict, css=css)
+        with open(f"{sample.submitter_id}.html", 'w') as f:
+            f.write(html)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Sample Details - {sample.submitter_id}")
 
@@ -114,6 +117,7 @@ class SubmissionDetails(QDialog):
             kit (str | KitType): Name of kit.
             reagent (str | Reagent): Lot number of the reagent
         """
+        logger.debug(f"Reagent details.")
         if isinstance(reagent, str):
             reagent = Reagent.query(lot=reagent)
         if isinstance(kit, str):
@@ -164,6 +168,7 @@ class SubmissionDetails(QDialog):
         Args:
             submission (str | BasicSubmission): Submission of interest.
         """
+        logger.debug(f"Submission details.")
         if isinstance(submission, str):
             submission = BasicSubmission.query(rsl_plate_num=submission)
         self.rsl_plate_num = submission.rsl_plate_num

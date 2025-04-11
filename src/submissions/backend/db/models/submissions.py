@@ -13,7 +13,6 @@ from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
-
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass, Reagent, SubmissionType, KitType, Organization, Contact, LogMixin, SubmissionReagentAssociation
@@ -27,10 +26,9 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result, create_holidays_for_year, check_dictionary_inclusion_equality, rectify_query_date
-from datetime import datetime, date, timedelta
+    report_result, create_holidays_for_year, check_dictionary_inclusion_equality
+from datetime import datetime, date
 from typing import List, Any, Tuple, Literal, Generator, Type
-from dateutil.parser import parse
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
@@ -271,7 +269,6 @@ class BasicSubmission(BaseClass, LogMixin):
         Returns:
             dict: sample location map
         """
-        # return cls.get_submission_type(submission_type).construct_sample_map()
         return cls.get_submission_type(submission_type).sample_map
 
     def generate_associations(self, name: str, extra: str | None = None):
@@ -445,11 +442,11 @@ class BasicSubmission(BaseClass, LogMixin):
         except Exception as e:
             logger.error(f"Column count error: {e}")
         # NOTE: Get kit associated with this submission
-        logger.debug(f"Checking associations with submission type: {self.submission_type_name}")
+        # logger.debug(f"Checking associations with submission type: {self.submission_type_name}")
         assoc = next((item for item in self.extraction_kit.kit_submissiontype_associations if
                       item.submission_type == self.submission_type),
                      None)
-        logger.debug(f"Got association: {assoc}")
+        # logger.debug(f"Got association: {assoc}")
         # NOTE: If every individual cost is 0 this is probably an old plate.
         if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
             try:
@@ -635,16 +632,13 @@ class BasicSubmission(BaseClass, LogMixin):
         # NOTE: No longer searches for association here, done in caller function
         for k, v in input_dict.items():
             try:
-                # logger.debug(f"Setting assoc {assoc} with key {k} to value {v}")
                 setattr(assoc, k, v)
                 # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
             except AttributeError:
-                # logger.error(f"Can't set {k} to {v}")
                 pass
         return assoc
 
     def update_reagentassoc(self, reagent: Reagent, role: str):
-        from backend.db import SubmissionReagentAssociation
         # NOTE: get the first reagent assoc that fills the given role.
         try:
             assoc = next(item for item in self.submission_reagent_associations if
@@ -1134,7 +1128,7 @@ class BasicSubmission(BaseClass, LogMixin):
         Returns:
             models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
         """
-        from ... import SubmissionReagentAssociation
+        # from ... import SubmissionReagentAssociation
         # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
         if submissiontype is not None:
             model = cls.find_polymorphic_subclass(polymorphic_identity=submissiontype)
@@ -1181,8 +1175,8 @@ class BasicSubmission(BaseClass, LogMixin):
             # #     start_date = start_date.strftime("%Y-%m-%d %H:%M:%S.%f")
             # #     query = query.filter(model.submitted_date == start_date)
             # # else:
-            start_date = rectify_query_date(start_date)
-            end_date = rectify_query_date(end_date, eod=True)
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
             query = query.filter(model.submitted_date.between(start_date, end_date))
         # NOTE: by reagent (for some reason)
         match reagent:
@@ -1575,19 +1569,40 @@ class BacterialCulture(BasicSubmission):
                                                       column=lookup_table['sample_columns']['concentration']).value
             yield sample
 
-    def get_provisional_controls(self, controls_only: bool = True):
-        if controls_only:
-            if self.controls:
-                provs = (control.sample for control in self.controls)
-            else:
-                regex = re.compile(r"^(ATCC)|(MCS)|(EN)")
-                provs = (sample for sample in self.samples if bool(regex.match(sample.submitter_id)))
-        else:
-            provs = self.samples
-        for prov in provs:
-            prov.submission = self.rsl_plate_num
-            prov.submitted_date = self.submitted_date
-            yield prov
+    # def get_provisional_controls(self, controls_only: bool = True):
+    def get_provisional_controls(self, include: List[str] = []):
+        # NOTE To ensure Samples are done last.
+        include = sorted(include)
+        logger.debug(include)
+        pos_str = "(ATCC)|(MCS)"
+        pos_regex = re.compile(rf"^{pos_str}")
+        neg_str = "(EN)"
+        neg_regex = re.compile(rf"^{neg_str}")
+        total_str = pos_str + "|" + neg_str
+        total_regex = re.compile(rf"^{total_str}")
+        output = []
+        for item in include:
+            # if self.controls:
+            # logger.debug(item)
+            match item:
+                case "Positive":
+                    if self.controls:
+                        provs = (control.sample for control in self.controls if control.is_positive_control)
+                    else:
+                        provs = (sample for sample in self.samples if bool(pos_regex.match(sample.submitter_id)))
+                case "Negative":
+                    if self.controls:
+                        provs = (control.sample for control in self.controls if not control.is_positive_control)
+                    else:
+                        provs = (sample for sample in self.samples if bool(neg_regex.match(sample.submitter_id)))
+                case _:
+                    provs = (sample for sample in self.samples if not sample.control and sample not in output)
+            for prov in provs:
+                # logger.debug(f"Prov: {prov}")
+                prov.submission = self.rsl_plate_num
+                prov.submitted_date = self.submitted_date
+                output.append(prov)
+        return output
 
 
 class Wastewater(BasicSubmission):
@@ -2794,8 +2809,7 @@ class WastewaterSample(BasicSample):
             output_dict['rsl_number'] = "RSL-WW-" + output_dict['ww_processing_num']
         if output_dict['ww_full_sample_id'] is not None and output_dict["submitter_id"] in disallowed:
             output_dict["submitter_id"] = output_dict['ww_full_sample_id']
-        check = check_key_or_attr("rsl_number", output_dict, check_none=True)
-        # logger.debug(pformat(output_dict, indent=4))
+        # check = check_key_or_attr("rsl_number", output_dict, check_none=True)
         return output_dict
 
     @classproperty
@@ -3089,7 +3103,6 @@ class SubmissionSampleAssociation(BaseClass):
        Returns:
             SubmissionSampleAssociation: Queried or new association.
         """
-        # disallowed = ['id']
         match submission:
             case BasicSubmission():
                 pass
@@ -3184,7 +3197,6 @@ class WastewaterAssociation(SubmissionSampleAssociation):
         sample['background_color'] = f"rgb({red}, {grn}, {blu})"
         try:
             sample[
-                # 'tooltip'] += f"<br>- ct N1: {'{:.2f}'.format(self.ct_n1)} ({self.n1_status})<br>- ct N2: {'{:.2f}'.format(self.ct_n2)} ({self.n2_status})"
                 'tooltip'] += f"<br>- ct N1: {'{:.2f}'.format(self.ct_n1)}<br>- ct N2: {'{:.2f}'.format(self.ct_n2)}"
         except (TypeError, AttributeError) as e:
             logger.error(f"Couldn't set tooltip for {self.sample.rsl_number}. Looks like there isn't PCR data.")

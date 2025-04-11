@@ -3,6 +3,7 @@ Contains miscellaenous functions used by both frontend and backend.
 '''
 from __future__ import annotations
 import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd
+import itertools
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from threading import Thread
@@ -254,7 +255,7 @@ def timer(func):
         value = func(*args, **kwargs)
         end_time = time.perf_counter()
         run_time = end_time - start_time
-        logger.debug(f"Finished {func.__name__}() in {run_time:.4f} secs")
+        print(f"Finished {func.__name__}() in {run_time:.4f} secs")
         return value
 
     return wrapper
@@ -896,33 +897,8 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
         raise TypeError(f"Unsupported variable: {type(listo)}")
 
 
-def rectify_query_date(input_date, eod: bool = False) -> str:
-    """
-    Converts input into a datetime string for querying purposes
-
-    Args:
-        eod (bool, optional): Whether to use max time to indicate end of day.
-        input_date ():
-
-    Returns:
-        datetime: properly formated datetime
-    """
-    match input_date:
-        case datetime():
-            output_date = input_date.strftime("%Y-%m-%d %H:%M:%S")
-        case date():
-            if eod:
-                addition_time = datetime.max.time()
-            else:
-                addition_time = datetime.min.time()
-            output_date = datetime.combine(input_date, addition_time)
-            output_date = output_date.strftime("%Y-%m-%d %H:%M:%S")
-        case int():
-            output_date = datetime.fromordinal(
-                datetime(1900, 1, 1).toordinal() + input_date - 2).date().strftime("%Y-%m-%d %H:%M:%S")
-        case _:
-            output_date = parse(input_date).strftime("%Y-%m-%d %H:%M:%S")
-    return output_date
+def flatten_list(input_list: list):
+    return list(itertools.chain.from_iterable(input_list))
 
 
 class classproperty(property):

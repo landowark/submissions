@@ -22,6 +22,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class PydReagent(BaseModel):
+
     lot: str | None
     role: str | None
     expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
@@ -131,7 +132,7 @@ class PydReagent(BaseModel):
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
         reagent = Reagent.query(lot=self.lot, name=self.name)
-        logger.debug(f"Reagent: {reagent}")
+        # logger.debug(f"Reagent: {reagent}")
         if reagent is None:
             reagent = Reagent()
             for key, value in self.__dict__.items():
@@ -151,6 +152,7 @@ class PydReagent(BaseModel):
 
 
 class PydSample(BaseModel, extra='allow'):
+
     submitter_id: str
     sample_type: str
     row: int | List[int] | None
@@ -252,6 +254,7 @@ class PydSample(BaseModel, extra='allow'):
 
 
 class PydTips(BaseModel):
+
     name: str
     lot: str | None = Field(default=None)
     role: str
@@ -282,6 +285,7 @@ class PydTips(BaseModel):
 
 
 class PydEquipment(BaseModel, extra='ignore'):
+
     asset_number: str
     name: str
     nickname: str | None
@@ -376,6 +380,7 @@ class PydEquipment(BaseModel, extra='ignore'):
 
 
 class PydSubmission(BaseModel, extra='allow'):
+
     filepath: Path
     submission_type: dict | None
     submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
@@ -948,7 +953,7 @@ class PydSubmission(BaseModel, extra='allow'):
             self.extraction_kit['value'] = extraction_kit['value']
         ext_kit = KitType.query(name=self.extraction_kit['value'])
         ext_kit_rtypes = [item.to_pydantic() for item in
-                          ext_kit.get_reagents(required=True, submission_type=self.submission_type['value'])]
+                          ext_kit.get_reagents(required_only=True, submission_type=self.submission_type['value'])]
         # NOTE: Exclude any reagenttype found in this pyd not expected in kit.
         expected_check = [item.role for item in ext_kit_rtypes]
         output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
@@ -1014,6 +1019,7 @@ class PydSubmission(BaseModel, extra='allow'):
 
 
 class PydContact(BaseModel):
+
     name: str
     phone: str | None
     email: str | None
@@ -1061,6 +1067,7 @@ class PydContact(BaseModel):
 
 
 class PydOrganization(BaseModel):
+
     name: str
     cost_centre: str
     contacts: List[PydContact] | None
@@ -1101,6 +1108,7 @@ class PydOrganization(BaseModel):
 
 
 class PydReagentRole(BaseModel):
+
     name: str
     eol_ext: timedelta | int | None
     uses: dict | None
@@ -1139,6 +1147,7 @@ class PydReagentRole(BaseModel):
 
 
 class PydKitType(BaseModel):
+
     name: str
     reagent_roles: List[PydReagent] = []
 
@@ -1160,6 +1169,7 @@ class PydKitType(BaseModel):
 
 
 class PydEquipmentRole(BaseModel):
+
     name: str
     equipment: List[PydEquipment]
     processes: List[str] | None
@@ -1187,6 +1197,7 @@ class PydEquipmentRole(BaseModel):
 
 
 class PydPCRControl(BaseModel):
+
     name: str
     subtype: str
     target: str
@@ -1210,6 +1221,7 @@ class PydPCRControl(BaseModel):
 
 
 class PydIridaControl(BaseModel, extra='ignore'):
+
     name: str
     contains: list | dict  #: unstructured hashes in contains.tsv for each organism
     matches: list | dict  #: unstructured hashes in matches.tsv for each organism
@@ -1244,6 +1256,7 @@ class PydIridaControl(BaseModel, extra='ignore'):
 
 
 class PydProcess(BaseModel, extra="allow"):
+
     name: str
     version: str = Field(default="1")
     submission_types: List[str]
@@ -1297,7 +1310,7 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
 
     @report_result
     def to_sql(self):
-        print(self.instance)
+        # print(self.instance)
         fields = [item for item in self.model_extra]
         for field in fields:
             try:
@@ -1307,11 +1320,11 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
                 continue
             match field_type:
                 case _RelationshipDeclared():
-                    logger.debug(f"{field} is a relationship with {field_type.entity.class_}")
+                    # logger.debug(f"{field} is a relationship with {field_type.entity.class_}")
                     field_value = field_type.entity.class_.argument.query(name=getattr(self, field))
-                    logger.debug(f"{field} query result: {field_value}")
+                    # logger.debug(f"{field} query result: {field_value}")
                 case ColumnProperty():
-                    logger.debug(f"{field} is a property.")
+                    # logger.debug(f"{field} is a property.")
                     field_value = getattr(self, field)
             self.instance.__setattr__(field, field_value)
         return self.instance

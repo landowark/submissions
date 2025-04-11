@@ -46,12 +46,15 @@ class CheckableComboBox(QComboBox):
     # once there is a checkState set, it is rendered
     # here we assume default Unchecked
 
-    def addItem(self, item, header: bool = False):
+    def addItem(self, item, header: bool = False, start_checked: bool = True):
         super(CheckableComboBox, self).addItem(item)
         item: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
             item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-            item.setCheckState(Qt.CheckState.Checked)
+            if start_checked:
+                item.setCheckState(Qt.CheckState.Checked)
+            else:
+                item.setCheckState(Qt.CheckState.Unchecked)
 
     def itemChecked(self, index):
         item = self.model().item(index, 0)
@@ -60,14 +63,18 @@ class CheckableComboBox(QComboBox):
     def changed(self):
         self.updated.emit()
 
+    def get_checked(self):
+        checked = [self.itemText(i) for i in range(self.count()) if self.itemChecked(i)]
+        return checked
+
 
 class Pagifier(QWidget):
 
-    def __init__(self, page_max:int):
+    def __init__(self, page_max: int):
         super().__init__()
         self.page_max = math.ceil(page_max)
         self.page_anchor = 1
-        next = QPushButton(parent=self, icon = QIcon.fromTheme(QIcon.ThemeIcon.GoNext))
+        next = QPushButton(parent=self, icon=QIcon.fromTheme(QIcon.ThemeIcon.GoNext))
         next.pressed.connect(self.increment_page)
         previous = QPushButton(parent=self, icon=QIcon.fromTheme(QIcon.ThemeIcon.GoPrevious))
         previous.pressed.connect(self.decrement_page)

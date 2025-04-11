@@ -259,7 +259,6 @@ class ReagentParser(object):
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
-        # self.kit_map = self.kit_map(submission_type=submission_type)
         self.xl = xl
 
     @property

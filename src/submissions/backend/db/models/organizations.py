@@ -2,14 +2,14 @@
 All client organization related models.
 '''
 from __future__ import annotations
-import json, yaml, logging
+import logging
 from pathlib import Path
 from pprint import pformat
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
-from tools import check_authorization, setup_lookup, yaml_regex_creator
+from tools import check_authorization, setup_lookup
 from typing import List, Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -40,9 +40,6 @@ class Organization(BaseClass):
     @hybrid_property
     def contact(self):
         return self.contacts
-
-    # def __repr__(self) -> str:
-    #     return f"<Organization({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -80,49 +77,6 @@ class Organization(BaseClass):
     def save(self):
         super().save()
 
-    @classmethod
-    @check_authorization
-    def import_from_yml(cls, filepath: Path | str):
-        """
-        An ambitious project to create a Organization from a yml file
-
-        Args:
-            filepath (Path): Filepath of the yml.
-
-        Returns:
-
-        """
-        yaml.add_constructor("!regex", yaml_regex_creator)
-        if isinstance(filepath, str):
-            filepath = Path(filepath)
-        if not filepath.exists():
-            logging.critical(f"Given file could not be found.")
-            return None
-        with open(filepath, "r") as f:
-            if filepath.suffix == ".json":
-                import_dict = json.load(fp=f)
-            elif filepath.suffix == ".yml":
-                import_dict = yaml.load(stream=f, Loader=yaml.Loader)
-            else:
-                raise Exception(f"Filetype {filepath.suffix} not supported.")
-        data = import_dict['orgs']
-        for org in data:
-            organ = Organization.query(name=org['name'])
-            if organ is None:
-                organ = Organization(name=org['name'])
-                try:
-                    organ.cost_centre = org['cost_centre']
-                except KeyError:
-                    organ.cost_centre = "xxx"
-            for contact in org['contacts']:
-                cont = Contact.query(name=contact['name'])
-                if cont is None:
-                    cont = Contact()
-                for k, v in contact.items():
-                    cont.__setattr__(k, v)
-                organ.contacts.append(cont)
-            organ.save()
-
     def to_omni(self, expand: bool = False):
         from backend.validators.omni_gui_objects import OmniOrganization
         if self.cost_centre:
@@ -150,9 +104,6 @@ class Contact(BaseClass):
     organization = relationship("Organization", back_populates="contacts", uselist=True,
                                 secondary=orgs_contacts)  #: relationship to joined organization
     submissions = relationship("BasicSubmission", back_populates="contact")  #: submissions this contact has submitted
-
-    # def __repr__(self) -> str:
-    #     return f"<Contact({self.name})>"
 
     @classproperty
     def searchables(cls):

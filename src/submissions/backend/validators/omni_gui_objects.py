@@ -1,3 +1,7 @@
+"""
+Collection of pydantic objects to be used in the Gui system.
+"""
+
 from __future__ import annotations
 import logging
 from pydantic import BaseModel, field_validator, Field
@@ -10,6 +14,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class BaseOmni(BaseModel):
+
     instance_object: Any | None = Field(default=None)
 
     def __repr__(self):
@@ -23,23 +28,23 @@ class BaseOmni(BaseModel):
         return cls.class_object.aliases
 
     def check_all_attributes(self, attributes: dict) -> bool:
-        logger.debug(f"Incoming attributes: {attributes}")
+        # logger.debug(f"Incoming attributes: {attributes}")
         attributes = {k : v for k, v in attributes.items() if k in self.list_searchables.keys()}
         for key, value in attributes.items():
             try:
-                logger.debug(f"Check if {value.__class__} is subclass of {BaseOmni}")
+                # logger.debug(f"Check if {value.__class__} is subclass of {BaseOmni}")
                 check = issubclass(value.__class__, BaseOmni)
             except TypeError as e:
                 logger.error(f"Couldn't check if {value.__class__} is subclass of {BaseOmni} due to {e}")
                 check = False
             if check:
-                logger.debug(f"Checking for subclass name.")
+                # logger.debug(f"Checking for subclass name.")
                 value = value.name
             self_value = self.list_searchables[key]
             if value != self_value:
-                logger.debug(f"Value {key} is False, these are not the same object.")
+                # logger.debug(f"Value {key} is False, these are not the same object.")
                 return False
-        logger.debug("Everything checks out, these are the same object.")
+        # logger.debug("Everything checks out, these are the same object.")
         return True
 
     def __setattr__(self, key, value):
@@ -51,24 +56,24 @@ class BaseOmni(BaseModel):
             new_key = class_value.impl.key
         except AttributeError:
             new_key = None
-        logger.debug(f"Class value before new key: {class_value.property}")
+        # logger.debug(f"Class value before new key: {class_value.property}")
         if new_key and new_key != key:
             class_value = getattr(self.class_object, new_key)
-        logger.debug(f"Class value after new key: {class_value.property}")
+        # logger.debug(f"Class value after new key: {class_value.property}")
         if isinstance(class_value, InstrumentedAttribute):
-            logger.debug(f"{key} is an InstrumentedAttribute with class_value.property: {class_value.property}.")
+            # logger.debug(f"{key} is an InstrumentedAttribute with class_value.property: {class_value.property}.")
             match class_value.property:
                 case ColumnProperty():
-                    logger.debug(f"Setting ColumnProperty to {value}")
+                    # logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
-                    logger.debug(f" {self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
+                    # logger.debug(f" {self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
                     if class_value.property.uselist:
-                        logger.debug(f"Setting {key} with uselist")
+                        # logger.debug(f"Setting {key} with uselist")
                         existing = self.__getattribute__(key)
                         if existing is not None:
                             # NOTE: Getting some really weird duplicates for OmniSubmissionTypeKitTypeAssociation here.
-                            logger.debug(f"Existing: {existing}, incoming: {value}")
+                            # logger.debug(f"Existing: {existing}, incoming: {value}")
                             if isinstance(value, list):
                                 if value != existing:
                                     value = existing + value
@@ -82,7 +87,7 @@ class BaseOmni(BaseModel):
                             if issubclass(value.__class__, self.__class__):
                                 value = value.to_sql()
                             value = [value]
-                        logger.debug(f"Final value for {key}: {value}")
+                        # logger.debug(f"Final value for {key}: {value}")
                         return super().__setattr__(key, value)
                     else:
                         if isinstance(value, list):
@@ -98,6 +103,7 @@ class BaseOmni(BaseModel):
 
 
 class OmniSubmissionType(BaseOmni):
+
     class_object: ClassVar[Any] = SubmissionType
 
     name: str = Field(default="", description="property")
@@ -161,6 +167,7 @@ class OmniSubmissionType(BaseOmni):
 
 
 class OmniReagentRole(BaseOmni):
+
     class_object: ClassVar[Any] = ReagentRole
 
     name: str = Field(default="", description="property")
@@ -197,6 +204,7 @@ class OmniReagentRole(BaseOmni):
 
 
 class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
+
     class_object: ClassVar[Any] = SubmissionTypeKitTypeAssociation
 
     submissiontype: str | OmniSubmissionType = Field(default="", description="relationship", title="SubmissionType")
@@ -262,7 +270,7 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         )
 
     def to_sql(self):
-        logger.debug(f"Self kittype: {self.submissiontype}")
+        # logger.debug(f"Self kittype: {self.submissiontype}")
         if issubclass(self.submissiontype.__class__, BaseOmni):
             submissiontype = SubmissionType.query(name=self.submissiontype.name)
         else:
@@ -272,7 +280,7 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         else:
             kittype = KitType.query(name=self.kittype)
         # logger.debug(f"Self kittype: {self.kittype}")
-        logger.debug(f"Query or create with {kittype}, {submissiontype}")
+        # logger.debug(f"Query or create with {kittype}, {submissiontype}")
         instance, is_new = self.class_object.query_or_create(kittype=kittype, submissiontype=submissiontype)
         instance.mutable_cost_column = self.mutable_cost_column
         instance.mutable_cost_sample = self.mutable_cost_sample
@@ -293,6 +301,7 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
 
 
 class OmniKitTypeReagentRoleAssociation(BaseOmni):
+
     class_object: ClassVar[Any] = KitTypeReagentRoleAssociation
 
     reagent_role: str | OmniReagentRole = Field(default="", description="relationship", title="ReagentRole")
@@ -363,7 +372,7 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
             kittype=kittype,
             submissiontype=submissiontype
         )
-        logger.debug(f"KitTypeReagentRoleAssociation coming out of query_or_create: {instance.__dict__}\nnew: {new}")
+        # logger.debug(f"KitTypeReagentRoleAssociation coming out of query_or_create: {instance.__dict__}\nnew: {new}")
         if new:
             logger.warning(f"This is a new instance: {instance.__dict__}")
             try:
@@ -371,10 +380,10 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
             except AttributeError:
                 reagent_role = ReagentRole.query(name=self.reagent_role)
             instance.reagent_role = reagent_role
-        logger.debug(f"KTRRAssoc uses: {self.uses}")
+        # logger.debug(f"KTRRAssoc uses: {self.uses}")
         instance.uses = self.uses
         instance.required = int(self.required)
-        logger.debug(f"KitTypeReagentRoleAssociation: {pformat(instance.__dict__)}")
+        # logger.debug(f"KitTypeReagentRoleAssociation: {pformat(instance.__dict__)}")
         return instance
 
     @property
@@ -395,6 +404,7 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
 
 
 class OmniEquipmentRole(BaseOmni):
+
     class_object: ClassVar[Any] = EquipmentRole
 
     name: str = Field(default="", description="property")
@@ -421,6 +431,7 @@ class OmniEquipmentRole(BaseOmni):
 
 
 class OmniTips(BaseOmni):
+
     class_object: ClassVar[Any] = Tips
 
     name: str = Field(default="", description="property")
@@ -447,6 +458,7 @@ class OmniTips(BaseOmni):
 
 
 class OmniTipRole(BaseOmni):
+
     class_object: ClassVar[Any] = TipRole
 
     name: str = Field(default="", description="property")
@@ -477,6 +489,7 @@ class OmniTipRole(BaseOmni):
 
 
 class OmniProcess(BaseOmni):
+
     class_object: ClassVar[Any] = Process
 
     # NOTE: How am I going to figure out relatioinships without getting into recursion issues?
@@ -540,6 +553,7 @@ class OmniProcess(BaseOmni):
 
 
 class OmniKitType(BaseOmni):
+
     class_object: ClassVar[Any] = KitType
 
     name: str = Field(default="", description="property")
@@ -565,17 +579,17 @@ class OmniKitType(BaseOmni):
 
     def to_sql(self) -> KitType:
         kit, is_new = KitType.query_or_create(name=self.name)
-        if is_new:
-            logger.debug(f"New kit made: {kit}")
-        else:
-            logger.debug(f"Kit retrieved: {kit}")
+        # if is_new:
+        #     logger.debug(f"New kit made: {kit}")
+        # else:
+        #     logger.debug(f"Kit retrieved: {kit}")
         new_rr = []
         for rr_assoc in self.kit_reagentrole_associations:
             new_assoc = rr_assoc.to_sql()
             if new_assoc not in new_rr:
-                logger.debug(f"Adding {new_assoc} to kit_reagentrole_associations")
+                # logger.debug(f"Adding {new_assoc} to kit_reagentrole_associations")
                 new_rr.append(new_assoc)
-        logger.debug(f"Setting kit_reagentrole_associations to {pformat([item.__dict__ for item in new_rr])}")
+        # logger.debug(f"Setting kit_reagentrole_associations to {pformat([item.__dict__ for item in new_rr])}")
         kit.kit_reagentrole_associations = new_rr
         new_st = []
         for st_assoc in self.kit_submissiontype_associations:
@@ -589,9 +603,9 @@ class OmniKitType(BaseOmni):
             if new_process not in new_processes:
                 new_processes.append(new_process)
         kit.processes = new_processes
-        logger.debug(f"Kit: {pformat(kit.__dict__)}")
-        for item in kit.kit_reagentrole_associations:
-            logger.debug(f"KTRRassoc: {item.__dict__}")
+        # logger.debug(f"Kit: {pformat(kit.__dict__)}")
+        # for item in kit.kit_reagentrole_associations:
+        #     logger.debug(f"KTRRassoc: {item.__dict__}")
         return kit
 
 
@@ -601,11 +615,10 @@ class OmniOrganization(BaseOmni):
 
     name: str = Field(default="", description="property")
     cost_centre: str = Field(default="", description="property")
-    # TODO: add in List[OmniContacts]
     contact: List[str] | List[OmniContact] = Field(default=[], description="relationship", title="Contact")
 
     def __init__(self, instance_object: Any, **data):
-        logger.debug(f"Incoming data: {data}")
+        # logger.debug(f"Incoming data: {data}")
         super().__init__(**data)
         self.instance_object = instance_object
 
@@ -642,8 +655,8 @@ class OmniContact(BaseOmni):
 
     def to_sql(self):
         contact, is_new = Contact.query_or_create(name=self.name, email=self.email, phone=self.phone)
-        if is_new:
-            logger.debug(f"New contact made: {contact}")
-        else:
-            logger.debug(f"Contact retrieved: {contact}")
+        # if is_new:
+        #     logger.debug(f"New contact made: {contact}")
+        # else:
+        #     logger.debug(f"Contact retrieved: {contact}")
         return contact

@@ -1,3 +1,7 @@
+# 202504.03
+
+- Split Concentration controls on the chart so they are individually selectable.
+
 # 202504.02
 
 - Added cscscience gitlab remote.

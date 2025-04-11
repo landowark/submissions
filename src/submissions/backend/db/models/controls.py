@@ -2,7 +2,6 @@
 All control related models.
 """
 from __future__ import annotations
-
 import itertools
 from pprint import pformat
 from PyQt6.QtWidgets import QWidget, QCheckBox, QLabel
@@ -13,10 +12,9 @@ import logging, re
 from operator import itemgetter
 from . import BaseClass
 from tools import setup_lookup, report_result, Result, Report, Settings, get_unique_values_in_df_column, super_splitter, \
-    rectify_query_date
+    flatten_list, timer
 from datetime import date, datetime, timedelta
 from typing import List, Literal, Tuple, Generator
-from dateutil.parser import parse
 from re import Pattern
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -30,9 +28,6 @@ class ControlType(BaseClass):
     name = Column(String(255), unique=True)  #: controltype name (e.g. Irida Control)
     targets = Column(JSON)  #: organisms checked for
     instances = relationship("Control", back_populates="controltype")  #: control samples created of this type.
-
-    # def __repr__(self) -> str:
-    #     return f"<ControlType({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -113,6 +108,7 @@ class ControlType(BaseClass):
             Pattern: Constructed pattern
         """
         strings = list(set([super_splitter(item, "-", 0) for item in cls.get_positive_control_types(control_type)]))
+        # NOTE: This will build a string like ^(ATCC49226|MCS)-.*
         return re.compile(rf"(^{'|^'.join(strings)})-.*", flags=re.IGNORECASE)
 
 
@@ -159,7 +155,7 @@ class Control(BaseClass):
         Lookup control objects in the database based on a number of parameters.
 
         Args:
-            submission_type (str | None, optional): Submission type associated with control. Defaults to None.
+            submissiontype (str | None, optional): Submission type associated with control. Defaults to None.
             subtype (str | None, optional): Control subtype, eg IridaControl. Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
             end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
@@ -202,30 +198,8 @@ class Control(BaseClass):
             logger.warning(f"End date with no start date, using 90 days ago.")
             start_date = date.today() - timedelta(days=90)
         if start_date is not None:
-            # match start_date:
-            #     case datetime():
-            #         start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
-            #     case date():
-            #         start_date = datetime.combine(start_date, datetime.min.time())
-            #         start_date = start_date.strftime("%Y-%m-%d %H:%M:%S")
-            #     case int():
-            #         start_date = datetime.fromordinal(
-            #             datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d %H:%M:%S")
-            #     case _:
-            #         start_date = parse(start_date).strftime("%Y-%m-%d %H:%M:%S")
-            start_date = rectify_query_date(start_date)
-            end_date = rectify_query_date(end_date, eod=True)
-            # match end_date:
-            #     case datetime():
-            #         end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
-            #     case date():
-            #         end_date = datetime.combine(end_date, datetime.max.time())
-            #         end_date = end_date.strftime("%Y-%m-%d %H:%M:%S")
-            #     case int():
-            #         end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date().strftime(
-            #             "%Y-%m-%d %H:%M:%S")
-            #     case _:
-            #         end_date = parse(end_date).strftime("%Y-%m-%d %H:%M:%S")
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         match name:
             case str():
@@ -372,7 +346,8 @@ class PCRControl(Control):
 
     def to_pydantic(self):
         from backend.validators import PydPCRControl
-        return PydPCRControl(**self.to_sub_dict(), controltype_name=self.controltype_name,
+        return PydPCRControl(**self.to_sub_dict(),
+                             controltype_name=self.controltype_name,
                              submission_id=self.submission_id)
 
 
@@ -565,7 +540,8 @@ class IridaControl(Control):
                                         consolidate=consolidate) for
                 control in controls]
         # NOTE: flatten data to one dimensional list
-        data = [item for sublist in data for item in sublist]
+        # data = [item for sublist in data for item in sublist]
+        data = flatten_list(data)
         if not data:
             report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
             return report, None
@@ -731,11 +707,11 @@ class IridaControl(Control):
         Returns:
             DataFrame: dataframe with originals removed in favour of repeats.
         """
-        if 'rerun_regex' in ctx:
+        if 'rerun_regex' in ctx.model_extra:
             sample_names = get_unique_values_in_df_column(df, column_name="name")
             rerun_regex = re.compile(fr"{ctx.rerun_regex}")
             exclude = [re.sub(rerun_regex, "", sample) for sample in sample_names if rerun_regex.search(sample)]
-            df = df[df.name not in exclude]
+            df = df[~df.name.isin(exclude)]
         return df
 
     def to_pydantic(self) -> "PydIridaControl":

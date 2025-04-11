@@ -71,11 +71,8 @@
         {% endif %}
         {% endblock %}
         {% block signing_button %}
-        {% if permission and not sub['signed_by'] %}
-        <button type="button" id="sign_btn">Sign Off</button>
-        {% endif %}
+        <button type="button" id="sign_btn" {% if permission and not sub['signed_by'] %}{% else %}hidden{% endif %}>Sign Off</button>
         {% endblock %}
-
         <br>
         <br>
         <br>
@@ -84,13 +81,11 @@
         {% block script %}
         {{ super() }}
 
-        document.getElementById("sign_btn").addEventListener("click", function(){
-            backend.sign_off("{{ sub['plate_number'] }}");
-        });
         var sampleSelection = document.getElementsByClassName('sample');
 
         for(let i = 0; i < sampleSelection.length; i++) {
           sampleSelection[i].addEventListener("click", function() {
+            console.log(sampleSelection[i].id);
             backend.sample_details(sampleSelection[i].id);
           })
         }
@@ -99,9 +94,14 @@
 
         for(let i = 0; i < reagentSelection.length; i++) {
           reagentSelection[i].addEventListener("click", function() {
+            console.log(reagentSelection[i].id);
             backend.reagent_details(reagentSelection[i].id, "{{ sub['extraction_kit'] }}");
           })
         }
+
+        document.getElementById("sign_btn").addEventListener("click", function(){
+            backend.sign_off("{{ sub['plate_number'] }}");
+        });
 
         {% endblock %}
     </script>
