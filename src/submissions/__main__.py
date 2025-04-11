@@ -8,8 +8,6 @@ if check_if_app():
 
 # NOTE: setup custom logger
 logging.setLoggerClass(CustomLogger)
-# logger = logging.getLogger("submissions")
-# logger = setup_logger(verbosity=3)
 
 from PyQt6.QtWidgets import QApplication
 from frontend.widgets.app import App

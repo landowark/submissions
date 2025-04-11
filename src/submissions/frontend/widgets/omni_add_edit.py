@@ -1,7 +1,6 @@
 """
 A widget to handle adding/updating any database object.
 """
-from copy import deepcopy
 from datetime import date
 from pprint import pformat
 from typing import Any, Tuple
@@ -11,7 +10,7 @@ from PyQt6.QtWidgets import (
     QCheckBox
 )
 from sqlalchemy import String, TIMESTAMP, INTEGER, FLOAT, JSON, BLOB
-from sqlalchemy.orm import InstrumentedAttribute, ColumnProperty
+from sqlalchemy.orm import ColumnProperty
 import logging
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from tools import Report, report_result
@@ -23,18 +22,11 @@ class AddEdit(QDialog):
 
     def __init__(self, parent, instance: Any | None = None, managers: set = set()):
         super().__init__(parent)
-        logger.debug(f"Managers: {managers}")
+        # logger.debug(f"Managers: {managers}")
         self.instance = instance
         self.object_type = instance.__class__
-        # self.managers = deepcopy(managers)
         self.managers = managers
-        # if instance.level < 2:
-        #     try:
-        #         logger.debug(f"Parent instance: {self.parent().instance}")
-        #         self.managers.add(self.parent().instance)
-        #     except AttributeError:
-        #         pass
-        logger.debug(f"Managers: {managers}")
+        # logger.debug(f"Managers: {managers}")
         self.layout = QGridLayout(self)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -72,11 +64,11 @@ class AddEdit(QDialog):
         report = Report()
         parsed = {result[0].strip(":"): result[1] for result in
                   [item.parse_form() for item in self.findChildren(EditProperty)] if result[0]}
-        logger.debug(f"Parsed form: {parsed}")
+        # logger.debug(f"Parsed form: {parsed}")
         model = self.object_type.pydantic_model
-        logger.debug(f"Model type: {model.__name__}")
+        # logger.debug(f"Model type: {model.__name__}")
         if model.__name__ == "PydElastic":
-            logger.debug(f"We have an elastic model.")
+            # logger.debug(f"We have an elastic model.")
             parsed['instance'] = self.instance
         # NOTE: Hand-off to pydantic model for validation.
         # NOTE: Also, why am I not just using the toSQL method here. I could write one for contacts.
@@ -120,7 +112,7 @@ class EditProperty(QWidget):
         # logger.debug(self.parent().managers)
         for manager in self.parent().managers:
             if self.name in manager.aliases:
-                logger.debug(f"Name: {self.name} is in aliases: {manager.aliases}")
+                # logger.debug(f"Name: {self.name} is in aliases: {manager.aliases}")
                 choices = [manager.name]
                 self.widget.setEnabled(False)
                 break
@@ -139,7 +131,7 @@ class EditProperty(QWidget):
         self.widget.addItems(choices)
 
     def column_property_set(self, column_property, value=None):
-        logger.debug(f"Column Property: {column_property['class_attr'].expression} {column_property}, Value: {value}")
+        # logger.debug(f"Column Property: {column_property['class_attr'].expression} {column_property}, Value: {value}")
         match column_property['class_attr'].expression.type:
             case String():
                 if value is None:
@@ -184,7 +176,8 @@ class EditProperty(QWidget):
             check = self.widget
         except AttributeError:
             return None, None
-        match self.widget:
+        # match self.widget
+        match check:
             case QLineEdit():
                 value = self.widget.text()
             case QDateEdit():
@@ -198,5 +191,3 @@ class EditProperty(QWidget):
             case _:
                 value = None
         return self.objectName(), value
-
-

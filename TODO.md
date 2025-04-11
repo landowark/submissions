@@ -1,3 +1,4 @@
+- [ ] move functions from widgets.functions to... app?
 - [x] Apply below fix to all other date-based queries.
 - [x] Fix Control graph chart bug that excludes today's controls.
 - [x] Convert logger to a custom class.

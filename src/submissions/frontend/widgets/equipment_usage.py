@@ -74,10 +74,10 @@ class EquipmentUsage(QDialog):
             self.layout.addWidget(self.check, 0, 0)
             self.check.stateChanged.connect(self.check_all)
             for iii, item in enumerate(["Role", "Equipment", "Process", "Tips"], start=1):
-                l = QLabel(item)
-                l.setMaximumWidth(200)
-                l.setMinimumWidth(200)
-                self.layout.addWidget(l, 0, iii, alignment=Qt.AlignmentFlag.AlignRight)
+                label = QLabel(item)
+                label.setMaximumWidth(200)
+                label.setMinimumWidth(200)
+                self.layout.addWidget(label, 0, iii, alignment=Qt.AlignmentFlag.AlignRight)
             self.setLayout(self.layout)
 
         def check_all(self):

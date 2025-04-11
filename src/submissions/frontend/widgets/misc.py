@@ -44,7 +44,7 @@ class StartEndDatePicker(QWidget):
 
 class CheckableComboBox(QComboBox):
     # once there is a checkState set, it is rendered
-    # here we assume default Unchecked
+    # here we assume default checked
 
     def addItem(self, item, header: bool = False, start_checked: bool = True):
         super(CheckableComboBox, self).addItem(item)
@@ -64,8 +64,7 @@ class CheckableComboBox(QComboBox):
         self.updated.emit()
 
     def get_checked(self):
-        checked = [self.itemText(i) for i in range(self.count()) if self.itemChecked(i)]
-        return checked
+        return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i)]
 
 
 class Pagifier(QWidget):

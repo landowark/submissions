@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import (
-    QLabel, QVBoxLayout, QDialog,
-    QDialogButtonBox, QMessageBox, QComboBox
+    QVBoxLayout, QDialog, QDialogButtonBox
 )
 from .misc import CheckableComboBox, StartEndDatePicker
 from backend.db import SubmissionType
@@ -28,7 +27,8 @@ class DateTypePicker(QDialog):
         self.setLayout(self.layout)
 
     def parse_form(self):
-        sub_types = [self.typepicker.itemText(i) for i in range(self.typepicker.count()) if self.typepicker.itemChecked(i)]
+        # sub_types = [self.typepicker.itemText(i) for i in range(self.typepicker.count()) if self.typepicker.itemChecked(i)]
+        sub_types = self.typepicker.get_checked()
         start_date = self.datepicker.start_date.date().toPyDate()
         end_date = self.datepicker.end_date.date().toPyDate()
         return dict(submissiontype=sub_types, start_date=start_date, end_date=end_date)

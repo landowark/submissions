@@ -21,7 +21,6 @@ class IridaFigure(CustomFigure):
         self.df = df
         self.construct_chart(df=df, modes=modes, start_date=settings['start_date'], end_date=settings['end_date'])
 
-
     def construct_chart(self, df: pd.DataFrame, modes: list, start_date: date, end_date:date):
         """
         Creates a plotly chart for controls from a pandas dataframe

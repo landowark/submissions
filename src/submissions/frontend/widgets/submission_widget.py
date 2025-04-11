@@ -71,7 +71,7 @@ class SubmissionFormContainer(QWidget):
         self.setStyleSheet('background-color: light grey;')
         self.setAcceptDrops(True)
         # NOTE: if import_drag is emitted, importSubmission will fire
-        self.import_drag.connect(self.importSubmission)
+        self.import_drag.connect(lambda fname: self.import_submission_function(fname=fname))
 
     def dragEnterEvent(self, event):
         """
@@ -91,17 +91,6 @@ class SubmissionFormContainer(QWidget):
         self.import_drag.emit(fname)
 
     @report_result
-    def importSubmission(self, fname: Path | None = None):
-        """
-        import submission from excel sheet into form
-        """
-        self.app.raise_()
-        self.app.activateWindow()
-        report = Report()
-        self.import_submission_function(fname)
-        return report
-
-    @report_result
     def import_submission_function(self, fname: Path | None = None) -> Report:
         """
         Import a new submission to the app window
@@ -112,6 +101,8 @@ class SubmissionFormContainer(QWidget):
         Returns:
             Report: Object to give results of import.
         """
+        self.app.raise_()
+        self.app.activateWindow()
         logger.info(f"\n\nStarting Import...\n\n")
         report = Report()
         # NOTE: Clear any previous forms.
@@ -436,7 +427,7 @@ class SubmissionFormWidget(QWidget):
                     if field is not None:
                         info[field] = value
         self.pyd.reagents = reagents
-        logger.debug(f"Reagents from form: {reagents}")
+        # logger.debug(f"Reagents from form: {reagents}")
         for item in self.recover:
             if hasattr(self, item):
                 value = getattr(self, item)
@@ -445,6 +436,7 @@ class SubmissionFormWidget(QWidget):
             self.pyd.set_attribute(key=k, value=v)
         report.add_result(report)
         return report
+
 
     class InfoItem(QWidget):
 
@@ -691,7 +683,6 @@ class SubmissionFormWidget(QWidget):
             if new:
                 dlg = QuestionAsker(title=f"Add {lot}?",
                                     message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
-
                 if dlg.exec():
                     wanted_reagent = self.parent.parent().add_reagent(instance=wanted_reagent)
                     return wanted_reagent, report

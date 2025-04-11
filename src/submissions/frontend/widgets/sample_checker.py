@@ -1,20 +1,18 @@
 
 import logging
 from pathlib import Path
-from typing import List, Generator
-
+from typing import List
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
-                             QDialogButtonBox, QTextEdit, QGridLayout)
-
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout
 from backend.validators import PydSubmission
 from tools import get_application_from_parent, jinja_template_loading
 
 env = jinja_template_loading()
 
 logger = logging.getLogger(f"submissions.{__name__}")
+
 
 class SampleChecker(QDialog):
 
@@ -32,7 +30,6 @@ class SampleChecker(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
-        # self.webview.page().setWebChannel(self.channel)
         template = env.get_template("sample_checker.html")
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
@@ -72,7 +69,3 @@ class SampleChecker(QDialog):
                 sample['color'] = "black"
             output.append(sample)
         return output
-
-
-
-

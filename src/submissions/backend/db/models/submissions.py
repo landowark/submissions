@@ -1573,17 +1573,13 @@ class BacterialCulture(BasicSubmission):
     def get_provisional_controls(self, include: List[str] = []):
         # NOTE To ensure Samples are done last.
         include = sorted(include)
-        logger.debug(include)
+        # logger.debug(include)
         pos_str = "(ATCC)|(MCS)"
         pos_regex = re.compile(rf"^{pos_str}")
         neg_str = "(EN)"
         neg_regex = re.compile(rf"^{neg_str}")
-        total_str = pos_str + "|" + neg_str
-        total_regex = re.compile(rf"^{total_str}")
         output = []
         for item in include:
-            # if self.controls:
-            # logger.debug(item)
             match item:
                 case "Positive":
                     if self.controls:

@@ -172,7 +172,7 @@ class SearchResults(QTableView):
             self.extras = extras + [item for item in deepcopy(self.object_type.searchables)]
         except AttributeError:
             self.extras = extras
-        logger.debug(f"Extras: {self.extras}")
+        # logger.debug(f"Extras: {self.extras}")
 
     def setData(self, df: DataFrame) -> None:
         """

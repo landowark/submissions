@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
 
+
 timezone = tz("America/Winnipeg")
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -248,7 +249,6 @@ def timer(func):
         func (__function__): incoming function
 
     """
-
     @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.perf_counter()
@@ -257,7 +257,6 @@ def timer(func):
         run_time = end_time - start_time
         print(f"Finished {func.__name__}() in {run_time:.4f} secs")
         return value
-
     return wrapper
 
 
@@ -483,12 +482,10 @@ def setup_lookup(func):
             elif v is not None:
                 sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)
-
     return wrapper
 
 
 def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
-    # for manager in managers:
     if manager is None:
         return None, False
     # logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
@@ -535,6 +532,7 @@ def get_application_from_parent(widget):
 
 
 class Result(BaseModel, arbitrary_types_allowed=True):
+
     owner: str = Field(default="", validate_default=True)
     code: int = Field(default=0)
     msg: str | Exception
@@ -639,7 +637,6 @@ def rreplace(s: str, old: str, new: str) -> str:
 
 
 def list_sort_dict(input_dict: dict, sort_list: list) -> dict:
-    # sort_list.reverse()
     sort_list = reversed(sort_list)
     for item in sort_list:
         try:
@@ -661,7 +658,10 @@ def remove_key_from_list_of_dicts(input_list: list, key: str) -> list:
         list: List of updated dictionaries
     """
     for item in input_list:
-        del item[key]
+        try:
+            del item[key]
+        except KeyError:
+            continue
     return input_list
 
 
@@ -688,6 +688,7 @@ def super_splitter(ins_str: str, substring: str, idx: int) -> str:
     try:
         return ins_str.split(substring)[idx]
     except IndexError:
+        logger.error(f"Index of split {idx} not found.")
         return ins_str
 
 
@@ -767,7 +768,6 @@ def under_development(func):
                 Result(owner=func.__str__(), code=1, msg=error_msg,
                        status="warning"))
             return report
-
     return wrapper
 
 
@@ -856,7 +856,6 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
         offset = -d.weekday()  # weekday == 0 means Monday
         output = d + timedelta(offset)
         return output.date()
-
     if not year:
         year = date.today().year
     # NOTE: Includes New Year's day for next year.
@@ -886,7 +885,7 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
     Returns:
         bool: True if dicto is equal to any dictionary in the list.
     """
-    logger.debug(f"Comparing: {listo} and {dicto}")
+    # logger.debug(f"Comparing: {listo} and {dicto}")
     if isinstance(dicto, list) and isinstance(listo, list):
         return listo == dicto
     elif isinstance(dicto, dict) and isinstance(listo, dict):
@@ -957,7 +956,6 @@ class Settings(BaseSettings, extra="allow"):
             settings_path = None
         if settings_path is None:
             # NOTE: Check user .config/submissions directory
-            # if CONFIGDIR.joinpath("config.yml").exists():
             if cls.configdir.joinpath("config.yml").exists():
                 settings_path = cls.configdir.joinpath("config.yml")
             # NOTE: Check user .submissions directory
@@ -969,8 +967,6 @@ class Settings(BaseSettings, extra="allow"):
                     settings_path = Path(sys._MEIPASS).joinpath("files", "config.yml")
                 else:
                     settings_path = project_path.joinpath('src', 'config.yml')
-                # with open(settings_path, "r") as dset:
-                #     default_settings = yaml.load(dset, Loader=yaml.Loader)
         else:
             # NOTE: check if user defined path is directory
             if settings_path.is_dir():
@@ -1285,3 +1281,4 @@ class Settings(BaseSettings, extra="allow"):
 
 
 ctx = Settings()
+

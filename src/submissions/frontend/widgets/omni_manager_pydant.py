@@ -358,7 +358,6 @@ class EditRelationship(QWidget):
                 obj = getattr(self.parent().omni_object, self.objectName())
                 if isinstance(obj, list):
                     logger.debug(f"This is a list")
-                    # obj = obj[index]
                     try:
                         # NOTE: Okay, this will not work for editing, since by definition not all attributes will line up.
                         # NOTE: Set items to search by in the Omni object itself?
@@ -389,7 +388,7 @@ class EditRelationship(QWidget):
         """
         sets data in model
         """
-        logger.debug(f"Self.data: {self.data}")
+        # logger.debug(f"Self.data: {self.data}")
         try:
             records = [item.to_dataframe_dict() for item in self.data]
         except AttributeError:

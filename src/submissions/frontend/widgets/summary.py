@@ -40,7 +40,7 @@ class Summary(InfoPane):
             None
         """
         super().update_data()
-        orgs = [self.org_select.itemText(i) for i in range(self.org_select.count()) if self.org_select.itemChecked(i)]
+        orgs = self.org_select.get_checked()
         self.report_obj = ReportMaker(start_date=self.start_date, end_date=self.end_date, organizations=orgs)
         self.webview.setHtml(self.report_obj.html)
         if self.report_obj.subs:

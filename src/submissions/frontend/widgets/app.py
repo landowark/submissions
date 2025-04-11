@@ -1,7 +1,7 @@
 """
 Constructs main application.
 """
-import getpass, logging, webbrowser, sys, shutil
+import getpass, logging, webbrowser, sys
 from pprint import pformat
 from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (
@@ -13,8 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from __init__ import project_path
-from backend import SubmissionType, Reagent, BasicSample, Organization, KitType, BasicSubmission
+from backend import Reagent, BasicSample, Organization, KitType, BasicSubmission
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -30,7 +29,6 @@ from .summary import Summary
 from .turnaround import TurnaroundTime
 from .concentrations import Concentrations
 from .omni_search import SearchBox
-from .omni_manager import ManagerWindow
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -83,7 +81,6 @@ class App(QMainWindow):
         helpMenu.addAction(self.githubAction)
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.archiveSubmissionsAction)
-        # fileMenu.addAction(self.yamlImportAction)
         methodsMenu.addAction(self.searchSample)
         maintenanceMenu.addAction(self.joinExtractionAction)
         maintenanceMenu.addAction(self.joinPCRAction)
@@ -123,7 +120,7 @@ class App(QMainWindow):
         """
         connect menu and tool bar item to functions
         """
-        self.importAction.triggered.connect(self.table_widget.formwidget.importSubmission)
+        self.importAction.triggered.connect(lambda fname: self.table_widget.formwidget.import_submission_function(fname=fname))
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
         self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
@@ -192,7 +189,6 @@ class App(QMainWindow):
     # TODO: Change this to the Pydantic version.
     def manage_orgs(self):
         from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
-        # dlg = ManagerWindow(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
         dlg = ManagerWindowPyd(parent=self, object_type=Organization, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
             new_org = dlg.parse_form()
@@ -202,10 +198,10 @@ class App(QMainWindow):
         from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
         dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
         if dlg.exec():
-            logger.debug("\n\nBeginning parsing\n\n")
+            # logger.debug("\n\nBeginning parsing\n\n")
             output = dlg.parse_form()
-            logger.debug(f"Kit output: {pformat(output.__dict__)}")
-            logger.debug("\n\nBeginning transformation\n\n")
+            # logger.debug(f"Kit output: {pformat(output.__dict__)}")
+            # logger.debug("\n\nBeginning transformation\n\n")
             sql = output.to_sql()
             assert isinstance(sql, KitType)
             sql.save()
