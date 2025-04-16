@@ -24,10 +24,25 @@ class BaseOmni(BaseModel):
             return f"<{self.__class__.__name__}({self.__repr_name__})>"
 
     @classproperty
-    def aliases(cls):
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
         return cls.class_object.aliases
 
     def check_all_attributes(self, attributes: dict) -> bool:
+        """
+        Compares this pobject to dictionary of attributes to determine equality.
+
+        Args:
+            attributes (dict):
+
+        Returns:
+            bool: result
+        """
         # logger.debug(f"Incoming attributes: {attributes}")
         attributes = {k : v for k, v in attributes.items() if k in self.list_searchables.keys()}
         for key, value in attributes.items():
@@ -47,7 +62,14 @@ class BaseOmni(BaseModel):
         # logger.debug("Everything checks out, these are the same object.")
         return True
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any):
+        """
+        Overrides built in dunder method
+
+        Args:
+            key (str):
+            value (Any):
+        """
         try:
             class_value = getattr(self.class_object, key)
         except AttributeError:
@@ -151,12 +173,22 @@ class OmniSubmissionType(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
         instance, new = self.class_object.query_or_create(name=self.name)
         instance.info_map = self.info_map
         instance.defaults = self.defaults
@@ -191,12 +223,23 @@ class OmniReagentRole(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         instance, new = self.class_object.query_or_create(name=self.name)
         if new:
             instance.eol_ext = self.eol_ext
@@ -252,7 +295,14 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         if isinstance(self.submissiontype, OmniSubmissionType):
             submissiontype = self.submissiontype.name
         else:
@@ -270,6 +320,10 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         # logger.debug(f"Self kittype: {self.submissiontype}")
         if issubclass(self.submissiontype.__class__, BaseOmni):
             submissiontype = SubmissionType.query(name=self.submissiontype.name)
@@ -288,7 +342,13 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         return instance
 
     @property
-    def list_searchables(self):
+    def list_searchables(self) -> dict:
+        """
+        Provides attributes for checking this object against a dictionary.
+
+        Returns:
+            dict: result
+        """
         if isinstance(self.kittype, OmniKitType):
             kit = self.kittype.name
         else:
@@ -334,7 +394,14 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         if isinstance(self.submission_type, OmniSubmissionType):
             submission_type = self.submission_type.name
         else:
@@ -349,12 +416,16 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
         else:
             reagent_role = self.reagent_role
         return dict(
-            reagent_role=reagent_role,
-            submission_type=submission_type,
-            kit_type=kit_type
+            reagentrole=reagent_role,
+            submissiontype=submission_type,
+            kittype=kit_type
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         if isinstance(self.reagent_role, OmniReagentRole):
             reagent_role = self.reagent_role.name
         else:
@@ -387,7 +458,13 @@ class OmniKitTypeReagentRoleAssociation(BaseOmni):
         return instance
 
     @property
-    def list_searchables(self):
+    def list_searchables(self) -> dict:
+        """
+        Provides attributes for checking this object against a dictionary.
+
+        Returns:
+            dict: result
+        """
         if isinstance(self.kit_type, OmniKitType):
             kit = self.kit_type.name
         else:
@@ -420,12 +497,23 @@ class OmniEquipmentRole(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         instance, new = self.class_object.query_or_create(name=self.name)
         return instance
 
@@ -447,12 +535,23 @@ class OmniTips(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         instance, new = self.class_object.query_or_create(name=self.name)
         return instance
 
@@ -475,13 +574,24 @@ class OmniTipRole(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name,
             tips=[item.name for item in self.tips]
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         instance, new = self.class_object.query_or_create(name=self.name)
         for tips in self.tips:
             tips.to_sql()
@@ -504,10 +614,17 @@ class OmniProcess(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
-        submissiontypes = [item.name for item in self.submission_types]
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
+        submissiontypes = [item if isinstance(item, str) else item.name for item in self.submission_types]
         logger.debug(f"Submission Types: {submissiontypes}")
-        equipmentroles = [item.name for item in self.equipment_roles]
+        equipmentroles = [item if isinstance(item, str) else item.name for item in self.equipment_roles]
         logger.debug(f"Equipment Roles: {equipmentroles}")
         return dict(
             name=self.name,
@@ -523,6 +640,10 @@ class OmniProcess(BaseOmni):
         return value
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         instance, new = self.class_object.query_or_create(name=self.name)
         for st in self.submission_types:
             try:
@@ -548,7 +669,13 @@ class OmniProcess(BaseOmni):
         return instance
 
     @property
-    def list_searchables(self):
+    def list_searchables(self) -> dict:
+        """
+        Provides attributes for checking this object against a dictionary.
+
+        Returns:
+            dict: result
+        """
         return dict(name=self.name)
 
 
@@ -572,17 +699,24 @@ class OmniKitType(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name
         )
 
     def to_sql(self) -> KitType:
+        """
+        Convert this object to an instance of its class object.
+        """
+
         kit, is_new = KitType.query_or_create(name=self.name)
-        # if is_new:
-        #     logger.debug(f"New kit made: {kit}")
-        # else:
-        #     logger.debug(f"Kit retrieved: {kit}")
         new_rr = []
         for rr_assoc in self.kit_reagentrole_associations:
             new_assoc = rr_assoc.to_sql()
@@ -603,9 +737,6 @@ class OmniKitType(BaseOmni):
             if new_process not in new_processes:
                 new_processes.append(new_process)
         kit.processes = new_processes
-        # logger.debug(f"Kit: {pformat(kit.__dict__)}")
-        # for item in kit.kit_reagentrole_associations:
-        #     logger.debug(f"KTRRassoc: {item.__dict__}")
         return kit
 
 
@@ -622,7 +753,14 @@ class OmniOrganization(BaseOmni):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name,
             cost_centre=self.cost_centre,
@@ -639,14 +777,27 @@ class OmniContact(BaseOmni):
     phone: str = Field(default="", description="property")
 
     @property
-    def list_searchables(self):
+    def list_searchables(self) -> dict:
+        """
+        Provides attributes for checking this object against a dictionary.
+
+        Returns:
+            dict: result
+        """
         return dict(name=self.name, email=self.email)
 
     def __init__(self, instance_object: Any, **data):
         super().__init__(**data)
         self.instance_object = instance_object
 
-    def to_dataframe_dict(self):
+    @property
+    def dataframe_dict(self) -> dict:
+        """
+        Dictionary of gui relevant values.
+
+        Returns:
+            dict: result
+        """
         return dict(
             name=self.name,
             email=self.email,
@@ -654,9 +805,9 @@ class OmniContact(BaseOmni):
         )
 
     def to_sql(self):
+        """
+        Convert this object to an instance of its class object.
+        """
+
         contact, is_new = Contact.query_or_create(name=self.name, email=self.email, phone=self.phone)
-        # if is_new:
-        #     logger.debug(f"New contact made: {contact}")
-        # else:
-        #     logger.debug(f"Contact retrieved: {contact}")
         return contact

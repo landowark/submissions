@@ -1540,12 +1540,15 @@ class BacterialCulture(BasicSubmission):
             return report
         parser = ConcentrationParser(filepath=fname, submission=self)
         conc_samples = [sample for sample in parser.samples]
+        # logger.debug(f"Concentration samples: {pformat(conc_samples)}")
         for sample in self.samples:
-            logger.debug(f"Sample {sample.submitter_id}")
+            # logger.debug(f"Sample {sample.submitter_id}")
+            # logger.debug(f"Match {item['submitter_id']}")
             try:
                 # NOTE: Fix for ENs which have no rsl_number...
-                sample_dict = next(item for item in conc_samples if item['submitter_id'] == sample.submitter_id)
+                sample_dict = next(item for item in conc_samples if str(item['submitter_id']).upper() == sample.submitter_id)
             except StopIteration:
+                logger.error(f"Couldn't find sample dict for {sample.submitter_id}")
                 continue
             logger.debug(f"Sample {sample.submitter_id} conc. = {sample_dict['concentration']}")
             if sample_dict['concentration']:
@@ -1734,12 +1737,10 @@ class Wastewater(BasicSubmission):
             sample[f"ct_{sample['target'].lower()}"] = sample['ct'] if isinstance(sample['ct'], float) else 0.0
             # NOTE: Set assessment
             # logger.debug(f"Sample assessemnt: {sample['assessment']}")
-            # sample[f"{sample['target'].lower()}_status"] = sample['assessment']
             # NOTE: Get sample having other target
             other_targets = [s for s in samples if re.sub('-N\\d*$', '', s['sample']) == sample['sample']]
             for s in other_targets:
                 sample[f"ct_{s['target'].lower()}"] = s['ct'] if isinstance(s['ct'], float) else 0.0
-                # sample[f"{s['target'].lower()}_status"] = s['assessment']
             try:
                 del sample['ct']
             except KeyError:
@@ -2177,7 +2178,6 @@ class WastewaterArtic(BasicSubmission):
         except AttributeError:
             plate_num = "1"
         plate_num = plate_num.strip("-")
-        # repeat_num = re.search(r"R(?P<repeat>\d)?$", "PBS20240426-2R").groups()[0]
         try:
             repeat_num = re.search(r"R(?P<repeat>\d)?$", processed).groups()[0]
         except:
@@ -2663,16 +2663,6 @@ class BasicSample(BaseClass, LogMixin):
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
-    # @classmethod
-    # def get_searchables(cls) -> List[dict]:
-    #     """
-    #     Delivers a list of fields that can be used in fuzzy search.
-    #
-    #     Returns:
-    #         List[str]: List of fields.
-    #     """
-    #     return [dict(label="Submitter ID", field="submitter_id")]
-
     @classmethod
     def samples_to_df(cls, sample_list: List[BasicSample], **kwargs) -> pd.DataFrame:
         """
@@ -2728,8 +2718,6 @@ class WastewaterSample(BasicSample):
     """
     Derivative wastewater sample
     """
-
-    # searchables = BasicSample.searchables + ['ww_processing_num', 'ww_full_sample_id', 'rsl_number']
 
     id = Column(INTEGER, ForeignKey('_basicsample.id'), primary_key=True)
     ww_processing_num = Column(String(64))  #: wastewater processing number

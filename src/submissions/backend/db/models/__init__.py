@@ -457,12 +457,12 @@ class BaseClass(Base):
         """
         match input_date:
             case datetime() | date():
-                output_date = input_date#.strftime("%Y-%m-%d %H:%M:%S")
+                output_date = input_date
             case int():
                 output_date = datetime.fromordinal(
-                    datetime(1900, 1, 1).toordinal() + input_date - 2)#.date().strftime("%Y-%m-%d %H:%M:%S")
+                    datetime(1900, 1, 1).toordinal() + input_date - 2)
             case _:
-                output_date = parse(input_date)#.strftime("%Y-%m-%d %H:%M:%S")
+                output_date = parse(input_date)
         if eod:
             addition_time = datetime.max.time()
         else:

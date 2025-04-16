@@ -6,7 +6,7 @@ from json.decoder import JSONDecodeError
 from datetime import datetime, timedelta
 from pprint import pformat
 from typing import Any, List, Literal
-from PyQt6.QtCore import QSortFilterProxyModel, Qt
+from PyQt6.QtCore import QSortFilterProxyModel, Qt, QModelIndex
 from PyQt6.QtGui import QAction, QCursor
 from PyQt6.QtWidgets import (
     QLabel, QDialog,
@@ -114,7 +114,16 @@ class ManagerWindow(QDialog):
         # logger.debug(f"Instance: {self.instance}")
         self.update_data()
 
-    def update_instance(self, initial: bool = False):
+    def update_instance(self, initial: bool = False) -> None:
+        """
+        Gets the proper instance of this object's class object.
+
+        Args:
+            initial (bool): Whether this is the initial creation of this object.
+
+        Returns:
+            None
+        """
         if self.add_edit == "edit" or initial:
             try:
                 # logger.debug(f"Querying with {self.options.currentText()}")
@@ -146,6 +155,7 @@ class ManagerWindow(QDialog):
                   [item for item in self.findChildren(QDialogButtonBox)]
         for item in deletes:
             item.setParent(None)
+        logger.debug(f"Self.omni_object: {self.omni_object}")
         fields = self.omni_object.__class__.model_fields
         for key, info in fields.items():
             # logger.debug(f"Attempting to set {key}, {info} widget")
@@ -193,14 +203,22 @@ class ManagerWindow(QDialog):
         # logger.debug(f"Instance coming from parsed form: {self.omni_object.__dict__}")
         return self.omni_object
 
-    def add_new(self):
+    def add_new(self) -> None:
+        """
+        Creates a new instance of this object's class object.
+
+        Returns:
+            None
+        """
         new_instance = self.class_object()
         self.instance = new_instance
         self.update_options()
 
 
 class EditProperty(QWidget):
-
+    """
+    Class to manage info items of SQL objects.
+    """
     def __init__(self, parent: ManagerWindow, key: str, column_type: Any, value):
         super().__init__(parent)
         self.label = QLabel(key.title().replace("_", " "))
@@ -245,7 +263,13 @@ class EditProperty(QWidget):
         self.layout.addWidget(self.widget, 0, 1, 1, 3)
         self.setLayout(self.layout)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Gets values from this EditProperty form.
+
+        Returns:
+            dict: Dictionary of values.
+        """
         # logger.debug(f"Parsing widget {self.objectName()}: {type(self.widget)}")
         match self.widget:
             case QLineEdit():
@@ -269,7 +293,7 @@ class EditRelationship(QWidget):
         from backend.db import models
         super().__init__(parent)
         self.class_object = getattr(models, class_object)
-        logger.debug(f"Attempt value: {value}")
+        # logger.debug(f"Attempt value: {value}")
         # logger.debug(f"Class object: {self.class_object}")
         self.setParent(parent)
         # logger.debug(f"Edit relationship class_object: {self.class_object}")
@@ -317,7 +341,13 @@ class EditRelationship(QWidget):
         self.setLayout(self.layout)
         self.set_data()
 
-    def update_buttons(self):
+    def update_buttons(self) -> None:
+        """
+        Enables/disables buttons based on whether property is a list and has data.
+
+        Returns:
+            None
+        """
         if not self.relationship.property.uselist and len(self.data) >= 1:
             # logger.debug(f"Property {self.relationship} doesn't use list and data is of length: {len(self.data)}")
             self.add_button.setEnabled(False)
@@ -326,14 +356,23 @@ class EditRelationship(QWidget):
             self.add_button.setEnabled(True)
             self.existing_button.setEnabled(True)
 
-    def parse_row(self, x):
+    def parse_row(self, x: QModelIndex) -> None:
+        """
+
+        Args:
+            x ():
+
+        Returns:
+
+        """
         context = {item: x.sibling(x.row(), self.df.columns.get_loc(item)).data() for item in self.df.columns}
+        # logger.debug(f"Context: {pformat(context)}")
         try:
             object = self.class_object.query(**context)
         except KeyError:
             object = None
         self.widget.doubleClicked.disconnect()
-        self.add_edit(instance=object)
+        self.add_new(instance=object)
 
     def add_new(self, instance: Any = None, add_edit: Literal["add", "edit"] = "add", index: int | None = None):
         if add_edit == "edit":
@@ -388,12 +427,13 @@ class EditRelationship(QWidget):
         """
         sets data in model
         """
-        # logger.debug(f"Self.data: {self.data}")
+        logger.debug(f"Self.data: {self.data}")
         try:
-            records = [item.to_dataframe_dict() for item in self.data]
-        except AttributeError:
+            records = [item.dataframe_dict for item in self.data]
+        except AttributeError as e:
+            logger.error(e)
             records = []
-        # logger.debug(f"Records: {records}")
+        logger.debug(f"Records: {records}")
         self.df = DataFrame.from_records(records)
         try:
             self.columns_of_interest = [dict(name=item, column=self.df.columns.get_loc(item)) for item in self.extras]

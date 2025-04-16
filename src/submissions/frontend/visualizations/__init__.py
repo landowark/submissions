@@ -4,6 +4,8 @@ Contains all operations for creating charts, graphs and visual effects.
 from datetime import timedelta, date
 from pathlib import Path
 from typing import Generator
+
+import plotly
 from PyQt6.QtWidgets import QWidget
 import pandas as pd, logging
 from plotly.graph_objects import Figure
@@ -126,8 +128,8 @@ class CustomFigure(Figure):
         html = f'<html><body>'
         if self is not None:
             # NOTE: Just cannot get this load from string to freaking work.
-            html += self.to_html(include_plotlyjs='cdn', full_html=False)
-            # html += plotly.offline.plot(self, output_type='div', include_plotlyjs=True)
+            # html += self.to_html(include_plotlyjs='cdn', full_html=False)
+            html += plotly.offline.plot(self, output_type='div', include_plotlyjs="cdn")
         else:
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'

@@ -126,7 +126,13 @@ class KitType(BaseClass):
                                      submission_type=ST))  #: Association proxy to SubmissionTypeKitTypeAssociation
 
     @classproperty
-    def aliases(cls):
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
         return super().aliases + [cls.query_alias, "kit_types", "kit_type"]
 
     @hybrid_property
@@ -1077,7 +1083,13 @@ class SubmissionType(BaseClass):
         return self.processes
 
     @classproperty
-    def aliases(cls):
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
         return super().aliases + ["submission_types", "submission_type"]
 
     @classproperty
