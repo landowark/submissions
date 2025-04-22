@@ -358,12 +358,13 @@ class EditRelationship(QWidget):
 
     def parse_row(self, x: QModelIndex) -> None:
         """
+        Gets instance of class object based on gui row values.
 
         Args:
-            x ():
+            x (QModelIndex): Row object.
 
         Returns:
-
+            None
         """
         context = {item: x.sibling(x.row(), self.df.columns.get_loc(item)).data() for item in self.df.columns}
         # logger.debug(f"Context: {pformat(context)}")
@@ -374,9 +375,19 @@ class EditRelationship(QWidget):
         self.widget.doubleClicked.disconnect()
         self.add_new(instance=object)
 
-    def add_new(self, instance: Any = None, add_edit: Literal["add", "edit"] = "add", index: int | None = None):
+    def add_new(self, instance: Any = None, add_edit: Literal["add", "edit"] = "add"):
+        """
+        Allows addition or new instance or edit of existing one.
+
+        Args:
+            instance (Any): instance to be added
+            add_edit (Literal["add", "edit"]): Whether this will be a new or existing instance.
+
+        Returns:
+
+        """
         if add_edit == "edit":
-            logger.debug(f"\n\nEditing instance: {instance.__dict__}\n\n")
+            logger.info(f"\n\nEditing instance: {instance.__dict__}\n\n")
         # NOTE: if an existing instance is not being edited, create a new instance
         if not instance:
             # logger.debug(f"Creating new instance of {self.class_object}")
@@ -387,16 +398,16 @@ class EditRelationship(QWidget):
         dlg = ManagerWindow(self.parent(), instance=instance, extras=[], manager=manager, add_edit=add_edit)
         if dlg.exec():
             new_instance = dlg.parse_form()
-            logger.debug(f"New instance: {pformat(new_instance.__dict__)}")
+            # logger.debug(f"New instance: {pformat(new_instance.__dict__)}")
             # NOTE: Somewhere between this and the next logger, I'm losing the uses data.
             if add_edit == "add":
-                logger.debug("Setting as new object")
+                # logger.debug("Setting as new object")
                 self.parent().omni_object.__setattr__(self.objectName(), new_instance)
             else:
-                logger.debug("Updating dictionary")
+                # logger.debug("Updating dictionary")
                 obj = getattr(self.parent().omni_object, self.objectName())
                 if isinstance(obj, list):
-                    logger.debug(f"This is a list")
+                    # logger.debug(f"This is a list")
                     try:
                         # NOTE: Okay, this will not work for editing, since by definition not all attributes will line up.
                         # NOTE: Set items to search by in the Omni object itself?
@@ -404,13 +415,19 @@ class EditRelationship(QWidget):
                     except StopIteration:
                         logger.error(f"Couldn't find object in list.")
                         return
-                logger.debug(f"Updating \n{pformat(obj)} with \n{pformat(new_instance.__dict__)}")
+                # logger.debug(f"Updating \n{pformat(obj)} with \n{pformat(new_instance.__dict__)}")
                 obj.__dict__.update(new_instance.__dict__)
-            logger.debug(f"Final instance: {pformat(self.parent().omni_object.__dict__)}")
+            # logger.debug(f"Final instance: {pformat(self.parent().omni_object.__dict__)}")
             # NOTE: somewhere in the update_data I'm losing changes.
             self.parent().update_data()
 
     def add_existing(self):
+        """
+        Method to add association already existing in the database.
+
+        Returns:
+            None
+        """
         dlg = SearchBox(self, object_type=self.class_object, returnable=True, extras=[])
         if dlg.exec():
             rows = dlg.return_selected_rows()
@@ -463,7 +480,7 @@ class EditRelationship(QWidget):
             logger.warning(f"{self.objectName()} is disabled.")
             return
         id = self.widget.selectionModel().currentIndex()
-        logger.debug(f"Row id: {id.row()}")
+        # logger.debug(f"Row id: {id.row()}")
         # NOTE: the overly complicated {column_name: row_value} dictionary construction
         row_data = {self.df.columns[column]: self.widget.model().index(id.row(), column).data() for column in
                     range(self.widget.model().columnCount())}
@@ -478,7 +495,7 @@ class EditRelationship(QWidget):
                 logger.warning(f"Failed to find all attributes equal, getting row {id.row()}")
                 object = object[id.row()]
         object.instance_object = object.to_sql()
-        logger.debug(f"Object of interest: {pformat(object.__dict__)}")
+        # logger.debug(f"Object of interest: {pformat(object.__dict__)}")
         self.menu = QMenu(self)
         try:
             remove_action = QAction(f"Remove {object.name}", self)
@@ -491,11 +508,20 @@ class EditRelationship(QWidget):
         except AttributeError:
             edit_action = QAction(f"Edit object", self)
         edit_action.triggered.connect(
-            lambda: self.add_new(instance=object.instance_object, add_edit="edit", index=id.row()))
+            lambda: self.add_new(instance=object.instance_object, add_edit="edit"))
         self.menu.addAction(edit_action)
         self.menu.popup(QCursor.pos())
 
     def remove_item(self, object):
+        """
+        Remove a relationship from a list.
+
+        Args:
+            object (Any): Object to be removed.
+
+        Returns:
+            None
+        """
         # logger.debug(f"Attempting to remove {object} from {self.parent().instance.__dict__}")
         editor = getattr(self.parent().omni_object, self.objectName().lower())
         # logger.debug(f"Editor: {editor}")
@@ -513,7 +539,13 @@ class EditRelationship(QWidget):
         self.set_data()
         self.update_buttons()
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Gets values from this EditRelationship form.
+
+        Returns:
+            dict: Dictionary of values.
+        """
         # logger.debug(f"Returning parsed form data from {self.objectName()}: {self.data}")
         try:
             check = self.relationship.property.uselist
@@ -552,6 +584,12 @@ class JsonEditButton(QWidget):
         self.edit_box.widget.textChanged.connect(self.set_json_to_text)
 
     def set_json_to_text(self):
+        """
+        Sets this object's data to text.
+
+        Returns:
+            None
+        """
         # logger.debug(self.edit_box.widget.toPlainText())
         text = self.edit_box.widget.toPlainText()
         try:
@@ -562,6 +600,12 @@ class JsonEditButton(QWidget):
             self.data = jsoner
 
     def add_to_json(self):
+        """
+        Sets data to jsonedit text.
+
+        Returns:
+            None
+        """
         jsonedit = JsonEditScreen(parent=self, parameter=self.objectName())
         if jsonedit.exec():
             data = jsonedit.parse_form()
@@ -569,6 +613,12 @@ class JsonEditButton(QWidget):
             self.data = data
 
     def toggle_textedit(self):
+        """
+        Shows/hides text box.
+
+        Returns:
+            None
+        """
         self.edit_box.setVisible(not self.edit_box.isVisible())
         # logger.debug(f"Data: {data}")
         data = json.dumps(self.data, indent=4)
@@ -615,7 +665,13 @@ class JsonEditScreen(QDialog):
         self.layout.addWidget(self.buttonBox, self.layout.rowCount(), 0, 1, 2)
         self.setLayout(self.layout)
 
-    def parse_form(self):
+    def parse_form(self) -> list:
+        """
+        Gets values from this Jsonedit form.
+
+        Returns:
+            list: List of values.
+        """
         widgets = [item for item in self.findChildren(QWidget) if item.objectName() in self.json_field.keys()]
         # logger.debug(f"Widgets: {widgets}")
         # logger.debug(type(self.json_field))
@@ -669,7 +725,13 @@ class DictionaryJsonSubEdit(QWidget):
             self.layout.addWidget(self.widget)
         self.setLayout(self.layout)
 
-    def parse_form(self):
+    def parse_form(self) -> dict:
+        """
+        Gets values from this Jsonedit form.
+
+        Returns:
+            list: List of values.
+        """
         widgets = [item for item in self.findChildren(QWidget) if item.objectName() in self.data.keys()]
         # logger.debug(f"Widgets: {widgets}")
         output = {}
