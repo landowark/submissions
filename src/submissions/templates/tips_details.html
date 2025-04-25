@@ -1,0 +1,50 @@
+{% extends "details.html" %}
+<head>
+    {% block head %}
+    {{ super() }}
+    <title>Tips Details for {{ tips['name'] }}</title>
+    {% endblock %}
+</head>
+<body>
+    {% block body %}
+    <h2><u>Tips Details for {{ tips['name'] }}</u></h2>
+    {{ super() }}
+    <p>{% for key, value in tips.items() if key not in tips['excluded'] %}
+<!--        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>-->
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+    {% endfor %}</p>
+<!--    {% if permission %}-->
+<!--        <button type="button" id="save_btn">Save</button>-->
+<!--    {% endif %}-->
+    {% if tips['submissions'] %}<h2>Submissions:</h2>
+        {% for submission in tips['submissions'] %}
+        <p><b><a class="data-link" id="{{ submission['plate'] }}">{{ submission['plate'] }}:</a></b> <a class="data-link process" id="{{ submission['role'] }}">{{ submission['role'] }}</a></p>
+        {% endfor %}
+    {% endif %}
+    {% endblock %}
+</body>
+<script>
+  {% block script %}
+  {{ super() }}
+
+  var processSelection = document.getElementsByClassName('process');
+
+        for(let i = 0; i < processSelection.length; i++) {
+          processSelection[i].addEventListener("click", function() {
+            console.log(processSelection[i].id);
+            backend.process_details(processSelection[i].id);
+          })
+        }
+
+  {% for submission in tips['submissions'] %}
+  document.getElementById("{{ submission }}").addEventListener("click", function(){
+      backend.submission_details("{{ submission }}");
+  });
+  {% endfor %}
+
+  document.addEventListener('DOMContentLoaded', function() {
+          backend.activate_export(false);
+      }, false);
+  {% endblock %}
+</script>
+</html>

@@ -9,7 +9,7 @@ from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
-from typing import Any, List
+from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from tools import report_result, list_sort_dict
@@ -25,6 +25,12 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class LogMixin(Base):
+
+    tracking_exclusion: ClassVar = ['artic_technician', 'submission_sample_associations',
+                                    'submission_reagent_associations', 'submission_equipment_associations',
+                                    'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
+                                    'source_plates']
+
     __abstract__ = True
 
     @property

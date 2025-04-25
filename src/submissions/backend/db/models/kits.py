@@ -4,12 +4,15 @@ All kit and reagent related models
 from __future__ import annotations
 import json, zipfile, yaml, logging, re, sys
 from pprint import pformat
+
+from jinja2 import Template, TemplateNotFound
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import date, datetime, timedelta
-from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone
+from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone, \
+    jinja_template_loading
 from typing import List, Literal, Generator, Any, Tuple
 from pandas import ExcelFile
 from pathlib import Path
@@ -2065,6 +2068,53 @@ class Equipment(BaseClass, LogMixin):
             output.append(equipment[choice])
         return output
 
+    def to_sub_dict(self, full_data: bool = False, **kwargs) -> dict:
+        """
+        dictionary containing values necessary for gui
+
+        Args:
+            full_data (bool, optional): Whether to include submissions in data for details. Defaults to False.
+
+        Returns:
+            dict: representation of the equipment's attributes
+        """
+        if self.nickname:
+            nickname = self.nickname
+        else:
+            nickname = self.name
+        output = dict(
+            name=self.name,
+            nickname=nickname,
+            asset_number=self.asset_number
+        )
+        if full_data:
+            subs = []
+            output['submissions'] = [dict(plate=item.submission.rsl_plate_num, process=item.process.name)
+                                     if item.process else dict(plate=item.submission.rsl_plate_num, process="NA")
+                                     for item in self.equipment_submission_associations]
+            output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
+        return output
+
+    @classproperty
+    def details_template(cls) -> Template:
+        """
+        Get the details jinja template for the correct class
+
+        Args:
+            base_dict (dict): incoming dictionary of Submission fields
+
+        Returns:
+            Tuple(dict, Template): (Updated dictionary, Template to be rendered)
+        """
+        env = jinja_template_loading()
+        temp_name = f"{cls.__name__.lower()}_details.html"
+        try:
+            template = env.get_template(temp_name)
+        except TemplateNotFound as e:
+            logger.error(f"Couldn't find template {e}")
+            template = env.get_template("equipment_details.html")
+        return template
+
 
 class EquipmentRole(BaseClass):
     """
@@ -2218,6 +2268,10 @@ class SubmissionEquipmentAssociation(BaseClass):
         self.submission = submission
         self.equipment = equipment
         self.role = role
+
+    @property
+    def process(self):
+        return Process.query(id=self.process_id)
 
     def to_sub_dict(self) -> dict:
         """
@@ -2433,6 +2487,44 @@ class Process(BaseClass):
             tip_roles=tip_roles
         )
 
+    def to_sub_dict(self, full_data: bool = False, **kwargs) -> dict:
+        """
+        dictionary containing values necessary for gui
+
+        Args:
+            full_data (bool, optional): Whether to include submissions in data for details. Defaults to False.
+
+        Returns:
+            dict: representation of the equipment's attributes
+        """
+        output = dict(
+            name=self.name,
+        )
+        if full_data:
+            output['submissions'] = [dict(plate=sub.submission.rsl_plate_num, equipment=sub.equipment.name) for sub in self.submissions]
+            output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
+        return output
+
+    @classproperty
+    def details_template(cls) -> Template:
+        """
+        Get the details jinja template for the correct class
+
+        Args:
+            base_dict (dict): incoming dictionary of Submission fields
+
+        Returns:
+            Tuple(dict, Template): (Updated dictionary, Template to be rendered)
+        """
+        env = jinja_template_loading()
+        temp_name = f"{cls.__name__.lower()}_details.html"
+        try:
+            template = env.get_template(temp_name)
+        except TemplateNotFound as e:
+            logger.error(f"Couldn't find template {e}")
+            template = env.get_template("process_details.html")
+        return template
+
 
 class TipRole(BaseClass):
     """
@@ -2576,6 +2668,45 @@ class Tips(BaseClass, LogMixin):
             name=self.name
         )
 
+    def to_sub_dict(self, full_data: bool = False, **kwargs) -> dict:
+        """
+        dictionary containing values necessary for gui
+
+        Args:
+            full_data (bool, optional): Whether to include submissions in data for details. Defaults to False.
+
+        Returns:
+            dict: representation of the equipment's attributes
+        """
+        output = dict(
+            name=self.name,
+            lot=self.lot,
+        )
+        if full_data:
+            output['submissions'] = [dict(plate=item.submission.rsl_plate_num, role=item.role_name)
+                                     for item in self.tips_submission_associations]
+            output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
+        return output
+
+    @classproperty
+    def details_template(cls) -> Template:
+        """
+        Get the details jinja template for the correct class
+
+        Args:
+            base_dict (dict): incoming dictionary of Submission fields
+
+        Returns:
+            Tuple(dict, Template): (Updated dictionary, Template to be rendered)
+        """
+        env = jinja_template_loading()
+        temp_name = f"{cls.__name__.lower()}_details.html"
+        try:
+            template = env.get_template(temp_name)
+        except TemplateNotFound as e:
+            logger.error(f"Couldn't find template {e}")
+            template = env.get_template("tips_details.html")
+        return template
 
 class SubmissionTypeTipRoleAssociation(BaseClass):
     """

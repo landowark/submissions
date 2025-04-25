@@ -7,7 +7,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
-from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType
+from backend.db.models import BasicSubmission, BasicSample, Reagent, KitType, Equipment, Process, Tips
 from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent
 from .functions import select_save_file, save_pdf
 from pathlib import Path
@@ -85,6 +85,48 @@ class SubmissionDetails(QDialog):
             self.back.setEnabled(True)
 
     @pyqtSlot(str)
+    def equipment_details(self, equipment: str | Equipment):
+        logger.debug(f"Equipment details")
+        if isinstance(equipment, str):
+            equipment = Equipment.query(name=equipment)
+        base_dict = equipment.to_sub_dict(full_data=True)
+        template = equipment.details_template
+        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        with open(template_path.joinpath("css", "styles.css"), "r") as f:
+            css = f.read()
+        html = template.render(equipment=base_dict, css=css)
+        self.webview.setHtml(html)
+        self.setWindowTitle(f"Equipment Details - {equipment.name}")
+
+    @pyqtSlot(str)
+    def process_details(self, process: str | Process):
+        logger.debug(f"Equipment details")
+        if isinstance(process, str):
+            process = Process.query(name=process)
+        base_dict = process.to_sub_dict(full_data=True)
+        template = process.details_template
+        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        with open(template_path.joinpath("css", "styles.css"), "r") as f:
+            css = f.read()
+        html = template.render(process=base_dict, css=css)
+        self.webview.setHtml(html)
+        self.setWindowTitle(f"Process Details - {process.name}")
+
+    @pyqtSlot(str)
+    def tips_details(self, tips: str | Tips):
+        logger.debug(f"Equipment details: {tips}")
+        if isinstance(tips, str):
+            tips = Tips.query(lot=tips)
+        base_dict = tips.to_sub_dict(full_data=True)
+        template = tips.details_template
+        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        with open(template_path.joinpath("css", "styles.css"), "r") as f:
+            css = f.read()
+        html = template.render(tips=base_dict, css=css)
+        self.webview.setHtml(html)
+        self.setWindowTitle(f"Process Details - {tips.name}")
+
+    @pyqtSlot(str)
     def sample_details(self, sample: str | BasicSample):
         """
         Changes details view to summary of Sample
@@ -103,8 +145,8 @@ class SubmissionDetails(QDialog):
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         html = template.render(sample=base_dict, css=css)
-        with open(f"{sample.submitter_id}.html", 'w') as f:
-            f.write(html)
+        # with open(f"{sample.submitter_id}.html", 'w') as f:
+        #     f.write(html)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Sample Details - {sample.submitter_id}")
 

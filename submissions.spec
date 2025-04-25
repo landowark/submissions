@@ -16,7 +16,8 @@ api_path = project_path.joinpath(".venv", "Scripts", "sphinx-apidoc").absolute()
 subprocess.run([api_path, "-o", doc_path.joinpath("source").__str__(), project_path.joinpath("src", "submissions").__str__(), "-f"])
 print(bcolors.BOLD + "Running Sphinx subprocess to generate html docs..." + bcolors.ENDC)
 docs_build = doc_path.joinpath("build")
-#docs_build.mkdir(exist_ok=True, parents=True)
+if not docs_build.exists():
+    docs_build.mkdir(exist_ok=True, parents=True)
 subprocess.run([build_path, doc_path.joinpath("source").__str__(), docs_build.__str__(), "-a"])
 
 #########################################################

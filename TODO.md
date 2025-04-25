@@ -1,3 +1,6 @@
+- [ ] transfer details template rendering fully into sql objects
+- [x] Add in connecting links for tips.
+- [x] Add in connecting links for equipment/processes. 
 - [ ] move functions from widgets.functions to... app?
 - [x] Apply below fix to all other date-based queries.
 - [x] Fix Control graph chart bug that excludes today's controls.
@@ -12,7 +15,6 @@
 - [x] Upgrade to generators when returning lists.
 - [x] Revamp frontend.widgets.controls_chart to include visualizations?
 - [x] Convert Parsers to using openpyxl.
-  - The hardest part of this is going to be the sample parsing. I'm onto using the cell formulas in the plate map to suss out the location in the lookup table, but it could get a little recursive up in here.
 - [ ] Create a default info return function.
 - [x] Parse comment from excel sheet.
 - [x] Make reporting better. 

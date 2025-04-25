@@ -55,9 +55,10 @@ def update_log(mapper, connection, target):
             continue
         added = [str(item) for item in hist.added]
         # NOTE: Attributes left out to save space
-        if attr.key in ['artic_technician', 'submission_sample_associations', 'submission_reagent_associations',
-                        'submission_equipment_associations', 'submission_tips_associations', 'contact_id', 'gel_info',
-                        'gel_controls', 'source_plates']:
+        # if attr.key in ['artic_technician', 'submission_sample_associations', 'submission_reagent_associations',
+        #                 'submission_equipment_associations', 'submission_tips_associations', 'contact_id', 'gel_info',
+        #                 'gel_controls', 'source_plates']:
+        if attr.key in LogMixin.tracking_exclusion:
             continue
         deleted = [str(item) for item in hist.deleted]
         change = dict(field=attr.key, added=added, deleted=deleted)

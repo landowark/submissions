@@ -1,0 +1,49 @@
+{% extends "details.html" %}
+<head>
+    {% block head %}
+    {{ super() }}
+    <title>Process Details for {{ process['name'] }}</title>
+    {% endblock %}
+</head>
+<body>
+    {% block body %}
+    <h2><u>Process Details for {{ process['name'] }}</u></h2>
+    {{ super() }}
+    <p>{% for key, value in process.items() if key not in process['excluded'] %}
+<!--        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>-->
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+    {% endfor %}</p>
+<!--    {% if permission %}-->
+<!--        <button type="button" id="save_btn">Save</button>-->
+<!--    {% endif %}-->
+    {% if process['submissions'] %}<h2>Submissions:</h2>
+        {% for submission in process['submissions'] %}
+        <p><b><a class="data-link" id="{{ submission['plate'] }}">{{ submission['plate'] }}:</a></b><a class="data-link equipment" id="{{ submission['equipment'] }}">{{ submission['equipment'] }}</a></p>
+        {% endfor %}
+    {% endif %}
+    {% endblock %}
+</body>
+<script>
+  {% block script %}
+  {{ super() }}
+
+  var equipmentSelection = document.getElementsByClassName('equipment');
+
+        for(let i = 0; i < equipmentSelection.length; i++) {
+          equipmentSelection[i].addEventListener("click", function() {
+            console.log(equipmentSelection[i].id);
+            backend.equipment_details(equipmentSelection[i].id);
+          })
+        }
+
+  {% for submission in process['submissions'] %}
+  document.getElementById("{{ submission['plate'] }}").addEventListener("click", function(){
+      backend.submission_details("{{ submission['plate'] }}");
+  });
+  {% endfor %}
+  document.addEventListener('DOMContentLoaded', function() {
+          backend.activate_export(false);
+      }, false);
+  {% endblock %}
+</script>
+</html>

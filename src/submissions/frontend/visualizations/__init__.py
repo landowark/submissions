@@ -133,8 +133,8 @@ class CustomFigure(Figure):
         else:
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'
-        with open("test.html", "w", encoding="utf-8") as f:
-            f.write(html)
+        # with open("test.html", "w", encoding="utf-8") as f:
+        #     f.write(html)
         return html
 
 

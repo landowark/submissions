@@ -1,3 +1,7 @@
+# 202504.04
+
+- Added html links for equipment/processes/tips.
+
 # 202504.03
 
 - Split Concentration controls on the chart so they are individually selectable.

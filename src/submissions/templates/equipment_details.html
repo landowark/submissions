@@ -1,0 +1,50 @@
+{% extends "details.html" %}
+<head>
+    {% block head %}
+    {{ super() }}
+    <title>Equipment Details for {{ equipment['name'] }}</title>
+    {% endblock %}
+</head>
+<body>
+    {% block body %}
+    <h2><u>Equipment Details for {{ equipment['name'] }}</u></h2>
+    {{ super() }}
+    <p>{% for key, value in equipment.items() if key not in equipment['excluded'] %}
+<!--        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>-->
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
+    {% endfor %}</p>
+<!--    {% if permission %}-->
+<!--        <button type="button" id="save_btn">Save</button>-->
+<!--    {% endif %}-->
+    {% if equipment['submissions'] %}<h2>Submissions:</h2>
+        {% for submission in equipment['submissions'] %}
+        <p><b><a class="data-link" id="{{ submission['plate'] }}">{{ submission['plate'] }}:</a></b> <a class="data-link process" id="{{ submission['process'] }}">{{ submission['process'] }}</a></p>
+        {% endfor %}
+    {% endif %}
+    {% endblock %}
+</body>
+<script>
+  {% block script %}
+  {{ super() }}
+
+  var processSelection = document.getElementsByClassName('process');
+
+        for(let i = 0; i < processSelection.length; i++) {
+          processSelection[i].addEventListener("click", function() {
+            console.log(processSelection[i].id);
+            backend.process_details(processSelection[i].id);
+          })
+        }
+
+  {% for submission in equipment['submissions'] %}
+  document.getElementById("{{ submission }}").addEventListener("click", function(){
+      backend.submission_details("{{ submission }}");
+  });
+  {% endfor %}
+
+  document.addEventListener('DOMContentLoaded', function() {
+          backend.activate_export(false);
+      }, false);
+  {% endblock %}
+</script>
+</html>
