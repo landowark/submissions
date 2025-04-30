@@ -3,6 +3,7 @@ All kit and reagent related models
 """
 from __future__ import annotations
 import json, zipfile, yaml, logging, re, sys
+from operator import itemgetter
 from pprint import pformat
 
 from jinja2 import Template, TemplateNotFound
@@ -2088,10 +2089,10 @@ class Equipment(BaseClass, LogMixin):
             asset_number=self.asset_number
         )
         if full_data:
-            subs = []
-            output['submissions'] = [dict(plate=item.submission.rsl_plate_num, process=item.process.name)
+            subs = [dict(plate=item.submission.rsl_plate_num, process=item.process.name, sub_date=item.submission.submitted_date)
                                      if item.process else dict(plate=item.submission.rsl_plate_num, process="NA")
                                      for item in self.equipment_submission_associations]
+            output['submissions'] = sorted(subs, key=itemgetter("sub_date"), reverse=True)
             output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
         return output
 
@@ -2501,7 +2502,8 @@ class Process(BaseClass):
             name=self.name,
         )
         if full_data:
-            output['submissions'] = [dict(plate=sub.submission.rsl_plate_num, equipment=sub.equipment.name) for sub in self.submissions]
+            subs = [dict(plate=sub.submission.rsl_plate_num, equipment=sub.equipment.name, sub_date=sub.submission.submitted_date) for sub in self.submissions]
+            output['submissions'] = sorted(subs, key=itemgetter("sub_date"), reverse=True)
             output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
         return output
 
@@ -2683,8 +2685,9 @@ class Tips(BaseClass, LogMixin):
             lot=self.lot,
         )
         if full_data:
-            output['submissions'] = [dict(plate=item.submission.rsl_plate_num, role=item.role_name)
+            subs = [dict(plate=item.submission.rsl_plate_num, role=item.role_name, sub_date=item.submission.submitted_date)
                                      for item in self.tips_submission_associations]
+            output['submissions'] = sorted(subs, key=itemgetter("sub_date"), reverse=True)
             output['excluded'] = ['missing', 'submissions', 'excluded', 'editable']
         return output
 
@@ -2707,6 +2710,7 @@ class Tips(BaseClass, LogMixin):
             logger.error(f"Couldn't find template {e}")
             template = env.get_template("tips_details.html")
         return template
+
 
 class SubmissionTypeTipRoleAssociation(BaseClass):
     """

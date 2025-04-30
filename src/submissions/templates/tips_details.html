@@ -2,12 +2,12 @@
 <head>
     {% block head %}
     {{ super() }}
-    <title>Tips Details for {{ tips['name'] }}</title>
+    <title>Tips Details for {{ tips['name'] }} - {{ tips['lot'] }}</title>
     {% endblock %}
 </head>
 <body>
     {% block body %}
-    <h2><u>Tips Details for {{ tips['name'] }}</u></h2>
+    <h2><u>Tips Details for {{ tips['name'] }} - {{ tips['lot'] }}</u></h2>
     {{ super() }}
     <p>{% for key, value in tips.items() if key not in tips['excluded'] %}
 <!--        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>-->
