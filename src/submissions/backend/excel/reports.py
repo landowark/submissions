@@ -47,7 +47,7 @@ class ReportMaker(object):
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, page_size=0)
         if organizations is not None:
-            self.subs = [sub for sub in self.subs if sub.submitting_lab.name in organizations]
+            self.subs = [sub for sub in self.subs if sub.client_submission.submitting_lab.name in organizations]
         self.detailed_df, self.summary_df = self.make_report_xlsx()
         self.html = self.make_report_html(df=self.summary_df)
 
@@ -183,7 +183,10 @@ class TurnaroundMaker(ReportArchetype):
         except (AttributeError, KeyError):
             tat = None
         if not tat:
-            tat = ctx.TaT_threshold
+            try:
+                tat = ctx.TaT_threshold
+            except AttributeError:
+                tat = 3
         try:
             tat_ok = days <= tat
         except TypeError:

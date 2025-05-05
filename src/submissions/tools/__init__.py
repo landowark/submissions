@@ -1195,36 +1195,48 @@ class Settings(BaseSettings, extra="allow"):
                 func = function[1]
                 # NOTE: assign function based on its name being in config: startup/teardown
                 # NOTE: scripts must be registered using {name: Null} in the database
-                if name in self.startup_scripts.keys():
-                    self.startup_scripts[name] = func
-                if name in self.teardown_scripts.keys():
-                    self.teardown_scripts[name] = func
+                try:
+                    if name in self.startup_scripts.keys():
+                        self.startup_scripts[name] = func
+                except AttributeError:
+                    pass
+                try:
+                    if name in self.teardown_scripts.keys():
+                        self.teardown_scripts[name] = func
+                except AttributeError:
+                    pass
 
     @timer
     def run_startup(self):
         """
         Runs startup scripts.
         """
-        for script in self.startup_scripts.values():
-            try:
-                logger.info(f"Running startup script: {script.__name__}")
-                thread = Thread(target=script, args=(ctx,))
-                thread.start()
-            except AttributeError:
-                logger.error(f"Couldn't run startup script: {script}")
+        try:
+            for script in self.startup_scripts.values():
+                try:
+                    logger.info(f"Running startup script: {script.__name__}")
+                    thread = Thread(target=script, args=(ctx,))
+                    thread.start()
+                except AttributeError:
+                    logger.error(f"Couldn't run startup script: {script}")
+        except AttributeError:
+            pass
 
     @timer
     def run_teardown(self):
         """
         Runs teardown scripts.
         """
-        for script in self.teardown_scripts.values():
-            try:
-                logger.info(f"Running teardown script: {script.__name__}")
-                thread = Thread(target=script, args=(ctx,))
-                thread.start()
-            except AttributeError:
-                logger.error(f"Couldn't run teardown script: {script}")
+        try:
+            for script in self.teardown_scripts.values():
+                try:
+                    logger.info(f"Running teardown script: {script.__name__}")
+                    thread = Thread(target=script, args=(ctx,))
+                    thread.start()
+                except AttributeError:
+                    logger.error(f"Couldn't run teardown script: {script}")
+        except AttributeError:
+            pass
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:

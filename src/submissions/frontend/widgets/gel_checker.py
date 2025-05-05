@@ -12,7 +12,7 @@ import logging, numpy as np
 from pprint import pformat
 from typing import Tuple, List
 from pathlib import Path
-from backend.db.models import WastewaterArtic
+from backend.db.models import BasicSubmission
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # Main window class
 class GelBox(QDialog):
 
-    def __init__(self, parent, img_path: str | Path, submission: WastewaterArtic):
+    def __init__(self, parent, img_path: str | Path, submission: BasicSubmission):
         super().__init__(parent)
         # NOTE: setting title
         self.setWindowTitle(f"Gel - {img_path}")

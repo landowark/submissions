@@ -24,28 +24,6 @@ Base: DeclarativeMeta = declarative_base()
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class LogMixin(Base):
-
-    tracking_exclusion: ClassVar = ['artic_technician', 'submission_sample_associations',
-                                    'submission_reagent_associations', 'submission_equipment_associations',
-                                    'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
-                                    'source_plates']
-
-    __abstract__ = True
-
-    @property
-    def truncated_name(self):
-        name = str(self)
-        if len(name) > 64:
-            name = name.replace("<", "").replace(">", "")
-        if len(name) > 64:
-            # NOTE: As if re'agent'
-            name = name.replace("agent", "")
-        if len(name) > 64:
-            name = f"...{name[-61:]}"
-        return name
-
-
 class BaseClass(Base):
     """
     Abstract class to pass ctx values to all SQLAlchemy objects.
@@ -243,8 +221,10 @@ class BaseClass(Base):
         Returns:
             Any | List[Any]: Single result if limit = 1 or List if other.
         """
+        logger.debug(f"Kwargs: {kwargs}")
         if model is None:
             model = cls
+        logger.debug(f"Model: {model}")
         if query is None:
             query: Query = cls.__database_session__.query(model)
         singles = model.get_default_info('singles')
@@ -475,6 +455,28 @@ class BaseClass(Base):
             addition_time = datetime.min.time()
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
+
+
+class LogMixin(Base):
+
+    tracking_exclusion: ClassVar = ['artic_technician', 'submission_sample_associations',
+                                    'submission_reagent_associations', 'submission_equipment_associations',
+                                    'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
+                                    'source_plates']
+
+    __abstract__ = True
+
+    @property
+    def truncated_name(self):
+        name = str(self)
+        if len(name) > 64:
+            name = name.replace("<", "").replace(">", "")
+        if len(name) > 64:
+            # NOTE: As if re'agent'
+            name = name.replace("agent", "")
+        if len(name) > 64:
+            name = f"...{name[-61:]}"
+        return name
 
 
 class ConfigItem(BaseClass):

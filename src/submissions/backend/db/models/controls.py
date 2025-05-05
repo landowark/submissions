@@ -123,6 +123,9 @@ class Control(BaseClass):
     controltype = relationship("ControlType", back_populates="instances",
                                foreign_keys=[controltype_name])  #: reference to parent control type
     name = Column(String(255), unique=True)  #: Sample ID
+    sample_id = Column(String, ForeignKey("_basicsample.id", ondelete="SET NULL",
+                                                 name="fk_Cont_sample_id"))  #: name of joined submission type
+    sample = relationship("BasicSample", back_populates="control")  #: This control's submission sample
     submitted_date = Column(TIMESTAMP)  #: Date submitted to Robotics
     submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"))  #: parent submission id
     submission = relationship("BasicSubmission", back_populates="controls",
@@ -362,7 +365,6 @@ class IridaControl(Control):
     refseq_version = Column(String(16))  #: version of refseq used in fastq parsing
     kraken2_version = Column(String(16))  #: version of kraken2 used in fastq parsing
     kraken2_db_version = Column(String(32))  #: folder name of kraken2 db
-    sample = relationship("BacterialCultureSample", back_populates="control")  #: This control's submission sample
     sample_id = Column(INTEGER,
                        ForeignKey("_basicsample.id", ondelete="SET NULL", name="cont_BCS_id"))  #: sample id key
 

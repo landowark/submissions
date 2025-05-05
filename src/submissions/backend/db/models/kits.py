@@ -848,7 +848,7 @@ class SubmissionType(BaseClass):
     name = Column(String(128), unique=True)  #: name of submission type
     info_map = Column(JSON)  #: Where parsable information is found in the excel workbook corresponding to this type.
     defaults = Column(JSON)  #: Basic information about this submission type
-    instances = relationship("BasicSubmission")  #: Concrete instances of this type.
+    instances = relationship("ClientSubmission", back_populates="submission_type")  #: Concrete instances of this type.
     template_file = Column(BLOB)  #: Blank form for this type stored as binary.
     processes = relationship("Process", back_populates="submission_types",
                              secondary=submissiontypes_processes)  #: Relation to equipment processes used for this type.
@@ -1048,9 +1048,9 @@ class SubmissionType(BaseClass):
     }
     """
 
-    runtype_kit_associations = relationship(
-        "RunTypeKitTypeAssociation",
-        back_populates="runtype",
+    submissiontype_kit_associations = relationship(
+        "SubmissionTypeKitTypeAssociation",
+        back_populates="submission_type",
         cascade="all, delete-orphan",
     )  #: Association of kittypes
 
