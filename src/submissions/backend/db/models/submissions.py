@@ -60,7 +60,7 @@ class ClientSubmission(BaseClass, LogMixin):
     contact = relationship("Contact", back_populates="submissions")  #: client org
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
                                             name="fk_BS_contact_id"))  #: client lab id from _organizations
-    submission_type = relationship("SubmissionType", back_populates="instances")  #: client org
+    submission_type = relationship("SubmissionType", back_populates="instances")  #: archetype of this submission
     submission_type_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL",
                                                      name="fk_BS_subtype_name"))  #: name of joined submission type
 
