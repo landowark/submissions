@@ -94,6 +94,14 @@ equipment_tips = Table(
     extend_existing=True
 )
 
+kittypes_submissions = Table(
+    "_kittypes_submissions",
+    Base.metadata,
+    Column("_basicsubmission_id", INTEGER, ForeignKey("_basicsubmission.id")),
+    Column("kittype_id", INTEGER, ForeignKey("_kittype.id")),
+    extend_existing=True
+)
+
 
 class KitType(BaseClass):
     """
@@ -104,7 +112,8 @@ class KitType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of kit
-    submissions = relationship("BasicSubmission", back_populates="extraction_kit")  #: submissions this kit was used for
+    submissions = relationship("BasicSubmission", back_populates="kittypes",
+                               secondary=kittypes_submissions)  #: submissions this kit was used for
     processes = relationship("Process", back_populates="kit_types",
                              secondary=kittypes_processes)  #: equipment processes used by this kit
 
@@ -1039,9 +1048,9 @@ class SubmissionType(BaseClass):
     }
     """
 
-    submissiontype_kit_associations = relationship(
-        "SubmissionTypeKitTypeAssociation",
-        back_populates="submission_type",
+    runtype_kit_associations = relationship(
+        "RunTypeKitTypeAssociation",
+        back_populates="runtype",
         cascade="all, delete-orphan",
     )  #: Association of kittypes
 

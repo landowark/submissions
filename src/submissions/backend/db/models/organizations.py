@@ -31,7 +31,7 @@ class Organization(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: organization name
-    submissions = relationship("BasicSubmission",
+    submissions = relationship("ClientSubmission",
                                back_populates="submitting_lab")  #: submissions this organization has submitted
     cost_centre = Column(String())  #: cost centre used by org for payment
     contacts = relationship("Contact", back_populates="organization",
@@ -103,7 +103,7 @@ class Contact(BaseClass):
     phone = Column(String(32))  #: contact phone number
     organization = relationship("Organization", back_populates="contacts", uselist=True,
                                 secondary=orgs_contacts)  #: relationship to joined organization
-    submissions = relationship("BasicSubmission", back_populates="contact")  #: submissions this contact has submitted
+    submissions = relationship("ClientSubmission", back_populates="contact")  #: submissions this contact has submitted
 
     @classproperty
     def searchables(cls):
