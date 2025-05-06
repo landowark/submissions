@@ -22,7 +22,7 @@ from .date_type_picker import DateTypePicker
 from .functions import select_save_file
 from .pop_ups import HTMLPop
 from .misc import Pagifier
-from .submission_table import SubmissionsSheet
+from .submission_table import SubmissionsSheet, SubmissionsTree, ClientRunModel
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .summary import Summary
@@ -253,7 +253,8 @@ class AddSubForm(QWidget):
         self.sheetwidget = QWidget(self)
         self.sheetlayout = QVBoxLayout(self)
         self.sheetwidget.setLayout(self.sheetlayout)
-        self.sub_wid = SubmissionsSheet(parent=parent)
+        # self.sub_wid = SubmissionsSheet(parent=parent)
+        self.sub_wid = SubmissionsTree(parent=parent, model=ClientRunModel(self))
         self.pager = Pagifier(page_max=self.sub_wid.total_count / page_size)
         self.sheetlayout.addWidget(self.sub_wid)
         self.sheetlayout.addWidget(self.pager)

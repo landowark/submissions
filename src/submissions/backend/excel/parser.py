@@ -546,6 +546,7 @@ class EquipmentParser(object):
                     logger.error(f"Unable to add {eq} to list.")
                     continue
 
+
 class TipParser(object):
     """
     Object to pull data for tips in excel sheet
@@ -678,3 +679,19 @@ class ConcentrationParser(object):
             self.submission_obj = submission
             rsl_plate_num = self.submission_obj.rsl_plate_num
         self.samples = self.submission_obj.parse_concentration(xl=self.xl, rsl_plate_num=rsl_plate_num)
+
+# NOTE: Generified parsers below
+
+class InfoParserV2(object):
+    """
+    Object for retrieving submitter info from sample list sheet
+    """
+
+    default_range = dict(
+        start_row=2,
+        end_row=18,
+        start_column=7,
+        end_column=8,
+        sheet="Sample List"
+    )
+

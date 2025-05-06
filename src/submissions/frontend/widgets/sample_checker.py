@@ -34,7 +34,11 @@ class SampleChecker(QDialog):
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        html = template.render(samples=self.formatted_list, css=css)
+        try:
+            samples = self.formatted_list
+        except AttributeError:
+            samples = []
+        html = template.render(samples=samples, css=css)
         self.webview.setHtml(html)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)

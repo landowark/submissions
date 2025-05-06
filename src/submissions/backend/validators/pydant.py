@@ -1328,3 +1328,35 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
                     field_value = getattr(self, field)
             self.instance.__setattr__(field, field_value)
         return self.instance
+
+# NOTE: Generified objects below:
+
+class PydClientSubmission(BaseModel, extra="allow"):
+
+    filepath: Path
+    submission_type: dict | None
+    submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    submitted_date: dict | None
+    submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
+    submitting_lab: dict | None
+    sample_count: dict | None
+    kittype: dict | None
+    submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
+    cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+
+
+    def to_form(self, parent: QWidget, disable: list | None = None):
+        """
+        Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
+
+        Args:
+            disable (list, optional): a list of widgets to be disabled in the form. Defaults to None.
+            parent (QWidget): parent widget of the constructed object
+
+        Returns:
+            SubmissionFormWidget: Submission form widget
+        """
+        from frontend.widgets.submission_widget import ClientSubmissionFormWidget
+        return ClientSubmissionFormWidget(parent=parent, submission=self, disable=disable)

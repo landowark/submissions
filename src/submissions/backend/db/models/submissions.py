@@ -54,7 +54,7 @@ class ClientSubmission(BaseClass, LogMixin):
     _submission_category = Column(
         String(64))  #: ["Research", "Diagnostic", "Surveillance", "Validation"], else defaults to submission_type_name
     sample_count = Column(INTEGER)  #: Number of samples in the submission
-
+    comment = Column(JSON)
     runs = relationship("BasicSubmission", back_populates="client_submission")  #: many-to-one relationship
 
     contact = relationship("Contact", back_populates="submissions")  #: client org
@@ -92,6 +92,192 @@ class ClientSubmission(BaseClass, LogMixin):
             except AttributeError:
                 self._submission_category = "NA"
 
+    @classmethod
+    def recruit_parser(cls):
+        pass
+
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              submissiontype: str | SubmissionType | None = None,
+              submission_type_name: str | None = None,
+              id: int | str | None = None,
+              submitter_plate_num: str | None = None,
+              start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None,
+              chronologic: bool = False,
+              limit: int = 0,
+              page: int = 1,
+              page_size: None | int = 250,
+              **kwargs
+              ) -> BasicSubmission | List[BasicSubmission]:
+        """
+        Lookup submissions based on a number of parameters. Overrides parent.
+
+        Args:
+            submission_type (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
+            id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
+            rsl_plate_num (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
+            start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
+            end_date (date | str | int | None, optional): Ending date to search by. Defaults to None.
+            reagent (models.Reagent | str | None, optional): A reagent used in the submission. Defaults to None.
+            chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            limit (int, optional): Maximum number of results to return. Defaults to 0.
+
+        Returns:
+            models.BasicSubmission | List[models.BasicSubmission]: Submission(s) of interest
+        """
+        # from ... import SubmissionReagentAssociation
+        # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
+        query: Query = cls.__database_session__.query(cls)
+        if start_date is not None and end_date is None:
+            logger.warning(f"Start date with no end date, using today.")
+            end_date = date.today()
+        if end_date is not None and start_date is None:
+            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
+            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            logger.warning(f"End date with no start date, using first submission date: {start_date}")
+        if start_date is not None:
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
+            logger.debug(f"Start date: {start_date}, end date: {end_date}")
+            query = query.filter(cls.submitted_date.between(start_date, end_date))
+        # NOTE: by rsl number (returns only a single value)
+        match submitter_plate_num:
+            case str():
+                query = query.filter(cls.submitter_plate_num == submitter_plate_num)
+                limit = 1
+            case _:
+                pass
+        match submission_type_name:
+            case str():
+                query = query.filter(cls.submission_type_name == submission_type_name)
+            case _:
+                pass
+        # NOTE: by id (returns only a single value)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case str():
+                query = query.filter(cls.id == int(id))
+                limit = 1
+            case _:
+                pass
+        # query = query.order_by(cls.submitted_date.desc())
+        # NOTE: Split query results into pages of size {page_size}
+        if page_size > 0:
+            query = query.limit(page_size)
+        page = page - 1
+        if page is not None:
+            query = query.offset(page * page_size)
+        return cls.execute_query(query=query, model=cls, limit=limit, **kwargs)
+
+    @classmethod
+    def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0,
+                          chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
+        """
+        Convert all submissions to dataframe
+
+        Args:
+            page_size (int, optional): Number of items to include in query result. Defaults to 250.
+            page (int, optional): Limits the number of submissions to a page size. Defaults to 1.
+            chronologic (bool, optional): Sort submissions in chronologic order. Defaults to True.
+            submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
+            limit (int, optional): Maximum number of results to return. Defaults to 0.
+
+        Returns:
+            pd.DataFrame: Pandas Dataframe of all relevant submissions
+        """
+        # NOTE: use lookup function to create list of dicts
+        subs = [item.to_dict() for item in
+                cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
+                          page_size=page_size)]
+        df = pd.DataFrame.from_records(subs)
+        # NOTE: Exclude sub information
+        exclude = ['controls', 'extraction_info', 'pcr_info', 'comment', 'comments', 'samples', 'reagents',
+                   'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
+                   'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
+                   'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
+                   'tips', 'gel_image_path', 'custom']
+        # NOTE: dataframe equals dataframe of all columns not in exclude
+        df = df.loc[:, ~df.columns.isin(exclude)]
+        if chronologic:
+            try:
+                df.sort_values(by="id", axis=0, inplace=True, ascending=False)
+            except KeyError:
+                logger.error("No column named 'id'")
+        # NOTE: Human friendly column labels
+        df.columns = [item.replace("_", " ").title() for item in df.columns]
+        return df
+
+    def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
+        """
+        Constructs dictionary used in submissions summary
+
+        Args:
+            expand (bool, optional): indicates if generators to be expanded. Defaults to False.
+            report (bool, optional): indicates if to be used for a report. Defaults to False.
+            full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
+            backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
+
+        Returns:
+            dict: dictionary used in submissions summary and details
+        """
+        # NOTE: get lab from nested organization object
+        try:
+            sub_lab = self.submitting_lab.name
+        except AttributeError:
+            sub_lab = None
+        try:
+            sub_lab = sub_lab.replace("_", " ").title()
+        except AttributeError:
+            pass
+        # NOTE: get extraction kit name from nested kit object
+        output = {
+            "id": self.id,
+            "submission_type": self.submission_type_name,
+            "submitter_plate_number": self.submitter_plate_num,
+            "submitted_date": self.submitted_date.strftime("%Y-%m-%d"),
+            "submitting_lab": sub_lab,
+            "sample_count": self.sample_count,
+        }
+        if report:
+            return output
+        if full_data:
+            # dicto, _ = self.extraction_kit.construct_xl_map_for_use(self.submission_type)
+            # samples = self.generate_associations(name="submission_sample_associations")
+            samples = None
+            runs = [item.to_dict() for item in self.runs]
+            # custom = self.custom
+        else:
+            samples = None
+            custom = None
+            runs = None
+        try:
+            comments = self.comment
+        except Exception as e:
+            logger.error(f"Error setting comment: {self.comment}, {e}")
+            comments = None
+        try:
+            contact = self.contact.name
+        except AttributeError as e:
+            try:
+                contact = f"Defaulted to: {self.submitting_lab.contacts[0].name}"
+            except (AttributeError, IndexError):
+                contact = "NA"
+        try:
+            contact_phone = self.contact.phone
+        except AttributeError:
+            contact_phone = "NA"
+        output["submission_category"] = self.submission_category
+        output["samples"] = samples
+        output["comment"] = comments
+        output["contact"] = contact
+        output["contact_phone"] = contact_phone
+        # output["custom"] = custom
+        output["runs"] = runs
+        return output
 
 class BasicSubmission(BaseClass, LogMixin):
     """

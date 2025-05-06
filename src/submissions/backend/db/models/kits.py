@@ -1289,6 +1289,7 @@ class SubmissionType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
+                logger.debug(f"querying with {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:

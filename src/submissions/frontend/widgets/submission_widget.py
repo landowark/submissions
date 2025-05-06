@@ -10,7 +10,7 @@ from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.excel.parser import SheetParser
+from backend.excel.parsers import SheetParser, InfoParserV2
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
     Organization, SubmissionType, Reagent,
@@ -121,13 +121,14 @@ class SubmissionFormContainer(QWidget):
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
         try:
-            self.prsr = SheetParser(filepath=fname)
+            # self.prsr = SheetParser(filepath=fname)
+            self.parser = InfoParserV2(filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
         except AttributeError:
-            self.prsr = SheetParser(filepath=fname)
-        self.pyd = self.prsr.to_pydantic()
+            self.parser = InfoParserV2(filepath=fname)
+        self.pyd = self.parser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pyd.samples)}")
         checker = SampleChecker(self, "Sample Checker", self.pyd)
         if checker.exec():
@@ -177,11 +178,13 @@ class SubmissionFormWidget(QWidget):
         self.missing_info = []
         self.submission_type = SubmissionType.query(name=self.pyd.submission_type['value'])
         basic_submission_class = self.submission_type.submission_class
+        logger.debug(f"Basic submission class: {basic_submission_class}")
         defaults = basic_submission_class.get_default_info("form_recover", "form_ignore", submission_type=self.pyd.submission_type['value'])
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
         self.layout = QVBoxLayout()
         for k in list(self.pyd.model_fields.keys()) + list(self.pyd.model_extra.keys()):
+            logger.debug(f"Pydantic field: {k}")
             if k in self.ignore:
                 logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
@@ -197,6 +200,7 @@ class SubmissionFormWidget(QWidget):
                     value = self.pyd.model_extra[k]
                 except KeyError:
                     value = dict(value=None, missing=True)
+            logger.debug(f"Pydantic value: {value}")
             add_widget = self.create_widget(key=k, value=value, submission_type=self.submission_type,
                                             sub_obj=basic_submission_class, disable=check)
             if add_widget is not None:
@@ -208,7 +212,8 @@ class SubmissionFormWidget(QWidget):
                 self.layout.addWidget(self.disabler)
                 self.disabler.checkbox.checkStateChanged.connect(self.disable_reagents)
         self.setStyleSheet(main_form_style)
-        self.scrape_reagents(self.extraction_kit)
+        # self.scrape_reagents(self.extraction_kit)
+        self.setLayout(self.layout)
 
     def disable_reagents(self):
         """
@@ -774,3 +779,16 @@ class SubmissionFormWidget(QWidget):
             layout.addWidget(self.label)
             layout.addWidget(self.checkbox)
             self.setLayout(layout)
+
+
+class ClientSubmissionFormWidget(SubmissionFormWidget):
+
+    def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
+        super().__init__(parent, submission=submission, disable=disable)
+        save_btn = QPushButton("Save")
+        start_run_btn = QPushButton("Save && Start Run")
+        self.layout.addWidget(save_btn)
+        self.layout.addWidget(start_run_btn)
+
+
+

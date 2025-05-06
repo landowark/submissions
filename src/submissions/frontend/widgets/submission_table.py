@@ -2,11 +2,13 @@
 Contains widgets specific to the submission summary and submission details.
 """
 import logging
+import sys
 from pprint import pformat
-from PyQt6.QtWidgets import QTableView, QMenu
-from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel
-from PyQt6.QtGui import QAction, QCursor
-from backend.db.models import BasicSubmission
+from PyQt6.QtWidgets import QTableView, QMenu, QTreeView, QStyledItemDelegate, QStyle, QStyleOptionViewItem, \
+    QHeaderView, QAbstractItemView
+from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlot, QModelIndex
+from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor
+from backend.db.models import BasicSubmission, ClientSubmission
 from tools import Report, Result, report_result
 from .functions import select_open_file
 
@@ -84,6 +86,7 @@ class SubmissionsSheet(QTableView):
         """
         sets data in model
         """
+        # self.data = ClientSubmission.submissions_to_df(page=page, page_size=page_size)
         self.data = BasicSubmission.submissions_to_df(page=page, page_size=page_size)
         try:
             self.data['Id'] = self.data['Id'].apply(str)
@@ -222,3 +225,106 @@ class SubmissionsSheet(QTableView):
             sub.save()
         report.add_result(Result(msg=f"We added {count} logs to the database.", status='Information'))
         return report
+
+
+class RunDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super(RunDelegate, self).__init__(parent)
+        self._plus_icon = QIcon("plus.png")
+        self._minus_icon = QIcon("minus.png")
+
+    def initStyleOption(self, option, index):
+        super(RunDelegate, self).initStyleOption(option, index)
+        if not index.parent().isValid():
+            is_open = bool(option.state & QStyle.StateFlag.State_Open)
+            option.features |= QStyleOptionViewItem.ViewItemFeature.HasDecoration
+            option.icon = self._minus_icon if is_open else self._plus_icon
+
+class SubmissionsTree(QTreeView):
+    """
+    https://stackoverflow.com/questions/54385437/how-can-i-make-a-table-that-can-collapse-its-rows-into-categories-in-qt
+    """
+    def __init__(self, model, parent=None):
+        super(SubmissionsTree, self).__init__(parent)
+        self.total_count = 1
+        self.setIndentation(0)
+        self.setExpandsOnDoubleClick(False)
+        self.clicked.connect(self.on_clicked)
+        delegate = RunDelegate(self)
+        self.setItemDelegateForColumn(0, delegate)
+        self.model = model
+        self.setModel(self.model)
+        # self.header().setSectionResizeMode(0, QHeaderView.sectionResizeMode(self,0).ResizeToContents)
+        self.setSelectionBehavior(QAbstractItemView.selectionBehavior(self).SelectRows)
+        # self.setStyleSheet("background-color: #0D1225;")
+        self.set_data()
+
+    @pyqtSlot(QModelIndex)
+    def on_clicked(self, index):
+        if not index.parent().isValid() and index.column() == 0:
+            self.setExpanded(index, not self.isExpanded(index))
+
+    def set_data(self, page: int = 1, page_size: int = 250) -> None:
+        """
+        sets data in model
+        """
+        # self.data = ClientSubmission.submissions_to_df(page=page, page_size=page_size)
+        self.data = [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+        logger.debug(pformat(self.data))
+        # sys.exit()
+        for submission in self.data:
+            group_item = self.model.add_group(submission['submitter_plate_number'])
+            for run in submission['runs']:
+                self.model.append_element_to_group(group_item=group_item, texts=run['plate_number'])
+
+
+    def link_extractions(self):
+        pass
+
+    def link_pcr(self):
+        pass
+
+
+class ClientRunModel(QStandardItemModel):
+    def __init__(self, parent=None):
+        super(ClientRunModel, self).__init__(parent)
+        self.setColumnCount(8)
+        self.setHorizontalHeaderLabels(["id", "Name", "Library", "Release Date", "Genre(s)", "Last Played", "Time Played", ""])
+        for i in range(self.columnCount()):
+            it = self.horizontalHeaderItem(i)
+            # it.setForeground(QColor("#F2F2F2"))
+
+    def add_group(self, group_name):
+        item_root = QStandardItem()
+        item_root.setEditable(False)
+        item = QStandardItem(group_name)
+        item.setEditable(False)
+        ii = self.invisibleRootItem()
+        i = ii.rowCount()
+        for j, it in enumerate((item_root, item)):
+            ii.setChild(i, j, it)
+            ii.setEditable(False)
+        for j in range(self.columnCount()):
+            it = ii.child(i, j)
+            if it is None:
+                it = QStandardItem()
+                ii.setChild(i, j, it)
+            # it.setBackground(QColor("#002842"))
+            # it.setForeground(QColor("#F2F2F2"))
+        return item_root
+
+    def append_element_to_group(self, group_item, texts):
+        j = group_item.rowCount()
+        item_icon = QStandardItem()
+        item_icon.setEditable(False)
+        item_icon.setIcon(QIcon("game.png"))
+        # item_icon.setBackground(QColor("#0D1225"))
+        group_item.setChild(j, 0, item_icon)
+        for i, text in enumerate(texts):
+            item = QStandardItem(text)
+            item.setEditable(False)
+            # item.setBackground(QColor("#0D1225"))
+            # item.setForeground(QColor("#F2F2F2"))
+            group_item.setChild(j, i+1, item)
+
+

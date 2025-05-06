@@ -221,10 +221,10 @@ class BaseClass(Base):
         Returns:
             Any | List[Any]: Single result if limit = 1 or List if other.
         """
-        logger.debug(f"Kwargs: {kwargs}")
+        # logger.debug(f"Kwargs: {kwargs}")
         if model is None:
             model = cls
-        logger.debug(f"Model: {model}")
+        # logger.debug(f"Model: {model}")
         if query is None:
             query: Query = cls.__database_session__.query(model)
         singles = model.get_default_info('singles')
@@ -516,7 +516,7 @@ from .controls import *
 from .organizations import *
 from .kits import *
 from .submissions import *
-from .audit import *
+from .audit import AuditLog
 
 # NOTE: Add a creator to the submission for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator
