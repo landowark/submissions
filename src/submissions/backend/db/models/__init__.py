@@ -389,13 +389,13 @@ class BaseClass(Base):
         except AttributeError:
             return super().__setattr__(key, value)
         if isinstance(field_type, InstrumentedAttribute):
-            # logger.debug(f"{key} is an InstrumentedAttribute.")
+            logger.debug(f"{key} is an InstrumentedAttribute.")
             match field_type.property:
                 case ColumnProperty():
-                    # logger.debug(f"Setting ColumnProperty to {value}")
+                    logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
-                    # logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
+                    logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
                     if field_type.property.uselist:
                         logger.debug(f"Setting with uselist")
                         existing = self.__getattribute__(key)
@@ -409,7 +409,8 @@ class BaseClass(Base):
                                 value = existing + [value]
                         else:
                             if isinstance(value, list):
-                                value = value
+                                # value = value
+                                pass
                             else:
                                 value = [value]
                         value = list(set(value))
@@ -421,7 +422,13 @@ class BaseClass(Base):
                                 value = value[0]
                             else:
                                 raise ValueError("Object is too long to parse a single value.")
-                        return super().__setattr__(key, value)
+                        try:
+                            return super().__setattr__(key, value)
+                        except AttributeError:
+                            logger.debug(f"Possible attempt to set relationship to simple var type.")
+                            relationship_class = field_type.property.entity.entity
+                            value = relationship_class.query(name=value)
+                            return super().__setattr__(key, value)
                 case _:
                     return super().__setattr__(key, value)
         else:

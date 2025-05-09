@@ -384,7 +384,6 @@ class PydSubmission(BaseModel, extra='allow'):
     filepath: Path
     submission_type: dict | None
     submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    submitted_date: dict | None
     rsl_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     submitting_lab: dict | None
@@ -1331,21 +1330,93 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
 
 # NOTE: Generified objects below:
 
-class PydClientSubmission(BaseModel, extra="allow"):
+class PydClientSubmission(BaseModel, extra="allow", validate_assignment=True):
+
+    sql_object: ClassVar = ClientSubmission
 
     filepath: Path
     submission_type: dict | None
-    submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    submitted_date: dict | None
     submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     submitting_lab: dict | None
     sample_count: dict | None
-    kittype: dict | None
     submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
 
+    @field_validator("sample_count")
+    @classmethod
+    def enforce_integer(cls, value):
+        try:
+            value['value'] = int(value['value'])
+        except ValueError:
+            raise f"sample count value must be an integer"
+        return value
+
+    @field_validator("submitter_plate_num")
+    @classmethod
+    def create_submitter_plate_num(cls, value, values):
+        if value['value'] in [None, "None"]:
+            val = f"{values.data['submission_type']['value']}-{values.data['submission_category']['value']}-{values.data['submitted_date']['value']}"
+            return dict(value=val, missing=True)
+        else:
+            value['value'] = value['value'].strip()
+            return value
+
+    @field_validator("submitted_date")
+    @classmethod
+    def rescue_date(cls, value):
+        try:
+            check = value['value'] is None
+        except TypeError:
+            check = True
+        if check:
+            return dict(value=date.today(), missing=True)
+        return value
+
+    def filter_field(self, key: str) -> Any:
+        """
+        Attempts to get value from field dictionary
+
+        Args:
+            key (str): name of the field of interest
+
+        Returns:
+            Any (): Value found.
+        """
+        item = getattr(self, key)
+        match item:
+            case dict():
+                try:
+                    item = item['value']
+                except KeyError:
+                    logger.error(f"Couldn't get dict value: {item}")
+            case _:
+                pass
+        return item
+
+    def improved_dict(self, dictionaries: bool = True) -> dict:
+        """
+        Adds model_extra to fields.
+
+        Args:
+            dictionaries (bool, optional): Are dictionaries expected as input? i.e. Should key['value'] be retrieved. Defaults to True.
+
+        Returns:
+            dict: This instance as a dictionary
+        """
+        fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
+        if dictionaries:
+            output = {k: getattr(self, k) for k in fields}
+        else:
+            output = {k: self.filter_field(k) for k in fields}
+        try:
+            del output['filepath']
+        except KeyError:
+            pass
+        logger.debug(f"Output; {pformat(output)}")
+        return output
 
     def to_form(self, parent: QWidget, disable: list | None = None):
         """
@@ -1360,3 +1431,17 @@ class PydClientSubmission(BaseModel, extra="allow"):
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         return ClientSubmissionFormWidget(parent=parent, submission=self, disable=disable)
+
+    def to_sql(self):
+        sql = self.sql_object()
+        for key, value in self.improved_dict().items():
+            if isinstance(value, dict):
+                value = value['value']
+            # if hasattr(sql, key):
+            #     try:
+            sql.set_attribute(key, value)
+            #     except AttributeError:
+            #         continue
+            # else:
+            #     sql.misc_info[key] = value
+        print(sql.__dict__)

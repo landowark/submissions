@@ -438,7 +438,7 @@ class SubmissionFormWidget(QWidget):
                 value = getattr(self, item)
                 info[item] = value
         for k, v in info.items():
-            self.pyd.set_attribute(key=k, value=v)
+            self.pyd.__setattr__(k, v)
         report.add_result(report)
         return report
 
@@ -786,9 +786,53 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
     def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
         super().__init__(parent, submission=submission, disable=disable)
         save_btn = QPushButton("Save")
-        start_run_btn = QPushButton("Save && Start Run")
+        start_run_btn = QPushButton("Save && Add Run")
         self.layout.addWidget(save_btn)
         self.layout.addWidget(start_run_btn)
+        start_run_btn.clicked.connect(self.create_new_submission)
+        del self.disabler
 
+    def parse_form(self) -> Report:
+        """
+        Transforms form info into PydSubmission
+
+        Returns:
+            Report: Report on status of parse.
+        """
+        report = Report()
+        logger.info(f"Hello from client submission form parser!")
+        info = {}
+        reagents = []
+        for widget in self.findChildren(QWidget):
+            match widget:
+                case self.ReagentFormWidget():
+                    reagent = widget.parse_form()
+                    if reagent is not None:
+                        reagents.append(reagent)
+                    else:
+                        report.add_result(Result(msg="Failed integrity check", status="Critical"))
+                        return report
+                case self.InfoItem():
+                    field, value = widget.parse_form()
+                    if field is not None:
+                        info[field] = value
+        # logger.debug(f"Reagents from form: {reagents}")
+        for item in self.recover:
+            if hasattr(self, item):
+                value = getattr(self, item)
+                info[item] = value
+        for k, v in info.items():
+            self.pyd.__setattr__(k, v)
+        report.add_result(report)
+        return report
+
+    @report_result
+    def to_pydantic(self, *args):
+        self.parse_form()
+        return self.pyd
+
+    def create_new_submission(self, *args) -> Report:
+        self.parse_form()
+        sql = self.pyd.to_sql()
 
 

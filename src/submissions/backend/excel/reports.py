@@ -68,7 +68,7 @@ class ReportMaker(object):
             {'extraction_kit': 'count', 'cost': 'sum', 'sample_count': 'sum'})
         df2 = df2.rename(columns={"extraction_kit": 'run_count'})
         df = df.drop('id', axis=1)
-        df = df.sort_values(['submitting_lab', "submitted_date"])
+        df = df.sort_values(['submitting_lab', "started_date"])
         return df, df2
 
     def make_report_html(self, df: DataFrame) -> str:

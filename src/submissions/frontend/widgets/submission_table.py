@@ -5,7 +5,7 @@ import logging
 import sys
 from pprint import pformat
 from PyQt6.QtWidgets import QTableView, QMenu, QTreeView, QStyledItemDelegate, QStyle, QStyleOptionViewItem, \
-    QHeaderView, QAbstractItemView
+    QHeaderView, QAbstractItemView, QWidget
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlot, QModelIndex
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor
 from backend.db.models import BasicSubmission, ClientSubmission
@@ -230,8 +230,12 @@ class SubmissionsSheet(QTableView):
 class RunDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(RunDelegate, self).__init__(parent)
-        self._plus_icon = QIcon("plus.png")
-        self._minus_icon = QIcon("minus.png")
+        pixmapi = QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton
+        icon1 = QWidget().style().standardIcon(pixmapi)
+        pixmapi = QStyle.StandardPixmap.SP_ToolBarVerticalExtensionButton
+        icon2 = QWidget().style().standardIcon(pixmapi)
+        self._plus_icon = icon1
+        self._minus_icon = icon2
 
     def initStyleOption(self, option, index):
         super(RunDelegate, self).initStyleOption(option, index)
@@ -258,6 +262,11 @@ class SubmissionsTree(QTreeView):
         self.setSelectionBehavior(QAbstractItemView.selectionBehavior(self).SelectRows)
         # self.setStyleSheet("background-color: #0D1225;")
         self.set_data()
+        self.doubleClicked.connect(self.show_details)
+
+        for ii in range(2):
+            self.resizeColumnToContents(ii)
+
 
     @pyqtSlot(QModelIndex)
     def on_clicked(self, index):
@@ -273,9 +282,20 @@ class SubmissionsTree(QTreeView):
         logger.debug(pformat(self.data))
         # sys.exit()
         for submission in self.data:
-            group_item = self.model.add_group(submission['submitter_plate_number'])
+            group_str = f"{submission['submission_type']}-{submission['submitter_plate_number']}-{submission['submitted_date']}"
+            group_item = self.model.add_group(group_str)
             for run in submission['runs']:
-                self.model.append_element_to_group(group_item=group_item, texts=run['plate_number'])
+                self.model.append_element_to_group(group_item=group_item, element=run)
+
+    def show_details(self, sel: QModelIndex):
+        id = self.selectionModel().currentIndex()
+        # NOTE: Convert to data in id column (i.e. column 0)
+        id = id.sibling(id.row(), 1)
+        try:
+            id = int(id.data())
+        except ValueError:
+            return
+        BasicSubmission.query(id=id).show_details(self)
 
 
     def link_extractions(self):
@@ -286,12 +306,19 @@ class SubmissionsTree(QTreeView):
 
 
 class ClientRunModel(QStandardItemModel):
+
     def __init__(self, parent=None):
         super(ClientRunModel, self).__init__(parent)
-        self.setColumnCount(8)
-        self.setHorizontalHeaderLabels(["id", "Name", "Library", "Release Date", "Genre(s)", "Last Played", "Time Played", ""])
+        headers = ["", "id", "Plate Number", "Started Date", "Completed Date", "Technician", "Signed By"]
+        self.setColumnCount(len(headers))
+        self.setHorizontalHeaderLabels(headers)
+
         for i in range(self.columnCount()):
             it = self.horizontalHeaderItem(i)
+            try:
+                logger.debug(it.text())
+            except AttributeError:
+                pass
             # it.setForeground(QColor("#F2F2F2"))
 
     def add_group(self, group_name):
@@ -313,18 +340,29 @@ class ClientRunModel(QStandardItemModel):
             # it.setForeground(QColor("#F2F2F2"))
         return item_root
 
-    def append_element_to_group(self, group_item, texts):
+    def append_element_to_group(self, group_item, element:dict):
+        logger.debug(f"Element: {pformat(element)}")
         j = group_item.rowCount()
         item_icon = QStandardItem()
         item_icon.setEditable(False)
-        item_icon.setIcon(QIcon("game.png"))
+
         # item_icon.setBackground(QColor("#0D1225"))
-        group_item.setChild(j, 0, item_icon)
-        for i, text in enumerate(texts):
-            item = QStandardItem(text)
+        # group_item.setChild(j, 0, item_icon)
+        for i in range(self.columnCount()):
+            it = self.horizontalHeaderItem(i)
+            try:
+                key = it.text().lower().replace(" ", "_")
+            except AttributeError:
+                continue
+            if not key:
+                continue
+            logger.debug(f"Looking for {key} in column {i}")
+            value = str(element[key])
+            logger.debug(f"Got value: {value}")
+            item = QStandardItem(value)
+            item.setBackground(QColor("#CFE2F3"))
             item.setEditable(False)
-            # item.setBackground(QColor("#0D1225"))
-            # item.setForeground(QColor("#F2F2F2"))
-            group_item.setChild(j, i+1, item)
+            group_item.setChild(j, i, item)
+        # group_item.setChild(j, 1, QStandardItem("B"))
 
 

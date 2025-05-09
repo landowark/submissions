@@ -46,7 +46,7 @@ class ClientSubmission(BaseClass, LogMixin):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    submitter_plate_num = Column(String(127), unique=True)  #: The number given to the submission by the submitting lab
+    submitter_plate_id = Column(String(127), unique=True)  #: The number given to the submission by the submitting lab
     submitted_date = Column(TIMESTAMP)  #: Date submission received
     submitting_lab = relationship("Organization", back_populates="submissions")  #: client org
     submitting_lab_id = Column(INTEGER, ForeignKey("_organization.id", ondelete="SET NULL",
@@ -56,7 +56,7 @@ class ClientSubmission(BaseClass, LogMixin):
     sample_count = Column(INTEGER)  #: Number of samples in the submission
     comment = Column(JSON)
     runs = relationship("BasicSubmission", back_populates="client_submission")  #: many-to-one relationship
-
+    misc_info = Column(JSON)
     contact = relationship("Contact", back_populates="submissions")  #: client org
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
                                             name="fk_BS_contact_id"))  #: client lab id from _organizations
@@ -91,6 +91,16 @@ class ClientSubmission(BaseClass, LogMixin):
                 self._submission_category = self.submission_type_name
             except AttributeError:
                 self._submission_category = "NA"
+
+    def __init__(self):
+        super().__init__()
+        self.misc_info = {}
+
+    def set_attribute(self, key, value):
+        if hasattr(self, key):
+            super().__setattr__(key, value)
+        else:
+            self.misc_info[key] = value
 
     @classmethod
     def recruit_parser(cls):
@@ -237,7 +247,7 @@ class ClientSubmission(BaseClass, LogMixin):
         output = {
             "id": self.id,
             "submission_type": self.submission_type_name,
-            "submitter_plate_number": self.submitter_plate_num,
+            "submitter_plate_number": self.submitter_plate_id,
             "submitted_date": self.submitted_date.strftime("%Y-%m-%d"),
             "submitting_lab": sub_lab,
             "sample_count": self.sample_count,
@@ -279,10 +289,13 @@ class ClientSubmission(BaseClass, LogMixin):
         output["runs"] = runs
         return output
 
+
 class BasicSubmission(BaseClass, LogMixin):
     """
     Object for an entire submission run. Links to client submissions, reagents, equipment, processes
     """
+
+
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     rsl_plate_num = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
@@ -383,6 +396,10 @@ class BasicSubmission(BaseClass, LogMixin):
     @hybrid_property
     def organization(self):
         return self.submitting_lab
+
+    @hybrid_property
+    def name(self):
+        return self.rsl_plate_num
 
     @classproperty
     def jsons(cls) -> List[str]:
@@ -567,8 +584,8 @@ class BasicSubmission(BaseClass, LogMixin):
             "id": self.id,
             "plate_number": self.rsl_plate_num,
             "submission_type": self.client_submission.submission_type_name,
-            "submitter_plate_number": self.client_submission.submitter_plate_num,
-            "submitted_date": self.client_submission.submitted_date.strftime("%Y-%m-%d"),
+            "submitter_plate_number": self.client_submission.submitter_plate_id,
+            "started_date": self.client_submission.submitted_date.strftime("%Y-%m-%d"),
             "submitting_lab": sub_lab,
             "sample_count": self.client_submission.sample_count,
             "extraction_kit": "Change submissions.py line 388",
