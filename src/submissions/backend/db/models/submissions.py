@@ -336,15 +336,15 @@ class BasicSubmission(BaseClass, LogMixin):
     kittypes = relationship("KitType", back_populates="submissions",
                                secondary=kittypes_submissions)  #: submissions this kit was used for
 
-    # submission_sample_associations = relationship(
-    #     "SubmissionSampleAssociation",
-    #     back_populates="submission",
-    #     cascade="all, delete-orphan",
-    # )  #: Relation to SubmissionSampleAssociation
-    #
-    # samples = association_proxy("submission_sample_associations",
-    #                             "sample", creator=lambda sample: SubmissionSampleAssociation(
-    #         sample=sample))  #: Association proxy to SubmissionSampleAssociation.samples
+    submission_sample_associations = relationship(
+        "SubmissionSampleAssociation",
+        back_populates="submission",
+        cascade="all, delete-orphan",
+    )  #: Relation to SubmissionSampleAssociation
+
+    samples = association_proxy("submission_sample_associations",
+                                "sample", creator=lambda sample: SubmissionSampleAssociation(
+            sample=sample))  #: Association proxy to SubmissionSampleAssociation.samples
 
     submission_reagent_associations = relationship(
         "SubmissionReagentAssociation",
@@ -600,20 +600,20 @@ class BasicSubmission(BaseClass, LogMixin):
             except Exception as e:
                 logger.error(f"We got an error retrieving reagents: {e}")
                 reagents = []
-            finally:
-                dicto, _ = self.extraction_kit.construct_xl_map_for_use(self.submission_type)
-                for k, v in dicto.items():
-                    if k == 'info':
-                        continue
-                    if not any([item['role'] == k for item in reagents]):
-                        expiry = "NA"
-                        reagents.append(
-                            dict(role=k, name="Not Applicable", lot="NA", expiry=expiry,
-                                 missing=True))
+            # finally:
+            #     dicto, _ = self.extraction_kit.construct_xl_map_for_use(self.submission_type)
+            #     for k, v in dicto.items():
+            #         if k == 'info':
+            #             continue
+            #         if not any([item['role'] == k for item in reagents]):
+            #             expiry = "NA"
+            #             reagents.append(
+            #                 dict(role=k, name="Not Applicable", lot="NA", expiry=expiry,
+            #                      missing=True))
             samples = self.generate_associations(name="submission_sample_associations")
             equipment = self.generate_associations(name="submission_equipment_associations")
             tips = self.generate_associations(name="submission_tips_associations")
-            cost_centre = self.cost_centre
+            # cost_centre = self.cost_centre
             custom = self.custom
             controls = [item.to_sub_dict() for item in self.controls]
         else:
@@ -648,7 +648,7 @@ class BasicSubmission(BaseClass, LogMixin):
         output["comment"] = comments
         output["equipment"] = equipment
         output["tips"] = tips
-        output["cost_centre"] = cost_centre
+        # output["cost_centre"] = cost_centre
         output["signed_by"] = self.signed_by
         output["contact"] = contact
         output["contact_phone"] = contact_phone

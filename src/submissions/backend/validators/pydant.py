@@ -1343,7 +1343,7 @@ class PydClientSubmission(BaseModel, extra="allow", validate_assignment=True):
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    submitter_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
 
     @field_validator("sample_count")
     @classmethod
@@ -1354,7 +1354,7 @@ class PydClientSubmission(BaseModel, extra="allow", validate_assignment=True):
             raise f"sample count value must be an integer"
         return value
 
-    @field_validator("submitter_plate_num")
+    @field_validator("submitter_plate_id")
     @classmethod
     def create_submitter_plate_num(cls, value, values):
         if value['value'] in [None, "None"]:
@@ -1373,6 +1373,13 @@ class PydClientSubmission(BaseModel, extra="allow", validate_assignment=True):
             check = True
         if check:
             return dict(value=date.today(), missing=True)
+        else:
+            match value['value']:
+                case str():
+                    value['value'] = datetime.strptime(value['value'], "%Y-%m-%d")
+                    value['value'] = datetime.combine(value['value'], datetime.now().time())
+                case _:
+                    pass
         return value
 
     def filter_field(self, key: str) -> Any:
@@ -1437,11 +1444,5 @@ class PydClientSubmission(BaseModel, extra="allow", validate_assignment=True):
         for key, value in self.improved_dict().items():
             if isinstance(value, dict):
                 value = value['value']
-            # if hasattr(sql, key):
-            #     try:
             sql.set_attribute(key, value)
-            #     except AttributeError:
-            #         continue
-            # else:
-            #     sql.misc_info[key] = value
-        print(sql.__dict__)
+        return sql

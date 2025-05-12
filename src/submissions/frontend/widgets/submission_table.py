@@ -5,7 +5,7 @@ import logging
 import sys
 from pprint import pformat
 from PyQt6.QtWidgets import QTableView, QMenu, QTreeView, QStyledItemDelegate, QStyle, QStyleOptionViewItem, \
-    QHeaderView, QAbstractItemView, QWidget
+    QHeaderView, QAbstractItemView, QWidget, QTreeWidgetItemIterator
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlot, QModelIndex
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor
 from backend.db.models import BasicSubmission, ClientSubmission
@@ -250,7 +250,7 @@ class SubmissionsTree(QTreeView):
     """
     def __init__(self, model, parent=None):
         super(SubmissionsTree, self).__init__(parent)
-        self.total_count = 1
+        self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         self.setIndentation(0)
         self.setExpandsOnDoubleClick(False)
         self.clicked.connect(self.on_clicked)
@@ -277,6 +277,7 @@ class SubmissionsTree(QTreeView):
         """
         sets data in model
         """
+        self.clear()
         # self.data = ClientSubmission.submissions_to_df(page=page, page_size=page_size)
         self.data = [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
         logger.debug(pformat(self.data))
@@ -286,6 +287,12 @@ class SubmissionsTree(QTreeView):
             group_item = self.model.add_group(group_str)
             for run in submission['runs']:
                 self.model.append_element_to_group(group_item=group_item, element=run)
+
+
+    def clear(self):
+        if self.model != None:
+            # self.model.clear()       # works
+            self.model.setRowCount(0)  # works
 
     def show_details(self, sel: QModelIndex):
         id = self.selectionModel().currentIndex()
@@ -356,9 +363,7 @@ class ClientRunModel(QStandardItemModel):
                 continue
             if not key:
                 continue
-            logger.debug(f"Looking for {key} in column {i}")
             value = str(element[key])
-            logger.debug(f"Got value: {value}")
             item = QStandardItem(value)
             item.setBackground(QColor("#CFE2F3"))
             item.setEditable(False)

@@ -785,12 +785,13 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
 
     def __init__(self, parent: QWidget, submission: PydSubmission, disable: list | None = None) -> None:
         super().__init__(parent, submission=submission, disable=disable)
-        save_btn = QPushButton("Save")
-        start_run_btn = QPushButton("Save && Add Run")
-        self.layout.addWidget(save_btn)
+        self.disabler.setHidden(True)
+        # save_btn = QPushButton("Save")
+        start_run_btn = QPushButton("Save")
+        # self.layout.addWidget(save_btn)
         self.layout.addWidget(start_run_btn)
         start_run_btn.clicked.connect(self.create_new_submission)
-        del self.disabler
+
 
     def parse_form(self) -> Report:
         """
@@ -834,5 +835,10 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
     def create_new_submission(self, *args) -> Report:
         self.parse_form()
         sql = self.pyd.to_sql()
+        logger.debug(sql.__dict__)
+        sql.save()
+        self.app.table_widget.sub_wid.set_data()
+        self.setParent(None)
+
 
 
