@@ -199,7 +199,9 @@ class Control(BaseClass):
             start_date = date.today() - timedelta(days=90)
         if start_date is not None:
             start_date = cls.rectify_query_date(start_date)
+            logger.debug(f"Using query start date: {start_date}")
             end_date = cls.rectify_query_date(end_date, eod=True)
+            logger.debug(f"Using query end date: {end_date}")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         match name:
             case str():
@@ -530,8 +532,11 @@ class IridaControl(Control):
         except AttributeError:
             consolidate = False
         report = Report()
+        logger.debug(pformat(chart_settings))
         controls = cls.query(subtype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
+        with open("controls_queried.txt", "w") as f:
+            f.write(pformat(controls))
         if not controls:
             report.add_result(Result(status="Critical", msg="No controls found in given date range."))
             return report, None
@@ -540,17 +545,19 @@ class IridaControl(Control):
                                         consolidate=consolidate) for
                 control in controls]
         # NOTE: flatten data to one dimensional list
-        # data = [item for sublist in data for item in sublist]
         data = flatten_list(data)
+        # NOTE: April 24, 30 not in this list
         if not data:
             report.add_result(Result(status="Critical", msg="No data found for controls in given date range."))
             return report, None
+        # NOTE: April 24, 30 not in this df
         df = cls.convert_data_list_to_df(input_df=data, sub_mode=chart_settings['sub_mode'])
         if chart_settings['sub_mode'] is None:
             title = chart_settings['sub_mode']
         else:
             title = f"{chart_settings['mode']} - {chart_settings['sub_mode']}"
         # NOTE: send dataframe to chart maker
+        # NOTE: April 24, 30 not in this df
         df, modes = cls.prep_df(ctx=ctx, df=df)
         fig = IridaFigure(df=df, ytitle=title, modes=modes, parent=parent,
                           settings=chart_settings)

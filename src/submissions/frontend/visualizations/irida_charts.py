@@ -52,6 +52,7 @@ class IridaFigure(CustomFigure):
                         color_discrete_sequence = ['red']
                     case _:
                         color_discrete_sequence = ['blue', 'red']
+            # NOTE April 24th and 30 not in this df.
             bar = px.bar(df,
                          x="submitted_date",
                          y=mode,

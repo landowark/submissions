@@ -1575,6 +1575,7 @@ class BacterialCulture(BasicSubmission):
     # def get_provisional_controls(self, controls_only: bool = True):
     def get_provisional_controls(self, include: List[str] = []):
         # NOTE To ensure Samples are done last.
+        # logger.debug(f"Getting contols for {self.rsl_plate_num}")
         include = sorted(include)
         # logger.debug(include)
         pos_str = "(ATCC)|(MCS)"
@@ -1586,6 +1587,7 @@ class BacterialCulture(BasicSubmission):
             match item:
                 case "Positive":
                     if self.controls:
+                        # logger.debug(f"{self.rsl_plate_num} controls: {[(item, item.sample) for item in self.controls]}")
                         provs = (control.sample for control in self.controls if control.is_positive_control)
                     else:
                         provs = (sample for sample in self.samples if bool(pos_regex.match(sample.submitter_id)))
@@ -1596,6 +1598,7 @@ class BacterialCulture(BasicSubmission):
                         provs = (sample for sample in self.samples if bool(neg_regex.match(sample.submitter_id)))
                 case _:
                     provs = (sample for sample in self.samples if not sample.control and sample not in output)
+            # logger.debug(f"Provisional controls: {provs}")
             for prov in provs:
                 # logger.debug(f"Prov: {prov}")
                 prov.submission = self.rsl_plate_num
