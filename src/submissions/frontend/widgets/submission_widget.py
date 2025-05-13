@@ -1,5 +1,5 @@
 """
-Contains all submission related frontend functions
+Contains all run related frontend functions
 """
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
@@ -10,11 +10,11 @@ from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.excel.parsers import SheetParser, InfoParserV2
+from backend.excel import SheetParser, InfoParser
 from backend.validators import PydSubmission, PydReagent
 from backend.db import (
     Organization, SubmissionType, Reagent,
-    ReagentRole, KitTypeReagentRoleAssociation, BasicSubmission
+    ReagentRole, KitTypeReagentRoleAssociation, BasicRun
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
@@ -93,7 +93,7 @@ class SubmissionFormContainer(QWidget):
     @report_result
     def import_submission_function(self, fname: Path | None = None) -> Report:
         """
-        Import a new submission to the app window
+        Import a new run to the app window
 
         Args:
             obj (QMainWindow): original app window
@@ -122,12 +122,12 @@ class SubmissionFormContainer(QWidget):
         # NOTE: create sheetparser using excel sheet and context from gui
         try:
             # self.prsr = SheetParser(filepath=fname)
-            self.parser = InfoParserV2(filepath=fname)
+            self.parser = InfoParser(filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
         except AttributeError:
-            self.parser = InfoParserV2(filepath=fname)
+            self.parser = InfoParser(filepath=fname)
         self.pyd = self.parser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pyd.samples)}")
         checker = SampleChecker(self, "Sample Checker", self.pyd)
@@ -150,7 +150,7 @@ class SubmissionFormContainer(QWidget):
             instance (Reagent | None): Blank reagent instance to be edited and then added.
 
         Returns:
-            models.Reagent: the constructed reagent object to add to submission
+            models.Reagent: the constructed reagent object to add to run
         """
         report = Report()
         if not instance:
@@ -178,7 +178,7 @@ class SubmissionFormWidget(QWidget):
         self.missing_info = []
         self.submission_type = SubmissionType.query(name=self.pyd.submission_type['value'])
         basic_submission_class = self.submission_type.submission_class
-        logger.debug(f"Basic submission class: {basic_submission_class}")
+        logger.debug(f"Basic run class: {basic_submission_class}")
         defaults = basic_submission_class.get_default_info("form_recover", "form_ignore", submission_type=self.pyd.submission_type['value'])
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
@@ -202,7 +202,7 @@ class SubmissionFormWidget(QWidget):
                     value = dict(value=None, missing=True)
             logger.debug(f"Pydantic value: {value}")
             add_widget = self.create_widget(key=k, value=value, submission_type=self.submission_type,
-                                            sub_obj=basic_submission_class, disable=check)
+                                            run_object=basic_submission_class, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
             if k in self.__class__.update_reagent_fields:
@@ -223,7 +223,7 @@ class SubmissionFormWidget(QWidget):
             reagent.flip_check(self.disabler.checkbox.isChecked())
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
-                      extraction_kit: str | None = None, sub_obj: BasicSubmission | None = None,
+                      extraction_kit: str | None = None, run_object: BasicRun | None = None,
                       disable: bool = False) -> "self.InfoItem":
         """
         Make an InfoItem widget to hold a field
@@ -248,7 +248,7 @@ class SubmissionFormWidget(QWidget):
                         widget = None
                 case _:
                     widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
-                                           sub_obj=sub_obj)
+                                           run_object=run_object)
             if disable:
                 widget.input.setEnabled(False)
                 widget.input.setToolTip("Widget disabled to protect database integrity.")
@@ -373,14 +373,14 @@ class SubmissionFormWidget(QWidget):
                 return report
             case _:
                 pass
-        # NOTE: add reagents to submission object
+        # NOTE: add reagents to run object
         if base_submission is None:
             return
         for reagent in base_submission.reagents:
             reagent.update_last_used(kit=base_submission.extraction_kit)
         save_output = base_submission.save()
         # NOTE: update summary sheet
-        self.app.table_widget.sub_wid.setData()
+        self.app.table_widget.sub_wid.set_data()
         # NOTE: reset form
         try:
             check = save_output.results == []
@@ -393,7 +393,7 @@ class SubmissionFormWidget(QWidget):
 
     def export_csv_function(self, fname: Path | None = None):
         """
-        Save the submission's csv file.
+        Save the run's csv file.
 
         Args:
             fname (Path | None, optional): Input filename. Defaults to None.
@@ -405,7 +405,7 @@ class SubmissionFormWidget(QWidget):
         except PermissionError:
             logger.warning(f"Could not get permissions to {fname}. Possibly the request was cancelled.")
         except AttributeError:
-            logger.error(f"No csv file found in the submission at this point.")
+            logger.error(f"No csv file found in the run at this point.")
 
     def parse_form(self) -> Report:
         """
@@ -446,14 +446,14 @@ class SubmissionFormWidget(QWidget):
     class InfoItem(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
-                     sub_obj: BasicSubmission | None = None) -> None:
+                     run_object: BasicRun | None = None) -> None:
             super().__init__(parent)
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             layout = QVBoxLayout()
             self.label = self.ParsedQLabel(key=key, value=value)
             self.input: QWidget = self.set_widget(parent=parent, key=key, value=value, submission_type=submission_type,
-                                                  sub_obj=sub_obj)
+                                                  sub_obj=run_object)
             self.setObjectName(key)
             try:
                 self.missing: bool = value['missing']
@@ -492,7 +492,7 @@ class SubmissionFormWidget(QWidget):
 
         def set_widget(self, parent: QWidget, key: str, value: dict,
                        submission_type: str | SubmissionType | None = None,
-                       sub_obj: BasicSubmission | None = None) -> QWidget:
+                       sub_obj: BasicRun | None = None) -> QWidget:
             """
             Creates form widget
 
@@ -568,7 +568,7 @@ class SubmissionFormWidget(QWidget):
                     except ValueError:
                         categories.insert(0, categories.pop(categories.index(submission_type)))
                     add_widget.addItems(categories)
-                    add_widget.setToolTip("Enter submission category or select from list.")
+                    add_widget.setToolTip("Enter run category or select from list.")
                 case _:
                     if key in sub_obj.timestamps:
                         add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
@@ -692,7 +692,7 @@ class SubmissionFormWidget(QWidget):
                     wanted_reagent = self.parent.parent().add_reagent(instance=wanted_reagent)
                     return wanted_reagent, report
                 else:
-                    # NOTE: In this case we will have an empty reagent and the submission will fail kit integrity check
+                    # NOTE: In this case we will have an empty reagent and the run will fail kit integrity check
                     return None, report
             else:
                 # NOTE: Since this now gets passed in directly from the parser -> pyd -> form and the parser gets the name from the db, it should no longer be necessary to query the db with reagent/kit, but with rt name directly.
@@ -801,7 +801,7 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             Report: Report on status of parse.
         """
         report = Report()
-        logger.info(f"Hello from client submission form parser!")
+        logger.info(f"Hello from client run form parser!")
         info = {}
         reagents = []
         for widget in self.findChildren(QWidget):

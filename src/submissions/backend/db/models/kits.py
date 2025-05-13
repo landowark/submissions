@@ -17,7 +17,7 @@ from tools import check_authorization, setup_lookup, Report, Result, check_regex
 from typing import List, Literal, Generator, Any, Tuple
 from pandas import ExcelFile
 from pathlib import Path
-from . import Base, BaseClass, Organization, LogMixin
+from . import Base, BaseClass, Organization, LogMixin, ProcedureType
 from io import BytesIO
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -94,10 +94,10 @@ equipment_tips = Table(
     extend_existing=True
 )
 
-kittypes_submissions = Table(
-    "_kittypes_submissions",
+kittypes_runs = Table(
+    "_kittypes_runs",
     Base.metadata,
-    Column("_basicsubmission_id", INTEGER, ForeignKey("_basicsubmission.id")),
+    Column("_basicrun_id", INTEGER, ForeignKey("_basicrun.id")),
     Column("kittype_id", INTEGER, ForeignKey("_kittype.id")),
     extend_existing=True
 )
@@ -105,15 +105,15 @@ kittypes_submissions = Table(
 
 class KitType(BaseClass):
     """
-    Base of kits used in submission processing
+    Base of kits used in run processing
     """
 
     omni_sort = BaseClass.omni_sort + ["kit_submissiontype_associations", "kit_reagentrole_associations", "processes"]
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of kit
-    submissions = relationship("BasicSubmission", back_populates="kittypes",
-                               secondary=kittypes_submissions)  #: submissions this kit was used for
+    runs = relationship("BasicRun", back_populates="kittypes",
+                               secondary=kittypes_runs)  #: runs this kit was used for
     processes = relationship("Process", back_populates="kit_types",
                              secondary=kittypes_processes)  #: equipment processes used by this kit
 
@@ -204,7 +204,7 @@ class KitType(BaseClass):
         # logger.debug(f"Submission type: {submission_type}, Kit: {self}")
         assocs = [item for item in self.kit_reagentrole_associations if item.submission_type == submission_type]
         # logger.debug(f"Associations: {assocs}")
-        # NOTE: rescue with submission type's default kit.
+        # NOTE: rescue with run type's default kit.
         if not assocs:
             logger.error(
                 f"No associations found with {self}. Attempting rescue with default kit: {submission_type.default_kit}")
@@ -213,7 +213,7 @@ class KitType(BaseClass):
                 from frontend.widgets.pop_ups import ObjectSelector
                 dlg = ObjectSelector(
                     title="Select Kit",
-                    message="Could not find reagents for this submission type/kit type combo.\nSelect new kit.",
+                    message="Could not find reagents for this run type/kit type combo.\nSelect new kit.",
                     obj_type=self.__class__,
                     values=[kit.name for kit in submission_type.kit_types]
                 )
@@ -378,7 +378,7 @@ class KitType(BaseClass):
     #         if not new_role:
     #             new_role = EquipmentRole(name=role['role'])
     #             for equipment in Equipment.assign_equipment(equipment_role=new_role):
-    #                 new_role.instances.append(equipment)
+    #                 new_role.controls.append(equipment)
     #         ster_assoc = SubmissionTypeEquipmentRoleAssociation(submission_type=submission_type,
     #                                                             equipment_role=new_role)
     #         try:
@@ -425,7 +425,7 @@ class ReagentRole(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of role reagent plays
     instances = relationship("Reagent", back_populates="role",
-                             secondary=reagentroles_reagents)  #: concrete instances of this reagent type
+                             secondary=reagentroles_reagents)  #: concrete controls of this reagent type
     eol_ext = Column(Interval())  #: extension of life interval
 
     reagentrole_kit_associations = relationship(
@@ -548,7 +548,7 @@ class Reagent(BaseClass, LogMixin):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    role = relationship("ReagentRole", back_populates="instances",
+    role = relationship("ReagentRole", back_populates="controls",
                         secondary=reagentroles_reagents)  #: joined parent reagent type
     role_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete='SET NULL',
                                          name="fk_reagent_role_id"))  #: id of parent reagent type
@@ -557,13 +557,13 @@ class Reagent(BaseClass, LogMixin):
     expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
 
     reagent_submission_associations = relationship(
-        "SubmissionReagentAssociation",
+        "RunReagentAssociation",
         back_populates="reagent",
         cascade="all, delete-orphan",
     )  #: Relation to SubmissionSampleAssociation
 
-    submissions = association_proxy("reagent_submission_associations", "submission",
-                                    creator=lambda sub: SubmissionReagentAssociation(
+    submissions = association_proxy("reagent_submission_associations", "run",
+                                    creator=lambda sub: RunReagentAssociation(
                                         submission=sub))  #: Association proxy to SubmissionSampleAssociation.samples
 
     def __repr__(self):
@@ -845,10 +845,10 @@ class SubmissionType(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(128), unique=True)  #: name of submission type
+    name = Column(String(128), unique=True)  #: name of run type
     info_map = Column(JSON)  #: Where parsable information is found in the excel workbook corresponding to this type.
-    defaults = Column(JSON)  #: Basic information about this submission type
-    instances = relationship("ClientSubmission", back_populates="submission_type")  #: Concrete instances of this type.
+    defaults = Column(JSON)  #: Basic information about this run type
+    clientsubmissions = relationship("ClientSubmission", back_populates="submission_type")  #: Concrete controls of this type.
     template_file = Column(BLOB)  #: Blank form for this type stored as binary.
     processes = relationship("Process", back_populates="submission_types",
                              secondary=submissiontypes_processes)  #: Relation to equipment processes used for this type.
@@ -1107,7 +1107,7 @@ class SubmissionType(BaseClass):
 
     @classproperty
     def omni_removes(cls):
-        return super().omni_removes + ["defaults", "instances"]
+        return super().omni_removes + ["defaults", "controls"]
 
     @classproperty
     def basic_template(cls) -> bytes:
@@ -1243,15 +1243,15 @@ class SubmissionType(BaseClass):
         return list(set([item for items in relevant for item in items if item is not None]))
 
     @property
-    def submission_class(self) -> "BasicSubmission":
+    def submission_class(self) -> "BasicRun":
         """
-        Gets submission class associated with this submission type.
+        Gets run class associated with this run type.
 
         Returns:
-            BasicSubmission: Submission class
+            BasicRun: Submission class
         """
-        from .submissions import BasicSubmission
-        return BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.name)
+        from .submissions import BasicRun
+        return BasicRun.find_polymorphic_subclass(polymorphic_identity=self.name)
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[SubmissionType, bool]:
@@ -1264,7 +1264,7 @@ class SubmissionType(BaseClass):
             new = True
         for k, v in sanitized_kwargs.items():
             setattr(instance, k, v)
-        logger.info(f"Instance from submissiontype query or create: {instance}")
+        logger.info(f"Instance from proceduretype query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -1276,10 +1276,10 @@ class SubmissionType(BaseClass):
               **kwargs
               ) -> SubmissionType | List[SubmissionType]:
         """
-        Lookup submission type in the database by a number of parameters
+        Lookup run type in the database by a number of parameters
 
         Args:
-            name (str | None, optional): Name of submission type. Defaults to None.
+            name (str | None, optional): Name of run type. Defaults to None.
             key (str | None, optional): A key present in the info-map to lookup. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
@@ -1319,7 +1319,7 @@ class SubmissionType(BaseClass):
     @check_authorization
     def save(self):
         """
-        Adds this instances to the database and commits.
+        Adds this controls to the database and commits.
         """
         super().save()
 
@@ -1399,29 +1399,29 @@ class SubmissionType(BaseClass):
         return dicto
 
 
-class SubmissionTypeKitTypeAssociation(BaseClass):
+class ProcedureTypeKitTypeAssociation(BaseClass):
     """
-    Abstract of relationship between kits and their submission type.
+    Abstract of relationship between kits and their run type.
     """
 
-    omni_removes = BaseClass.omni_removes + ["submission_types_id", "kits_id"]
-    omni_sort = ["submission_type", "kit_type"]
+    omni_removes = BaseClass.omni_removes + ["procedure_type_id", "procedure_id"]
+    omni_sort = ["proceduretype", "kittype"]
     level = 2
 
-    submission_types_id = Column(INTEGER, ForeignKey("_submissiontype.id"),
-                                 primary_key=True)  #: id of joined submission type
-    kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True)  #: id of joined kit
+    proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
+                                 primary_key=True)  #: id of joined run type
+    kittype_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True)  #: id of joined kit
     mutable_cost_column = Column(
         FLOAT(2))  #: dollar amount per 96 well plate that can change with number of columns (reagents, tips, etc)
     mutable_cost_sample = Column(
         FLOAT(2))  #: dollar amount that can change with number of samples (reagents, tips, etc)
     constant_cost = Column(FLOAT(2))  #: dollar amount per plate that will remain constant (plates, man hours, etc)
 
-    kit_type = relationship(KitType, back_populates="kit_submissiontype_associations")  #: joined kittype
+    kittype = relationship(KitType, back_populates="kittype_proceduretype_associations")  #: joined kittype
 
     # reference to the "SubmissionType" object
-    submission_type = relationship(SubmissionType,
-                                   back_populates="submissiontype_kit_associations")  #: joined submission type
+    proceduretype = relationship(ProcedureType,
+                                   back_populates="proceduretype_kittype_associations")  #: joined run type
 
     def __init__(self, kit_type=None, submission_type=None,
                  mutable_cost_column: int = 0.00, mutable_cost_sample: int = 0.00, constant_cost: int = 0.00):
@@ -1495,7 +1495,7 @@ class SubmissionTypeKitTypeAssociation(BaseClass):
         Lookup SubmissionTypeKitTypeAssociations of interest.
 
         Args:
-            submission_type (SubmissionType | str | int | None, optional): Identifier of submission type. Defaults to None.
+            submission_type (SubmissionType | str | int | None, optional): Identifier of run type. Defaults to None.
             kit_type (KitType | str | int | None, optional): Identifier of kit type. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
@@ -1572,7 +1572,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
                               primary_key=True)  #: id of associated reagent type
     kits_id = Column(INTEGER, ForeignKey("_kittype.id"), primary_key=True)  #: id of associated reagent type
     submission_type_id = Column(INTEGER, ForeignKey("_submissiontype.id"), primary_key=True)
-    uses = Column(JSON)  #: map to location on excel sheets of different submission types
+    uses = Column(JSON)  #: map to location on excel sheets of different run types
     required = Column(INTEGER)  #: whether the reagent type is required for the kit (Boolean 1 or 0)
     last_used = Column(String(32))  #: last used lot number of this type of reagent
 
@@ -1677,7 +1677,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
                         v = KitType.query(name=v)
                     else:
                         v = v.instance_object
-                case "submissiontype" | "submission_type":
+                case "proceduretype" | "submission_type":
                     k = "submission_type"
                     if isinstance(v, str):
                         v = SubmissionType.query(name=v)
@@ -1742,18 +1742,6 @@ class KitTypeReagentRoleAssociation(BaseClass):
             limit = 1
         return cls.execute_query(query=query, limit=limit)
 
-    # def to_export_dict(self) -> dict:
-    #     """
-    #     Creates a dictionary of relevant values in this object.
-    #
-    #     Returns:
-    #         dict: dictionary of Association and related reagent role
-    #     """
-    #     base_dict = dict(required=self.required)
-    #     for k, v in self.reagent_role.to_export_dict().items():
-    #         base_dict[k] = v
-    #     return base_dict
-
     def get_all_relevant_reagents(self) -> Generator[Reagent, None, None]:
         """
         Creates a generator that will resolve in to a list filling the role associated with this object.
@@ -1761,7 +1749,7 @@ class KitTypeReagentRoleAssociation(BaseClass):
         Returns:
             Generator: Generates of reagents.
         """
-        reagents = self.reagent_role.instances
+        reagents = self.reagent_role.controls
         try:
             regex = self.uses['exclude_regex']
         except KeyError:
@@ -1821,33 +1809,33 @@ class KitTypeReagentRoleAssociation(BaseClass):
         )
 
 
-class SubmissionReagentAssociation(BaseClass):
+class ProcedureReagentAssociation(BaseClass):
     """
-    table containing submission/reagent associations
+    table containing run/reagent associations
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
     skip_on_edit = True
 
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated reagent
-    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated run
     comments = Column(String(1024))  #: Comments about reagents
 
-    submission = relationship("BasicSubmission",
-                              back_populates="submission_reagent_associations")  #: associated submission
+    procedure = relationship("Procedure",
+                              back_populates="procedure_reagent_associations")  #: associated run
 
-    reagent = relationship(Reagent, back_populates="reagent_submission_associations")  #: associated reagent
+    reagent = relationship(Reagent, back_populates="reagent_procedure_associations")  #: associated reagent
 
     def __repr__(self) -> str:
         """
         Returns:
-            str: Representation of this SubmissionReagentAssociation
+            str: Representation of this RunReagentAssociation
         """
         try:
-            return f"<SubmissionReagentAssociation({self.submission.rsl_plate_num} & {self.reagent.lot})>"
+            return f"<RunReagentAssociation({self.procedure.run.rsl_plate_num} & {self.reagent.lot})>"
         except AttributeError:
-            logger.error(f"Reagent {self.reagent.lot} submission association {self.reagent_id} has no submissions!")
-            return f"<SubmissionReagentAssociation(Unknown Submission & {self.reagent.lot})>"
+            logger.error(f"Reagent {self.reagent.lot} run association {self.reagent_id} has no submissions!")
+            return f"<RunReagentAssociation(Unknown Submission & {self.reagent.lot})>"
 
     def __init__(self, reagent=None, submission=None):
         if isinstance(reagent, list):
@@ -1860,21 +1848,21 @@ class SubmissionReagentAssociation(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
-              submission: "BasicSubmission" | str | int | None = None,
+              run: "BasicRun" | str | int | None = None,
               reagent: Reagent | str | None = None,
-              limit: int = 0) -> SubmissionReagentAssociation | List[SubmissionReagentAssociation]:
+              limit: int = 0) -> RunReagentAssociation | List[RunReagentAssociation]:
         """
         Lookup SubmissionReagentAssociations of interest.
 
         Args:
-            submission (BasicSubmission&quot; | str | int | None, optional): Identifier of joined submission. Defaults to None.
+            run (BasicRun | str | int | None, optional): Identifier of joined run. Defaults to None.
             reagent (Reagent | str | None, optional): Identifier of joined reagent. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-            SubmissionReagentAssociation|List[SubmissionReagentAssociation]: SubmissionReagentAssociation(s) of interest
+            RunReagentAssociation|List[RunReagentAssociation]: SubmissionReagentAssociation(s) of interest
         """
-        from . import BasicSubmission
+        from . import BasicRun
         query: Query = cls.__database_session__.query(cls)
         match reagent:
             case Reagent() | str():
@@ -1883,27 +1871,27 @@ class SubmissionReagentAssociation(BaseClass):
                 query = query.filter(cls.reagent == reagent)
             case _:
                 pass
-        match submission:
-            case BasicSubmission() | str():
-                if isinstance(submission, str):
-                    submission = BasicSubmission.query(rsl_plate_num=submission)
-                query = query.filter(cls.submission == submission)
+        match run:
+            case BasicRun() | str():
+                if isinstance(run, str):
+                    run = BasicRun.query(rsl_plate_num=run)
+                query = query.filter(cls.run == run)
             case int():
-                submission = BasicSubmission.query(id=submission)
-                query = query.join(BasicSubmission).filter(BasicSubmission.id == submission)
+                run = BasicRun.query(id=run)
+                query = query.join(BasicRun).filter(BasicRun.id == run)
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
 
     def to_sub_dict(self, extraction_kit) -> dict:
         """
-        Converts this SubmissionReagentAssociation (and associated Reagent) to dict
+        Converts this RunReagentAssociation (and associated Reagent) to dict
 
         Args:
             extraction_kit (_type_): Extraction kit of interest
 
         Returns:
-            dict: This SubmissionReagentAssociation as dict
+            dict: This RunReagentAssociation as dict
         """
         output = self.reagent.to_sub_dict(extraction_kit)
         output['comments'] = self.comments
@@ -1923,20 +1911,20 @@ class Equipment(BaseClass, LogMixin):
     name = Column(String(64))  #: equipment name
     nickname = Column(String(64))  #: equipment nickname
     asset_number = Column(String(16))  #: Given asset number (corpo nickname if you will)
-    roles = relationship("EquipmentRole", back_populates="instances",
+    roles = relationship("EquipmentRole", back_populates="controls",
                          secondary=equipmentroles_equipment)  #: relation to EquipmentRoles
     processes = relationship("Process", back_populates="equipment",
                              secondary=equipment_processes)  #: relation to Processes
     tips = relationship("Tips", back_populates="equipment",
                         secondary=equipment_tips)  #: relation to Processes
     equipment_submission_associations = relationship(
-        "SubmissionEquipmentAssociation",
+        "RunEquipmentAssociation",
         back_populates="equipment",
         cascade="all, delete-orphan",
-    )  #: Association with BasicSubmission
+    )  #: Association with BasicRun
 
     submissions = association_proxy("equipment_submission_associations",
-                                    "submission")  #: proxy to equipment_submission_associations.submission
+                                    "run")  #: proxy to equipment_submission_associations.run
 
     def to_dict(self, processes: bool = False) -> dict:
         """
@@ -2135,7 +2123,7 @@ class EquipmentRole(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: Role id, primary key
     name = Column(String(32))  #: Common name
     instances = relationship("Equipment", back_populates="roles",
-                             secondary=equipmentroles_equipment)  #: Concrete instances (Equipment) of role
+                             secondary=equipmentroles_equipment)  #: Concrete controls (Equipment) of role
     processes = relationship("Process", back_populates='equipment_roles',
                              secondary=equipmentroles_processes)  #: Associated Processes
 
@@ -2253,13 +2241,13 @@ class EquipmentRole(BaseClass):
         return OmniEquipmentRole(instance_object=self, name=self.name)
 
 
-class SubmissionEquipmentAssociation(BaseClass):
+class RunEquipmentAssociation(BaseClass):
     """
-    Abstract association between BasicSubmission and Equipment
+    Abstract association between BasicRun and Equipment
     """
 
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
-    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
+    run_id = Column(INTEGER, ForeignKey("_basicrun.id"), primary_key=True)  #: id of associated run
     role = Column(String(64), primary_key=True)  #: name of the role the equipment fills
     process_id = Column(INTEGER, ForeignKey("_process.id", ondelete="SET NULL",
                                             name="SEA_Process_id"))  #: Foreign key of process id
@@ -2267,16 +2255,16 @@ class SubmissionEquipmentAssociation(BaseClass):
     end_time = Column(TIMESTAMP)  #: end time of equipment use
     comments = Column(String(1024))  #: comments about equipment
 
-    submission = relationship("BasicSubmission",
-                              back_populates="submission_equipment_associations")  #: associated submission
+    run = relationship("BasicRun",
+                              back_populates="run_equipment_associations")  #: associated run
 
-    equipment = relationship(Equipment, back_populates="equipment_submission_associations")  #: associated equipment
+    equipment = relationship(Equipment, back_populates="equipment_run_associations")  #: associated equipment
 
     def __repr__(self) -> str:
-        return f"<SubmissionEquipmentAssociation({self.submission.rsl_plate_num} & {self.equipment.name})>"
+        return f"<RunEquipmentAssociation({self.run.rsl_plate_num} & {self.equipment.name})>"
 
-    def __init__(self, submission, equipment, role: str = "None"):
-        self.submission = submission
+    def __init__(self, run, equipment, role: str = "None"):
+        self.run = run
         self.equipment = equipment
         self.role = role
 
@@ -2286,10 +2274,10 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     def to_sub_dict(self) -> dict:
         """
-        This SubmissionEquipmentAssociation as a dictionary
+        This RunEquipmentAssociation as a dictionary
 
         Returns:
-            dict: This SubmissionEquipmentAssociation as a dictionary
+            dict: This RunEquipmentAssociation as a dictionary
         """
         try:
             process = self.process.name
@@ -2311,12 +2299,12 @@ class SubmissionEquipmentAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, equipment_id: int | None = None, submission_id: int | None = None, role: str | None = None,
+    def query(cls, equipment_id: int | None = None, run_id: int | None = None, role: str | None = None,
               limit: int = 0, **kwargs) \
             -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.equipment_id == equipment_id)
-        query = query.filter(cls.submission_id == submission_id)
+        query = query.filter(cls.run_id == run_id)
         if role is not None:
             query = query.filter(cls.role == role)
         return cls.execute_query(query=query, limit=limit, **kwargs)
@@ -2328,13 +2316,13 @@ class SubmissionTypeEquipmentRoleAssociation(BaseClass):
     """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     submissiontype_id = Column(INTEGER, ForeignKey("_submissiontype.id"),
-                               primary_key=True)  #: id of associated submission
-    uses = Column(JSON)  #: locations of equipment on the submission type excel sheet.
+                               primary_key=True)  #: id of associated run
+    uses = Column(JSON)  #: locations of equipment on the run type excel sheet.
     static = Column(INTEGER,
                     default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
 
     submission_type = relationship(SubmissionType,
-                                   back_populates="submissiontype_equipmentrole_associations")  #: associated submission
+                                   back_populates="submissiontype_equipmentrole_associations")  #: associated run
 
     equipment_role = relationship(EquipmentRole,
                                   back_populates="equipmentrole_submissiontype_associations")  #: associated equipment
@@ -2386,8 +2374,8 @@ class Process(BaseClass):
                              secondary=equipment_processes)  #: relation to Equipment
     equipment_roles = relationship("EquipmentRole", back_populates='processes',
                                    secondary=equipmentroles_processes)  #: relation to EquipmentRoles
-    submissions = relationship("SubmissionEquipmentAssociation",
-                               backref='process')  #: relation to SubmissionEquipmentAssociation
+    submissions = relationship("RunEquipmentAssociation",
+                               backref='process')  #: relation to RunEquipmentAssociation
     kit_types = relationship("KitType", back_populates='processes',
                              secondary=kittypes_processes)  #: relation to KitType
     tip_roles = relationship("TipRole", back_populates='processes',
@@ -2545,14 +2533,14 @@ class TipRole(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of reagent type
     instances = relationship("Tips", back_populates="role",
-                             secondary=tiproles_tips)  #: concrete instances of this reagent type
+                             secondary=tiproles_tips)  #: concrete controls of this reagent type
     processes = relationship("Process", back_populates="tip_roles", secondary=process_tiprole)
 
     tiprole_submissiontype_associations = relationship(
         "SubmissionTypeTipRoleAssociation",
         back_populates="tip_role",
         cascade="all, delete-orphan"
-    )  #: associated submission
+    )  #: associated run
 
     submission_types = association_proxy("tiprole_submissiontype_associations", "submission_type")
 
@@ -2608,21 +2596,21 @@ class Tips(BaseClass, LogMixin):
     A concrete instance of tips.
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
-    role = relationship("TipRole", back_populates="instances",
+    role = relationship("TipRole", back_populates="controls",
                         secondary=tiproles_tips)  #: joined parent reagent type
     role_id = Column(INTEGER, ForeignKey("_tiprole.id", ondelete='SET NULL',
                                          name="fk_tip_role_id"))  #: id of parent reagent type
     name = Column(String(64))  #: tip common name
     lot = Column(String(64))  #: lot number of tips
     equipment = relationship("Equipment", back_populates="tips",
-                             secondary=equipment_tips)  #: associated submission
+                             secondary=equipment_tips)  #: associated run
     tips_submission_associations = relationship(
         "SubmissionTipsAssociation",
         back_populates="tips",
         cascade="all, delete-orphan"
-    )  #: associated submission
+    )  #: associated run
 
-    submissions = association_proxy("tips_submission_associations", 'submission')
+    submissions = association_proxy("tips_submission_associations", 'run')
 
     @hybrid_property
     def tiprole(self):
@@ -2728,12 +2716,12 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
    """
     tiprole_id = Column(INTEGER, ForeignKey("_tiprole.id"), primary_key=True)  #: id of associated equipment
     submissiontype_id = Column(INTEGER, ForeignKey("_submissiontype.id"),
-                               primary_key=True)  #: id of associated submission
-    uses = Column(JSON)  #: locations of equipment on the submission type excel sheet.
+                               primary_key=True)  #: id of associated run
+    uses = Column(JSON)  #: locations of equipment on the run type excel sheet.
     static = Column(INTEGER,
                     default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     submission_type = relationship(SubmissionType,
-                                   back_populates="submissiontype_tiprole_associations")  #: associated submission
+                                   back_populates="submissiontype_tiprole_associations")  #: associated run
     tip_role = relationship(TipRole,
                             back_populates="tiprole_submissiontype_associations")  #: associated equipment
 
@@ -2753,16 +2741,16 @@ class SubmissionTypeTipRoleAssociation(BaseClass):
         pass
 
 
-class SubmissionTipsAssociation(BaseClass):
+class RunTipsAssociation(BaseClass):
     """
-    Association between a concrete submission instance and concrete tips
+    Association between a concrete run instance and concrete tips
     """
     tip_id = Column(INTEGER, ForeignKey("_tips.id"), primary_key=True)  #: id of associated equipment
-    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"), primary_key=True)  #: id of associated submission
-    submission = relationship("BasicSubmission",
-                              back_populates="submission_tips_associations")  #: associated submission
+    run_id = Column(INTEGER, ForeignKey("_basicrun.id"), primary_key=True)  #: id of associated run
+    run = relationship("BasicRun",
+                              back_populates="run_tips_associations")  #: associated run
     tips = relationship(Tips,
-                        back_populates="tips_submission_associations")  #: associated equipment
+                        back_populates="tips_run_associations")  #: associated equipment
     role_name = Column(String(32), primary_key=True)  #, ForeignKey("_tiprole.name"))
 
     def to_sub_dict(self) -> dict:
@@ -2776,21 +2764,21 @@ class SubmissionTipsAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, tip_id: int, role: str, submission_id: int | None = None, limit: int = 0, **kwargs) \
+    def query(cls, tip_id: int, role: str, run_id: int | None = None, limit: int = 0, **kwargs) \
             -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         query = query.filter(cls.tip_id == tip_id)
-        if submission_id is not None:
-            query = query.filter(cls.submission_id == submission_id)
+        if run_id is not None:
+            query = query.filter(cls.run_id == run_id)
         query = query.filter(cls.role_name == role)
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @classmethod
-    def query_or_create(cls, tips, submission, role: str, **kwargs):
+    def query_or_create(cls, tips, run, role: str, **kwargs):
         kwargs['limit'] = 1
-        instance = cls.query(tip_id=tips.id, role=role, submission_id=submission.id, **kwargs)
+        instance = cls.query(tip_id=tips.id, role=role, run_id=run.id, **kwargs)
         if instance is None:
-            instance = SubmissionTipsAssociation(submission=submission, tips=tips, role_name=role)
+            instance = cls(run=run, tips=tips, role_name=role)
         return instance
 
     def to_pydantic(self):

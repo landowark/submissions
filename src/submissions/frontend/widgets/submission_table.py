@@ -1,5 +1,5 @@
 """
-Contains widgets specific to the submission summary and submission details.
+Contains widgets specific to the run summary and run details.
 """
 import logging
 import sys
@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QTableView, QMenu, QTreeView, QStyledItemDelegate, Q
     QHeaderView, QAbstractItemView, QWidget, QTreeWidgetItemIterator
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlot, QModelIndex
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor
-from backend.db.models import BasicSubmission, ClientSubmission
+from backend.db.models import BasicRun, ClientSubmission
 from tools import Report, Result, report_result
 from .functions import select_open_file
 
@@ -63,7 +63,7 @@ class pandasModel(QAbstractTableModel):
 
 class SubmissionsSheet(QTableView):
     """
-    presents submission summary to user in tab1
+    presents run summary to user in tab1
     """
 
     def __init__(self, parent) -> None:
@@ -74,20 +74,20 @@ class SubmissionsSheet(QTableView):
             page_size = self.app.page_size
         except AttributeError:
             page_size = 250
-        self.setData(page=1, page_size=page_size)
+        self.set_data(page=1, page_size=page_size)
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
-        self.doubleClicked.connect(lambda x: BasicSubmission.query(id=x.sibling(x.row(), 0).data()).show_details(self))
+        self.doubleClicked.connect(lambda x: BasicRun.query(id=x.sibling(x.row(), 0).data()).show_details(self))
         # NOTE: Have to run native query here because mine just returns results?
-        self.total_count = BasicSubmission.__database_session__.query(BasicSubmission).count()
+        self.total_count = BasicRun.__database_session__.query(BasicRun).count()
 
-    def setData(self, page: int = 1, page_size: int = 250) -> None:
+    def set_data(self, page: int = 1, page_size: int = 250) -> None:
         """
         sets data in model
         """
         # self.data = ClientSubmission.submissions_to_df(page=page, page_size=page_size)
-        self.data = BasicSubmission.submissions_to_df(page=page, page_size=page_size)
+        self.data = BasicRun.submissions_to_df(page=page, page_size=page_size)
         try:
             self.data['Id'] = self.data['Id'].apply(str)
             self.data['Id'] = self.data['Id'].str.zfill(4)
@@ -108,7 +108,7 @@ class SubmissionsSheet(QTableView):
         id = self.selectionModel().currentIndex()
         # NOTE: Convert to data in id column (i.e. column 0)
         id = id.sibling(id.row(), 0).data()
-        submission = BasicSubmission.query(id=id)
+        submission = BasicRun.query(id=id)
         self.menu = QMenu(self)
         self.con_actions = submission.custom_context_events()
         for k in self.con_actions.keys():
@@ -167,8 +167,8 @@ class SubmissionsSheet(QTableView):
             for ii in range(6, len(run)):
                 new_run[f"column{str(ii - 5)}_vol"] = run[ii]
             # NOTE: Lookup imported submissions
-            sub = BasicSubmission.query(rsl_plate_num=new_run['rsl_plate_num'])
-            # NOTE: If no such submission exists, move onto the next run
+            sub = BasicRun.query(rsl_plate_num=new_run['rsl_plate_num'])
+            # NOTE: If no such run exists, move onto the next run
             if sub is None:
                 continue
             try:
@@ -192,7 +192,7 @@ class SubmissionsSheet(QTableView):
 
     def link_pcr_function(self):
         """
-        Link PCR data from run logs to an imported submission
+        Link PCR data from run logs to an imported run
 
         Args:
             obj (QMainWindow): original app window
@@ -215,9 +215,9 @@ class SubmissionsSheet(QTableView):
                 experiment_name=run[4].strip(),
                 end_time=run[5].strip()
             )
-            # NOTE: lookup imported submission
-            sub = BasicSubmission.query(rsl_number=new_run['rsl_plate_num'])
-            # NOTE: if imported submission doesn't exist move on to next run
+            # NOTE: lookup imported run
+            sub = BasicRun.query(rsl_number=new_run['rsl_plate_num'])
+            # NOTE: if imported run doesn't exist move on to next run
             if sub is None:
                 continue
             sub.set_attribute('pcr_info', new_run)
@@ -302,7 +302,7 @@ class SubmissionsTree(QTreeView):
             id = int(id.data())
         except ValueError:
             return
-        BasicSubmission.query(id=id).show_details(self)
+        BasicRun.query(id=id).show_details(self)
 
 
     def link_extractions(self):

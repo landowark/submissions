@@ -5,7 +5,7 @@ import logging, re
 import sys
 from pathlib import Path
 from openpyxl import load_workbook
-from backend.db.models import BasicSubmission, SubmissionType
+from backend.db.models import BasicRun, SubmissionType
 from tools import jinja_template_loading
 from jinja2 import Template
 from dateutil.parser import parse
@@ -25,9 +25,9 @@ class RSLNamer(object):
         self.submission_type = submission_type
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        logger.info(f"got submission type: {self.submission_type}")
+        logger.info(f"got run type: {self.submission_type}")
         if self.submission_type:
-            self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+            self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
                 submission_type=submission_type))
             if not data:
@@ -40,7 +40,7 @@ class RSLNamer(object):
     @classmethod
     def retrieve_submission_type(cls, filename: str | Path) -> str:
         """
-        Gets submission type from excel file properties or sheet names or regex pattern match or user input
+        Gets run type from excel file properties or sheet names or regex pattern match or user input
 
         Args:
             filename (str | Path): filename
@@ -49,12 +49,12 @@ class RSLNamer(object):
             TypeError: Raised if unsupported variable type for filename given.
 
         Returns:
-            str: parsed submission type
+            str: parsed run type
         """
 
         def st_from_path(filepath: Path) -> str:
             """
-            Sub def to get submissiontype from a file path
+            Sub def to get proceduretype from a file path
 
             Args:
                 filepath ():
@@ -83,13 +83,13 @@ class RSLNamer(object):
         def st_from_str(file_name: str) -> str:
             if file_name.startswith("tmp"):
                 return "Bacterial Culture"
-            regex = BasicSubmission.regex
+            regex = BasicRun.regex
             m = regex.search(file_name)
             try:
                 sub_type = m.lastgroup
             except AttributeError as e:
                 sub_type = None
-                logger.critical(f"No submission type found or submission type found!: {e}")
+                logger.critical(f"No run type found or run type found!: {e}")
             return sub_type
 
         match filename:
@@ -107,8 +107,8 @@ class RSLNamer(object):
             if "pytest" in sys.modules:
                 raise ValueError("Submission Type came back as None.")
             from frontend.widgets import ObjectSelector
-            dlg = ObjectSelector(title="Couldn't parse submission type.",
-                                 message="Please select submission type from list below.",
+            dlg = ObjectSelector(title="Couldn't parse run type.",
+                                 message="Please select run type from list below.",
                                  obj_type=SubmissionType)
             if dlg.exec():
                 submission_type = dlg.parse_form()
@@ -118,14 +118,14 @@ class RSLNamer(object):
     @classmethod
     def retrieve_rsl_number(cls, filename: str | Path, regex: re.Pattern | None = None):
         """
-        Uses regex to retrieve the plate number and submission type from an input string
+        Uses regex to retrieve the plate number and run type from an input string
 
         Args:
             regex (str): string to construct pattern
             filename (str): string to be parsed
         """
         if regex is None:
-            regex = BasicSubmission.regex
+            regex = BasicRun.regex
         match filename:
             case Path():
                 m = regex.search(filename.stem)
@@ -145,10 +145,10 @@ class RSLNamer(object):
     @classmethod
     def construct_new_plate_name(cls, data: dict) -> str:
         """
-        Make a brand-new plate name from submission data.
+        Make a brand-new plate name from run data.
 
         Args:
-            data (dict): incoming submission data
+            data (dict): incoming run data
 
         Returns:
             str: Output filename
@@ -170,7 +170,7 @@ class RSLNamer(object):
         if "rsl_plate_num" in data.keys():
             plate_number = data['rsl_plate_num'].split("-")[-1][0]
         else:
-            previous = BasicSubmission.query(start_date=today, end_date=today, submissiontype=data['submission_type'])
+            previous = BasicRun.query(start_date=today, end_date=today, submissiontype=data['submission_type'])
             plate_number = len(previous) + 1
         return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
 
@@ -180,7 +180,7 @@ class RSLNamer(object):
         Make export file name from jinja template. (currently unused)
 
         Args:
-            template (jinja2.Template): Template stored in BasicSubmission
+            template (jinja2.Template): Template stored in BasicRun
 
         Returns:
             str: output file name.

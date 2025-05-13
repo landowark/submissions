@@ -28,12 +28,12 @@ class ConcentrationsChart(CustomFigure):
             self.df = df
         try:
             self.df = self.df[self.df.concentration.notnull()]
-            self.df = self.df.sort_values(['submitted_date', 'submission'], ascending=[True, True]).reset_index(
+            self.df = self.df.sort_values(['submitted_date', 'run'], ascending=[True, True]).reset_index(
                 drop=True)
             self.df = self.df.reset_index().rename(columns={"index": "idx"})
             # logger.debug(f"DF after changes:\n{self.df}")
-            scatter = px.scatter(data_frame=self.df, x='submission', y="concentration",
-                                 hover_data=["name", "submission", "submitted_date", "concentration"],
+            scatter = px.scatter(data_frame=self.df, x='run', y="concentration",
+                                 hover_data=["name", "run", "submitted_date", "concentration"],
                                  color="positive", color_discrete_map={"positive": "red", "negative": "green", "sample":"orange"}
                                  )
         except (ValueError, AttributeError) as e:
@@ -44,11 +44,11 @@ class ConcentrationsChart(CustomFigure):
         for trace in traces:
             self.add_trace(trace)
         try:
-            tickvals = self.df['submission'].tolist()
+            tickvals = self.df['run'].tolist()
         except KeyError:
             tickvals = []
         try:
-            ticklabels = self.df['submission'].tolist()
+            ticklabels = self.df['run'].tolist()
         except KeyError:
             ticklabels = []
         self.update_layout(

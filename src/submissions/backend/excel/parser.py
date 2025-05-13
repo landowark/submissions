@@ -1,5 +1,5 @@
 """
-contains parser objects for pulling values from client generated submission sheets.
+contains parser objects for pulling values from client generated run sheets.
 """
 import logging
 from copy import copy
@@ -45,8 +45,8 @@ class SheetParser(object):
         self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(filename=self.filepath),
                                            missing=True)
         self.submission_type = SubmissionType.query(name=self.sub['submission_type'])
-        self.sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-        # NOTE: grab the info map from the submission type in database
+        self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+        # NOTE: grab the info map from the run type in database
         self.parse_info()
         self.import_kit_validation_check()
         self.parse_reagents()
@@ -60,17 +60,17 @@ class SheetParser(object):
         """
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
         self.info_map = parser.info_map
-        # NOTE: in order to accommodate generic submission types we have to check for the type in the excel sheet and rerun accordingly
+        # NOTE: in order to accommodate generic run types we have to check for the type in the excel sheet and rerun accordingly
         try:
             check = parser.parsed_info['submission_type']['value'] not in [None, "None", "", " "]
         except KeyError as e:
-            logger.error(f"Couldn't check submission type due to KeyError: {e}")
+            logger.error(f"Couldn't check run type due to KeyError: {e}")
             return
         logger.info(
-            f"Checking for updated submission type: {self.submission_type.name} against new: {parser.parsed_info['submission_type']['value']}")
+            f"Checking for updated run type: {self.submission_type.name} against new: {parser.parsed_info['submission_type']['value']}")
         if self.submission_type.name != parser.parsed_info['submission_type']['value']:
             if check:
-                # NOTE: If initial submission type doesn't match parsed submission type, defer to parsed submission type.
+                # NOTE: If initial run type doesn't match parsed run type, defer to parsed run type.
                 self.submission_type = SubmissionType.query(name=parser.parsed_info['submission_type']['value'])
                 logger.info(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
                 self.parse_info()
@@ -145,17 +145,17 @@ class InfoParser(object):
     Object to parse generic info from excel sheet.
     """
 
-    def __init__(self, xl: Workbook, submission_type: str | SubmissionType, sub_object: BasicSubmission | None = None):
+    def __init__(self, xl: Workbook, submission_type: str | SubmissionType, sub_object: BasicRun | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
-            sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
+            submission_type (str | SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            sub_object (BasicRun | None, optional): Submission object holding methods. Defaults to None.
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
-            sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
+            sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
         self.submission_type_obj = submission_type
         self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
         self.sub_object = sub_object
@@ -167,9 +167,9 @@ class InfoParser(object):
         Gets location of basic info from the submission_type object in the database.
 
         Returns:
-            dict: Location map of all info for this submission type
+            dict: Location map of all info for this run type
         """
-        # NOTE: Get the parse_info method from the submission type specified
+        # NOTE: Get the parse_info method from the run type specified
         return self.sub_object.construct_info_map(submission_type=self.submission_type_obj, mode="read")
 
     @property
@@ -232,7 +232,7 @@ class InfoParser(object):
                         dicto[item['name']] = dict(value=value, missing=missing)
                     except (KeyError, IndexError):
                         continue
-        # NOTE: Return after running the parser components held in submission object.
+        # NOTE: Return after running the parser components held in run object.
         return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl, custom_fields=self.info_map['custom'])
 
 
@@ -242,20 +242,20 @@ class ReagentParser(object):
     """
 
     def __init__(self, xl: Workbook, submission_type: str | SubmissionType, extraction_kit: str,
-                 sub_object: BasicSubmission | None = None):
+                 run_object: BasicRun | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str|SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str|SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
             extraction_kit (str): Extraction kit used.
-            sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
+            run_object (BasicRun | None, optional): Submission object holding methods. Defaults to None.
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         self.submission_type_obj = submission_type
-        if not sub_object:
-            sub_object = submission_type.submission_class
-        self.sub_object = sub_object
+        if not run_object:
+            run_object = submission_type.submission_class
+        self.run_object = run_object
         if isinstance(extraction_kit, dict):
             extraction_kit = extraction_kit['value']
         self.kit_object = KitType.query(name=extraction_kit)
@@ -267,7 +267,7 @@ class ReagentParser(object):
         Gets location of kit reagents from database
 
         Args:
-            submission_type (str): Name of submission type.
+            submission_type (str): Name of run type.
 
         Returns:
             dict: locations of reagent info for the kit.
@@ -327,13 +327,13 @@ class SampleParser(object):
     """
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType, sample_map: dict | None = None,
-                 sub_object: BasicSubmission | None = None) -> None:
+                 sub_object: BasicRun | None = None) -> None:
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
             sample_map (dict | None, optional): Locations in database where samples are found. Defaults to None.
-            sub_object (BasicSubmission | None, optional): Submission object holding methods. Defaults to None.
+            sub_object (BasicRun | None, optional): Submission object holding methods. Defaults to None.
         """
         self.samples = []
         self.xl = xl
@@ -343,8 +343,8 @@ class SampleParser(object):
         self.submission_type_obj = submission_type
         if sub_object is None:
             logger.warning(
-                f"Sample parser attempting to fetch submission class with polymorphic identity: {self.submission_type}")
-            sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+                f"Sample parser attempting to fetch run class with polymorphic identity: {self.submission_type}")
+            sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.sub_object = sub_object
         self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
         self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
@@ -352,10 +352,10 @@ class SampleParser(object):
     @property
     def sample_map(self) -> dict:
         """
-        Gets info locations in excel book for submission type.
+        Gets info locations in excel book for run type.
 
         Args:
-            submission_type (str): submission type
+            submission_type (str): run type
 
         Returns:
             dict: Info locations.
@@ -478,7 +478,7 @@ class EquipmentParser(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str | SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -488,7 +488,7 @@ class EquipmentParser(object):
     @property
     def equipment_map(self) -> dict:
         """
-        Gets the map of equipment locations in the submission type's spreadsheet
+        Gets the map of equipment locations in the run type's spreadsheet
 
         Returns:
             List[dict]: List of locations
@@ -556,7 +556,7 @@ class TipParser(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str | SubmissionType): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str | SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -566,7 +566,7 @@ class TipParser(object):
     @property
     def tip_map(self) -> dict:
         """
-        Gets the map of equipment locations in the submission type's spreadsheet
+        Gets the map of equipment locations in the run type's spreadsheet
 
         Returns:
             List[dict]: List of locations
@@ -609,11 +609,11 @@ class TipParser(object):
 class PCRParser(object):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | None = None, submission: BasicSubmission | None = None) -> None:
+    def __init__(self, filepath: Path | None = None, submission: BasicRun | None = None) -> None:
         """
         Args:
             filepath (Path | None, optional): file to parse. Defaults to None.
-            submission (BasicSubmission | None, optional): Submission parsed data to be added to.
+            submission (BasicRun | None, optional): Submission parsed data to be added to.
         """
         if filepath is None:
             logger.error('No filepath given.')
@@ -659,7 +659,7 @@ class PCRParser(object):
 
 class ConcentrationParser(object):
 
-    def __init__(self, filepath: Path | None = None, submission: BasicSubmission | None = None) -> None:
+    def __init__(self, filepath: Path | None = None, run: BasicRun | None = None) -> None:
         if filepath is None:
             logger.error('No filepath given.')
             self.xl = None
@@ -672,11 +672,11 @@ class ConcentrationParser(object):
             except PermissionError:
                 logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
                 return None
-        if submission is None:
-            self.submission_obj = BacterialCulture
+        if run is None:
+            self.submission_obj = BasicRun()
             rsl_plate_num = None
         else:
-            self.submission_obj = submission
+            self.submission_obj = run
             rsl_plate_num = self.submission_obj.rsl_plate_num
         self.samples = self.submission_obj.parse_concentration(xl=self.xl, rsl_plate_num=rsl_plate_num)
 

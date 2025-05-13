@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from backend import Reagent, BasicSample, Organization, KitType, BasicSubmission
+from backend import Reagent, BasicSample, Organization, KitType, BasicRun
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -211,7 +211,7 @@ class App(QMainWindow):
         dlg = DateTypePicker(self)
         if dlg.exec():
             output = dlg.parse_form()
-            df = BasicSubmission.archive_submissions(**output)
+            df = BasicRun.archive_submissions(**output)
             filepath = select_save_file(self, f"Submissions {output['start_date']}-{output['end_date']}", "xlsx")
             writer = ExcelWriter(filepath, "openpyxl")
             df.to_excel(writer)
@@ -239,7 +239,7 @@ class AddSubForm(QWidget):
         self.tabs.addTab(self.tab3, "PCR Controls")
         self.tabs.addTab(self.tab4, "Cost Report")
         self.tabs.addTab(self.tab5, "Turnaround Times")
-        # NOTE: Create submission adder form
+        # NOTE: Create run adder form
         self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
         self.formwidget.setLayout(self.formlayout)

@@ -121,7 +121,7 @@ class PydReagent(BaseModel):
         return {k: getattr(self, k) for k in fields}
 
     @report_result
-    def to_sql(self, submission: BasicSubmission | str = None) -> Tuple[Reagent, Report]:
+    def to_sql(self, submission: BasicRun | str = None) -> Tuple[Reagent, Report]:
         """
         Converts this instance into a backend.db.models.kit.Reagent instance
 
@@ -141,7 +141,7 @@ class PydReagent(BaseModel):
                 # NOTE: reagent method sets fields based on keys in dictionary
                 reagent.set_attribute(key, value)
                 if submission is not None and reagent not in submission.reagents:
-                    assoc = SubmissionReagentAssociation(reagent=reagent, submission=submission)
+                    assoc = RunReagentAssociation(reagent=reagent, submission=submission)
                     assoc.comments = self.comment
                 else:
                     assoc = None
@@ -198,13 +198,13 @@ class PydSample(BaseModel, extra='allow'):
         return value
 
     @report_result
-    def to_sql(self, submission: BasicSubmission | str = None) -> Tuple[
+    def to_sql(self, run: BasicRun | str = None) -> Tuple[
         BasicSample, List[SubmissionSampleAssociation], Result | None]:
         """
         Converts this instance into a backend.db.models.submissions.Sample object
 
         Args:
-            submission (BasicSubmission | str, optional): Submission joined to this sample. Defaults to None.
+            run (BasicRun | str, optional): Submission joined to this sample. Defaults to None.
 
         Returns:
             Tuple[BasicSample, Result]: Sample object and result object.
@@ -220,13 +220,13 @@ class PydSample(BaseModel, extra='allow'):
                 case _:
                     instance.__setattr__(key, value)
         out_associations = []
-        if submission is not None:
-            if isinstance(submission, str):
-                submission = BasicSubmission.query(rsl_plate_num=submission)
-            assoc_type = submission.submission_type_name
+        if run is not None:
+            if isinstance(run, str):
+                run = BasicRun.query(rsl_plate_num=run)
+            assoc_type = run.submission_type_name
             for row, column, aid, submission_rank in zip(self.row, self.column, self.assoc_id, self.submission_rank):
                 association = SubmissionSampleAssociation.query_or_create(association_type=f"{assoc_type} Association",
-                                                                          submission=submission,
+                                                                          submission=run,
                                                                           sample=instance,
                                                                           row=row, column=column, id=aid,
                                                                           submission_rank=submission_rank,
@@ -234,7 +234,7 @@ class PydSample(BaseModel, extra='allow'):
                 try:
                     out_associations.append(association)
                 except IntegrityError as e:
-                    logger.error(f"Could not attach submission sample association due to: {e}")
+                    logger.error(f"Could not attach run sample association due to: {e}")
                     instance.metadata.session.rollback()
         return instance, out_associations, report
 
@@ -267,20 +267,20 @@ class PydTips(BaseModel):
         return value
 
     @report_result
-    def to_sql(self, submission: BasicSubmission) -> SubmissionTipsAssociation:
+    def to_sql(self, submission: BasicRun) -> SubmissionTipsAssociation:
         """
         Convert this object to the SQL version for database storage.
 
         Args:
-            submission (BasicSubmission): A submission object to associate tips represented here.
+            submission (BasicRun): A run object to associate tips represented here.
 
         Returns:
-            SubmissionTipsAssociation: Association between queried tips and submission
+            SubmissionTipsAssociation: Association between queried tips and run
         """
         report = Report()
         tips = Tips.query(name=self.name, limit=1)
         # logger.debug(f"Tips query has yielded: {tips}")
-        assoc = SubmissionTipsAssociation.query_or_create(tips=tips, submission=submission, role=self.role, limit=1)
+        assoc = SubmissionTipsAssociation.query_or_create(tips=tips, run=submission, role=self.role, limit=1)
         return assoc, report
 
 
@@ -315,19 +315,19 @@ class PydEquipment(BaseModel, extra='ignore'):
         return value
 
     @report_result
-    def to_sql(self, submission: BasicSubmission | str = None, extraction_kit: KitType | str = None) -> Tuple[Equipment, SubmissionEquipmentAssociation]:
+    def to_sql(self, submission: BasicRun | str = None, extraction_kit: KitType | str = None) -> Tuple[Equipment, RunEquipmentAssociation]:
         """
         Creates Equipment and SubmssionEquipmentAssociations for this PydEquipment
 
         Args:
-            submission ( BasicSubmission | str ): BasicSubmission of interest
+            submission ( BasicRun | str ): BasicRun of interest
 
         Returns:
-            Tuple[Equipment, SubmissionEquipmentAssociation]: SQL objects
+            Tuple[Equipment, RunEquipmentAssociation]: SQL objects
         """
         report = Report()
         if isinstance(submission, str):
-            submission = BasicSubmission.query(rsl_plate_num=submission)
+            submission = BasicRun.query(rsl_plate_num=submission)
         if isinstance(extraction_kit, str):
             extraction_kit = KitType.query(name=extraction_kit)
         equipment = Equipment.query(asset_number=self.asset_number)
@@ -335,15 +335,15 @@ class PydEquipment(BaseModel, extra='ignore'):
             logger.error("No equipment found. Returning None.")
             return
         if submission is not None:
-            # NOTE: Need to make sure the same association is not added to the submission
+            # NOTE: Need to make sure the same association is not added to the run
             try:
-                assoc = SubmissionEquipmentAssociation.query(equipment_id=equipment.id, submission_id=submission.id,
-                                                             role=self.role, limit=1)
+                assoc = RunEquipmentAssociation.query(equipment_id=equipment.id, submission_id=submission.id,
+                                                      role=self.role, limit=1)
             except TypeError as e:
                 logger.error(f"Couldn't get association due to {e}, returning...")
                 assoc = None
             if assoc is None:
-                assoc = SubmissionEquipmentAssociation(submission=submission, equipment=equipment)
+                assoc = RunEquipmentAssociation(submission=submission, equipment=equipment)
                 # TODO: This seems precarious. What if there is more than one process?
                 # NOTE: It looks like the way fetching the processes is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
                 # NOTE: I need to find a way to filter this by the kit involved.
@@ -360,7 +360,7 @@ class PydEquipment(BaseModel, extra='ignore'):
                 logger.warning(f"Found already existing association: {assoc}")
                 assoc = None
         else:
-            logger.warning(f"No submission found")
+            logger.warning(f"No run found")
             assoc = None
         return equipment, assoc, report
 
@@ -519,7 +519,7 @@ class PydSubmission(BaseModel, extra='allow'):
             value['value'] = value['value'].strip()
             return value
         else:
-            if "pytest" in sys.modules and sub_type.replace(" ", "") == "BasicSubmission":
+            if "pytest" in sys.modules and sub_type.replace(" ", "") == "BasicRun":
                 output = "RSL-BS-Test001"
             else:
                 output = RSLNamer(filename=values.data['filepath'].__str__(), submission_type=sub_type,
@@ -674,7 +674,7 @@ class PydSubmission(BaseModel, extra='allow'):
     def __init__(self, run_custom: bool = False, **data):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
-        self.submission_object = BasicSubmission.find_polymorphic_subclass(
+        self.submission_object = BasicRun.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
         self.namer = RSLNamer(self.rsl_plate_num['value'], submission_type=self.submission_type['value'])
         if run_custom:
@@ -771,18 +771,18 @@ class PydSubmission(BaseModel, extra='allow'):
         return missing_info, missing_reagents
 
     @report_result
-    def to_sql(self) -> Tuple[BasicSubmission | None, Report]:
+    def to_sql(self) -> Tuple[BasicRun | None, Report]:
         """
-        Converts this instance into a backend.db.models.submissions.BasicSubmission instance
+        Converts this instance into a backend.db.models.submissions.BasicRun instance
 
         Returns:
-            Tuple[BasicSubmission, Result]: BasicSubmission instance, result object
+            Tuple[BasicRun, Result]: BasicRun instance, result object
         """
         report = Report()
         dicto = self.improved_dict()
-        # logger.debug(f"Pydantic submission type: {self.submission_type['value']}")
+        # logger.debug(f"Pydantic run type: {self.submission_type['value']}")
         # logger.debug(f"Pydantic improved_dict: {pformat(dicto)}")
-        instance, result = BasicSubmission.query_or_create(submission_type=self.submission_type['value'],
+        instance, result = BasicRun.query_or_create(submission_type=self.submission_type['value'],
                                                            rsl_plate_num=self.rsl_plate_num['value'])
         # logger.debug(f"Created or queried instance: {instance}")
         if instance is None:
@@ -808,7 +808,7 @@ class PydSubmission(BaseModel, extra='allow'):
                         reagent = reagent.to_sql(submission=instance)
                 case "samples":
                     for sample in self.samples:
-                        sample, associations, _ = sample.to_sql(submission=instance)
+                        sample, associations, _ = sample.to_sql(run=instance)
                         for assoc in associations:
                             if assoc is not None:
                                 if assoc not in instance.submission_sample_associations:
@@ -1186,7 +1186,7 @@ class PydEquipmentRole(BaseModel):
 
         Args:
             parent (_type_): parent widget
-            used (list): list of equipment already added to submission
+            used (list): list of equipment already added to run
 
         Returns:
             RoleComboBox: widget
@@ -1203,7 +1203,7 @@ class PydPCRControl(BaseModel):
     ct: float
     reagent_lot: str
     submitted_date: datetime  #: Date submitted to Robotics
-    submission_id: int
+    run_id: int
     controltype_name: str
 
     @report_result
@@ -1231,7 +1231,7 @@ class PydIridaControl(BaseModel, extra='ignore'):
     kraken2_db_version: str
     sample_id: int
     submitted_date: datetime  #: Date submitted to Robotics
-    submission_id: int
+    run_id: int
     controltype_name: str
 
     @field_validator("refseq_version", "kraken2_version", "kraken2_db_version", mode='before')

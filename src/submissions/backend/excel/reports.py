@@ -7,7 +7,7 @@ from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
 from typing import Tuple, List
-from backend.db.models import BasicSubmission
+from backend.db.models import BasicRun
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
@@ -45,9 +45,9 @@ class ReportMaker(object):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date, page_size=0)
+        self.runs = BasicRun.query(start_date=start_date, end_date=end_date, page_size=0)
         if organizations is not None:
-            self.subs = [sub for sub in self.subs if sub.client_submission.submitting_lab.name in organizations]
+            self.runs = [run for run in self.runs if run.client_submission.submitting_lab.name in organizations]
         self.detailed_df, self.summary_df = self.make_report_xlsx()
         self.html = self.make_report_html(df=self.summary_df)
 
@@ -58,9 +58,9 @@ class ReportMaker(object):
         Returns:
             DataFrame: output dataframe
         """
-        if not self.subs:
+        if not self.runs:
             return DataFrame(), DataFrame()
-        df = DataFrame.from_records([item.to_dict(report=True) for item in self.subs])
+        df = DataFrame.from_records([item.to_dict(report=True) for item in self.runs])
         # NOTE: put submissions with the same lab together
         df = df.sort_values("submitting_lab")
         # NOTE: aggregate cost and sample count columns
@@ -156,19 +156,19 @@ class TurnaroundMaker(ReportArchetype):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
+        self.subs = BasicRun.query(start_date=start_date, end_date=end_date,
                                           submission_type_name=submission_type, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
         self.sheet_name = "Turnaround"
 
     @classmethod
-    def build_record(cls, sub: BasicSubmission) -> dict:
+    def build_record(cls, sub: BasicRun) -> dict:
         """
-        Build a turnaround dictionary from a submission
+        Build a turnaround dictionary from a run
 
         Args:
-            sub (BasicSubmission): The submission to be processed.
+            sub (BasicRun): The run to be processed.
 
         Returns:
 
@@ -203,9 +203,9 @@ class ConcentrationMaker(ReportArchetype):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicSubmission.query(start_date=start_date, end_date=end_date,
+        self.subs = BasicRun.query(start_date=start_date, end_date=end_date,
                                           submission_type_name=submission_type, page_size=0)
-        # self.samples = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.subs])
+        # self.samples = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.runs])
         self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
         self.records = [self.build_record(sample) for sample in self.samples]
         self.df = DataFrame.from_records(self.records)

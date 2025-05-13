@@ -33,10 +33,12 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
     singles = ['id']
-    omni_removes = ["id", 'submissions', "omnigui_class_dict", "omnigui_instance_dict"]
+    omni_removes = ["id", 'runs', "omnigui_class_dict", "omnigui_instance_dict"]
     omni_sort = ["name"]
     omni_inheritable = []
     searchables = []
+
+    misc_info = Column(JSON)
 
     def __repr__(self) -> str:
         try:
@@ -120,6 +122,26 @@ class BaseClass(Base):
             from test_settings import ctx
         return ctx.backup_path
 
+    @classproperty
+    def jsons(cls) -> List[str]:
+        """
+        Get list of JSON db columns
+
+        Returns:
+            List[str]: List of column names
+        """
+        return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
+
+    @classproperty
+    def timestamps(cls) -> List[str]:
+        """
+        Get list of TIMESTAMP columns
+
+        Returns:
+            List[str]: List of column names
+        """
+        return [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
         """
@@ -150,7 +172,6 @@ class BaseClass(Base):
         else:
             return cls.__subclasses__()
 
-
     @classmethod
     def fuzzy_search(cls, **kwargs) -> List[Any]:
         """
@@ -177,7 +198,7 @@ class BaseClass(Base):
     @classmethod
     def results_to_df(cls, objects: list | None = None, **kwargs) -> DataFrame:
         """
-        Converts class sub_dicts into a Dataframe for all instances of the class.
+        Converts class sub_dicts into a Dataframe for all controls of the class.
 
         Args:
             objects (list): Objects to be converted to dataframe.
@@ -519,12 +540,13 @@ class ConfigItem(BaseClass):
 
 
 from .controls import *
-# NOTE: import order must go: orgs, kit, subs due to circular import issues
+# NOTE: import order must go: orgs, kit, runs due to circular import issues
 from .organizations import *
+from .runs import *
 from .kits import *
 from .submissions import *
 from .audit import AuditLog
 
-# NOTE: Add a creator to the submission for reagent association. Assigned here due to circular import constraints.
+# NOTE: Add a creator to the run for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator
-BasicSubmission.reagents.creator = lambda reg: SubmissionReagentAssociation(reagent=reg)
+Procedure.reagents.creator = lambda reg: ProcedureReagentAssociation(reagent=reg)

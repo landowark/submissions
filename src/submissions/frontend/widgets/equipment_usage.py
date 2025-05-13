@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtWidgets import (
     QDialog, QComboBox, QCheckBox, QLabel, QWidget, QVBoxLayout, QDialogButtonBox, QGridLayout
 )
-from backend.db.models import Equipment, BasicSubmission, Process
+from backend.db.models import Equipment, BasicRun, Process
 from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
 import logging
 from typing import Generator
@@ -16,7 +16,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class EquipmentUsage(QDialog):
 
-    def __init__(self, parent, submission: BasicSubmission):
+    def __init__(self, parent, submission: BasicRun):
         super().__init__(parent)
         self.submission = submission
         self.setWindowTitle(f"Equipment Checklist - {submission.rsl_plate_num}")
@@ -137,7 +137,7 @@ class RoleComboBox(QWidget):
         if process.tip_roles:
             for iii, tip_role in enumerate(process.tip_roles):
                 widget = QComboBox()
-                tip_choices = [item.name for item in tip_role.instances]
+                tip_choices = [item.name for item in tip_role.controls]
                 widget.setEditable(False)
                 widget.addItems(tip_choices)
                 widget.setObjectName(f"tips_{tip_role.name}")

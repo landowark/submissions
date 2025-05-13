@@ -27,7 +27,7 @@ class ControlType(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(255), unique=True)  #: controltype name (e.g. Irida Control)
     targets = Column(JSON)  #: organisms checked for
-    instances = relationship("Control", back_populates="controltype")  #: control samples created of this type.
+    controls = relationship("Control", back_populates="controltype")  #: control samples created of this type.
 
     @classmethod
     @setup_lookup
@@ -64,11 +64,11 @@ class ControlType(BaseClass):
         Returns:
             List[str]: list of subtypes available
         """
-        if not self.instances:
+        if not self.controls:
             return
         # NOTE: Get first instance since all should have same subtypes
         # NOTE: Get mode of instance
-        jsoner = getattr(self.instances[0], mode)
+        jsoner = getattr(self.controls[0], mode)
         try:
             # NOTE: Pick genera (all should have same subtypes)
             genera = list(jsoner.keys())[0]
@@ -119,17 +119,17 @@ class Control(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     controltype_name = Column(String, ForeignKey("_controltype.name", ondelete="SET NULL",
-                                                 name="fk_BC_subtype_name"))  #: name of joined submission type
-    controltype = relationship("ControlType", back_populates="instances",
+                                                 name="fk_BC_subtype_name"))  #: name of joined run type
+    controltype = relationship("ControlType", back_populates="controls",
                                foreign_keys=[controltype_name])  #: reference to parent control type
     name = Column(String(255), unique=True)  #: Sample ID
     sample_id = Column(String, ForeignKey("_basicsample.id", ondelete="SET NULL",
-                                                 name="fk_Cont_sample_id"))  #: name of joined submission type
-    sample = relationship("BasicSample", back_populates="control")  #: This control's submission sample
+                                                 name="fk_Cont_sample_id"))  #: name of joined run type
+    sample = relationship("BasicSample", back_populates="control")  #: This control's run sample
     submitted_date = Column(TIMESTAMP)  #: Date submitted to Robotics
-    submission_id = Column(INTEGER, ForeignKey("_basicsubmission.id"))  #: parent submission id
-    submission = relationship("BasicSubmission", back_populates="controls",
-                              foreign_keys=[submission_id])  #: parent submission
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"))  #: parent run id
+    procedure = relationship("Procedure", back_populates="controls",
+                              foreign_keys=[procedure_id])  #: parent run
 
     __mapper_args__ = {
         "polymorphic_identity": "Basic Control",
@@ -147,7 +147,7 @@ class Control(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
-              submissiontype: str | None = None,
+              proceduretype: str | None = None,
               subtype: str | None = None,
               start_date: date | datetime | str | int | None = None,
               end_date: date | datetime | str | int | None = None,
@@ -158,7 +158,7 @@ class Control(BaseClass):
         Lookup control objects in the database based on a number of parameters.
 
         Args:
-            submissiontype (str | None, optional): Submission type associated with control. Defaults to None.
+            proceduretype (str | None, optional): Submission type associated with control. Defaults to None.
             subtype (str | None, optional): Control subtype, eg IridaControl. Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to 2023-01-01 if end_date not None.
             end_date (date | str | int | None, optional): End date to search by. Defaults to today if start_date not None.
@@ -168,15 +168,15 @@ class Control(BaseClass):
         Returns:
             Control|List[Control]: Control object of interest.
         """
-        from backend.db import SubmissionType
+        from backend.db import ProcedureType
         query: Query = cls.__database_session__.query(cls)
-        match submissiontype:
+        match proceduretype:
             case str():
-                from backend import BasicSubmission, SubmissionType
-                query = query.join(BasicSubmission).join(SubmissionType).filter(SubmissionType.name == submissiontype)
-            case SubmissionType():
-                from backend import BasicSubmission
-                query = query.join(BasicSubmission).filter(BasicSubmission.submission_type_name == submissiontype.name)
+                from backend.db import Procedure
+                query = query.join(Procedure).join(ProcedureType).filter(ProcedureType.name == proceduretype)
+            case ProcedureType():
+                from backend import Procedure
+                query = query.join(Procedure).filter(Procedure.submission_type_name == proceduretype.name)
             case _:
                 pass
                 # NOTE: by control type
@@ -234,13 +234,13 @@ class Control(BaseClass):
                     model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
                 except Exception as e:
                     logger.error(
-                        f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
+                        f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicRun")
             case ControlType():
                 try:
                     model = cls.__mapper__.polymorphic_map[polymorphic_identity.name].class_
                 except Exception as e:
                     logger.error(
-                        f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicSubmission")
+                        f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}, falling back to BasicRun")
             case _:
                 pass
         # NOTE: if attrs passed in and this cls doesn't have all attributes in attr
@@ -335,7 +335,7 @@ class PCRControl(Control):
         parent.mode_typer.clear()
         parent.mode_typer.setEnabled(False)
         report = Report()
-        controls = cls.query(submissiontype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
+        controls = cls.query(proceduretype=chart_settings['sub_type'], start_date=chart_settings['start_date'],
                              end_date=chart_settings['end_date'])
         data = [control.to_sub_dict() for control in controls]
         df = DataFrame.from_records(data)
@@ -402,7 +402,7 @@ class IridaControl(Control):
 
     def to_sub_dict(self) -> dict:
         """
-            Converts object into convenient dictionary for use in submission summary
+            Converts object into convenient dictionary for use in run summary
 
             Returns:
                 dict: output dictionary containing: Name, Type, Targets, Top Kraken results
@@ -565,7 +565,7 @@ class IridaControl(Control):
 
         Args:
             input_df (list[dict]): list of dictionaries containing records
-            sub_mode (str | None, optional): sub_type of submission type. Defaults to None.
+            sub_mode (str | None, optional): sub_type of run type. Defaults to None.
 
         Returns:
             DataFrame: dataframe of controls

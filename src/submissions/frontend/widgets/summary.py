@@ -43,7 +43,7 @@ class Summary(InfoPane):
         orgs = self.org_select.get_checked()
         self.report_obj = ReportMaker(start_date=self.start_date, end_date=self.end_date, organizations=orgs)
         self.webview.setHtml(self.report_obj.html)
-        if self.report_obj.subs:
+        if self.report_obj.runs:
             self.save_pdf_button.setEnabled(True)
             self.save_excel_button.setEnabled(True)
         else:

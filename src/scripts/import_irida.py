@@ -27,7 +27,7 @@ def import_irida(ctx: Settings):
     except AttributeError as e:
         logger.error(f"Error, could not import from irida due to {e}")
         return
-    sql = "SELECT name, submitted_date, submission_id, contains, matches, kraken, subtype, refseq_version, " \
+    sql = "SELECT name, submitted_date, run_id, contains, matches, kraken, subtype, refseq_version, " \
           "kraken2_version, kraken2_db_version, sample_id FROM _iridacontrol INNER JOIN _control on _control.id " \
           f"= _iridacontrol.id WHERE _control.name NOT IN ({prm_list})"
     cursor = conn.execute(sql)
@@ -57,7 +57,7 @@ def import_irida(ctx: Settings):
             except IndexError:
                 logger.error(f"Could not get sample for {sample}")
                 instance.submission = None
-            # instance.submission = sample.submission[0]
+            # instance.run = sample.run[0]
         new_session.add(instance)
     new_session.commit()
     new_session.close()

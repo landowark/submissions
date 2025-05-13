@@ -1,5 +1,5 @@
 """
-contains writer objects for pushing values to submission sheet templates.
+contains writer objects for pushing values to run sheet templates.
 """
 import logging
 from copy import copy
@@ -8,7 +8,7 @@ from operator import itemgetter
 from pprint import pformat
 from typing import List, Generator, Tuple
 from openpyxl import load_workbook, Workbook
-from backend.db.models import SubmissionType, KitType, BasicSubmission
+from backend.db.models import SubmissionType, KitType, BasicRun
 from backend.validators.pydant import PydSubmission
 from io import BytesIO
 from collections import OrderedDict
@@ -24,7 +24,7 @@ class SheetWriter(object):
     def __init__(self, submission: PydSubmission):
         """
         Args:
-            submission (PydSubmission): Object containing submission information.
+            submission (PydSubmission): Object containing run information.
         """
         self.sub = OrderedDict(submission.improved_dict())
         # NOTE: Set values from pydantic object.
@@ -35,7 +35,7 @@ class SheetWriter(object):
                 case 'submission_type':
                     self.sub[k] = v['value']
                     self.submission_type = SubmissionType.query(name=v['value'])
-                    self.sub_object = BasicSubmission.find_polymorphic_subclass(
+                    self.run_object = BasicRun.find_polymorphic_subclass(
                         polymorphic_identity=self.submission_type)
                 case _:
                     if isinstance(v, dict):
@@ -99,22 +99,22 @@ class SheetWriter(object):
 
 class InfoWriter(object):
     """
-    object to write general submission info into excel file
+    object to write general run info into excel file
     """
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict,
-                 sub_object: BasicSubmission | None = None):
+                 sub_object: BasicRun | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
             info_dict (dict): Dictionary of information to write.
-            sub_object (BasicSubmission | None, optional): Submission object containing methods. Defaults to None.
+            sub_object (BasicRun | None, optional): Submission object containing methods. Defaults to None.
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
-            sub_object = BasicSubmission.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
+            sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
         self.submission_type = submission_type
         self.sub_object = sub_object
         self.xl = xl
@@ -196,7 +196,7 @@ class ReagentWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
             extraction_kit (KitType | str): Extraction kit used.
             reagent_list (list): List of reagent dicts to be written to excel.
         """
@@ -273,7 +273,7 @@ class SampleWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
             sample_list (list): List of sample dictionaries to be written to excel file.
         """
         if isinstance(submission_type, str):
@@ -281,7 +281,7 @@ class SampleWriter(object):
         self.submission_type = submission_type
         self.xl = xl
         self.sample_map = submission_type.sample_map['lookup_table']
-        # NOTE: exclude any samples without a submission rank.
+        # NOTE: exclude any samples without a run rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
         self.samples = sorted(samples, key=itemgetter('submission_rank'))
         self.blank_lookup_table()
@@ -351,7 +351,7 @@ class EquipmentWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
             equipment_list (list): List of equipment dictionaries to write to excel file.
         """
         if isinstance(submission_type, str):
@@ -433,7 +433,7 @@ class TipWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of submission expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
             tips_list (list): List of tip dictionaries to write to the excel file.
         """
         if isinstance(submission_type, str):

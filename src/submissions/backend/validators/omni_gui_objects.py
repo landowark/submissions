@@ -270,7 +270,7 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         except AttributeError:
             return f"<{self.__class__.__name__}(NO NAME)>"
 
-    @field_validator("submissiontype", mode="before")
+    @field_validator("proceduretype", mode="before")
     @classmethod
     def rescue_submissiontype_none(cls, value):
         if not value:
@@ -324,7 +324,7 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         Convert this object to an instance of its class object.
         """
 
-        # logger.debug(f"Self kittype: {self.submissiontype}")
+        # logger.debug(f"Self kittype: {self.proceduretype}")
         if issubclass(self.submissiontype.__class__, BaseOmni):
             submissiontype = SubmissionType.query(name=self.submissiontype.name)
         else:
@@ -334,7 +334,7 @@ class OmniSubmissionTypeKitTypeAssociation(BaseOmni):
         else:
             kittype = KitType.query(name=self.kittype)
         # logger.debug(f"Self kittype: {self.kittype}")
-        # logger.debug(f"Query or create with {kittype}, {submissiontype}")
+        # logger.debug(f"Query or create with {kittype}, {proceduretype}")
         instance, is_new = self.class_object.query_or_create(kittype=kittype, submissiontype=submissiontype)
         instance.mutable_cost_column = self.mutable_cost_column
         instance.mutable_cost_sample = self.mutable_cost_sample
