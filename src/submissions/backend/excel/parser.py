@@ -1,5 +1,5 @@
 """
-contains parser objects for pulling values from client generated run sheets.
+contains clientsubmissionparser objects for pulling values from client generated procedure sheets.
 """
 import logging
 from copy import copy
@@ -42,11 +42,11 @@ class SheetParser(object):
             raise FileNotFoundError(f"Couldn't parse file {self.filepath}")
         self.sub = OrderedDict()
         # NOTE: make decision about type of sample we have
-        self.sub['submission_type'] = dict(value=RSLNamer.retrieve_submission_type(filename=self.filepath),
+        self.sub['proceduretype'] = dict(value=RSLNamer.retrieve_submission_type(filename=self.filepath),
                                            missing=True)
-        self.submission_type = SubmissionType.query(name=self.sub['submission_type'])
+        self.submission_type = SubmissionType.query(name=self.sub['proceduretype'])
         self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-        # NOTE: grab the info map from the run type in database
+        # NOTE: grab the info map from the procedure type in database
         self.parse_info()
         self.import_kit_validation_check()
         self.parse_reagents()
@@ -60,19 +60,19 @@ class SheetParser(object):
         """
         parser = InfoParser(xl=self.xl, submission_type=self.submission_type, sub_object=self.sub_object)
         self.info_map = parser.info_map
-        # NOTE: in order to accommodate generic run types we have to check for the type in the excel sheet and rerun accordingly
+        # NOTE: in order to accommodate generic procedure types we have to check for the type in the excel sheet and rerun accordingly
         try:
-            check = parser.parsed_info['submission_type']['value'] not in [None, "None", "", " "]
+            check = parser.parsed_info['proceduretype']['value'] not in [None, "None", "", " "]
         except KeyError as e:
-            logger.error(f"Couldn't check run type due to KeyError: {e}")
+            logger.error(f"Couldn't check procedure type due to KeyError: {e}")
             return
         logger.info(
-            f"Checking for updated run type: {self.submission_type.name} against new: {parser.parsed_info['submission_type']['value']}")
-        if self.submission_type.name != parser.parsed_info['submission_type']['value']:
+            f"Checking for updated procedure type: {self.submission_type.name} against new: {parser.parsed_info['proceduretype']['value']}")
+        if self.submission_type.name != parser.parsed_info['proceduretype']['value']:
             if check:
-                # NOTE: If initial run type doesn't match parsed run type, defer to parsed run type.
-                self.submission_type = SubmissionType.query(name=parser.parsed_info['submission_type']['value'])
-                logger.info(f"Updated self.submission_type to {self.submission_type}. Rerunning parse.")
+                # NOTE: If initial procedure type doesn't match parsed procedure type, defer to parsed procedure type.
+                self.submission_type = SubmissionType.query(name=parser.parsed_info['proceduretype']['value'])
+                logger.info(f"Updated self.proceduretype to {self.submission_type}. Rerunning parse.")
                 self.parse_info()
             else:
                 self.submission_type = RSLNamer.retrieve_submission_type(filename=self.filepath)
@@ -82,53 +82,53 @@ class SheetParser(object):
 
     def parse_reagents(self, extraction_kit: str | None = None):
         """
-        Calls reagent parser class to pull info from the excel sheet
+        Calls reagent clientsubmissionparser class to pull info from the excel sheet
 
         Args:
-            extraction_kit (str | None, optional): Relevant extraction kit for reagent map. Defaults to None.
+            extraction_kit (str | None, optional): Relevant extraction kittype for reagent map. Defaults to None.
         """
         if extraction_kit is None:
-            extraction_kit = self.sub['extraction_kit']
+            extraction_kit = self.sub['kittype']
         parser = ReagentParser(xl=self.xl, submission_type=self.submission_type,
                                extraction_kit=extraction_kit)
         self.sub['reagents'] = parser.parsed_reagents
 
     def parse_samples(self):
         """
-        Calls sample parser to pull info from the excel sheet
+        Calls sample clientsubmissionparser to pull info from the excel sheet
         """
         parser = SampleParser(xl=self.xl, submission_type=self.submission_type)
-        self.sub['samples'] = parser.parsed_samples
+        self.sub['sample'] = parser.parsed_samples
 
     def parse_equipment(self):
         """
-        Calls equipment parser to pull info from the excel sheet
+        Calls equipment clientsubmissionparser to pull info from the excel sheet
         """
         parser = EquipmentParser(xl=self.xl, submission_type=self.submission_type)
         self.sub['equipment'] = parser.parsed_equipment
 
     def parse_tips(self):
         """
-        Calls tips parser to pull info from the excel sheet
+        Calls tips clientsubmissionparser to pull info from the excel sheet
         """
         parser = TipParser(xl=self.xl, submission_type=self.submission_type)
         self.sub['tips'] = parser.parsed_tips
 
     def import_kit_validation_check(self):
         """
-        Enforce that the parser has an extraction kit
+        Enforce that the clientsubmissionparser has an extraction kittype
         """
-        if 'extraction_kit' not in self.sub.keys() or not check_not_nan(self.sub['extraction_kit']['value']):
+        if 'kittype' not in self.sub.keys() or not check_not_nan(self.sub['kittype']['value']):
             from frontend.widgets.pop_ups import ObjectSelector
-            dlg = ObjectSelector(title="Kit Needed", message="At minimum a kit is needed. Please select one.",
+            dlg = ObjectSelector(title="Kit Needed", message="At minimum a kittype is needed. Please select one.",
                                  obj_type=KitType)
             if dlg.exec():
-                self.sub['extraction_kit'] = dict(value=dlg.parse_form(), missing=True)
+                self.sub['kittype'] = dict(value=dlg.parse_form(), missing=True)
             else:
-                raise ValueError("Extraction kit needed.")
+                raise ValueError("Extraction kittype needed.")
         else:
-            if isinstance(self.sub['extraction_kit'], str):
-                self.sub['extraction_kit'] = dict(value=self.sub['extraction_kit'], missing=True)
+            if isinstance(self.sub['kittype'], str):
+                self.sub['kittype'] = dict(value=self.sub['kittype'], missing=True)
 
     def to_pydantic(self) -> PydSubmission:
         """
@@ -145,17 +145,17 @@ class InfoParser(object):
     Object to parse generic info from excel sheet.
     """
 
-    def __init__(self, xl: Workbook, submission_type: str | SubmissionType, sub_object: BasicRun | None = None):
+    def __init__(self, xl: Workbook, submission_type: str | SubmissionType, sub_object: Run | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str | SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str | SubmissionType): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
             sub_object (BasicRun | None, optional): Submission object holding methods. Defaults to None.
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
-            sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
+            sub_object = Run.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
         self.submission_type_obj = submission_type
         self.submission_type = dict(value=self.submission_type_obj.name, missing=True)
         self.sub_object = sub_object
@@ -164,12 +164,12 @@ class InfoParser(object):
     @property
     def info_map(self) -> dict:
         """
-        Gets location of basic info from the submission_type object in the database.
+        Gets location of basic info from the proceduretype object in the database.
 
         Returns:
-            dict: Location map of all info for this run type
+            dict: Location map of all info for this procedure type
         """
-        # NOTE: Get the parse_info method from the run type specified
+        # NOTE: Get the parse_info method from the procedure type specified
         return self.sub_object.construct_info_map(submission_type=self.submission_type_obj, mode="read")
 
     @property
@@ -186,7 +186,7 @@ class InfoParser(object):
             ws = self.xl[sheet]
             relevant = []
             for k, v in self.info_map.items():
-                # NOTE: If the value is hardcoded put it in the dictionary directly. Ex. Artic kit
+                # NOTE: If the value is hardcoded put it in the dictionary directly. Ex. Artic kittype
                 if k == "custom":
                     continue
                 if isinstance(v, str):
@@ -210,7 +210,7 @@ class InfoParser(object):
                 # NOTE: Get cell contents at this location
                 value = ws.cell(row=item['row'], column=item['column']).value
                 match item['name']:
-                    case "submission_type":
+                    case "proceduretype":
                         value, missing = is_missing(value)
                         value = value.title()
                     case "submitted_date":
@@ -232,7 +232,7 @@ class InfoParser(object):
                         dicto[item['name']] = dict(value=value, missing=missing)
                     except (KeyError, IndexError):
                         continue
-        # NOTE: Return after running the parser components held in run object.
+        # NOTE: Return after running the clientsubmissionparser components held in procedure object.
         return self.sub_object.custom_info_parser(input_dict=dicto, xl=self.xl, custom_fields=self.info_map['custom'])
 
 
@@ -242,12 +242,12 @@ class ReagentParser(object):
     """
 
     def __init__(self, xl: Workbook, submission_type: str | SubmissionType, extraction_kit: str,
-                 run_object: BasicRun | None = None):
+                 run_object: Run | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str|SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
-            extraction_kit (str): Extraction kit used.
+            submission_type (str|SubmissionType): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
+            extraction_kit (str): Extraction kittype used.
             run_object (BasicRun | None, optional): Submission object holding methods. Defaults to None.
         """
         if isinstance(submission_type, str):
@@ -264,15 +264,16 @@ class ReagentParser(object):
     @property
     def kit_map(self) -> dict:
         """
-        Gets location of kit reagents from database
+        Gets location of kittype reagents from database
 
         Args:
-            submission_type (str): Name of run type.
+            proceduretype (str): Name of procedure type.
 
         Returns:
-            dict: locations of reagent info for the kit.
+            dict: locations of reagent info for the kittype.
         """
-        associations, self.kit_object = self.kit_object.construct_xl_map_for_use(submission_type=self.submission_type_obj)
+        associations, self.kit_object = self.kit_object.construct_xl_map_for_use(
+            proceduretype=self.submission_type_obj)
         reagent_map = {k: v for k, v in associations.items() if k != 'info'}
         try:
             del reagent_map['info']
@@ -323,16 +324,16 @@ class ReagentParser(object):
 
 class SampleParser(object):
     """
-    Object to pull data for samples in excel sheet and construct individual sample objects
+    Object to pull data for sample in excel sheet and construct individual sample objects
     """
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType, sample_map: dict | None = None,
-                 sub_object: BasicRun | None = None) -> None:
+                 sub_object: Run | None = None) -> None:
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
-            sample_map (dict | None, optional): Locations in database where samples are found. Defaults to None.
+            submission_type (SubmissionType): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
+            sample_map (dict | None, optional): Locations in database where sample are found. Defaults to None.
             sub_object (BasicRun | None, optional): Submission object holding methods. Defaults to None.
         """
         self.samples = []
@@ -343,19 +344,19 @@ class SampleParser(object):
         self.submission_type_obj = submission_type
         if sub_object is None:
             logger.warning(
-                f"Sample parser attempting to fetch run class with polymorphic identity: {self.submission_type}")
-            sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+                f"Sample clientsubmissionparser attempting to fetch procedure class with polymorphic identity: {self.submission_type}")
+            sub_object = Run.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         self.sub_object = sub_object
-        self.sample_type = self.sub_object.get_default_info("sample_type", submission_type=submission_type)
-        self.samp_object = BasicSample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
+        self.sample_type = self.sub_object.get_default_info("sampletype", submission_type=submission_type)
+        self.samp_object = Sample.find_polymorphic_subclass(polymorphic_identity=self.sample_type)
 
     @property
     def sample_map(self) -> dict:
         """
-        Gets info locations in excel book for run type.
+        Gets info locations in excel book for procedure type.
 
         Args:
-            submission_type (str): run type
+            proceduretype (str): procedure type
 
         Returns:
             dict: Info locations.
@@ -381,7 +382,7 @@ class SampleParser(object):
                 if check_not_nan(id):
                     if id not in invalids:
                         sample_dict = dict(id=id, row=ii, column=jj)
-                        sample_dict['sample_type'] = self.sample_type
+                        sample_dict['sampletype'] = self.sample_type
                         plate_map_samples.append(sample_dict)
                     else:
                         pass
@@ -407,7 +408,7 @@ class SampleParser(object):
                 row_dict[lmap['merge_on_id']] = str(row_dict[lmap['merge_on_id']])
             except KeyError:
                 pass
-            row_dict['sample_type'] = self.sample_type
+            row_dict['sampletype'] = self.sample_type
             row_dict['submission_rank'] = ii
             try:
                 check = check_not_nan(row_dict[lmap['merge_on_id']])
@@ -423,14 +424,14 @@ class SampleParser(object):
         Merges sample info from lookup table and plate map.
 
         Returns:
-            List[dict]: Reconciled samples
+            List[dict]: Reconciled sample
         """
         if not self.plate_map_samples or not self.lookup_samples:
-            logger.warning(f"No separate samples")
+            logger.warning(f"No separate sample")
             samples = self.lookup_samples or self.plate_map_samples
             for new in samples:
-                if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
-                    new['submitter_id'] = new['id']
+                if not check_key_or_attr(key='sample_id', interest=new, check_none=True):
+                    new['sample_id'] = new['id']
                 new = self.sub_object.parse_samples(new)
                 try:
                     del new['id']
@@ -459,8 +460,8 @@ class SampleParser(object):
                                     if lsample[merge_on_id] == psample['id']), (-1, psample))
                     if jj >= 0:
                         lookup_samples[jj] = {}
-                if not check_key_or_attr(key='submitter_id', interest=new, check_none=True):
-                    new['submitter_id'] = psample['id']
+                if not check_key_or_attr(key='sample_id', interest=new, check_none=True):
+                    new['sample_id'] = psample['id']
                 new = self.sub_object.parse_samples(new)
                 try:
                     del new['id']
@@ -478,7 +479,7 @@ class EquipmentParser(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str | SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str | SubmissionType): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -488,7 +489,7 @@ class EquipmentParser(object):
     @property
     def equipment_map(self) -> dict:
         """
-        Gets the map of equipment locations in the run type's spreadsheet
+        Gets the map of equipment locations in the procedure type's spreadsheet
 
         Returns:
             List[dict]: List of locations
@@ -556,7 +557,7 @@ class TipParser(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (str | SubmissionType): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (str | SubmissionType): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
@@ -566,7 +567,7 @@ class TipParser(object):
     @property
     def tip_map(self) -> dict:
         """
-        Gets the map of equipment locations in the run type's spreadsheet
+        Gets the map of equipment locations in the procedure type's spreadsheet
 
         Returns:
             List[dict]: List of locations
@@ -609,7 +610,7 @@ class TipParser(object):
 class PCRParser(object):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | None = None, submission: BasicRun | None = None) -> None:
+    def __init__(self, filepath: Path | None = None, submission: Run | None = None) -> None:
         """
         Args:
             filepath (Path | None, optional): file to parse. Defaults to None.
@@ -659,7 +660,7 @@ class PCRParser(object):
 
 class ConcentrationParser(object):
 
-    def __init__(self, filepath: Path | None = None, run: BasicRun | None = None) -> None:
+    def __init__(self, filepath: Path | None = None, run: Run | None = None) -> None:
         if filepath is None:
             logger.error('No filepath given.')
             self.xl = None
@@ -673,7 +674,7 @@ class ConcentrationParser(object):
                 logger.error(f"Couldn't get permissions for {filepath.__str__()}. Operation might have been cancelled.")
                 return None
         if run is None:
-            self.submission_obj = BasicRun()
+            self.submission_obj = Run()
             rsl_plate_num = None
         else:
             self.submission_obj = run

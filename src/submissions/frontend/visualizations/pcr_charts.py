@@ -1,5 +1,5 @@
 """
-Functions for constructing irida controls graphs using plotly.
+Functions for constructing irida control graphs using plotly.
 """
 from pprint import pformat
 from . import CustomFigure

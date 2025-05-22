@@ -1,5 +1,5 @@
 """
-Functions for constructing irida controls graphs using plotly.
+Functions for constructing irida control graphs using plotly.
 """
 from datetime import date
 from pprint import pformat
@@ -23,12 +23,12 @@ class IridaFigure(CustomFigure):
 
     def construct_chart(self, df: pd.DataFrame, modes: list, start_date: date, end_date:date):
         """
-        Creates a plotly chart for controls from a pandas dataframe
+        Creates a plotly chart for control from a pandas dataframe
 
         Args:
             end_date ():
             start_date ():
-            df (pd.DataFrame): input dataframe of controls
+            df (pd.DataFrame): input dataframe of control
             modes (list): analysis modes to construct charts for
             ytitle (str | None, optional): title on the y-axis. Defaults to None.
 

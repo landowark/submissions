@@ -3,6 +3,8 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging
+
+from dateutil.parser import parse
 from pandas import DataFrame
 from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
@@ -21,7 +23,7 @@ if 'pytest' in sys.modules:
 # NOTE: For inheriting in LogMixin
 Base: DeclarativeMeta = declarative_base()
 
-logger = logging.getLogger(f"submissions.{__name__}")
+logger = logging.getLogger(f"procedure.{__name__}")
 
 
 class BaseClass(Base):
@@ -33,12 +35,12 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
     singles = ['id']
-    omni_removes = ["id", 'runs', "omnigui_class_dict", "omnigui_instance_dict"]
+    omni_removes = ["id", 'run', "omnigui_class_dict", "omnigui_instance_dict"]
     omni_sort = ["name"]
     omni_inheritable = []
     searchables = []
 
-    misc_info = Column(JSON)
+    _misc_info = Column(JSON)
 
     def __repr__(self) -> str:
         try:
@@ -122,6 +124,10 @@ class BaseClass(Base):
             from test_settings import ctx
         return ctx.backup_path
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._misc_info = dict()
+
     @classproperty
     def jsons(cls) -> List[str]:
         """
@@ -130,7 +136,10 @@ class BaseClass(Base):
         Returns:
             List[str]: List of column names
         """
-        return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
+        try:
+            return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
+        except AttributeError:
+            return []
 
     @classproperty
     def timestamps(cls) -> List[str]:
@@ -140,7 +149,10 @@ class BaseClass(Base):
         Returns:
             List[str]: List of column names
         """
-        return [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        try:
+            return [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        except AttributeError:
+            return []
 
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
@@ -155,7 +167,7 @@ class BaseClass(Base):
         return dict(singles=singles)
 
     @classmethod
-    def find_regular_subclass(cls, name: str|None = None) -> Any:
+    def find_regular_subclass(cls, name: str | None = None) -> Any:
         """
         Args:
             name (str): name of subclass of interest.
@@ -198,11 +210,11 @@ class BaseClass(Base):
     @classmethod
     def results_to_df(cls, objects: list | None = None, **kwargs) -> DataFrame:
         """
-        Converts class sub_dicts into a Dataframe for all controls of the class.
+        Converts class sub_dicts into a Dataframe for all control of the class.
 
         Args:
             objects (list): Objects to be converted to dataframe.
-            **kwargs (): Arguments necessary for the to_sub_dict method. eg extraction_kit=X
+            **kwargs (): Arguments necessary for the to_sub_dict method. eg kittype=X
 
         Returns:
             Dataframe
@@ -220,6 +232,24 @@ class BaseClass(Base):
         return DataFrame.from_records(records)
 
     @classmethod
+    def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
+        new = False
+        allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute)
+                            and not isinstance(v.property, _RelationshipDeclared)]
+        sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+
+        logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
+        instance = cls.query(**sanitized_kwargs)
+        if not instance or isinstance(instance, list):
+            instance = cls()
+            new = True
+        for k, v in sanitized_kwargs.items():
+            logger.debug(f"QorC Setting {k} to {v}")
+            setattr(instance, k, v)
+        logger.info(f"Instance from query or create: {instance}, new: {new}")
+        return instance, new
+
+    @classmethod
     def query(cls, **kwargs) -> Any | List[Any]:
         """
         Default query function for models. Overridden in most models with additional filters.
@@ -227,6 +257,8 @@ class BaseClass(Base):
         Returns:
             Any | List[Any]: Result of query execution.
         """
+        if "name" in kwargs.keys():
+            kwargs['limit'] = 1
         return cls.execute_query(**kwargs)
 
     @classmethod
@@ -243,16 +275,17 @@ class BaseClass(Base):
             Any | List[Any]: Single result if limit = 1 or List if other.
         """
         # logger.debug(f"Kwargs: {kwargs}")
-        if model is None:
-            model = cls
+        # if model is None:
+        #     model = cls
         # logger.debug(f"Model: {model}")
         if query is None:
-            query: Query = cls.__database_session__.query(model)
-        singles = model.get_default_info('singles')
+            query: Query = cls.__database_session__.query(cls)
+        singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
+
             logger.info(f"Using key: {k} with value: {v}")
             try:
-                attr = getattr(model, k)
+                attr = getattr(cls, k)
                 # NOTE: account for attrs that use list.
                 if attr.property.uselist:
                     query = query.filter(attr.contains(v))
@@ -341,6 +374,26 @@ class BaseClass(Base):
         """
         return dict()
 
+    @classproperty
+    def details_template(cls) -> Template:
+        """
+        Get the details jinja template for the correct class
+
+        Args:
+            base_dict (dict): incoming dictionary of Submission fields
+
+        Returns:
+            Tuple(dict, Template): (Updated dictionary, Template to be rendered)
+        """
+        env = jinja_template_loading()
+        temp_name = f"{cls.__name__.lower()}_details.html"
+        try:
+            template = env.get_template(temp_name)
+        except TemplateNotFound as e:
+        #     logger.error(f"Couldn't find template {e}")
+            template = env.get_template("details.html")
+        return template
+
     def check_all_attributes(self, attributes: dict) -> bool:
         """
         Checks this instance against a dictionary of attributes to determine if they are a match.
@@ -405,15 +458,29 @@ class BaseClass(Base):
         """
         Custom dunder method to handle potential list relationship issues.
         """
+        # logger.debug(f"Attempting to set: {key} to {value}")
+        if key.startswith("_"):
+            return super().__setattr__(key, value)
+        try:
+            check = not hasattr(self, key)
+        except:
+            return
+        if check:
+            try:
+                json.dumps(value)
+            except TypeError:
+                value = str(value)
+            self._misc_info.update({key: value})
+            return
         try:
             field_type = getattr(self.__class__, key)
         except AttributeError:
             return super().__setattr__(key, value)
         if isinstance(field_type, InstrumentedAttribute):
-            logger.debug(f"{key} is an InstrumentedAttribute.")
+            # logger.debug(f"{key} is an InstrumentedAttribute.")
             match field_type.property:
                 case ColumnProperty():
-                    logger.debug(f"Setting ColumnProperty to {value}")
+                    # logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
                     logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
@@ -446,10 +513,13 @@ class BaseClass(Base):
                         try:
                             return super().__setattr__(key, value)
                         except AttributeError:
-                            logger.debug(f"Possible attempt to set relationship to simple var type.")
+                            logger.debug(f"Possible attempt to set relationship {key} to simple var type. {value}")
                             relationship_class = field_type.property.entity.entity
                             value = relationship_class.query(name=value)
-                            return super().__setattr__(key, value)
+                            try:
+                                return super().__setattr__(key, value)
+                            except AttributeError:
+                                return super().__setattr__(key, None)
                 case _:
                     return super().__setattr__(key, value)
         else:
@@ -458,7 +528,7 @@ class BaseClass(Base):
     def delete(self):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
-    def rectify_query_date(input_date, eod: bool = False) -> str:
+    def rectify_query_date(input_date: datetime, eod: bool = False) -> str:
         """
         Converts input into a datetime string for querying purposes
 
@@ -486,8 +556,7 @@ class BaseClass(Base):
 
 
 class LogMixin(Base):
-
-    tracking_exclusion: ClassVar = ['artic_technician', 'submission_sample_associations',
+    tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',
                                     'submission_reagent_associations', 'submission_equipment_associations',
                                     'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
                                     'source_plates']
@@ -540,13 +609,12 @@ class ConfigItem(BaseClass):
 
 
 from .controls import *
-# NOTE: import order must go: orgs, kit, runs due to circular import issues
+# NOTE: import order must go: orgs, kittype, run due to circular import issues
 from .organizations import *
-from .runs import *
 from .kits import *
 from .submissions import *
 from .audit import AuditLog
 
-# NOTE: Add a creator to the run for reagent association. Assigned here due to circular import constraints.
+# NOTE: Add a creator to the procedure for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator
-Procedure.reagents.creator = lambda reg: ProcedureReagentAssociation(reagent=reg)
+# Procedure.reagents.creator = lambda reg: ProcedureReagentAssociation(reagent=reg)

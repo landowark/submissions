@@ -14,32 +14,27 @@ from typing import List, Tuple
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# table containing organization/contact relationship
-orgs_contacts = Table(
-    "_orgs_contacts",
+# table containing clientlab/contact relationship
+clientlab_contact = Table(
+    "_clientlab_contact",
     Base.metadata,
-    Column("org_id", INTEGER, ForeignKey("_organization.id")),
+    Column("clientlab_id", INTEGER, ForeignKey("_clientlab.id")),
     Column("contact_id", INTEGER, ForeignKey("_contact.id")),
     extend_existing=True
 )
 
 
-class Organization(BaseClass):
+class ClientLab(BaseClass):
     """
-    Base of organization
+    Base of clientlab
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64))  #: organization name
-    submissions = relationship("ClientSubmission",
-                               back_populates="submitting_lab")  #: submissions this organization has submitted
+    name = Column(String(64))  #: clientlab name
+    clientsubmission = relationship("ClientSubmission", back_populates="clientlab")  #: procedure this clientlab has submitted
     cost_centre = Column(String())  #: cost centre used by org for payment
-    contacts = relationship("Contact", back_populates="organization",
-                            secondary=orgs_contacts)  #: contacts involved with this org
-
-    @hybrid_property
-    def contact(self):
-        return self.contacts
+    contact = relationship("Contact", back_populates="clientlab",
+                           secondary=clientlab_contact)  #: contact involved with this org
 
     @classmethod
     @setup_lookup
@@ -47,16 +42,16 @@ class Organization(BaseClass):
               id: int | None = None,
               name: str | None = None,
               limit: int = 0,
-              ) -> Organization | List[Organization]:
+              ) -> ClientLab | List[ClientLab]:
         """
-        Lookup organizations in the database by a number of parameters.
+        Lookup clientlabs in the database by a number of parameters.
 
         Args:
-            name (str | None, optional): Name of the organization. Defaults to None.
+            name (str | None, optional): Name of the clientlab. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
-            Organization|List[Organization]: 
+            ClientLab|List[ClientLab]:
         """
         query: Query = cls.__database_session__.query(cls)
         match id:
@@ -89,7 +84,7 @@ class Organization(BaseClass):
             name = "NA"
         return OmniOrganization(instance_object=self,
                                 name=name, cost_centre=cost_centre,
-                                contact=[item.to_omni() for item in self.contacts])
+                                contact=[item.to_omni() for item in self.contact])
 
 
 class Contact(BaseClass):
@@ -101,27 +96,27 @@ class Contact(BaseClass):
     name = Column(String(64))  #: contact name
     email = Column(String(64))  #: contact email
     phone = Column(String(32))  #: contact phone number
-    organization = relationship("Organization", back_populates="contacts", uselist=True,
-                                secondary=orgs_contacts)  #: relationship to joined organization
-    submissions = relationship("ClientSubmission", back_populates="contact")  #: submissions this contact has submitted
+    clientlab = relationship("ClientLab", back_populates="contact", uselist=True,
+                             secondary=clientlab_contact)  #: relationship to joined clientlab
+    clientsubmission = relationship("ClientSubmission", back_populates="contact")  #: procedure this contact has submitted
 
     @classproperty
     def searchables(cls):
         return []
 
-    @classmethod
-    def query_or_create(cls, **kwargs) -> Tuple[Contact, bool]:
-        new = False
-        disallowed = []
-        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        instance = cls.query(**sanitized_kwargs)
-        if not instance or isinstance(instance, list):
-            instance = cls()
-            new = True
-        for k, v in sanitized_kwargs.items():
-            setattr(instance, k, v)
-        logger.info(f"Instance from contact query or create: {instance}")
-        return instance, new
+    # @classmethod
+    # def query_or_create(cls, **kwargs) -> Tuple[Contact, bool]:
+    #     new = False
+    #     disallowed = []
+    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+    #     instance = cls.query(**sanitized_kwargs)
+    #     if not instance or isinstance(instance, list):
+    #         instance = cls()
+    #         new = True
+    #     for k, v in sanitized_kwargs.items():
+    #         setattr(instance, k, v)
+    #     logger.info(f"Instance from contact query or create: {instance}")
+    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -133,7 +128,7 @@ class Contact(BaseClass):
               limit: int = 0,
               ) -> Contact | List[Contact]:
         """
-        Lookup contacts in the database by a number of parameters.
+        Lookup contact in the database by a number of parameters.
 
         Args:
             name (str | None, optional): Name of the contact. Defaults to None.

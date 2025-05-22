@@ -100,7 +100,7 @@ class SearchBox(QDialog):
 
     def update_data(self):
         """
-        Shows dataframe of relevant samples.
+        Shows dataframe of relevant sample.
         """
         fields = self.parse_form()
         sample_list_creator = self.object_type.fuzzy_search(**fields)

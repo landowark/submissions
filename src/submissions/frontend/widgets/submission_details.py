@@ -1,5 +1,5 @@
 """
-Webview to show run and sample details.
+Webview to show procedure and sample details.
 """
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
@@ -7,7 +7,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
-from backend.db.models import BasicRun, BasicSample, Reagent, KitType, Equipment, Process, Tips
+from backend.db.models import Run, Sample, Reagent, KitType, Equipment, Process, Tips
 from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent
 from .functions import select_save_file, save_pdf
 from pathlib import Path
@@ -18,15 +18,15 @@ from pprint import pformat
 from typing import List
 
 
-logger = logging.getLogger(f"submissions.{__name__}")
+logger = logging.getLogger(f"procedure.{__name__}")
 
 
 class SubmissionDetails(QDialog):
     """
-    a window showing text details of run
+    a window showing text details of procedure
     """
 
-    def __init__(self, parent, sub: BasicRun | BasicSample | Reagent) -> None:
+    def __init__(self, parent, sub: Run | Sample | Reagent) -> None:
 
         super().__init__(parent)
         self.app = get_application_from_parent(parent)
@@ -51,10 +51,10 @@ class SubmissionDetails(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         match sub:
-            case BasicRun():
+            case Run():
                 self.run_details(run=sub)
                 self.rsl_plate_num = sub.rsl_plate_num
-            case BasicSample():
+            case Sample():
                 self.sample_details(sample=sub)
             case Reagent():
                 self.reagent_details(reagent=sub)
@@ -127,7 +127,7 @@ class SubmissionDetails(QDialog):
         self.setWindowTitle(f"Process Details - {tips.name}")
 
     @pyqtSlot(str)
-    def sample_details(self, sample: str | BasicSample):
+    def sample_details(self, sample: str | Sample):
         """
         Changes details view to summary of Sample
 
@@ -136,19 +136,19 @@ class SubmissionDetails(QDialog):
         """
         logger.debug(f"Sample details.")
         if isinstance(sample, str):
-            sample = BasicSample.query(submitter_id=sample)
+            sample = Sample.query(sample_id=sample)
         base_dict = sample.to_sub_dict(full_data=True)
-        exclude = ['submissions', 'excluded', 'colour', 'tooltip']
+        exclude = ['procedure', 'excluded', 'colour', 'tooltip']
         base_dict['excluded'] = exclude
         template = sample.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         html = template.render(sample=base_dict, css=css)
-        # with open(f"{sample.submitter_id}.html", 'w') as f:
+        # with open(f"{sample.sample_id}.html", 'w') as f:
         #     f.write(html)
         self.webview.setHtml(html)
-        self.setWindowTitle(f"Sample Details - {sample.submitter_id}")
+        self.setWindowTitle(f"Sample Details - {sample.sample_id}")
 
     @pyqtSlot(str, str)
     def reagent_details(self, reagent: str | Reagent, kit: str | KitType):
@@ -156,7 +156,7 @@ class SubmissionDetails(QDialog):
         Changes details view to summary of Reagent
 
         Args:
-            kit (str | KitType): Name of kit.
+            kit (str | KitType): Name of kittype.
             reagent (str | Reagent): Lot number of the reagent
         """
         logger.debug(f"Reagent details.")
@@ -164,7 +164,7 @@ class SubmissionDetails(QDialog):
             reagent = Reagent.query(lot=reagent)
         if isinstance(kit, str):
             self.kit = KitType.query(name=kit)
-        base_dict = reagent.to_sub_dict(extraction_kit=self.kit, full_data=True)
+        base_dict = reagent.to_sub_dict(kittype=self.kit, full_data=True)
         env = jinja_template_loading()
         temp_name = "reagent_details.html"
         try:
@@ -203,7 +203,7 @@ class SubmissionDetails(QDialog):
             logger.error(f"Reagent with lot {old_lot} not found.")
 
     @pyqtSlot(str)
-    def run_details(self, run: str | BasicRun):
+    def run_details(self, run: str | Run):
         """
         Sets details view to summary of Submission.
 
@@ -212,24 +212,24 @@ class SubmissionDetails(QDialog):
         """
         logger.debug(f"Submission details.")
         if isinstance(run, str):
-            run = BasicRun.query(rsl_plate_num=run)
+            run = Run.query(name=run)
         self.rsl_plate_num = run.rsl_plate_num
         self.base_dict = run.to_dict(full_data=True)
         # NOTE: don't want id
         self.base_dict['platemap'] = run.make_plate_map(sample_list=run.hitpicked)
         self.base_dict['excluded'] = run.get_default_info("details_ignore")
-        self.base_dict, self.template = run.get_details_template(base_dict=self.base_dict)
+        self.template = run.details_template
         template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        # logger.debug(f"Base dictionary of run {self.rsl_plate_num}: {pformat(self.base_dict)}")
+        # logger.debug(f"Base dictionary of procedure {self.name}: {pformat(self.base_dict)}")
         self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
 
     @pyqtSlot(str)
-    def sign_off(self, run: str | BasicRun) -> None:
+    def sign_off(self, run: str | Run) -> None:
         """
-        Allows power user to signify a run is complete.
+        Allows power user to signify a procedure is complete.
 
         Args:
             run (str | BasicRun): Submission to be completed
@@ -239,7 +239,7 @@ class SubmissionDetails(QDialog):
         """
         logger.info(f"Signing off on {run} - ({getuser()})")
         if isinstance(run, str):
-            run = BasicRun.query(rsl_plate_num=run)
+            run = Run.query(name=run)
         run.signed_by = getuser()
         run.completed_date = datetime.now()
         run.completed_date.replace(tzinfo=timezone)
@@ -248,7 +248,7 @@ class SubmissionDetails(QDialog):
 
     def save_pdf(self):
         """
-        Renders run to html, then creates and saves .pdf file to user selected file.
+        Renders procedure to html, then creates and saves .pdf file to user selected file.
         """
         fname = select_save_file(obj=self, default_name=self.export_plate, extension="pdf")
         save_pdf(obj=self.webview, filename=fname)
@@ -256,11 +256,11 @@ class SubmissionDetails(QDialog):
 
 class SubmissionComment(QDialog):
     """
-    a window for adding comment text to a run
+    a window for adding comment text to a procedure
     """
 
-    def __init__(self, parent, submission: BasicRun) -> None:
-
+    def __init__(self, parent, submission: Run) -> None:
+        logger.debug(parent)
         super().__init__(parent)
         self.app = get_application_from_parent(parent)
         self.submission = submission
@@ -282,7 +282,7 @@ class SubmissionComment(QDialog):
 
     def parse_form(self) -> List[dict]:
         """
-        Adds comment to run object.
+        Adds comment to procedure object.
         """
         commenter = getuser()
         comment = self.txt_editor.toPlainText()

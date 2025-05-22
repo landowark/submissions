@@ -1,18 +1,20 @@
 """
-Contains widgets specific to the run summary and run details.
+Contains widgets specific to the procedure summary and procedure details.
 """
-import logging
-import sys
+
+import sys, logging, re
 from pprint import pformat
+
 from PyQt6.QtWidgets import QTableView, QMenu, QTreeView, QStyledItemDelegate, QStyle, QStyleOptionViewItem, \
     QHeaderView, QAbstractItemView, QWidget, QTreeWidgetItemIterator
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlot, QModelIndex
-from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor
-from backend.db.models import BasicRun, ClientSubmission
+from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor, QContextMenuEvent
+
+from backend.db.models import Run, ClientSubmission
 from tools import Report, Result, report_result
 from .functions import select_open_file
 
-logger = logging.getLogger(f"submissions.{__name__}")
+logger = logging.getLogger(f"procedure.{__name__}")
 
 
 class pandasModel(QAbstractTableModel):
@@ -63,7 +65,7 @@ class pandasModel(QAbstractTableModel):
 
 class SubmissionsSheet(QTableView):
     """
-    presents run summary to user in tab1
+    presents procedure summary to user in tab1
     """
 
     def __init__(self, parent) -> None:
@@ -78,16 +80,16 @@ class SubmissionsSheet(QTableView):
         self.resizeColumnsToContents()
         self.resizeRowsToContents()
         self.setSortingEnabled(True)
-        self.doubleClicked.connect(lambda x: BasicRun.query(id=x.sibling(x.row(), 0).data()).show_details(self))
-        # NOTE: Have to run native query here because mine just returns results?
-        self.total_count = BasicRun.__database_session__.query(BasicRun).count()
+        self.doubleClicked.connect(lambda x: Run.query(id=x.sibling(x.row(), 0).data()).show_details(self))
+        # NOTE: Have to procedure native query here because mine just returns results?
+        self.total_count = Run.__database_session__.query(Run).count()
 
     def set_data(self, page: int = 1, page_size: int = 250) -> None:
         """
         sets data in model
         """
         # self.data = ClientSubmission.submissions_to_df(page=page, page_size=page_size)
-        self.data = BasicRun.submissions_to_df(page=page, page_size=page_size)
+        self.data = Run.submissions_to_df(page=page, page_size=page_size)
         try:
             self.data['Id'] = self.data['Id'].apply(str)
             self.data['Id'] = self.data['Id'].str.zfill(4)
@@ -108,7 +110,7 @@ class SubmissionsSheet(QTableView):
         id = self.selectionModel().currentIndex()
         # NOTE: Convert to data in id column (i.e. column 0)
         id = id.sibling(id.row(), 0).data()
-        submission = BasicRun.query(id=id)
+        submission = Run.query(id=id)
         self.menu = QMenu(self)
         self.con_actions = submission.custom_context_events()
         for k in self.con_actions.keys():
@@ -140,7 +142,7 @@ class SubmissionsSheet(QTableView):
 
     def link_extractions_function(self):
         """
-        Link extractions from runlogs to imported submissions
+        Link extractions from runlogs to imported procedure
 
         Args:
             obj (QMainWindow): original app window
@@ -166,9 +168,9 @@ class SubmissionsSheet(QTableView):
             # NOTE: elution columns are item 6 in the comma split list to the end
             for ii in range(6, len(run)):
                 new_run[f"column{str(ii - 5)}_vol"] = run[ii]
-            # NOTE: Lookup imported submissions
-            sub = BasicRun.query(rsl_plate_num=new_run['rsl_plate_num'])
-            # NOTE: If no such run exists, move onto the next run
+            # NOTE: Lookup imported procedure
+            sub = Run.query(name=new_run['name'])
+            # NOTE: If no such procedure exists, move onto the next procedure
             if sub is None:
                 continue
             try:
@@ -192,7 +194,7 @@ class SubmissionsSheet(QTableView):
 
     def link_pcr_function(self):
         """
-        Link PCR data from run logs to an imported run
+        Link PCR data from procedure logs to an imported procedure
 
         Args:
             obj (QMainWindow): original app window
@@ -215,9 +217,9 @@ class SubmissionsSheet(QTableView):
                 experiment_name=run[4].strip(),
                 end_time=run[5].strip()
             )
-            # NOTE: lookup imported run
-            sub = BasicRun.query(rsl_number=new_run['rsl_plate_num'])
-            # NOTE: if imported run doesn't exist move on to next run
+            # NOTE: lookup imported procedure
+            sub = Run.query(rsl_number=new_run['name'])
+            # NOTE: if imported procedure doesn't exist move on to next procedure
             if sub is None:
                 continue
             sub.set_attribute('pcr_info', new_run)
@@ -227,9 +229,10 @@ class SubmissionsSheet(QTableView):
         return report
 
 
-class RunDelegate(QStyledItemDelegate):
+class ClientSubmissionDelegate(QStyledItemDelegate):
+
     def __init__(self, parent=None):
-        super(RunDelegate, self).__init__(parent)
+        super(ClientSubmissionDelegate, self).__init__(parent)
         pixmapi = QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton
         icon1 = QWidget().style().standardIcon(pixmapi)
         pixmapi = QStyle.StandardPixmap.SP_ToolBarVerticalExtensionButton
@@ -238,23 +241,29 @@ class RunDelegate(QStyledItemDelegate):
         self._minus_icon = icon2
 
     def initStyleOption(self, option, index):
-        super(RunDelegate, self).initStyleOption(option, index)
+        super(ClientSubmissionDelegate, self).initStyleOption(option, index)
         if not index.parent().isValid():
             is_open = bool(option.state & QStyle.StateFlag.State_Open)
             option.features |= QStyleOptionViewItem.ViewItemFeature.HasDecoration
             option.icon = self._minus_icon if is_open else self._plus_icon
 
+
+class RunDelegate(ClientSubmissionDelegate):
+    pass
+
+
 class SubmissionsTree(QTreeView):
     """
     https://stackoverflow.com/questions/54385437/how-can-i-make-a-table-that-can-collapse-its-rows-into-categories-in-qt
     """
+
     def __init__(self, model, parent=None):
         super(SubmissionsTree, self).__init__(parent)
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         self.setIndentation(0)
         self.setExpandsOnDoubleClick(False)
         self.clicked.connect(self.on_clicked)
-        delegate = RunDelegate(self)
+        delegate = ClientSubmissionDelegate(self)
         self.setItemDelegateForColumn(0, delegate)
         self.model = model
         self.setModel(self.model)
@@ -263,31 +272,68 @@ class SubmissionsTree(QTreeView):
         # self.setStyleSheet("background-color: #0D1225;")
         self.set_data()
         self.doubleClicked.connect(self.show_details)
+        # self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        # self.customContextMenuRequested.connect(self.open_menu)
 
         for ii in range(2):
             self.resizeColumnToContents(ii)
-
 
     @pyqtSlot(QModelIndex)
     def on_clicked(self, index):
         if not index.parent().isValid() and index.column() == 0:
             self.setExpanded(index, not self.isExpanded(index))
 
+    def contextMenuEvent(self, event: QContextMenuEvent):
+        """
+        Creates actions for right click menu events.
+
+        Args:
+            event (_type_): the item of interest
+        """
+        indexes = self.selectedIndexes()
+
+        dicto = next((item.data(1) for item in indexes if item.data(1)))
+        query_obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
+        logger.debug(query_obj)
+
+        # NOTE: Convert to data in id column (i.e. column 0)
+        # id = id.sibling(id.row(), 0).data()
+
+        # logger.debug(id.model().query_group_object(id.row()))
+        # clientsubmission = id.model().query_group_object(id.row())
+        self.menu = QMenu(self)
+        self.con_actions = query_obj.custom_context_events
+        for key in self.con_actions.keys():
+            if key.lower() == "add procedure":
+                action = QMenu(self.menu)
+                action.setTitle("Add Procedure")
+                for procedure in query_obj.allowed_procedures:
+                    proc_name = procedure.name
+                    proc = QAction(proc_name, action)
+                    proc.triggered.connect(lambda _, procedure_name=proc_name: self.con_actions['Add Procedure'](obj=self, proceduretype_name=procedure_name))
+                    action.addAction(proc)
+                    self.menu.addMenu(action)
+            else:
+                action = QAction(key, self)
+                action.triggered.connect(lambda _, action_name=key: self.con_actions[action_name](obj=self))
+                self.menu.addAction(action)
+        # # NOTE: add other required actions
+        self.menu.popup(QCursor.pos())
+
     def set_data(self, page: int = 1, page_size: int = 250) -> None:
         """
         sets data in model
         """
         self.clear()
-        # self.data = ClientSubmission.submissions_to_df(page=page, page_size=page_size)
-        self.data = [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
-        logger.debug(pformat(self.data))
+        self.data = [item.to_dict(full_data=True) for item in
+                     ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+        logger.debug(f"setting data:\n {pformat(self.data)}")
         # sys.exit()
         for submission in self.data:
-            group_str = f"{submission['submission_type']}-{submission['submitter_plate_number']}-{submission['submitted_date']}"
-            group_item = self.model.add_group(group_str)
-            for run in submission['runs']:
+            group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
+            group_item = self.model.add_group(group_str, query_str=submission['submitter_plate_id'])
+            for run in submission['run']:
                 self.model.append_element_to_group(group_item=group_item, element=run)
-
 
     def clear(self):
         if self.model != None:
@@ -302,8 +348,7 @@ class SubmissionsTree(QTreeView):
             id = int(id.data())
         except ValueError:
             return
-        BasicRun.query(id=id).show_details(self)
-
+        Run.query(id=id).show_details(self)
 
     def link_extractions(self):
         pass
@@ -312,62 +357,64 @@ class SubmissionsTree(QTreeView):
         pass
 
 
-class ClientRunModel(QStandardItemModel):
+class ClientSubmissionRunModel(QStandardItemModel):
+
 
     def __init__(self, parent=None):
-        super(ClientRunModel, self).__init__(parent)
-        headers = ["", "id", "Plate Number", "Started Date", "Completed Date", "Technician", "Signed By"]
+        super(ClientSubmissionRunModel, self).__init__(parent)
+        headers = ["", "id", "Plate Number", "Started Date", "Completed Date", "Signed By"]
         self.setColumnCount(len(headers))
         self.setHorizontalHeaderLabels(headers)
 
-        for i in range(self.columnCount()):
-            it = self.horizontalHeaderItem(i)
-            try:
-                logger.debug(it.text())
-            except AttributeError:
-                pass
-            # it.setForeground(QColor("#F2F2F2"))
-
-    def add_group(self, group_name):
+    def add_group(self, item_name, query_str: str):
         item_root = QStandardItem()
         item_root.setEditable(False)
-        item = QStandardItem(group_name)
+        item = QStandardItem(item_name)
         item.setEditable(False)
         ii = self.invisibleRootItem()
         i = ii.rowCount()
         for j, it in enumerate((item_root, item)):
+            # NOTE: Adding item to invisible root row i, column j (wherever j comes from)
             ii.setChild(i, j, it)
             ii.setEditable(False)
         for j in range(self.columnCount()):
             it = ii.child(i, j)
             if it is None:
+                # NOTE: Set invisible root child to empty if it is None.
                 it = QStandardItem()
                 ii.setChild(i, j, it)
-            # it.setBackground(QColor("#002842"))
-            # it.setForeground(QColor("#F2F2F2"))
+        item_root.setData(dict(item_type=ClientSubmission, query_str=query_str), 1)
         return item_root
 
-    def append_element_to_group(self, group_item, element:dict):
-        logger.debug(f"Element: {pformat(element)}")
+    def append_element_to_group(self, group_item, element: dict):
+        # logger.debug(f"Element: {pformat(element)}")
         j = group_item.rowCount()
         item_icon = QStandardItem()
         item_icon.setEditable(False)
-
         # item_icon.setBackground(QColor("#0D1225"))
+        # item_icon.setData(dict(item_type="Run", query_str=element['plate_number']), 1)
         # group_item.setChild(j, 0, item_icon)
         for i in range(self.columnCount()):
             it = self.horizontalHeaderItem(i)
             try:
                 key = it.text().lower().replace(" ", "_")
             except AttributeError:
-                continue
+                key = None
             if not key:
                 continue
             value = str(element[key])
             item = QStandardItem(value)
             item.setBackground(QColor("#CFE2F3"))
             item.setEditable(False)
+            # item_icon.setChild(j, i, item)
+            item.setData(dict(item_type=Run, query_str=element['plate_number']),1)
             group_item.setChild(j, i, item)
         # group_item.setChild(j, 1, QStandardItem("B"))
 
+    def get_value(self, idx: int, column: int = 1):
+        return self.item(idx, column)
 
+    def query_group_object(self, idx: int):
+        row_obj = self.get_value(idx)
+        logger.debug(row_obj.query_str)
+        return self.sql_object.query(name=row_obj.query_str, limit=1)

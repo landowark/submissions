@@ -71,7 +71,7 @@ class AddEdit(QDialog):
             # logger.debug(f"We have an elastic model.")
             parsed['instance'] = self.instance
         # NOTE: Hand-off to pydantic model for validation.
-        # NOTE: Also, why am I not just using the toSQL method here. I could write one for contacts.
+        # NOTE: Also, why am I not just using the toSQL method here. I could write one for contact.
         model = model(**parsed)
         return model, report
 

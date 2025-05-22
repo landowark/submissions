@@ -5,29 +5,29 @@ from tools import Settings
 
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(f"submissions.{__name__}")
+logger = logging.getLogger(f"procedure.{__name__}")
 
 def import_irida(ctx: Settings):
     """
-    Grabs Irida controls from secondary database.
+    Grabs Irida control from secondary database.
 
     Args:
         ctx (Settings): Settings inherited from app.
     """
-    from backend import BasicSample
+    from backend import Sample
     from backend.db import IridaControl, ControlType
     # NOTE: Because the main session will be busy in another thread, this requires a new session.
     new_session = Session(ctx.database_session.get_bind())
     ct = new_session.query(ControlType).filter(ControlType.name == "Irida Control").first()
     existing_controls = [item.name for item in new_session.query(IridaControl)]
     prm_list = ", ".join([f"'{thing}'" for thing in existing_controls])
-    ctrl_db_path = ctx.directory_path.joinpath("submissions_parser_output", "submissions.db")
+    ctrl_db_path = ctx.directory_path.joinpath("submissions_parser_output", "procedure.db")
     try:
         conn = sqlite3.connect(ctrl_db_path)
     except AttributeError as e:
         logger.error(f"Error, could not import from irida due to {e}")
         return
-    sql = "SELECT name, submitted_date, run_id, contains, matches, kraken, subtype, refseq_version, " \
+    sql = "SELECT name, submitted_date, procedure_id, contains, matches, kraken, subtype, refseq_version, " \
           "kraken2_version, kraken2_db_version, sample_id FROM _iridacontrol INNER JOIN _control on _control.id " \
           f"= _iridacontrol.id WHERE _control.name NOT IN ({prm_list})"
     cursor = conn.execute(sql)
@@ -49,15 +49,15 @@ def import_irida(ctx: Settings):
         record['submitted_date'] = datetime.strptime(record['submitted_date'], "%Y-%m-%d %H:%M:%S.%f")
         assert isinstance(record['submitted_date'], datetime)
         instance = IridaControl(controltype=ct, **record)
-        sample = new_session.query(BasicSample).filter(BasicSample.submitter_id == instance.name).first()
+        sample = new_session.query(Sample).filter(Sample.sample_id == instance.name).first()
         if sample:
             instance.sample = sample
             try:
-                instance.submission = sample.submissions[0]
+                instance.clientsubmission = sample.procedure[0]
             except IndexError:
                 logger.error(f"Could not get sample for {sample}")
-                instance.submission = None
-            # instance.run = sample.run[0]
+                instance.clientsubmission = None
+            # instance.procedure = sample.procedure[0]
         new_session.add(instance)
     new_session.commit()
     new_session.close()

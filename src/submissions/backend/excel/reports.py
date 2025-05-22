@@ -7,7 +7,7 @@ from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
 from typing import Tuple, List
-from backend.db.models import BasicRun
+from backend.db.models import Run
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
@@ -45,9 +45,9 @@ class ReportMaker(object):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.runs = BasicRun.query(start_date=start_date, end_date=end_date, page_size=0)
+        self.runs = Run.query(start_date=start_date, end_date=end_date, page_size=0)
         if organizations is not None:
-            self.runs = [run for run in self.runs if run.client_submission.submitting_lab.name in organizations]
+            self.runs = [run for run in self.runs if run.clientsubmission.clientlab.name in organizations]
         self.detailed_df, self.summary_df = self.make_report_xlsx()
         self.html = self.make_report_html(df=self.summary_df)
 
@@ -61,14 +61,14 @@ class ReportMaker(object):
         if not self.runs:
             return DataFrame(), DataFrame()
         df = DataFrame.from_records([item.to_dict(report=True) for item in self.runs])
-        # NOTE: put submissions with the same lab together
-        df = df.sort_values("submitting_lab")
+        # NOTE: put procedure with the same lab together
+        df = df.sort_values("clientlab")
         # NOTE: aggregate cost and sample count columns
-        df2 = df.groupby(["submitting_lab", "extraction_kit"]).agg(
-            {'extraction_kit': 'count', 'cost': 'sum', 'sample_count': 'sum'})
-        df2 = df2.rename(columns={"extraction_kit": 'run_count'})
+        df2 = df.groupby(["clientlab", "kittype"]).agg(
+            {'kittype': 'count', 'cost': 'sum', 'sample_count': 'sum'})
+        df2 = df2.rename(columns={"kittype": 'run_count'})
         df = df.drop('id', axis=1)
-        df = df.sort_values(['submitting_lab', "started_date"])
+        df = df.sort_values(['clientlab', "started_date"])
         return df, df2
 
     def make_report_html(self, df: DataFrame) -> str:
@@ -156,19 +156,19 @@ class TurnaroundMaker(ReportArchetype):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicRun.query(start_date=start_date, end_date=end_date,
-                                          submission_type_name=submission_type, page_size=0)
+        self.subs = Run.query(start_date=start_date, end_date=end_date,
+                                   submissiontype_name=submission_type, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
         self.sheet_name = "Turnaround"
 
     @classmethod
-    def build_record(cls, sub: BasicRun) -> dict:
+    def build_record(cls, sub: Run) -> dict:
         """
-        Build a turnaround dictionary from a run
+        Build a turnaround dictionary from a procedure
 
         Args:
-            sub (BasicRun): The run to be processed.
+            sub (BasicRun): The procedure to be processed.
 
         Returns:
 
@@ -203,9 +203,9 @@ class ConcentrationMaker(ReportArchetype):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = BasicRun.query(start_date=start_date, end_date=end_date,
-                                          submission_type_name=submission_type, page_size=0)
-        # self.samples = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.runs])
+        self.subs = Run.query(start_date=start_date, end_date=end_date,
+                                   submissiontype_name=submission_type, page_size=0)
+        # self.sample = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.run])
         self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
         self.records = [self.build_record(sample) for sample in self.samples]
         self.df = DataFrame.from_records(self.records)
@@ -214,9 +214,9 @@ class ConcentrationMaker(ReportArchetype):
     @classmethod
     def build_record(cls, control) -> dict:
         regex = re.compile(r"^(ATCC)|(MCS)", flags=re.IGNORECASE)
-        if bool(regex.match(control.submitter_id)):
+        if bool(regex.match(control.sample_id)):
             positive = "positive"
-        elif control.submitter_id.lower().startswith("en"):
+        elif control.sample_id.lower().startswith("en"):
             positive = "negative"
         else:
             positive = "sample"
@@ -224,8 +224,8 @@ class ConcentrationMaker(ReportArchetype):
             concentration = float(control.concentration)
         except (TypeError, ValueError):
             concentration = 0.0
-        return dict(name=control.submitter_id,
-                    submission=str(control.submission), concentration=concentration,
+        return dict(name=control.sample_id,
+                    submission=str(control.clientsubmission), concentration=concentration,
                     submitted_date=control.submitted_date, positive=positive)
 
 

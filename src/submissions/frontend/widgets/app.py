@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from backend import Reagent, BasicSample, Organization, KitType, BasicRun
+from backend import Reagent, Sample, ClientSubmission, KitType, Run
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -22,7 +22,7 @@ from .date_type_picker import DateTypePicker
 from .functions import select_save_file
 from .pop_ups import HTMLPop
 from .misc import Pagifier
-from .submission_table import SubmissionsSheet, SubmissionsTree, ClientRunModel
+from .submission_table import SubmissionsSheet, SubmissionsTree, ClientSubmissionRunModel
 from .submission_widget import SubmissionFormContainer
 from .controls_chart import ControlsViewer
 from .summary import Summary
@@ -30,7 +30,7 @@ from .turnaround import TurnaroundTime
 from .concentrations import Concentrations
 from .omni_search import SearchBox
 
-logger = logging.getLogger(f'submissions.{__name__}')
+logger = logging.getLogger(f'procedure.{__name__}')
 
 
 class App(QMainWindow):
@@ -57,7 +57,7 @@ class App(QMainWindow):
         # NOTE: insert tabs into main app
         self.table_widget = AddSubForm(self)
         self.setCentralWidget(self.table_widget)
-        # NOTE: run initial setups
+        # NOTE: procedure initial setups
         self._createActions()
         self._createMenuBar()
         self._createToolBar()
@@ -173,14 +173,14 @@ class App(QMainWindow):
 
     def runSampleSearch(self):
         """
-        Create a search for samples.
+        Create a search for sample.
         """
-        dlg = SearchBox(self, object_type=BasicSample, extras=[])
+        dlg = SearchBox(self, object_type=Sample, extras=[])
         dlg.exec()
 
     @check_authorization
     def edit_reagent(self, *args, **kwargs):
-        dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="role")])
+        dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="reagentrole")])
         dlg.exec()
 
     def update_data(self):
@@ -239,7 +239,7 @@ class AddSubForm(QWidget):
         self.tabs.addTab(self.tab3, "PCR Controls")
         self.tabs.addTab(self.tab4, "Cost Report")
         self.tabs.addTab(self.tab5, "Turnaround Times")
-        # NOTE: Create run adder form
+        # NOTE: Create procedure adder form
         self.formwidget = SubmissionFormContainer(self)
         self.formlayout = QVBoxLayout(self)
         self.formwidget.setLayout(self.formlayout)
@@ -249,12 +249,12 @@ class AddSubForm(QWidget):
         self.interior.setWidgetResizable(True)
         self.interior.setFixedWidth(325)
         self.interior.setWidget(self.formwidget)
-        # NOTE: Create sheet to hold existing submissions
+        # NOTE: Create sheet to hold existing procedure
         self.sheetwidget = QWidget(self)
         self.sheetlayout = QVBoxLayout(self)
         self.sheetwidget.setLayout(self.sheetlayout)
         # self.sub_wid = SubmissionsSheet(parent=parent)
-        self.sub_wid = SubmissionsTree(parent=parent, model=ClientRunModel(self))
+        self.sub_wid = SubmissionsTree(parent=parent, model=ClientSubmissionRunModel(self))
         self.pager = Pagifier(page_max=self.sub_wid.total_count / page_size)
         self.sheetlayout.addWidget(self.sub_wid)
         self.sheetlayout.addWidget(self.pager)
@@ -264,11 +264,13 @@ class AddSubForm(QWidget):
         self.tab1.layout.addWidget(self.interior)
         self.tab1.layout.addWidget(self.sheetwidget)
         self.tab2.layout = QVBoxLayout(self)
-        self.irida_viewer = ControlsViewer(self, archetype="Irida Control")
+        # self.irida_viewer = ControlsViewer(self, archetype="Irida Control")
+        self.irida_viewer = None
         self.tab2.layout.addWidget(self.irida_viewer)
         self.tab2.setLayout(self.tab2.layout)
         self.tab3.layout = QVBoxLayout(self)
-        self.pcr_viewer = ControlsViewer(self, archetype="PCR Control")
+        # self.pcr_viewer = ControlsViewer(self, archetype="PCR Control")
+        self.pcr_viewer = None
         self.tab3.layout.addWidget(self.pcr_viewer)
         self.tab3.setLayout(self.tab3.layout)
         summary_report = Summary(self)

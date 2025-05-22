@@ -1,4 +1,3 @@
-
 import logging
 from pathlib import Path
 from typing import List
@@ -6,8 +5,11 @@ from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout
-from backend.validators import PydSubmission
+
+from backend.db.models import ClientSubmission
+from backend.validators import PydSample, RSLNamer
 from tools import get_application_from_parent, jinja_template_loading
+
 
 env = jinja_template_loading()
 
@@ -16,9 +18,13 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class SampleChecker(QDialog):
 
-    def __init__(self, parent, title:str, pyd: PydSubmission):
+    def __init__(self, parent, title: str, samples: List[PydSample], clientsubmission: ClientSubmission|None=None):
         super().__init__(parent)
-        self.pyd = pyd
+        if clientsubmission:
+            self.rsl_plate_num = RSLNamer.construct_new_plate_name(clientsubmission.to_dict())
+        else:
+            self.rsl_plate_num = clientsubmission
+        self.samples = samples
         self.setWindowTitle(title)
         self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
@@ -36,9 +42,10 @@ class SampleChecker(QDialog):
             css = f.read()
         try:
             samples = self.formatted_list
-        except AttributeError:
+        except AttributeError as e:
+            logger.error(f"Problem getting sample list: {e}")
             samples = []
-        html = template.render(samples=samples, css=css)
+        html = template.render(samples=samples, css=css, rsl_plate_num=self.rsl_plate_num)
         self.webview.setHtml(html)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -51,25 +58,37 @@ class SampleChecker(QDialog):
     @pyqtSlot(str, str, str)
     def text_changed(self, submission_rank: str, key: str, new_value: str):
         logger.debug(f"Name: {submission_rank}, Key: {key}, Value: {new_value}")
-        match key:
-            case "row" | "column":
-                value = [new_value]
-            case _:
-                value = new_value
         try:
-            item = next((sample for sample in self.pyd.samples if int(submission_rank) in sample.submission_rank))
+            item = next((sample for sample in self.samples if int(submission_rank) == sample.submission_rank))
         except StopIteration:
             logger.error(f"Unable to find sample {submission_rank}")
             return
-        item.__setattr__(key, value)
+        item.__setattr__(key, new_value)
+
+    @pyqtSlot(str, bool)
+    def enable_sample(self, submission_rank: str, enabled: bool):
+        logger.debug(f"Name: {submission_rank}, Enabled: {enabled}")
+        try:
+            item = next((sample for sample in self.samples if int(submission_rank) == sample.submission_rank))
+        except StopIteration:
+            logger.error(f"Unable to find sample {submission_rank}")
+            return
+        item.__setattr__("enabled", enabled)
+
+    @pyqtSlot(str)
+    def set_rsl_plate_num(self, rsl_plate_num: str):
+        logger.debug(f"RSL plate num: {rsl_plate_num}")
+        self.rsl_plate_num = rsl_plate_num
 
     @property
     def formatted_list(self) -> List[dict]:
         output = []
-        for sample in self.pyd.sample_list:
-            if sample['submitter_id'] in [item['submitter_id'] for item in output]:
-                sample['color'] = "red"
+        for sample in self.samples:
+            logger.debug(sample)
+            s = sample.improved_dict(dictionaries=False)
+            if s['sample_id'] in [item['sample_id'] for item in output]:
+                s['color'] = "red"
             else:
-                sample['color'] = "black"
-            output.append(sample)
+                s['color'] = "black"
+            output.append(s)
         return output

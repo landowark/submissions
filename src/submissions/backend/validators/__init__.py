@@ -5,7 +5,7 @@ import logging, re
 import sys
 from pathlib import Path
 from openpyxl import load_workbook
-from backend.db.models import BasicRun, SubmissionType
+from backend.db.models import Run, SubmissionType
 from tools import jinja_template_loading
 from jinja2 import Template
 from dateutil.parser import parse
@@ -25,22 +25,22 @@ class RSLNamer(object):
         self.submission_type = submission_type
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        logger.info(f"got run type: {self.submission_type}")
+        logger.info(f"got procedure type: {self.submission_type}")
         if self.submission_type:
             self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
                 submission_type=submission_type))
             if not data:
                 data = dict(submission_type=self.submission_type)
-            if "submission_type" not in data.keys():
-                data['submission_type'] = self.submission_type
+            if "proceduretype" not in data.keys():
+                data['proceduretype'] = self.submission_type
             self.parsed_name = self.sub_object.enforce_name(instr=self.parsed_name, data=data)
             logger.info(f"Parsed name: {self.parsed_name}")
 
     @classmethod
     def retrieve_submission_type(cls, filename: str | Path) -> str:
         """
-        Gets run type from excel file properties or sheet names or regex pattern match or user input
+        Gets procedure type from excel file properties or sheet names or regex pattern match or user input
 
         Args:
             filename (str | Path): filename
@@ -49,7 +49,7 @@ class RSLNamer(object):
             TypeError: Raised if unsupported variable type for filename given.
 
         Returns:
-            str: parsed run type
+            str: parsed procedure type
         """
 
         def st_from_path(filepath: Path) -> str:
@@ -89,7 +89,7 @@ class RSLNamer(object):
                 sub_type = m.lastgroup
             except AttributeError as e:
                 sub_type = None
-                logger.critical(f"No run type found or run type found!: {e}")
+                logger.critical(f"No procedure type found or procedure type found!: {e}")
             return sub_type
 
         match filename:
@@ -107,8 +107,8 @@ class RSLNamer(object):
             if "pytest" in sys.modules:
                 raise ValueError("Submission Type came back as None.")
             from frontend.widgets import ObjectSelector
-            dlg = ObjectSelector(title="Couldn't parse run type.",
-                                 message="Please select run type from list below.",
+            dlg = ObjectSelector(title="Couldn't parse procedure type.",
+                                 message="Please select procedure type from list below.",
                                  obj_type=SubmissionType)
             if dlg.exec():
                 submission_type = dlg.parse_form()
@@ -118,7 +118,7 @@ class RSLNamer(object):
     @classmethod
     def retrieve_rsl_number(cls, filename: str | Path, regex: re.Pattern | None = None):
         """
-        Uses regex to retrieve the plate number and run type from an input string
+        Uses regex to retrieve the plate number and procedure type from an input string
 
         Args:
             regex (str): string to construct pattern
@@ -145,14 +145,15 @@ class RSLNamer(object):
     @classmethod
     def construct_new_plate_name(cls, data: dict) -> str:
         """
-        Make a brand-new plate name from run data.
+        Make a brand-new plate name from procedure data.
 
         Args:
-            data (dict): incoming run data
+            data (dict): incoming procedure data
 
         Returns:
             str: Output filename
         """
+        logger.debug(data)
         if "submitted_date" in data.keys():
             if isinstance(data['submitted_date'], dict):
                 if data['submitted_date']['value'] is not None:
@@ -163,14 +164,16 @@ class RSLNamer(object):
                 today = data['submitted_date']
         else:
             try:
-                today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['rsl_plate_num'])
+                today = re.search(r"\d{4}(_|-)?\d{2}(_|-)?\d{2}", data['name'])
                 today = parse(today.group())
             except (AttributeError, KeyError):
                 today = datetime.now()
-        if "rsl_plate_num" in data.keys():
-            plate_number = data['rsl_plate_num'].split("-")[-1][0]
+        if isinstance(today, str):
+            today = datetime.strptime(today, "%Y-%m-%d")
+        if "name" in data.keys():
+            plate_number = data['name'].split("-")[-1][0]
         else:
-            previous = BasicRun.query(start_date=today, end_date=today, submissiontype=data['submission_type'])
+            previous = Run.query(start_date=today, end_date=today, submissiontype=data['submissiontype'])
             plate_number = len(previous) + 1
         return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
 
@@ -205,4 +208,4 @@ class RSLNamer(object):
 
 
 from .pydant import PydSubmission, PydKitType, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
-    PydEquipment, PydEquipmentRole, PydTips, PydPCRControl, PydIridaControl, PydProcess, PydElastic, PydClientSubmission
+    PydEquipment, PydEquipmentRole, PydTips, PydProcess, PydElastic, PydClientSubmission

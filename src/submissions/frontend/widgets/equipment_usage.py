@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, QSignalBlocker
 from PyQt6.QtWidgets import (
     QDialog, QComboBox, QCheckBox, QLabel, QWidget, QVBoxLayout, QDialogButtonBox, QGridLayout
 )
-from backend.db.models import Equipment, BasicRun, Process
+from backend.db.models import Equipment, Run, Process, Procedure
 from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
 import logging
 from typing import Generator
@@ -16,13 +16,13 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class EquipmentUsage(QDialog):
 
-    def __init__(self, parent, submission: BasicRun):
+    def __init__(self, parent, procedure: Procedure):
         super().__init__(parent)
-        self.submission = submission
-        self.setWindowTitle(f"Equipment Checklist - {submission.rsl_plate_num}")
-        self.used_equipment = self.submission.used_equipment
-        self.kit = self.submission.extraction_kit
-        self.opt_equipment = submission.submission_type.get_equipment()
+        self.procedure = procedure
+        self.setWindowTitle(f"Equipment Checklist - {procedure.rsl_plate_num}")
+        self.used_equipment = self.procedure.equipment
+        self.kit = self.procedure.kittype
+        self.opt_equipment = procedure.proceduretype.get_equipment()
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         self.populate_form()
@@ -120,7 +120,7 @@ class RoleComboBox(QWidget):
 
     def update_processes(self):
         """
-        Changes processes when equipment is changed
+        Changes process when equipment is changed
         """
         equip = self.box.currentText()
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
@@ -134,10 +134,10 @@ class RoleComboBox(QWidget):
         """
         process = self.process.currentText().strip()
         process = Process.query(name=process)
-        if process.tip_roles:
-            for iii, tip_role in enumerate(process.tip_roles):
+        if process.tiprole:
+            for iii, tip_role in enumerate(process.tiprole):
                 widget = QComboBox()
-                tip_choices = [item.name for item in tip_role.controls]
+                tip_choices = [item.name for item in tip_role.control]
                 widget.setEditable(False)
                 widget.addItems(tip_choices)
                 widget.setObjectName(f"tips_{tip_role.name}")

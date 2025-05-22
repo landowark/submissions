@@ -92,7 +92,7 @@ class CustomFigure(Figure):
         Creates list of buttons with one for each mode to be used in showing/hiding mode traces.
 
         Args:
-            modes (list): list of modes used by main parser.
+            modes (list): list of modes used by main clientsubmissionparser.
             fig_len (int): number of traces in the figure
 
         Returns:

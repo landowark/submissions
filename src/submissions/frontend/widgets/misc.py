@@ -19,7 +19,7 @@ env = jinja_template_loading()
 
 class StartEndDatePicker(QWidget):
     """
-    custom widget to pick start and end dates for controls graphs
+    custom widget to pick start and end dates for control graphs
     """
 
     def __init__(self, default_start: int) -> None:

@@ -30,7 +30,7 @@ from functools import wraps
 
 timezone = tz("America/Winnipeg")
 
-logger = logging.getLogger(f"submissions.{__name__}")
+logger = logging.getLogger(f"procedure.{__name__}")
 
 logger.info(f"Package dir: {project_path}")
 
@@ -41,7 +41,7 @@ else:
     os_config_dir = ".config"
     logger.info(f"Got platform {platform.system()}, config_dir: {os_config_dir}")
 
-main_aux_dir = Path.home().joinpath(f"{os_config_dir}/submissions")
+main_aux_dir = Path.home().joinpath(f"{os_config_dir}/procedure")
 
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
@@ -343,7 +343,7 @@ class StreamToLogger(object):
 
 class CustomLogger(Logger):
 
-    def __init__(self, name: str = "submissions", level=logging.DEBUG):
+    def __init__(self, name: str = "procedure", level=logging.DEBUG):
         super().__init__(name, level)
         self.extra_info = None
         ch = logging.StreamHandler(stream=sys.stdout)
@@ -394,7 +394,7 @@ def setup_logger(verbosity: int = 3):
             return
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
-    logger = logging.getLogger("submissions")
+    logger = logging.getLogger("procedure")
     logger.setLevel(logging.DEBUG)
     # NOTE: create file handler which logs even debug messages
     try:
@@ -937,7 +937,7 @@ class Settings(BaseSettings, extra="allow"):
         else:
             os_config_dir = ".config"
             # logger.info(f"Got platform {platform.system()}, config_dir: {os_config_dir}")
-        return Path.home().joinpath(f"{os_config_dir}/submissions")
+        return Path.home().joinpath(f"{os_config_dir}/procedure")
 
     @classproperty
     def configdir(cls):
@@ -955,12 +955,12 @@ class Settings(BaseSettings, extra="allow"):
         else:
             settings_path = None
         if settings_path is None:
-            # NOTE: Check user .config/submissions directory
+            # NOTE: Check user .config/procedure directory
             if cls.configdir.joinpath("config.yml").exists():
                 settings_path = cls.configdir.joinpath("config.yml")
-            # NOTE: Check user .submissions directory
-            elif Path.home().joinpath(".submissions", "config.yml").exists():
-                settings_path = Path.home().joinpath(".submissions", "config.yml")
+            # NOTE: Check user .procedure directory
+            elif Path.home().joinpath(".procedure", "config.yml").exists():
+                settings_path = Path.home().joinpath(".procedure", "config.yml")
             # NOTE: finally look in the local config
             else:
                 if check_if_app():
@@ -1275,7 +1275,7 @@ class Settings(BaseSettings, extra="allow"):
                 logger.warning(f"Logging directory {self.configdir} already exists.")
             dicto = {}
             for k, v in self.__dict__.items():
-                if k in ['package', 'database_session', 'submission_types']:
+                if k in ['package', 'database_session', 'proceduretype']:
                     continue
                 match v:
                     case Path():

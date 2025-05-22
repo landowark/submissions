@@ -1,5 +1,5 @@
 """
-contains writer objects for pushing values to run sheet templates.
+contains writer objects for pushing values to procedure sheet templates.
 """
 import logging
 from copy import copy
@@ -8,7 +8,7 @@ from operator import itemgetter
 from pprint import pformat
 from typing import List, Generator, Tuple
 from openpyxl import load_workbook, Workbook
-from backend.db.models import SubmissionType, KitType, BasicRun
+from backend.db.models import SubmissionType, KitType, Run
 from backend.validators.pydant import PydSubmission
 from io import BytesIO
 from collections import OrderedDict
@@ -24,7 +24,7 @@ class SheetWriter(object):
     def __init__(self, submission: PydSubmission):
         """
         Args:
-            submission (PydSubmission): Object containing run information.
+            submission (PydSubmission): Object containing procedure information.
         """
         self.sub = OrderedDict(submission.improved_dict())
         # NOTE: Set values from pydantic object.
@@ -32,7 +32,7 @@ class SheetWriter(object):
             match k:
                 case 'filepath':
                     self.__setattr__(k, v)
-                case 'submission_type':
+                case 'proceduretype':
                     self.sub[k] = v['value']
                     self.submission_type = SubmissionType.query(name=v['value'])
                     self.run_object = BasicRun.find_polymorphic_subclass(
@@ -58,7 +58,7 @@ class SheetWriter(object):
         """
         Calls info writer
         """
-        disallowed = ['filepath', 'reagents', 'samples', 'equipment', 'controls']
+        disallowed = ['filepath', 'reagents', 'sample', 'equipment', 'control']
         info_dict = {k: v for k, v in self.sub.items() if k not in disallowed}
         writer = InfoWriter(xl=self.xl, submission_type=self.submission_type, info_dict=info_dict)
         self.xl = writer.write_info()
@@ -69,14 +69,14 @@ class SheetWriter(object):
         """
         reagent_list = self.sub['reagents']
         writer = ReagentWriter(xl=self.xl, submission_type=self.submission_type,
-                               extraction_kit=self.sub['extraction_kit'], reagent_list=reagent_list)
+                               extraction_kit=self.sub['kittype'], reagent_list=reagent_list)
         self.xl = writer.write_reagents()
 
     def write_samples(self):
         """
         Calls sample writer
         """
-        sample_list = self.sub['samples']
+        sample_list = self.sub['sample']
         writer = SampleWriter(xl=self.xl, submission_type=self.submission_type, sample_list=sample_list)
         self.xl = writer.write_samples()
 
@@ -99,22 +99,22 @@ class SheetWriter(object):
 
 class InfoWriter(object):
     """
-    object to write general run info into excel file
+    object to write general procedure info into excel file
     """
 
     def __init__(self, xl: Workbook, submission_type: SubmissionType | str, info_dict: dict,
-                 sub_object: BasicRun | None = None):
+                 sub_object: Run | None = None):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
             info_dict (dict): Dictionary of information to write.
             sub_object (BasicRun | None, optional): Submission object containing methods. Defaults to None.
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if sub_object is None:
-            sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
+            sub_object = Run.find_polymorphic_subclass(polymorphic_identity=submission_type.name)
         self.submission_type = submission_type
         self.sub_object = sub_object
         self.xl = xl
@@ -196,8 +196,8 @@ class ReagentWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
-            extraction_kit (KitType | str): Extraction kit used.
+            submission_type (SubmissionType | str): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
+            extraction_kit (KitType | str): Extraction kittype used.
             reagent_list (list): List of reagent dicts to be written to excel.
         """
         self.xl = xl
@@ -208,7 +208,7 @@ class ReagentWriter(object):
             extraction_kit = KitType.query(name=extraction_kit)
         self.kit_object = extraction_kit
         associations, self.kit_object = self.kit_object.construct_xl_map_for_use(
-            submission_type=self.submission_type_obj)
+            proceduretype=self.submission_type_obj)
         reagent_map = {k: v for k, v in associations.items()}
         self.reagents = self.reconcile_map(reagent_list=reagent_list, reagent_map=reagent_map)
 
@@ -223,13 +223,13 @@ class ReagentWriter(object):
         Returns:
             List[dict]: merged dictionary
         """
-        filled_roles = [item['role'] for item in reagent_list]
+        filled_roles = [item['reagentrole'] for item in reagent_list]
         for map_obj in reagent_map.keys():
             if map_obj not in filled_roles:
                 reagent_list.append(dict(name="Not Applicable", role=map_obj, lot="Not Applicable", expiry="Not Applicable"))
         for reagent in reagent_list:
             try:
-                mp_info = reagent_map[reagent['role']]
+                mp_info = reagent_map[reagent['reagentrole']]
             except KeyError:
                 continue
             placeholder = copy(reagent)
@@ -273,7 +273,7 @@ class SampleWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
             sample_list (list): List of sample dictionaries to be written to excel file.
         """
         if isinstance(submission_type, str):
@@ -281,7 +281,7 @@ class SampleWriter(object):
         self.submission_type = submission_type
         self.xl = xl
         self.sample_map = submission_type.sample_map['lookup_table']
-        # NOTE: exclude any samples without a run rank.
+        # NOTE: exclude any sample without a procedure rank.
         samples = [item for item in self.reconcile_map(sample_list) if item['submission_rank'] > 0]
         self.samples = sorted(samples, key=itemgetter('submission_rank'))
         self.blank_lookup_table()
@@ -322,7 +322,7 @@ class SampleWriter(object):
         Performs writing operations.
 
         Returns:
-            Workbook: Workbook with samples written
+            Workbook: Workbook with sample written
         """
         sheet = self.xl[self.sample_map['sheet']]
         columns = self.sample_map['sample_columns']
@@ -351,7 +351,7 @@ class EquipmentWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
             equipment_list (list): List of equipment dictionaries to write to excel file.
         """
         if isinstance(submission_type, str):
@@ -376,9 +376,9 @@ class EquipmentWriter(object):
             return
         for ii, equipment in enumerate(equipment_list, start=1):
             try:
-                mp_info = equipment_map[equipment['role']]
+                mp_info = equipment_map[equipment['reagentrole']]
             except KeyError:
-                logger.error(f"No {equipment['role']} in {pformat(equipment_map)}")
+                logger.error(f"No {equipment['reagentrole']} in {pformat(equipment_map)}")
                 mp_info = None
             placeholder = copy(equipment)
             if not mp_info:
@@ -433,7 +433,7 @@ class TipWriter(object):
         """
         Args:
             xl (Workbook): Openpyxl workbook from submitted excel file.
-            submission_type (SubmissionType | str): Type of run expected (Wastewater, Bacterial Culture, etc.)
+            submission_type (SubmissionType | str): Type of procedure expected (Wastewater, Bacterial Culture, etc.)
             tips_list (list): List of tip dictionaries to write to the excel file.
         """
         if isinstance(submission_type, str):

@@ -144,7 +144,7 @@ class ManagerWindow(QDialog):
 
     def update_data(self) -> None:
         """
-        Performs updating of widgets on first run and after options change.
+        Performs updating of widgets on first procedure and after options change.
 
         Returns:
             None

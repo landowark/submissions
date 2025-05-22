@@ -15,7 +15,7 @@ def hello(ctx) -> None:
 
 
 """
-For scripts to be run, they must be added to the _configitem.startup_scripts or _configitem.teardown_scripts
+For scripts to be procedure, they must be added to the _configitem.startup_scripts or _configitem.teardown_scripts
 rows as a key: value (name: null) entry in the JSON.
 ex: {"hello": null, "import_irida": null}
 The program will overwrite null with the actual function upon startup.

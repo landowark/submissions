@@ -22,7 +22,7 @@ def get_week_of_month() -> int:
 
 
 # Automatically completes project info for help menu and compiling.
-__project__ = "submissions"
+__project__ = "procedure"
 __version__ = f"{year}{str(month).zfill(2)}.{get_week_of_month()}b"
 __author__ = {"name": "Landon Wark", "email": "Landon.Wark@phac-aspc.gc.ca"}
 __copyright__ = f"2022-{year}, Government of Canada"

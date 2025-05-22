@@ -12,7 +12,7 @@ import logging, numpy as np
 from pprint import pformat
 from typing import Tuple, List
 from pathlib import Path
-from backend.db.models import BasicRun
+from backend.db.models import Run
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # Main window class
 class GelBox(QDialog):
 
-    def __init__(self, parent, img_path: str | Path, submission: BasicRun):
+    def __init__(self, parent, img_path: str | Path, submission: Run):
         super().__init__(parent)
         # NOTE: setting title
         self.setWindowTitle(f"Gel - {img_path}")
@@ -135,7 +135,7 @@ class ControlsForm(QWidget):
 
     def parse_form(self) -> Tuple[List[dict], str]:
         """
-        Pulls the controls statuses from the form.
+        Pulls the control statuses from the form.
 
         Returns:
             List[dict]: output of values

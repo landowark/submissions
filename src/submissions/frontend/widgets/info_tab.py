@@ -39,7 +39,7 @@ class InfoPane(QWidget):
             lastmonth = self.datepicker.end_date.date().addDays(-31)
             msg = f"Start date after end date is not allowed! Setting to {lastmonth.toString()}."
             logger.warning(msg)
-            # NOTE: block signal that will rerun controls getter and set start date without triggering this function again
+            # NOTE: block signal that will rerun control getter and set start date without triggering this function again
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(lastmonth)
             self.update_data()

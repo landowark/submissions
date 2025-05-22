@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QSignalBlocker
 from backend import ChartReportMaker
-from backend.db import ControlType, IridaControl
+from backend.db import ControlType
 import logging
 from tools import Report, report_result
 from frontend.visualizations import CustomFigure
@@ -25,7 +25,7 @@ class ControlsViewer(InfoPane):
             return
         # NOTE: set tab2 layout
         self.control_sub_typer = QComboBox()
-        # NOTE: fetch types of controls
+        # NOTE: fetch types of control
         con_sub_types = [item for item in self.archetype.targets.keys()]
         self.control_sub_typer.addItems(con_sub_types)
         # NOTE: create custom widget to get types of analysis -- disabled by PCR control
@@ -52,7 +52,7 @@ class ControlsViewer(InfoPane):
     @report_result
     def update_data(self, *args, **kwargs):
         """
-        Get controls based on start/end dates
+        Get control based on start/end dates
         """
         super().update_data()
         # NOTE: mode_sub_type defaults to disabled
@@ -70,7 +70,7 @@ class ControlsViewer(InfoPane):
             sub_types = []
         # NOTE: added in allowed to have subtypes in case additions made in future.
         if sub_types and self.mode.lower() in self.archetype.instance_class.subtyping_allowed:
-            # NOTE: block signal that will rerun controls getter and update mode_sub_typer
+            # NOTE: block signal that will rerun control getter and update mode_sub_typer
             with QSignalBlocker(self.mode_sub_typer) as blocker:
                 self.mode_sub_typer.addItems(sub_types)
             self.mode_sub_typer.setEnabled(True)
@@ -83,7 +83,7 @@ class ControlsViewer(InfoPane):
     @report_result
     def chart_maker_function(self, *args, **kwargs):
         """
-        Create html chart for controls reporting
+        Create html chart for control reporting
 
         Args:
             obj (QMainWindow): original app window
@@ -98,7 +98,7 @@ class ControlsViewer(InfoPane):
         else:
             self.mode_sub_type = self.mode_sub_typer.currentText()
         months = self.diff_month(self.start_date, self.end_date)
-        # NOTE: query all controls using the type/start and end dates from the gui
+        # NOTE: query all control using the type/start and end dates from the gui
         chart_settings = dict(
             sub_type=self.con_sub_type,
             start_date=self.start_date,

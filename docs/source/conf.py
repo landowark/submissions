@@ -34,7 +34,7 @@ templates_path = ['_templates']
 exclude_patterns = []
 
 sys.path.insert(0, Path(__file__).absolute().resolve().parents[2].joinpath("src").__str__())
-sys.path.insert(0, Path(__file__).absolute().resolve().parents[2].joinpath("src/submissions").__str__())
+sys.path.insert(0, Path(__file__).absolute().resolve().parents[2].joinpath("src/procedure").__str__())
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -44,4 +44,4 @@ html_theme = 'alabaster'
 html_static_path = ['_static']
 
 
-# autodoc_mock_imports = ["backend.db.models.submissions"]
+# autodoc_mock_imports = ["backend.db.models.procedure"]

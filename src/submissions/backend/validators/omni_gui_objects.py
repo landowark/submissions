@@ -650,22 +650,22 @@ class OmniProcess(BaseOmni):
                 new_assoc = st.to_sql()
             except AttributeError:
                 new_assoc = SubmissionType.query(name=st)
-            if new_assoc not in instance.submission_types:
-                instance.submission_types.append(new_assoc)
+            if new_assoc not in instance.proceduretype:
+                instance.proceduretype.append(new_assoc)
         for er in self.equipment_roles:
             try:
                 new_assoc = er.to_sql()
             except AttributeError:
                 new_assoc = EquipmentRole.query(name=er)
-            if new_assoc not in instance.equipment_roles:
-                instance.equipment_roles.append(new_assoc)
+            if new_assoc not in instance.equipmentrole:
+                instance.equipmentrole.append(new_assoc)
         for tr in self.tip_roles:
             try:
                 new_assoc = tr.to_sql()
             except AttributeError:
                 new_assoc = TipRole.query(name=tr)
-            if new_assoc not in instance.tip_roles:
-                instance.tip_roles.append(new_assoc)
+            if new_assoc not in instance.tiprole:
+                instance.tiprole.append(new_assoc)
         return instance
 
     @property
