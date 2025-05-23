@@ -24,7 +24,6 @@ logger = logging.getLogger(f"procedure.{__name__}")
 
 
 class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
-
     _sql_object: ClassVar = None
 
     @model_validator(mode="before")
@@ -240,7 +239,6 @@ class PydReagent(BaseModel):
 
 
 class PydSample(PydBaseClass):
-
     sample_id: str
     sampletype: str | None = Field(default=None)
     submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
@@ -1336,8 +1334,65 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
 
 # NOTE: Generified objects below:
 
-class PydClientSubmission(PydBaseClass):
+class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
+    proceduretype: ProcedureType | None = Field(default=None)
+    name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
+    technician: dict = Field(default=dict(value="NA", missing=True))
+    repeat: bool = Field(default=False)
+    kittype: dict = Field(default=dict(value="NA", missing=True))
+    possible_kits: list | None = Field(default=[], validate_default=True)
+    plate_map: str | None = Field(default=None)
+    reagent: list | None = Field(default=[])
+    reagentrole: dict | None = Field(default={}, validate_default=True)
 
+    @field_validator("name")
+    @classmethod
+    def rescue_name(cls, value, values):
+        if value['value'] == cls.model_fields['name'].default['value']:
+            if values.data['proceduretype']:
+                value['value'] = values.data['proceduretype'].name
+        return value
+
+    @field_validator("possible_kits")
+    @classmethod
+    def rescue_possible_kits(cls, value, values):
+        if not value:
+            if values.data['proceduretype']:
+                value = [kittype.name for kittype in values.data['proceduretype'].kittype]
+        return value
+
+    @field_validator("name", "technician", "kittype")
+    @classmethod
+    def set_colour(cls, value):
+        if value["missing"]:
+            value["colour"] = "FE441D"
+        else:
+            value["colour"] = "6ffe1d"
+        return value
+
+    @field_validator("reagentrole")
+    @classmethod
+    def rescue_reagentrole(cls, value, values):
+        if not value:
+            if values.data['kittype']['value'] != cls.model_fields['kittype'].default['value']:
+                kittype = KitType.query(name=values.data['kittype']['value'])
+                value = {item.name: item.reagents for item in kittype.reagentrole}
+        return value
+
+    def update_kittype_reagentroles(self, kittype: str | KitType):
+        if kittype == self.__class__.model_fields['kittype'].default['value']:
+            return
+        if isinstance(kittype, str):
+            kittype_obj = KitType.query(name=kittype)
+        try:
+            self.reagentrole = {item.name: item.reagents for item in
+                                kittype_obj.get_reagents(proceduretype=self.proceduretype)}
+        except AttributeError:
+            self.reagentrole = {}
+        self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
+
+
+class PydClientSubmission(PydBaseClass):
     # sql_object: ClassVar = ClientSubmission
 
     filepath: Path
@@ -1412,5 +1467,3 @@ class PydClientSubmission(PydBaseClass):
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
-
-

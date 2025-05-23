@@ -555,6 +555,8 @@ class BaseClass(Base):
         return output_date
 
 
+
+
 class LogMixin(Base):
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',
                                     'submission_reagent_associations', 'submission_equipment_associations',

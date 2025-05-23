@@ -15,8 +15,6 @@ from operator import itemgetter
 from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
-
-
 from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table
 from sqlalchemy.orm import relationship, validates, Query
@@ -1122,8 +1120,13 @@ class Run(BaseClass, LogMixin):
         return output
 
     def add_procedure(self, obj, proceduretype_name: str):
+        from frontend.widgets.procedure_creation import ProcedureCreation
         procedure_type = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         logger.debug(f"Got ProcedureType: {procedure_type}")
+        dlg = ProcedureCreation(parent=obj, run=self, proceduretype=procedure_type)
+        if dlg.exec():
+            pass
+
 
     def delete(self, obj=None):
         """

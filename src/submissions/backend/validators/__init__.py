@@ -208,4 +208,4 @@ class RSLNamer(object):
 
 
 from .pydant import PydSubmission, PydKitType, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
-    PydEquipment, PydEquipmentRole, PydTips, PydProcess, PydElastic, PydClientSubmission
+    PydEquipment, PydEquipmentRole, PydTips, PydProcess, PydElastic, PydClientSubmission, PydProcedure

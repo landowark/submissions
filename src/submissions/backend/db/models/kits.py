@@ -14,11 +14,14 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import date, datetime, timedelta
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone, \
     jinja_template_loading
-from typing import List, Literal, Generator, Any, Tuple
+from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, ClientLab, LogMixin
 from io import BytesIO
+
+if TYPE_CHECKING:
+    from backend.db.models.submissions import Run
 
 logger = logging.getLogger(f'procedure.{__name__}')
 
@@ -159,7 +162,7 @@ class KitType(BaseClass):
 
     def get_reagents(self,
                      required_only: bool = False,
-                     proceduretype: str | SubmissionType | None = None
+                     proceduretype: str | ProcedureType | None = None
                      ) -> Generator[ReagentRole, None, None]:
         """
         Return ReagentTypes linked to kittype through KitTypeReagentTypeAssociation.
@@ -181,9 +184,9 @@ class KitType(BaseClass):
             case _:
                 relevant_associations = [item for item in self.kittypereagentroleassociation]
         if required_only:
-            return (item.reagent_role for item in relevant_associations if item.required == 1)
+            return (item.reagentrole for item in relevant_associations if item.required == 1)
         else:
-            return (item.reagent_role for item in relevant_associations)
+            return (item.reagentrole for item in relevant_associations)
 
     def construct_xl_map_for_use(self, proceduretype: str | SubmissionType) -> Tuple[dict | None, KitType]:
         """
@@ -536,6 +539,9 @@ class ReagentRole(BaseClass):
         logger.debug(f"Constructing OmniReagentRole with name {self.name}")
         return OmniReagentRole(instance_object=self, name=self.name, eol_ext=self.eol_ext)
 
+    @property
+    def reagents(self):
+        return [f"{reagent.name} - {reagent.lot}" for reagent in self.reagent]
 
 class Reagent(BaseClass, LogMixin):
     """
@@ -841,11 +847,11 @@ class SubmissionType(BaseClass):
     info_map = Column(JSON)  #: Where parsable information is found in the excel workbook corresponding to this type.
     defaults = Column(JSON)  #: Basic information about this procedure type
     clientsubmission = relationship("ClientSubmission",
-                                     back_populates="submissiontype")  #: Concrete control of this type.
+                                    back_populates="submissiontype")  #: Concrete control of this type.
     template_file = Column(BLOB)  #: Blank form for this type stored as binary.
     sample_map = Column(JSON)  #: Where sample information is found in the excel sheet corresponding to this type.
     proceduretype = relationship("ProcedureType", back_populates="submissiontype",
-                             secondary=submissiontype_proceduretype)  #: run this kittype was used for
+                                 secondary=submissiontype_proceduretype)  #: run this kittype was used for
 
     def __repr__(self) -> str:
         """
@@ -1034,7 +1040,8 @@ class ProcedureType(BaseClass):
     id = Column(INTEGER, primary_key=True)
     name = Column(String(64))
     reagent_map = Column(JSON)
-    plate_size = Column(INTEGER, default=0)
+    plate_columns = Column(INTEGER, default=0)
+    plate_rows = Column(INTEGER, default=0)
 
     procedure = relationship("Procedure",
                              back_populates="proceduretype")  #: Concrete control of this type.
@@ -1140,6 +1147,54 @@ class ProcedureType(BaseClass):
                 raise TypeError(f"Type {type(equipmentrole)} is not allowed")
         return list(set([item for items in relevant for item in items if item is not None]))
 
+    @property
+    def as_dict(self):
+        return dict(
+            name=self.name,
+            kittype=[item.name for item in self.kittype]
+        )
+
+    def construct_dummy_procedure(self):
+        from backend.validators.pydant import PydProcedure
+        output = dict(
+            proceduretype=self,
+            #name=dict(value=self.name, missing=True),
+            #possible_kits=[kittype.name for kittype in self.kittype],
+            repeat=False,
+            plate_map=self.construct_plate_map()
+        )
+        return PydProcedure(**output)
+
+    def construct_plate_map(self) -> str:
+        """
+        Constructs an html based plate map for procedure details.
+
+        Args:
+            sample_list (list): List of procedure sample
+            plate_rows (int, optional): Number of rows in the plate. Defaults to 8.
+            plate_columns (int, optional): Number of columns in the plate. Defaults to 12.
+
+        Returns:
+            str: html output string.
+        """
+        if self.plate_rows == 0 or self.plate_columns == 0:
+            return "<br/>"
+        plate_rows = range(1, self.plate_rows + 1)
+        plate_columns = range(1, self.plate_columns + 1)
+        total_wells = self.plate_columns * self.plate_rows
+        vw = round((-0.07 * total_wells) + 12.2, 1)
+
+
+        wells = [dict(name="", row=row, column=column, background_color="#ffffff")
+                          for row in plate_rows
+                          for column in plate_columns]
+        # NOTE: An overly complicated list comprehension create a list of sample locations
+        # NOTE: next will return a blank cell if no value found for row/column
+        env = jinja_template_loading()
+        template = env.get_template("plate_map.html")
+        html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=wells, vw=vw)
+        return html + "<br/>"
+
 
 class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)
@@ -1164,7 +1219,8 @@ class Procedure(BaseClass):
     )  #: Relation to ProcedureReagentAssociation
 
     reagents = association_proxy("procedurereagentassociation",
-                                 "reagent", creator=lambda reg: ProcedureReagentAssociation(reagent=reg))  #: Association proxy to RunReagentAssociation.reagent
+                                 "reagent", creator=lambda reg: ProcedureReagentAssociation(
+            reagent=reg))  #: Association proxy to RunReagentAssociation.reagent
 
     procedureequipmentassociation = relationship(
         "ProcedureEquipmentAssociation",
@@ -1193,7 +1249,8 @@ class Procedure(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, id: int|None = None, name: str | None = None, limit: int = 0, **kwargs) -> Procedure | List[Procedure]:
+    def query(cls, id: int | None = None, name: str | None = None, limit: int = 0, **kwargs) -> Procedure | List[
+        Procedure]:
         query: Query = cls.__database_session__.query(cls)
         match id:
             case int():
@@ -1674,9 +1731,9 @@ class Equipment(BaseClass, LogMixin):
     nickname = Column(String(64))  #: equipment nickname
     asset_number = Column(String(16))  #: Given asset number (corpo nickname if you will)
     equipmentrole = relationship("EquipmentRole", back_populates="equipment",
-                         secondary=equipmentrole_equipment)  #: relation to EquipmentRoles
+                                 secondary=equipmentrole_equipment)  #: relation to EquipmentRoles
     process = relationship("Process", back_populates="equipment",
-                             secondary=equipment_process)  #: relation to Processes
+                           secondary=equipment_process)  #: relation to Processes
     tips = relationship("Tips", back_populates="equipment",
                         secondary=equipment_tips)  #: relation to Processes
     equipmentprocedureassociation = relationship(
@@ -1686,7 +1743,7 @@ class Equipment(BaseClass, LogMixin):
     )  #: Association with BasicRun
 
     procedure = association_proxy("equipmentprocedureassociation",
-                                    "procedure")  #: proxy to equipmentprocedureassociation.procedure
+                                  "procedure")  #: proxy to equipmentprocedureassociation.procedure
 
     def to_dict(self, processes: bool = False) -> dict:
         """
@@ -1888,7 +1945,7 @@ class EquipmentRole(BaseClass):
     equipment = relationship("Equipment", back_populates="equipmentrole",
                              secondary=equipmentrole_equipment)  #: Concrete control (Equipment) of reagentrole
     process = relationship("Process", back_populates='equipmentrole',
-                             secondary=equipmentrole_process)  #: Associated Processes
+                           secondary=equipmentrole_process)  #: Associated Processes
 
     equipmentroleproceduretypeassociation = relationship(
         "ProcedureTypeEquipmentRoleAssociation",
@@ -1897,7 +1954,7 @@ class EquipmentRole(BaseClass):
     )  #: relation to SubmissionTypes
 
     proceduretype = association_proxy("equipmentroleproceduretypeassociation",
-                                         "proceduretype")  #: proxy to equipmentroleproceduretypeassociation.proceduretype
+                                      "proceduretype")  #: proxy to equipmentroleproceduretypeassociation.proceduretype
 
     def to_dict(self) -> dict:
         """
@@ -2018,7 +2075,7 @@ class ProcedureEquipmentAssociation(BaseClass):
     comments = Column(String(1024))  #: comments about equipment
 
     procedure = relationship(Procedure,
-                       back_populates="procedureequipmentassociation")  #: associated procedure
+                             back_populates="procedureequipmentassociation")  #: associated procedure
 
     equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
 
@@ -2431,7 +2488,8 @@ class Tips(BaseClass, LogMixin):
         )
         if full_data:
             subs = [
-                dict(plate=item.procedure.procedure.rsl_plate_num, role=item.role_name, sub_date=item.procedure.procedure.clientsubmission.submitted_date)
+                dict(plate=item.procedure.procedure.rsl_plate_num, role=item.role_name,
+                     sub_date=item.procedure.procedure.clientsubmission.submitted_date)
                 for item in self.tipsprocedureassociation]
             output['procedure'] = sorted(subs, key=itemgetter("sub_date"), reverse=True)
             output['excluded'] = ['missing', 'procedure', 'excluded', 'editable']
@@ -2466,7 +2524,8 @@ class ProcedureTypeTipRoleAssociation(BaseClass):
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
                               primary_key=True)  #: id of associated procedure
     uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
-    static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+    static = Column(INTEGER,
+                    default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypetiproleassociation")  #: associated procedure
     tiprole = relationship(TipRole,
