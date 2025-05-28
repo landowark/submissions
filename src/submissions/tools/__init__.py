@@ -27,7 +27,6 @@ from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
 
-
 timezone = tz("America/Winnipeg")
 
 logger = logging.getLogger(f"procedure.{__name__}")
@@ -249,6 +248,7 @@ def timer(func):
         func (__function__): incoming function
 
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.perf_counter()
@@ -257,6 +257,7 @@ def timer(func):
         run_time = end_time - start_time
         print(f"Finished {func.__name__}() in {run_time:.4f} secs")
         return value
+
     return wrapper
 
 
@@ -295,7 +296,6 @@ class GroupWriteRotatingFileHandler(handlers.RotatingFileHandler):
 
 
 class CustomFormatter(logging.Formatter):
-
     class bcolors:
         HEADER = '\033[95m'
         OKBLUE = '\033[94m'
@@ -482,6 +482,7 @@ def setup_lookup(func):
             elif v is not None:
                 sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)
+
     return wrapper
 
 
@@ -532,7 +533,6 @@ def get_application_from_parent(widget):
 
 
 class Result(BaseModel, arbitrary_types_allowed=True):
-
     owner: str = Field(default="", validate_default=True)
     code: int = Field(default=0)
     msg: str | Exception
@@ -768,6 +768,7 @@ def under_development(func):
                 Result(owner=func.__str__(), code=1, msg=error_msg,
                        status="warning"))
             return report
+
     return wrapper
 
 
@@ -856,6 +857,7 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
         offset = -d.weekday()  # weekday == 0 means Monday
         output = d + timedelta(offset)
         return output.date()
+
     if not year:
         year = date.today().year
     # NOTE: Includes New Year's day for next year.
@@ -898,6 +900,11 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
 
 def flatten_list(input_list: list):
     return list(itertools.chain.from_iterable(input_list))
+
+
+def create_plate_grid(rows: int, columns: int):
+    matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
+    return {iii: (item[0][1]+1, item[0][0]+1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
 
 class classproperty(property):
@@ -1293,4 +1300,3 @@ class Settings(BaseSettings, extra="allow"):
 
 
 ctx = Settings()
-

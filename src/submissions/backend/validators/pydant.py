@@ -243,6 +243,8 @@ class PydSample(PydBaseClass):
     sampletype: str | None = Field(default=None)
     submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
     enabled: bool = Field(default=True)
+    row: int = Field(default=0)
+    column: int = Field(default=0)
 
     @field_validator("sample_id", mode="before")
     @classmethod
@@ -1336,6 +1338,7 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
 
 class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     proceduretype: ProcedureType | None = Field(default=None)
+    run: Run | None = Field(default=None)
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
@@ -1344,6 +1347,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     plate_map: str | None = Field(default=None)
     reagent: list | None = Field(default=[])
     reagentrole: dict | None = Field(default={}, validate_default=True)
+    samples: List[PydSample] = Field(default=[])
 
     @field_validator("name")
     @classmethod
@@ -1379,17 +1383,67 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 value = {item.name: item.reagents for item in kittype.reagentrole}
         return value
 
+
+
     def update_kittype_reagentroles(self, kittype: str | KitType):
         if kittype == self.__class__.model_fields['kittype'].default['value']:
             return
         if isinstance(kittype, str):
             kittype_obj = KitType.query(name=kittype)
         try:
-            self.reagentrole = {item.name: item.reagents for item in
+            self.reagentrole = {item.name: item.get_reagents(kittype=kittype_obj) for item in
                                 kittype_obj.get_reagents(proceduretype=self.proceduretype)}
         except AttributeError:
             self.reagentrole = {}
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
+
+    def shuffle_samples(self, source_row: int, source_column: int, destination_row: int, destination_column=int):
+        logger.debug(f"Attempting sample shuffle.")
+        try:
+            source_sample = next(
+                (sample for sample in self.samples if sample.row == source_row and sample.column == source_column))
+        except StopIteration:
+            raise StopIteration("Couldn't find proper sample.")
+        logger.debug(f"Source Well: {source_row}, {source_column}")
+        logger.debug(f"Destination Well: {destination_row}, {destination_column}")
+        updateable_samples = []
+        if source_row > destination_row and source_column >= destination_column:
+            logger.debug(f"Sample was moved ahead.")
+            movement = "pos"
+            for sample in self.samples:
+                if sample.row >= destination_row and sample.column >= destination_column:
+                    if sample.row <= source_row and sample.column <= source_column:
+                        updateable_samples.append(sample)
+
+        elif source_row < destination_row and source_column <= destination_column:
+            logger.debug(f"Sample was moved back.")
+            movement = "neg"
+            for sample in self.samples:
+                if sample.row <= destination_row and sample.column <= destination_column:
+                    if sample.row >= source_row and sample.column >= source_column:
+                        updateable_samples.append(sample)
+        else:
+            logger.debug(f"Don't know what happened.")
+        logger.debug(f"Samples to be updated: {pformat(updateable_samples)}")
+        for sample in updateable_samples:
+            if sample.row == source_row and sample.column == source_column:
+                sample.row = destination_row
+                sample.column = destination_column
+            else:
+                match movement:
+                    case "pos":
+                        if sample.row + 1 > 8:
+                            sample.column += 1
+                            sample.row = 1
+                        else:
+                            sample.row += 1
+                    case "neg":
+                        if sample.row - 1 <= 0:
+                            sample.column -= 1
+                            sample.row = 8
+                        else:
+                            sample.row -= 1
+
 
 
 class PydClientSubmission(PydBaseClass):

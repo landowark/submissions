@@ -28,11 +28,13 @@ from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
     report_result, create_holidays_for_year, check_dictionary_inclusion_equality
 from datetime import datetime, date
-from typing import List, Any, Tuple, Literal, Generator, Type
+from typing import List, Any, Tuple, Literal, Generator, Type, TYPE_CHECKING
 from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
 from PIL import Image
+if TYPE_CHECKING:
+    from backend.db.models.kits import ProcedureType
 
 from . import kittype_procedure
 
@@ -653,6 +655,10 @@ class Run(BaseClass, LogMixin):
         output_list = [assoc.hitpicked for assoc in self.runsampleassociation]
         return output_list
 
+    @property
+    def sample_dicts(self) -> List[dict]:
+        return [dict(sample_id=assoc.sample.sample_id, row=assoc.row, column=assoc.column, background_color="#6ffe1d") for assoc in self.runsampleassociation]
+
     @classmethod
     def make_plate_map(cls, sample_list: list, plate_rows: int = 8, plate_columns=12) -> str:
         """
@@ -1272,6 +1278,51 @@ class Run(BaseClass, LogMixin):
     @property
     def allowed_procedures(self):
         return self.clientsubmission.submissiontype.proceduretype
+
+    def get_submission_rank_of_sample(self, sample: Sample|str):
+        if isinstance(sample, str):
+            sample = Sample.query(sample_id=sample)
+        clientsubmissionsampleassoc = next((assoc for assoc in self.clientsubmission.clientsubmissionsampleassociation
+                                            if assoc.sample == sample), None)
+        if clientsubmissionsampleassoc:
+            return clientsubmissionsampleassoc.submission_rank
+        else:
+            return 0
+
+    def constuct_sample_dicts_for_proceduretype(self, proceduretype: ProcedureType):
+        plate_dict = proceduretype.ranked_plate
+        ranked_samples = []
+        unranked_samples = []
+        for sample in self.sample:
+            submission_rank = self.get_submission_rank_of_sample(sample=sample)
+            if submission_rank != 0:
+                row, column = plate_dict[submission_rank]
+                ranked_samples.append(dict(sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank, background_color="#6ffe1d"))
+            else:
+                unranked_samples.append(sample)
+        possible_ranks = (item for item in list(plate_dict.keys()) if item not in [sample['submission_rank'] for sample in ranked_samples])
+        # logger.debug(possible_ranks)
+        # possible_ranks = (plate_dict[idx] for idx in possible_ranks)
+        for sample in unranked_samples:
+            try:
+                submission_rank = next(possible_ranks)
+            except StopIteration:
+                continue
+            row, column = plate_dict[submission_rank]
+            ranked_samples.append(
+                dict(sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank,
+                     background_color="#6ffe1d"))
+        padded_list = []
+        for iii in range(1, proceduretype.total_wells+1):
+            sample = next((item for item in ranked_samples if item['submission_rank']==iii),
+                          dict(sample_id="", row=0, column=0, submission_rank=iii)
+                          )
+            padded_list.append(sample)
+        logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")
+        return list(sorted(padded_list, key=itemgetter('submission_rank')))
+
+
+
 
 
 class SampleType(BaseClass):

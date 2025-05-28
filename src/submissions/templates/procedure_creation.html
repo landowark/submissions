@@ -1,0 +1,124 @@
+{% extends "details.html" %}
+
+<html>
+    <head>
+        {% block head %}
+        {{ super() }}
+        <title> New {{ proceduretype['name'] }} for {{ run['plate_number'] }}</title>
+        {% endblock %}
+    </head>
+    <!--  Is this working?  -->
+    <body>
+        {% block body %}
+        <h1>New {{ proceduretype['name'] }} for {{ run['plate_number'] }}</h1><br><br>
+        <div class="procedure_creation_leftright">
+            <div class="left">
+                <form>
+                  <label for="technician">Technician:</label><br>
+                  <input type="text" class="form_text" id="technician" name="technician" width="100%" value="{{ procedure['technician']['value'] }}" background-color="{{ procedure['technician']['colour'] }}"><br><br>
+                  <label for="repeat">Repeat:</label>
+                  <input type="checkbox" class="form_check" id="repeat" name="repeat" value="{{ procedure['repeat'] }}"><br><br>
+                  <label>Kit Type:</label><br>
+                  <select class="dropdown" id="kittype" background-colour="{{ procedure['kittype']['colour'] }}">
+                      {% for kittype in procedure['possible_kits'] %}
+                      <option value="{{ kittype }}">{{ kittype }}</option>
+                      {% endfor %}
+                  </select><br>
+                  {% if procedure['reagentrole'] %}
+                    <br><hr><br>
+                    {% for key, value in procedure['reagentrole'].items() %}
+                    <label for="{{ key }}">{{ key }}:</label><br>
+                    <select class="reagentrole dropdown" id="{{ key }}" name="{{ reagentrole }}"><br>
+                        {% for reagent in value %}
+                        <option value="{{ reagent }}">{{ reagent }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endfor %}
+                  {% endif %}
+                </form>
+            </div>
+            <div class="right">
+                {% if plate_map %}
+                <h1>Plate map:</h1>
+                {{ plate_map }}
+                {% endif %}
+            </div>
+        </div>
+        {% endblock %}
+    </body>
+    <script>
+        {% block script %}
+        {{ super() }}
+
+        document.getElementById("kittype").addEventListener("change", function() {
+            backend.update_kit(this.value);
+        })
+
+        var formchecks = document.getElementsByClassName('form_check');
+
+        for(let i = 0; i < formchecks.length; i++) {
+          formchecks[i].addEventListener("change", function() {
+            backend.check_toggle(formchecks[i].id, formchecks[i].checked);
+          })
+        };
+
+        var formtexts = document.getElementsByClassName('form_text');
+
+        for(let i = 0; i < formtexts.length; i++) {
+          formtexts[i].addEventListener("input", function() {
+            backend.text_changed(formtexts[i].id, formtexts[i].value);
+          })
+        };
+
+        const gridContainer = document.getElementById("plate-container");
+		let draggedItem = null;
+
+		//Handle Drag start
+		gridContainer.addEventListener("dragstart", (e) => {
+		  draggedItem = e.target;
+		  draggedItem.style.opacity = "0.5";
+		});
+
+		//Handle Drag End
+		gridContainer.addEventListener("dragend", (e) => {
+		  e.target.style.opacity = "1";
+		  draggedItem = null;
+		});
+
+		//handle dragging ove grid items
+		gridContainer.addEventListener("dragover", (e) => {
+		  e.preventDefault();
+		});
+
+		//Handle Drop
+		gridContainer.addEventListener("drop", (e) => {
+		  e.preventDefault();
+
+		  const targetItem = e.target;
+		  if (
+			targetItem &&
+			targetItem !== draggedItem &&
+			targetItem.classList.contains("well")
+		  ) {
+			const draggedIndex = [...gridContainer.children].indexOf(draggedItem);
+			const targetIndex = [...gridContainer.children].indexOf(targetItem);
+			if (draggedIndex < targetIndex) {
+			  backend.log_drag(draggedIndex.toString(), targetIndex.toString() + " Lesser");
+			  gridContainer.insertBefore(draggedItem, targetItem.nextSibling);
+
+			} else {
+			  backend.log_drag(draggedIndex.toString(), targetIndex.toString() + " Greater");
+			  gridContainer.insertBefore(draggedItem, targetItem);
+
+			}
+			output = [];
+			fullGrid = [...gridContainer.children];
+			fullGrid.forEach(function(item, index) {
+			    output.push({item: item, index: index})
+			});
+			backend.replow(output);
+		  }
+		});
+     {% endblock %}
+    </script>
+</html>
