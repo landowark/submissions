@@ -1,6 +1,6 @@
         <div class="plate" id="plate-container" style="grid-template-columns: repeat({{ plate_columns }}, {{ vw }}vw);grid-template-rows: repeat({{ plate_rows }}, {{ vw }}vw);">
             {% for sample in samples %}
-                <div class="well" draggable="true" id="sample_{{ sample['submission_rank'] }}" style="background-color: {{ sample['background_color'] }};">
+                <div class="well" draggable="true" id="{{ sample['well_id'] }}" style="background-color: {{ sample['background_color'] }};">
                   <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
 <!--                    <div class="tooltip" style="font-size: 0.5em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}-->
 <!--                        <span class="tooltiptext">{{ sample['tooltip'] }}</span>-->

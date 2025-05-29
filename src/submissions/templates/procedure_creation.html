@@ -45,6 +45,25 @@
             </div>
         </div>
         {% endblock %}
+        <nav class="context-menu">
+            <ul class="context-menu__items">
+                <li class="context-menu__item">
+                    <a href="#" class="context-menu__link">
+                        <i class="fa fa-eye"></i> View Task
+                    </a>
+                </li>
+                <li class="context-menu__item">
+                    <a href="#" class="context-menu__link">
+                        <i class="fa fa-edit"></i> Edit Task
+                    </a>
+                </li>
+                <li class="context-menu__item">
+                    <a href="#" class="context-menu__link">
+                        <i class="fa fa-times"></i> Delete Task
+                    </a>
+                </li>
+            </ul>
+        </nav>
     </body>
     <script>
         {% block script %}
@@ -114,11 +133,25 @@
 			output = [];
 			fullGrid = [...gridContainer.children];
 			fullGrid.forEach(function(item, index) {
-			    output.push({item: item, index: index})
+			    output.push({sample_id: item.id, index: index + 1})
 			});
-			backend.replow(output);
+			backend.rearrange_plate(output);
 		  }
 		});
+	// Context Menu Functionality
+	var wells = document.querySelectorAll(".well");
+    for ( var i = 0, len = wells.length; i < len; i++ ) {
+        var welloi = wells[i];
+
+        welloi.addEventListener( "contextmenu", function(e) {
+                well = e.target
+                backend.log_drag(well.id, "el");
+            });
+        };
+
+
+
+
      {% endblock %}
     </script>
 </html>

@@ -1297,7 +1297,7 @@ class Run(BaseClass, LogMixin):
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
                 row, column = plate_dict[submission_rank]
-                ranked_samples.append(dict(sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank, background_color="#6ffe1d"))
+                ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank, background_color="#6ffe1d"))
             else:
                 unranked_samples.append(sample)
         possible_ranks = (item for item in list(plate_dict.keys()) if item not in [sample['submission_rank'] for sample in ranked_samples])
@@ -1310,19 +1310,16 @@ class Run(BaseClass, LogMixin):
                 continue
             row, column = plate_dict[submission_rank]
             ranked_samples.append(
-                dict(sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank,
+                dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank,
                      background_color="#6ffe1d"))
         padded_list = []
         for iii in range(1, proceduretype.total_wells+1):
             sample = next((item for item in ranked_samples if item['submission_rank']==iii),
-                          dict(sample_id="", row=0, column=0, submission_rank=iii)
+                          dict(well_id=f"blank_{iii}", sample_id="", row=0, column=0, submission_rank=iii, background_color="#ffffff")
                           )
             padded_list.append(sample)
-        logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")
+        # logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")
         return list(sorted(padded_list, key=itemgetter('submission_rank')))
-
-
-
 
 
 class SampleType(BaseClass):

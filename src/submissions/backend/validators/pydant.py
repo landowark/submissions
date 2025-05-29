@@ -1397,53 +1397,17 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             self.reagentrole = {}
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
 
-    def shuffle_samples(self, source_row: int, source_column: int, destination_row: int, destination_column=int):
-        logger.debug(f"Attempting sample shuffle.")
-        try:
-            source_sample = next(
-                (sample for sample in self.samples if sample.row == source_row and sample.column == source_column))
-        except StopIteration:
-            raise StopIteration("Couldn't find proper sample.")
-        logger.debug(f"Source Well: {source_row}, {source_column}")
-        logger.debug(f"Destination Well: {destination_row}, {destination_column}")
-        updateable_samples = []
-        if source_row > destination_row and source_column >= destination_column:
-            logger.debug(f"Sample was moved ahead.")
-            movement = "pos"
-            for sample in self.samples:
-                if sample.row >= destination_row and sample.column >= destination_column:
-                    if sample.row <= source_row and sample.column <= source_column:
-                        updateable_samples.append(sample)
-
-        elif source_row < destination_row and source_column <= destination_column:
-            logger.debug(f"Sample was moved back.")
-            movement = "neg"
-            for sample in self.samples:
-                if sample.row <= destination_row and sample.column <= destination_column:
-                    if sample.row >= source_row and sample.column >= source_column:
-                        updateable_samples.append(sample)
-        else:
-            logger.debug(f"Don't know what happened.")
-        logger.debug(f"Samples to be updated: {pformat(updateable_samples)}")
-        for sample in updateable_samples:
-            if sample.row == source_row and sample.column == source_column:
-                sample.row = destination_row
-                sample.column = destination_column
-            else:
-                match movement:
-                    case "pos":
-                        if sample.row + 1 > 8:
-                            sample.column += 1
-                            sample.row = 1
-                        else:
-                            sample.row += 1
-                    case "neg":
-                        if sample.row - 1 <= 0:
-                            sample.column -= 1
-                            sample.row = 8
-                        else:
-                            sample.row -= 1
-
+    def update_samples(self, sample_list: List[dict]):
+        logger.debug(f"Incoming sample_list:\n{pformat(sample_list)}")
+        for sample_dict in sample_list:
+            try:
+                sample = next((item for item in self.samples if item.sample_id.upper()==sample_dict['sample_id'].upper()))
+            except StopIteration:
+                continue
+            row, column = self.proceduretype.ranked_plate[sample_dict['index']]
+            sample.row = row
+            sample.column = column
+        logger.debug(f"Updated samples:\n{pformat(self.samples)}")
 
 
 class PydClientSubmission(PydBaseClass):
