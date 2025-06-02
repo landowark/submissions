@@ -682,7 +682,7 @@ class Run(BaseClass, LogMixin):
                           for row in rows
                           for column in columns]
         env = jinja_template_loading()
-        template = env.get_template("plate_map.html")
+        template = env.get_template("support/plate_map.html")
         html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
         return html + "<br/>"
 
@@ -1626,7 +1626,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         # NOTE: Since there is no PCR, negliable result is necessary.
         sample = self.to_sub_dict()
         env = jinja_template_loading()
-        template = env.get_template("tooltip.html")
+        template = env.get_template("support/tooltip.html")
         tooltip_text = template.render(fields=sample)
         try:
             control = self.sample.control
@@ -1880,7 +1880,7 @@ class RunSampleAssociation(BaseClass):
         # NOTE: Since there is no PCR, negliable result is necessary.
         sample = self.to_sub_dict()
         env = jinja_template_loading()
-        template = env.get_template("tooltip.html")
+        template = env.get_template("support/tooltip.html")
         tooltip_text = template.render(fields=sample)
         try:
             control = self.sample.control

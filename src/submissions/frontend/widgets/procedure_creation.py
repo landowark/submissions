@@ -2,6 +2,8 @@
 
 """
 from __future__ import annotations
+
+import os
 import sys, logging
 from pathlib import Path
 from pprint import pformat
@@ -15,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from backend.db.models import Run, ProcedureType
-from tools import jinja_template_loading, get_application_from_parent
+from tools import jinja_template_loading, get_application_from_parent, render_details_template
 from backend.validators import PydProcedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -54,13 +56,15 @@ class ProcedureCreation(QDialog):
         self.webview.page().setWebChannel(self.channel)
 
     def set_html(self):
-        env = jinja_template_loading()
-        template = env.get_template("procedure_creation.html")
-        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        html = template.render(proceduretype=self.proceduretype.as_dict, run=self.run.to_dict(),
-                               procedure=self.created_procedure.__dict__, plate_map=self.plate_map, css=css)
+        html = render_details_template(
+            template_name="procedure_creation",
+            # css_in=['new_context_menu'],
+            js_in=["procedure_form", "grid_drag", "context_menu"],
+            proceduretype=self.proceduretype.as_dict,
+            run=self.run.to_dict(),
+            procedure=self.created_procedure.__dict__,
+            plate_map=self.plate_map
+        )
         with open("procedure.html", "w") as f:
             f.write(html)
         self.webview.setHtml(html)
@@ -86,21 +90,9 @@ class ProcedureCreation(QDialog):
     def rearrange_plate(self, sample_list: list):
         self.created_procedure.update_samples(sample_list=sample_list)
 
-    @pyqtSlot(str, str)
-    def log_drag(self, source_well: str, destination_well: str):
-        logger.debug(f"Source Index: {source_well} Destination Index: {destination_well}")
-        # source_well = source_well.split("-")
-        # destination_well = destination_well.split("-")
-        # source_row = int(source_well[0])
-        # source_column = int(source_well[1])
-        # destination_row = int(destination_well[0])
-        # destination_column = int(destination_well[1])
-        # self.created_procedure.shuffle_samples(
-        #     source_row=source_row,
-        #     source_column=source_column,
-        #     destination_row=destination_row,
-        #     destination_column=destination_column
-        # )
+    @pyqtSlot(str)
+    def log(self, logtext: str):
+        logger.debug(logtext)
 
 
 # class ProcedureWebViewer(QWebEngineView):

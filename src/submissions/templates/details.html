@@ -5,7 +5,10 @@
     <meta charset="UTF-8">
     {% if css %}
     <style>
-        {{ css }}
+        {% for c in css %}
+        {{ c }}
+
+        {% endfor %}
     </style>
     {% endif %}
     <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
@@ -18,12 +21,12 @@
 {% endblock %}
 {% block signing_button %}{% endblock %}
 </body>
-<script>
+
 {% block script %}
-    var backend;
-    new QWebChannel(qt.webChannelTransport, function (channel) {
-      backend = channel.objects.backend;
-    });
-{% endblock %}
+{% for j in js%}
+<script>
+    {{ j }}
 </script>
+{% endfor %}
+{% endblock %}
 </html>

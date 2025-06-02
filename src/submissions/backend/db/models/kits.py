@@ -1207,7 +1207,7 @@ class ProcedureType(BaseClass):
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         env = jinja_template_loading()
-        template = env.get_template("plate_map.html")
+        template = env.get_template("support/plate_map.html")
         html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts, vw=vw)
         return html + "<br/>"
 

@@ -44,114 +44,15 @@
                 {% endif %}
             </div>
         </div>
+        {% include 'support/context_menu.html' %}
         {% endblock %}
-        <nav class="context-menu">
-            <ul class="context-menu__items">
-                <li class="context-menu__item">
-                    <a href="#" class="context-menu__link">
-                        <i class="fa fa-eye"></i> View Task
-                    </a>
-                </li>
-                <li class="context-menu__item">
-                    <a href="#" class="context-menu__link">
-                        <i class="fa fa-edit"></i> Edit Task
-                    </a>
-                </li>
-                <li class="context-menu__item">
-                    <a href="#" class="context-menu__link">
-                        <i class="fa fa-times"></i> Delete Task
-                    </a>
-                </li>
-            </ul>
-        </nav>
+
     </body>
-    <script>
-        {% block script %}
-        {{ super() }}
 
-        document.getElementById("kittype").addEventListener("change", function() {
-            backend.update_kit(this.value);
-        })
-
-        var formchecks = document.getElementsByClassName('form_check');
-
-        for(let i = 0; i < formchecks.length; i++) {
-          formchecks[i].addEventListener("change", function() {
-            backend.check_toggle(formchecks[i].id, formchecks[i].checked);
-          })
-        };
-
-        var formtexts = document.getElementsByClassName('form_text');
-
-        for(let i = 0; i < formtexts.length; i++) {
-          formtexts[i].addEventListener("input", function() {
-            backend.text_changed(formtexts[i].id, formtexts[i].value);
-          })
-        };
-
-        const gridContainer = document.getElementById("plate-container");
-		let draggedItem = null;
-
-		//Handle Drag start
-		gridContainer.addEventListener("dragstart", (e) => {
-		  draggedItem = e.target;
-		  draggedItem.style.opacity = "0.5";
-		});
-
-		//Handle Drag End
-		gridContainer.addEventListener("dragend", (e) => {
-		  e.target.style.opacity = "1";
-		  draggedItem = null;
-		});
-
-		//handle dragging ove grid items
-		gridContainer.addEventListener("dragover", (e) => {
-		  e.preventDefault();
-		});
-
-		//Handle Drop
-		gridContainer.addEventListener("drop", (e) => {
-		  e.preventDefault();
-
-		  const targetItem = e.target;
-		  if (
-			targetItem &&
-			targetItem !== draggedItem &&
-			targetItem.classList.contains("well")
-		  ) {
-			const draggedIndex = [...gridContainer.children].indexOf(draggedItem);
-			const targetIndex = [...gridContainer.children].indexOf(targetItem);
-			if (draggedIndex < targetIndex) {
-			  backend.log_drag(draggedIndex.toString(), targetIndex.toString() + " Lesser");
-			  gridContainer.insertBefore(draggedItem, targetItem.nextSibling);
-
-			} else {
-			  backend.log_drag(draggedIndex.toString(), targetIndex.toString() + " Greater");
-			  gridContainer.insertBefore(draggedItem, targetItem);
-
-			}
-			output = [];
-			fullGrid = [...gridContainer.children];
-			fullGrid.forEach(function(item, index) {
-			    output.push({sample_id: item.id, index: index + 1})
-			});
-			backend.rearrange_plate(output);
-		  }
-		});
-	// Context Menu Functionality
-	var wells = document.querySelectorAll(".well");
-    for ( var i = 0, len = wells.length; i < len; i++ ) {
-        var welloi = wells[i];
-
-        welloi.addEventListener( "contextmenu", function(e) {
-                well = e.target
-                backend.log_drag(well.id, "el");
-            });
-        };
+    {% block script %}
+    {{ super() }}
+    {% endblock %}
 
 
 
-
-     {% endblock %}
-    </script>
 </html>

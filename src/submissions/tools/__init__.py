@@ -443,6 +443,30 @@ def jinja_template_loading() -> Environment:
     return env
 
 
+def render_details_template(template_name:str, css_in:List[str]|str=[], js_in:List[str]|str=[], **kwargs) -> str:
+    if isinstance(css_in, str):
+        css_in = [css_in]
+    css_in = ["styles"] + css_in
+    css_in = [project_path.joinpath("src", "submissions", "templates", "css", f"{c}.css") for c in css_in]
+    if isinstance(js_in, str):
+        js_in = [js_in]
+    js_in = ["details"] + js_in
+    js_in = [project_path.joinpath("src", "submissions", "templates", "js", f"{j}.js") for j in js_in]
+    env = jinja_template_loading()
+    template = env.get_template(f"{template_name}.html")
+    # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+    css_out = []
+    for css in css_in:
+        with open(css, "r") as f:
+            css_out.append(f.read())
+    js_out = []
+    for js in js_in:
+        with open(js, "r") as f:
+            js_out.append(f.read())
+    return template.render(css=css_out, js=js_out, **kwargs)
+
+
+
 def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     """
     Converts typical alphanumeric (i.e. "A2") to row, column

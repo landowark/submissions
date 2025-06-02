@@ -115,6 +115,9 @@ div.gallery {
     display: none;
     position: absolute;
     z-index: 10;
+    background-color: rgba(229, 231, 228, 0.7);
+    border-radius: 2px;
+    border-color: black;
 }
 
 .context-menu--active {
