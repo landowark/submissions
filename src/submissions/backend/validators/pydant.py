@@ -105,7 +105,6 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         dicto = self.improved_dict(dictionaries=False)
         logger.debug(f"Dicto: {dicto}")
         sql, _ = self._sql_object().query_or_create(**dicto)
-
         return sql
 
 
@@ -1383,8 +1382,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 value = {item.name: item.reagents for item in kittype.reagentrole}
         return value
 
-
-
     def update_kittype_reagentroles(self, kittype: str | KitType):
         if kittype == self.__class__.model_fields['kittype'].default['value']:
             return
@@ -1395,19 +1392,59 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                                 kittype_obj.get_reagents(proceduretype=self.proceduretype)}
         except AttributeError:
             self.reagentrole = {}
+        self.kittype['value'] = kittype
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
 
     def update_samples(self, sample_list: List[dict]):
         logger.debug(f"Incoming sample_list:\n{pformat(sample_list)}")
         for sample_dict in sample_list:
-            try:
-                sample = next((item for item in self.samples if item.sample_id.upper()==sample_dict['sample_id'].upper()))
-            except StopIteration:
+            if sample_dict['sample_id'].startswith("blank_"):
                 continue
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
+            logger.debug(f"Row: {row}, Column: {column}")
+            try:
+                sample = next(
+                    (item for item in self.samples if item.sample_id.upper() == sample_dict['sample_id'].upper()))
+            except StopIteration:
+                # NOTE: Code to check for added controls.
+                logger.debug(f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
+                try:
+                    sample = next(
+                        (item for item in self.samples if item.row == row and item.column == column))
+                except StopIteration:
+                    logger.error(f"Couldn't find sample: {pformat(sample_dict)}")
+                    continue
+            logger.debug(f"Sample of interest: {sample.improved_dict()}")
+            sample.sample_id = sample_dict['sample_id']
+            sample.well_id = sample_dict['sample_id']
             sample.row = row
             sample.column = column
         logger.debug(f"Updated samples:\n{pformat(self.samples)}")
+
+    def to_sql(self):
+        from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
+        sql = super().to_sql()
+        if self.run:
+            sql.run = self.run
+        if self.proceduretype:
+            sql.proceduretype = self.proceduretype
+        for sample in self.samples:
+            if sample.sample_id.startswith("blank_") or sample.sample_id == "":
+                continue
+            sample_sql = sample.to_sql()
+            if sql.run:
+                if sample_sql not in sql.run.sample:
+                    logger.debug(f"sample {sample_sql} not found in {sql.run.sample}")
+                    run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row, column=sample.column)
+                else:
+                    logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
+            proc_assoc = ProcedureSampleAssociation(procedure=sql, sample=sample_sql, row=sample.row, column=sample.column)
+        if self.kittype['value'] not in ["NA", None, ""]:
+            kittype = KitType.query(name=self.kittype['value'], limit=1)
+            if kittype:
+                sql.kittype = kittype
+        return sql, None
+
 
 
 class PydClientSubmission(PydBaseClass):

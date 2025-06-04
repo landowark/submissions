@@ -15,7 +15,7 @@ from operator import itemgetter
 from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
-from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin
+from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, kittype_procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -34,9 +34,8 @@ from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
 from PIL import Image
 if TYPE_CHECKING:
-    from backend.db.models.kits import ProcedureType
+    from backend.db.models.kits import ProcedureType, Procedure
 
-from . import kittype_procedure
 
 logger = logging.getLogger(f"procedure.{__name__}")
 
@@ -233,7 +232,7 @@ class ClientSubmission(BaseClass, LogMixin):
             # dicto, _ = self.kittype.construct_xl_map_for_use(self.proceduretype)
             # sample = self.generate_associations(name="clientsubmissionsampleassociation")
             samples = None
-            runs = [item.to_dict() for item in self.run]
+            runs = [item.to_dict(full_data=True) for item in self.run]
             # custom = self.custom
         else:
             samples = None
@@ -263,6 +262,7 @@ class ClientSubmission(BaseClass, LogMixin):
         output["contact_phone"] = contact_phone
         # output["custom"] = custom
         output["run"] = runs
+        output['name'] = self.name
         return output
 
     def add_sample(self, sample: Sample):
@@ -539,12 +539,14 @@ class Run(BaseClass, LogMixin):
             samples = self.generate_associations(name="clientsubmissionsampleassociation")
             equipment = self.generate_associations(name="submission_equipment_associations")
             tips = self.generate_associations(name="submission_tips_associations")
+            procedures = [item.to_dict(full_data=True) for item in self.procedure]
             custom = self.custom
         else:
             samples = None
             equipment = None
             tips = None
             custom = None
+            procedures = None
         try:
             comments = self.comment
         except Exception as e:
@@ -570,6 +572,8 @@ class Run(BaseClass, LogMixin):
         output["contact"] = contact
         output["contact_phone"] = contact_phone
         output["custom"] = custom
+        output['procedures'] = procedures
+        output['name'] = self.name
         try:
             output["completed_date"] = self.completed_date.strftime("%Y-%m-%d")
         except AttributeError:
@@ -1131,7 +1135,10 @@ class Run(BaseClass, LogMixin):
         logger.debug(f"Got ProcedureType: {procedure_type}")
         dlg = ProcedureCreation(parent=obj, run=self, proceduretype=procedure_type)
         if dlg.exec():
-            pass
+            sql, _ = dlg.return_sql()
+            logger.debug(f"Output run samples:\n{pformat(sql.run.sample)}")
+            sql.save()
+
 
 
     def delete(self, obj=None):
@@ -1314,8 +1321,9 @@ class Run(BaseClass, LogMixin):
                      background_color="#6ffe1d"))
         padded_list = []
         for iii in range(1, proceduretype.total_wells+1):
+            row, column = proceduretype.ranked_plate[iii]
             sample = next((item for item in ranked_samples if item['submission_rank']==iii),
-                          dict(well_id=f"blank_{iii}", sample_id="", row=0, column=0, submission_rank=iii, background_color="#ffffff")
+                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, submission_rank=iii, background_color="#ffffff")
                           )
             padded_list.append(sample)
         # logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")
@@ -1360,6 +1368,14 @@ class Sample(BaseClass, LogMixin):
     )  #: associated procedure
 
     run = association_proxy("samplerunassociation", "run")  #: proxy of associated procedure
+
+    sampleprocedureassociation = relationship(
+        "ProcedureSampleAssociation",
+        back_populates="sample",
+        cascade="all, delete-orphan",
+    )
+
+    procedure = association_proxy("sampleprocedureassociation", "procedure")
 
     @hybrid_property
     def name(self):
@@ -1806,10 +1822,10 @@ class RunSampleAssociation(BaseClass):
     """
 
     # id = Column(INTEGER, unique=True, nullable=False)  #: id to be used for inheriting purposes
-    sample_id = Column(INTEGER, ForeignKey("_sample.id"), nullable=False)  #: id of associated sample
+    sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
-    row = Column(INTEGER, primary_key=True)  #: row on the 96 well plate
-    column = Column(INTEGER, primary_key=True)  #: column on the 96 well plate
+    row = Column(INTEGER)  #: row on the 96 well plate
+    column = Column(INTEGER)  #: column on the 96 well plate
     # misc_info = Column(JSON)
 
     # NOTE: reference to the Submission object
@@ -2009,3 +2025,16 @@ class RunSampleAssociation(BaseClass):
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
+
+
+class ProcedureSampleAssociation(BaseClass):
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
+    sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
+    row = Column(INTEGER)
+    column = Column(INTEGER)
+
+    procedure = relationship(Procedure,
+                             back_populates="proceduresampleassociation")  #: associated procedure
+
+    sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
+

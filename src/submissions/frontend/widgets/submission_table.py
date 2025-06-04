@@ -9,7 +9,9 @@ from PyQt6.QtWidgets import QTableView, QMenu, QTreeView, QStyledItemDelegate, Q
     QHeaderView, QAbstractItemView, QWidget, QTreeWidgetItemIterator
 from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlot, QModelIndex
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor, QContextMenuEvent
+from typing import Dict, List
 
+from backend import Procedure
 from backend.db.models import Run, ClientSubmission
 from tools import Report, Result, report_result
 from .functions import select_open_file
@@ -263,8 +265,8 @@ class SubmissionsTree(QTreeView):
         self.setIndentation(0)
         self.setExpandsOnDoubleClick(False)
         self.clicked.connect(self.on_clicked)
-        delegate = ClientSubmissionDelegate(self)
-        self.setItemDelegateForColumn(0, delegate)
+        delegate1 = ClientSubmissionDelegate(self)
+        self.setItemDelegateForColumn(0, delegate1)
         self.model = model
         self.setModel(self.model)
         # self.header().setSectionResizeMode(0, QHeaderView.sectionResizeMode(self,0).ResizeToContents)
@@ -329,11 +331,49 @@ class SubmissionsTree(QTreeView):
                      ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
         logger.debug(f"setting data:\n {pformat(self.data)}")
         # sys.exit()
+        root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
-            group_item = self.model.add_group(group_str, query_str=submission['submitter_plate_id'])
+            submission_item = self.model.add_group(parent=root, item_data=dict(
+                name=group_str,
+                query_str=submission['submitter_plate_id'],
+                item_type=ClientSubmission
+            ))
             for run in submission['run']:
-                self.model.append_element_to_group(group_item=group_item, element=run)
+                # self.model.append_element_to_group(group_item=group_item, element=run)
+                run_item = self.model.add_group(parent=submission_item, item_data=dict(
+                    name=run['plate_number'],
+                    query_str=run['plate_number'],
+                    item_type=Run
+                ))
+
+                for procedure in run['procedures']:
+                    self.model.add_group(parent=run_item, item_data=dict(
+                        name=procedure['name'],
+                        query_str=procedure['name'],
+                        item_type=Procedure
+                    ))
+        # root = self.model.invisibleRootItem()
+        # for submission in self.data:
+        #     submission_item = QStandardItem(submission['name'])
+        #     root.appendRow(submission_item)
+        #     for run in submission['run']:
+        #         run_item = QStandardItem(run['name'])
+        #         submission_item.appendRow(run_item)
+        #         for procedure in run['procedures']:
+        #             procedure_item = QStandardItem(procedure['name'])
+        #             run_item.appendRow(procedure_item)
+        # self._populateTree(self.data, self.model.invisibleRootItem())
+
+    def _populateTree(self, children, parent):
+        for child in children:
+            logger.debug(child)
+            child_item = QStandardItem(child['name'])
+            parent.appendRow(child_item)
+            if isinstance(children, List):
+                self._populateTree(child, child_item)
+
+
 
     def clear(self):
         if self.model != None:
@@ -366,27 +406,26 @@ class ClientSubmissionRunModel(QStandardItemModel):
         self.setColumnCount(len(headers))
         self.setHorizontalHeaderLabels(headers)
 
-    def add_group(self, item_name, query_str: str):
+    def add_group(self, parent, item_data):
         item_root = QStandardItem()
         item_root.setEditable(False)
-        item = QStandardItem(item_name)
+        item = QStandardItem(item_data['name'])
         item.setEditable(False)
-        ii = self.invisibleRootItem()
-        i = ii.rowCount()
+        i = parent.rowCount()
         for j, it in enumerate((item_root, item)):
             # NOTE: Adding item to invisible root row i, column j (wherever j comes from)
-            ii.setChild(i, j, it)
-            ii.setEditable(False)
+            parent.setChild(i, j, it)
+            parent.setEditable(False)
         for j in range(self.columnCount()):
-            it = ii.child(i, j)
+            it = parent.child(i, j)
             if it is None:
                 # NOTE: Set invisible root child to empty if it is None.
                 it = QStandardItem()
-                ii.setChild(i, j, it)
-        item_root.setData(dict(item_type=ClientSubmission, query_str=query_str), 1)
+                parent.setChild(i, j, it)
+        item_root.setData(dict(item_type=item_data['item_type'], query_str=item_data['query_str']), 1)
         return item_root
 
-    def append_element_to_group(self, group_item, element: dict):
+    def append_element_to_group(self, group_item, item_data: dict):
         # logger.debug(f"Element: {pformat(element)}")
         j = group_item.rowCount()
         item_icon = QStandardItem()
@@ -402,14 +441,15 @@ class ClientSubmissionRunModel(QStandardItemModel):
                 key = None
             if not key:
                 continue
-            value = str(element[key])
+            value = str(item_data[key])
             item = QStandardItem(value)
             item.setBackground(QColor("#CFE2F3"))
             item.setEditable(False)
             # item_icon.setChild(j, i, item)
-            item.setData(dict(item_type=Run, query_str=element['plate_number']),1)
+            item.setData(dict(item_type=item_data['item_type'], query_str=item_data['query_str']),1)
             group_item.setChild(j, i, item)
         # group_item.setChild(j, 1, QStandardItem("B"))
+        return item
 
     def get_value(self, idx: int, column: int = 1):
         return self.item(idx, column)

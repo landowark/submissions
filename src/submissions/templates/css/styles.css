@@ -85,6 +85,27 @@ div.gallery {
   object-fit: contain;
 }
 
+.context-menu {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 150px;
+  margin: 32px;
+  position: absolute;
+
+}
+
+
+.context-menu--active {
+  display: block;
+  z-index: 10;
+  background-color: white;
+  border: 2px solid black;
+  padding: 5px;
+}
+
+
+
 .plate {
     display: inline-grid;
     grid-auto-flow: column;
@@ -111,15 +132,17 @@ div.gallery {
   border-radius: 8px;
 }
 
-.context-menu {
-    display: none;
-    position: absolute;
-    z-index: 10;
-    background-color: rgba(229, 231, 228, 0.7);
-    border-radius: 2px;
-    border-color: black;
+ul.no-bullets {
+  list-style-type: none; /* Remove bullets */
+  padding: 0; /* Remove padding */
+  margin: 0; /* Remove margins */
 }
 
-.context-menu--active {
-    display: block;
+.negativecontrol {
+  background-color: cyan;
 }
+
+.positivecontrol {
+  background-color: pink;
+}
+

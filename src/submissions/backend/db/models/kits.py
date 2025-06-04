@@ -22,7 +22,7 @@ from . import Base, BaseClass, ClientLab, LogMixin
 from io import BytesIO
 
 if TYPE_CHECKING:
-    from backend.db.models.submissions import Run
+    from backend.db.models.submissions import Run, ProcedureSampleAssociation
 
 logger = logging.getLogger(f'procedure.{__name__}')
 
@@ -1175,8 +1175,9 @@ class ProcedureType(BaseClass):
             proceduretype=self,
             #name=dict(value=self.name, missing=True),
             #possible_kits=[kittype.name for kittype in self.kittype],
-            repeat=False
+            repeat=False,
             # plate_map=plate_map
+            run=run
         )
         return PydProcedure(**output)
 
@@ -1222,7 +1223,7 @@ class ProcedureType(BaseClass):
 
 class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)
-    name = Column(String, unique=True)
+    _name = Column(String, unique=True)
     repeat = Column(INTEGER, nullable=False)
     technician = Column(JSON)  #: name of processing tech(s)
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete="SET NULL",
@@ -1236,13 +1237,23 @@ class Procedure(BaseClass):
     kittype = relationship("KitType", back_populates="procedure")
     control = relationship("Control", back_populates="procedure", uselist=True)  #: A control sample added to procedure
 
+    proceduresampleassociation = relationship(
+        "ProcedureSampleAssociation",
+        back_populates="procedure",
+        cascade="all, delete-orphan",
+    )
+
+    sample = association_proxy("proceduresampleassociation",
+                               "sample", creator=lambda sample: ProcedureSampleAssociation(sample=sample)
+                               )
+
     procedurereagentassociation = relationship(
         "ProcedureReagentAssociation",
         back_populates="procedure",
         cascade="all, delete-orphan",
     )  #: Relation to ProcedureReagentAssociation
 
-    reagents = association_proxy("procedurereagentassociation",
+    reagent = association_proxy("procedurereagentassociation",
                                  "reagent", creator=lambda reg: ProcedureReagentAssociation(
             reagent=reg))  #: Association proxy to RunReagentAssociation.reagent
 
@@ -1262,6 +1273,14 @@ class Procedure(BaseClass):
 
     tips = association_proxy("proceduretipsassociation",
                              "tips")
+
+    @hybrid_property
+    def name(self):
+        return f"{self.proceduretype.name}-{self.run.rsl_plate_num}"
+
+    @name.setter
+    def name(self, value):
+        self._name = value
 
     @validates('repeat')
     def validate_repeat(self, key, value):
@@ -1289,6 +1308,12 @@ class Procedure(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+
+    def to_dict(self, full_data: bool=False):
+        output = dict()
+        output['name'] = self.name
+        return output
+
 
 
 class ProcedureTypeKitTypeAssociation(BaseClass):
@@ -2608,171 +2633,4 @@ class ProcedureTipsAssociation(BaseClass):
         from backend.validators import PydTips
         return PydTips(name=self.tips.name, lot=self.tips.lot, role=self.role_name)
 
-#
-# class ProcedureType(BaseClass):
-#     id = Column(INTEGER, primary_key=True)
-#     name = Column(String(64))
-#     reagent_map = Column(JSON)
-#
-#     procedure = relationship("Procedure",
-#                              back_populates="proceduretype")  #: Concrete control of this type.
-#
-#     process = relationship("Process", back_populates="proceduretype",
-#                            secondary=proceduretype_process)  #: Relation to equipment process used for this type.
-#
-#     proceduretypekittypeassociation = relationship(
-#         "ProcedureTypeKitTypeAssociation",
-#         back_populates="proceduretype",
-#         cascade="all, delete-orphan",
-#     )  #: Association of kittypes
-#
-#     kittype = association_proxy("proceduretypekittypeassociation", "kittype",
-#                                 creator=lambda kit: ProcedureTypeKitTypeAssociation(
-#                                     kittype=kit))  #: Proxy of kittype association
-#
-#     proceduretypeequipmentroleassociation = relationship(
-#         "ProcedureTypeEquipmentRoleAssociation",
-#         back_populates="proceduretype",
-#         cascade="all, delete-orphan"
-#     )  #: Association of equipmentroles
-#
-#     equipment = association_proxy("proceduretypeequipmentroleassociation", "equipmentrole",
-#                                   creator=lambda eq: ProcedureTypeEquipmentRoleAssociation(
-#                                       equipment_role=eq))  #: Proxy of equipmentrole associations
-#
-#     kittypereagentroleassociation = relationship(
-#         "KitTypeReagentRoleAssociation",
-#         back_populates="proceduretype",
-#         cascade="all, delete-orphan"
-#     )  #: triple association of KitTypes, ReagentTypes, SubmissionTypes
-#
-#     proceduretypetiproleassociation = relationship(
-#         "ProcedureTypeTipRoleAssociation",
-#         back_populates="proceduretype",
-#         cascade="all, delete-orphan"
-#     )  #: Association of tiproles
-#
-#     def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
-#         """
-#         Make a map of all locations for tips or equipment.
-#
-#         Args:
-#             field (Literal['equipment', 'tip']): the field to construct a map for
-#
-#         Returns:
-#             Generator[(str, dict), None, None]: Generator composing key, locations for each item in the map
-#         """
-#         for item in self.__getattribute__(f"proceduretype{field}role_associations"):
-#             fmap = item.uses
-#             if fmap is None:
-#                 fmap = {}
-#             yield getattr(item, f"{field}_role").name, fmap
-#
-#     @property
-#     def default_kit(self) -> KitType | None:
-#         """
-#         If only one kits exists for this Submission Type, return it.
-#
-#         Returns:
-#             KitType | None:
-#         """
-#         if len(self.kittype) == 1:
-#             return self.kittype[0]
-#         else:
-#             return None
-#
-#     def get_equipment(self, kittype: str | KitType | None = None) -> Generator['PydEquipmentRole', None, None]:
-#         """
-#         Returns PydEquipmentRole of all equipment associated with this SubmissionType
-#
-#         Returns:
-#             Generator['PydEquipmentRole', None, None]: List of equipment roles
-#         """
-#         return (item.to_pydantic(proceduretype=self, kittype=kittype) for item in self.equipment)
-#
-#     def get_processes_for_role(self, equipmentrole: str | EquipmentRole, kittype: str | KitType | None = None) -> list:
-#         """
-#         Get process associated with this SubmissionType for an EquipmentRole
-#
-#         Args:
-#             equipmentrole (str | EquipmentRole): EquipmentRole of interest
-#             kittype (str | KitType | None, optional): Kit of interest. Defaults to None.
-#
-#         Raises:
-#             TypeError: Raised if wrong type given for equipmentrole
-#
-#         Returns:
-#             list: list of associated process
-#         """
-#         match equipmentrole:
-#             case str():
-#                 relevant = [item.get_all_processes(kittype) for item in self.proceduretypeequipmentroleassociation if
-#                             item.equipmentrole.name == equipmentrole]
-#             case EquipmentRole():
-#                 relevant = [item.get_all_processes(kittype) for item in self.proceduretypeequipmentroleassociation if
-#                             item.equipmentrole == equipmentrole]
-#             case _:
-#                 raise TypeError(f"Type {type(equipmentrole)} is not allowed")
-#         return list(set([item for items in relevant for item in items if item is not None]))
-#
-#
-# class Procedure(BaseClass):
-#     id = Column(INTEGER, primary_key=True)
-#     name = Column(String, unique=True)
-#     technician = Column(JSON)  #: name of processing tech(s)
-#     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete="SET NULL",
-#                                                   name="fk_PRO_proceduretype_id"))  #: client lab id from _organizations))
-#     proceduretype = relationship("ProcedureType", back_populates="procedure")
-#     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="SET NULL",
-#                                         name="fk_PRO_basicrun_id"))  #: client lab id from _organizations))
-#     run = relationship("Run", back_populates="procedure")
-#     kittype_id = Column(INTEGER, ForeignKey("_kittype.id", ondelete="SET NULL",
-#                                             name="fk_PRO_kittype_id"))  #: client lab id from _organizations))
-#     kittype = relationship("KitType", back_populates="procedure")
-#
-#     control = relationship("Control", back_populates="procedure",
-#                             uselist=True)  #: A control sample added to procedure
-#
-#     procedurereagentassociations = relationship(
-#         "ProcedureReagentAssociation",
-#         back_populates="procedure",
-#         cascade="all, delete-orphan",
-#     )  #: Relation to ProcedureReagentAssociation
-#
-#     reagents = association_proxy("procedurereagentassociations",
-#                                  "reagent")  #: Association proxy to RunReagentAssociation.reagent
-#
-#     procedureequipmentassociations = relationship(
-#         "ProcedureEquipmentAssociation",
-#         back_populates="procedure",
-#         cascade="all, delete-orphan"
-#     )  #: Relation to Equipment
-#
-#     equipment = association_proxy("procedureequipmentassociations",
-#                                   "equipment")  #: Association proxy to RunEquipmentAssociation.equipment
-#
-#     proceduretipsassociations = relationship(
-#         "ProcedureTipsAssociation",
-#         back_populates="procedure",
-#         cascade="all, delete-orphan")
-#
-#     tips = association_proxy("proceduretipsassociations",
-#                              "tips")
-#
-#     @classmethod
-#     @setup_lookup
-#     def query(cls, id: int|None = None, name: str | None = None, limit: int = 0, **kwargs) -> Procedure | List[Procedure]:
-#         query: Query = cls.__database_session__.query(cls)
-#         match id:
-#             case int():
-#                 query = query.filter(cls.id == id)
-#                 limit = 1
-#             case _:
-#                 pass
-#         match name:
-#             case str():
-#                 query = query.filter(cls.name == name)
-#                 limit = 1
-#             case _:
-#                 pass
-#         return cls.execute_query(query=query, limit=limit)
+

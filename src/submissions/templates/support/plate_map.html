@@ -2,14 +2,6 @@
             {% for sample in samples %}
                 <div class="well" draggable="true" id="{{ sample['well_id'] }}" style="background-color: {{ sample['background_color'] }};">
                   <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
-<!--                    <div class="tooltip" style="font-size: 0.5em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}-->
-<!--                        <span class="tooltiptext">{{ sample['tooltip'] }}</span>-->
-<!--                    </div>--
-                    grid-column-start: {{sample['column']}};
-                grid-column-end: {{sample['column']}};
-                grid-row-start: {{sample['row']}};
-                grid-row-end: {{sample['row']}};-->
                 </div>
             {% endfor %}
-
         </div>

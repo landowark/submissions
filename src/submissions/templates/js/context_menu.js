@@ -12,7 +12,7 @@
 //  menuIndex = eval(event.target.parentNode.id.slice(-1));
 //  document.querySelectorAll(".multiSelect")[menuIndex].style.transform =
 //    "translateX(-100%)";
-//  // document.querySelectorAll(".multiSelect")[menuIndex].style.clipPath = "polygon(0 0, 0 0, 0 100%, 0% 100%)";
+//  document.querySelectorAll(".multiSelect")[menuIndex].style.clipPath = "polygon(0 0, 0 0, 0 100%, 0% 100%)";
 //  document.querySelectorAll(".multiSelect")[menuIndex].style.clipPath =
 //    "polygon(100% 0, 100% 0, 100% 100%, 100% 100%)";
 //  document.querySelectorAll(".multiSelect")[menuIndex + 1].style.transform =
@@ -116,7 +116,7 @@ function menuItemListener( link ) {
             insertSample(contextIndex, task_id);
         break;
         case "InsertControl":
-            insertControl(contextIndex);
+            insertControl(taskItemInContext);
         break;
         case "RemoveSample":
             removeSample(contextIndex);
@@ -125,6 +125,7 @@ function menuItemListener( link ) {
             backend.log("default");
         break;
     }
+    rearrange_plate();
     toggleMenuOff();
 }
 
@@ -149,7 +150,7 @@ var clickCoordsX;
 var clickCoordsY;
 var menu = document.getElementById(contextMenuClassName);
 var menuItems = menu.getElementsByClassName(contextMenuItemClassName);
-var menuHeader = document.getElementById("menu-header");
+const menuHeader = document.getElementById("menu-header");
 var menuState = 0;
 var menuWidth;
 var menuHeight;
@@ -158,6 +159,7 @@ var menuPositionX;
 var menuPositionY;
 var windowWidth;
 var windowHeight;
+
 /**
 * Initialise our application's code.
 */
@@ -192,6 +194,7 @@ function contextListener() {
 function clickListener() {
     document.addEventListener( "click", function(e) {
         var clickeElIsLink = clickInsideElement( e, contextMenuLinkClassName );
+        backend.log(e.target.id)
         if ( clickeElIsLink ) {
             e.preventDefault();
             menuItemListener( clickeElIsLink );
@@ -241,15 +244,37 @@ function insertSample( index ) {
     backend.log( "Index - " + index + ", InsertSample");
 }
 
-function insertControl( index ) {
-    backend.log( "Index - " + index + ", InsertEN");
+function insertControl( targetItem ) {
+
+    const gridC = document.getElementById("plate-container");
     var existing_ens = document.getElementsByClassName("EN");
-    backend.log(existing_ens.length);
+    var en_num = existing_ens.length + 1;
+    const en_name = "EN" + en_num + "-" + rsl_plate_num;
+    var elem = document.createElement("div");
+    elem.setAttribute("id", en_name);
+    elem.setAttribute("class", "well negativecontrol EN");
+    elem.setAttribute("draggable", "true");
+    elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + en_name + '</p>'
+    gridC.insertBefore(elem, targetItem.nextSibling);
+    targetItem.remove();
 }
 
-function removeSample( index ) {
-    backend.log( "Index - " + index + ", RemoveSample");
+function removeSample( targetItem ) {
+    const gridC = document.getElementById("plate-container");
+    var existing_wells = document.getElementsByClassName("well");
+    var en_num = existing_wells.length + 1;
+    var well_name = "blank_" + en_num;
+    var elem = document.createElement("div");
+    elem.setAttribute("id", well_name);
+    elem.setAttribute("class", "well");
+    elem.setAttribute("draggable", "true");
+    elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;"></p>'
+    gridC.insertBefore(elem, targetItem.nextSibling);
+    targetItem.remove();
 }
+
+
+
 
 
 /**

@@ -50,6 +50,17 @@
     </body>
 
     {% block script %}
+    <script>
+        var rsl_plate_num = "{{ run['plate_number'] }}";
+        function rearrange_plate() {
+            output = [];
+            fullGrid = [...gridContainer.children];
+            fullGrid.forEach(function(item, index) {
+                output.push({sample_id: item.id, index: index + 1})
+            });
+            backend.rearrange_plate(output);
+        }
+    </script>
     {{ super() }}
     {% endblock %}
 

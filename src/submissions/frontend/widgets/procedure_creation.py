@@ -12,7 +12,7 @@ from PyQt6.QtCore import pyqtSlot, Qt
 from PyQt6.QtGui import QContextMenuEvent, QAction
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu
+from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu, QDialogButtonBox
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -54,6 +54,11 @@ class ProcedureCreation(QDialog):
         self.channel.registerObject('backend', self)
         self.set_html()
         self.webview.page().setWebChannel(self.channel)
+        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
 
     def set_html(self):
         html = render_details_template(
@@ -71,9 +76,9 @@ class ProcedureCreation(QDialog):
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
-        # logger.debug(f"New value for {key}: {new_value}")
+        logger.debug(f"New value for {key}: {new_value}")
         attribute = getattr(self.created_procedure, key)
-        attribute['value'] = new_value
+        attribute['value'] = new_value.strip('\"')
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
@@ -93,6 +98,9 @@ class ProcedureCreation(QDialog):
     @pyqtSlot(str)
     def log(self, logtext: str):
         logger.debug(logtext)
+
+    def return_sql(self):
+        return self.created_procedure.to_sql()
 
 
 # class ProcedureWebViewer(QWebEngineView):
