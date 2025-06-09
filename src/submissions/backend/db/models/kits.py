@@ -14,7 +14,7 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import date, datetime, timedelta
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone, \
-    jinja_template_loading
+    jinja_template_loading, ctx
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from pandas import ExcelFile
 from pathlib import Path
@@ -1053,6 +1053,7 @@ class ProcedureType(BaseClass):
     reagent_map = Column(JSON)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
+    allowed_result_methods = Column(JSON)
 
     procedure = relationship("Procedure",
                              back_populates="proceduretype")  #: Concrete control of this type.
@@ -1094,6 +1095,10 @@ class ProcedureType(BaseClass):
         back_populates="proceduretype",
         cascade="all, delete-orphan"
     )  #: Association of tiproles
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allowed_result_methods = dict()
 
     def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
         """
@@ -1223,9 +1228,10 @@ class ProcedureType(BaseClass):
 
 class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)
-    _name = Column(String, unique=True)
+    name = Column(String, unique=True)
     repeat = Column(INTEGER, nullable=False)
-    technician = Column(JSON)  #: name of processing tech(s)
+    technician = Column(String(64))  #: name of processing tech(s)
+    results = relationship("Results", back_populates="procedure", uselist=True)
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete="SET NULL",
                                                   name="fk_PRO_proceduretype_id"))  #: client lab id from _organizations))
     proceduretype = relationship("ProcedureType", back_populates="procedure")
@@ -1274,14 +1280,6 @@ class Procedure(BaseClass):
     tips = association_proxy("proceduretipsassociation",
                              "tips")
 
-    @hybrid_property
-    def name(self):
-        return f"{self.proceduretype.name}-{self.run.rsl_plate_num}"
-
-    @name.setter
-    def name(self, value):
-        self._name = value
-
     @validates('repeat')
     def validate_repeat(self, key, value):
         if value > 1:
@@ -1313,6 +1311,33 @@ class Procedure(BaseClass):
         output = dict()
         output['name'] = self.name
         return output
+
+    @property
+    def custom_context_events(self) -> dict:
+        """
+        Creates dictionary of str:function to be passed to context menu
+
+        Returns:
+            dict: dictionary of functions
+        """
+        names = ["Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
+        return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
+
+    def add_results(self, obj, resultstype_name:str):
+        logger.debug(f"Add Results! {resultstype_name}")
+
+    def edit(self, obj):
+        logger.debug("Edit!")
+
+    def add_comment(self, obj):
+        logger.debug("Add Comment!")
+
+    def show_details(self, obj):
+        logger.debug("Show Details!")
+
+    def delete(self, obj):
+        logger.debug("Delete!")
+
 
 
 
@@ -2632,5 +2657,35 @@ class ProcedureTipsAssociation(BaseClass):
     def to_pydantic(self):
         from backend.validators import PydTips
         return PydTips(name=self.tips.name, lot=self.tips.lot, role=self.role_name)
+
+
+class Results(BaseClass):
+
+    id = Column(INTEGER, primary_key=True)
+    result = Column(JSON)
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
+                                                name="fk_RES_procedure_id"))
+    procedure = relationship("Procedure", back_populates="results")
+    assoc_id = Column(INTEGER, ForeignKey("_proceduresampleassociation.id", ondelete='SET NULL',
+                                                name="fk_RES_ASSOC_id"))
+
+    sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="results")
+    _img = Column(String(128))
+
+    @property
+    def image(self) -> bytes:
+        dir = self.__directory_path__.joinpath("submission_imgs.zip")
+        try:
+            assert dir.exists()
+        except AssertionError:
+            raise FileNotFoundError(f"{dir} not found.")
+        logger.debug(f"Getting image from {self.__directory_path__}")
+        with zipfile.ZipFile(dir) as zf:
+            with zf.open(self._img) as f:
+                return f.read()
+
+    @image.setter
+    def image(self, value):
+        self._img = value
 
 

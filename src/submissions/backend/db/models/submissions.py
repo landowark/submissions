@@ -16,7 +16,7 @@ from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, kittype_procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table, Sequence
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -2028,6 +2028,8 @@ class RunSampleAssociation(BaseClass):
 
 
 class ProcedureSampleAssociation(BaseClass):
+
+    id = Column(INTEGER, primary_key=True)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
     row = Column(INTEGER)
@@ -2038,3 +2040,29 @@ class ProcedureSampleAssociation(BaseClass):
 
     sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
 
+    results = relationship("Results", back_populates="sampleprocedureassociation")
+
+
+
+    # def __init__(self, new_id:int|None=None, **kwarg):
+    #     if new_id:
+    #         self.id = new_id
+    #     else:
+    #         self.id = self.__class__.autoincrement_id()
+    #     # new_id = self.__class__.autoincrement_id()
+    #     super().__init__(**kwarg)
+
+
+    @classmethod
+    def autoincrement_id(cls) -> int:
+        """
+        Increments the association id automatically
+
+        Returns:
+            int: incremented id
+        """
+        try:
+            return max([item.id for item in cls.query()]) + 1
+        except ValueError as e:
+            logger.error(f"Problem incrementing id: {e}")
+            return 1

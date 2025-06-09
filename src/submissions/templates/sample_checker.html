@@ -30,9 +30,10 @@
     </form>
     {% endblock %}
 </body>
-<script>
+
   {% block script %}
   {{ super() }}
+  <script>
   {% for sample in samples %}
   document.getElementById("{{ sample['submission_rank'] }}_id").addEventListener("input", function(){
       backend.text_changed("{{ sample['submission_rank'] }}", this.name, this.value);
@@ -42,12 +43,6 @@
       backend.enable_sample("{{ sample['submission_rank'] }}", this.checked);
   });
   {% endif %}
-<!--  document.getElementById("{{ sample['submission_rank'] }}_row").addEventListener("input", function(){-->
-<!--      backend.text_changed("{{ sample['submission_rank'] }}", this.name, this.value);-->
-<!--  });-->
-<!--  document.getElementById("{{ sample['submission_rank'] }}_column").addEventListener("input", function(){-->
-<!--      backend.text_changed("{{ sample['submission_rank'] }}", this.name, this.value);-->
-<!--  });-->
   {% endfor %}
   document.addEventListener('DOMContentLoaded', function() {
           backend.activate_export(false);
@@ -55,5 +50,5 @@
   document.getElementById("rsl_plate_num").addEventListener("input", function(){
       backend.set_rsl_plate_num(this.value);
   });
+  </script>
   {% endblock %}
-</script>

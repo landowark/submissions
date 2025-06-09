@@ -231,27 +231,27 @@ class SubmissionsSheet(QTableView):
         return report
 
 
-class ClientSubmissionDelegate(QStyledItemDelegate):
+# class ClientSubmissionDelegate(QStyledItemDelegate):
+#
+#     def __init__(self, parent=None):
+#         super(ClientSubmissionDelegate, self).__init__(parent)
+#         pixmapi = QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton
+#         icon1 = QWidget().style().standardIcon(pixmapi)
+#         pixmapi = QStyle.StandardPixmap.SP_ToolBarVerticalExtensionButton
+#         icon2 = QWidget().style().standardIcon(pixmapi)
+#         self._plus_icon = icon1
+#         self._minus_icon = icon2
+#
+#     def initStyleOption(self, option, index):
+#         super(ClientSubmissionDelegate, self).initStyleOption(option, index)
+#         if not index.parent().isValid():
+#             is_open = bool(option.state & QStyle.StateFlag.State_Open)
+#             option.features |= QStyleOptionViewItem.ViewItemFeature.HasDecoration
+#             option.icon = self._minus_icon if is_open else self._plus_icon
 
-    def __init__(self, parent=None):
-        super(ClientSubmissionDelegate, self).__init__(parent)
-        pixmapi = QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton
-        icon1 = QWidget().style().standardIcon(pixmapi)
-        pixmapi = QStyle.StandardPixmap.SP_ToolBarVerticalExtensionButton
-        icon2 = QWidget().style().standardIcon(pixmapi)
-        self._plus_icon = icon1
-        self._minus_icon = icon2
 
-    def initStyleOption(self, option, index):
-        super(ClientSubmissionDelegate, self).initStyleOption(option, index)
-        if not index.parent().isValid():
-            is_open = bool(option.state & QStyle.StateFlag.State_Open)
-            option.features |= QStyleOptionViewItem.ViewItemFeature.HasDecoration
-            option.icon = self._minus_icon if is_open else self._plus_icon
-
-
-class RunDelegate(ClientSubmissionDelegate):
-    pass
+# class RunDelegate(ClientSubmissionDelegate):
+#     pass
 
 
 class SubmissionsTree(QTreeView):
@@ -262,11 +262,11 @@ class SubmissionsTree(QTreeView):
     def __init__(self, model, parent=None):
         super(SubmissionsTree, self).__init__(parent)
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
-        self.setIndentation(0)
+        # self.setIndentation(0)
         self.setExpandsOnDoubleClick(False)
-        self.clicked.connect(self.on_clicked)
-        delegate1 = ClientSubmissionDelegate(self)
-        self.setItemDelegateForColumn(0, delegate1)
+        # self.clicked.connect(self.on_clicked)
+        # delegate1 = ClientSubmissionDelegate(self)
+        # self.setItemDelegateForColumn(0, delegate1)
         self.model = model
         self.setModel(self.model)
         # self.header().setSectionResizeMode(0, QHeaderView.sectionResizeMode(self,0).ResizeToContents)
@@ -276,14 +276,42 @@ class SubmissionsTree(QTreeView):
         self.doubleClicked.connect(self.show_details)
         # self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         # self.customContextMenuRequested.connect(self.open_menu)
+        self.setStyleSheet("""
+            QTreeView {
+                background-color: #f5f5f5;
+                alternate-background-color: "#cfe2f3";
+                border: 1px solid #d3d3d3;
+            }
+            QTreeView::item {
+                padding: 5px;
+                border-bottom: 1px solid #d3d3d3;
+            }
+            QTreeView::item:selected {
+                background-color: #0078d7;
+                color: white;
+            }
+        """)
+
+        # Enable alternating row colors
+        self.setAlternatingRowColors(True)
+        self.setIndentation(20)
+        self.setItemsExpandable(True)
+        self.expanded.connect(self.expand_item)
 
         for ii in range(2):
             self.resizeColumnToContents(ii)
 
-    @pyqtSlot(QModelIndex)
-    def on_clicked(self, index):
-        if not index.parent().isValid() and index.column() == 0:
-            self.setExpanded(index, not self.isExpanded(index))
+    # @pyqtSlot(QModelIndex)
+    # def on_clicked(self, index):
+    #     if not index.parent().isValid() and index.column() == 0:
+    #         self.setExpanded(index, not self.isExpanded(index))
+
+    def expand_item(self, event: QModelIndex):
+        logger.debug(f"Data: {event.data()}")
+        logger.debug(f"Parent {event.parent().data()}")
+        logger.debug(f"Row: {event.row()}")
+        logger.debug(f"Sibling: {event.siblingAtRow(event.row()).data()}")
+        logger.debug(f"Model: {event.model().event()}")
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         """
@@ -306,19 +334,30 @@ class SubmissionsTree(QTreeView):
         self.menu = QMenu(self)
         self.con_actions = query_obj.custom_context_events
         for key in self.con_actions.keys():
-            if key.lower() == "add procedure":
-                action = QMenu(self.menu)
-                action.setTitle("Add Procedure")
-                for procedure in query_obj.allowed_procedures:
-                    proc_name = procedure.name
-                    proc = QAction(proc_name, action)
-                    proc.triggered.connect(lambda _, procedure_name=proc_name: self.con_actions['Add Procedure'](obj=self, proceduretype_name=procedure_name))
-                    action.addAction(proc)
-                    self.menu.addMenu(action)
-            else:
-                action = QAction(key, self)
-                action.triggered.connect(lambda _, action_name=key: self.con_actions[action_name](obj=self))
-                self.menu.addAction(action)
+            logger.debug(key)
+            match key.lower():
+                case "add procedure":
+                    action = QMenu(self.menu)
+                    action.setTitle("Add Procedure")
+                    for procedure in query_obj.allowed_procedures:
+                        proc_name = procedure.name
+                        proc = QAction(proc_name, action)
+                        proc.triggered.connect(lambda _, procedure_name=proc_name: self.con_actions['Add Procedure'](obj=self, proceduretype_name=procedure_name))
+                        action.addAction(proc)
+                        self.menu.addMenu(action)
+                case "add results":
+                    action = QMenu(self.menu)
+                    action.setTitle("Add Results")
+                    for results in query_obj.proceduretype.allowed_result_methods:
+                        res_name = results
+                        res = QAction(res_name, action)
+                        res.triggered.connect(lambda _, procedure_name=res_name: self.con_actions['Add Results'](obj=self, resultstype_name=procedure_name))
+                        action.addAction(res)
+                        self.menu.addMenu(action)
+                case _:
+                    action = QAction(key, self)
+                    action.triggered.connect(lambda _, action_name=key: self.con_actions[action_name](obj=self))
+                    self.menu.addAction(action)
         # # NOTE: add other required actions
         self.menu.popup(QCursor.pos())
 
@@ -334,36 +373,27 @@ class SubmissionsTree(QTreeView):
         root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
-            submission_item = self.model.add_group(parent=root, item_data=dict(
+            submission_item = self.model.add_child(parent=root, child=dict(
                 name=group_str,
                 query_str=submission['submitter_plate_id'],
                 item_type=ClientSubmission
             ))
+            logger.debug(f"Added {submission_item}")
             for run in submission['run']:
                 # self.model.append_element_to_group(group_item=group_item, element=run)
-                run_item = self.model.add_group(parent=submission_item, item_data=dict(
+                run_item = self.model.add_child(parent=submission_item, child=dict(
                     name=run['plate_number'],
                     query_str=run['plate_number'],
                     item_type=Run
                 ))
-
+                logger.debug(f"Added {run_item}")
                 for procedure in run['procedures']:
-                    self.model.add_group(parent=run_item, item_data=dict(
+                    procedure_item = self.model.add_child(parent=run_item, child=dict(
                         name=procedure['name'],
                         query_str=procedure['name'],
                         item_type=Procedure
                     ))
-        # root = self.model.invisibleRootItem()
-        # for submission in self.data:
-        #     submission_item = QStandardItem(submission['name'])
-        #     root.appendRow(submission_item)
-        #     for run in submission['run']:
-        #         run_item = QStandardItem(run['name'])
-        #         submission_item.appendRow(run_item)
-        #         for procedure in run['procedures']:
-        #             procedure_item = QStandardItem(procedure['name'])
-        #             run_item.appendRow(procedure_item)
-        # self._populateTree(self.data, self.model.invisibleRootItem())
+                    logger.debug(f"Added {procedure_item}")
 
     def _populateTree(self, children, parent):
         for child in children:
@@ -381,14 +411,20 @@ class SubmissionsTree(QTreeView):
             self.model.setRowCount(0)  # works
 
     def show_details(self, sel: QModelIndex):
-        id = self.selectionModel().currentIndex()
+        # id = self.selectionModel().currentIndex()
         # NOTE: Convert to data in id column (i.e. column 0)
-        id = id.sibling(id.row(), 1)
-        try:
-            id = int(id.data())
-        except ValueError:
-            return
-        Run.query(id=id).show_details(self)
+        # id = id.sibling(id.row(), 1)
+        indexes = self.selectedIndexes()
+
+        dicto = next((item.data(1) for item in indexes if item.data(1)))
+        logger.debug(dicto)
+        # try:
+        #     id = int(id.data())
+        # except ValueError:
+        #     return
+        # Run.query(id=id).show_details(self)
+        obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
+        logger.debug(obj)
 
     def link_extractions(self):
         pass
@@ -402,59 +438,18 @@ class ClientSubmissionRunModel(QStandardItemModel):
 
     def __init__(self, parent=None):
         super(ClientSubmissionRunModel, self).__init__(parent)
-        headers = ["", "id", "Plate Number", "Started Date", "Completed Date", "Signed By"]
-        self.setColumnCount(len(headers))
-        self.setHorizontalHeaderLabels(headers)
+        # headers = ["", "id", "Plate Number", "Started Date", "Completed Date", "Signed By"]
+        # self.setColumnCount(len(headers))
+        # self.setHorizontalHeaderLabels(headers)
 
-    def add_group(self, parent, item_data):
-        item_root = QStandardItem()
-        item_root.setEditable(False)
-        item = QStandardItem(item_data['name'])
+
+
+    def add_child(self, parent: QStandardItem, child:dict):
+        item = QStandardItem(child['name'])
+        item.setData(dict(item_type=child['item_type'], query_str=child['query_str']), 1)
+        parent.appendRow(item)
         item.setEditable(False)
-        i = parent.rowCount()
-        for j, it in enumerate((item_root, item)):
-            # NOTE: Adding item to invisible root row i, column j (wherever j comes from)
-            parent.setChild(i, j, it)
-            parent.setEditable(False)
-        for j in range(self.columnCount()):
-            it = parent.child(i, j)
-            if it is None:
-                # NOTE: Set invisible root child to empty if it is None.
-                it = QStandardItem()
-                parent.setChild(i, j, it)
-        item_root.setData(dict(item_type=item_data['item_type'], query_str=item_data['query_str']), 1)
-        return item_root
-
-    def append_element_to_group(self, group_item, item_data: dict):
-        # logger.debug(f"Element: {pformat(element)}")
-        j = group_item.rowCount()
-        item_icon = QStandardItem()
-        item_icon.setEditable(False)
-        # item_icon.setBackground(QColor("#0D1225"))
-        # item_icon.setData(dict(item_type="Run", query_str=element['plate_number']), 1)
-        # group_item.setChild(j, 0, item_icon)
-        for i in range(self.columnCount()):
-            it = self.horizontalHeaderItem(i)
-            try:
-                key = it.text().lower().replace(" ", "_")
-            except AttributeError:
-                key = None
-            if not key:
-                continue
-            value = str(item_data[key])
-            item = QStandardItem(value)
-            item.setBackground(QColor("#CFE2F3"))
-            item.setEditable(False)
-            # item_icon.setChild(j, i, item)
-            item.setData(dict(item_type=item_data['item_type'], query_str=item_data['query_str']),1)
-            group_item.setChild(j, i, item)
-        # group_item.setChild(j, 1, QStandardItem("B"))
         return item
 
-    def get_value(self, idx: int, column: int = 1):
-        return self.item(idx, column)
-
-    def query_group_object(self, idx: int):
-        row_obj = self.get_value(idx)
-        logger.debug(row_obj.query_str)
-        return self.sql_object.query(name=row_obj.query_str, limit=1)
+    def edit_item(self):
+        pass

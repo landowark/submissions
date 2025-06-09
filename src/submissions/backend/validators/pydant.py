@@ -780,7 +780,7 @@ class PydSubmission(BaseModel, extra='allow'):
         return missing_info, missing_reagents
 
     @report_result
-    def to_sql(self) -> Tuple[BasicRun | None, Report]:
+    def to_sql(self) -> Tuple[Run | None, Report]:
         """
         Converts this instance into a backend.db.models.procedure.BasicRun instance
 
@@ -791,7 +791,7 @@ class PydSubmission(BaseModel, extra='allow'):
         dicto = self.improved_dict()
         # logger.debug(f"Pydantic procedure type: {self.proceduretype['value']}")
         # logger.debug(f"Pydantic improved_dict: {pformat(dicto)}")
-        instance, result = BasicRun.query_or_create(submissiontype=self.submission_type['value'],
+        instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
                                                     rsl_plate_num=self.rsl_plate_num['value'])
         # logger.debug(f"Created or queried instance: {instance}")
         if instance is None:
@@ -1353,7 +1353,15 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     def rescue_name(cls, value, values):
         if value['value'] == cls.model_fields['name'].default['value']:
             if values.data['proceduretype']:
-                value['value'] = values.data['proceduretype'].name
+                procedure_type = values.data['proceduretype'].name
+            else:
+                procedure_type = None
+            if values.data['run']:
+                run = values.data['run'].rsl_plate_num
+            else:
+                run = None
+            value['value'] = f"{procedure_type}-{run}"
+            value['missing'] = True
         return value
 
     @field_validator("possible_kits")
@@ -1522,3 +1530,10 @@ class PydClientSubmission(PydBaseClass):
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
+
+
+class PydResults(PydBaseClass, arbitrary_types_allowed=True):
+
+    results: dict = Field(default={})
+    parent: Sample|Procedure
+

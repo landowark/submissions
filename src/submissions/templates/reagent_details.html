@@ -23,9 +23,10 @@
     {% endif %}
     {% endblock %}
 </body>
-<script>
+
   {% block script %}
   {{ super() }}
+  <script>
   document.getElementById("save_btn").addEventListener("click", function(){
             var new_lot = document.getElementById('lot').value
             var new_exp = document.getElementById('expiry').value
@@ -39,6 +40,7 @@
   document.addEventListener('DOMContentLoaded', function() {
           backend.activate_export(false);
       }, false);
+  </script>
   {% endblock %}
-</script>
+
 </html>

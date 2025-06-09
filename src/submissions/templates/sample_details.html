@@ -21,9 +21,10 @@
         {% endif %}
         {% endblock %}
     </body>
-    <script>
+
       {% block script %}
       {{ super() }}
+      <script>
       {% for submission in sample['submissions'] %}
       document.getElementById("{{ submission['plate_name'] }}").addEventListener("click", function(){
           backend.submission_details("{{ submission['plate_name'] }}");
@@ -32,6 +33,7 @@
       document.addEventListener('DOMContentLoaded', function() {
           backend.activate_export(false);
       }, false);
+      </script>
       {% endblock %}
-  </script>
+
 </html>

@@ -77,10 +77,10 @@
         <br>
         <br>
     </body>
-    <script>
+
         {% block script %}
         {{ super() }}
-
+        <script>
         var sampleSelection = document.getElementsByClassName('sample');
 
         for(let i = 0; i < sampleSelection.length; i++) {
@@ -129,7 +129,7 @@
         document.getElementById("sign_btn").addEventListener("click", function(){
             backend.sign_off("{{ sub['plate_number'] }}");
         });
-
+        </script>
         {% endblock %}
-    </script>
+
 </html>

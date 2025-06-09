@@ -23,10 +23,10 @@
     {% endif %}
     {% endblock %}
 </body>
-<script>
+
   {% block script %}
   {{ super() }}
-
+  <script>
   var equipmentSelection = document.getElementsByClassName('equipment');
 
         for(let i = 0; i < equipmentSelection.length; i++) {
@@ -44,6 +44,7 @@
   document.addEventListener('DOMContentLoaded', function() {
           backend.activate_export(false);
       }, false);
+  </script>
   {% endblock %}
-</script>
+
 </html>
