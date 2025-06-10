@@ -311,7 +311,10 @@ class SubmissionsTree(QTreeView):
         logger.debug(f"Parent {event.parent().data()}")
         logger.debug(f"Row: {event.row()}")
         logger.debug(f"Sibling: {event.siblingAtRow(event.row()).data()}")
-        logger.debug(f"Model: {event.model().event()}")
+        try:
+            logger.debug(f"Model: {event.model().event()}")
+        except TypeError as e:
+            logger.error(f"Couldn't expand due to {e}")
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         """
@@ -330,6 +333,7 @@ class SubmissionsTree(QTreeView):
         # clientsubmission = id.model().query_group_object(id.row())
         self.menu = QMenu(self)
         self.con_actions = query_obj.custom_context_events
+        logger.debug(f"Context menu actions: {self.con_actions}")
         for key in self.con_actions.keys():
             logger.debug(key)
             match key.lower():

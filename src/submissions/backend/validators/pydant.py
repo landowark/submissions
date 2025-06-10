@@ -289,7 +289,8 @@ class PydTips(BaseModel):
         report = Report()
         tips = Tips.query(name=self.name, limit=1)
         # logger.debug(f"Tips query has yielded: {tips}")
-        assoc = ProcedureTipsAssociation.query_or_create(tips=tips, procedure=procedure, role=self.role, limit=1)
+        assoc = ProcedureTipsAssociation.query_or_create(tips=tips, procedure=procedure, tiprole=self.tiprole, limit=1)
+        logger.debug(f"Got association: {assoc}")
         return assoc, report
 
 
@@ -297,7 +298,7 @@ class PydEquipment(BaseModel, extra='ignore'):
     asset_number: str
     name: str
     nickname: str | None
-    process: List[str] | None
+    processes: List[str] | None
     equipmentrole: str | None
     tips: List[PydTips] | None = Field(default=None)
 
@@ -308,9 +309,11 @@ class PydEquipment(BaseModel, extra='ignore'):
             value = value.name
         return value
 
-    @field_validator('process', mode='before')
+    @field_validator('processes', mode='before')
     @classmethod
     def make_empty_list(cls, value):
+        # if isinstance(value, dict):
+        #     value = value['processes']
         if isinstance(value, GeneratorType):
             value = [item.name for item in value]
         value = convert_nans_to_nones(value)
@@ -339,20 +342,21 @@ class PydEquipment(BaseModel, extra='ignore'):
             procedure = Procedure.query(name=procedure)
         if isinstance(kittype, str):
             kittype = KitType.query(name=kittype)
+        logger.debug(f"Querying equipment: {self.asset_number}")
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
             logger.error("No equipment found. Returning None.")
-            return
+            return None, None
         if procedure is not None:
             # NOTE: Need to make sure the same association is not added to the procedure
             try:
-                assoc = ProcedureEquipmentAssociation.query(equipment_id=equipment.id, submission_id=procedure.id,
+                assoc, new = ProcedureEquipmentAssociation.query_or_create(equipment=equipment, procedure=procedure,
                                                             equipmentrole=self.equipmentrole, limit=1)
             except TypeError as e:
                 logger.error(f"Couldn't get association due to {e}, returning...")
-                assoc = None
-            if assoc is None:
-                assoc = ProcedureEquipmentAssociation(submission=procedure, equipment=equipment)
+                return None, None
+            if new:
+                # assoc = ProcedureEquipmentAssociation(procedure=procedure, equipment=equipment)
                 # TODO: This seems precarious. What if there is more than one process?
                 # NOTE: It looks like the way fetching the process is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
                 # NOTE: I need to find a way to filter this by the kittype involved.
@@ -365,7 +369,7 @@ class PydEquipment(BaseModel, extra='ignore'):
                     logger.error(f"Found unknown process: {process}.")
                 # logger.debug(f"Using process: {process}")
                 assoc.process = process
-                assoc.equipmentrole = self.role
+                assoc.equipmentrole = self.equipmentrole
             else:
                 logger.warning(f"Found already existing association: {assoc}")
                 assoc = None

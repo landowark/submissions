@@ -124,9 +124,10 @@ class RoleComboBox(QWidget):
         """
         equip = self.box.currentText()
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
+        logger.debug(f"Equip2: {equip2}")
         with QSignalBlocker(self.process) as blocker:
             self.process.clear()
-        self.process.addItems([item for item in equip2.processes if item in self.role.processes])
+        self.process.addItems([item for item in equip2.processes if item in self.role.process])
 
     def update_tips(self):
         """
@@ -137,7 +138,7 @@ class RoleComboBox(QWidget):
         if process.tiprole:
             for iii, tip_role in enumerate(process.tiprole):
                 widget = QComboBox()
-                tip_choices = [item.name for item in tip_role.control]
+                tip_choices = [item.name for item in tip_role.tips]
                 widget.setEditable(False)
                 widget.addItems(tip_choices)
                 widget.setObjectName(f"tips_{tip_role.name}")
@@ -162,13 +163,13 @@ class RoleComboBox(QWidget):
             PydEquipment|None: PydEquipment matching form
         """
         eq = Equipment.query(name=self.box.currentText())
-        tips = [PydTips(name=item.currentText(), role=item.objectName().lstrip("tips").lstrip("_"), lot="") for item in
+        tips = [PydTips(name=item.currentText(), tiprole=item.objectName().lstrip("tips").lstrip("_"), lot="") for item in
                 self.findChildren(QComboBox) if item.objectName().startswith("tips")]
         try:
             return PydEquipment(
                 name=eq.name,
                 processes=[self.process.currentText().strip()],
-                role=self.role.name,
+                equipmentrole=self.role.name,
                 asset_number=eq.asset_number,
                 nickname=eq.nickname,
                 tips=tips
