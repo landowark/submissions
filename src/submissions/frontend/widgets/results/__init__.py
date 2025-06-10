@@ -4,4 +4,4 @@ class DefaultResults(object):
 
     pass
 
-from .PCR import pcr
+from .pcr import PCR

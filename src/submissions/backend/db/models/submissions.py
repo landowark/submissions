@@ -314,6 +314,7 @@ class ClientSubmission(BaseClass, LogMixin):
                 assoc.save()
         else:
             logger.warning("Run cancelled.")
+        obj.set_data()
 
 
     def edit(self, obj):
@@ -1138,8 +1139,7 @@ class Run(BaseClass, LogMixin):
             sql, _ = dlg.return_sql()
             logger.debug(f"Output run samples:\n{pformat(sql.run.sample)}")
             sql.save()
-
-
+        obj.set_data()
 
     def delete(self, obj=None):
         """
@@ -2029,7 +2029,7 @@ class RunSampleAssociation(BaseClass):
 
 class ProcedureSampleAssociation(BaseClass):
 
-    id = Column(INTEGER, primary_key=True)
+    id = Column(INTEGER, unique=True, nullable=False)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
     row = Column(INTEGER)
@@ -2042,15 +2042,34 @@ class ProcedureSampleAssociation(BaseClass):
 
     results = relationship("Results", back_populates="sampleprocedureassociation")
 
+    @classmethod
+    def query(cls, sample: Sample|str|None=None, procedure: Procedure|str|None=None, limit: int=0, **kwargs):
+        query = cls.__database_session__.query(cls)
+        match sample:
+            case Sample():
+                query = query.filter(cls.sample==sample)
+            case str():
+                query = query.join(Sample).filter(Sample.sample_id==sample)
+            case _:
+                pass
+        match procedure:
+            case Procedure():
+                query = query.filter(cls.procedure == procedure)
+            case str():
+                query = query.join(Procedure).filter(Procedure.name == procedure)
+            case _:
+                pass
+        if sample and procedure:
+            limit = 1
+        return cls.execute_query(query=query, limit=limit, **kwargs)
 
 
-    # def __init__(self, new_id:int|None=None, **kwarg):
-    #     if new_id:
-    #         self.id = new_id
-    #     else:
-    #         self.id = self.__class__.autoincrement_id()
-    #     # new_id = self.__class__.autoincrement_id()
-    #     super().__init__(**kwarg)
+    def __init__(self, new_id:int|None=None, **kwarg):
+        if new_id:
+            self.id = new_id
+        else:
+            self.id = self.__class__.autoincrement_id()
+        super().__init__(**kwarg)
 
 
     @classmethod

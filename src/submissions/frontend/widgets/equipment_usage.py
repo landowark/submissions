@@ -19,7 +19,7 @@ class EquipmentUsage(QDialog):
     def __init__(self, parent, procedure: Procedure):
         super().__init__(parent)
         self.procedure = procedure
-        self.setWindowTitle(f"Equipment Checklist - {procedure.rsl_plate_num}")
+        self.setWindowTitle(f"Equipment Checklist - {procedure.name}")
         self.used_equipment = self.procedure.equipment
         self.kit = self.procedure.kittype
         self.opt_equipment = procedure.proceduretype.get_equipment()

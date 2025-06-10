@@ -1320,11 +1320,20 @@ class Procedure(BaseClass):
         Returns:
             dict: dictionary of functions
         """
-        names = ["Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
+        names = ["Add Results", "Add Equipment", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
     def add_results(self, obj, resultstype_name:str):
         logger.debug(f"Add Results! {resultstype_name}")
+        from frontend.widgets import results
+        results_class = getattr(results, resultstype_name)
+        rs = results_class(procedure=self, parent=obj)
+
+    def add_equipment(self, obj):
+        from frontend.widgets.equipment_usage import EquipmentUsage
+        dlg = EquipmentUsage(parent=obj, procedure=self)
+        if dlg.exec():
+            pass
 
     def edit(self, obj):
         logger.debug("Edit!")
@@ -2668,7 +2677,6 @@ class Results(BaseClass):
     procedure = relationship("Procedure", back_populates="results")
     assoc_id = Column(INTEGER, ForeignKey("_proceduresampleassociation.id", ondelete='SET NULL',
                                                 name="fk_RES_ASSOC_id"))
-
     sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="results")
     _img = Column(String(128))
 

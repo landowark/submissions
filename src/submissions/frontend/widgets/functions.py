@@ -39,6 +39,7 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
             logger.warning(f"No file selected, cancelling.")
             return
     obj.last_dir = fname.parent
+    logger.debug(f"File selected: {fname}")
     return fname
 
 

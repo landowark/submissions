@@ -7,6 +7,7 @@ from typing import Generator, Tuple
 from openpyxl import load_workbook
 from pandas import DataFrame
 from backend.validators import pydant
+from backend.db.models import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -15,7 +16,8 @@ class DefaultParser(object):
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.filepath.stem}>"
 
-    def __init__(self, filepath: Path | str, range_dict: dict | None = None, *args, **kwargs):
+    def __init__(self, filepath: Path | str, procedure: Procedure|None=None, range_dict: dict | None = None, *args, **kwargs):
+        self.procedure = procedure
         try:
             self._pyd_object = getattr(pydant, f"Pyd{self.__class__.__name__.replace('Parser', '')}")
         except AttributeError:

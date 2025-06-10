@@ -8,44 +8,14 @@ from typing import Generator, Tuple
 
 from openpyxl import load_workbook
 
-from backend.db.models import Run, Sample
+from backend.db.models import Run, Sample, Procedure, ProcedureSampleAssociation
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class PCRSampleParser(DefaultTABLEParser):
-    """Object to pull data from Design and Analysis PCR export file."""
-
-    default_range_dict = [dict(
-        header_row=25,
-        sheet="Results"
-    )]
-
-    @property
-    def parsed_info(self):
-        output = [item for item in super().parsed_info]
-        merge_column = "sample"
-        sample_names = list(set([item['sample'] for item in output]))
-        for sample in sample_names:
-            multi = dict()
-            sois = (item for item in output if item['sample']==sample)
-            for soi in sois:
-                multi[soi['target']] = {k:v for k, v in soi.items() if k != "target"}
-            yield (sample, multi)
-
-    def to_pydantic(self):
-        for key, sample_info in self.parsed_info:
-            sample_obj = Sample.query(sample_id=key)
-            if sample_obj and not isinstance(sample_obj, list):
-                yield self._pyd_object(results=sample_info, parent=sample_obj)
-            else:
-                continue
-
-
 
 class PCRInfoParser(DefaultKEYVALUEParser):
-
     default_range_dict = [dict(
         start_row=1,
         end_row=24,
@@ -72,11 +42,10 @@ class PCRInfoParser(DefaultKEYVALUEParser):
     #
 
     def to_pydantic(self):
-        from backend.db.models import Procedure
+        # from backend.db.models import Procedure
         data = {key: value for key, value in self.parsed_info}
         data['filepath'] = self.filepath
-        return self._pyd_object(**data, parent=Procedure)
-
+        return self._pyd_object(**data, parent=self.procedure)
 
     # @property
     # def pcr_info(self) -> dict:
@@ -97,3 +66,36 @@ class PCRInfoParser(DefaultKEYVALUEParser):
     #         pcr[key] = value
     #     pcr['imported_by'] = getuser()
     #     return pcr
+
+
+class PCRSampleParser(DefaultTABLEParser):
+    """Object to pull data from Design and Analysis PCR export file."""
+
+    default_range_dict = [dict(
+        header_row=25,
+        sheet="Results"
+    )]
+
+    @property
+    def parsed_info(self):
+        output = [item for item in super().parsed_info]
+        merge_column = "sample"
+        sample_names = list(set([item['sample'] for item in output]))
+        for sample in sample_names:
+            multi = dict()
+            sois = [item for item in output if item['sample'] == sample]
+            for soi in sois:
+                multi[soi['target']] = {k: v for k, v in soi.items() if k != "target" and k != "sample"}
+            yield {sample: multi}
+
+    def to_pydantic(self):
+        logger.debug(f"running to pydantic")
+        for item in self.parsed_info:
+            sample_obj = Sample.query(sample_id=list(item.keys())[0])
+            logger.debug(f"Sample object {sample_obj}")
+            assoc = ProcedureSampleAssociation.query(sample=sample_obj, procedure=self.procedure)
+            if assoc and not isinstance(assoc, list):
+                yield self._pyd_object(results=list(item.values())[0], parent=assoc)
+            else:
+                continue
+

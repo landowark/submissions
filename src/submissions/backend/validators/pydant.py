@@ -1436,9 +1436,15 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sql.run = self.run
         if self.proceduretype:
             sql.proceduretype = self.proceduretype
-        for sample in self.samples:
-            if sample.sample_id.startswith("blank_") or sample.sample_id == "":
-                continue
+        try:
+            start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
+        except ValueError:
+            start_index = 1
+        relevant_samples = [sample for sample in self.samples if not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
+        logger.debug(f"start index: {start_index}")
+        assoc_id_range = range(start_index, start_index + len(relevant_samples)+1)
+        logger.debug(f"Association id range: {assoc_id_range}")
+        for iii, sample in enumerate(relevant_samples):
             sample_sql = sample.to_sql()
             if sql.run:
                 if sample_sql not in sql.run.sample:
@@ -1446,7 +1452,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row, column=sample.column)
                 else:
                     logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
-            proc_assoc = ProcedureSampleAssociation(procedure=sql, sample=sample_sql, row=sample.row, column=sample.column)
+            proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql, row=sample.row, column=sample.column)
         if self.kittype['value'] not in ["NA", None, ""]:
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
@@ -1535,5 +1541,17 @@ class PydClientSubmission(PydBaseClass):
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
 
     results: dict = Field(default={})
-    parent: Sample|Procedure
+    img: None = Field(default=None)
+    parent: Procedure|ProcedureSampleAssociation|None = Field(default=None)
+
+    def to_sql(self):
+        sql = Results(result=self.results)
+        match self.parent:
+            case ProcedureSampleAssociation():
+                sql.sampleprocedureassociation = self.parent
+            case Procedure():
+                sql.procedure = self.parent
+            case _:
+                logger.error("Improper association found.")
+        return sql
 

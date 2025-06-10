@@ -321,14 +321,11 @@ class SubmissionsTree(QTreeView):
             event (_type_): the item of interest
         """
         indexes = self.selectedIndexes()
-
         dicto = next((item.data(1) for item in indexes if item.data(1)))
         query_obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
         logger.debug(query_obj)
-
         # NOTE: Convert to data in id column (i.e. column 0)
         # id = id.sibling(id.row(), 0).data()
-
         # logger.debug(id.model().query_group_object(id.row()))
         # clientsubmission = id.model().query_group_object(id.row())
         self.menu = QMenu(self)
@@ -403,8 +400,6 @@ class SubmissionsTree(QTreeView):
             if isinstance(children, List):
                 self._populateTree(child, child_item)
 
-
-
     def clear(self):
         if self.model != None:
             # self.model.clear()       # works
@@ -415,7 +410,6 @@ class SubmissionsTree(QTreeView):
         # NOTE: Convert to data in id column (i.e. column 0)
         # id = id.sibling(id.row(), 1)
         indexes = self.selectedIndexes()
-
         dicto = next((item.data(1) for item in indexes if item.data(1)))
         logger.debug(dicto)
         # try:
