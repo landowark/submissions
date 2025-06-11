@@ -10,7 +10,7 @@ from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.excel import ClientSubmissionParser, SampleParser
+from backend.excel import ClientSubmissionParser, ClientSampleParser
 from backend.validators import PydSubmission, PydReagent, PydClientSubmission, PydSample
 from backend.db import (
     ClientLab, SubmissionType, Reagent,
@@ -129,12 +129,12 @@ class SubmissionFormContainer(QWidget):
             self.clientsubmissionparser = ClientSubmissionParser(filepath=fname)
         try:
             # self.prsr = SheetParser(filepath=fname)
-            self.sampleparser = SampleParser(filepath=fname)
+            self.sampleparser = ClientSampleParser(filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
         except AttributeError:
-            self.sampleparser = SampleParser(filepath=fname)
+            self.sampleparser = ClientSampleParser(filepath=fname)
         self.pydclientsubmission = self.clientsubmissionparser.to_pydantic()
         self.pydsamples = self.sampleparser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pydclientsubmission.sample)}")

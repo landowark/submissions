@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from pandas import DataFrame
 from backend.validators import pydant
 from backend.db.models import Procedure
+from dataclasses import dataclass
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -16,16 +17,34 @@ class DefaultParser(object):
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.filepath.stem}>"
 
+    def __new__(cls, *args, **kwargs):
+        filepath = kwargs['filepath']
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
+        try:
+            assert filepath.exists()
+        except AssertionError:
+            raise FileNotFoundError(f"File {filepath} does not exist.")
+        instance = super().__new__(cls)
+        instance.filepath = filepath
+        return instance
+
+
     def __init__(self, filepath: Path | str, procedure: Procedure|None=None, range_dict: dict | None = None, *args, **kwargs):
+        """
+
+        Args:
+            filepath (Path|str): Must be given as a kwarg. eg. filepath=X
+            procedure ():
+            range_dict ():
+            *args ():
+            **kwargs ():
+        """
         self.procedure = procedure
         try:
             self._pyd_object = getattr(pydant, f"Pyd{self.__class__.__name__.replace('Parser', '')}")
         except AttributeError:
             self._pyd_object = pydant.PydResults
-        if isinstance(filepath, str):
-            self.filepath = Path(filepath)
-        else:
-            self.filepath = filepath
         self.workbook = load_workbook(self.filepath, data_only=True)
         if not range_dict:
             self.range_dict = self.__class__.default_range_dict

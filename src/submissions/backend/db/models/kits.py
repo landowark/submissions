@@ -1046,6 +1046,52 @@ class SubmissionType(BaseClass):
         dicto = dict()
         return dicto
 
+    @classproperty
+    def regex(cls) -> re.Pattern:
+        """
+        Constructs catchall regex.
+
+        Returns:
+            re.Pattern: Regular expression pattern to discriminate between procedure types.
+        """
+        res = [st.defaults['regex'] for st in cls.query() if st.defaults]
+        rstring = rf'{"|".join(res)}'
+        regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
+        return regex
+
+    @classmethod
+    def get_regex(cls, submission_type: SubmissionType | str | None = None) -> re.Pattern:
+        """
+        Gets the regex string for identifying a certain class of procedure.
+
+        Args:
+            submission_type (SubmissionType | str | None, optional): procedure type of interest. Defaults to None.
+
+        Returns:
+            str: String from which regex will be compiled.
+        """
+        # logger.debug(f"Class for regex: {cls}")
+        logger.debug(f"Looking for {submission_type}")
+        if not isinstance(submission_type, SubmissionType):
+            submission_type = cls.query(name=submission_type)
+        if isinstance(submission_type, list):
+            if len(submission_type) > 1:
+                regex = "|".join([item.defaults['regex'] for item in submission_type])
+            else:
+                regex = submission_type[0].defaults['regex']
+        else:
+            try:
+                regex = submission_type.defaults['regex']
+            except AttributeError as e:
+                logger.error(f"Couldn't get submission type for {submission_type.name}")
+                regex = None
+        try:
+            regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
+        except re.error as e:
+            regex = None
+        # logger.debug(f"Returning regex: {regex}")
+        return regex
+
 
 class ProcedureType(BaseClass):
     id = Column(INTEGER, primary_key=True)
@@ -1225,6 +1271,7 @@ class ProcedureType(BaseClass):
     @property
     def total_wells(self):
         return self.plate_rows * self.plate_columns
+
 
 class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)

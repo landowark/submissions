@@ -13,6 +13,73 @@ from datetime import datetime
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+class DefaultNamer(object):
+
+    def __init__(self, filepath: str | Path, **kwargs):
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
+        try:
+            assert filepath.exists()
+        except AssertionError:
+            raise FileNotFoundError(f"File {filepath} does not exist.")
+        self.filepath = filepath
+
+
+class ClientSubmissionNamer(DefaultNamer):
+
+    def __init__(self, filepath: str | Path, submissiontype: str|SubmissionType|None=None,
+                 data: dict | None = None, **kwargs):
+        super().__init__(filepath=filepath)
+        if not submissiontype:
+            submissiontype = self.retrieve_submissiontype(filepath=self.filepath)
+        if isinstance(submissiontype, str):
+            submissiontype = SubmissionType.query(name=submissiontype)
+
+    def retrieve_submissiontype(self, filepath: str | Path):
+        # NOTE: Attempt 1, get from form properties:
+        sub_type = self.get_subtype_from_properties()
+        if not sub_type:
+            # NOTE: Attempt 2, get by opening file and using default parser
+            logger.warning(f"Getting submissiontype from file properties failed, falling back on preparse.\nDepending on excel structure this might yield an incorrect submissiontype")
+            sub_type = self.get_subtype_from_preparse()
+        if not sub_type:
+            logger.warning(f"Getting submissiontype from preparse failed, falling back on filename regex.\nDepending on excel structure this might yield an incorrect submissiontype")
+            sub_type = self.get_subtype_from_regex()
+        return sub_type
+
+    def get_subtype_from_regex(self):
+        regex = SubmissionType.regex
+        m = regex.search(self.filepath.__str__())
+        try:
+            sub_type = m.lastgroup
+        except AttributeError as e:
+            sub_type = None
+            logger.critical(f"No procedure type found or procedure type found!: {e}")
+        return sub_type
+
+
+    def get_subtype_from_preparse(self):
+        from backend.excel.parsers.submission_parser import ClientSubmissionParser
+        parser = ClientSubmissionParser(self.filepath)
+        sub_type = next((value for k, value in parser.parsed_info if k == "submissiontype"), None)
+        sub_type = SubmissionType.query(name=sub_type)
+        if isinstance(sub_type, list):
+            sub_type = None
+        return sub_type
+
+    def get_subtype_from_properties(self):
+        wb = load_workbook(self.filepath)
+        # NOTE: Gets first category in the metadata.
+        categories = wb.properties.category.split(";")
+        sub_type = next((item.strip().title() for item in categories), None)
+        sub_type = SubmissionType.query(name=sub_type)
+        if isinstance(sub_type, list):
+            sub_type = None
+        return sub_type
+
+
+
+
 
 class RSLNamer(object):
     """
@@ -25,16 +92,17 @@ class RSLNamer(object):
         self.submission_type = submission_type
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        logger.info(f"got procedure type: {self.submission_type}")
+        logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type:
-            self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+            # self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+            self.sub_object = SubmissionType.query(name=submission_type, limit=1)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
-                submission_type=submission_type))
-            if not data:
-                data = dict(submission_type=self.submission_type)
-            if "proceduretype" not in data.keys():
-                data['proceduretype'] = self.submission_type
-            self.parsed_name = self.sub_object.enforce_name(instr=self.parsed_name, data=data)
+                submission_type=self.submission_type))
+            # if not data:
+            #     data = dict(submission_type=self.submission_type)
+            # if "proceduretype" not in data.keys():
+            #     data['proceduretype'] = self.submission_type
+            # self.parsed_name = self.sub_object.enforce_name(instr=self.parsed_name, data=data)
             logger.info(f"Parsed name: {self.parsed_name}")
 
     @classmethod
@@ -83,7 +151,7 @@ class RSLNamer(object):
         def st_from_str(file_name: str) -> str:
             if file_name.startswith("tmp"):
                 return "Bacterial Culture"
-            regex = BasicRun.regex
+            regex = SubmissionType.regex
             m = regex.search(file_name)
             try:
                 sub_type = m.lastgroup

@@ -8,6 +8,7 @@ from dateutil.parser import parse
 from pandas import DataFrame
 from pydantic import BaseModel
 from sqlalchemy import Column, INTEGER, String, JSON
+from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.exc import ArgumentError
@@ -23,7 +24,7 @@ if 'pytest' in sys.modules:
 # NOTE: For inheriting in LogMixin
 Base: DeclarativeMeta = declarative_base()
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class BaseClass(Base):
@@ -235,7 +236,7 @@ class BaseClass(Base):
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
         new = False
         allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute)]
-                            # and not isinstance(v.property, _RelationshipDeclared)]
+        # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
         instance = cls.query(**sanitized_kwargs)
@@ -389,7 +390,7 @@ class BaseClass(Base):
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
-        #     logger.error(f"Couldn't find template {e}")
+            #     logger.error(f"Couldn't find template {e}")
             template = env.get_template("details.html")
         return template
 
@@ -553,9 +554,23 @@ class BaseClass(Base):
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
 
-    def details_dict(self):
-        dicto = {k:v for k,v in self.__dict__.items() if not k.startswith("_")}
-
+    def details_dict(self, **kwargs):
+        relevant = {k: v for k, v in self.__class__.__dict__.items() if
+                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
+        output = {}
+        for k, v in relevant.items():
+            try:
+                check = v.foreign_keys
+            except AttributeError:
+                check = False
+            if check:
+                continue
+            value = getattr(self, k)
+            match value:
+                case datetime():
+                    value = value.strftime()
+            output[k] = value
+        return output
 
 
 class LogMixin(Base):
