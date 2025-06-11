@@ -554,7 +554,7 @@ class BaseClass(Base):
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
 
-    def details_dict(self, **kwargs):
+    def details_dict(self, expand_children: list = []):
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
         output = {}
@@ -568,7 +568,9 @@ class BaseClass(Base):
             value = getattr(self, k)
             match value:
                 case datetime():
-                    value = value.strftime()
+                    value = value.strftime("%Y-%m-%d %H:%M:%S")
+                case _:
+                    pass
             output[k] = value
         return output
 

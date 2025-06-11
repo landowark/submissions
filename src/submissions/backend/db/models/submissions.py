@@ -326,6 +326,14 @@ class ClientSubmission(BaseClass, LogMixin):
     def show_details(self, obj):
         logger.debug("Show Details")
 
+    def details_dict(self, **kwargs):
+        output = super().details_dict(**kwargs)
+        output['clientlab'] = output['clientlab'].details_dict()
+        output['contact'] = output['contact'].details_dict()
+        output['submissiontype'] = output['submissiontype'].details_dict()
+        output['run'] = [run.details_dict() for run in output['run']]
+        return output
+
 
 class Run(BaseClass, LogMixin):
     """
