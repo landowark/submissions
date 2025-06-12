@@ -1418,7 +1418,7 @@ class Procedure(BaseClass):
     def delete(self, obj):
         logger.debug("Delete!")
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         output['kittype'] = output['kittype'].details_dict()
         output['proceduretype'] = output['proceduretype'].details_dict()
@@ -1882,7 +1882,7 @@ class ProcedureReagentAssociation(BaseClass):
         from backend.validators import PydReagent
         return PydReagent(**self.to_sub_dict(kittype=kittype))
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['reagent']}
@@ -2337,7 +2337,7 @@ class ProcedureEquipmentAssociation(BaseClass):
             query = query.filter(cls.equipmentrole == equipmentrole)
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['equipment']}
@@ -2813,6 +2813,16 @@ class ProcedureTipsAssociation(BaseClass):
     def to_pydantic(self):
         from backend.validators import PydTips
         return PydTips(name=self.tips.name, lot=self.tips.lot, role=self.role_name)
+
+    def details_dict(self, **kwargs):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['tips']}
+        output = output['tips'].details_dict()
+        misc = output['_misc_info']
+        output.update(relevant)
+        output['_misc_info'] = misc
+        return output
 
 
 class Results(BaseClass):

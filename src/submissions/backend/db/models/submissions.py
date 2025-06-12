@@ -333,6 +333,7 @@ class ClientSubmission(BaseClass, LogMixin):
         output['submissiontype'] = output['submissiontype'].details_dict()
         output['run'] = [run.details_dict() for run in output['run']]
         output['sample'] = [sample.details_dict() for sample in output['clientsubmissionsampleassociation']]
+        output['name'] = self.name
         return output
 
 
@@ -590,7 +591,7 @@ class Run(BaseClass, LogMixin):
             output["completed_date"] = self.completed_date
         return output
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
@@ -1636,7 +1637,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         sample['submission_rank'] = self.submission_rank
         return sample
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
@@ -2055,7 +2056,7 @@ class RunSampleAssociation(BaseClass):
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
@@ -2126,7 +2127,7 @@ class ProcedureSampleAssociation(BaseClass):
             logger.error(f"Problem incrementing id: {e}")
             return 1
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
