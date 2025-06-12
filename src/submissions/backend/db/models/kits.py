@@ -1418,6 +1418,16 @@ class Procedure(BaseClass):
     def delete(self, obj):
         logger.debug("Delete!")
 
+    def details_dict(self):
+        output = super().details_dict()
+        output['kittype'] = output['kittype'].details_dict()
+        output['proceduretype'] = output['proceduretype'].details_dict()
+        output['results'] = [result.details_dict() for result in output['results']]
+        output['sample'] = [sample.details_dict() for sample in output['sample']]
+        output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentassociation']]
+        output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
+        output['tips'] = [tips.details_dict() for tips in output['proceduretipsassociation']]
+        return output
 
 class ProcedureTypeKitTypeAssociation(BaseClass):
     """
@@ -1872,6 +1882,17 @@ class ProcedureReagentAssociation(BaseClass):
         from backend.validators import PydReagent
         return PydReagent(**self.to_sub_dict(kittype=kittype))
 
+    def details_dict(self):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['reagent']}
+        output = output['reagent'].details_dict()
+        misc = output['_misc_info']
+        output.update(relevant)
+        output['_misc_info'] = misc
+        output['results'] = [result.details_dict() for result in output['results']]
+        return output
+
 
 class Equipment(BaseClass, LogMixin):
     """
@@ -2316,6 +2337,16 @@ class ProcedureEquipmentAssociation(BaseClass):
             query = query.filter(cls.equipmentrole == equipmentrole)
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
+    def details_dict(self):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['equipment']}
+        output = output['equipment'].details_dict()
+        misc = output['_misc_info']
+        output.update(relevant)
+        output['_misc_info'] = misc
+        output['process'] = self.process.details_dict()
+        return output
 
 class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """

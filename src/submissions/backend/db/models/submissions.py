@@ -70,7 +70,7 @@ class ClientSubmission(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
-    samples = association_proxy("clientsubmissionsampleassociation",
+    sample = association_proxy("clientsubmissionsampleassociation",
                                 "sample")  #, creator=lambda sample: ClientSubmissionSampleAssociation(
 
     # sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
@@ -332,6 +332,7 @@ class ClientSubmission(BaseClass, LogMixin):
         output['contact'] = output['contact'].details_dict()
         output['submissiontype'] = output['submissiontype'].details_dict()
         output['run'] = [run.details_dict() for run in output['run']]
+        output['sample'] = [sample.details_dict() for sample in output['clientsubmissionsampleassociation']]
         return output
 
 
@@ -587,6 +588,12 @@ class Run(BaseClass, LogMixin):
             output["completed_date"] = self.completed_date.strftime("%Y-%m-%d")
         except AttributeError:
             output["completed_date"] = self.completed_date
+        return output
+
+    def details_dict(self):
+        output = super().details_dict()
+        output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
+        output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         return output
 
     @classmethod
@@ -1629,6 +1636,20 @@ class ClientSubmissionSampleAssociation(BaseClass):
         sample['submission_rank'] = self.submission_rank
         return sample
 
+    def details_dict(self):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['sample']}
+        logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
+        output = output['sample'].details_dict()
+        misc = output['_misc_info']
+        logger.debug(f"Output from sample: {pformat(output)}")
+        output.update(relevant)
+        output['_misc_info'] = misc
+        # output['sample'] = temp
+        # output.update(output['sample'].details_dict())
+        return output
+
     def to_pydantic(self) -> "PydSample":
         """
         Creates a pydantic model for this sample.
@@ -2034,6 +2055,17 @@ class RunSampleAssociation(BaseClass):
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
+    def details_dict(self):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['sample']}
+        logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
+        output = output['sample'].details_dict()
+        misc = output['_misc_info']
+        logger.debug(f"Output from sample: {pformat(output)}")
+        output.update(relevant)
+        output['_misc_info'] = misc
+        return output
 
 class ProcedureSampleAssociation(BaseClass):
 
@@ -2093,3 +2125,15 @@ class ProcedureSampleAssociation(BaseClass):
         except ValueError as e:
             logger.error(f"Problem incrementing id: {e}")
             return 1
+
+    def details_dict(self):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['sample']}
+        output = output['sample'].details_dict()
+        misc = output['_misc_info']
+        output.update(relevant)
+        output['_misc_info'] = misc
+        output['results'] = [result.details_dict() for result in output['results']]
+        return output
+
