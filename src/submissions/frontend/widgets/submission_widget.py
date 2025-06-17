@@ -10,7 +10,7 @@ from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.excel import ClientSubmissionParser, ClientSampleParser
+from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
 from backend.validators import PydSubmission, PydReagent, PydClientSubmission, PydSample
 from backend.db import (
     ClientLab, SubmissionType, Reagent,
@@ -121,20 +121,20 @@ class SubmissionFormContainer(QWidget):
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
         try:
-            self.clientsubmissionparser = ClientSubmissionParser(filepath=fname)
+            self.clientsubmissionparser = ClientSubmissionInfoParser(filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
         except AttributeError:
-            self.clientsubmissionparser = ClientSubmissionParser(filepath=fname)
+            self.clientsubmissionparser = ClientSubmissionInfoParser(filepath=fname)
         try:
             # self.prsr = SheetParser(filepath=fname)
-            self.sampleparser = ClientSampleParser(filepath=fname)
+            self.sampleparser = ClientSubmissionSampleParser(filepath=fname)
         except PermissionError:
             logger.error(f"Couldn't get permission to access file: {fname}")
             return
         except AttributeError:
-            self.sampleparser = ClientSampleParser(filepath=fname)
+            self.sampleparser = ClientSubmissionSampleParser(filepath=fname)
         self.pydclientsubmission = self.clientsubmissionparser.to_pydantic()
         self.pydsamples = self.sampleparser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pydclientsubmission.sample)}")
@@ -368,7 +368,7 @@ class SubmissionFormWidget(QWidget):
                 pass
             # NOTE: code 1: ask for overwrite
             case 1:
-                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_num}?", message=trigger.msg)
+                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_number}?", message=trigger.msg)
                 if dlg.exec():
                     # NOTE: Do not add duplicate reagents.
                     pass

@@ -29,7 +29,7 @@ class ProcedureCreation(QDialog):
         super().__init__(parent)
         self.run = run
         self.proceduretype = proceduretype
-        self.setWindowTitle(f"New {proceduretype.name} for { run.rsl_plate_num }")
+        self.setWindowTitle(f"New {proceduretype.name} for { run.rsl_plate_number }")
         self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
         self.created_procedure.update_kittype_reagentroles(kittype=self.created_procedure.possible_kits[0])
         self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
@@ -65,8 +65,8 @@ class ProcedureCreation(QDialog):
             template_name="procedure_creation",
             # css_in=['new_context_menu'],
             js_in=["procedure_form", "grid_drag", "context_menu"],
-            proceduretype=self.proceduretype.as_dict,
-            run=self.run.to_dict(),
+            proceduretype=self.proceduretype.details_dict(),
+            run=self.run.details_dict(),
             procedure=self.created_procedure.__dict__,
             plate_map=self.plate_map
         )

@@ -21,9 +21,9 @@ class SampleChecker(QDialog):
     def __init__(self, parent, title: str, samples: List[PydSample], clientsubmission: ClientSubmission|None=None):
         super().__init__(parent)
         if clientsubmission:
-            self.rsl_plate_num = RSLNamer.construct_new_plate_name(clientsubmission.to_dict())
+            self.rsl_plate_number = RSLNamer.construct_new_plate_name(clientsubmission.to_dict())
         else:
-            self.rsl_plate_num = clientsubmission
+            self.rsl_plate_number = clientsubmission
         self.samples = samples
         self.setWindowTitle(title)
         self.app = get_application_from_parent(parent)
@@ -45,7 +45,7 @@ class SampleChecker(QDialog):
         except AttributeError as e:
             logger.error(f"Problem getting sample list: {e}")
             samples = []
-        html = template.render(samples=samples, css=css, rsl_plate_num=self.rsl_plate_num)
+        html = template.render(samples=samples, css=css, rsl_plate_number=self.rsl_plate_number)
         self.webview.setHtml(html)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -76,9 +76,9 @@ class SampleChecker(QDialog):
         item.__setattr__("enabled", enabled)
 
     @pyqtSlot(str)
-    def set_rsl_plate_num(self, rsl_plate_num: str):
-        logger.debug(f"RSL plate num: {rsl_plate_num}")
-        self.rsl_plate_num = rsl_plate_num
+    def set_rsl_plate_number(self, rsl_plate_number: str):
+        logger.debug(f"RSL plate num: {rsl_plate_number}")
+        self.rsl_plate_number = rsl_plate_number
 
     @property
     def formatted_list(self) -> List[dict]:

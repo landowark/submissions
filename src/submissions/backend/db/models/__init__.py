@@ -2,7 +2,8 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
-import sys, logging
+
+import sys, logging, json
 
 from dateutil.parser import parse
 from pandas import DataFrame
@@ -565,15 +566,24 @@ class BaseClass(Base):
                 check = False
             if check:
                 continue
-            value = getattr(self, k)
+            try:
+                value = getattr(self, k)
+            except AttributeError:
+                continue
             match value:
                 case datetime():
                     value = value.strftime("%Y-%m-%d %H:%M:%S")
                 case _:
                     pass
-            output[k] = value
+            output[k.strip("_")] = value
         return output
 
+    def show_details(self, obj):
+        logger.debug("Show Details")
+        from frontend.widgets.submission_details import SubmissionDetails
+        dlg = SubmissionDetails(parent=obj, sub=self)
+        if dlg.exec():
+            pass
 
 class LogMixin(Base):
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% if not child %}
 <html lang="en">
 <head>
     {% block head %}
@@ -14,17 +14,41 @@
     {% endblock %}
 </head>
 <body>
+{% endif %}
 {% block body %}
-<!--<button type="button" id="back_btn">Back</button>-->
 {% endblock %}
 {% block signing_button %}{% endblock %}
+{% if not child %}
 </body>
+{% endif %}
 
 {% block script %}
+{% if not child %}
+<script>
+var coll = document.getElementsByClassName("collapsible");
+var i;
+
+for (i = 0; i < coll.length; i++) {
+  coll[i].addEventListener("click", function() {
+    this.classList.toggle("active");
+    var content = this.nextElementSibling;
+    if (content.style.display === "block") {
+      content.style.display = "none";
+    } else {
+      content.style.display = "block";
+    }
+  });
+}
+</script>
+{% endif %}
 {% for j in js%}
+
 <script>
     {{ j }}
 </script>
+
 {% endfor %}
 {% endblock %}
+{% if not child %}
 </html>
+{% endif %}

@@ -8,8 +8,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from tools import jinja_template_loading
 import logging
-from backend.db import models
-from typing import Literal
+
+from typing import Literal, Any
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -70,7 +70,8 @@ class ObjectSelector(QDialog):
     dialog to input BaseClass type manually
     """
 
-    def __init__(self, title: str, message: str, obj_type: str | type[models.BaseClass], values: list | None = None):
+    def __init__(self, title: str, message: str, obj_type: str | Any, values: list | None = None):
+        from backend.db import models
         super().__init__()
         self.setWindowTitle(title)
         self.widget = QComboBox()

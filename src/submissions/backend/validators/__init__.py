@@ -59,8 +59,8 @@ class ClientSubmissionNamer(DefaultNamer):
 
 
     def get_subtype_from_preparse(self):
-        from backend.excel.parsers.submission_parser import ClientSubmissionParser
-        parser = ClientSubmissionParser(self.filepath)
+        from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser
+        parser = ClientSubmissionInfoParser(self.filepath)
         sub_type = next((value for k, value in parser.parsed_info if k == "submissiontype"), None)
         sub_type = SubmissionType.query(name=sub_type)
         if isinstance(sub_type, list):

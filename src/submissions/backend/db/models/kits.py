@@ -2,19 +2,16 @@
 All kittype and reagent related models
 """
 from __future__ import annotations
-import json, zipfile, yaml, logging, re, sys
+import zipfile, logging, re
 from operator import itemgetter
-from pprint import pformat
 
 import numpy as np
-from jinja2 import Template, TemplateNotFound
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import date, datetime, timedelta
-from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, yaml_regex_creator, timezone, \
-    jinja_template_loading, ctx
+from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, timezone, \
+    jinja_template_loading
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from pandas import ExcelFile
 from pathlib import Path
@@ -632,7 +629,7 @@ class Reagent(BaseClass, LogMixin):
             missing=False
         )
         if full_data:
-            output['procedure'] = [sub.rsl_plate_num for sub in self.procedures]
+            output['procedure'] = [sub.rsl_plate_number for sub in self.procedures]
             output['excluded'] = ['missing', 'procedure', 'excluded', 'editable']
             output['editable'] = ['lot', 'expiry']
         return output
@@ -743,7 +740,7 @@ class Reagent(BaseClass, LogMixin):
                         role = ReagentRole.query(name=value, limit=1)
                     case _:
                         return
-                if role and role not in self.role:
+                if role and role not in self.reagentrole:
                     self.reagentrole.append(role)
                 return
             case "comment":
@@ -1097,9 +1094,13 @@ class ProcedureType(BaseClass):
     id = Column(INTEGER, primary_key=True)
     name = Column(String(64))
     reagent_map = Column(JSON)
+    info_map = Column(JSON)
+    sample_map = Column(JSON)
+    equipment_map = Column(JSON)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
     allowed_result_methods = Column(JSON)
+    template_file = Column(BLOB)
 
     procedure = relationship("Procedure",
                              back_populates="proceduretype")  #: Concrete control of this type.
@@ -1218,6 +1219,15 @@ class ProcedureType(BaseClass):
             plate_columns=self.plate_columns
         )
 
+    def details_dict(self, **kwargs):
+        output = super().details_dict(**kwargs)
+        output['kittype'] = [item.details_dict() for item in output['kittype']]
+        # output['process'] = [item.details_dict() for item in output['process']]
+        output['equipment'] = [item.details_dict() for item in output['equipment']]
+        return output
+
+
+
     def construct_dummy_procedure(self, run: Run|None=None):
         from backend.validators.pydant import PydProcedure
         if run:
@@ -1277,6 +1287,7 @@ class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)
     name = Column(String, unique=True)
     repeat = Column(INTEGER, nullable=False)
+
     technician = Column(String(64))  #: name of processing tech(s)
     results = relationship("Results", back_populates="procedure", uselist=True)
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete="SET NULL",
@@ -1372,7 +1383,7 @@ class Procedure(BaseClass):
 
     def add_results(self, obj, resultstype_name:str):
         logger.debug(f"Add Results! {resultstype_name}")
-        from frontend.widgets import results
+        from ...managers import results
         results_class = getattr(results, resultstype_name)
         rs = results_class(procedure=self, parent=obj)
 
@@ -1412,8 +1423,8 @@ class Procedure(BaseClass):
     def add_comment(self, obj):
         logger.debug("Add Comment!")
 
-    def show_details(self, obj):
-        logger.debug("Show Details!")
+    # def show_details(self, obj):
+    #     logger.debug("Show Details!")
 
     def delete(self, obj):
         logger.debug("Delete!")
@@ -1423,10 +1434,25 @@ class Procedure(BaseClass):
         output['kittype'] = output['kittype'].details_dict()
         output['proceduretype'] = output['proceduretype'].details_dict()
         output['results'] = [result.details_dict() for result in output['results']]
-        output['sample'] = [sample.details_dict() for sample in output['sample']]
+        run_samples = [sample for sample in self.run.sample]
+        active_samples = [sample.details_dict() for sample in output['proceduresampleassociation']
+                          if sample.sample.sample_id in [s.sample_id for s in run_samples]]
+        for sample in active_samples:
+            sample['active'] = True
+        inactive_samples = [sample.details_dict() for sample in run_samples if sample.name not in [s['sample_id'] for s in active_samples]]
+        # logger.debug(f"Inactive samples:{pformat(inactive_samples)}")
+        for sample in inactive_samples:
+            sample['active'] = False
+        # output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
+        output['sample'] = active_samples + inactive_samples
+        # output['sample'] = [sample.details_dict() for sample in output['sample']]
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
         output['tips'] = [tips.details_dict() for tips in output['proceduretipsassociation']]
+        output['repeat'] = bool(output['repeat'])
+        output['excluded'] = ['id', "results", "proceduresampleassociation", "sample", "procedurereagentassociation",
+                              "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment", "tips",
+                              "excluded"]
         return output
 
 class ProcedureTypeKitTypeAssociation(BaseClass):
@@ -1814,7 +1840,7 @@ class ProcedureReagentAssociation(BaseClass):
             str: Representation of this RunReagentAssociation
         """
         try:
-            return f"<ProcedureReagentAssociation({self.procedure.procedure.rsl_plate_num} & {self.reagent.lot})>"
+            return f"<ProcedureReagentAssociation({self.procedure.procedure.rsl_plate_number} & {self.reagent.lot})>"
         except AttributeError:
             logger.error(f"Reagent {self.reagent.lot} procedure association {self.reagent_id} has no procedure!")
             return f"<ProcedureReagentAssociation(Unknown Submission & {self.reagent.lot})>"
@@ -1887,9 +1913,9 @@ class ProcedureReagentAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['reagent']}
         output = output['reagent'].details_dict()
-        misc = output['_misc_info']
+        misc = output['misc_info']
         output.update(relevant)
-        output['_misc_info'] = misc
+        output['misc_info'] = misc
         output['results'] = [result.details_dict() for result in output['results']]
         return output
 
@@ -2087,9 +2113,9 @@ class Equipment(BaseClass, LogMixin):
             asset_number=self.asset_number
         )
         if full_data:
-            subs = [dict(plate=item.procedure.procedure.rsl_plate_num, process=item.process.name,
+            subs = [dict(plate=item.procedure.procedure.rsl_plate_number, process=item.process.name,
                          sub_date=item.procedure.procedure.start_date)
-                    if item.process else dict(plate=item.procedure.procedure.rsl_plate_num, process="NA")
+                    if item.process else dict(plate=item.procedure.procedure.rsl_plate_number, process="NA")
                     for item in self.equipmentprocedureassociation]
             output['procedure'] = sorted(subs, key=itemgetter("sub_date"), reverse=True)
             output['excluded'] = ['missing', 'procedure', 'excluded', 'editable']
@@ -2240,6 +2266,11 @@ class EquipmentRole(BaseClass):
         from backend.validators.omni_gui_objects import OmniEquipmentRole
         return OmniEquipmentRole(instance_object=self, name=self.name)
 
+    def details_dict(self, **kwargs):
+        output = super().details_dict(**kwargs)
+        output['equipment'] = [item.details_dict() for item in output['equipment']]
+        output['process'] = [item.details_dict() for item in output['process']]
+        return output
 
 class ProcedureEquipmentAssociation(BaseClass):
     """
@@ -2342,9 +2373,9 @@ class ProcedureEquipmentAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['equipment']}
         output = output['equipment'].details_dict()
-        misc = output['_misc_info']
+        misc = output['misc_info']
         output.update(relevant)
-        output['_misc_info'] = misc
+        output['misc_info'] = misc
         output['process'] = self.process.details_dict()
         return output
 
@@ -2530,11 +2561,24 @@ class Process(BaseClass):
             name=self.name,
         )
         if full_data:
-            subs = [dict(plate=sub.run.rsl_plate_num, equipment=sub.equipment.name,
+            subs = [dict(plate=sub.run.rsl_plate_number, equipment=sub.equipment.name,
                          submitted_date=sub.run.clientsubmission.submitted_date) for sub in self.procedure]
             output['procedure'] = sorted(subs, key=itemgetter("submitted_date"), reverse=True)
             output['excluded'] = ['missing', 'procedure', 'excluded', 'editable']
         return output
+
+    def to_pydantic(self):
+        from backend.validators.pydant import PydProcess
+        output = {}
+        for k, v in self.details_dict().items():
+            if isinstance(v, list):
+                output[k] = [item.name for item in v]
+            elif issubclass(v.__class__, BaseClass):
+                output[k] = v.name
+            else:
+                output[k] = v
+        return PydProcess(**output)
+
 
     # @classproperty
     # def details_template(cls) -> Template:
@@ -2591,7 +2635,10 @@ class TipRole(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, name: str | None = None, limit: int = 0, **kwargs) -> TipRole | List[TipRole]:
+    def query(cls,
+              name: str | None = None,
+              limit: int = 0,
+              **kwargs) -> TipRole | List[TipRole]:
         query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -2707,7 +2754,7 @@ class Tips(BaseClass, LogMixin):
         )
         if full_data:
             subs = [
-                dict(plate=item.procedure.procedure.rsl_plate_num, role=item.role_name,
+                dict(plate=item.procedure.procedure.rsl_plate_number, role=item.role_name,
                      sub_date=item.procedure.procedure.clientsubmission.submitted_date)
                 for item in self.tipsprocedureassociation]
             output['procedure'] = sorted(subs, key=itemgetter("sub_date"), reverse=True)
@@ -2819,15 +2866,16 @@ class ProcedureTipsAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['tips']}
         output = output['tips'].details_dict()
-        misc = output['_misc_info']
+        misc = output['misc_info']
         output.update(relevant)
-        output['_misc_info'] = misc
+        output['misc_info'] = misc
         return output
 
 
 class Results(BaseClass):
 
     id = Column(INTEGER, primary_key=True)
+    result_type = Column(String(32))
     result = Column(JSON)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
                                                 name="fk_RES_procedure_id"))

@@ -26,7 +26,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as OpenpyxlImage
 from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result, create_holidays_for_year, check_dictionary_inclusion_equality
+    report_result, create_holidays_for_year, check_dictionary_inclusion_equality, is_power_user
 from datetime import datetime, date
 from typing import List, Any, Tuple, Literal, Generator, Type, TYPE_CHECKING
 from pathlib import Path
@@ -100,7 +100,7 @@ class ClientSubmission(BaseClass, LogMixin):
         Args:
             submission_type (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
             id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
-            rsl_plate_num (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
+            rsl_plate_number (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
             end_date (date | str | int | None, optional): Ending date to search by. Defaults to None.
             reagent (models.Reagent | str | None, optional): A reagent used in the procedure. Defaults to None.
@@ -304,7 +304,7 @@ class ClientSubmission(BaseClass, LogMixin):
         samples = [sample.to_pydantic() for sample in self.clientsubmissionsampleassociation]
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
         if checker.exec():
-            run = Run(clientsubmission=self, rsl_plate_num=checker.rsl_plate_num)
+            run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
             active_samples = [sample for sample in samples if sample.enabled]
             logger.debug(active_samples)
             for sample in active_samples:
@@ -323,8 +323,12 @@ class ClientSubmission(BaseClass, LogMixin):
     def add_comment(self, obj):
         logger.debug("Add Comment")
 
-    def show_details(self, obj):
-        logger.debug("Show Details")
+    # def show_details(self, obj):
+    #     logger.debug("Show Details")
+    #     from frontend.widgets.submission_details import SubmissionDetails
+    #     dlg = SubmissionDetails(parent=obj, sub=self)
+    #     if dlg.exec():
+    #         pass
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
@@ -334,6 +338,11 @@ class ClientSubmission(BaseClass, LogMixin):
         output['run'] = [run.details_dict() for run in output['run']]
         output['sample'] = [sample.details_dict() for sample in output['clientsubmissionsampleassociation']]
         output['name'] = self.name
+        output['client_lab'] = output['clientlab']
+        output['submission_type'] = output['submissiontype']
+        output['excluded'] = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
+                              "expanded", 'clientlab', 'submissiontype', 'id']
+        output['expanded'] = ["clientlab", "contact", "submissiontype"]
         return output
 
 
@@ -343,7 +352,7 @@ class Run(BaseClass, LogMixin):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    rsl_plate_num = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
+    rsl_plate_number = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="SET NULL",
                                                      name="fk_BS_clientsub_id"))  #: client lab id from _organizations)
     clientsubmission = relationship("ClientSubmission", back_populates="run")
@@ -387,7 +396,7 @@ class Run(BaseClass, LogMixin):
 
     @hybrid_property
     def name(self):
-        return self.rsl_plate_num
+        return self.rsl_plate_number
 
     @classmethod
     def get_default_info(cls, *args, submissiontype: SubmissionType | None = None) -> dict:
@@ -593,8 +602,23 @@ class Run(BaseClass, LogMixin):
 
     def details_dict(self, **kwargs):
         output = super().details_dict()
-        output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
+        submission_samples = [sample for sample in self.clientsubmission.sample]
+        # logger.debug(f"Submission samples:{pformat(submission_samples)}")
+        active_samples = [sample.details_dict() for sample in output['runsampleassociation']
+                          if sample.sample.sample_id in [s.sample_id for s in submission_samples]]
+        # logger.debug(f"Active samples:{pformat(active_samples)}")
+        for sample in active_samples:
+            sample['active'] = True
+        inactive_samples = [sample.details_dict() for sample in submission_samples if sample.name not in [s['sample_id'] for s in active_samples]]
+        # logger.debug(f"Inactive samples:{pformat(inactive_samples)}")
+        for sample in inactive_samples:
+            sample['active'] = False
+        # output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
+        output['sample'] = active_samples + inactive_samples
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
+        output['permission'] = is_power_user()
+        output['excluded'] = ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom', 'permission']
+
         return output
 
     @classmethod
@@ -890,10 +914,10 @@ class Run(BaseClass, LogMixin):
                     field_value = dict(value=self.__getattribute__(key).name, missing=missing)
                 case "plate_number":
                     key = 'name'
-                    field_value = dict(value=self.rsl_plate_num, missing=missing)
+                    field_value = dict(value=self.rsl_plate_number, missing=missing)
                 case "submitter_plate_number":
                     key = "submitter_plate_id"
-                    field_value = dict(value=self.submitter_plate_num, missing=missing)
+                    field_value = dict(value=self.submitter_plate_number, missing=missing)
                 case "id":
                     continue
                 case _:
@@ -1168,8 +1192,8 @@ class Run(BaseClass, LogMixin):
             e: SQLIntegrityError or SQLOperationalError if problem with commit.
         """
         from frontend.widgets.pop_ups import QuestionAsker
-        fname = self.__backup_path__.joinpath(f"{self.rsl_plate_num}-backup({date.today().strftime('%Y%m%d')})")
-        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_num}?\n")
+        fname = self.__backup_path__.joinpath(f"{self.rsl_plate_number}-backup({date.today().strftime('%Y%m%d')})")
+        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_number}?\n")
         if msg.exec():
             try:
                 # NOTE: backs up file as xlsx, same as export.
@@ -1187,17 +1211,17 @@ class Run(BaseClass, LogMixin):
             except AttributeError:
                 logger.error("App will not refresh data at this time.")
 
-    def show_details(self, obj):
-        """
-        Creates Widget for showing procedure details.
-
-        Args:
-            obj (Widget): Parent widget
-        """
-        from frontend.widgets.submission_details import SubmissionDetails
-        dlg = SubmissionDetails(parent=obj, sub=self)
-        if dlg.exec():
-            pass
+    # def show_details(self, obj):
+    #     """
+    #     Creates Widget for showing procedure details.
+    #
+    #     Args:
+    #         obj (Widget): Parent widget
+    #     """
+    #     from frontend.widgets.submission_details import SubmissionDetails
+    #     dlg = SubmissionDetails(parent=obj, sub=self)
+    #     if dlg.exec():
+    #         pass
 
     def edit(self, obj):
         """
@@ -1641,12 +1665,12 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
+        # logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
         output = output['sample'].details_dict()
-        misc = output['_misc_info']
-        logger.debug(f"Output from sample: {pformat(output)}")
+        misc = output['misc_info']
+        # logger.debug(f"Output from sample: {pformat(output)}")
         output.update(relevant)
-        output['_misc_info'] = misc
+        output['misc_info'] = misc
         # output['sample'] = temp
         # output.update(output['sample'].details_dict())
         return output
@@ -1815,7 +1839,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case ClientSubmission():
                 pass
             case str():
-                clientsubmission = ClientSubmission.query(rsl_plate_num=clientsubmission)
+                clientsubmission = ClientSubmission.query(rsl_plate_number=clientsubmission)
             case _:
                 raise ValueError()
         match sample:
@@ -1879,7 +1903,7 @@ class RunSampleAssociation(BaseClass):
 
     def __repr__(self) -> str:
         try:
-            return f"<{self.__class__.__name__}({self.run.rsl_plate_num} & {self.sample.sample_id})"
+            return f"<{self.__class__.__name__}({self.run.rsl_plate_number} & {self.sample.sample_id})"
         except AttributeError as e:
             logger.error(f"Unable to construct __repr__ due to: {e}")
             return super().__repr__()
@@ -1901,7 +1925,7 @@ class RunSampleAssociation(BaseClass):
         except KeyError as e:
             logger.error(f"Unable to find row {self.row} in row_map.")
             sample['Well'] = None
-        sample['plate_name'] = self.run.rsl_plate_num
+        sample['plate_name'] = self.run.rsl_plate_number
         sample['positive'] = False
         return sample
 
@@ -1975,7 +1999,7 @@ class RunSampleAssociation(BaseClass):
             case Run():
                 query = query.filter(cls.run == run)
             case str():
-                query = query.join(Run).filter(Run.rsl_plate_num == run)
+                query = query.join(Run).filter(Run.rsl_plate_number == run)
             case _:
                 pass
         match sample:
@@ -2060,12 +2084,12 @@ class RunSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
+        # logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
         output = output['sample'].details_dict()
-        misc = output['_misc_info']
-        logger.debug(f"Output from sample: {pformat(output)}")
+        misc = output['misc_info']
+        # logger.debug(f"Output from sample: {pformat(output)}")
         output.update(relevant)
-        output['_misc_info'] = misc
+        output['misc_info'] = misc
         return output
 
 class ProcedureSampleAssociation(BaseClass):
@@ -2132,9 +2156,9 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = output['sample'].details_dict()
-        misc = output['_misc_info']
+        misc = output['misc_info']
         output.update(relevant)
-        output['_misc_info'] = misc
+        output['misc_info'] = misc
         output['results'] = [result.details_dict() for result in output['results']]
         return output
 

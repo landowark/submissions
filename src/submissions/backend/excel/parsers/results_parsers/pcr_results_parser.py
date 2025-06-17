@@ -1,19 +1,14 @@
 """
 
 """
-import logging, re, sys
-from pprint import pformat
-from pathlib import Path
-from typing import Generator, Tuple
-
-from openpyxl import load_workbook
-
+import logging
 from backend.db.models import Run, Sample, Procedure, ProcedureSampleAssociation
-from . import DefaultKEYVALUEParser, DefaultTABLEParser
+from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-
+# class PCRResultsParser(DefaultParser):
+#     pass
 
 class PCRInfoParser(DefaultKEYVALUEParser):
     default_range_dict = [dict(

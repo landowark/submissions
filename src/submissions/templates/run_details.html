@@ -1,135 +1,59 @@
 {% extends "details.html" %}
 
-<html>
-    <head>
-        {% block head %}
-        {{ super() }}
-        <title>Submission Details for {{ sub['plate_number'] }}</title>
-        {% endblock %}
-    </head>
-    <body>
-        {% block body %}
-        <h2><u>Submission Details for {{ sub['plate_number'] }}</u></h2>&nbsp;&nbsp;&nbsp;{% if sub['barcode'] %}<img align='right' height="30px" width="120px" src="data:image/jpeg;base64,{{ sub['barcode'] | safe }}">{% endif %}
-        {{ super() }}
-        <p>{% for key, value in sub.items() if key not in sub['excluded'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: </b>{% if key=='cost' %}{% if sub['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br>
-        {% endfor %}
-        {% if sub['custom'] %}{% for key, value in sub['custom'].items() %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
-        {% endfor %}{% endif %}</p>
-        {% if sub['reagents'] %}
-        <h3><u>Reagents:</u></h3>
-        <p>{% for item in sub['reagents'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> <a class="data-link reagent" id="{{ item['lot'] }}">{{ item['lot'] }} (EXP: {{ item['expiry'] }})</a><br>
-        {% endfor %}</p>
-        {% endif %}
-        {% if sub['equipment'] %}
-        <h3><u>Equipment:</u></h3>
-        <p>{% for item in sub['equipment'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> <a class="data-link equipment" id="{{ item['name'] }}"> {{ item['name'] }} ({{ item['asset_number'] }})</a>: <a class="data-link process" id="{{ item['processes'][0]|replace('\n\t', '') }}">{{ item['processes'][0]|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}</a><br>
-        {% endfor %}</p>
-        {% endif %}
-        {% if sub['tips'] %}
-        <h3><u>Tips:</u></h3>
-        <p>{% for item in sub['tips'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['role'] }}:</b> <a class="data-link tips" id="{{ item['lot'] }}">{{ item['name'] }} ({{ item['lot'] }})</a><br>
-        {% endfor %}</p>
-        {% endif %}
-        {% if sub['samples'] %}
-        <h3><u>Samples:</u></h3>
-        <p>{% for item in sub['samples'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ item['well'] }}:</b><a class="data-link sample" id="{{ item['submitter_id'] }}">{% if item['organism'] %} {{ item['name'] }} - ({{ item['organism']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}){% else %} {{ item['name']|replace('\n\t', '<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') }}{% endif %}</a><br>
-        {% endfor %}</p>
-        {% endif %}
+<head>
+    {% block head %}
+    {{ super() }}
+    <title>Run Details for {{ run['rsl_plate_number'] }}</title>
+    {% endblock %}
+</head>
+<body>
 
-        {% if sub['ext_info'] %}
-        {% for entry in sub['ext_info'] %}
-        <h3><u>Extraction Status:</u></h3>
-        <p>{% for key, value in entry.items() %}
-            {% if "column" in key %}
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}uL<br>
-            {% else %}
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key|replace('_', ' ')|title() }}:</b> {{ value }}<br>
-            {% endif %}
-        {% endfor %}</p>
-        {% endfor %}
-        {% endif %}
+    {% block body %}
+    <h2><u>Run Details for {{ run['rsl_plate_number'] }}</u></h2>
+    {{ super() }}
+    <p>{% for key, value in run.items() if key not in run['excluded'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
+    {% endfor %}</p>
+    {% if run['sample'] %}
+    <button type="button" class="collapsible"><h3><u>Run Samples:</u></h3></button>
+    <p>{% for sample in run['sample'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
+    {% endfor %}</p>
+    {% endif %}
+    {% if run['procedure'] %}
+    <button type="button" class="collapsible"><h3><u>Procedures:</u></h3></button>
+    <div class="nested">
+    {% for procedure in run['procedure'] %}
+    {% with procedure=procedure, child=True %}
+        {% include "procedure_details.html" %}
+    {% endwith %}
+    {% endfor %}
+    </div>
+    {% endif %}
+    {% endblock %}
+    {% block signing_button %}
+    <button type="button" id="sign_btn" {% if run['permission'] and not run['signed_by'] %}{% else %}hidden{% endif %}>Sign Off</button>
+    {% endblock %}
+    <br>
 
-        {% if sub['comment'] %}
-        <h3><u>Comments:</u></h3>
-        <p>{% for entry in sub['comment'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>{{ entry['name'] }}:</b><br> {{ entry['text'] }}<br>- {{ entry['time'] }}<br>
-        {% endfor %}</p>
-        {% endif %}
-        {% if sub['platemap'] %}
-        <h3><u>Plate map:</u></h3>
-        {{ sub['platemap'] }}
-        {% endif %}
-        {% if sub['export_map'] %}
-        <h3><u>Plate map:</u></h3>
-        <img height="600px" width="1300px" src="data:image/jpeg;base64,{{ sub['export_map'] | safe }}">
-        {% endif %}
-        {% endblock %}
-        {% block signing_button %}
-        <button type="button" id="sign_btn" {% if permission and not sub['signed_by'] %}{% else %}hidden{% endif %}>Sign Off</button>
-        {% endblock %}
-        <br>
-        <br>
-        <br>
-    </body>
+</body>
 
-        {% block script %}
-        {{ super() }}
-        <script>
-        var sampleSelection = document.getElementsByClassName('sample');
+    {% block script %}
+    {{ super() }}
+    <script>
+    var sampleSelection = document.getElementsByClassName('sample');
 
-        for(let i = 0; i < sampleSelection.length; i++) {
-          sampleSelection[i].addEventListener("click", function() {
-            console.log(sampleSelection[i].id);
-            backend.sample_details(sampleSelection[i].id);
-          })
-        }
+    for(let i = 0; i < sampleSelection.length; i++) {
+      sampleSelection[i].addEventListener("click", function() {
+        console.log(sampleSelection[i].id);
+        backend.sample_details(sampleSelection[i].id);
+      })
+    }
 
-        var reagentSelection = document.getElementsByClassName('reagent');
+    document.getElementById("sign_btn").addEventListener("click", function(){
+        backend.sign_off("{{ run['rsl_plate_num'] }}");
+    });
+    </script>
+    {% endblock %}
 
-        for(let i = 0; i < reagentSelection.length; i++) {
-          reagentSelection[i].addEventListener("click", function() {
-            console.log(reagentSelection[i].id);
-            backend.reagent_details(reagentSelection[i].id, "{{ sub['extraction_kit'] }}");
-          })
-        }
 
-        var equipmentSelection = document.getElementsByClassName('equipment');
-
-        for(let i = 0; i < equipmentSelection.length; i++) {
-          equipmentSelection[i].addEventListener("click", function() {
-            console.log(equipmentSelection[i].id);
-            backend.equipment_details(equipmentSelection[i].id);
-          })
-        }
-
-        var processSelection = document.getElementsByClassName('process');
-
-        for(let i = 0; i < processSelection.length; i++) {
-          processSelection[i].addEventListener("click", function() {
-            console.log(processSelection[i].id);
-            backend.process_details(processSelection[i].id);
-          })
-        }
-
-        var tipsSelection = document.getElementsByClassName('tips');
-
-        for(let i = 0; i < tipsSelection.length; i++) {
-          tipsSelection[i].addEventListener("click", function() {
-            console.log(tipsSelection[i].id);
-            backend.tips_details(tipsSelection[i].id);
-          })
-        }
-
-        document.getElementById("sign_btn").addEventListener("click", function(){
-            backend.sign_off("{{ sub['plate_number'] }}");
-        });
-        </script>
-        {% endblock %}
-
-</html>

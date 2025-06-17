@@ -50,16 +50,32 @@ class SubmissionDetails(QDialog):
         # NOTE: setup channel
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
-        match sub:
-            case Run():
-                self.run_details(run=sub)
-                self.rsl_plate_num = sub.rsl_plate_num
-            case Sample():
-                self.sample_details(sample=sub)
-            case Reagent():
-                self.reagent_details(reagent=sub)
+        # match sub:
+        #     case Run():
+        #         self.run_details(run=sub)
+        #         self.rsl_plate_number = sub.rsl_plate_number
+        #     case Sample():
+        #         self.sample_details(sample=sub)
+        #     case Reagent():
+        #         self.reagent_details(reagent=sub)
         # NOTE: Used to maintain javascript functions.
+        self.object_details(object=sub)
         self.webview.page().setWebChannel(self.channel)
+
+    def object_details(self, object):
+        details = object.details_dict()
+        template = object.details_template
+        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        with open(template_path.joinpath("css", "styles.css"), "r") as f:
+            css = f.read()
+        key = object.__class__.__name__.lower()
+        d = {key: details}
+        logger.debug(f"Using details: {d}")
+        html = template.render(**d, css=css)
+        self.webview.setHtml(html)
+        self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")
+
+
 
     def activate_export(self) -> None:
         """
@@ -213,7 +229,7 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Submission details.")
         if isinstance(run, str):
             run = Run.query(name=run)
-        self.rsl_plate_num = run.rsl_plate_num
+        self.rsl_plate_number = run.rsl_plate_number
         self.base_dict = run.to_dict(full_data=True)
         # NOTE: don't want id
         self.base_dict['platemap'] = run.make_plate_map(sample_list=run.hitpicked)
@@ -244,7 +260,7 @@ class SubmissionDetails(QDialog):
         run.completed_date = datetime.now()
         run.completed_date.replace(tzinfo=timezone)
         run.save()
-        self.run_details(run=self.rsl_plate_num)
+        self.run_details(run=self.rsl_plate_number)
 
     def save_pdf(self):
         """
@@ -264,7 +280,7 @@ class SubmissionComment(QDialog):
         super().__init__(parent)
         self.app = get_application_from_parent(parent)
         self.submission = submission
-        self.setWindowTitle(f"{self.submission.rsl_plate_num} Submission Comment")
+        self.setWindowTitle(f"{self.submission.rsl_plate_number} Submission Comment")
         # NOTE: create text field
         self.txt_editor = QTextEdit(self)
         self.txt_editor.setReadOnly(False)

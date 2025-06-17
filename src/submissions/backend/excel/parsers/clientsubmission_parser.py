@@ -1,6 +1,7 @@
 """
 
 """
+from __future__ import annotations
 import logging
 from pathlib import Path
 from string import ascii_lowercase
@@ -9,8 +10,9 @@ from typing import Generator
 from openpyxl.reader.excel import load_workbook
 
 from tools import row_keys
-from backend.db.models import SubmissionType
+# from backend.db.models import SubmissionType
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
+from backend.managers import procedures as procedure_managers
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -34,6 +36,7 @@ class SubmissionTyperMixin(object):
 
     @classmethod
     def get_subtype_from_regex(cls, filepath: Path):
+        from backend.db.models import SubmissionType
         regex = SubmissionType.regex
         m = regex.search(filepath.__str__())
         try:
@@ -45,7 +48,8 @@ class SubmissionTyperMixin(object):
 
     @classmethod
     def get_subtype_from_preparse(cls, filepath: Path):
-        parser = ClientSubmissionParser(filepath)
+        from backend.db.models import SubmissionType
+        parser = ClientSubmissionInfoParser(filepath)
         sub_type = next((value for k, value in parser.parsed_info if k == "submissiontype"), None)
         sub_type = SubmissionType.query(name=sub_type)
         if isinstance(sub_type, list):
@@ -54,6 +58,7 @@ class SubmissionTyperMixin(object):
 
     @classmethod
     def get_subtype_from_properties(cls, filepath: Path):
+        from backend.db.models import SubmissionType
         wb = load_workbook(filepath)
         # NOTE: Gets first category in the metadata.
         categories = wb.properties.category.split(";")
@@ -64,7 +69,7 @@ class SubmissionTyperMixin(object):
         return sub_type
 
 
-class ClientSubmissionParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
+class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
     """
     Object for retrieving submitter info from "sample list" sheet
     """
@@ -78,13 +83,29 @@ class ClientSubmissionParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
     )]
 
     def __init__(self, filepath: Path | str, *args, **kwargs):
+        from frontend.widgets.pop_ups import QuestionAsker
         self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         if "range_dict" not in kwargs:
             kwargs['range_dict'] = self.submissiontype.info_map
         super().__init__(filepath=filepath, **kwargs)
+        allowed_procedure_types = [item.name for item in self.submissiontype.proceduretype]
+        for name in allowed_procedure_types:
+            if name in self.workbook.sheetnames:
+                # TODO: check if run with name already exists
+                add_run = QuestionAsker(title="Add Run?", message="We've detected a sheet corresponding to an associated procedure type.\nWould you like to add a new run?")
+                if add_run.accepted:
 
 
-class ClientSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
+                # NOTE: recruit parser.
+                    try:
+                        manager = getattr(procedure_managers, name)
+                    except AttributeError:
+                        manager = procedure_managers.DefaultManager
+                    self.manager = manager(proceduretype=name)
+                pass
+
+
+class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     """
     Object for retrieving submitter samples from "sample list" sheet
     """

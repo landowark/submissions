@@ -191,7 +191,7 @@ class TurnaroundMaker(ReportArchetype):
             tat_ok = days <= tat
         except TypeError:
             return {}
-        return dict(name=str(sub.rsl_plate_num), days=days, submitted_date=sub.submitted_date,
+        return dict(name=str(sub.rsl_plate_number), days=days, submitted_date=sub.submitted_date,
                     completed_date=sub.completed_date, acceptable=tat_ok)
 
 

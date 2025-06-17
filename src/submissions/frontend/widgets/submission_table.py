@@ -161,7 +161,7 @@ class SubmissionsSheet(QTableView):
         for run in runs:
             new_run = dict(
                 start_time=run[0].strip(),
-                rsl_plate_num=run[1].strip(),
+                rsl_plate_number=run[1].strip(),
                 sample_count=run[2].strip(),
                 status=run[3].strip(),
                 experiment_name=run[4].strip(),
@@ -213,7 +213,7 @@ class SubmissionsSheet(QTableView):
         for run in runs:
             new_run = dict(
                 start_time=run[0].strip(),
-                rsl_plate_num=run[1].strip(),
+                rsl_plate_number=run[1].strip(),
                 biomek_status=run[2].strip(),
                 quant_status=run[3].strip(),
                 experiment_name=run[4].strip(),
@@ -379,7 +379,7 @@ class SubmissionsTree(QTreeView):
                 query_str=submission['submitter_plate_id'],
                 item_type=ClientSubmission
             ))
-            logger.debug(f"Added {submission_item}")
+            # logger.debug(f"Added {submission_item}")
             for run in submission['run']:
                 # self.model.append_element_to_group(group_item=group_item, element=run)
                 run_item = self.model.add_child(parent=submission_item, child=dict(
@@ -387,14 +387,14 @@ class SubmissionsTree(QTreeView):
                     query_str=run['plate_number'],
                     item_type=Run
                 ))
-                logger.debug(f"Added {run_item}")
+                # logger.debug(f"Added {run_item}")
                 for procedure in run['procedures']:
                     procedure_item = self.model.add_child(parent=run_item, child=dict(
                         name=procedure['name'],
                         query_str=procedure['name'],
                         item_type=Procedure
                     ))
-                    logger.debug(f"Added {procedure_item}")
+                    # logger.debug(f"Added {procedure_item}")
 
     def _populateTree(self, children, parent):
         for child in children:
@@ -415,7 +415,6 @@ class SubmissionsTree(QTreeView):
         # id = id.sibling(id.row(), 1)
         indexes = self.selectedIndexes()
         dicto = next((item.data(1) for item in indexes if item.data(1)))
-        logger.debug(dicto)
         # try:
         #     id = int(id.data())
         # except ValueError:
@@ -423,6 +422,7 @@ class SubmissionsTree(QTreeView):
         # Run.query(id=id).show_details(self)
         obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
         logger.debug(obj)
+        obj.show_details(obj)
 
     def link_extractions(self):
         pass

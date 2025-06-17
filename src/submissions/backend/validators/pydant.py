@@ -262,6 +262,12 @@ class PydSample(PydBaseClass):
                 pass
         return value
 
+    @field_validator("row", mode="before")
+    @classmethod
+    def str_to_int(cls, value):
+        if isinstance(value, str):
+            value = row_keys[value]
+        return value
 
 class PydTips(BaseModel):
     name: str
@@ -298,7 +304,7 @@ class PydEquipment(BaseModel, extra='ignore'):
     asset_number: str
     name: str
     nickname: str | None
-    processes: List[str] | None
+    process: List[str] | None
     equipmentrole: str | None
     tips: List[PydTips] | None = Field(default=None)
 
@@ -309,7 +315,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             value = value.name
         return value
 
-    @field_validator('processes', mode='before')
+    @field_validator('process', mode='before')
     @classmethod
     def make_empty_list(cls, value):
         # if isinstance(value, dict):
@@ -397,7 +403,7 @@ class PydSubmission(BaseModel, extra='allow'):
     filepath: Path
     submissiontype: dict | None
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    rsl_plate_num: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     clientlab: dict | None
     sample_count: dict | None
@@ -517,14 +523,14 @@ class PydSubmission(BaseModel, extra='allow'):
                 value['value'] = None
         return value
 
-    @field_validator("rsl_plate_num", mode='before')
+    @field_validator("rsl_plate_number", mode='before')
     @classmethod
     def rescue_rsl_number(cls, value):
         if value is None:
             return dict(value=None, missing=True)
         return value
 
-    @field_validator("rsl_plate_num")
+    @field_validator("rsl_plate_number")
     @classmethod
     def rsl_from_file(cls, value, values):
         sub_type = values.data['proceduretype']['value']
@@ -689,7 +695,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # NOTE: this could also be done with default_factory
         self.submission_object = Run.find_polymorphic_subclass(
             polymorphic_identity=self.submission_type['value'])
-        self.namer = RSLNamer(self.rsl_plate_num['value'], submission_type=self.submission_type['value'])
+        self.namer = RSLNamer(self.rsl_plate_number['value'], submission_type=self.submission_type['value'])
         if run_custom:
             self.submission_object.custom_validation(pyd=self)
 
@@ -796,7 +802,7 @@ class PydSubmission(BaseModel, extra='allow'):
         # logger.debug(f"Pydantic procedure type: {self.proceduretype['value']}")
         # logger.debug(f"Pydantic improved_dict: {pformat(dicto)}")
         instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
-                                                    rsl_plate_num=self.rsl_plate_num['value'])
+                                               rsl_plate_number=self.rsl_plate_number['value'])
         # logger.debug(f"Created or queried instance: {instance}")
         if instance is None:
             report.add_result(Result(msg="Overwrite Cancelled."))
@@ -1266,13 +1272,13 @@ class PydEquipmentRole(BaseModel):
 class PydProcess(BaseModel, extra="allow"):
     name: str
     version: str = Field(default="1")
-    submissiontype: List[str]
+    proceduretype: List[str]
     equipment: List[str]
     equipmentrole: List[str]
     kittype: List[str]
     tiprole: List[str]
 
-    @field_validator("submissiontype", "equipment", "equipmentrole", "kittype", "tiprole", mode="before")
+    @field_validator("proceduretype", "equipment", "equipmentrole", "kittype", "tiprole", mode="before")
     @classmethod
     def enforce_list(cls, value):
         if not isinstance(value, list):
@@ -1361,10 +1367,10 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             else:
                 procedure_type = None
             if values.data['run']:
-                run = values.data['run'].rsl_plate_num
+                run = values.data['run'].rsl_plate_number
             else:
                 run = None
-            value['value'] = f"{procedure_type}-{run}"
+            value['value'] = f"{run}-{procedure_type}"
             value['missing'] = True
         return value
 
@@ -1391,7 +1397,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         if not value:
             if values.data['kittype']['value'] != cls.model_fields['kittype'].default['value']:
                 kittype = KitType.query(name=values.data['kittype']['value'])
-                value = {item.name: item.reagents for item in kittype.reagentrole}
+                value = {item.name: item.reagent for item in kittype.reagentrole}
         return value
 
     def update_kittype_reagentroles(self, kittype: str | KitType):
@@ -1545,11 +1551,13 @@ class PydClientSubmission(PydBaseClass):
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
 
     results: dict = Field(default={})
-    img: None = Field(default=None)
+    results_type: str = Field(default="NA")
+    img: None | bytes = Field(default=None)
     parent: Procedure|ProcedureSampleAssociation|None = Field(default=None)
 
     def to_sql(self):
-        sql = Results(result=self.results)
+        sql = Results(results_type=self.results_type, result=self.results)
+        sql.image = self.img
         match self.parent:
             case ProcedureSampleAssociation():
                 sql.sampleprocedureassociation = self.parent

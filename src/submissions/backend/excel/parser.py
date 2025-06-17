@@ -630,12 +630,12 @@ class PCRParser(object):
                 return None
         if submission is None:
             self.submission_obj = Wastewater
-            rsl_plate_num = None
+            rsl_plate_number = None
         else:
             self.submission_obj = submission
-            rsl_plate_num = self.submission_obj.rsl_plate_num
-        self.samples = self.submission_obj.parse_pcr(xl=self.xl, rsl_plate_num=rsl_plate_num)
-        self.controls = self.submission_obj.parse_pcr_controls(xl=self.xl, rsl_plate_num=rsl_plate_num)
+            rsl_plate_number = self.submission_obj.rsl_plate_number
+        self.samples = self.submission_obj.parse_pcr(xl=self.xl, rsl_plate_number=rsl_plate_number)
+        self.controls = self.submission_obj.parse_pcr_controls(xl=self.xl, rsl_plate_number=rsl_plate_number)
 
     @property
     def pcr_info(self) -> dict:
@@ -675,11 +675,11 @@ class ConcentrationParser(object):
                 return None
         if run is None:
             self.submission_obj = Run()
-            rsl_plate_num = None
+            rsl_plate_number = None
         else:
             self.submission_obj = run
-            rsl_plate_num = self.submission_obj.rsl_plate_num
-        self.samples = self.submission_obj.parse_concentration(xl=self.xl, rsl_plate_num=rsl_plate_num)
+            rsl_plate_number = self.submission_obj.rsl_plate_number
+        self.samples = self.submission_obj.parse_concentration(xl=self.xl, rsl_plate_number=rsl_plate_number)
 
 # NOTE: Generified parsers below
 

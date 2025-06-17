@@ -1,4 +1,5 @@
 {% extends "details.html" %}
+{% if not child %}
 
 <head>
     {% block head %}
@@ -7,9 +8,31 @@
     {% endblock %}
 </head>
 <body>
+{% endif %}
     {% block body %}
-
-
+    <h2><u>Procedure Details for {{ procedure['name'] }}</u></h2>
+    {{ super() }}
+    <p>{% for key, value in procedure.items() if key not in procedure['excluded'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: {{ value }}</b><br>
+    {% endfor %}</p>
+    {% if procedure['results'] %}
+    <button type="button" class="collapsible"><h3><u>Results:</u></h3></button>
+    <div class="nested">
+    {% for result in procedure['results'] %}
+    <p>{% for k, v in result['result'].items() %}
+        <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
+    {% endfor %}</p>
+    {% endfor %}
+    </div>
+    {% endif %}
+    {% if procedure['sample'] %}
+    <button type="button" class="collapsible"><h3><u>Procedure Samples:</u></h3></button>
+    <div class="nested">
+    <p>{% for sample in procedure['sample'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
+    {% endfor %}</p>
+    </div>
+    {% endif %}
 
     {% endblock %}
 </body>
