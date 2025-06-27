@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from backend import Reagent, Sample, ClientSubmission, KitType, Run
+from backend.db.models import Reagent, Sample, ClientSubmission, KitType, Run
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development

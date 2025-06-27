@@ -398,6 +398,10 @@ class Run(BaseClass, LogMixin):
     def name(self):
         return self.rsl_plate_number
 
+    @hybrid_property
+    def plate_number(self):
+        return self.rsl_plate_number
+
     @classmethod
     def get_default_info(cls, *args, submissiontype: SubmissionType | None = None) -> dict:
         """
@@ -602,6 +606,7 @@ class Run(BaseClass, LogMixin):
 
     def details_dict(self, **kwargs):
         output = super().details_dict()
+        output['plate_number'] = self.plate_number
         submission_samples = [sample for sample in self.clientsubmission.sample]
         # logger.debug(f"Submission samples:{pformat(submission_samples)}")
         active_samples = [sample.details_dict() for sample in output['runsampleassociation']
@@ -1174,7 +1179,7 @@ class Run(BaseClass, LogMixin):
         from frontend.widgets.procedure_creation import ProcedureCreation
         procedure_type = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         logger.debug(f"Got ProcedureType: {procedure_type}")
-        dlg = ProcedureCreation(parent=obj, run=self, proceduretype=procedure_type)
+        dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
             sql, _ = dlg.return_sql()
             logger.debug(f"Output run samples:\n{pformat(sql.run.sample)}")
@@ -1358,12 +1363,12 @@ class Run(BaseClass, LogMixin):
             row, column = plate_dict[submission_rank]
             ranked_samples.append(
                 dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank,
-                     background_color="#6ffe1d"))
+                     background_color="#6ffe1d", enabled=True))
         padded_list = []
         for iii in range(1, proceduretype.total_wells+1):
             row, column = proceduretype.ranked_plate[iii]
             sample = next((item for item in ranked_samples if item['submission_rank']==iii),
-                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, submission_rank=iii, background_color="#ffffff")
+                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, submission_rank=iii, background_color="#ffffff", enabled=False)
                           )
             padded_list.append(sample)
         # logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")

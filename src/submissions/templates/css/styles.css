@@ -179,3 +179,7 @@ ul.no-bullets {
   text-decoration-color: red;
 }
 
+.grid-container {
+          display: grid;
+          grid-auto-flow: column;
+        }

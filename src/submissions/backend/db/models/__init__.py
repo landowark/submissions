@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sys, logging, json
 
+import sqlalchemy.exc
 from dateutil.parser import parse
 from pandas import DataFrame
 from pydantic import BaseModel
@@ -239,14 +240,23 @@ class BaseClass(Base):
         allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute)]
         # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
-        logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
+        # logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
         instance = cls.query(**sanitized_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
             new = True
         for k, v in sanitized_kwargs.items():
-            logger.debug(f"QorC Setting {k} to {v}")
-            setattr(instance, k, v)
+            # logger.debug(f"QorC Setting {k} to {v}")
+            if k == "id":
+                continue
+            try:
+                setattr(instance, k, v)
+            except AttributeError as e:
+                from backend.validators.pydant import PydBaseClass
+                if issubclass(v.__class__, PydBaseClass):
+                    setattr(instance, k, v.to_sql())
+                else:
+                    logger.error(f"Could not set {k} due to {e}")
         logger.info(f"Instance from query or create: {instance}, new: {new}")
         return instance, new
 
@@ -315,9 +325,13 @@ class BaseClass(Base):
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
+        # except sqlalchemy.exc.IntegrityError as i:
+        #     logger.error(f"Integrity error saving {self} due to: {i}")
+        #     logger.error(pformat(self.__dict__))
         except Exception as e:
-            logger.critical(f"Problem saving object: {e}")
+            logger.critical(f"Problem saving {self} due to: {e}")
             logger.error(f"Error message: {type(e)}")
+            logger.error(pformat(self.__dict__))
             self.__database_session__.rollback()
             report.add_result(Result(msg=e, status="Critical"))
             return report
@@ -484,9 +498,9 @@ class BaseClass(Base):
                     # logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
-                    logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
+                    # logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
                     if field_type.property.uselist:
-                        logger.debug(f"Setting with uselist")
+                        # logger.debug(f"Setting with uselist")
                         existing = self.__getattribute__(key)
                         # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
                         if existing is not None:
@@ -502,8 +516,11 @@ class BaseClass(Base):
                                 pass
                             else:
                                 value = [value]
-                        value = list(set(value))
-                        logger.debug(f"Final value for {key}: {value}")
+                        try:
+                            value = list(set(value))
+                        except TypeError:
+                            pass
+                        # logger.debug(f"Final value for {key}: {value}")
                         return super().__setattr__(key, value)
                     else:
                         if isinstance(value, list):
@@ -514,7 +531,7 @@ class BaseClass(Base):
                         try:
                             return super().__setattr__(key, value)
                         except AttributeError:
-                            logger.debug(f"Possible attempt to set relationship {key} to simple var type. {value}")
+                            logger.warning(f"Possible attempt to set relationship {key} to simple var type. {value}")
                             relationship_class = field_type.property.entity.entity
                             value = relationship_class.query(name=value)
                             try:
@@ -555,7 +572,7 @@ class BaseClass(Base):
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
 
-    def details_dict(self):
+    def details_dict(self, **kwargs):
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
         output = {}
@@ -577,6 +594,16 @@ class BaseClass(Base):
                     pass
             output[k.strip("_")] = value
         return output
+
+    def to_pydantic(self, **kwargs):
+        from backend.validators import pydant
+        pyd_model_name = f"Pyd{self.__class__.__name__}"
+        logger.debug(f"Looking for pydant model {pyd_model_name}")
+        try:
+            pyd = getattr(pydant, pyd_model_name)
+        except AttributeError:
+            raise AttributeError(f"Could not get pydantic class {pyd_model_name}")
+        return pyd(**self.details_dict())
 
     def show_details(self, obj):
         logger.debug("Show Details")

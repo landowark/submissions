@@ -9,6 +9,8 @@ from dateutil.parser import parse
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
 from types import GeneratorType
+
+import backend
 from . import RSLNamer
 from pathlib import Path
 from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone
@@ -31,7 +33,11 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     def prevalidate(cls, data):
         sql_fields = [k for k, v in cls._sql_object.__dict__.items() if isinstance(v, InstrumentedAttribute)]
         output = {}
-        for key, value in data.items():
+        try:
+            items = data.items()
+        except AttributeError:
+            return data
+        for key, value in items:
             new_key = key.replace("_", "")
             if new_key in sql_fields:
                 output[new_key] = value
@@ -104,11 +110,14 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     def to_sql(self):
         dicto = self.improved_dict(dictionaries=False)
         logger.debug(f"Dicto: {dicto}")
-        sql, _ = self._sql_object().query_or_create(**dicto)
+        # sql, new = self._sql_object().query_or_create(**dicto)
+        sql, new = self._sql_object.query_or_create(**dicto)
+        if new:
+            logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
         return sql
 
 
-class PydReagent(BaseModel):
+class PydReagent(PydBaseClass):
     lot: str | None
     reagentrole: str | None
     expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
@@ -269,6 +278,7 @@ class PydSample(PydBaseClass):
             value = row_keys[value]
         return value
 
+
 class PydTips(BaseModel):
     name: str
     lot: str | None = Field(default=None)
@@ -277,6 +287,13 @@ class PydTips(BaseModel):
     @field_validator('tiprole', mode='before')
     @classmethod
     def get_role_name(cls, value):
+        if isinstance(value, list):
+            output = []
+            for tiprole in value:
+                if isinstance(tiprole, TipRole):
+                    tiprole = tiprole.name
+                    return tiprole
+            value = output
         if isinstance(value, TipRole):
             value = value.name
         return value
@@ -304,13 +321,21 @@ class PydEquipment(BaseModel, extra='ignore'):
     asset_number: str
     name: str
     nickname: str | None
-    process: List[str] | None
-    equipmentrole: str | None
-    tips: List[PydTips] | None = Field(default=None)
+    # process: List[dict] | None
+    process: PydProcess | None
+    equipmentrole: str | PydEquipmentRole | None
+    tips: List[PydTips] | None = Field(default=[])
 
     @field_validator('equipmentrole', mode='before')
     @classmethod
     def get_role_name(cls, value):
+        match value:
+            case list():
+                value = value[0]
+            case GeneratorType():
+                value = next(value)
+            case _:
+                pass
         if isinstance(value, EquipmentRole):
             value = value.name
         return value
@@ -325,11 +350,23 @@ class PydEquipment(BaseModel, extra='ignore'):
         value = convert_nans_to_nones(value)
         if not value:
             value = ['']
+        logger.debug(value)
         try:
-            value = [item.strip() for item in value]
+            # value = [item.strip() for item in value]
+            value = next((PydProcess(**process.details_dict()) for process in value))
         except AttributeError:
             pass
         return value
+
+    @field_validator('tips', mode='before')
+    @classmethod
+    def tips_to_pydantic(cls, value):
+        output = []
+        for tips in value:
+            if isinstance(tips, Tips):
+                tips = tips.to_pydantic()
+            output.append(tips)
+        return output
 
     @report_result
     def to_sql(self, procedure: Procedure | str = None, kittype: KitType | str = None) -> Tuple[
@@ -357,7 +394,7 @@ class PydEquipment(BaseModel, extra='ignore'):
             # NOTE: Need to make sure the same association is not added to the procedure
             try:
                 assoc, new = ProcedureEquipmentAssociation.query_or_create(equipment=equipment, procedure=procedure,
-                                                            equipmentrole=self.equipmentrole, limit=1)
+                                                                           equipmentrole=self.equipmentrole, limit=1)
             except TypeError as e:
                 logger.error(f"Couldn't get association due to {e}, returning...")
                 return None, None
@@ -1282,8 +1319,14 @@ class PydProcess(BaseModel, extra="allow"):
     @classmethod
     def enforce_list(cls, value):
         if not isinstance(value, list):
-            return [value]
-        return value
+            value = [value]
+        output = []
+        for v in value:
+            if issubclass(v.__class__, BaseClass):
+                output.append(v.name)
+            else:
+                output.append(v)
+        return output
 
     @report_result
     def to_sql(self):
@@ -1356,7 +1399,28 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     plate_map: str | None = Field(default=None)
     reagent: list | None = Field(default=[])
     reagentrole: dict | None = Field(default={}, validate_default=True)
-    samples: List[PydSample] = Field(default=[])
+    sample: List[PydSample] = Field(default=[])
+    equipment: List[PydEquipment] = Field(default=[])
+    results: List[PydResults] | List[dict] = Field(default=[])
+
+    @field_validator("name", "technician", "kittype", mode="before")
+    @classmethod
+    def convert_to_dict(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value, missing=False)
+        return value
+
+    @field_validator("proceduretype", mode="before")
+    @classmethod
+    def lookup_proceduretype(cls, value):
+        match value:
+            case dict():
+                value = ProcedureType.query(name=value['name'])
+            case str():
+                value = ProcedureType.query(name=value)
+            case _:
+                pass
+        return value
 
     @field_validator("name")
     @classmethod
@@ -1378,25 +1442,41 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     @classmethod
     def rescue_possible_kits(cls, value, values):
         if not value:
-            if values.data['proceduretype']:
-                value = [kittype.name for kittype in values.data['proceduretype'].kittype]
+            try:
+                if values.data['proceduretype']:
+                    value = [kittype.__dict__['name'] for kittype in values.data['proceduretype'].kittype]
+            except KeyError:
+                pass
         return value
 
     @field_validator("name", "technician", "kittype")
     @classmethod
     def set_colour(cls, value):
-        if value["missing"]:
-            value["colour"] = "FE441D"
-        else:
-            value["colour"] = "6ffe1d"
+        try:
+            if value["missing"]:
+                value["colour"] = "FE441D"
+            else:
+                value["colour"] = "6ffe1d"
+        except KeyError:
+            pass
         return value
 
     @field_validator("reagentrole")
     @classmethod
     def rescue_reagentrole(cls, value, values):
         if not value:
-            if values.data['kittype']['value'] != cls.model_fields['kittype'].default['value']:
-                kittype = KitType.query(name=values.data['kittype']['value'])
+            match values.data['kittype']:
+                case dict():
+                    if "value" in values.data['kittype'].keys():
+                        roi = values.data['kittype']['value']
+                    elif "name" in values.data['kittype'].keys():
+                        roi = values.data['kittype']['name']
+                    else:
+                        raise KeyError(f"Couldn't find kittype name in the dictionary: {values.data['kittype']}")
+                case str():
+                    roi = values.data['kittype']
+            if roi != cls.model_fields['kittype'].default['value']:
+                kittype = KitType.query(name=roi)
                 value = {item.name: item.reagent for item in kittype.reagentrole}
         return value
 
@@ -1408,6 +1488,19 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         try:
             self.reagentrole = {item.name: item.get_reagents(kittype=kittype_obj) for item in
                                 kittype_obj.get_reagents(proceduretype=self.proceduretype)}
+        except AttributeError:
+            self.reagentrole = {}
+        self.kittype['value'] = kittype
+        self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
+
+    def update_kittype_equipmentroles(self, kittype: str | KitType):
+        if kittype == self.__class__.model_fields['kittype'].default['value']:
+            return
+        if isinstance(kittype, str):
+            kittype_obj = KitType.query(name=kittype)
+        try:
+            self.equipment = {item.name: item.get_reagents(kittype=kittype_obj) for item in
+                              kittype_obj.get_reagents(proceduretype=self.proceduretype)}
         except AttributeError:
             self.reagentrole = {}
         self.kittype['value'] = kittype
@@ -1425,7 +1518,8 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     (item for item in self.samples if item.sample_id.upper() == sample_dict['sample_id'].upper()))
             except StopIteration:
                 # NOTE: Code to check for added controls.
-                logger.debug(f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
+                logger.debug(
+                    f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
                 try:
                     sample = next(
                         (item for item in self.samples if item.row == row and item.column == column))
@@ -1441,7 +1535,12 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 
     def to_sql(self):
         from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
+        # results = []
+        # for result in self.results:
+        #     result, _ = result.to_sql()
         sql = super().to_sql()
+        logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
+        # sql.results = [result.to_sql() for result in self.results]
         if self.run:
             sql.run = self.run
         if self.proceduretype:
@@ -1450,25 +1549,35 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
         except ValueError:
             start_index = 1
-        relevant_samples = [sample for sample in self.samples if not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
+        relevant_samples = [sample for sample in self.sample if
+                            not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
         logger.debug(f"start index: {start_index}")
-        assoc_id_range = range(start_index, start_index + len(relevant_samples)+1)
+        assoc_id_range = range(start_index, start_index + len(relevant_samples) + 1)
         logger.debug(f"Association id range: {assoc_id_range}")
         for iii, sample in enumerate(relevant_samples):
             sample_sql = sample.to_sql()
             if sql.run:
                 if sample_sql not in sql.run.sample:
                     logger.debug(f"sample {sample_sql} not found in {sql.run.sample}")
-                    run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row, column=sample.column)
+                    run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
+                                                     column=sample.column)
                 else:
                     logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
-            proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql, row=sample.row, column=sample.column)
+            if sample_sql not in sql.sample:
+                proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
+                                                        row=sample.row, column=sample.column)
         if self.kittype['value'] not in ["NA", None, ""]:
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
                 sql.kittype = kittype
+        for equipment in self.equipment:
+            equip = Equipment.query(name=equipment.name)
+            if equip not in sql.equipment:
+                equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql, equipmentrole=equip.equipmentrole[0])
+                process = equipment.process.to_sql()
+                equip_assoc.process = process
+        logger.debug(f"Output sql: {[pformat(item.__dict__) for item in sql.procedureequipmentassociation]}")
         return sql, None
-
 
 
 class PydClientSubmission(PydBaseClass):
@@ -1549,15 +1658,34 @@ class PydClientSubmission(PydBaseClass):
 
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
-
     results: dict = Field(default={})
     results_type: str = Field(default="NA")
     img: None | bytes = Field(default=None)
-    parent: Procedure|ProcedureSampleAssociation|None = Field(default=None)
+    parent: Procedure | ProcedureSampleAssociation | None = Field(default=None)
+    date_analyzed: datetime | None = Field(default=None)
+
+    @field_validator("date_analyzed")
+    @classmethod
+    def set_today(cls, value):
+        match value:
+            case str():
+                value = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            case datetime():
+                pass
+            case _:
+                value = datetime.now()
+        return value
 
     def to_sql(self):
-        sql = Results(results_type=self.results_type, result=self.results)
-        sql.image = self.img
+        sql, _ = Results.query_or_create(results_type=self.results_type, result=self.results)
+        try:
+            check = sql.image
+        except FileNotFoundError:
+            check = False
+        if not check:
+            sql.image = self.img
+        if not sql.date_analyzed:
+            sql.date_analyzed = self.date_analyzed
         match self.parent:
             case ProcedureSampleAssociation():
                 sql.sampleprocedureassociation = self.parent
@@ -1566,4 +1694,3 @@ class PydResults(PydBaseClass, arbitrary_types_allowed=True):
             case _:
                 logger.error("Improper association found.")
         return sql
-

@@ -28,24 +28,13 @@
                     <br><hr><br>
                     {% for key, value in procedure['reagentrole'].items() %}
                     <label for="{{ key }}">{{ key }}:</label><br>
-                    <datalist class="reagentrole dropdown" id="{{ key }}" name="{{ reagentrole }}"><br>
+                    <select class="reagentrole dropdown" id="{{ key }}" name="{{ key }}"><br>
                         {% for reagent in value %}
                         <option value="{{ reagent }}">{{ reagent }}</option>
                         {% endfor %}
-                    </datalist>
-                    {% endfor %}
-                  {% endif %}
-                  {% if proceduretype['equipment'] %}
-                    <br><hr><br>
-                    {% for equipmentrole in proceduretype['equipment'] %}
-                    <label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
-                    <select class="equipmentrole dropdown" id="{{ equipmentrole['name'] }}" name="{{ equipmentrole['name'] }}"><br>
-                        {% for equipment in equipmentrole['equipment'] %}
-                        <option value="{{ equipment['name'] }}">{{ equipment['name'] }}</option>
-                        {% endfor %}
                     </select>
                     {% endfor %}
-                  {% endif%}
+                  {% endif %}
                 </form>
             </div>
             <div class="right">
@@ -55,6 +44,9 @@
                 {% endif %}
             </div>
         </div>
+        {% with proceduretype=proceduretype, child=True %}
+            {% include "support/equipment_usage.html" %}
+        {% endwith %}
         {% include 'support/context_menu.html' %}
         {% endblock %}
 

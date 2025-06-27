@@ -4,14 +4,16 @@ All kittype and reagent related models
 from __future__ import annotations
 import zipfile, logging, re
 from operator import itemgetter
+from pprint import pformat
 
 import numpy as np
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
+
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, timezone, \
-    jinja_template_loading
+    jinja_template_loading, flatten_list
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from pandas import ExcelFile
 from pathlib import Path
@@ -20,6 +22,7 @@ from io import BytesIO
 
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
+    from backend.validators.pydant import PydSample, PydResults
 
 logger = logging.getLogger(f'procedure.{__name__}')
 
@@ -127,6 +130,11 @@ class KitType(BaseClass):
     process = relationship("Process", back_populates="kittype",
                            secondary=kittype_process)  #: equipment process used by this kittype
 
+    proceduretypeequipmentroleassociation = relationship("ProcedureTypeEquipmentRoleAssociation", back_populates="kittype",
+        cascade="all, delete-orphan",)
+
+    equipmentrole = association_proxy("proceduretypeequipmentroleassociation", "equipmentrole")
+
     kittypereagentroleassociation = relationship(
         "KitTypeReagentRoleAssociation",
         back_populates="kittype",
@@ -147,6 +155,8 @@ class KitType(BaseClass):
     proceduretype = association_proxy("kittypeproceduretypeassociation", "proceduretype",
                                       creator=lambda ST: ProcedureTypeKitTypeAssociation(
                                           submissiontype=ST))  #: Association proxy to SubmissionTypeKitTypeAssociation
+
+
 
     @classproperty
     def aliases(cls) -> List[str]:
@@ -174,17 +184,30 @@ class KitType(BaseClass):
         """
         match proceduretype:
             case ProcedureType():
-                relevant_associations = [item for item in self.kittypereagentroleassociation if
+                relevant_associations = [assoc for assoc in self.kittypereagentroleassociation if
+                                         assoc.proceduretype == proceduretype]
+            case str():
+                relevant_associations = [assoc for assoc in self.kittypereagentroleassociation if
+                                         assoc.proceduretype.name == proceduretype]
+            case _:
+                relevant_associations = [assoc for assoc in self.kittypereagentroleassociation]
+        if required_only:
+            return (assoc.reagentrole for assoc in relevant_associations if assoc.required == 1)
+        else:
+            return (assoc.reagentrole for assoc in relevant_associations)
+
+    def get_equipmentroles(self, proceduretype: str| ProcedureType | None = None) -> Generator[ReagentRole, None, None]:
+        match proceduretype:
+            case ProcedureType():
+                relevant_associations = [item for item in self.proceduretypeequipmentroleassociation if
                                          item.proceduretype == proceduretype]
             case str():
-                relevant_associations = [item for item in self.kittypereagentroleassociation if
+                relevant_associations = [item for item in self.proceduretypeequipmentroleassociation if
                                          item.proceduretype.name == proceduretype]
             case _:
-                relevant_associations = [item for item in self.kittypereagentroleassociation]
-        if required_only:
-            return (item.reagentrole for item in relevant_associations if item.required == 1)
-        else:
-            return (item.reagentrole for item in relevant_associations)
+                relevant_associations = [item for item in self.proceduretypeequipmentroleassociation]
+        return (assoc.equipmentrole for assoc in relevant_associations)
+
 
     def construct_xl_map_for_use(self, proceduretype: str | SubmissionType) -> Tuple[dict | None, KitType]:
         """
@@ -1223,26 +1246,24 @@ class ProcedureType(BaseClass):
         output = super().details_dict(**kwargs)
         output['kittype'] = [item.details_dict() for item in output['kittype']]
         # output['process'] = [item.details_dict() for item in output['process']]
-        output['equipment'] = [item.details_dict() for item in output['equipment']]
+        output['equipment'] = [item.details_dict(proceduretype=self) for item in output['equipment']]
         return output
 
-
-
-    def construct_dummy_procedure(self, run: Run|None=None):
+    def construct_dummy_procedure(self, run: Run | None = None):
         from backend.validators.pydant import PydProcedure
         if run:
             samples = run.constuct_sample_dicts_for_proceduretype(proceduretype=self)
+        else:
+            samples = []
         output = dict(
             proceduretype=self,
-            #name=dict(value=self.name, missing=True),
-            #possible_kits=[kittype.name for kittype in self.kittype],
             repeat=False,
-            # plate_map=plate_map
-            run=run
+            run=run,
+            sample=samples
         )
         return PydProcedure(**output)
 
-    def construct_plate_map(self, sample_dicts: List[dict]) -> str:
+    def construct_plate_map(self, sample_dicts: List["PydSample"]) -> str:
         """
         Constructs an html based plate map for procedure details.
 
@@ -1256,22 +1277,30 @@ class ProcedureType(BaseClass):
         """
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
-        # plate_rows = range(1, self.plate_rows + 1)
-        # plate_columns = range(1, self.plate_columns + 1)
-        # total_wells = self.plate_columns * self.plate_rows
+        sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
+        logger.debug(f"Sample dicts: {pformat(sample_dicts)}")
         vw = round((-0.07 * len(sample_dicts)) + 12.2, 1)
-        # sample_dicts = run.constuct_sample_dicts_for_proceduretype(proceduretype=self)
-        # output_samples = [next((item for item in sample_dicts if item['row'] == row and item['column'] == column),
-        #                        dict(sample_id="", row=row, column=column, background_color="#ffffff"))
-        #                   for row in plate_rows
-        #                   for column in plate_columns]
-        # logger.debug(f"Output samples:\n{pformat(output_samples)}")
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         env = jinja_template_loading()
         template = env.get_template("support/plate_map.html")
-        html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts, vw=vw)
+        html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts,
+                               vw=vw)
         return html + "<br/>"
+
+    def pad_sample_dicts(self, sample_dicts: List["PydSample"]):
+        from backend.validators.pydant import PydSample
+        output = []
+        logger.debug(f"Rows: {self.plate_rows}")
+        logger.debug(f"Columns: {self.plate_columns}")
+        for row, column in self.ranked_plate.values():
+            sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
+                          PydSample(**dict(sample_id="", row=row, column=column, enabled=False)))
+            sample.background_color = "#6ffe1d" if sample.enabled else "#ffffff"
+            output.append(sample)
+            logger.debug(f"Appending {sample} at row {row}, column {column}")
+        return output
+
 
     @property
     def ranked_plate(self):
@@ -1318,7 +1347,7 @@ class Procedure(BaseClass):
     )  #: Relation to ProcedureReagentAssociation
 
     reagent = association_proxy("procedurereagentassociation",
-                                 "reagent", creator=lambda reg: ProcedureReagentAssociation(
+                                "reagent", creator=lambda reg: ProcedureReagentAssociation(
             reagent=reg))  #: Association proxy to RunReagentAssociation.reagent
 
     procedureequipmentassociation = relationship(
@@ -1365,7 +1394,7 @@ class Procedure(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_dict(self, full_data: bool=False):
+    def to_dict(self, full_data: bool = False):
         output = dict()
         output['name'] = self.name
         return output
@@ -1381,7 +1410,7 @@ class Procedure(BaseClass):
         names = ["Add Results", "Add Equipment", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
-    def add_results(self, obj, resultstype_name:str):
+    def add_results(self, obj, resultstype_name: str):
         logger.debug(f"Add Results! {resultstype_name}")
         from ...managers import results
         results_class = getattr(results, resultstype_name)
@@ -1395,30 +1424,35 @@ class Procedure(BaseClass):
             obj (_type_): parent widget
         """
         logger.debug(f"Add equipment")
-        from frontend.widgets.equipment_usage import EquipmentUsage
-        dlg = EquipmentUsage(parent=obj, procedure=self)
+        from frontend.widgets.equipment_usage_2 import EquipmentUsage
+        dlg = EquipmentUsage(parent=obj, procedure=self.to_pydantic())
         if dlg.exec():
-            equipment = dlg.parse_form()
-            for equip in equipment:
-                logger.debug(f"Parsed equipment: {equip}")
-                _, assoc = equip.to_sql(procedure=self)
-                logger.debug(f"Got equipment association: {assoc} for {equip}")
-                try:
-                    assoc.save()
-                except AttributeError as e:
-                    logger.error(f"Couldn't save association with {equip} due to {e}")
-                if equip.tips:
-                    for tips in equip.tips:
-                        # logger.debug(f"Attempting to add tips assoc: {tips} (pydantic)")
-                        tassoc, _ = tips.to_sql(procedure=self)
-                        # logger.debug(f"Attempting to add tips assoc: {tips.__dict__} (sql)")
-                        if tassoc not in self.proceduretipsassociation:
-                            tassoc.save()
-                        else:
-                            logger.error(f"Tips already found in submission, skipping.")
+            # equipment = dlg.parse_form()
+            # for equip in equipment:
+            #     logger.debug(f"Parsed equipment: {equip}")
+            #     _, assoc = equip.to_sql(procedure=self)
+            #     logger.debug(f"Got equipment association: {assoc} for {equip}")
+            #     try:
+            #         assoc.save()
+            #     except AttributeError as e:
+            #         logger.error(f"Couldn't save association with {equip} due to {e}")
+            #     if equip.tips:
+            #         for tips in equip.tips:
+            #             # logger.debug(f"Attempting to add tips assoc: {tips} (pydantic)")
+            #             tassoc, _ = tips.to_sql(procedure=self)
+            #             # logger.debug(f"Attempting to add tips assoc: {tips.__dict__} (sql)")
+            #             if tassoc not in self.proceduretipsassociation:
+            #                 tassoc.save()
+            #             else:
+            #                 logger.error(f"Tips already found in submission, skipping.")
+            dlg.save_procedure()
 
     def edit(self, obj):
+        from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
+        dlg = ProcedureCreation(parent=obj, procedure=self.to_pydantic())
+        if dlg.exec():
+            logger.debug("Edited")
 
     def add_comment(self, obj):
         logger.debug("Add Comment!")
@@ -1439,7 +1473,8 @@ class Procedure(BaseClass):
                           if sample.sample.sample_id in [s.sample_id for s in run_samples]]
         for sample in active_samples:
             sample['active'] = True
-        inactive_samples = [sample.details_dict() for sample in run_samples if sample.name not in [s['sample_id'] for s in active_samples]]
+        inactive_samples = [sample.details_dict() for sample in run_samples if
+                            sample.name not in [s['sample_id'] for s in active_samples]]
         # logger.debug(f"Inactive samples:{pformat(inactive_samples)}")
         for sample in inactive_samples:
             sample['active'] = False
@@ -1451,9 +1486,29 @@ class Procedure(BaseClass):
         output['tips'] = [tips.details_dict() for tips in output['proceduretipsassociation']]
         output['repeat'] = bool(output['repeat'])
         output['excluded'] = ['id', "results", "proceduresampleassociation", "sample", "procedurereagentassociation",
-                              "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment", "tips",
+                              "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
+                              "tips",
                               "excluded"]
         return output
+
+    def to_pydantic(self, **kwargs):
+        from backend.validators.pydant import PydResults
+        output = super().to_pydantic()
+        output.kittype = dict(value=output.kittype['name'], missing=False)
+        results = []
+        for result in output.results:
+            match result:
+                case dict():
+                    results.append(PydResults(**result))
+                case PydResults():
+                    results.append(result)
+                case _:
+                    pass
+        output.results = results
+        # for sample in output.sample:
+        #     sample.enabled = True
+        return output
+
 
 class ProcedureTypeKitTypeAssociation(BaseClass):
     """
@@ -2046,11 +2101,16 @@ class Equipment(BaseClass, LogMixin):
             PydEquipment: pydantic equipment object
         """
         from backend.validators.pydant import PydEquipment
+        creation_dict = self.details_dict()
         processes = self.get_processes(proceduretype=proceduretype, kittype=kittype,
                                        equipmentrole=equipmentrole)
+        logger.debug(f"Processes: {processes}")
+        creation_dict['processes'] = processes
         logger.debug(f"EquipmentRole: {equipmentrole}")
-        return PydEquipment(processes=processes, equipmentrole=equipmentrole,
-                            **self.to_dict(processes=False))
+        creation_dict['equipmentrole'] = equipmentrole or creation_dict['equipmentrole']
+        # return PydEquipment(process=processes, equipmentrole=equipmentrole,
+        #                     **self.to_dict(processes=False))
+        return PydEquipment(**creation_dict)
 
     @classproperty
     def manufacturer_regex(cls) -> re.Pattern:
@@ -2267,10 +2327,42 @@ class EquipmentRole(BaseClass):
         return OmniEquipmentRole(instance_object=self, name=self.name)
 
     def details_dict(self, **kwargs):
+        if "proceduretype" in kwargs:
+            proceduretype = kwargs['proceduretype']
+        else:
+            proceduretype = None
+        match proceduretype:
+            case ProcedureType():
+                pass
+            case str():
+                proceduretype = ProcedureType.query(name=proceduretype, limit=1)
+            case _:
+                proceduretype = None
         output = super().details_dict(**kwargs)
+        # Note con
         output['equipment'] = [item.details_dict() for item in output['equipment']]
+        output['equipment_json'] = []
+        equip = []
+        for eq in output['equipment']:
+            dicto = dict(name=eq['name'], asset_number=eq['asset_number'])
+            dicto['processes'] = [dict(name=process.name, tiprole=process.tiprole) for process in eq['process'] if proceduretype in process.proceduretype]
+            for process in dicto['processes']:
+                try:
+                    process['tips'] = flatten_list([[tips.name for tips in tr.tips]for tr in process['tiprole']])
+                except KeyError:
+                    logger.debug(f"process: {pformat(process)}")
+                    raise KeyError()
+                del process['tiprole']
+            equip.append(dicto)
+        output['equipment_json'].append(dict(name=self.name, equipment=equip))
         output['process'] = [item.details_dict() for item in output['process']]
+        try:
+            output['tips'] = [item.details_dict() for item in output['tips']]
+        except KeyError:
+            # logger.error(pformat(output))
+            pass
         return output
+
 
 class ProcedureEquipmentAssociation(BaseClass):
     """
@@ -2297,7 +2389,8 @@ class ProcedureEquipmentAssociation(BaseClass):
         except AttributeError:
             return "<ProcedureEquipmentAssociation(Unknown)>"
 
-    def __init__(self, procedure=None, equipment=None, procedure_id:int|None=None, equipment_id:int|None=None, equipmentrole: str = "None"):
+    def __init__(self, procedure=None, equipment=None, procedure_id: int | None = None, equipment_id: int | None = None,
+                 equipmentrole: str = "None"):
         if not procedure:
             if procedure_id:
                 procedure = Procedure.query(id=procedure_id)
@@ -2310,7 +2403,15 @@ class ProcedureEquipmentAssociation(BaseClass):
             else:
                 logger.error("Creation error")
         self.equipment = equipment
+        if isinstance(equipmentrole, list):
+            equipmentrole = equipmentrole[0]
+        if isinstance(equipmentrole, EquipmentRole):
+            equipmentrole = equipmentrole.name
         self.equipmentrole = equipmentrole
+
+    @property
+    def name(self):
+        return f"{self.procedure.name} & {self.equipment.name}"
 
     @property
     def process(self):
@@ -2379,6 +2480,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         output['process'] = self.process.details_dict()
         return output
 
+
 class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
     Abstract association between SubmissionType and EquipmentRole
@@ -2386,6 +2488,8 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
                               primary_key=True)  #: id of associated procedure
+    kittype_id = Column(INTEGER, ForeignKey("_kittype.id"),
+                              primary_key=True)
     uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
     static = Column(INTEGER,
                     default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
@@ -2395,6 +2499,8 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
     equipmentrole = relationship(EquipmentRole,
                                  back_populates="equipmentroleproceduretypeassociation")  #: associated equipment
+
+    kittype = relationship(KitType, back_populates="proceduretypeequipmentroleassociation")
 
     @validates('static')
     def validate_static(self, key, value):
@@ -2781,6 +2887,10 @@ class Tips(BaseClass, LogMixin):
     #         template = env.get_template("tips_details.html")
     #     return template
 
+    def to_pydantic(self, **kwargs):
+        output = super().to_pydantic()
+        return output
+
 
 class ProcedureTypeTipRoleAssociation(BaseClass):
     """
@@ -2828,7 +2938,7 @@ class ProcedureTipsAssociation(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, tips: int|Tips, tiprole: str, procedure: int | Procedure | None = None, limit: int = 0, **kwargs) \
+    def query(cls, tips: int | Tips, tiprole: str, procedure: int | Procedure | None = None, limit: int = 0, **kwargs) \
             -> Any | List[Any]:
         query: Query = cls.__database_session__.query(cls)
         match tips:
@@ -2873,15 +2983,15 @@ class ProcedureTipsAssociation(BaseClass):
 
 
 class Results(BaseClass):
-
     id = Column(INTEGER, primary_key=True)
     result_type = Column(String(32))
     result = Column(JSON)
+    date_analyzed = Column(TIMESTAMP)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
-                                                name="fk_RES_procedure_id"))
+                                              name="fk_RES_procedure_id"))
     procedure = relationship("Procedure", back_populates="results")
     assoc_id = Column(INTEGER, ForeignKey("_proceduresampleassociation.id", ondelete='SET NULL',
-                                                name="fk_RES_ASSOC_id"))
+                                          name="fk_RES_ASSOC_id"))
     sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="results")
     _img = Column(String(128))
 
@@ -2900,5 +3010,3 @@ class Results(BaseClass):
     @image.setter
     def image(self, value):
         self._img = value
-
-

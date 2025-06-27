@@ -14,27 +14,28 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu, QDialogButtonBox
 from typing import TYPE_CHECKING, Any
-
 if TYPE_CHECKING:
-    from backend.db.models import Run, ProcedureType
+    from backend.db.models import Run, Procedure
+    from backend.validators import PydProcedure
 from tools import jinja_template_loading, get_application_from_parent, render_details_template
-from backend.validators import PydProcedure
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ProcedureCreation(QDialog):
 
-    def __init__(self, parent, run: Run, proceduretype: ProcedureType):
+    def __init__(self, parent, procedure: PydProcedure):
         super().__init__(parent)
-        self.run = run
-        self.proceduretype = proceduretype
-        self.setWindowTitle(f"New {proceduretype.name} for { run.rsl_plate_number }")
-        self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
-        self.created_procedure.update_kittype_reagentroles(kittype=self.created_procedure.possible_kits[0])
-        self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
+        self.run = procedure.run
+        self.procedure = procedure
+        self.proceduretype = procedure.proceduretype
+        self.setWindowTitle(f"New {self.proceduretype.name} for { self.run.rsl_plate_number }")
+        # self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
+        self.procedure.update_kittype_reagentroles(kittype=self.procedure.possible_kits[0])
+        # self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
         # logger.debug(f"Samples to map\n{pformat(self.created_procedure.samples)}")
-        self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.created_procedure.samples)
+        self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
         # logger.debug(f"Plate map: {self.plate_map}")
         # logger.debug(f"Created dummy: {self.created_procedure}")
         self.app = get_application_from_parent(parent)
@@ -61,46 +62,56 @@ class ProcedureCreation(QDialog):
         self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
 
     def set_html(self):
+        from .equipment_usage_2 import EquipmentUsage
+        proceduretype_dict = self.proceduretype.details_dict()
+        if self.procedure.equipment:
+            for equipmentrole in proceduretype_dict['equipment']:
+                # NOTE: Check if procedure equipment is present and move to head of the list if so.
+                try:
+                    relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if equipment.equipmentrole == equipmentrole['name']))
+                except StopIteration:
+                    continue
+                item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if equipment['name'] == relevant_procedure_item.name))
+                equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(equipmentrole['equipment'].index(item_in_er_list)))
+        proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         html = render_details_template(
             template_name="procedure_creation",
             # css_in=['new_context_menu'],
             js_in=["procedure_form", "grid_drag", "context_menu"],
-            proceduretype=self.proceduretype.details_dict(),
+            proceduretype=proceduretype_dict,
             run=self.run.details_dict(),
-            procedure=self.created_procedure.__dict__,
+            procedure=self.procedure.__dict__,
             plate_map=self.plate_map
         )
-        # with open("procedure.html", "w") as f:
-        #     f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
         logger.debug(f"New value for {key}: {new_value}")
-        attribute = getattr(self.created_procedure, key)
+        attribute = getattr(self.procedure, key)
         attribute['value'] = new_value.strip('\"')
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
         # logger.debug(f"{key} is checked: {ischecked}")
-        setattr(self.created_procedure, key, ischecked)
+        setattr(self.procedure, key, ischecked)
 
     @pyqtSlot(str)
     def update_kit(self, kittype):
-        self.created_procedure.update_kittype_reagentroles(kittype=kittype)
-        logger.debug({k: v for k, v in self.created_procedure.__dict__.items() if k != "plate_map"})
+        self.procedure.update_kittype_reagentroles(kittype=kittype)
+        logger.debug({k: v for k, v in self.procedure.__dict__.items() if k != "plate_map"})
         self.set_html()
 
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: list):
-        self.created_procedure.update_samples(sample_list=sample_list)
+        self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)
     def log(self, logtext: str):
         logger.debug(logtext)
 
     def return_sql(self):
-        return self.created_procedure.to_sql()
+        return self.procedure.to_sql()
 
 
 # class ProcedureWebViewer(QWebEngineView):

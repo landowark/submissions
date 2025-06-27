@@ -127,7 +127,7 @@ class RoleComboBox(QWidget):
         logger.debug(f"Equip2: {equip2}")
         with QSignalBlocker(self.process) as blocker:
             self.process.clear()
-        self.process.addItems([item for item in equip2.processes if item in self.role.process])
+        self.process.addItems([item for item in equip2.process if item in self.role.process])
 
     def update_tips(self):
         """
