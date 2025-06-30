@@ -76,7 +76,7 @@ div.procedure_creation_leftright div.right {
   width: 100%;
 }
 
-.form_text {
+.form_text.full {
   width: 97%;
 }
 

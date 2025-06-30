@@ -29,7 +29,7 @@ from functools import wraps
 
 timezone = tz("America/Winnipeg")
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 logger.info(f"Package dir: {project_path}")
 
@@ -463,6 +463,7 @@ def render_details_template(template_name:str, css_in:List[str]|str=[], js_in:Li
     for js in js_in:
         with open(js, "r") as f:
             js_out.append(f.read())
+    logger.debug(f"Kwargs: {kwargs}")
     return template.render(css=css_out, js=js_out, **kwargs)
 
 

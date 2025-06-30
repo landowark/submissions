@@ -4,18 +4,24 @@
     <head>
         {% block head %}
         {{ super() }}
-        <title> New {{ proceduretype['name'] }} for {{ run['plate_number'] }}</title>
+        <title>{% if edit %}Edit{% else %}New{% endif %} {{ proceduretype['name'] }} for {{ run['plate_number'] }}</title>
         {% endblock %}
     </head>
     <!--  Is this working?  -->
     <body>
         {% block body %}
-        <h1>New {{ proceduretype['name'] }} for {{ run['plate_number'] }}</h1><br><br>
+        <h1>{% if edit %}Edit{% else %}New{% endif %} {{ proceduretype['name'] }} for
+            {% if run['plate_number'] %}
+            <a style="height:30px; font-size:30px" id="rsl_plate_num">{{ run['plate_number'] }}</a>
+            {% else %}
+            <input style="height:30px; font-size:30px" type="text" id="rsl_plate_num" value="RSL-XX-YYYYMMDD-P">
+            {% endif %}
+        </h1><br><br>
         <div class="procedure_creation_leftright">
             <div class="left">
                 <form>
                   <label for="technician">Technician:</label><br>
-                  <input type="text" class="form_text" id="technician" name="technician" width="100%" value="{{ procedure['technician']['value'] }}" background-color="{{ procedure['technician']['colour'] }}"><br><br>
+                  <input type="text" class="form_text full" id="technician" name="technician" width="100%" value="{{ procedure['technician']['value'] }}" background-color="{{ procedure['technician']['colour'] }}"><br><br>
                   <label for="repeat">Repeat:</label>
                   <input type="checkbox" class="form_check" id="repeat" name="repeat" value="{{ procedure['repeat'] }}"><br><br>
                   <label>Kit Type:</label><br>
@@ -33,6 +39,7 @@
                         <option value="{{ reagent }}">{{ reagent }}</option>
                         {% endfor %}
                     </select>
+                    <div class="new_reagent" id="new_{{ key }}"></div>
                     {% endfor %}
                   {% endif %}
                 </form>
@@ -44,9 +51,9 @@
                 {% endif %}
             </div>
         </div>
-        {% with proceduretype=proceduretype, child=True %}
-            {% include "support/equipment_usage.html" %}
-        {% endwith %}
+        {% if proceduretype['equipment_section'] %}
+            {{ proceduretype['equipment_section'] }}
+        {% endif %}
         {% include 'support/context_menu.html' %}
         {% endblock %}
 

@@ -1450,7 +1450,7 @@ class Procedure(BaseClass):
     def edit(self, obj):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
-        dlg = ProcedureCreation(parent=obj, procedure=self.to_pydantic())
+        dlg = ProcedureCreation(parent=obj, procedure=self.to_pydantic(), edit=True)
         if dlg.exec():
             logger.debug("Edited")
 

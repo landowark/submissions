@@ -1486,10 +1486,11 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         if isinstance(kittype, str):
             kittype_obj = KitType.query(name=kittype)
         try:
-            self.reagentrole = {item.name: item.get_reagents(kittype=kittype_obj) for item in
+            self.reagentrole = {item.name: item.get_reagents(kittype=kittype_obj) + ["New"] for item in
                                 kittype_obj.get_reagents(proceduretype=self.proceduretype)}
         except AttributeError:
             self.reagentrole = {}
+
         self.kittype['value'] = kittype
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
 

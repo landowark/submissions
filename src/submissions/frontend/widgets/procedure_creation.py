@@ -14,23 +14,24 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu, QDialogButtonBox
 from typing import TYPE_CHECKING, Any
+
 if TYPE_CHECKING:
     from backend.db.models import Run, Procedure
     from backend.validators import PydProcedure
 from tools import jinja_template_loading, get_application_from_parent, render_details_template
-
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ProcedureCreation(QDialog):
 
-    def __init__(self, parent, procedure: PydProcedure):
+    def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
         super().__init__(parent)
+        self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
-        self.setWindowTitle(f"New {self.proceduretype.name} for { self.run.rsl_plate_number }")
+        self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
         # self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
         self.procedure.update_kittype_reagentroles(kittype=self.procedure.possible_kits[0])
         # self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
@@ -63,16 +64,20 @@ class ProcedureCreation(QDialog):
 
     def set_html(self):
         from .equipment_usage_2 import EquipmentUsage
+        logger.debug(f"Edit: {self.edit}")
         proceduretype_dict = self.proceduretype.details_dict()
         if self.procedure.equipment:
             for equipmentrole in proceduretype_dict['equipment']:
                 # NOTE: Check if procedure equipment is present and move to head of the list if so.
                 try:
-                    relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if equipment.equipmentrole == equipmentrole['name']))
+                    relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
+                                                    equipment.equipmentrole == equipmentrole['name']))
                 except StopIteration:
                     continue
-                item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if equipment['name'] == relevant_procedure_item.name))
-                equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(equipmentrole['equipment'].index(item_in_er_list)))
+                item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if
+                                        equipment['name'] == relevant_procedure_item.name))
+                equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
+                    equipmentrole['equipment'].index(item_in_er_list)))
         proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         html = render_details_template(
             template_name="procedure_creation",
@@ -81,15 +86,22 @@ class ProcedureCreation(QDialog):
             proceduretype=proceduretype_dict,
             run=self.run.details_dict(),
             procedure=self.procedure.__dict__,
-            plate_map=self.plate_map
+            plate_map=self.plate_map,
+            edit=self.edit
         )
+        with open("web.html", "w") as f:
+            f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
         logger.debug(f"New value for {key}: {new_value}")
-        attribute = getattr(self.procedure, key)
-        attribute['value'] = new_value.strip('\"')
+        match key:
+            case "rsl_plate_num":
+                setattr(self.procedure.run, key, new_value)
+            case _:
+                attribute = getattr(self.procedure, key)
+                attribute['value'] = new_value.strip('\"')
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
@@ -113,16 +125,15 @@ class ProcedureCreation(QDialog):
     def return_sql(self):
         return self.procedure.to_sql()
 
-
 # class ProcedureWebViewer(QWebEngineView):
 #
 #     def __init__(self, *args, **kwargs):
 #         super().__init__(*args, **kwargs)
 #
 #     def contextMenuEvent(self, event: QContextMenuEvent):
-        # self.menu = self.page().createStandardContextMenu()
-        # self.menu = self.createStandardContextMenu()
-        # add_sample = QAction("Add Sample")
-        # self.menu = QMenu()
-        # self.menu.addAction(add_sample)
-        # self.menu.popup(event.globalPos())
+# self.menu = self.page().createStandardContextMenu()
+# self.menu = self.createStandardContextMenu()
+# add_sample = QAction("Add Sample")
+# self.menu = QMenu()
+# self.menu.addAction(add_sample)
+# self.menu.popup(event.globalPos())
