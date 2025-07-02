@@ -31,12 +31,14 @@
                       {% endfor %}
                   </select><br>
                   {% if procedure['reagentrole'] %}
-                    <br><hr><br>
+                    <br>
+                    <h1><u>Reagents</u></h1>
+                    <hr>
                     {% for key, value in procedure['reagentrole'].items() %}
                     <label for="{{ key }}">{{ key }}:</label><br>
                     <select class="reagentrole dropdown" id="{{ key }}" name="{{ key }}"><br>
                         {% for reagent in value %}
-                        <option value="{{ reagent }}">{{ reagent }}</option>
+                        <option value="{{ reagent.name }} {% if reagent.lot %}- {{ reagent.lot }} - {{ reagent.expiry.date() }}{% endif %}">{{ reagent.name }} {% if reagent.lot %}- {{ reagent.lot }} - {{ reagent.expiry.date() }}{% endif %}</option>
                         {% endfor %}
                     </select>
                     <div class="new_reagent" id="new_{{ key }}"></div>

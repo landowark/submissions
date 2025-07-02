@@ -296,7 +296,7 @@ class SubmissionsTree(QTreeView):
         self.setAlternatingRowColors(True)
         self.setIndentation(20)
         self.setItemsExpandable(True)
-        self.expanded.connect(self.expand_item)
+        # self.expanded.connect(self.expand_item)
 
         for ii in range(2):
             self.resizeColumnToContents(ii)

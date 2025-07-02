@@ -183,7 +183,7 @@ class PydReagent(PydBaseClass):
                 case _:
                     return convert_nans_to_nones(str(value))
         if value is None:
-            value = date.today()
+            value = datetime.combine(date.today(), datetime.max.time())
         return value
 
     @field_validator("expiry")
@@ -200,6 +200,11 @@ class PydReagent(PydBaseClass):
             return convert_nans_to_nones(str(value).strip())
         else:
             return values.data['reagentrole'].strip()
+
+    # @field_validator("reagentrole", mode="before")
+    # @classmethod
+    # def rescue_reagentrole(cls, value):
+    #     if
 
     def improved_dict(self) -> dict:
         """
@@ -226,23 +231,26 @@ class PydReagent(PydBaseClass):
         report = Report()
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
-        reagent = Reagent.query(lot=self.lot, name=self.name)
+        reagent, new = Reagent.query_or_create(lot=self.lot, name=self.name)
         # logger.debug(f"Reagent: {reagent}")
-        if reagent is None:
-            reagent = Reagent()
-            for key, value in self.__dict__.items():
-                if isinstance(value, dict):
-                    value = value['value']
-                # NOTE: reagent method sets fields based on keys in dictionary
-                reagent.set_attribute(key, value)
-                if procedure is not None and reagent not in procedure.reagents:
-                    assoc = ProcedureReagentAssociation(reagent=reagent, procedure=procedure)
-                    assoc.comments = self.comment
-                else:
-                    assoc = None
-        else:
-            if submission is not None and reagent not in submission.reagents:
-                submission.update_reagentassoc(reagent=reagent, role=self.role)
+        # if reagent is None:
+        #     reagent = Reagent()
+        #     for key, value in self.__dict__.items():
+        #         if isinstance(value, dict):
+        #             if key == "misc_info":
+        #                 value = value
+        #             else:
+        #                 value = value['value']
+        #         # NOTE: reagent method sets fields based on keys in dictionary
+        #         reagent.set_attribute(key, value)
+        #         if procedure is not None and reagent not in procedure.reagents:
+        #             assoc = ProcedureReagentAssociation(reagent=reagent, procedure=procedure)
+        #             assoc.comments = self.comment
+        #         else:
+        #             assoc = None
+        # else:
+        #     if submission is not None and reagent not in submission.reagents:
+        #         submission.update_reagentassoc(reagent=reagent, role=self.role)
         return reagent, report
 
 
@@ -1486,8 +1494,10 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         if isinstance(kittype, str):
             kittype_obj = KitType.query(name=kittype)
         try:
-            self.reagentrole = {item.name: item.get_reagents(kittype=kittype_obj) + ["New"] for item in
-                                kittype_obj.get_reagents(proceduretype=self.proceduretype)}
+            self.reagentrole = {
+                item.name: item.get_reagents(kittype=kittype_obj) + [PydReagent(name="--New--", lot="", reagentrole="")]
+                for item in
+                kittype_obj.get_reagents(proceduretype=self.proceduretype)}
         except AttributeError:
             self.reagentrole = {}
 
@@ -1511,19 +1521,19 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         logger.debug(f"Incoming sample_list:\n{pformat(sample_list)}")
         for sample_dict in sample_list:
             if sample_dict['sample_id'].startswith("blank_"):
-                continue
+                sample_dict['sample_id'] = ""
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
             logger.debug(f"Row: {row}, Column: {column}")
             try:
                 sample = next(
-                    (item for item in self.samples if item.sample_id.upper() == sample_dict['sample_id'].upper()))
+                    (item for item in self.sample if item.sample_id.upper() == sample_dict['sample_id'].upper()))
             except StopIteration:
                 # NOTE: Code to check for added controls.
                 logger.debug(
                     f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
                 try:
                     sample = next(
-                        (item for item in self.samples if item.row == row and item.column == column))
+                        (item for item in self.sample if item.row == row and item.column == column))
                 except StopIteration:
                     logger.error(f"Couldn't find sample: {pformat(sample_dict)}")
                     continue
@@ -1532,7 +1542,23 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sample.well_id = sample_dict['sample_id']
             sample.row = row
             sample.column = column
-        logger.debug(f"Updated samples:\n{pformat(self.samples)}")
+        # logger.debug(f"Updated samples:\n{pformat(self.sample)}")
+
+    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str):
+        removable = next((item for item in self.reagent if item.reagentrole == reagentrole), None)
+        if removable:
+            idx = self.reagent.index(removable)
+            self.reagent.remove(removable)
+        else:
+            idx = 0
+        insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
+        self.reagent.insert(idx, insertable)
+        logger.debug(self.reagent)
+
+    @classmethod
+    def update_new_reagents(cls, reagent: PydReagent):
+        reg = reagent.to_sql()
+        reg.save()
 
     def to_sql(self):
         from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
@@ -1540,12 +1566,24 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         # for result in self.results:
         #     result, _ = result.to_sql()
         sql = super().to_sql()
-        logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
+        # logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
         # sql.results = [result.to_sql() for result in self.results]
         if self.run:
             sql.run = self.run
         if self.proceduretype:
             sql.proceduretype = self.proceduretype
+        # Note: convert any new reagents to sql and save
+        for reagentrole, reagents in self.reagentrole.items():
+            for reagent in reagents:
+                if not reagent.lot or reagent.name == "--New--":
+                    continue
+                self.update_new_reagents(reagent)
+        # NOTE: reset reagent associations.
+        sql.procedurereagentassociation = []
+        for reagent in self.reagent:
+            reagent = reagent.to_sql()
+            if reagent not in sql.reagent:
+                reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql)
         try:
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
         except ValueError:
@@ -1571,13 +1609,15 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
                 sql.kittype = kittype
+        logger.debug(self.reagent)
         for equipment in self.equipment:
             equip = Equipment.query(name=equipment.name)
             if equip not in sql.equipment:
-                equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql, equipmentrole=equip.equipmentrole[0])
+                equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql,
+                                                            equipmentrole=equip.equipmentrole[0])
                 process = equipment.process.to_sql()
                 equip_assoc.process = process
-        logger.debug(f"Output sql: {[pformat(item.__dict__) for item in sql.procedureequipmentassociation]}")
+        # logger.debug(f"Output sql: {[pformat(item.__dict__) for item in sql.procedureequipmentassociation]}")
         return sql, None
 
 

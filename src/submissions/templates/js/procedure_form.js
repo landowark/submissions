@@ -21,45 +21,39 @@ for(let i = 0; i < formtexts.length; i++) {
   })
 };
 
+var changed_it = new Event('change');
+
 var reagentRoles = document.getElementsByClassName("reagentrole");
 
 for(let i = 0; i < reagentRoles.length; i++) {
   reagentRoles[i].addEventListener("change", function() {
-    if (reagentRoles[i].value === "New") {
-
+    if (reagentRoles[i].value.includes("--New--")) {
         var br = document.createElement("br");
         var new_reg = document.getElementById("new_" + reagentRoles[i].id);
-        console.log(new_reg.id);
         var new_form = document.createElement("form");
-
+        new_form.setAttribute("class", "new_reagent_form")
+        new_form.setAttribute("id", reagentRoles[i].id + "_addition")
         var rr_name = document.createElement("input");
         rr_name.setAttribute("type", "text");
         rr_name.setAttribute("id", "new_" + reagentRoles[i].id + "_name");
-
         var rr_name_label = document.createElement("label");
         rr_name_label.setAttribute("for", "new_" + reagentRoles[i].id + "_name");
         rr_name_label.innerHTML = "Name:";
-
         var rr_lot = document.createElement("input");
         rr_lot.setAttribute("type", "text");
         rr_lot.setAttribute("id", "new_" + reagentRoles[i].id + "_lot");
-
         var rr_lot_label = document.createElement("label");
         rr_lot_label.setAttribute("for", "new_" + reagentRoles[i].id + "_lot");
         rr_lot_label.innerHTML = "Lot:";
-
         var rr_expiry = document.createElement("input");
         rr_expiry.setAttribute("type", "date");
         rr_expiry.setAttribute("id", "new_" + reagentRoles[i].id + "_expiry");
-
         var rr_expiry_label = document.createElement("label");
         rr_expiry_label.setAttribute("for", "new_" + reagentRoles[i].id + "_expiry");
         rr_expiry_label.innerHTML = "Expiry:";
-
         var submit_btn = document.createElement("input");
         submit_btn.setAttribute("type", "submit");
         submit_btn.setAttribute("value", "Submit");
-
         new_form.appendChild(br.cloneNode());
         new_form.appendChild(rr_name_label);
         new_form.appendChild(rr_name);
@@ -72,19 +66,27 @@ for(let i = 0; i < reagentRoles.length; i++) {
         new_form.appendChild(br.cloneNode());
         new_form.appendChild(submit_btn);
         new_form.appendChild(br.cloneNode());
-
         new_form.onsubmit = function(event) {
             event.preventDefault();
-            alert(reagentRoles[i].id);
             name = document.getElementById("new_" + reagentRoles[i].id + "_name").value;
             lot = document.getElementById("new_" + reagentRoles[i].id + "_lot").value;
             expiry = document.getElementById("new_" + reagentRoles[i].id + "_expiry").value;
-            alert("Submitting: " + name + ", " + lot);
-            backend.log(name + " " + lot + " " + expiry);
+            backend.add_new_reagent(reagentRoles[i].id, name, lot, expiry);
+            new_form.remove();
+            reagentRoles[i].dispatchEvent(changed_it);
         }
-
         new_reg.appendChild(new_form);
+    } else {
+        newregform = document.getElementById(reagentRoles[i].id + "_addition");
+        newregform.remove();
+        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value)
     }
-  })
+  });
 };
+
+window.onload = function() {
+    for(let i = 0; i < reagentRoles.length; i++) {
+        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
+    }
+}
 

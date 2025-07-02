@@ -5,13 +5,11 @@ from __future__ import annotations
 import zipfile, logging, re
 from operator import itemgetter
 from pprint import pformat
-
 import numpy as np
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
-
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, timezone, \
     jinja_template_loading, flatten_list
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
@@ -562,7 +560,8 @@ class ReagentRole(BaseClass):
 
     def get_reagents(self, kittype: str | KitType | None = None):
         if not kittype:
-            return [f"{reagent.name} - {reagent.lot}" for reagent in self.reagent]
+            # return [f"{reagent.name} - {reagent.lot} - {reagent.expiry}" for reagent in self.reagent]
+            return [reagent.to_pydantic() for reagent in self.reagent]
         if isinstance(kittype, str):
             kittype = KitType.query(name=kittype)
         assoc = next((item for item in self.reagentrolekittypeassociation if item.kittype == kittype), None)
@@ -571,7 +570,8 @@ class ReagentRole(BaseClass):
             last_used = Reagent.query(name=assoc.last_used)
             if last_used:
                 reagents.insert(0, reagents.pop(reagents.index(last_used)))
-        return [f"{reagent.name} - {reagent.lot}" for reagent in reagents]
+        # return [f"{reagent.name} - {reagent.lot} - {reagent.expiry}" for reagent in reagents]
+        return [reagent.to_pydantic(reagentrole=self.name) for reagent in reagents]
 
 
 class Reagent(BaseClass, LogMixin):
@@ -680,24 +680,24 @@ class Reagent(BaseClass, LogMixin):
         report.add_result(Result(msg=f"Updating last used {rt} was not performed.", status="Information"))
         return report
 
-    @classmethod
-    def query_or_create(cls, **kwargs) -> Reagent:
-        from backend.validators.pydant import PydReagent
-        new = False
-        disallowed = ['expiry']
-        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        instance = cls.query(**sanitized_kwargs)
-        if not instance or isinstance(instance, list):
-            if "reagentrole" not in kwargs:
-                try:
-                    kwargs['reagentrole'] = kwargs['name']
-                except KeyError:
-                    pass
-            instance = PydReagent(**kwargs)
-            new = True
-            instance = instance.to_sql()
-        logger.info(f"Instance from query or create: {instance}")
-        return instance, new
+    # @classmethod
+    # def query_or_create(cls, **kwargs) -> Reagent:
+    #     from backend.validators.pydant import PydReagent
+    #     new = False
+    #     disallowed = ['expiry']
+    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+    #     instance = cls.query(**sanitized_kwargs)
+    #     if not instance or isinstance(instance, list):
+    #         if "reagentrole" not in kwargs:
+    #             try:
+    #                 kwargs['reagentrole'] = kwargs['name']
+    #             except KeyError:
+    #                 pass
+    #         instance = PydReagent(**kwargs)
+    #         new = True
+    #         instance = instance.to_sql()
+    #     logger.info(f"Instance from query or create: {instance}")
+    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -799,6 +799,12 @@ class Reagent(BaseClass, LogMixin):
         return dict(
             expiry="Use exact date on reagent.\nEOL will be calculated from kittype automatically"
         )
+
+    def details_dict(self, reagentrole:str|None=None, **kwargs):
+        output = super().details_dict()
+        if reagentrole:
+            output['reagentrole'] = reagentrole
+        return output
 
 
 class Discount(BaseClass):
@@ -1278,7 +1284,7 @@ class ProcedureType(BaseClass):
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
         sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
-        logger.debug(f"Sample dicts: {pformat(sample_dicts)}")
+        # logger.debug(f"Sample dicts: {pformat(sample_dicts)}")
         vw = round((-0.07 * len(sample_dicts)) + 12.2, 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
@@ -1291,14 +1297,14 @@ class ProcedureType(BaseClass):
     def pad_sample_dicts(self, sample_dicts: List["PydSample"]):
         from backend.validators.pydant import PydSample
         output = []
-        logger.debug(f"Rows: {self.plate_rows}")
-        logger.debug(f"Columns: {self.plate_columns}")
+        # logger.debug(f"Rows: {self.plate_rows}")
+        # logger.debug(f"Columns: {self.plate_columns}")
         for row, column in self.ranked_plate.values():
             sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
                           PydSample(**dict(sample_id="", row=row, column=column, enabled=False)))
             sample.background_color = "#6ffe1d" if sample.enabled else "#ffffff"
             output.append(sample)
-            logger.debug(f"Appending {sample} at row {row}, column {column}")
+            # logger.debug(f"Appending {sample} at row {row}, column {column}")
         return output
 
 
@@ -1453,6 +1459,8 @@ class Procedure(BaseClass):
         dlg = ProcedureCreation(parent=obj, procedure=self.to_pydantic(), edit=True)
         if dlg.exec():
             logger.debug("Edited")
+            sql, _ = dlg.return_sql()
+            sql.save()
 
     def add_comment(self, obj):
         logger.debug("Add Comment!")

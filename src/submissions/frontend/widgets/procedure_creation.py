@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import datetime
 import os
 import sys, logging
 from pathlib import Path
@@ -121,6 +122,24 @@ class ProcedureCreation(QDialog):
     @pyqtSlot(str)
     def log(self, logtext: str):
         logger.debug(logtext)
+
+    @pyqtSlot(str, str, str, str)
+    def add_new_reagent(self, reagentrole: str, name: str, lot: str, expiry: str):
+        from backend.validators.pydant import PydReagent
+        expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
+        pyd = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
+        logger.debug(pyd)
+        self.procedure.reagentrole[reagentrole].insert(0, pyd)
+        logger.debug(pformat(self.procedure.__dict__))
+        self.set_html()
+
+    @pyqtSlot(str, str)
+    def update_reagent(self, reagentrole:str, name_lot_expiry:str):
+        try:
+            name, lot, expiry = name_lot_expiry.split(" - ")
+        except ValueError:
+            return
+        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
 
     def return_sql(self):
         return self.procedure.to_sql()
