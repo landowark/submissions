@@ -1500,9 +1500,20 @@ class Procedure(BaseClass):
         return output
 
     def to_pydantic(self, **kwargs):
-        from backend.validators.pydant import PydResults
+        from backend.validators.pydant import PydResults, PydReagent
         output = super().to_pydantic()
         output.kittype = dict(value=output.kittype['name'], missing=False)
+        reagents = []
+        for reagent in output.reagent:
+            match reagent:
+                case dict():
+                    reagent['reagentrole'] = next((reagentrole.name for reagentrole in self.kittype.reagentrole if reagentrole in reagent['reagentrole']), None)
+                    reagents.append(PydResults(**reagent))
+                case PydReagent():
+                    reagents.append(reagent)
+                case _:
+                    pass
+        output.reagent = [PydReagent(**item) for item in output.reagent]
         results = []
         for result in output.results:
             match result:
@@ -1979,7 +1990,7 @@ class ProcedureReagentAssociation(BaseClass):
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc
-        output['results'] = [result.details_dict() for result in output['results']]
+        # output['results'] = [result.details_dict() for result in output['results']]
         return output
 
 

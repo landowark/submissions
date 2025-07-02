@@ -137,7 +137,8 @@ class ProcedureCreation(QDialog):
     def update_reagent(self, reagentrole:str, name_lot_expiry:str):
         try:
             name, lot, expiry = name_lot_expiry.split(" - ")
-        except ValueError:
+        except ValueError as e:
+            logger.debug(f"Couldn't perform split due to {e}")
             return
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
 

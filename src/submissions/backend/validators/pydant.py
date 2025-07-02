@@ -232,6 +232,10 @@ class PydReagent(PydBaseClass):
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
         reagent, new = Reagent.query_or_create(lot=self.lot, name=self.name)
+        if new:
+            reagentrole = ReagentRole.query(name=self.reagentrole)
+            reagent.reagentrole = reagentrole
+            reagent.expiry = self.expiry
         # logger.debug(f"Reagent: {reagent}")
         # if reagent is None:
         #     reagent = Reagent()
@@ -1545,7 +1549,11 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         # logger.debug(f"Updated samples:\n{pformat(self.sample)}")
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str):
-        removable = next((item for item in self.reagent if item.reagentrole == reagentrole), None)
+        try:
+            removable = next((item for item in self.reagent if item.reagentrole == reagentrole), None)
+        except AttributeError as e:
+            logger.error(self.reagent)
+            raise e
         if removable:
             idx = self.reagent.index(removable)
             self.reagent.remove(removable)
@@ -1581,8 +1589,12 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         # NOTE: reset reagent associations.
         sql.procedurereagentassociation = []
         for reagent in self.reagent:
+            logger.debug(reagent)
+            if isinstance(reagent, dict):
+                reagent = PydReagent(**reagent)
             reagent = reagent.to_sql()
             if reagent not in sql.reagent:
+                logger.debug(f"Adding {reagent} to {sql}")
                 reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql)
         try:
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1

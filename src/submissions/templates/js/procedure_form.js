@@ -28,6 +28,7 @@ var reagentRoles = document.getElementsByClassName("reagentrole");
 for(let i = 0; i < reagentRoles.length; i++) {
   reagentRoles[i].addEventListener("change", function() {
     if (reagentRoles[i].value.includes("--New--")) {
+        alert("Create new reagent.")
         var br = document.createElement("br");
         var new_reg = document.getElementById("new_" + reagentRoles[i].id);
         var new_form = document.createElement("form");
@@ -73,13 +74,21 @@ for(let i = 0; i < reagentRoles.length; i++) {
             expiry = document.getElementById("new_" + reagentRoles[i].id + "_expiry").value;
             backend.add_new_reagent(reagentRoles[i].id, name, lot, expiry);
             new_form.remove();
-            reagentRoles[i].dispatchEvent(changed_it);
+//            reagentRoles[i].dispatchEvent(changed_it);
         }
         new_reg.appendChild(new_form);
     } else {
         newregform = document.getElementById(reagentRoles[i].id + "_addition");
-        newregform.remove();
-        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value)
+        try {
+            newregform.remove();
+        }
+        catch(err) {
+            console.log("Missed it.");
+        }
+        alert(reagentRoles[i].value);
+        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
+
+
     }
   });
 };
