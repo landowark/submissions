@@ -111,8 +111,8 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     """
 
     default_range_dict = [dict(
-        header_row=20,
-        end_row=116,
+        header_row=19,
+        end_row=115,
         sheet="Sample List"
     )]
 
@@ -126,6 +126,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     def parsed_info(self) -> Generator[dict, None, None]:
         output = super().parsed_info
         for ii, sample in enumerate(output):
+            logger.debug(f"Parsed info sample: {sample}")
             if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
                 try:
                     sample["row"] = row_keys[sample["row"]]

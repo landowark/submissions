@@ -1504,9 +1504,25 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 kittype_obj.get_reagents(proceduretype=self.proceduretype)}
         except AttributeError:
             self.reagentrole = {}
-
+        reordered_options = {}
+        if self.reagentrole:
+            for k, v in self.reagentrole.items():
+                reordered_options[k] = self.reorder_reagents(reagentrole=k, options=v)
+        self.reagentrole = reordered_options
         self.kittype['value'] = kittype
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
+
+    def reorder_reagents(self, reagentrole: str, options:list):
+        reagent_used = next((reagent for reagent in self.reagent if reagent.reagentrole == reagentrole), None)
+        if not reagent_used:
+            return options
+        roi = next((item for item in options if item.lot == reagent_used.lot and item.name == reagent_used.name), None)
+        if not roi:
+            return options
+        options.insert(0, options.pop(options.index(roi)))
+        return options
+
+
 
     def update_kittype_equipmentroles(self, kittype: str | KitType):
         if kittype == self.__class__.model_fields['kittype'].default['value']:

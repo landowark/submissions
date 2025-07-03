@@ -85,7 +85,6 @@ for(let i = 0; i < reagentRoles.length; i++) {
         catch(err) {
             console.log("Missed it.");
         }
-        alert(reagentRoles[i].value);
         backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
 
 
