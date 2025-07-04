@@ -141,6 +141,11 @@ class SubmissionFormContainer(QWidget):
         checker = SampleChecker(self, "Sample Checker", self.pydsamples)
         if checker.exec():
             # logger.debug(pformat(self.pydclientsubmission.sample))
+            try:
+                assert isinstance(self.pydclientsubmission, PydClientSubmission)
+            except AssertionError as e:
+                logger.error(f"Got wrong type for {self.pydclientsubmission}: {type(self.pydclientsubmission)}")
+                raise e
             self.form = self.pydclientsubmission.to_form(parent=self)
             self.form.samples = self.pydsamples
             self.layout().addWidget(self.form)

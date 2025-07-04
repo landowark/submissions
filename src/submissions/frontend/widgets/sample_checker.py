@@ -5,11 +5,9 @@ from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout
-
 from backend.db.models import ClientSubmission
 from backend.validators import PydSample, RSLNamer
-from tools import get_application_from_parent, jinja_template_loading
-
+from tools import get_application_from_parent, jinja_template_loading, render_details_template
 
 env = jinja_template_loading()
 
@@ -24,6 +22,7 @@ class SampleChecker(QDialog):
             self.rsl_plate_number = RSLNamer.construct_new_plate_name(clientsubmission.to_dict())
         else:
             self.rsl_plate_number = clientsubmission
+        logger.debug(f"RSL Plate number: {self.rsl_plate_number}")
         self.samples = samples
         self.setWindowTitle(title)
         self.app = get_application_from_parent(parent)
@@ -38,22 +37,27 @@ class SampleChecker(QDialog):
         # NOTE: Used to maintain javascript functions.
         template = env.get_template("sample_checker.html")
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
+        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
+        #     css = [f.read()]
         try:
             samples = self.formatted_list
         except AttributeError as e:
             logger.error(f"Problem getting sample list: {e}")
             samples = []
-        html = template.render(samples=samples, css=css, rsl_plate_number=self.rsl_plate_number)
+        # html = template.render(samples=samples, css=css, rsl_plate_number=self.rsl_plate_number)
+        html = render_details_template(template_name="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
         self.webview.setHtml(html)
+        self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.layout.addWidget(self.buttonBox, 11, 9, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.setLayout(self.layout)
-        self.webview.page().setWebChannel(self.channel)
+
+        with open("sample_checker_rendered.html", "w") as f:
+            f.write(html)
+        logger.debug(f"HTML sample checker written!")
 
     @pyqtSlot(str, str, str)
     def text_changed(self, submission_rank: str, key: str, new_value: str):
@@ -65,8 +69,8 @@ class SampleChecker(QDialog):
             return
         item.__setattr__(key, new_value)
 
-    @pyqtSlot(str, bool)
-    def enable_sample(self, submission_rank: str, enabled: bool):
+    @pyqtSlot(int, bool)
+    def enable_sample(self, submission_rank: int, enabled: bool):
         logger.debug(f"Name: {submission_rank}, Enabled: {enabled}")
         try:
             item = next((sample for sample in self.samples if int(submission_rank) == sample.submission_rank))

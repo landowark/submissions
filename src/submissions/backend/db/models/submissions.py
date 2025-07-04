@@ -149,12 +149,14 @@ class ClientSubmission(BaseClass, LogMixin):
                 pass
         # query = query.order_by(cls.submitted_date.desc())
         # NOTE: Split query results into pages of size {page_size}
-        if page_size > 0:
-            query = query.limit(page_size)
+        if page_size > 0 and limit == 0:
+            limit = page_size
         page = page - 1
         if page is not None:
-            query = query.offset(page * page_size)
-        return cls.execute_query(query=query, limit=limit, **kwargs)
+            offset = page * page_size
+        else:
+            offset = None
+        return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
@@ -269,7 +271,9 @@ class ClientSubmission(BaseClass, LogMixin):
         try:
             assert isinstance(sample, Sample)
         except AssertionError:
+            logger.warning(f"Converting {sample} to sql.")
             sample = sample.to_sql()
+        logger.debug(sample.__dict__)
         try:
             row = sample._misc_info['row']
         except (KeyError, AttributeError):
@@ -278,10 +282,12 @@ class ClientSubmission(BaseClass, LogMixin):
             column = sample._misc_info['column']
         except KeyError:
             column = 0
+        logger.debug(f"Sample: {sample}")
+        submission_rank = sample._misc_info['submission_rank']
         assoc = ClientSubmissionSampleAssociation(
             sample=sample,
             submission=self,
-            submission_rank=sample._misc_info['submission_rank'],
+            submission_rank=submission_rank,
             row=row,
             column=column
         )
@@ -310,8 +316,9 @@ class ClientSubmission(BaseClass, LogMixin):
             for sample in active_samples:
                 sample = sample.to_sql()
                 logger.debug(f"Sample: {sample.id}")
-                assoc = run.add_sample(sample)
-                assoc.save()
+                if sample not in run.sample:
+                    assoc = run.add_sample(sample)
+                    assoc.save()
         else:
             logger.warning("Run cancelled.")
         obj.set_data()

@@ -74,6 +74,8 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
     Object for retrieving submitter info from "sample list" sheet
     """
 
+    pyd_name = "PydClientSubmission"
+
     default_range_dict = [dict(
         start_row=2,
         end_row=18,
@@ -110,6 +112,8 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     Object for retrieving submitter samples from "sample list" sheet
     """
 
+    pyd_name = "PydSample"
+
     default_range_dict = [dict(
         header_row=19,
         end_row=115,
@@ -126,7 +130,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     def parsed_info(self) -> Generator[dict, None, None]:
         output = super().parsed_info
         for ii, sample in enumerate(output):
-            logger.debug(f"Parsed info sample: {sample}")
+            # logger.debug(f"Parsed info sample: {sample}")
             if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
                 try:
                     sample["row"] = row_keys[sample["row"]]

@@ -290,6 +290,16 @@ class PydSample(PydBaseClass):
             value = row_keys[value]
         return value
 
+    def improved_dict(self, dictionaries: bool = True) -> dict:
+        output = super().improved_dict(dictionaries=dictionaries)
+        output['name'] = self.sample_id
+        del output['sampletype']
+        return output
+
+    def to_sql(self):
+        sql = super().to_sql()
+        sql._misc_info["submission_rank"] = self.submission_rank
+        return sql
 
 class PydTips(BaseModel):
     name: str

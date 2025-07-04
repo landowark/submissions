@@ -1,54 +1,60 @@
 {% extends "details.html" %}
-<head>
-    {% block head %}
-    {{ super() }}
-    <title>Sample Checker</title>
-    {% endblock %}
-</head>
-<body>
-    {% block body %}
-    <h2><u>Sample Checker</u></h2>
-    <br>
-    {% if rsl_plate_num %}
-    <label for="rsl_plate_number">RSL Plate Number:</label><br>
-    <input type="text" id="rsl_plate_number" name="sample_id" value="{{ rsl_plate_number }}" size="40">
+<html>
+    <head>
+        {% block head %}
+        {{ super() }}
+        <title>Sample Checker</title>
+        {% endblock %}
+    </head>
+    <body>
+        {% block body %}
+        <h2><u>Sample Checker</u></h2>
+        <br>
+        {% if rsl_plate_number %}
+        <label for="rsl_plate_number">RSL Plate Number:</label><br>
+        <input type="text" id="rsl_plate_number" name="sample_id" value="{{ rsl_plate_number }}" size="40">
+        {% endif %}
+        <br>
+        <p>Take a moment to verify sample names.</p>
+        <br>
+        <form>
+            &emsp;&emsp;Submitter ID<br/><!--&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Row&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Column<br/>-->
+            {% for sample in samples %}
+                {% if rsl_plate_number %}<input type="checkbox" id="{{ sample['submission_rank'] }}_enabled" name="vehicle1" value="Bike" {% if sample['enabled'] %}checked{% endif %}>{% endif %}
+                {{ '%02d' % sample['submission_rank'] }}
+                <input type="text" id="{{ sample['submission_rank'] }}_id" name="sample_id" value="{{ sample['sample_id'] }}" size="40" style="color:{{ sample['color'] }};" {% if rsl_plate_number %}disabled{% endif %}>
+                <br/>
+            {% endfor %}
+        </form>
+        {% endblock %}
+    </body>
 
-    {% endif %}
-    <br>
-    <p>Take a moment to verify sample names.</p>
-    <br>
-    <form>
-        &emsp;&emsp;Submitter ID<br/><!--&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Row&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Column<br/>-->
-        {% for sample in samples %}
-            {% if rsl_plate_num %}<input type="checkbox" id="{{ sample['submission_rank'] }}_enabled" name="vehicle1" value="Bike" {% if sample['enabled'] %}checked{% endif %}>{% endif %}
-            {{ '%02d' % sample['submission_rank'] }}
-            <input type="text" id="{{ sample['submission_rank'] }}_id" name="sample_id" value="{{ sample['sample_id'] }}" size="40" style="color:{{ sample['color'] }};" {% if rsl_plate_num %}disabled{% endif %}>
-<!--            <input type="number" id="{{ sample['submission_rank'] }}_row" name="row" value="{{ sample['row'] }}" size="5", min="1">-->
-<!--            <input type="number" id="{{ sample['submission_rank'] }}_col" name="column" value="{{ sample['column'] }}" size="5", min="1">-->
-            <br/>
-        {% endfor %}
-    </form>
-    {% endblock %}
-</body>
+      {% block script %}
 
-  {% block script %}
-  {{ super() }}
-  <script>
-  {% for sample in samples %}
-  document.getElementById("{{ sample['submission_rank'] }}_id").addEventListener("input", function(){
-      backend.text_changed("{{ sample['submission_rank'] }}", this.name, this.value);
-  });
-  {% if rsl_plate_num %}
-  document.getElementById("{{ sample['submission_rank'] }}_enabled").addEventListener("input", function(){
-      backend.enable_sample("{{ sample['submission_rank'] }}", this.checked);
-  });
-  {% endif %}
-  {% endfor %}
-  document.addEventListener('DOMContentLoaded', function() {
-          backend.activate_export(false);
-      }, false);
-  document.getElementById("rsl_plate_num").addEventListener("input", function(){
-      backend.set_rsl_plate_num(this.value);
-  });
-  </script>
-  {% endblock %}
+      <script>
+      {% for sample in samples %}
+      document.getElementById("{{ sample['submission_rank'] }}_id").addEventListener("input", function(){
+          backend.text_changed("{{ sample['submission_rank'] }}", this.name, this.value);
+      });
+      {% if rsl_plate_number %}
+      document.getElementById("{{ sample['submission_rank'] }}_enabled").addEventListener("change", function(){
+          console.log(typeof({{ sample['submission_rank'] }}) + " " + typeof(this.checked));
+          backend.enable_sample({{ sample['submission_rank'] }}, this.checked);
+      });
+      {% endif %}
+      {% endfor %}
+      </script>
+      <script>
+      document.getElementById("rsl_plate_number").addEventListener("input", function(){
+          console.log(this.value);
+          console.log(typeof(this.value));
+          backend.set_rsl_plate_number(this.value);
+      });
+      </script>
+      <script>
+      document.addEventListener('DOMContentLoaded', function() {
+            backend.activate_export(false);
+        }, false);
+      </script>
+      {{ super() }}
+      {% endblock %}

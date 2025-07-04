@@ -13,6 +13,7 @@ from sqlalchemy import Column, INTEGER, String, JSON
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar
 from pathlib import Path
@@ -237,10 +238,10 @@ class BaseClass(Base):
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
         new = False
-        allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute)]
+        allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
         # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
-        # logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
+        logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
         instance = cls.query(**sanitized_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
@@ -273,7 +274,7 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
-    def execute_query(cls, query: Query = None, model=None, limit: int = 0, **kwargs) -> Any | List[Any]:
+    def execute_query(cls, query: Query = None, model=None, limit: int = 0, offset:int|None=None, **kwargs) -> Any | List[Any]:
         """
         Execute sqlalchemy query with relevant defaults.
 
@@ -291,22 +292,32 @@ class BaseClass(Base):
         # logger.debug(f"Model: {model}")
         if query is None:
             query: Query = cls.__database_session__.query(cls)
+        else:
+            logger.debug(f"Incoming query: {query}")
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
-
-            logger.info(f"Using key: {k} with value: {v}")
+            logger.info(f"Using key: {k} with value: {v} against {cls}")
             try:
                 attr = getattr(cls, k)
-                # NOTE: account for attrs that use list.
-                if attr.property.uselist:
-                    query = query.filter(attr.contains(v))
-                else:
-                    query = query.filter(attr == v)
             except (ArgumentError, AttributeError) as e:
-                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
+                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\n.")
+                continue
+                # NOTE: account for attrs that use list.
+            try:
+                check = attr.property.uselist
+            except AttributeError:
+                check = False
+            if check:
+                logger.debug("Got uselist")
+                query = query.filter(attr.contains(v))
+            else:
+                logger.debug("Single item.")
+                query = query.filter(attr == v)
             if k in singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
+        if offset:
+            query.offset(offset)
         with query.session.no_autoflush:
             match limit:
                 case 0:
@@ -476,13 +487,13 @@ class BaseClass(Base):
         # logger.debug(f"Attempting to set: {key} to {value}")
         if key.startswith("_"):
             return super().__setattr__(key, value)
-        try:
-            check = not hasattr(self, key)
-        except:
-            return
+        # try:
+        check = not hasattr(self, key)
+        # except:
+        #     return
         if check:
             try:
-                json.dumps(value)
+                value = json.dumps(value)
             except TypeError:
                 value = str(value)
             self._misc_info.update({key: value})
@@ -611,6 +622,7 @@ class BaseClass(Base):
         dlg = SubmissionDetails(parent=obj, sub=self)
         if dlg.exec():
             pass
+
 
 class LogMixin(Base):
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',

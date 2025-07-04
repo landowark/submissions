@@ -325,8 +325,9 @@ class SubmissionsTree(QTreeView):
         """
         indexes = self.selectedIndexes()
         dicto = next((item.data(1) for item in indexes if item.data(1)))
+        logger.debug(f"Dicto: {pformat(dicto)}")
         query_obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
-        logger.debug(query_obj)
+        logger.debug(f"Querying: {query_obj}")
         # NOTE: Convert to data in id column (i.e. column 0)
         # id = id.sibling(id.row(), 0).data()
         # logger.debug(id.model().query_group_object(id.row()))

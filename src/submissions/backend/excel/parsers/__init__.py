@@ -43,9 +43,10 @@ class DefaultParser(object):
         """
         self.proceduretype = proceduretype
         try:
-            self._pyd_object = getattr(pydant, f"Pyd{self.__class__.__name__.replace('Parser', '')}")
-        except AttributeError:
-            self._pyd_object = pydant.PydResults
+            self._pyd_object = getattr(pydant, f"Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}")
+        except AttributeError as e:
+            logger.error(f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}")
+            self._pyd_object = getattr(pydant, self.__class__.pyd_name)
         self.workbook = load_workbook(self.filepath, data_only=True)
         if not range_dict:
             self.range_dict = self.__class__.default_range_dict
@@ -118,7 +119,7 @@ class DefaultTABLEParser(DefaultParser):
                     if isinstance(key, str):
                         key = key.lower().replace(" ", "_")
                         key = re.sub(r"_(\(.*\)|#)", "", key)
-                    logger.debug(f"Row {ii} values: {key}: {value}")
+                    # logger.debug(f"Row {ii} values: {key}: {value}")
                     output[key] = value
                 yield output
 
@@ -126,4 +127,4 @@ class DefaultTABLEParser(DefaultParser):
         return [self._pyd_object(**output) for output in self.parsed_info]
 
 from .clientsubmission_parser import *
-from backend.excel.parsers.results_parsers.pcr_results_parser import *
+from backend.excel.parsers.results_parsers.pcr_results_parser import PCRInfoParser, PCRSampleParser
