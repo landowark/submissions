@@ -472,6 +472,10 @@ class SubmissionFormWidget(QWidget):
                 self.missing: bool = value['missing']
             except (TypeError, KeyError):
                 self.missing: bool = True
+            try:
+                self.location: dict|None = value['location']
+            except (TypeError, KeyError):
+                self.location: dict|None = None
             if self.input is not None:
                 layout.addWidget(self.label)
                 layout.addWidget(self.input)
@@ -501,7 +505,7 @@ class SubmissionFormWidget(QWidget):
                     value = self.input.date().toPyDate()
                 case _:
                     return None, None
-            return self.input.objectName(), dict(value=value, missing=self.missing)
+            return self.input.objectName(), dict(value=value, missing=self.missing, location=self.location)
 
         def set_widget(self, parent: QWidget, key: str, value: dict,
                        submission_type: str | SubmissionType | None = None,
@@ -518,6 +522,7 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 QWidget: Form object
             """
+
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             if sub_obj is None:
@@ -843,6 +848,7 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                 value = getattr(self, item)
                 info[item] = value
         for k, v in info.items():
+            logger.debug(f"Setting pyd {k} to {v}")
             self.pyd.__setattr__(k, v)
         report.add_result(report)
         return report

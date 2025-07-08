@@ -10,12 +10,8 @@
     <h2><u>Equipment Details for {{ equipment['name'] }}</u></h2>
     {{ super() }}
     <p>{% for key, value in equipment.items() if key not in equipment['excluded'] %}
-<!--        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if permission and key in reagent['editable']%}<input type={% if key=='expiry' %}"date"{% else %}"text"{% endif %} id="{{ key }}" name="{{ key }}" value="{{ value }}">{% else %}{{ value }}{% endif %}<br>-->
         &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{{ value }}<br>
     {% endfor %}</p>
-<!--    {% if permission %}-->
-<!--        <button type="button" id="save_btn">Save</button>-->
-<!--    {% endif %}-->
     {% if equipment['submissions'] %}<h2>Submissions:</h2>
         {% for submission in equipment['submissions'] %}
         <p><b><a class="data-link" id="{{ submission['plate'] }}">{{ submission['plate'] }}:</a></b> <a class="data-link process" id="{{ submission['process'] }}">{{ submission['process'] }}</a></p>

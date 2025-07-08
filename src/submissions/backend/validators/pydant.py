@@ -27,6 +27,7 @@ logger = logging.getLogger(f"procedure.{__name__}")
 
 class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     _sql_object: ClassVar = None
+    # _misc_info: dict|None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -67,6 +68,10 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     def __init__(self, **data):
         # NOTE: Grab the sql model for validation purposes.
         self.__class__._sql_object = getattr(models, self.__class__.__name__.replace("Pyd", ""))
+        # try:
+        #     self.template_file = self.__class__._sql_object.template_file
+        # except AttributeError:
+        #     pass
         super().__init__(**data)
 
     def filter_field(self, key: str) -> Any:
@@ -105,6 +110,12 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
             output = {k: getattr(self, k) for k in fields}
         else:
             output = {k: self.filter_field(k) for k in fields}
+        if hasattr(self, "misc_info") and "info_placement" in self.misc_info:
+            for k, v in output.items():
+                try:
+                    output[k]['location'] = [item['location'] for item in self.misc_info['info_placement'] if item['name'] == k]
+                except (TypeError, KeyError):
+                    continue
         return output
 
     def to_sql(self):
@@ -300,6 +311,7 @@ class PydSample(PydBaseClass):
         sql = super().to_sql()
         sql._misc_info["submission_rank"] = self.submission_rank
         return sql
+
 
 class PydTips(BaseModel):
     name: str
@@ -1662,7 +1674,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 class PydClientSubmission(PydBaseClass):
     # sql_object: ClassVar = ClientSubmission
 
-    filepath: Path
+    filepath: Path | None = Field(default=None)
     submissiontype: dict | None
     submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     clientlab: dict | None
@@ -1672,6 +1684,39 @@ class PydClientSubmission(PydBaseClass):
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+
+    @field_validator("submitted_date", mode="before")
+    @classmethod
+    def enforce_submitted_date(cls, value):
+        match value:
+            case str():
+                value = dict(value=datetime.strptime(value, "%Y-%m-%d %H:%M:%S"), missing=False)
+            case date() | datetime():
+                value = dict(value=value, missing=False)
+            case _:
+                pass
+        return value
+
+    @field_validator("submitter_plate_id", mode="before")
+    @classmethod
+    def enforce_submitter_plate_id(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value, missing=False)
+        return value
+
+    @field_validator("submission_category", mode="before")
+    @classmethod
+    def enforce_submission_category_id(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value, missing=False)
+        return value
+
+    @field_validator("sample_count", mode="before")
+    @classmethod
+    def enforce_sample_count(cls, value):
+        if isinstance(value, str) or isinstance(value, int):
+            value = dict(value=value, missing=False)
+        return value
 
     @field_validator("sample_count")
     @classmethod
@@ -1700,7 +1745,7 @@ class PydClientSubmission(PydBaseClass):
         except TypeError:
             check = True
         if check:
-            return dict(value=date.today(), missing=True)
+            value.update(dict(value=date.today(), missing=True))
         else:
             match value['value']:
                 case str():
@@ -1734,6 +1779,29 @@ class PydClientSubmission(PydBaseClass):
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
+
+    def to_sql(self):
+        sql = super().to_sql()
+        if "info_placement" not in sql._misc_info:
+            sql._misc_info['info_placement'] = []
+        info_placement = []
+        for k in list(self.model_fields.keys()) + list(self.model_extra.keys()):
+            attribute = getattr(self, k)
+            match k:
+                case "filepath":
+                    sql._misc_info[k] = attribute.__str__()
+                    continue
+                case _:
+                    pass
+            logger.debug(f"Setting {k} to {attribute}")
+            if isinstance(attribute, dict):
+                if "location" in attribute:
+                    info_placement.append(dict(name=k, location=attribute['location']))
+                else:
+                    info_placement.append(dict(name=k, location=None))
+        max_row = max([value['location']['row'] for value in info_placement if value])
+        sql._misc_info['info_placement'] = info_placement
+        return sql
 
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):

@@ -96,8 +96,6 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
                 # TODO: check if run with name already exists
                 add_run = QuestionAsker(title="Add Run?", message="We've detected a sheet corresponding to an associated procedure type.\nWould you like to add a new run?")
                 if add_run.accepted:
-
-
                 # NOTE: recruit parser.
                     try:
                         manager = getattr(procedure_managers, name)

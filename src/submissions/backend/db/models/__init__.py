@@ -18,7 +18,10 @@ from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
+
+from frontend import select_save_file
 from tools import report_result, list_sort_dict
+from backend.excel import writers
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -241,6 +244,7 @@ class BaseClass(Base):
         allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
         # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+        outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
         logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
         instance = cls.query(**sanitized_kwargs)
         if not instance or isinstance(instance, list):
@@ -258,6 +262,7 @@ class BaseClass(Base):
                     setattr(instance, k, v.to_sql())
                 else:
                     logger.error(f"Could not set {k} due to {e}")
+        instance._misc_info.update(outside_kwargs)
         logger.info(f"Instance from query or create: {instance}, new: {new}")
         return instance, new
 
@@ -309,10 +314,16 @@ class BaseClass(Base):
                 check = False
             if check:
                 logger.debug("Got uselist")
-                query = query.filter(attr.contains(v))
+                try:
+                    query = query.filter(attr.contains(v))
+                except ArgumentError:
+                    continue
             else:
                 logger.debug("Single item.")
-                query = query.filter(attr == v)
+                try:
+                    query = query.filter(attr == v)
+                except ArgumentError:
+                    continue
             if k in singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
@@ -496,7 +507,10 @@ class BaseClass(Base):
                 value = json.dumps(value)
             except TypeError:
                 value = str(value)
-            self._misc_info.update({key: value})
+            try:
+                self._misc_info.update({key: value})
+            except AttributeError:
+                self._misc_info = {key: value}
             return
         try:
             field_type = getattr(self.__class__, key)
@@ -622,6 +636,17 @@ class BaseClass(Base):
         dlg = SubmissionDetails(parent=obj, sub=self)
         if dlg.exec():
             pass
+
+    def export(self, obj, output_filepath: str|Path|None=None):
+        if not hasattr(self, "template_file"):
+            logger.error(f"Export not implemented for {self.__class__.__name__}")
+            return
+        pyd = self.to_pydantic()
+        if not output_filepath:
+            output_filepath = select_save_file(obj=obj, default_name=pyd.construct_filename(), extension="xlsx")
+        Writer = getattr(writers, f"{self.__class__.__name__}Writer")
+        writer = Writer(output_filepath=output_filepath, pydant_obj=pyd, range_dict=self.range_dict)
+        workbook = writer
 
 
 class LogMixin(Base):

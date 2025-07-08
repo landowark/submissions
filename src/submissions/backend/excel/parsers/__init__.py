@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging, re
 from pathlib import Path
 from typing import Generator, Tuple, TYPE_CHECKING
+
+from openpyxl.reader.excel import load_workbook
 from pandas import DataFrame
 from backend.validators import pydant
 if TYPE_CHECKING:
@@ -78,8 +80,6 @@ class DefaultKEYVALUEParser(DefaultParser):
         sheet="Sample List"
     )]
 
-
-
     @property
     def parsed_info(self) -> Generator[Tuple, None, None]:
         for item in self.range_dict:
@@ -91,7 +91,10 @@ class DefaultKEYVALUEParser(DefaultParser):
                     key = re.sub(r"\(.*\)", "", key)
                     key = key.lower().replace(":", "").strip().replace(" ", "_")
                     value = item['worksheet'].cell(row, item['value_column']).value
-                    value = dict(value=value, missing=False if value else True)
+                    missing = False if value else True
+                    location_map = dict(row=row, key_column=item['key_column'], value_column=item['value_column'], sheet=item['sheet'])
+                    value = dict(value=value, location=location_map, missing=missing)
+                    logger.debug(f"Yieldings {value} for {key}")
                     yield key, value
 
 
@@ -126,5 +129,5 @@ class DefaultTABLEParser(DefaultParser):
     def to_pydantic(self, **kwargs):
         return [self._pyd_object(**output) for output in self.parsed_info]
 
-from .clientsubmission_parser import *
+from .clientsubmission_parser import ClientSubmissionSampleParser, ClientSubmissionInfoParser
 from backend.excel.parsers.results_parsers.pcr_results_parser import PCRInfoParser, PCRSampleParser

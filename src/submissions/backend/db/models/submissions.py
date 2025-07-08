@@ -15,6 +15,8 @@ from operator import itemgetter
 from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
+
+from frontend import select_save_file
 from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, kittype_procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table, Sequence
 from sqlalchemy.orm import relationship, validates, Query
@@ -157,6 +159,14 @@ class ClientSubmission(BaseClass, LogMixin):
         else:
             offset = None
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
+
+    @property
+    def template_file(self):
+        return self.submissiontype.template_file
+
+    @property
+    def range_dict(self):
+        return self.submissiontype.info_map
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
@@ -318,11 +328,11 @@ class ClientSubmission(BaseClass, LogMixin):
                 logger.debug(f"Sample: {sample.id}")
                 if sample not in run.sample:
                     assoc = run.add_sample(sample)
-                    assoc.save()
+                    # assoc.save()
+            run.save()
         else:
             logger.warning("Run cancelled.")
         obj.set_data()
-
 
     def edit(self, obj):
         logger.debug("Edit")
@@ -352,6 +362,9 @@ class ClientSubmission(BaseClass, LogMixin):
         output['expanded'] = ["clientlab", "contact", "submissiontype"]
         return output
 
+    def to_pydantic(self, filepath: Path|str|None=None, **kwargs):
+        output = super().to_pydantic(filepath=filepath, **kwargs)
+        return output
 
 class Run(BaseClass, LogMixin):
     """
@@ -1266,6 +1279,15 @@ class Run(BaseClass, LogMixin):
             self.set_attribute(key='comment', value=comment)
             self.save(original=False)
 
+    def export(self, obj, output_filepath: str|Path|None=None):
+
+        clientsubmission_pyd = self.clientsubmission.to_pydantic()
+        if not output_filepath:
+            output_filepath = select_save_file(obj=obj, default_name=clientsubmission_pyd.construct_filename(), extension="xlsx")
+        Writer = getattr(writers, "ClientSubmissionWriter")
+        writer = Writer(output_filepath=output_filepath, pydant_obj=pyd, range_dict=self.range_dict)
+        workbook = writer.
+
     def backup(self, obj=None, fname: Path | None = None, full_backup: bool = False):
         """
         Exports xlsx info files for this instance.
@@ -1890,8 +1912,8 @@ class RunSampleAssociation(BaseClass):
     # id = Column(INTEGER, unique=True, nullable=False)  #: id to be used for inheriting purposes
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
-    row = Column(INTEGER)  #: row on the 96 well plate
-    column = Column(INTEGER)  #: column on the 96 well plate
+    # row = Column(INTEGER)  #: row on the 96 well plate
+    # column = Column(INTEGER)  #: column on the 96 well plate
     # misc_info = Column(JSON)
 
     # NOTE: reference to the Submission object

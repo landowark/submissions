@@ -35,8 +35,8 @@ class SampleChecker(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
-        template = env.get_template("sample_checker.html")
-        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        # template = env.get_template("sample_checker.html")
+        # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         # with open(template_path.joinpath("css", "styles.css"), "r") as f:
         #     css = [f.read()]
         try:
