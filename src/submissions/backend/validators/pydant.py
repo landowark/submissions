@@ -128,6 +128,9 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         return sql
 
 
+
+
+
 class PydReagent(PydBaseClass):
     lot: str | None
     reagentrole: str | None
@@ -1778,6 +1781,8 @@ class PydClientSubmission(PydBaseClass):
             SubmissionFormWidget: Submission form widget
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
+        if not samples:
+            samples = self.samples
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
     def to_sql(self):
@@ -1802,6 +1807,7 @@ class PydClientSubmission(PydBaseClass):
         max_row = max([value['location']['row'] for value in info_placement if value])
         sql._misc_info['info_placement'] = info_placement
         return sql
+
 
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):

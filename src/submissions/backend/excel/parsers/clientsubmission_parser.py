@@ -12,7 +12,7 @@ from openpyxl.reader.excel import load_workbook
 from tools import row_keys
 # from backend.db.models import SubmissionType
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
-from backend.managers import procedures as procedure_managers
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -84,9 +84,13 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
         sheet="Sample List"
     )]
 
-    def __init__(self, filepath: Path | str, *args, **kwargs):
+    def __init__(self, filepath: Path | str, submissiontype:"SubmissionType"|None=None, *args, **kwargs):
         from frontend.widgets.pop_ups import QuestionAsker
-        self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
+        from backend.managers import procedures as procedure_managers
+        if not submissiontype:
+            self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
+        else:
+            self.submissiontype = submissiontype
         if "range_dict" not in kwargs:
             kwargs['range_dict'] = self.submissiontype.info_map
         super().__init__(filepath=filepath, **kwargs)
@@ -118,8 +122,11 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
         sheet="Sample List"
     )]
 
-    def __init__(self, filepath: Path | str, *args, **kwargs):
-        self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
+    def __init__(self, filepath: Path | str, submissiontype: "SubmissionType"|None=None, *args, **kwargs):
+        if not submissiontype:
+            self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
+        else:
+            self.submissiontype = submissiontype
         if "range_dict" not in kwargs:
             kwargs['range_dict'] = self.submissiontype.sample_map
         super().__init__(filepath=filepath, **kwargs)

@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from backend.db.models import Reagent, Sample, ClientSubmission, KitType, Run
+from backend.db.models import Reagent, KitType
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -175,6 +175,7 @@ class App(QMainWindow):
         """
         Create a search for sample.
         """
+        from backend.db.models.submissions import Sample
         dlg = SearchBox(self, object_type=Sample, extras=[])
         dlg.exec()
 

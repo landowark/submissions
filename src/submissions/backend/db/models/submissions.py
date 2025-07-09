@@ -9,15 +9,19 @@ from copy import deepcopy
 from getpass import getuser
 import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
 from inspect import isclass
+from io import BytesIO
 from zipfile import ZipFile, BadZipfile
 from tempfile import TemporaryDirectory, TemporaryFile
 from operator import itemgetter
 from pprint import pformat
+
+import openpyxl
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 
-from frontend import select_save_file
-from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, kittype_procedure
+from frontend.widgets.functions import select_save_file
+from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, \
+    kittype_procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table, Sequence
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -35,9 +39,9 @@ from pathlib import Path
 from jinja2.exceptions import TemplateNotFound
 from jinja2 import Template
 from PIL import Image
+
 if TYPE_CHECKING:
     from backend.db.models.kits import ProcedureType, Procedure
-
 
 logger = logging.getLogger(f"procedure.{__name__}")
 
@@ -73,7 +77,7 @@ class ClientSubmission(BaseClass, LogMixin):
     )  #: Relation to ClientSubmissionSampleAssociation
 
     sample = association_proxy("clientsubmissionsampleassociation",
-                                "sample")  #, creator=lambda sample: ClientSubmissionSampleAssociation(
+                               "sample")  #, creator=lambda sample: ClientSubmissionSampleAssociation(
 
     # sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
@@ -362,9 +366,11 @@ class ClientSubmission(BaseClass, LogMixin):
         output['expanded'] = ["clientlab", "contact", "submissiontype"]
         return output
 
-    def to_pydantic(self, filepath: Path|str|None=None, **kwargs):
+    def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
+        output.template_file = self.template_file
         return output
+
 
 class Run(BaseClass, LogMixin):
     """
@@ -634,7 +640,8 @@ class Run(BaseClass, LogMixin):
         # logger.debug(f"Active samples:{pformat(active_samples)}")
         for sample in active_samples:
             sample['active'] = True
-        inactive_samples = [sample.details_dict() for sample in submission_samples if sample.name not in [s['sample_id'] for s in active_samples]]
+        inactive_samples = [sample.details_dict() for sample in submission_samples if
+                            sample.name not in [s['sample_id'] for s in active_samples]]
         # logger.debug(f"Inactive samples:{pformat(inactive_samples)}")
         for sample in inactive_samples:
             sample['active'] = False
@@ -642,7 +649,8 @@ class Run(BaseClass, LogMixin):
         output['sample'] = active_samples + inactive_samples
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
-        output['excluded'] = ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom', 'permission']
+        output['excluded'] = ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
+                              'permission']
 
         return output
 
@@ -727,7 +735,8 @@ class Run(BaseClass, LogMixin):
 
     @property
     def sample_dicts(self) -> List[dict]:
-        return [dict(sample_id=assoc.sample.sample_id, row=assoc.row, column=assoc.column, background_color="#6ffe1d") for assoc in self.runsampleassociation]
+        return [dict(sample_id=assoc.sample.sample_id, row=assoc.row, column=assoc.column, background_color="#6ffe1d")
+                for assoc in self.runsampleassociation]
 
     @classmethod
     def make_plate_map(cls, sample_list: list, plate_rows: int = 8, plate_columns=12) -> str:
@@ -1010,7 +1019,6 @@ class Run(BaseClass, LogMixin):
         regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
         return regex
 
-
     # NOTE: Query functions
 
     @classmethod
@@ -1190,14 +1198,15 @@ class Run(BaseClass, LogMixin):
         Returns:
             dict: dictionary of functions
         """
-        names = ["Add Procedure", "Edit", "Add Comment", "Show Details", "Delete"]
+        names = ["Add Procedure", "Edit", "Export", "Add Comment", "Show Details", "Delete"]
         output = {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
         logger.debug(output)
         return output
 
     def add_procedure(self, obj, proceduretype_name: str):
         from frontend.widgets.procedure_creation import ProcedureCreation
-        procedure_type = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
+        procedure_type = next(
+            (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         logger.debug(f"Got ProcedureType: {procedure_type}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
@@ -1279,14 +1288,19 @@ class Run(BaseClass, LogMixin):
             self.set_attribute(key='comment', value=comment)
             self.save(original=False)
 
-    def export(self, obj, output_filepath: str|Path|None=None):
-
+    def export(self, obj, output_filepath: str | Path | None = None):
+        from backend.excel import writers
         clientsubmission_pyd = self.clientsubmission.to_pydantic()
         if not output_filepath:
-            output_filepath = select_save_file(obj=obj, default_name=clientsubmission_pyd.construct_filename(), extension="xlsx")
+            output_filepath = select_save_file(obj=obj, default_name=self.construct_filename(), extension="xlsx")
         Writer = getattr(writers, "ClientSubmissionWriter")
-        writer = Writer(output_filepath=output_filepath, pydant_obj=pyd, range_dict=self.range_dict)
-        workbook = writer.
+        writer = Writer(output_filepath=output_filepath, pydant_obj=clientsubmission_pyd,
+                        range_dict=self.clientsubmission.range_dict)
+        workbook: openpyxl.Workbook = writer.write_info()
+        workbook.save(filename=output_filepath)
+
+    def construct_filename(self):
+        return f"{self.rsl_plate_number}-{self.clientsubmission.clientlab.name}-{self.clientsubmission.submitter_plate_id}"
 
     def backup(self, obj=None, fname: Path | None = None, full_backup: bool = False):
         """
@@ -1360,7 +1374,7 @@ class Run(BaseClass, LogMixin):
     def allowed_procedures(self):
         return self.clientsubmission.submissiontype.proceduretype
 
-    def get_submission_rank_of_sample(self, sample: Sample|str):
+    def get_submission_rank_of_sample(self, sample: Sample | str):
         if isinstance(sample, str):
             sample = Sample.query(sample_id=sample)
         clientsubmissionsampleassoc = next((assoc for assoc in self.clientsubmission.clientsubmissionsampleassociation
@@ -1378,10 +1392,12 @@ class Run(BaseClass, LogMixin):
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
                 row, column = plate_dict[submission_rank]
-                ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank, background_color="#6ffe1d"))
+                ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
+                                           submission_rank=submission_rank, background_color="#6ffe1d"))
             else:
                 unranked_samples.append(sample)
-        possible_ranks = (item for item in list(plate_dict.keys()) if item not in [sample['submission_rank'] for sample in ranked_samples])
+        possible_ranks = (item for item in list(plate_dict.keys()) if
+                          item not in [sample['submission_rank'] for sample in ranked_samples])
         # logger.debug(possible_ranks)
         # possible_ranks = (plate_dict[idx] for idx in possible_ranks)
         for sample in unranked_samples:
@@ -1391,13 +1407,15 @@ class Run(BaseClass, LogMixin):
                 continue
             row, column = plate_dict[submission_rank]
             ranked_samples.append(
-                dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column, submission_rank=submission_rank,
+                dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
+                     submission_rank=submission_rank,
                      background_color="#6ffe1d", enabled=True))
         padded_list = []
-        for iii in range(1, proceduretype.total_wells+1):
+        for iii in range(1, proceduretype.total_wells + 1):
             row, column = proceduretype.ranked_plate[iii]
-            sample = next((item for item in ranked_samples if item['submission_rank']==iii),
-                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, submission_rank=iii, background_color="#ffffff", enabled=False)
+            sample = next((item for item in ranked_samples if item['submission_rank'] == iii),
+                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, submission_rank=iii,
+                               background_color="#ffffff", enabled=False)
                           )
             padded_list.append(sample)
         # logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")
@@ -1485,7 +1503,7 @@ class Sample(BaseClass, LogMixin):
         )
         if full_data:
             sample['clientsubmission'] = sorted([item.to_sub_dict() for item in self.sampleclientsubmissionassociation],
-                                         key=itemgetter('submitted_date'))
+                                                key=itemgetter('submitted_date'))
         return sample
 
     def to_pydantic(self):
@@ -2126,8 +2144,8 @@ class RunSampleAssociation(BaseClass):
         output['misc_info'] = misc
         return output
 
-class ProcedureSampleAssociation(BaseClass):
 
+class ProcedureSampleAssociation(BaseClass):
     id = Column(INTEGER, unique=True, nullable=False)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
@@ -2142,13 +2160,14 @@ class ProcedureSampleAssociation(BaseClass):
     results = relationship("Results", back_populates="sampleprocedureassociation")
 
     @classmethod
-    def query(cls, sample: Sample|str|None=None, procedure: Procedure|str|None=None, limit: int=0, **kwargs):
+    def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,
+              **kwargs):
         query = cls.__database_session__.query(cls)
         match sample:
             case Sample():
-                query = query.filter(cls.sample==sample)
+                query = query.filter(cls.sample == sample)
             case str():
-                query = query.join(Sample).filter(Sample.sample_id==sample)
+                query = query.join(Sample).filter(Sample.sample_id == sample)
             case _:
                 pass
         match procedure:
@@ -2162,14 +2181,12 @@ class ProcedureSampleAssociation(BaseClass):
             limit = 1
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-
-    def __init__(self, new_id:int|None=None, **kwarg):
+    def __init__(self, new_id: int | None = None, **kwarg):
         if new_id:
             self.id = new_id
         else:
             self.id = self.__class__.autoincrement_id()
         super().__init__(**kwarg)
-
 
     @classmethod
     def autoincrement_id(cls) -> int:
@@ -2195,4 +2212,3 @@ class ProcedureSampleAssociation(BaseClass):
         output['misc_info'] = misc
         output['results'] = [result.details_dict() for result in output['results']]
         return output
-

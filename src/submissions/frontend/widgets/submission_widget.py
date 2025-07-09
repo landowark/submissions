@@ -6,6 +6,8 @@ from PyQt6.QtWidgets import (
     QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
+
+from backend.managers import DefaultClientSubmission
 from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
@@ -120,25 +122,28 @@ class SubmissionFormContainer(QWidget):
             report.add_result(Result(msg=f"File {fname.__str__()} not found.", status="critical"))
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
-        try:
-            self.clientsubmissionparser = ClientSubmissionInfoParser(filepath=fname)
-        except PermissionError:
-            logger.error(f"Couldn't get permission to access file: {fname}")
-            return
-        except AttributeError:
-            self.clientsubmissionparser = ClientSubmissionInfoParser(filepath=fname)
-        try:
-            # self.prsr = SheetParser(filepath=fname)
-            self.sampleparser = ClientSubmissionSampleParser(filepath=fname)
-        except PermissionError:
-            logger.error(f"Couldn't get permission to access file: {fname}")
-            return
-        except AttributeError:
-            self.sampleparser = ClientSubmissionSampleParser(filepath=fname)
-        self.pydclientsubmission = self.clientsubmissionparser.to_pydantic()
-        self.pydsamples = self.sampleparser.to_pydantic()
+        # try:
+        #     self.clientsubmissionparser = ClientSubmissionInfoParser(filepath=fname)
+        # except PermissionError:
+        #     logger.error(f"Couldn't get permission to access file: {fname}")
+        #     return
+        # except AttributeError:
+        #     self.clientsubmissionparser = ClientSubmissionInfoParser(filepath=fname)
+        # try:
+        #     # self.prsr = SheetParser(filepath=fname)
+        #     self.sampleparser = ClientSubmissionSampleParser(filepath=fname)
+        # except PermissionError:
+        #     logger.error(f"Couldn't get permission to access file: {fname}")
+        #     return
+        # except AttributeError:
+        #     self.sampleparser = ClientSubmissionSampleParser(filepath=fname)
+
+        # self.pydclientsubmission = self.clientsubmissionparser.to_pydantic()
+        # self.pydsamples = self.sampleparser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pydclientsubmission.sample)}")
-        checker = SampleChecker(self, "Sample Checker", self.pydsamples)
+        self.clientsubmission_manager = DefaultClientSubmission(parent=self, fname=fname)
+        self.pydclientsubmission = self.clientsubmission_manager.parse()
+        checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.samples)
         if checker.exec():
             # logger.debug(pformat(self.pydclientsubmission.sample))
             try:
@@ -147,7 +152,7 @@ class SubmissionFormContainer(QWidget):
                 logger.error(f"Got wrong type for {self.pydclientsubmission}: {type(self.pydclientsubmission)}")
                 raise e
             self.form = self.pydclientsubmission.to_form(parent=self)
-            self.form.samples = self.pydsamples
+            # self.form.samples = self.pydsamples
             self.layout().addWidget(self.form)
         else:
             message = "Submission cancelled."

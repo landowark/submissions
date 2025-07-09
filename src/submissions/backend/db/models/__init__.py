@@ -18,10 +18,8 @@ from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-
-from frontend import select_save_file
 from tools import report_result, list_sort_dict
-from backend.excel import writers
+
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -638,15 +636,19 @@ class BaseClass(Base):
             pass
 
     def export(self, obj, output_filepath: str|Path|None=None):
-        if not hasattr(self, "template_file"):
-            logger.error(f"Export not implemented for {self.__class__.__name__}")
-            return
-        pyd = self.to_pydantic()
-        if not output_filepath:
-            output_filepath = select_save_file(obj=obj, default_name=pyd.construct_filename(), extension="xlsx")
-        Writer = getattr(writers, f"{self.__class__.__name__}Writer")
-        writer = Writer(output_filepath=output_filepath, pydant_obj=pyd, range_dict=self.range_dict)
-        workbook = writer
+        # if not hasattr(self, "template_file"):
+        #     logger.error(f"Export not implemented for {self.__class__.__name__}")
+        #     return
+        # pyd = self.to_pydantic()
+        # if not output_filepath:
+        #     from frontend import select_save_file
+        #     output_filepath = select_save_file(obj=obj, default_name=pyd.construct_filename(), extension="xlsx")
+        # Writer = getattr(writers, f"{self.__class__.__name__}Writer")
+        # writer = Writer(output_filepath=output_filepath, pydant_obj=pyd, range_dict=self.range_dict)
+        # workbook = writer
+        from backend import managers
+        Manager = getattr(managers, f"Default{self.__class__.__name__}")
+        manager = Manager(parent=obj, input_object=self)
 
 
 class LogMixin(Base):

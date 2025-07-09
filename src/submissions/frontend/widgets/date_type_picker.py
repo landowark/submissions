@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QDialogButtonBox
 )
 from .misc import CheckableComboBox, StartEndDatePicker
-from backend.db import SubmissionType
+from backend.db.models.kits import SubmissionType
 
 
 class DateTypePicker(QDialog):

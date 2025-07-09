@@ -11,9 +11,9 @@ from PyQt6.QtCore import Qt, QAbstractTableModel, QSortFilterProxyModel, pyqtSlo
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIcon, QColor, QContextMenuEvent
 from typing import Dict, List
 
-from backend import Procedure
-from backend.db.models import Run, ClientSubmission
-from tools import Report, Result, report_result
+# from backend import Procedure
+from backend.db.models import Run, ClientSubmission, Procedure
+from tools import Report, Result, report_result, get_application_from_parent
 from .functions import select_open_file
 
 logger = logging.getLogger(f"procedure.{__name__}")
@@ -261,6 +261,7 @@ class SubmissionsTree(QTreeView):
 
     def __init__(self, model, parent=None):
         super(SubmissionsTree, self).__init__(parent)
+        self.app = get_application_from_parent(parent)
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         # self.setIndentation(0)
         self.setExpandsOnDoubleClick(False)
