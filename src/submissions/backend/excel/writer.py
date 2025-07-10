@@ -9,7 +9,7 @@ from pprint import pformat
 from typing import List, Generator, Tuple
 from openpyxl import load_workbook, Workbook
 from backend.db.models import SubmissionType, KitType, Run
-from backend.validators.pydant import PydSubmission
+from backend.validators.pydant import PydRun
 from io import BytesIO
 from collections import OrderedDict
 
@@ -21,7 +21,7 @@ class SheetWriter(object):
     object to manage data placement into excel file
     """
 
-    def __init__(self, submission: PydSubmission):
+    def __init__(self, submission: PydRun):
         """
         Args:
             submission (PydSubmission): Object containing procedure information.
@@ -35,7 +35,7 @@ class SheetWriter(object):
                 case 'proceduretype':
                     self.sub[k] = v['value']
                     self.submission_type = SubmissionType.query(name=v['value'])
-                    self.run_object = BasicRun.find_polymorphic_subclass(
+                    self.run_object = Run.find_polymorphic_subclass(
                         polymorphic_identity=self.submission_type)
                 case _:
                     if isinstance(v, dict):

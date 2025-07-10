@@ -7,13 +7,13 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
 
-from backend.managers import DefaultClientSubmission
+
 from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
 from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
-from backend.validators import PydSubmission, PydReagent, PydClientSubmission, PydSample
+from backend.validators import PydRun, PydReagent, PydClientSubmission, PydSample
 from backend.db import (
     ClientLab, SubmissionType, Reagent,
     ReagentRole, KitTypeReagentRoleAssociation, Run
@@ -103,6 +103,7 @@ class SubmissionFormContainer(QWidget):
         Returns:
             Report: Object to give results of import.
         """
+        from backend.managers import DefaultClientSubmissionManager
         self.app.raise_()
         self.app.activateWindow()
         logger.info(f"\n\nStarting Import...\n\n")
@@ -141,7 +142,7 @@ class SubmissionFormContainer(QWidget):
         # self.pydclientsubmission = self.clientsubmissionparser.to_pydantic()
         # self.pydsamples = self.sampleparser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pydclientsubmission.sample)}")
-        self.clientsubmission_manager = DefaultClientSubmission(parent=self, fname=fname)
+        self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, fname=fname)
         self.pydclientsubmission = self.clientsubmission_manager.parse()
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.samples)
         if checker.exec():
@@ -188,7 +189,7 @@ class SubmissionFormContainer(QWidget):
 class SubmissionFormWidget(QWidget):
     update_reagent_fields = ['kittype']
 
-    def __init__(self, parent: QWidget, pyd: PydSubmission, disable: list | None = None) -> None:
+    def __init__(self, parent: QWidget, pyd: PydRun, disable: list | None = None) -> None:
         super().__init__(parent)
         if disable is None:
             disable = []

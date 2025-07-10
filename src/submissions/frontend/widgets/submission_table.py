@@ -16,7 +16,7 @@ from backend.db.models import Run, ClientSubmission, Procedure
 from tools import Report, Result, report_result, get_application_from_parent
 from .functions import select_open_file
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class pandasModel(QAbstractTableModel):

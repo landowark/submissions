@@ -30,7 +30,7 @@ from .turnaround import TurnaroundTime
 from .concentrations import Concentrations
 from .omni_search import SearchBox
 
-logger = logging.getLogger(f'procedure.{__name__}')
+logger = logging.getLogger(f'submissions.{__name__}')
 
 
 class App(QMainWindow):

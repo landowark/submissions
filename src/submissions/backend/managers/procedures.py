@@ -10,13 +10,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class DefaultProcedure(DefaultManager):
+class DefaultProcedureManager(DefaultManager):
 
-    def __init__(self, proceduretype: "ProcedureType"|str, parent, fname: Path | str | None = None):
-        super().__init__(parent=parent, fname=fname)
+    def __init__(self, proceduretype: "ProcedureType"|str, parent, input_object: Path | str | None = None):
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
         self.proceduretype = proceduretype
+        super().__init__(parent=parent, input_object=input_object)
 
 
     def parse(self):

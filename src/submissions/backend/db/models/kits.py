@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
     from backend.validators.pydant import PydSample, PydResults
 
-logger = logging.getLogger(f'procedure.{__name__}')
+logger = logging.getLogger(f'submissions.{__name__}')
 
 reagentrole_reagent = Table(
     "_reagentrole_reagent",
@@ -1097,9 +1097,9 @@ class SubmissionType(BaseClass):
             str: String from which regex will be compiled.
         """
         # logger.debug(f"Class for regex: {cls}")
-        logger.debug(f"Looking for {submission_type}")
+        # logger.debug(f"Looking for {submission_type}")
         if not isinstance(submission_type, SubmissionType):
-            submission_type = cls.query(name=submission_type)
+            submission_type = cls.query(name=submission_type['name'])
         if isinstance(submission_type, list):
             if len(submission_type) > 1:
                 regex = "|".join([item.defaults['regex'] for item in submission_type])
@@ -1176,7 +1176,43 @@ class ProcedureType(BaseClass):
         super().__init__(*args, **kwargs)
         self.allowed_result_methods = dict()
 
-    def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
+    @property
+    def template_file_sheets(self) -> List[str]:
+        """
+        Gets names of sheet in the stored blank form.
+
+        Returns:
+            List[str]: List of sheet names
+        """
+        try:
+            return ExcelFile(BytesIO(self.template_file), engine="openpyxl").sheet_names
+        except zipfile.BadZipfile:
+            return []
+
+    def set_template_file(self, filepath: Path | str):
+        """
+
+        Sets the binary store to an Excel file.
+
+        Args:
+            filepath (Path | str): Path to the template file.
+
+        Raises:
+            ValueError: Raised if file is not Excel file.
+        """
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
+        try:
+            ExcelFile(filepath)
+        except ValueError:
+            raise ValueError(f"File {filepath} is not of appropriate type.")
+        with open(filepath, "rb") as f:
+            data = f.read()
+        self.template_file = data
+        self.save()
+
+
+def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
         """
         Make a map of all locations for tips or equipment.
 

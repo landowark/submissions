@@ -18,7 +18,7 @@ from pprint import pformat
 from typing import List
 
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class SubmissionDetails(QDialog):

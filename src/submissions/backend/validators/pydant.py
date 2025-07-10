@@ -22,11 +22,12 @@ from sqlalchemy.orm.relationships import _RelationshipDeclared
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from PyQt6.QtWidgets import QWidget
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submission.{__name__}")
 
 
 class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     _sql_object: ClassVar = None
+
     # _misc_info: dict|None = None
 
     @model_validator(mode="before")
@@ -113,7 +114,8 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         if hasattr(self, "misc_info") and "info_placement" in self.misc_info:
             for k, v in output.items():
                 try:
-                    output[k]['location'] = [item['location'] for item in self.misc_info['info_placement'] if item['name'] == k]
+                    output[k]['location'] = [item['location'] for item in self.misc_info['info_placement'] if
+                                             item['name'] == k]
                 except (TypeError, KeyError):
                     continue
         return output
@@ -126,9 +128,6 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         if new:
             logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
         return sql
-
-
-
 
 
 class PydReagent(PydBaseClass):
@@ -299,9 +298,19 @@ class PydSample(PydBaseClass):
 
     @field_validator("row", mode="before")
     @classmethod
-    def str_to_int(cls, value):
+    def row_str_to_int(cls, value):
         if isinstance(value, str):
-            value = row_keys[value]
+            try:
+                value = row_keys[value]
+            except KeyError:
+                value = 0
+        return value
+
+    @field_validator("column", mode="before")
+    @classmethod
+    def column_str_to_int(cls, value):
+        if isinstance(value, str):
+            value = 0
         return value
 
     def improved_dict(self, dictionaries: bool = True) -> dict:
@@ -316,7 +325,7 @@ class PydSample(PydBaseClass):
         return sql
 
 
-class PydTips(BaseModel):
+class PydTips(PydBaseClass):
     name: str
     lot: str | None = Field(default=None)
     tiprole: str
@@ -354,7 +363,7 @@ class PydTips(BaseModel):
         return assoc, report
 
 
-class PydEquipment(BaseModel, extra='ignore'):
+class PydEquipment(PydBaseClass, extra='ignore'):
     asset_number: str
     name: str
     nickname: str | None
@@ -473,66 +482,74 @@ class PydEquipment(BaseModel, extra='ignore'):
         return {k: getattr(self, k) for k in fields}
 
 
-class PydSubmission(BaseModel, extra='allow'):
-    filepath: Path
-    submissiontype: dict | None
-    submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+class PydRun(PydBaseClass, extra='allow'):
+
+    clientsubmission: PydClientSubmission | None = Field(default=None)
     rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
-    clientlab: dict | None
+    started_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
+    completed_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     sample_count: dict | None
-    kittype: dict | None
-    technician: dict | None
-    submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
-    reagent: List[dict] | List[PydReagent] = []
-    sample: List[PydSample] | Generator
-    equipment: List[PydEquipment] | None = []
-    cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    tips: List[PydTips] | None = []
+    sample: List[PydSample] | Generator = Field(default=[])
+    run_cost: float | dict = Field(default=dict(value=0.0, missing=True))
+    signed_by: str | dict = Field(default="", validate_default=True)
+    procedure: List[PydProcedure] | Generator = Field(default=[])
 
-    @field_validator("tips", mode="before")
+    @field_validator("signed_by")
     @classmethod
-    def expand_tips(cls, value):
-        if isinstance(value, dict):
-            value = value['value']
-        if isinstance(value, Generator):
-            return [PydTips(**tips) for tips in value]
-        if not value:
-            return []
+    def rescue_signed_by(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value, missing=True)
         return value
 
-    @field_validator('equipment', mode='before')
+    # @field_validator("tips", mode="before")
+    # @classmethod
+    # def expand_tips(cls, value):
+    #     if isinstance(value, dict):
+    #         value = value['value']
+    #     if isinstance(value, Generator):
+    #         return [PydTips(**tips) for tips in value]
+    #     if not value:
+    #         return []
+    #     return value
+    #
+    # @field_validator('equipment', mode='before')
+    # @classmethod
+    # def convert_equipment_dict(cls, value):
+    #     if isinstance(value, dict):
+    #         return value['value']
+    #     if isinstance(value, Generator):
+    #         return [PydEquipment(**equipment) for equipment in value]
+    #     if not value:
+    #         return []
+    #     return value
+
+    # @field_validator('comment', mode='before')
+    # @classmethod
+    # def create_comment(cls, value):
+    #     if value is None:
+    #         return ""
+    #     return value
+    #
+    # @field_validator("submitter_plate_id")
+    # @classmethod
+    # def enforce_with_uuid(cls, value):
+    #     if value['value'] in [None, "None"]:
+    #         return dict(value=uuid.uuid4().hex.upper(), missing=True)
+    #     else:
+    #         value['value'] = value['value'].strip()
+    #         return value
+
+    @field_validator("run_cost")
     @classmethod
-    def convert_equipment_dict(cls, value):
-        if isinstance(value, dict):
-            return value['value']
-        if isinstance(value, Generator):
-            return [PydEquipment(**equipment) for equipment in value]
-        if not value:
-            return []
+    def rescue_run_cost(cls, value):
+        if isinstance(value, float):
+            value = dict(value=value, missing=False)
         return value
 
-    @field_validator('comment', mode='before')
+    @field_validator("started_date", mode="before")
     @classmethod
-    def create_comment(cls, value):
-        if value is None:
-            return ""
-        return value
-
-    @field_validator("submitter_plate_id")
-    @classmethod
-    def enforce_with_uuid(cls, value):
-        if value['value'] in [None, "None"]:
-            return dict(value=uuid.uuid4().hex.upper(), missing=True)
-        else:
-            value['value'] = value['value'].strip()
-            return value
-
-    @field_validator("submitted_date", mode="before")
-    @classmethod
-    def rescue_date(cls, value):
+    def rescue_start_date(cls, value):
         try:
             check = value['value'] is None
         except TypeError:
@@ -541,9 +558,20 @@ class PydSubmission(BaseModel, extra='allow'):
             return dict(value=date.today(), missing=True)
         return value
 
-    @field_validator("submitted_date")
+    @field_validator("completed_date", mode="before")
     @classmethod
-    def strip_datetime_string(cls, value):
+    def rescue_completed_date(cls, value):
+        try:
+            check = value['value'] is None
+        except TypeError:
+            check = True
+        if check:
+            return dict(value=date.today(), missing=True)
+        return value
+
+    @field_validator("started_date")
+    @classmethod
+    def strip_started_datetime_string(cls, value):
         match value['value']:
             case date():
                 output = datetime.combine(value['value'], datetime.min.time())
@@ -567,35 +595,61 @@ class PydSubmission(BaseModel, extra='allow'):
         value['value'] = output.replace(tzinfo=timezone)
         return value
 
-    @field_validator("clientlab", mode="before")
+    @field_validator("completed_date")
     @classmethod
-    def rescue_submitting_lab(cls, value):
-        if value is None:
-            return dict(value=None, missing=True)
+    def strip_completed_datetime_string(cls, value):
+        match value['value']:
+            case date():
+                output = datetime.combine(value['value'], datetime.min.time())
+            case datetime():
+                pass
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value['value'])
+                try:
+                    output = dict(value=parse(string).date(), missing=True)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = parse(string.replace("-", "")).date()
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Could not get datetime from {value['value']}")
+        value['value'] = output.replace(tzinfo=timezone)
         return value
 
-    @field_validator("clientlab")
-    @classmethod
-    def lookup_submitting_lab(cls, value):
-        if isinstance(value['value'], str):
-            try:
-                value['value'] = ClientLab.query(name=value['value']).name
-            except AttributeError:
-                value['value'] = None
-        if value['value'] is None:
-            value['missing'] = True
-            if "pytest" in sys.modules:
-                value['value'] = "Nosocomial"
-                return value
-            from frontend.widgets.pop_ups import ObjectSelector
-            dlg = ObjectSelector(title="Missing Submitting Lab",
-                                 message="We need a submitting lab. Please select from the list.",
-                                 obj_type=ClientLab)
-            if dlg.exec():
-                value['value'] = dlg.parse_form()
-            else:
-                value['value'] = None
-        return value
+    # @field_validator("clientlab", mode="before")
+    # @classmethod
+    # def rescue_submitting_lab(cls, value):
+    #     if value is None:
+    #         return dict(value=None, missing=True)
+    #     return value
+    #
+    # @field_validator("clientlab")
+    # @classmethod
+    # def lookup_submitting_lab(cls, value):
+    #     if isinstance(value['value'], str):
+    #         try:
+    #             value['value'] = ClientLab.query(name=value['value']).name
+    #         except AttributeError:
+    #             value['value'] = None
+    #     if value['value'] is None:
+    #         value['missing'] = True
+    #         if "pytest" in sys.modules:
+    #             value['value'] = "Nosocomial"
+    #             return value
+    #         from frontend.widgets.pop_ups import ObjectSelector
+    #         dlg = ObjectSelector(title="Missing Submitting Lab",
+    #                              message="We need a submitting lab. Please select from the list.",
+    #                              obj_type=ClientLab)
+    #         if dlg.exec():
+    #             value['value'] = dlg.parse_form()
+    #         else:
+    #             value['value'] = None
+    #     return value
 
     @field_validator("rsl_plate_number", mode='before')
     @classmethod
@@ -607,7 +661,7 @@ class PydSubmission(BaseModel, extra='allow'):
     @field_validator("rsl_plate_number")
     @classmethod
     def rsl_from_file(cls, value, values):
-        sub_type = values.data['proceduretype']['value']
+        sub_type = values.data['clientsubmission']
         if check_not_nan(value['value']):
             value['value'] = value['value'].strip()
             return value
@@ -615,25 +669,28 @@ class PydSubmission(BaseModel, extra='allow'):
             if "pytest" in sys.modules and sub_type.replace(" ", "") == "BasicRun":
                 output = "RSL-BS-Test001"
             else:
-                output = RSLNamer(filename=values.data['filepath'].__str__(), submission_type=sub_type,
+                # try:
+                output = RSLNamer(filename=sub_type.filepath.__str__(), submission_type=sub_type.submissiontype,
                                   data=values.data).parsed_name
+
+
             return dict(value=output, missing=True)
 
-    @field_validator("technician", mode="before")
-    @classmethod
-    def rescue_tech(cls, value):
-        if value is None:
-            return dict(value=None, missing=True)
-        return value
-
-    @field_validator("technician")
-    @classmethod
-    def enforce_tech(cls, value):
-        if check_not_nan(value['value']):
-            value['value'] = re.sub(r"\: \d", "", value['value'])
-            return value
-        else:
-            return dict(value=convert_nans_to_nones(value['value']), missing=True)
+    # @field_validator("technician", mode="before")
+    # @classmethod
+    # def rescue_tech(cls, value):
+    #     if value is None:
+    #         return dict(value=None, missing=True)
+    #     return value
+    #
+    # @field_validator("technician")
+    # @classmethod
+    # def enforce_tech(cls, value):
+    #     if check_not_nan(value['value']):
+    #         value['value'] = re.sub(r"\: \d", "", value['value'])
+    #         return value
+    #     else:
+    #         return dict(value=convert_nans_to_nones(value['value']), missing=True)
 
     @field_validator("sample_count", mode='before')
     @classmethod
@@ -642,54 +699,54 @@ class PydSubmission(BaseModel, extra='allow'):
             return dict(value=None, missing=True)
         return value
 
-    @field_validator("kittype", mode='before')
-    @classmethod
-    def rescue_kit(cls, value):
-        if check_not_nan(value):
-            if isinstance(value, str):
-                return dict(value=value, missing=False)
-            elif isinstance(value, dict):
-                return value
-        else:
-            raise ValueError(f"No extraction kittype found.")
-        if value is None:
-            # NOTE: Kit selection is done in the clientsubmissionparser, so should not be necessary here.
-            return dict(value=None, missing=True)
-        return value
+    # @field_validator("kittype", mode='before')
+    # @classmethod
+    # def rescue_kit(cls, value):
+    #     if check_not_nan(value):
+    #         if isinstance(value, str):
+    #             return dict(value=value, missing=False)
+    #         elif isinstance(value, dict):
+    #             return value
+    #     else:
+    #         raise ValueError(f"No extraction kittype found.")
+    #     if value is None:
+    #         # NOTE: Kit selection is done in the clientsubmissionparser, so should not be necessary here.
+    #         return dict(value=None, missing=True)
+    #     return value
+    #
+    # @field_validator("submissiontype", mode='before')
+    # @classmethod
+    # def make_submission_type(cls, value, values):
+    #     if not isinstance(value, dict):
+    #         value = dict(value=value)
+    #     if check_not_nan(value['value']):
+    #         value = value['value'].title()
+    #         return dict(value=value, missing=False)
+    #     else:
+    #         return dict(value=RSLNamer.retrieve_submission_type(filename=values.data['filepath']).title(), missing=True)
+    #
+    # @field_validator("submission_category", mode="before")
+    # @classmethod
+    # def create_category(cls, value):
+    #     if not isinstance(value, dict):
+    #         return dict(value=value, missing=True)
+    #     return value
+    #
+    # @field_validator("submission_category")
+    # @classmethod
+    # def rescue_category(cls, value, values):
+    #     if isinstance(value['value'], str):
+    #         value['value'] = value['value'].title()
+    #     if value['value'] not in ["Research", "Diagnostic", "Surveillance", "Validation"]:
+    #         value['value'] = values.data['proceduretype']['value']
+    #     return value
 
-    @field_validator("submissiontype", mode='before')
-    @classmethod
-    def make_submission_type(cls, value, values):
-        if not isinstance(value, dict):
-            value = dict(value=value)
-        if check_not_nan(value['value']):
-            value = value['value'].title()
-            return dict(value=value, missing=False)
-        else:
-            return dict(value=RSLNamer.retrieve_submission_type(filename=values.data['filepath']).title(), missing=True)
-
-    @field_validator("submission_category", mode="before")
-    @classmethod
-    def create_category(cls, value):
-        if not isinstance(value, dict):
-            return dict(value=value, missing=True)
-        return value
-
-    @field_validator("submission_category")
-    @classmethod
-    def rescue_category(cls, value, values):
-        if isinstance(value['value'], str):
-            value['value'] = value['value'].title()
-        if value['value'] not in ["Research", "Diagnostic", "Surveillance", "Validation"]:
-            value['value'] = values.data['proceduretype']['value']
-        return value
-
-    @field_validator("reagent", mode="before")
-    @classmethod
-    def expand_reagents(cls, value):
-        if isinstance(value, Generator):
-            return [PydReagent(**reagent) for reagent in value]
-        return value
+    # @field_validator("reagent", mode="before")
+    # @classmethod
+    # def expand_reagents(cls, value):
+    #     if isinstance(value, Generator):
+    #         return [PydReagent(**reagent) for reagent in value]
+    #     return value
 
     @field_validator("sample", mode="before")
     @classmethod
@@ -698,80 +755,82 @@ class PydSubmission(BaseModel, extra='allow'):
             return [PydSample(**sample) for sample in value]
         return value
 
-    @field_validator("sample")
-    @classmethod
-    def assign_ids(cls, value):
-        starting_id = ClientSubmissionSampleAssociation.autoincrement_id()
-        for iii, sample in enumerate(value, start=starting_id):
-            # NOTE: Why is this a list? Answer: to zip with the lists of rows and columns in case of multiple of the same sample.
-            sample.assoc_id = [iii]
-        return value
+    # @field_validator("sample")
+    # @classmethod
+    # def assign_ids(cls, value):
+    #     starting_id = ClientSubmissionSampleAssociation.autoincrement_id()
+    #     for iii, sample in enumerate(value, start=starting_id):
+    #         # NOTE: Why is this a list? Answer: to zip with the lists of rows and columns in case of multiple of the same sample.
+    #         sample.assoc_id = [iii]
+    #     return value
 
-    @field_validator("cost_centre", mode="before")
-    @classmethod
-    def rescue_cost_centre(cls, value):
-        match value:
-            case dict():
-                return value
-            case _:
-                return dict(value=value, missing=True)
-
-    @field_validator("cost_centre")
-    @classmethod
-    def get_cost_centre(cls, value, values):
-        match value['value']:
-            case None:
-                from backend.db.models import Organization
-                org = Organization.query(name=values.data['clientlab']['value'])
-                try:
-                    return dict(value=org.cost_centre, missing=True)
-                except AttributeError:
-                    return dict(value="xxx", missing=True)
-            case _:
-                return value
-
-    @field_validator("contact")
-    @classmethod
-    def get_contact_from_org(cls, value, values):
-        # logger.debug(f"Value coming in: {value}")
-        match value:
-            case dict():
-                if isinstance(value['value'], tuple):
-                    value['value'] = value['value'][0]
-            case tuple():
-                value = dict(value=value[0], missing=False)
-            case _:
-                value = dict(value=value, missing=False)
-        # logger.debug(f"Value after match: {value}")
-        check = Contact.query(name=value['value'])
-        # logger.debug(f"Check came back with {check}")
-        if not isinstance(check, Contact):
-            org = values.data['clientlab']['value']
-            # logger.debug(f"Checking organization: {org}")
-            if isinstance(org, str):
-                org = ClientLab.query(name=values.data['clientlab']['value'], limit=1)
-            if isinstance(org, ClientLab):
-                contact = org.contact[0].name
-            else:
-                logger.warning(f"All attempts at defaulting Contact failed, returning: {value}")
-                return value
-            if isinstance(contact, tuple):
-                contact = contact[0]
-            value = dict(value=f"Defaulted to: {contact}", missing=False)
-            # logger.debug(f"Value after query: {value}")
-            return value
-        else:
-            # logger.debug(f"Value after bypass check: {value}")
-            return value
+    # @field_validator("cost_centre", mode="before")
+    # @classmethod
+    # def rescue_cost_centre(cls, value):
+    #     match value:
+    #         case dict():
+    #             return value
+    #         case _:
+    #             return dict(value=value, missing=True)
+    #
+    # @field_validator("cost_centre")
+    # @classmethod
+    # def get_cost_centre(cls, value, values):
+    #     match value['value']:
+    #         case None:
+    #             from backend.db.models import Organization
+    #             org = Organization.query(name=values.data['clientlab']['value'])
+    #             try:
+    #                 return dict(value=org.cost_centre, missing=True)
+    #             except AttributeError:
+    #                 return dict(value="xxx", missing=True)
+    #         case _:
+    #             return value
+    #
+    # @field_validator("contact")
+    # @classmethod
+    # def get_contact_from_org(cls, value, values):
+    #     # logger.debug(f"Value coming in: {value}")
+    #     match value:
+    #         case dict():
+    #             if isinstance(value['value'], tuple):
+    #                 value['value'] = value['value'][0]
+    #         case tuple():
+    #             value = dict(value=value[0], missing=False)
+    #         case _:
+    #             value = dict(value=value, missing=False)
+    #     # logger.debug(f"Value after match: {value}")
+    #     check = Contact.query(name=value['value'])
+    #     # logger.debug(f"Check came back with {check}")
+    #     if not isinstance(check, Contact):
+    #         org = values.data['clientlab']['value']
+    #         # logger.debug(f"Checking organization: {org}")
+    #         if isinstance(org, str):
+    #             org = ClientLab.query(name=values.data['clientlab']['value'], limit=1)
+    #         if isinstance(org, ClientLab):
+    #             contact = org.contact[0].name
+    #         else:
+    #             logger.warning(f"All attempts at defaulting Contact failed, returning: {value}")
+    #             return value
+    #         if isinstance(contact, tuple):
+    #             contact = contact[0]
+    #         value = dict(value=f"Defaulted to: {contact}", missing=False)
+    #         # logger.debug(f"Value after query: {value}")
+    #         return value
+    #     else:
+    #         # logger.debug(f"Value after bypass check: {value}")
+    #         return value
 
     def __init__(self, run_custom: bool = False, **data):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
-        self.submission_object = Run.find_polymorphic_subclass(
-            polymorphic_identity=self.submission_type['value'])
-        self.namer = RSLNamer(self.rsl_plate_number['value'], submission_type=self.submission_type['value'])
-        if run_custom:
-            self.submission_object.custom_validation(pyd=self)
+        # self.submission_object = Run.find_polymorphic_subclass(
+        #     polymorphic_identity=self.submission_type['value'])
+        submission_type = self.clientsubmission.submissiontype
+        # logger.debug(submission_type)
+        self.namer = RSLNamer(self.rsl_plate_number['value'], submission_type=submission_type)
+        # if run_custom:
+        #     self.submission_object.custom_validation(pyd=self)
 
     def set_attribute(self, key: str, value):
         """
@@ -1020,7 +1079,7 @@ class PydSubmission(BaseModel, extra='allow'):
         Returns:
             str: Output filename
         """
-        template = self.submission_object.filename_template()
+        template = self.clientsubmission.filename_template
         render = self.namer.construct_export_name(template=template, **self.improved_dict(dictionaries=False)).replace(
             "/", "")
         return render
@@ -1537,7 +1596,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         self.kittype['value'] = kittype
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
 
-    def reorder_reagents(self, reagentrole: str, options:list):
+    def reorder_reagents(self, reagentrole: str, options: list):
         reagent_used = next((reagent for reagent in self.reagent if reagent.reagentrole == reagentrole), None)
         if not reagent_used:
             return options
@@ -1546,8 +1605,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             return options
         options.insert(0, options.pop(options.index(roi)))
         return options
-
-
 
     def update_kittype_equipmentroles(self, kittype: str | KitType):
         if kittype == self.__class__.model_fields['kittype'].default['value']:
@@ -1808,6 +1865,23 @@ class PydClientSubmission(PydBaseClass):
         sql._misc_info['info_placement'] = info_placement
         return sql
 
+    def pad_samples_to_length(self, row_count, column_names):
+        output_samples = []
+        for iii in range(1, row_count + 1):
+            try:
+                sample = next((item for item in self.model_extra['samples'] if item.submission_rank == iii))
+            except StopIteration:
+                sample = PydSample(sample_id="")
+                for column in column_names:
+                    setattr(sample, column[0], "")
+                sample.submission_rank = iii
+            output_samples.append(sample)
+        return sorted(output_samples, key=lambda x: x.submission_rank)
+
+    @property
+    def filename_template(self):
+        submissiontype = SubmissionType.query(name=self.submissiontype['value'])
+        return submissiontype.defaults['filename_template']
 
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):

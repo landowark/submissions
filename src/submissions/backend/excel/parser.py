@@ -9,7 +9,7 @@ from typing import List
 from openpyxl import load_workbook, Workbook
 from pathlib import Path
 from backend.db.models import *
-from backend.validators import PydSubmission, RSLNamer
+from backend.validators import PydRun, RSLNamer
 from collections import OrderedDict
 from tools import check_not_nan, is_missing, check_key_or_attr
 
@@ -45,7 +45,7 @@ class SheetParser(object):
         self.sub['proceduretype'] = dict(value=RSLNamer.retrieve_submission_type(filename=self.filepath),
                                            missing=True)
         self.submission_type = SubmissionType.query(name=self.sub['proceduretype'])
-        self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
+        self.sub_object = Run.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
         # NOTE: grab the info map from the procedure type in database
         self.parse_info()
         self.import_kit_validation_check()
@@ -130,14 +130,14 @@ class SheetParser(object):
             if isinstance(self.sub['kittype'], str):
                 self.sub['kittype'] = dict(value=self.sub['kittype'], missing=True)
 
-    def to_pydantic(self) -> PydSubmission:
+    def to_pydantic(self) -> PydRun:
         """
         Generates a pydantic model of scraped data for validation
 
         Returns:
             PydSubmission: output pydantic model
         """
-        return PydSubmission(filepath=self.filepath, run_custom=True, **self.sub)
+        return PydRun(filepath=self.filepath, run_custom=True, **self.sub)
 
 
 class InfoParser(object):

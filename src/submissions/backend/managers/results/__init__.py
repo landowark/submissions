@@ -7,7 +7,7 @@ from tools import get_application_from_parent
 
 logger = logging.getLogger(f"submission.{__name__}")
 
-class DefaultResults(DefaultManager):
+class DefaultResultsManager(DefaultManager):
 
     def __init__(self, procedure: Procedure, parent, fname: Path | str | None = None):
         logger.debug(f"FName before correction: {fname}")
@@ -18,4 +18,4 @@ class DefaultResults(DefaultManager):
             self.fname = Path(fname)
         logger.debug(f"FName after correction: {fname}")
 
-from .pcr_results_manager import PCR
+from .pcr_results_manager import PCRManager

@@ -503,7 +503,8 @@ def setup_lookup(func):
                 try:
                     sanitized_kwargs[k] = v['value']
                 except KeyError:
-                    raise ValueError("Could not sanitize dictionary in query. Make sure you parse it first.")
+
+                    raise ValueError(f"Could not sanitize dictionary {v} in query. Make sure you parse it first.")
             elif v is not None:
                 sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)

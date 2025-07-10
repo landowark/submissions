@@ -5,7 +5,7 @@ from tools import Settings
 
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 def import_irida(ctx: Settings):
     """

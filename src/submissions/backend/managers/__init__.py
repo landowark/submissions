@@ -13,8 +13,9 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DefaultManager(object):
 
     def __init__(self, parent, input_object: Path | str | None = None):
-        logger.debug(f"FName before correction: {input_object}")
+        logger.debug(f"FName before correction: {type(input_object)}")
         # if input_object != "no_file":
+        self.parent = parent
         match input_object:
             case str():
                 self.input_object = Path(input_object)
@@ -23,15 +24,19 @@ class DefaultManager(object):
                 self.input_object = input_object
                 self.pyd = self.parse()
             case x if issubclass(input_object.__class__, PydBaseClass):
+                logger.debug("Subclass of PydBaseClass")
                 self.pyd = input_object
             case x if issubclass(input_object.__class__, BaseClass):
+                logger.debug("Subclass of BaseClass")
                 self.pyd = input_object.to_pydantic()
             case _:
                 self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
                 self.pyd = self.parse()
-        logger.debug(f"FName after correction: {input_object}")
+        # logger.debug(f"FName after correction: {input_object}")
 
 
-from .clientsubmissions import DefaultClientSubmission
-from .procedures import DefaultProcedure
-from.results import DefaultResults
+
+from .clientsubmissions import DefaultClientSubmissionManager
+from .procedures import DefaultProcedureManager
+from .results import DefaultResultsManager
+from .runs import DefaultRunManager

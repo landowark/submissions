@@ -22,6 +22,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, \
     kittype_procedure
+
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table, Sequence
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -43,7 +44,7 @@ from PIL import Image
 if TYPE_CHECKING:
     from backend.db.models.kits import ProcedureType, Procedure
 
-logger = logging.getLogger(f"procedure.{__name__}")
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmission(BaseClass, LogMixin):
@@ -630,6 +631,10 @@ class Run(BaseClass, LogMixin):
             output["completed_date"] = self.completed_date
         return output
 
+    @property
+    def sample_count(self):
+        return len(self.sample)
+
     def details_dict(self, **kwargs):
         output = super().details_dict()
         output['plate_number'] = self.plate_number
@@ -651,7 +656,7 @@ class Run(BaseClass, LogMixin):
         output['permission'] = is_power_user()
         output['excluded'] = ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
                               'permission']
-
+        output['sample_count'] = self.sample_count
         return output
 
     @classmethod
@@ -923,37 +928,24 @@ class Run(BaseClass, LogMixin):
         Returns:
             PydSubmission: converted object.
         """
-        from backend.validators import PydSubmission
-        dicto = self.to_dict(full_data=True, backup=backup)
+        from backend.validators import PydRun
+        dicto = self.details_dict(full_data=True, backup=backup)
         new_dict = {}
         for key, value in dicto.items():
             missing = value in ['', 'None', None]
             match key:
-                case "reagents":
-                    field_value = [item.to_pydantic(kittype=self.extraction_kit) for item in
-                                   self.submission_reagent_associations]
                 case "sample":
-                    field_value = [item.to_pydantic() for item in self.submission_sample_associations]
-                case "equipment":
-                    field_value = [item.to_pydantic() for item in self.submission_equipment_associations]
-                case "control":
-                    try:
-                        field_value = [item.to_pydantic() for item in self.__getattribute__(key)]
-                    except TypeError as e:
-                        logger.error(f"Error converting {key} to pydantic :{e}")
-                        continue
-                case "tips":
-                    field_value = [item.to_pydantic() for item in self.submission_tips_associations]
-                case "proceduretype":
-                    field_value = dict(value=self.__getattribute__(key).name, missing=missing)
+                    field_value = [item.to_pydantic() for item in self.runsampleassociation]
                 case "plate_number":
-                    key = 'name'
+                    key = 'rsl_plate_number'
                     field_value = dict(value=self.rsl_plate_number, missing=missing)
-                case "submitter_plate_number":
-                    key = "submitter_plate_id"
-                    field_value = dict(value=self.submitter_plate_number, missing=missing)
+                    new_dict['name'] = field_value
                 case "id":
                     continue
+                case "clientsubmission":
+                    field_value = self.clientsubmission.to_pydantic()
+                case "procedure":
+                    field_value = [item.to_pydantic() for item in self.procedure]
                 case _:
                     try:
                         key = key.lower().replace(" ", "_")
@@ -967,7 +959,7 @@ class Run(BaseClass, LogMixin):
             new_dict[key] = field_value
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
         dicto.update(new_dict)
-        return PydSubmission(**dicto)
+        return PydRun(**dicto)
 
     def save(self, original: bool = True):
         """
@@ -1289,14 +1281,12 @@ class Run(BaseClass, LogMixin):
             self.save(original=False)
 
     def export(self, obj, output_filepath: str | Path | None = None):
-        from backend.excel import writers
-        clientsubmission_pyd = self.clientsubmission.to_pydantic()
+        from backend import managers
         if not output_filepath:
             output_filepath = select_save_file(obj=obj, default_name=self.construct_filename(), extension="xlsx")
-        Writer = getattr(writers, "ClientSubmissionWriter")
-        writer = Writer(output_filepath=output_filepath, pydant_obj=clientsubmission_pyd,
-                        range_dict=self.clientsubmission.range_dict)
-        workbook: openpyxl.Workbook = writer.write_info()
+        Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
+        manager = Manager(parent=obj, input_object=self.to_pydantic())
+        workbook = manager.write()
         workbook.save(filename=output_filepath)
 
     def construct_filename(self):
@@ -1970,13 +1960,13 @@ class RunSampleAssociation(BaseClass):
         # NOTE: Get associated sample info
         sample = self.sample.to_sub_dict()
         sample['name'] = self.sample.sample_id
-        sample['row'] = self.row
-        sample['column'] = self.column
-        try:
-            sample['well'] = f"{row_map[self.row]}{self.column}"
-        except KeyError as e:
-            logger.error(f"Unable to find row {self.row} in row_map.")
-            sample['Well'] = None
+        # sample['row'] = self.row
+        # sample['column'] = self.column
+        # try:
+        #     sample['well'] = f"{row_map[self.row]}{self.column}"
+        # except KeyError as e:
+        #     logger.error(f"Unable to find row {self.row} in row_map.")
+        #     sample['Well'] = None
         sample['plate_name'] = self.run.rsl_plate_number
         sample['positive'] = False
         return sample
@@ -1989,7 +1979,7 @@ class RunSampleAssociation(BaseClass):
             PydSample: Pydantic Model
         """
         from backend.validators import PydSample
-        return PydSample(**self.to_sub_dict())
+        return PydSample(**self.details_dict())
 
     @property
     def hitpicked(self) -> dict | None:

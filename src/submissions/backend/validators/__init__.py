@@ -92,10 +92,10 @@ class RSLNamer(object):
         self.submission_type = submission_type
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        logger.info(f"got submission type: {self.submission_type}")
+        # logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type:
             # self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
-            self.sub_object = SubmissionType.query(name=submission_type, limit=1)
+            self.sub_object = SubmissionType.query(name=self.submission_type['name'], limit=1)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
                 submission_type=self.submission_type))
             # if not data:
@@ -275,5 +275,5 @@ class RSLNamer(object):
             return ""
 
 
-from .pydant import PydSubmission, PydKitType, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
+from .pydant import PydRun, PydKitType, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
     PydEquipment, PydEquipmentRole, PydTips, PydProcess, PydElastic, PydClientSubmission, PydProcedure, PydResults

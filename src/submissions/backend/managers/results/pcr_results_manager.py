@@ -5,11 +5,11 @@ import logging
 from pathlib import Path
 from backend.db.models import Procedure
 from backend.excel.parsers.results_parsers.pcr_results_parser import PCRSampleParser, PCRInfoParser
-from . import DefaultResults
+from . import DefaultResultsManager
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class PCR(DefaultResults):
+class PCRManager(DefaultResultsManager):
 
     def __init__(self, procedure: Procedure, parent, fname:Path|str|None=None):
         super().__init__(procedure=procedure, parent=parent, fname=fname)
