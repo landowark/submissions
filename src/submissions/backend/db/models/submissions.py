@@ -1600,6 +1600,8 @@ class BacterialCulture(BasicSubmission):
                     provs = (sample for sample in self.samples if not sample.control and sample not in output)
             # logger.debug(f"Provisional controls: {provs}")
             for prov in provs:
+                if not prov:
+                    continue
                 # logger.debug(f"Prov: {prov}")
                 prov.submission = self.rsl_plate_num
                 prov.submitted_date = self.submitted_date

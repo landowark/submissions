@@ -733,4 +733,7 @@ class IridaControl(Control):
 
     @property
     def is_positive_control(self):
-        return not self.subtype.lower().startswith("en")
+        try:
+            return not self.subtype.lower().startswith("en")
+        except AttributeError:
+            return False
