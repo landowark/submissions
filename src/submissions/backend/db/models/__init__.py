@@ -596,6 +596,7 @@ class BaseClass(Base):
         return output_date
 
     def details_dict(self, **kwargs):
+
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
         output = {}
@@ -618,14 +619,16 @@ class BaseClass(Base):
             output[k.strip("_")] = value
         return output
 
-    def to_pydantic(self, **kwargs):
+    def to_pydantic(self, pyd_model_name:str|None=None, **kwargs):
         from backend.validators import pydant
-        pyd_model_name = f"Pyd{self.__class__.__name__}"
+        if not pyd_model_name:
+            pyd_model_name = f"Pyd{self.__class__.__name__}"
         logger.debug(f"Looking for pydant model {pyd_model_name}")
         try:
             pyd = getattr(pydant, pyd_model_name)
         except AttributeError:
             raise AttributeError(f"Could not get pydantic class {pyd_model_name}")
+        logger.debug(f"Kwargs: {kwargs}")
         return pyd(**self.details_dict(**kwargs))
 
     def show_details(self, obj):

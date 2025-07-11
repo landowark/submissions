@@ -8,11 +8,11 @@ if TYPE_CHECKING:
     from backend.db.models import ProcedureType
 
 
-class DefaultInfoParser(DefaultKEYVALUEParser):
+class ProcedureInfoParser(DefaultKEYVALUEParser):
 
     default_range_dict = [dict(
         start_row=1,
-        end_row=14,
+        end_row=6,
         key_column=1,
         value_column=2,
         sheet=""
@@ -31,7 +31,7 @@ class DefaultInfoParser(DefaultKEYVALUEParser):
         self._pyd_object = PydProcedure
 
 
-class DefaultSampleParser(DefaultTABLEParser):
+class ProcedureSampleParser(DefaultTABLEParser):
 
     default_range_dict = [dict(
         header_row=41,
@@ -51,7 +51,7 @@ class DefaultSampleParser(DefaultTABLEParser):
         self._pyd_object = PydSample
 
 
-class DefaultReagentParser(DefaultTABLEParser):
+class ProcedureReagentParser(DefaultTABLEParser):
 
     default_range_dict = [dict(
         header_row=17,
@@ -80,7 +80,7 @@ class DefaultReagentParser(DefaultTABLEParser):
             item['reagentrole'] = item['reagent_role']
             yield item
 
-class DefaultEquipmentParser(DefaultTABLEParser):
+class ProcedureEquipmentParser(DefaultTABLEParser):
 
     default_range_dict = [dict(
         header_row=32,

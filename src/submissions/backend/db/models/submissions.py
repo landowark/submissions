@@ -2197,8 +2197,20 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = output['sample'].details_dict()
+        logger.debug(f"Output: {pformat(output)}")
+        logger.debug(f"Relevant: {pformat(relevant)}")
+        # relevant['submission_rank'] = output['misc_info']['submission_rank']
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc
         output['results'] = [result.details_dict() for result in output['results']]
         return output
+
+    def to_pydantic(self, **kwargs):
+        output = super().to_pydantic(pyd_model_name="PydSample")
+        try:
+            output.submission_rank = output.misc_info['submission_rank']
+        except KeyError:
+            logger.error(output)
+        return output
+

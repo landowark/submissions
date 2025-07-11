@@ -363,14 +363,14 @@ class PydTips(PydBaseClass):
         return assoc, report
 
 
-class PydEquipment(PydBaseClass, extra='ignore'):
+class PydEquipment(PydBaseClass):
     asset_number: str
     name: str
     nickname: str | None
     # process: List[dict] | None
     process: PydProcess | None
     equipmentrole: str | PydEquipmentRole | None
-    tips: List[PydTips] | None = Field(default=[])
+    tips: List[PydTips] | PydTips | None = Field(default=[])
 
     @field_validator('equipmentrole', mode='before')
     @classmethod
@@ -407,12 +407,26 @@ class PydEquipment(PydBaseClass, extra='ignore'):
     @field_validator('tips', mode='before')
     @classmethod
     def tips_to_pydantic(cls, value):
-        output = []
-        for tips in value:
-            if isinstance(tips, Tips):
-                tips = tips.to_pydantic()
-            output.append(tips)
+        match value:
+            case list():
+                output = []
+                for tips in value:
+                    match tips:
+                        case Tips():
+                            tips = tips.to_pydantic()
+                        case dict():
+                            tips = PydTips(**tips)
+                        case _:
+                            continue
+                    output.append(tips)
+            case _:
+                output = value
         return output
+
+    @field_validator('tips')
+    @classmethod
+    def single_out_tips(cls, value, values):
+        return value
 
     @report_result
     def to_sql(self, procedure: Procedure | str = None, kittype: KitType | str = None) -> Tuple[
@@ -1402,7 +1416,7 @@ class PydEquipmentRole(BaseModel):
 #         return instance, report
 
 
-class PydProcess(BaseModel, extra="allow"):
+class PydProcess(PydBaseClass, extra="allow"):
     name: str
     version: str = Field(default="1")
     proceduretype: List[str]
@@ -1744,6 +1758,7 @@ class PydClientSubmission(PydBaseClass):
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    sample: List[PydSample] | None = Field(default=[])
 
     @field_validator("submitted_date", mode="before")
     @classmethod
@@ -1869,7 +1884,7 @@ class PydClientSubmission(PydBaseClass):
         output_samples = []
         for iii in range(1, row_count + 1):
             try:
-                sample = next((item for item in self.model_extra['samples'] if item.submission_rank == iii))
+                sample = next((item for item in self.samples if item.submission_rank == iii))
             except StopIteration:
                 sample = PydSample(sample_id="")
                 for column in column_names:
@@ -1877,6 +1892,11 @@ class PydClientSubmission(PydBaseClass):
                 sample.submission_rank = iii
             output_samples.append(sample)
         return sorted(output_samples, key=lambda x: x.submission_rank)
+
+    def improved_dict(self, dictionaries: bool = True) -> dict:
+        output = super().improved_dict(dictionaries=dictionaries)
+        output['sample'] = self.sample
+        return output
 
     @property
     def filename_template(self):

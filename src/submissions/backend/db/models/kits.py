@@ -1212,7 +1212,7 @@ class ProcedureType(BaseClass):
         self.save()
 
 
-def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
+    def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
         """
         Make a map of all locations for tips or equipment.
 
@@ -1524,6 +1524,7 @@ class Procedure(BaseClass):
             sample['active'] = False
         # output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
         output['sample'] = active_samples + inactive_samples
+        logger.debug(f"Procedure samples: \n\n{pformat(output['sample'])}\n\n")
         # output['sample'] = [sample.details_dict() for sample in output['sample']]
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
@@ -1538,18 +1539,22 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydResults, PydReagent
         output = super().to_pydantic()
+        logger.debug(f"Pydantic output: \n\n{pformat(output.__dict__)}\n\n")
         output.kittype = dict(value=output.kittype['name'], missing=False)
+        output.sample = [item.to_pydantic() for item in output.proceduresampleassociation]
         reagents = []
         for reagent in output.reagent:
             match reagent:
                 case dict():
                     reagent['reagentrole'] = next((reagentrole.name for reagentrole in self.kittype.reagentrole if reagentrole in reagent['reagentrole']), None)
-                    reagents.append(PydResults(**reagent))
+                    reagents.append(PydReagent(**reagent))
                 case PydReagent():
                     reagents.append(reagent)
                 case _:
                     pass
-        output.reagent = [PydReagent(**item) for item in output.reagent]
+        # output.reagent = [PydReagent(**item) for item in output.reagent]
+        output.reagent = reagents
+
         results = []
         for result in output.results:
             match result:
@@ -2438,6 +2443,9 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
 
+    tips_id = Column(INTEGER, ForeignKey("_tips.id", ondelete="SET NULL",
+                                            name="SEA_Process_id"))
+
     def __repr__(self) -> str:
         try:
             return f"<ProcedureEquipmentAssociation({self.procedure.name} & {self.equipment.name})>"
@@ -2472,6 +2480,13 @@ class ProcedureEquipmentAssociation(BaseClass):
     def process(self):
         return Process.query(id=self.process_id)
 
+    @property
+    def tips(self):
+        try:
+            return Tips.query(id=self.tips_id, limit=1)
+        except AttributeError:
+            return None
+
     def to_sub_dict(self) -> dict:
         """
         This RunEquipmentAssociation as a dictionary
@@ -2495,7 +2510,7 @@ class ProcedureEquipmentAssociation(BaseClass):
             PydEquipment: pydantic equipment model
         """
         from backend.validators import PydEquipment
-        return PydEquipment(**self.to_sub_dict())
+        return PydEquipment(**self.details_dict())
 
     @classmethod
     @setup_lookup
@@ -2533,6 +2548,10 @@ class ProcedureEquipmentAssociation(BaseClass):
         output.update(relevant)
         output['misc_info'] = misc
         output['process'] = self.process.details_dict()
+        try:
+            output['tips'] = self.tips.details_dict()
+        except AttributeError:
+            output['tips'] = None
         return output
 
 
