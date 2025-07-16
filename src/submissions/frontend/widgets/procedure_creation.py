@@ -80,6 +80,7 @@ class ProcedureCreation(QDialog):
                 equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
                     equipmentrole['equipment'].index(item_in_er_list)))
         proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
+        self.update_equipment = EquipmentUsage.update_equipment
         html = render_details_template(
             template_name="procedure_creation",
             # css_in=['new_context_menu'],
@@ -93,6 +94,30 @@ class ProcedureCreation(QDialog):
         with open("procedure_creation_rendered.html", "w") as f:
             f.write(html)
         self.webview.setHtml(html)
+
+    @pyqtSlot(str, str, str, str)
+    def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
+        from backend.db.models import Equipment
+        logger.debug("Updating equipment")
+        try:
+            equipment_of_interest = next(
+                (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
+        except StopIteration:
+            equipment_of_interest = None
+        equipment = Equipment.query(name=equipment)
+        if equipment_of_interest:
+            eoi = self.procedure.equipment.pop(self.procedure.equipment.index(equipment_of_interest))
+        else:
+            eoi = equipment.to_pydantic(proceduretype=self.procedure.proceduretype)
+        eoi.name = equipment.name
+        eoi.asset_number = equipment.asset_number
+        eoi.nickname = equipment.nickname
+        process = next((prcss for prcss in equipment.process if prcss.name == process))
+        eoi.process = process.to_pydantic()
+        tips = next((tps for tps in equipment.tips if tps.name == tips))
+        eoi.tips = tips.to_pydantic()
+        self.procedure.equipment.append(eoi)
+        logger.debug(f"Updated equipment: {self.procedure.equipment}")
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):

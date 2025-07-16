@@ -17,6 +17,9 @@ from pandas import ExcelFile
 from pathlib import Path
 from . import Base, BaseClass, ClientLab, LogMixin
 from io import BytesIO
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError, \
+    ArgumentError
+from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
@@ -804,6 +807,8 @@ class Reagent(BaseClass, LogMixin):
         output = super().details_dict()
         if reagentrole:
             output['reagentrole'] = reagentrole
+        else:
+            output['reagentrole'] = self.reagentrole[0].name
         return output
 
 
@@ -1358,6 +1363,8 @@ class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)
     name = Column(String, unique=True)
     repeat = Column(INTEGER, nullable=False)
+    started_date = Column(TIMESTAMP)
+    completed_date = Column(TIMESTAMP)
 
     technician = Column(String(64))  #: name of processing tech(s)
     results = relationship("Results", back_populates="procedure", uselist=True)
@@ -1510,7 +1517,8 @@ class Procedure(BaseClass):
     def details_dict(self, **kwargs):
         output = super().details_dict()
         output['kittype'] = output['kittype'].details_dict()
-        output['proceduretype'] = output['proceduretype'].details_dict()
+        output['kit_type'] = self.kittype.name
+        output['proceduretype'] = output['proceduretype'].details_dict()['name']
         output['results'] = [result.details_dict() for result in output['results']]
         run_samples = [sample for sample in self.run.sample]
         active_samples = [sample.details_dict() for sample in output['proceduresampleassociation']
@@ -1530,10 +1538,11 @@ class Procedure(BaseClass):
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
         output['tips'] = [tips.details_dict() for tips in output['proceduretipsassociation']]
         output['repeat'] = bool(output['repeat'])
-        output['excluded'] = ['id', "results", "proceduresampleassociation", "sample", "procedurereagentassociation",
+        output['run'] = self.run.name
+        output['excluded'] += ['id', "results", "proceduresampleassociation", "sample", "procedurereagentassociation",
                               "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
-                              "tips",
-                              "excluded"]
+                              "tips", "control", "kittype"]
+        # output = self.clean_details_dict(output)
         return output
 
     def to_pydantic(self, **kwargs):
@@ -1546,7 +1555,7 @@ class Procedure(BaseClass):
         for reagent in output.reagent:
             match reagent:
                 case dict():
-                    reagent['reagentrole'] = next((reagentrole.name for reagentrole in self.kittype.reagentrole if reagentrole in reagent['reagentrole']), None)
+                    reagent['reagentrole'] = next((reagentrole.name for reagentrole in self.kittype.reagentrole if reagentrole == reagent['reagentrole']), None)
                     reagents.append(PydReagent(**reagent))
                 case PydReagent():
                     reagents.append(reagent)
@@ -1942,6 +1951,7 @@ class ProcedureReagentAssociation(BaseClass):
 
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated reagent
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
+    reagentrole = Column(String(64))
     comments = Column(String(1024))  #: Comments about reagents
 
     procedure = relationship("Procedure",
@@ -1960,12 +1970,13 @@ class ProcedureReagentAssociation(BaseClass):
             logger.error(f"Reagent {self.reagent.lot} procedure association {self.reagent_id} has no procedure!")
             return f"<ProcedureReagentAssociation(Unknown Submission & {self.reagent.lot})>"
 
-    def __init__(self, reagent=None, procedure=None):
+    def __init__(self, reagent=None, procedure=None, reagentrole=""):
         if isinstance(reagent, list):
             logger.warning(f"Got list for reagent. Likely no lot was provided. Using {reagent[0]}")
             reagent = reagent[0]
         self.reagent = reagent
         self.procedure = procedure
+        self.reagentrole = reagentrole
         self.comments = ""
 
     @classmethod
@@ -1973,6 +1984,7 @@ class ProcedureReagentAssociation(BaseClass):
     def query(cls,
               procedure: Procedure | str | int | None = None,
               reagent: Reagent | str | None = None,
+              reagentrole: str | None = None,
               limit: int = 0) -> ProcedureReagentAssociation | List[ProcedureReagentAssociation]:
         """
         Lookup SubmissionReagentAssociations of interest.
@@ -2003,6 +2015,8 @@ class ProcedureReagentAssociation(BaseClass):
                 query = query.join(Procedure).filter(Procedure.id == procedure)
             case _:
                 pass
+        if reagentrole:
+            query = query.filter(cls.reagentrole==reagentrole)
         return cls.execute_query(query=query, limit=limit)
 
     def to_sub_dict(self, kittype) -> dict:
@@ -2033,6 +2047,14 @@ class ProcedureReagentAssociation(BaseClass):
         output['misc_info'] = misc
         # output['results'] = [result.details_dict() for result in output['results']]
         return output
+
+    def delete(self, **kwargs):
+        self.__database_session__.delete(self)
+        try:
+            self.__database_session__.commit()
+        except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+            self.__database_session__.rollback()
+            raise e
 
 
 class Equipment(BaseClass, LogMixin):
@@ -2547,6 +2569,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc
+        output['equipment_role'] = self.equipmentrole
         output['process'] = self.process.details_dict()
         try:
             output['tips'] = self.tips.details_dict()
@@ -2752,7 +2775,7 @@ class Process(BaseClass):
         output = {}
         for k, v in self.details_dict().items():
             if isinstance(v, list):
-                output[k] = [item.name for item in v]
+                output[k] = [item.name if issubclass(item.__class__, BaseClass) else item for item in v]
             elif issubclass(v.__class__, BaseClass):
                 output[k] = v.name
             else:

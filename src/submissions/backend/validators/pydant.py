@@ -1500,7 +1500,7 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
 
 class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     proceduretype: ProcedureType | None = Field(default=None)
-    run: Run | None = Field(default=None)
+    run: Run | str | None = Field(default=None)
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
@@ -1588,6 +1588,13 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             if roi != cls.model_fields['kittype'].default['value']:
                 kittype = KitType.query(name=roi)
                 value = {item.name: item.reagent for item in kittype.reagentrole}
+        return value
+
+    @field_validator("run")
+    @classmethod
+    def lookup_run(cls, value):
+        if isinstance(value, str):
+            value = Run.query(name=value)
         return value
 
     def update_kittype_reagentroles(self, kittype: str | KitType):
@@ -1701,13 +1708,24 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         # NOTE: reset reagent associations.
         sql.procedurereagentassociation = []
         for reagent in self.reagent:
-            logger.debug(reagent)
             if isinstance(reagent, dict):
                 reagent = PydReagent(**reagent)
+            logger.debug(reagent)
+            reagentrole = reagent.reagentrole
             reagent = reagent.to_sql()
+            logger.debug(reagentrole)
             if reagent not in sql.reagent:
+                # NOTE: Remove any previous association for this role.
+                removable = ProcedureReagentAssociation.query(procedure=sql, reagentrole=reagentrole)
+                logger.debug(f"Removable: {removable}")
+                if removable:
+                    if isinstance(removable, list):
+                        for r in removable:
+                            r.delete()
+                    else:
+                        removable.delete()
                 logger.debug(f"Adding {reagent} to {sql}")
-                reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql)
+                reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql, reagentrole=reagentrole)
         try:
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
         except ValueError:
@@ -1733,7 +1751,11 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
                 sql.kittype = kittype
-        logger.debug(self.reagent)
+        # logger.debug(self.reagent)
+        # for reagent in self.reagent:
+        #     reagent = reagent.to_sql()
+        #     if reagent not in sql.reagent:
+        #         reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql)
         for equipment in self.equipment:
             equip = Equipment.query(name=equipment.name)
             if equip not in sql.equipment:
@@ -1742,6 +1764,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 process = equipment.process.to_sql()
                 equip_assoc.process = process
         # logger.debug(f"Output sql: {[pformat(item.__dict__) for item in sql.procedureequipmentassociation]}")
+        logger.debug(pformat(sql.__dict__))
         return sql, None
 
 
@@ -1854,20 +1877,29 @@ class PydClientSubmission(PydBaseClass):
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         if not samples:
-            samples = self.samples
+            samples = self.sample
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
     def to_sql(self):
         sql = super().to_sql()
+        assert not any([isinstance(item, PydSample) for item in sql.sample])
+        sql.sample = []
         if "info_placement" not in sql._misc_info:
             sql._misc_info['info_placement'] = []
         info_placement = []
         for k in list(self.model_fields.keys()) + list(self.model_extra.keys()):
+            logger.debug(f"Running {k}")
             attribute = getattr(self, k)
             match k:
                 case "filepath":
                     sql._misc_info[k] = attribute.__str__()
                     continue
+                # case "sample":
+                #     sample = [item.to_sql() for item in self.sample]
+                #     logger.debug(sample)
+                #     for s in sample:
+                #         logger.debug(f"adding {s}")
+                #         sql.add_sample(sample=s)
                 case _:
                     pass
             logger.debug(f"Setting {k} to {attribute}")
@@ -1876,7 +1908,7 @@ class PydClientSubmission(PydBaseClass):
                     info_placement.append(dict(name=k, location=attribute['location']))
                 else:
                     info_placement.append(dict(name=k, location=None))
-        max_row = max([value['location']['row'] for value in info_placement if value])
+        # max_row = max([value['location']['row'] for value in info_placement if value])
         sql._misc_info['info_placement'] = info_placement
         return sql
 

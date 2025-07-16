@@ -63,17 +63,19 @@ class SubmissionDetails(QDialog):
         self.webview.page().setWebChannel(self.channel)
 
     def object_details(self, object):
-        details = object.details_dict()
+        details = object.clean_details_dict(object.details_dict())
         template = object.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
         key = object.__class__.__name__.lower()
         d = {key: details}
-        logger.debug(f"Using details: {d}")
-        html = template.render(**d, css=css)
+        logger.debug(f"Using details: {pformat(d)}")
+        html = template.render(**d, css=[css])
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")
+        with open(f"{object.__class__.__name__}_details_rendered.html", "w") as f:
+            f.write(html)
 
 
 
@@ -226,7 +228,7 @@ class SubmissionDetails(QDialog):
         Args:
             run (str | BasicRun): Submission of interest.
         """
-        logger.debug(f"Submission details.")
+        logger.debug(f"Run details.")
         if isinstance(run, str):
             run = Run.query(name=run)
         self.rsl_plate_number = run.rsl_plate_number
@@ -241,6 +243,7 @@ class SubmissionDetails(QDialog):
         # logger.debug(f"Base dictionary of procedure {self.name}: {pformat(self.base_dict)}")
         self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
         self.webview.setHtml(self.html)
+
 
     @pyqtSlot(str)
     def sign_off(self, run: str | Run) -> None:

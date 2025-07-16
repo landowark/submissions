@@ -288,7 +288,7 @@ class ClientSubmission(BaseClass, LogMixin):
         except AssertionError:
             logger.warning(f"Converting {sample} to sql.")
             sample = sample.to_sql()
-        logger.debug(sample.__dict__)
+        # logger.debug(sample.__dict__)
         try:
             row = sample._misc_info['row']
         except (KeyError, AttributeError):
@@ -297,8 +297,10 @@ class ClientSubmission(BaseClass, LogMixin):
             column = sample._misc_info['column']
         except KeyError:
             column = 0
-        logger.debug(f"Sample: {sample}")
+        # logger.debug(f"Sample: {sample}")
         submission_rank = sample._misc_info['submission_rank']
+        if sample in self.sample:
+            return
         assoc = ClientSubmissionSampleAssociation(
             sample=sample,
             submission=self,
@@ -362,9 +364,11 @@ class ClientSubmission(BaseClass, LogMixin):
         output['name'] = self.name
         output['client_lab'] = output['clientlab']
         output['submission_type'] = output['submissiontype']
-        output['excluded'] = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
+        output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
                               "expanded", 'clientlab', 'submissiontype', 'id']
         output['expanded'] = ["clientlab", "contact", "submissiontype"]
+        # output = self.clean_details_dict(output)
+        logger.debug(f"{self.__class__.__name__}\n\n{pformat(output)}")
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
@@ -383,14 +387,14 @@ class Run(BaseClass, LogMixin):
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="SET NULL",
                                                      name="fk_BS_clientsub_id"))  #: client lab id from _organizations)
     clientsubmission = relationship("ClientSubmission", back_populates="run")
-    started_date = Column(TIMESTAMP)  #: Date this procedure was started.
+    _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     run_cost = Column(
         FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
     signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
     comment = Column(JSON)  #: user notes
     custom = Column(JSON)
 
-    completed_date = Column(TIMESTAMP)
+    _completed_date = Column(TIMESTAMP)
 
     procedure = relationship("Procedure", back_populates="run", uselist=True)
 
@@ -428,6 +432,38 @@ class Run(BaseClass, LogMixin):
     @hybrid_property
     def plate_number(self):
         return self.rsl_plate_number
+
+    @hybrid_property
+    def started_date(self):
+        if self._started_date:
+            return self._started_date
+        else:
+            value = min([proc.started_date for proc in self.procedure])
+            return value
+
+    @started_date.setter
+    def started_date(self, value):
+        if value:
+            self._started_date = value
+        else:
+            self._started_date = min([proc.started_date for proc in self.procedure])
+
+    @hybrid_property
+    def completed_date(self):
+        if not self.signed_by:
+            return None
+        if self._completed_date:
+            return self._completed_date
+        else:
+            value = max([proc.completed_date for proc in self.procedure])
+            return value
+
+    @completed_date.setter
+    def completed_date(self, value):
+        if value:
+            self._completed_date = value
+        else:
+            self._completed_date = min([proc.started_date for proc in self.procedure])
 
     @classmethod
     def get_default_info(cls, *args, submissiontype: SubmissionType | None = None) -> dict:
@@ -635,6 +671,8 @@ class Run(BaseClass, LogMixin):
     def sample_count(self):
         return len(self.sample)
 
+
+
     def details_dict(self, **kwargs):
         output = super().details_dict()
         output['plate_number'] = self.plate_number
@@ -654,9 +692,12 @@ class Run(BaseClass, LogMixin):
         output['sample'] = active_samples + inactive_samples
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
-        output['excluded'] = ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
-                              'permission']
+        output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
+                              'permission', "clientsubmission"]
         output['sample_count'] = self.sample_count
+        output['client_submission'] = self.clientsubmission.name
+        output['started_date'] = self.started_date
+        output['completed_date'] = self.completed_date
         return output
 
     @classmethod
@@ -1715,6 +1756,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output['misc_info'] = misc
         # output['sample'] = temp
         # output.update(output['sample'].details_dict())
+
+        # sys.exit()
         return output
 
     def to_pydantic(self) -> "PydSample":
@@ -2132,6 +2175,7 @@ class RunSampleAssociation(BaseClass):
         # logger.debug(f"Output from sample: {pformat(output)}")
         output.update(relevant)
         output['misc_info'] = misc
+
         return output
 
 

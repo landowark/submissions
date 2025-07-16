@@ -342,6 +342,18 @@ class BaseClass(Base):
         Add the object to the database and commit
         """
         report = Report()
+        del_keys = []
+        try:
+            items = self._misc_info.items()
+        except AttributeError:
+            items = []
+        for key, value in items:
+            try:
+                json.dumps(value)
+            except TypeError as e:
+                del_keys.append(key)
+        for dk in del_keys:
+            del self._misc_info[dk]
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
@@ -566,7 +578,7 @@ class BaseClass(Base):
         else:
             return super().__setattr__(key, value)
 
-    def delete(self):
+    def delete(self, **kwargs):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
     def rectify_query_date(input_date: datetime, eod: bool = False) -> str:
@@ -600,6 +612,7 @@ class BaseClass(Base):
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
         output = {}
+        output['excluded'] = ["excluded", "misc_info", "_misc_info", "id"]
         for k, v in relevant.items():
             try:
                 check = v.foreign_keys
@@ -611,13 +624,54 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
+            # match value:
+            #     case datetime():
+            #         value = value.strftime("%Y-%m-%d %H:%M:%S")
+            #     case bytes():
+            #         continue
+            #     case dict():
+            #         try:
+            #             value = value['name']
+            #         except KeyError:
+            #             if k == "_misc_info":
+            #                 value = value
+            #             else:
+            #                 continue
+            #     case _:
+            #         pass
+            output[k.strip("_")] = value
+            # output = self.clean_details_dict(output)
+        return output
+
+    @classmethod
+    def clean_details_dict(cls, dictionary):
+        output = {}
+        for k, value in dictionary.items():
             match value:
-                case datetime():
-                    value = value.strftime("%Y-%m-%d %H:%M:%S")
+                case datetime() | date():
+                    value = value.strftime("%Y-%m-%d")
+                case bytes():
+                    continue
+                case dict():
+                    try:
+                        value = value['name']
+                    except KeyError:
+                        if k == "_misc_info" or k == "misc_info":
+                            value = value
+                        else:
+                            continue
+                case x if issubclass(value.__class__, cls):
+                    try:
+                        value = value.name
+                    except AttributeError:
+                        continue
                 case _:
                     pass
-            output[k.strip("_")] = value
+            output[k] = value
+
         return output
+
+
 
     def to_pydantic(self, pyd_model_name:str|None=None, **kwargs):
         from backend.validators import pydant

@@ -1,6 +1,8 @@
 """
 Contains all procedure related frontend functions
 """
+import sys
+
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
     QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
@@ -142,9 +144,9 @@ class SubmissionFormContainer(QWidget):
         # self.pydclientsubmission = self.clientsubmissionparser.to_pydantic()
         # self.pydsamples = self.sampleparser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pydclientsubmission.sample)}")
-        self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, fname=fname)
+        self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.parse()
-        checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.samples)
+        checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
         if checker.exec():
             # logger.debug(pformat(self.pydclientsubmission.sample))
             try:
@@ -189,7 +191,7 @@ class SubmissionFormContainer(QWidget):
 class SubmissionFormWidget(QWidget):
     update_reagent_fields = ['kittype']
 
-    def __init__(self, parent: QWidget, pyd: PydRun, disable: list | None = None) -> None:
+    def __init__(self, parent: QWidget, pyd: PydClientSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
         if disable is None:
             disable = []
@@ -816,8 +818,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         except AttributeError:
             pass
         # save_btn = QPushButton("Save")
-        self.samples = samples
-        logger.debug(f"Samples: {self.samples}")
+        self.sample = samples
+        logger.debug(f"Samples: {self.sample}")
         start_run_btn = QPushButton("Save")
         # self.layout.addWidget(save_btn)
         self.layout.addWidget(start_run_btn)
@@ -867,12 +869,19 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
     @report_result
     def create_new_submission(self, *args) -> Report:
         pyd = self.to_pydantic()
+        logger.debug(f"Pydantic: {pyd}")
         sql = pyd.to_sql()
-        for sample in self.samples:
+        for sample in pyd.sample:
             if isinstance(sample, PydSample):
                 sample = sample.to_sql()
+            assert not isinstance(sample, PydSample)
+            # if sample not in sql.sample:
             sql.add_sample(sample=sample)
-        logger.debug(sql.__dict__)
+        logger.debug(pformat(sql.__dict__))
+        try:
+            del sql._misc_info['sample']
+        except KeyError:
+            pass
         sql.save()
         self.app.table_widget.sub_wid.set_data()
         self.setParent(None)

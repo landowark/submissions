@@ -15,23 +15,51 @@
     <p>{% for key, value in procedure.items() if key not in procedure['excluded'] %}
         &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: {{ value }}</b><br>
     {% endfor %}</p>
+    {% if procedure['reagent'] %}
+    <button type="button"><h3><u>Reagents:</u></h3></button>
+    &nbsp;&nbsp;&nbsp;&nbsp;<table style="border: 1px solid black; width: 100%; text-align: center">
+        <tr>
+            <th style="border: 1px solid black;">Reagent Role</th>
+            <th style="border: 1px solid black;">Reagent Name</th>
+            <th style="border: 1px solid black;">Lot</th>
+            <th style="border: 1px solid black;">Expiry</th>
+        </tr>
+        {% for reg in procedure['reagent'] %}
+            {% with reagent=reg, child=True %}
+                {% include "support/reagent_list.html" %}
+            {% endwith %}
+        {% endfor %}</p>
+    </table><br/>
+    {% endif %}
+    {% if procedure['equipment'] %}
+    <button type="button"><h3><u>Equipment:</u></h3></button>
+    &nbsp;&nbsp;&nbsp;&nbsp;<table style="border: 1px solid black; width: 100%; text-align: center">
+        <tr>
+            <th style="border: 1px solid black;">Equipment Role</th>
+            <th style="border: 1px solid black;">Equipment Name</th>
+            <th style="border: 1px solid black;">Process</th>
+            <th style="border: 1px solid black;">Tips</th>
+        </tr>
+        {% for eq in procedure['equipment'] %}
+            {% with equipment=eq, child=True %}
+                {% include "support/equipment_list.html" %}
+            {% endwith %}
+        {% endfor %}
+    </table><br/>
+    {% endif %}
     {% if procedure['results'] %}
-    <button type="button" class="collapsible"><h3><u>Results:</u></h3></button>
-    <div class="nested">
+    <button type="button"><h3><u>Results:</u></h3></button>
     {% for result in procedure['results'] %}
     <p>{% for k, v in result['result'].items() %}
         <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
     {% endfor %}</p>
     {% endfor %}
-    </div>
     {% endif %}
     {% if procedure['sample'] %}
-    <button type="button" class="collapsible"><h3><u>Procedure Samples:</u></h3></button>
-    <div class="nested">
+    <button type="button"><h3><u>Procedure Samples:</u></h3></button>
     <p>{% for sample in procedure['sample'] %}
         &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
     {% endfor %}</p>
-    </div>
     {% endif %}
 
     {% endblock %}
