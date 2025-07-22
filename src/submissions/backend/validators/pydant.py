@@ -516,44 +516,6 @@ class PydRun(PydBaseClass, extra='allow'):
             value = dict(value=value, missing=True)
         return value
 
-    # @field_validator("tips", mode="before")
-    # @classmethod
-    # def expand_tips(cls, value):
-    #     if isinstance(value, dict):
-    #         value = value['value']
-    #     if isinstance(value, Generator):
-    #         return [PydTips(**tips) for tips in value]
-    #     if not value:
-    #         return []
-    #     return value
-    #
-    # @field_validator('equipment', mode='before')
-    # @classmethod
-    # def convert_equipment_dict(cls, value):
-    #     if isinstance(value, dict):
-    #         return value['value']
-    #     if isinstance(value, Generator):
-    #         return [PydEquipment(**equipment) for equipment in value]
-    #     if not value:
-    #         return []
-    #     return value
-
-    # @field_validator('comment', mode='before')
-    # @classmethod
-    # def create_comment(cls, value):
-    #     if value is None:
-    #         return ""
-    #     return value
-    #
-    # @field_validator("submitter_plate_id")
-    # @classmethod
-    # def enforce_with_uuid(cls, value):
-    #     if value['value'] in [None, "None"]:
-    #         return dict(value=uuid.uuid4().hex.upper(), missing=True)
-    #     else:
-    #         value['value'] = value['value'].strip()
-    #         return value
-
     @field_validator("run_cost")
     @classmethod
     def rescue_run_cost(cls, value):
@@ -635,36 +597,6 @@ class PydRun(PydBaseClass, extra='allow'):
         value['value'] = output.replace(tzinfo=timezone)
         return value
 
-    # @field_validator("clientlab", mode="before")
-    # @classmethod
-    # def rescue_submitting_lab(cls, value):
-    #     if value is None:
-    #         return dict(value=None, missing=True)
-    #     return value
-    #
-    # @field_validator("clientlab")
-    # @classmethod
-    # def lookup_submitting_lab(cls, value):
-    #     if isinstance(value['value'], str):
-    #         try:
-    #             value['value'] = ClientLab.query(name=value['value']).name
-    #         except AttributeError:
-    #             value['value'] = None
-    #     if value['value'] is None:
-    #         value['missing'] = True
-    #         if "pytest" in sys.modules:
-    #             value['value'] = "Nosocomial"
-    #             return value
-    #         from frontend.widgets.pop_ups import ObjectSelector
-    #         dlg = ObjectSelector(title="Missing Submitting Lab",
-    #                              message="We need a submitting lab. Please select from the list.",
-    #                              obj_type=ClientLab)
-    #         if dlg.exec():
-    #             value['value'] = dlg.parse_form()
-    #         else:
-    #             value['value'] = None
-    #     return value
-
     @field_validator("rsl_plate_number", mode='before')
     @classmethod
     def rescue_rsl_number(cls, value):
@@ -686,25 +618,7 @@ class PydRun(PydBaseClass, extra='allow'):
                 # try:
                 output = RSLNamer(filename=sub_type.filepath.__str__(), submission_type=sub_type.submissiontype,
                                   data=values.data).parsed_name
-
-
             return dict(value=output, missing=True)
-
-    # @field_validator("technician", mode="before")
-    # @classmethod
-    # def rescue_tech(cls, value):
-    #     if value is None:
-    #         return dict(value=None, missing=True)
-    #     return value
-    #
-    # @field_validator("technician")
-    # @classmethod
-    # def enforce_tech(cls, value):
-    #     if check_not_nan(value['value']):
-    #         value['value'] = re.sub(r"\: \d", "", value['value'])
-    #         return value
-    #     else:
-    #         return dict(value=convert_nans_to_nones(value['value']), missing=True)
 
     @field_validator("sample_count", mode='before')
     @classmethod
@@ -713,55 +627,6 @@ class PydRun(PydBaseClass, extra='allow'):
             return dict(value=None, missing=True)
         return value
 
-    # @field_validator("kittype", mode='before')
-    # @classmethod
-    # def rescue_kit(cls, value):
-    #     if check_not_nan(value):
-    #         if isinstance(value, str):
-    #             return dict(value=value, missing=False)
-    #         elif isinstance(value, dict):
-    #             return value
-    #     else:
-    #         raise ValueError(f"No extraction kittype found.")
-    #     if value is None:
-    #         # NOTE: Kit selection is done in the clientsubmissionparser, so should not be necessary here.
-    #         return dict(value=None, missing=True)
-    #     return value
-    #
-    # @field_validator("submissiontype", mode='before')
-    # @classmethod
-    # def make_submission_type(cls, value, values):
-    #     if not isinstance(value, dict):
-    #         value = dict(value=value)
-    #     if check_not_nan(value['value']):
-    #         value = value['value'].title()
-    #         return dict(value=value, missing=False)
-    #     else:
-    #         return dict(value=RSLNamer.retrieve_submission_type(filename=values.data['filepath']).title(), missing=True)
-    #
-    # @field_validator("submission_category", mode="before")
-    # @classmethod
-    # def create_category(cls, value):
-    #     if not isinstance(value, dict):
-    #         return dict(value=value, missing=True)
-    #     return value
-    #
-    # @field_validator("submission_category")
-    # @classmethod
-    # def rescue_category(cls, value, values):
-    #     if isinstance(value['value'], str):
-    #         value['value'] = value['value'].title()
-    #     if value['value'] not in ["Research", "Diagnostic", "Surveillance", "Validation"]:
-    #         value['value'] = values.data['proceduretype']['value']
-    #     return value
-
-    # @field_validator("reagent", mode="before")
-    # @classmethod
-    # def expand_reagents(cls, value):
-    #     if isinstance(value, Generator):
-    #         return [PydReagent(**reagent) for reagent in value]
-    #     return value
-
     @field_validator("sample", mode="before")
     @classmethod
     def expand_samples(cls, value):
@@ -769,77 +634,9 @@ class PydRun(PydBaseClass, extra='allow'):
             return [PydSample(**sample) for sample in value]
         return value
 
-    # @field_validator("sample")
-    # @classmethod
-    # def assign_ids(cls, value):
-    #     starting_id = ClientSubmissionSampleAssociation.autoincrement_id()
-    #     for iii, sample in enumerate(value, start=starting_id):
-    #         # NOTE: Why is this a list? Answer: to zip with the lists of rows and columns in case of multiple of the same sample.
-    #         sample.assoc_id = [iii]
-    #     return value
-
-    # @field_validator("cost_centre", mode="before")
-    # @classmethod
-    # def rescue_cost_centre(cls, value):
-    #     match value:
-    #         case dict():
-    #             return value
-    #         case _:
-    #             return dict(value=value, missing=True)
-    #
-    # @field_validator("cost_centre")
-    # @classmethod
-    # def get_cost_centre(cls, value, values):
-    #     match value['value']:
-    #         case None:
-    #             from backend.db.models import Organization
-    #             org = Organization.query(name=values.data['clientlab']['value'])
-    #             try:
-    #                 return dict(value=org.cost_centre, missing=True)
-    #             except AttributeError:
-    #                 return dict(value="xxx", missing=True)
-    #         case _:
-    #             return value
-    #
-    # @field_validator("contact")
-    # @classmethod
-    # def get_contact_from_org(cls, value, values):
-    #     # logger.debug(f"Value coming in: {value}")
-    #     match value:
-    #         case dict():
-    #             if isinstance(value['value'], tuple):
-    #                 value['value'] = value['value'][0]
-    #         case tuple():
-    #             value = dict(value=value[0], missing=False)
-    #         case _:
-    #             value = dict(value=value, missing=False)
-    #     # logger.debug(f"Value after match: {value}")
-    #     check = Contact.query(name=value['value'])
-    #     # logger.debug(f"Check came back with {check}")
-    #     if not isinstance(check, Contact):
-    #         org = values.data['clientlab']['value']
-    #         # logger.debug(f"Checking organization: {org}")
-    #         if isinstance(org, str):
-    #             org = ClientLab.query(name=values.data['clientlab']['value'], limit=1)
-    #         if isinstance(org, ClientLab):
-    #             contact = org.contact[0].name
-    #         else:
-    #             logger.warning(f"All attempts at defaulting Contact failed, returning: {value}")
-    #             return value
-    #         if isinstance(contact, tuple):
-    #             contact = contact[0]
-    #         value = dict(value=f"Defaulted to: {contact}", missing=False)
-    #         # logger.debug(f"Value after query: {value}")
-    #         return value
-    #     else:
-    #         # logger.debug(f"Value after bypass check: {value}")
-    #         return value
-
     def __init__(self, run_custom: bool = False, **data):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
-        # self.submission_object = Run.find_polymorphic_subclass(
-        #     polymorphic_identity=self.submission_type['value'])
         submission_type = self.clientsubmission.submissiontype
         # logger.debug(submission_type)
         self.namer = RSLNamer(self.rsl_plate_number['value'], submission_type=submission_type)
@@ -1504,6 +1301,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
+    repeat_of: str | None = Field(default=None)
     kittype: dict = Field(default=dict(value="NA", missing=True))
     possible_kits: list | None = Field(default=[], validate_default=True)
     plate_map: str | None = Field(default=None)
@@ -1516,6 +1314,8 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     @field_validator("name", "technician", "kittype", mode="before")
     @classmethod
     def convert_to_dict(cls, value):
+        if not value:
+            value = "NA"
         if isinstance(value, str):
             value = dict(value=value, missing=False)
         return value
@@ -1595,6 +1395,13 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     def lookup_run(cls, value):
         if isinstance(value, str):
             value = Run.query(name=value)
+        return value
+
+    @field_validator("repeat_of")
+    @classmethod
+    def drop_empty_string(cls, value):
+        if value == "":
+            value = None
         return value
 
     def update_kittype_reagentroles(self, kittype: str | KitType):
@@ -1687,14 +1494,21 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         reg = reagent.to_sql()
         reg.save()
 
-    def to_sql(self):
+    def to_sql(self, new: bool=False):
         from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
-        # results = []
-        # for result in self.results:
-        #     result, _ = result.to_sql()
-        sql = super().to_sql()
-        # logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
+        if new:
+            sql = Procedure()
+        else:
+            sql = super().to_sql()
+        logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
         # sql.results = [result.to_sql() for result in self.results]
+        sql.repeat = self.repeat
+        if sql.repeat:
+            regex = re.compile(r".*\dR\d$")
+            repeats = [item for item in self.run.procedure if self.repeat_of in item.name and bool(regex.match(item.name))]
+            sql.name = f"{self.repeat_of}R{str(len(repeats)+1)}"
+        sql.repeat_of = self.repeat_of
+        sql.started_date = datetime.now()
         if self.run:
             sql.run = self.run
         if self.proceduretype:
@@ -1710,13 +1524,16 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         for reagent in self.reagent:
             if isinstance(reagent, dict):
                 reagent = PydReagent(**reagent)
-            logger.debug(reagent)
+            # logger.debug(reagent)
             reagentrole = reagent.reagentrole
             reagent = reagent.to_sql()
-            logger.debug(reagentrole)
+            # logger.debug(reagentrole)
             if reagent not in sql.reagent:
                 # NOTE: Remove any previous association for this role.
-                removable = ProcedureReagentAssociation.query(procedure=sql, reagentrole=reagentrole)
+                if sql.id:
+                    removable = ProcedureReagentAssociation.query(procedure=sql, reagentrole=reagentrole)
+                else:
+                    removable = []
                 logger.debug(f"Removable: {removable}")
                 if removable:
                     if isinstance(removable, list):
@@ -1724,7 +1541,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                             r.delete()
                     else:
                         removable.delete()
-                logger.debug(f"Adding {reagent} to {sql}")
+                # logger.debug(f"Adding {reagent} to {sql}")
                 reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql, reagentrole=reagentrole)
         try:
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
@@ -1732,9 +1549,9 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             start_index = 1
         relevant_samples = [sample for sample in self.sample if
                             not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
-        logger.debug(f"start index: {start_index}")
+        # logger.debug(f"start index: {start_index}")
         assoc_id_range = range(start_index, start_index + len(relevant_samples) + 1)
-        logger.debug(f"Association id range: {assoc_id_range}")
+        # logger.debug(f"Association id range: {assoc_id_range}")
         for iii, sample in enumerate(relevant_samples):
             sample_sql = sample.to_sql()
             if sql.run:
@@ -1751,11 +1568,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
                 sql.kittype = kittype
-        # logger.debug(self.reagent)
-        # for reagent in self.reagent:
-        #     reagent = reagent.to_sql()
-        #     if reagent not in sql.reagent:
-        #         reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql)
         for equipment in self.equipment:
             equip = Equipment.query(name=equipment.name)
             if equip not in sql.equipment:
@@ -1859,7 +1671,7 @@ class PydClientSubmission(PydBaseClass):
         if not value['value'] in ["Research", "Diagnostic", "Surveillance", "Validation"]:
             try:
                 value['value'] = values.data['submissiontype']['value']
-            except AttributeError:
+            except (AttributeError, KeyError):
                 value['value'] = "NA"
         return value
 
@@ -1938,7 +1750,7 @@ class PydClientSubmission(PydBaseClass):
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
     results: dict = Field(default={})
-    results_type: str = Field(default="NA")
+    result_type: str = Field(default="NA")
     img: None | bytes = Field(default=None)
     parent: Procedure | ProcedureSampleAssociation | None = Field(default=None)
     date_analyzed: datetime | None = Field(default=None)
@@ -1956,7 +1768,7 @@ class PydResults(PydBaseClass, arbitrary_types_allowed=True):
         return value
 
     def to_sql(self):
-        sql, _ = Results.query_or_create(results_type=self.results_type, result=self.results)
+        sql, _ = Results.query_or_create(result_type=self.result_type, result=self.results)
         try:
             check = sql.image
         except FileNotFoundError:

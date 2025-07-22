@@ -21,6 +21,24 @@ for(let i = 0; i < formtexts.length; i++) {
   })
 };
 
+var repeat_box = document.getElementById("repeat");
+
+repeat_box.addEventListener("input", function() {
+    backend.check_toggle("repeat", repeat_box.checked)
+    var repeat_str = document.getElementById("repeat_of");
+    if (repeat_box.checked) {
+        repeat_str.classList.remove("hidden_input");
+    } else {
+        repeat_str.classList.add("hidden_input");
+    }
+})
+
+var repeat_of = document.getElementById("repeat_of");
+
+repeat_of.addEventListener("change", function() {
+    backend.text_changed("repeat_of", repeat_of.value)
+})
+
 var changed_it = new Event('change');
 
 var reagentRoles = document.getElementsByClassName("reagentrole");

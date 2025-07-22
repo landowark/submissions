@@ -550,6 +550,21 @@ def copy_cells(source_sheet, target_sheet):
             if not isinstance(source_cell, openpyxl.cell.ReadOnlyCell) and source_cell.comment:
                 target_cell.comment = copy(source_cell.comment)
 
+
+def list_str_comparator(input_str:str, listy: List[str], mode: Literal["starts_with", "contains"]) -> bool:
+    match mode:
+        case "starts_with":
+            if any([input_str.startswith(item) for item in listy]):
+                return True
+            else:
+                return False
+        case "contains":
+            if any([item in input_str for item in listy]):
+                return True
+            else:
+                return False
+
+
 def setup_lookup(func):
     """
     Checks to make sure all args are allowed

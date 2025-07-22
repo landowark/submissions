@@ -1,0 +1,10 @@
+<tr>
+    <td style="border: 1px solid black;">{{ equipment['equipmentrole'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['name'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['process']['name'] }}</td>
+    {% if equipment['tips'] %}
+        <td style="border: 1px solid black;">{{ equipment['tips']['name'] }}</td>
+    {% else %}
+        <td style="border: 1px solid black;"></td>
+    {% endif %}
+</tr>

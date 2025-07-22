@@ -1,6 +1,5 @@
 {% extends "details.html" %}
 {% if not child %}
-
 <head>
     {% block head %}
     {{ super() }}
@@ -17,7 +16,7 @@
     {% endfor %}</p>
     {% if procedure['reagent'] %}
     <button type="button"><h3><u>Reagents:</u></h3></button>
-    &nbsp;&nbsp;&nbsp;&nbsp;<table style="border: 1px solid black; width: 100%; text-align: center">
+    <table style="border: 1px solid black; width: 100%; text-align: center">
         <tr>
             <th style="border: 1px solid black;">Reagent Role</th>
             <th style="border: 1px solid black;">Reagent Name</th>
@@ -28,12 +27,12 @@
             {% with reagent=reg, child=True %}
                 {% include "support/reagent_list.html" %}
             {% endwith %}
-        {% endfor %}</p>
+        {% endfor %}
     </table><br/>
     {% endif %}
     {% if procedure['equipment'] %}
     <button type="button"><h3><u>Equipment:</u></h3></button>
-    &nbsp;&nbsp;&nbsp;&nbsp;<table style="border: 1px solid black; width: 100%; text-align: center">
+    <table style="border: 1px solid black; width: 100%; text-align: center">
         <tr>
             <th style="border: 1px solid black;">Equipment Role</th>
             <th style="border: 1px solid black;">Equipment Name</th>
@@ -61,6 +60,7 @@
         &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
     {% endfor %}</p>
     {% endif %}
-
     {% endblock %}
+{% if not child %}
 </body>
+{% endif %}

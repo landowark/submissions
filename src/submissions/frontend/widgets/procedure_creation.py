@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import sys, logging
 from pathlib import Path
 from pprint import pformat
@@ -81,6 +82,8 @@ class ProcedureCreation(QDialog):
                     equipmentrole['equipment'].index(item_in_er_list)))
         proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         self.update_equipment = EquipmentUsage.update_equipment
+        regex = re.compile(r".*R\d$")
+        proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
         html = render_details_template(
             template_name="procedure_creation",
             # css_in=['new_context_menu'],
@@ -91,8 +94,8 @@ class ProcedureCreation(QDialog):
             plate_map=self.plate_map,
             edit=self.edit
         )
-        with open("procedure_creation_rendered.html", "w") as f:
-            f.write(html)
+        # with open("procedure_creation_rendered.html", "w") as f:
+        #     f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
@@ -127,11 +130,18 @@ class ProcedureCreation(QDialog):
                 setattr(self.procedure.run, key, new_value)
             case _:
                 attribute = getattr(self.procedure, key)
-                attribute['value'] = new_value.strip('\"')
+                match attribute:
+                    case dict():
+                        attribute['value'] = new_value.strip('\"')
+                    case _:
+                        setattr(self.procedure, key, new_value.strip('\"'))
+        logger.debug(f"Set value for {key}: {getattr(self.procedure, key)}")
+
+
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
-        # logger.debug(f"{key} is checked: {ischecked}")
+        logger.debug(f"{key} is checked: {ischecked}")
         setattr(self.procedure, key, ischecked)
 
     @pyqtSlot(str)
@@ -159,7 +169,7 @@ class ProcedureCreation(QDialog):
         self.set_html()
 
     @pyqtSlot(str, str)
-    def update_reagent(self, reagentrole:str, name_lot_expiry:str):
+    def update_reagent(self, reagentrole: str, name_lot_expiry: str):
         try:
             name, lot, expiry = name_lot_expiry.split(" - ")
         except ValueError as e:
@@ -167,8 +177,8 @@ class ProcedureCreation(QDialog):
             return
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
 
-    def return_sql(self):
-        return self.procedure.to_sql()
+    def return_sql(self, new: bool = False):
+        return self.procedure.to_sql(new=new)
 
 # class ProcedureWebViewer(QWebEngineView):
 #

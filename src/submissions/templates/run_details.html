@@ -1,4 +1,5 @@
 {% extends "details.html" %}
+{% if not child %}
 
 <head>
     {% block head %}
@@ -7,7 +8,7 @@
     {% endblock %}
 </head>
 <body>
-
+{% endif %}
     {% block body %}
     <h2><u>Run Details for {{ run['rsl_plate_number'] }}</u></h2>
     {{ super() }}
@@ -22,11 +23,13 @@
     {% endif %}
     {% if run['procedure'] %}
     <button type="button"><h3><u>Procedures:</u></h3></button>
+    <div class="nested">
     {% for procedure in run['procedure'] %}
     {% with procedure=procedure, child=True %}
         {% include "procedure_details.html" %}
     {% endwith %}
     {% endfor %}
+    </div>
     {% endif %}
     {% endblock %}
     {% block signing_button %}
@@ -34,7 +37,9 @@
     {% endblock %}
     <br>
 
+{% if not child %}
 </body>
+{% endif %}
 
     {% block script %}
     {{ super() }}

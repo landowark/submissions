@@ -150,9 +150,15 @@ ul.no-bullets {
 .nested {
   margin-left: 50px;
   padding: 0 18px;
-  display: none;
   overflow: hidden;
   background-color: #f1f1f1;
+  .nested {
+        background-color: #ffffff;
+  }
+}
+
+.hidden_input {
+    display: none;
 }
 
 /* Style the button that is used to open and close the collapsible content */

@@ -8,7 +8,7 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
 from backend.db.models import Run, Sample, Reagent, KitType, Equipment, Process, Tips
-from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent
+from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent, list_str_comparator
 from .functions import select_save_file, save_pdf
 from pathlib import Path
 import logging
@@ -50,14 +50,6 @@ class SubmissionDetails(QDialog):
         # NOTE: setup channel
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
-        # match sub:
-        #     case Run():
-        #         self.run_details(run=sub)
-        #         self.rsl_plate_number = sub.rsl_plate_number
-        #     case Sample():
-        #         self.sample_details(sample=sub)
-        #     case Reagent():
-        #         self.reagent_details(reagent=sub)
         # NOTE: Used to maintain javascript functions.
         self.object_details(object=sub)
         self.webview.page().setWebChannel(self.channel)
@@ -75,8 +67,8 @@ class SubmissionDetails(QDialog):
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")
         with open(f"{object.__class__.__name__}_details_rendered.html", "w") as f:
-            f.write(html)
-
+            # f.write(html)
+            pass
 
 
     def activate_export(self) -> None:
@@ -88,11 +80,11 @@ class SubmissionDetails(QDialog):
         """
         title = self.webview.title()
         self.setWindowTitle(title)
-        if "Submission" in title:
+        if list_str_comparator(title, ['ClientSubmission', "Run", "Procedure"], mode="starts_with"):
             self.btn.setEnabled(True)
-            self.export_plate = title.split(" ")[-1]
         else:
             self.btn.setEnabled(False)
+        self.export_plate = title
         try:
             check = self.webview.history().items()[0].title()
         except IndexError as e:

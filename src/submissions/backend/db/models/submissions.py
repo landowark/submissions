@@ -671,24 +671,18 @@ class Run(BaseClass, LogMixin):
     def sample_count(self):
         return len(self.sample)
 
-
-
     def details_dict(self, **kwargs):
         output = super().details_dict()
         output['plate_number'] = self.plate_number
         submission_samples = [sample for sample in self.clientsubmission.sample]
-        # logger.debug(f"Submission samples:{pformat(submission_samples)}")
         active_samples = [sample.details_dict() for sample in output['runsampleassociation']
                           if sample.sample.sample_id in [s.sample_id for s in submission_samples]]
-        # logger.debug(f"Active samples:{pformat(active_samples)}")
         for sample in active_samples:
             sample['active'] = True
         inactive_samples = [sample.details_dict() for sample in submission_samples if
                             sample.name not in [s['sample_id'] for s in active_samples]]
-        # logger.debug(f"Inactive samples:{pformat(inactive_samples)}")
         for sample in inactive_samples:
             sample['active'] = False
-        # output['sample'] = [sample.details_dict() for sample in output['runsampleassociation']]
         output['sample'] = active_samples + inactive_samples
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
@@ -983,7 +977,7 @@ class Run(BaseClass, LogMixin):
                     new_dict['name'] = field_value
                 case "id":
                     continue
-                case "clientsubmission":
+                case "clientsubmission" | "client_submission":
                     field_value = self.clientsubmission.to_pydantic()
                 case "procedure":
                     field_value = [item.to_pydantic() for item in self.procedure]
@@ -1243,8 +1237,20 @@ class Run(BaseClass, LogMixin):
         logger.debug(f"Got ProcedureType: {procedure_type}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
-            sql, _ = dlg.return_sql()
-            logger.debug(f"Output run samples:\n{pformat(sql.run.sample)}")
+            sql, _ = dlg.return_sql(new=True)
+            # logger.debug(f"Output run samples:\n{pformat(sql.run.sample)}")
+            # previous = [proc for proc in self.procedure if proc.proceduretype == procedure_type]
+            # repeats = len([proc for proc in previous if proc.repeat])
+            # if sql.repeat:
+            #     repeats += 1
+            #     if repeats > 0:
+            #         suffix = f"-{str(len(previous))}R{repeats}"
+            #     else:
+            #         suffix = f"-{str(len(previous)+1)}"
+            #     sql.name = f"{sql.repeat}{suffix}"
+            # else:
+            #     suffix = f"-{str(len(previous)+1)}"
+            #     sql.name = f"{self.name}-{proceduretype_name}{suffix}"
             sql.save()
         obj.set_data()
 

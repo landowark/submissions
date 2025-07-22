@@ -1363,6 +1363,7 @@ class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)
     name = Column(String, unique=True)
     repeat = Column(INTEGER, nullable=False)
+    repeat_of = Column(String)
     started_date = Column(TIMESTAMP)
     completed_date = Column(TIMESTAMP)
 
@@ -1416,6 +1417,8 @@ class Procedure(BaseClass):
     tips = association_proxy("proceduretipsassociation",
                              "tips")
 
+
+
     @validates('repeat')
     def validate_repeat(self, key, value):
         if value > 1:
@@ -1461,9 +1464,16 @@ class Procedure(BaseClass):
 
     def add_results(self, obj, resultstype_name: str):
         logger.debug(f"Add Results! {resultstype_name}")
-        from ...managers import results
-        results_class = getattr(results, resultstype_name)
-        rs = results_class(procedure=self, parent=obj)
+        from backend.managers import results
+        results_manager = getattr(results, f"{resultstype_name}Manager")
+        rs = results_manager(procedure=self, parent=obj)
+        procedure = rs.procedure_to_pydantic()
+        samples = rs.samples_to_pydantic()
+        procedure_sql = procedure.to_sql()
+        procedure_sql.save()
+        for sample in samples:
+            sample_sql = sample.to_sql()
+            sample_sql.save()
 
     def add_equipment(self, obj):
         """
@@ -1549,7 +1559,14 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydResults, PydReagent
         output = super().to_pydantic()
         logger.debug(f"Pydantic output: \n\n{pformat(output.__dict__)}\n\n")
-        output.kittype = dict(value=output.kittype['name'], missing=False)
+        try:
+            output.kittype = dict(value=output.kittype['name'], missing=False)
+        except KeyError:
+            try:
+                output.kittype = dict(value=output.kittype['value'], missing=False)
+            except KeyError as e:
+                logger.error(f"Output.kittype: {output.kittype}")
+                raise e
         output.sample = [item.to_pydantic() for item in output.proceduresampleassociation]
         reagents = []
         for reagent in output.reagent:
@@ -1577,6 +1594,10 @@ class Procedure(BaseClass):
         # for sample in output.sample:
         #     sample.enabled = True
         return output
+
+    def create_proceduresampleassociations(self, sample):
+        from backend.db.models import ProcedureSampleAssociation
+        return ProcedureSampleAssociation(procedure=self, sample=sample)
 
 
 class ProcedureTypeKitTypeAssociation(BaseClass):
@@ -1967,7 +1988,10 @@ class ProcedureReagentAssociation(BaseClass):
         try:
             return f"<ProcedureReagentAssociation({self.procedure.procedure.rsl_plate_number} & {self.reagent.lot})>"
         except AttributeError:
-            logger.error(f"Reagent {self.reagent.lot} procedure association {self.reagent_id} has no procedure!")
+            try:
+                logger.error(f"Reagent {self.reagent.lot} procedure association {self.reagent_id} has no procedure!")
+            except AttributeError:
+                return "<ProcedureReagentAssociation(Unknown Submission & Unknown Reagent)>"
             return f"<ProcedureReagentAssociation(Unknown Submission & {self.reagent.lot})>"
 
     def __init__(self, reagent=None, procedure=None, reagentrole=""):
@@ -3093,12 +3117,12 @@ class Results(BaseClass):
     _img = Column(String(128))
 
     @property
-    def image(self) -> bytes:
+    def image(self) -> bytes|None:
         dir = self.__directory_path__.joinpath("submission_imgs.zip")
         try:
             assert dir.exists()
         except AssertionError:
-            raise FileNotFoundError(f"{dir} not found.")
+            return None
         logger.debug(f"Getting image from {self.__directory_path__}")
         with zipfile.ZipFile(dir) as zf:
             with zf.open(self._img) as f:

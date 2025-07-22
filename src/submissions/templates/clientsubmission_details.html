@@ -11,27 +11,24 @@
     <h2><u>Submission Details for {{ clientsubmission['name'] }}</u></h2>
     {{ super() }}
     <p>{% for key, value in clientsubmission.items() if key not in clientsubmission['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Id", "ID") }}: </b>{% if key=='cost' %}{% if clientsubmission['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Id", "ID") }}:</b> {% if key=='cost' %}{% if clientsubmission['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br/>
     {% endfor %}
     </p>
-
     {% if clientsubmission['sample'] %}
     <button type="button"><h3><u>Client Submitted Samples:</u></h3></button>
-<!--    <div class="nested">-->
     <p>{% for sample in clientsubmission['sample'] %}
         &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id'] }}</a><br>
     {% endfor %}</p>
-<!--    </div>-->
     {% endif %}
     {% if clientsubmission['run'] %}
     <button type="button"><h3><u>Runs:</u></h3></button>
-<!--    <div class="nested">-->
+    <div class="nested">
     {% for run in clientsubmission['run'] %}
         {% with run=run, child=True %}
             {% include "run_details.html" %}
         {% endwith %}
     {% endfor %}
-<!--    </div>-->
+    </div>
     {% endif %}
     {% endblock %}
 </body>

@@ -23,7 +23,12 @@
                   <label for="technician">Technician:</label><br>
                   <input type="text" class="form_text full" id="technician" name="technician" width="100%" value="{{ procedure['technician']['value'] }}" background-color="{{ procedure['technician']['colour'] }}"><br><br>
                   <label for="repeat">Repeat:</label>
-                  <input type="checkbox" class="form_check" id="repeat" name="repeat" value="{{ procedure['repeat'] }}"><br><br>
+                  <input type="checkbox" id="repeat" name="repeat" value="{{ procedure['repeat'] }}"><br>
+                  <select class="dropdown hidden_input" id="repeat_of">
+                    {% for previous in proceduretype['previous'] %}
+                      <option value="{{ previous }}">{{ previous }}</option>
+                    {% endfor %}
+                  </select><br><br>
                   <label>Kit Type:</label><br>
                   <select class="dropdown" id="kittype" background-colour="{{ procedure['kittype']['colour'] }}">
                       {% for kittype in procedure['possible_kits'] %}
