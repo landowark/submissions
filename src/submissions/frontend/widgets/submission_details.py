@@ -26,9 +26,9 @@ class SubmissionDetails(QDialog):
     a window showing text details of procedure
     """
 
-    def __init__(self, parent, sub: Run | Sample | Reagent) -> None:
+    def __init__(self, parent, sub: Run | Sample | Reagent, **kwargs) -> None:
 
-        super().__init__(parent)
+        super().__init__(parent, **kwargs)
         self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
         self.webview.setMinimumSize(900, 500)

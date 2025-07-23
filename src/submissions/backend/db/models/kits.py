@@ -1558,7 +1558,7 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydResults, PydReagent
         output = super().to_pydantic()
-        logger.debug(f"Pydantic output: \n\n{pformat(output.__dict__)}\n\n")
+        print(f"Pydantic output: \n\n{pformat(output.__dict__)}\n\n")
         try:
             output.kittype = dict(value=output.kittype['name'], missing=False)
         except KeyError:
@@ -1580,17 +1580,18 @@ class Procedure(BaseClass):
                     pass
         # output.reagent = [PydReagent(**item) for item in output.reagent]
         output.reagent = reagents
-
-        results = []
-        for result in output.results:
-            match result:
-                case dict():
-                    results.append(PydResults(**result))
-                case PydResults():
-                    results.append(result)
-                case _:
-                    pass
-        output.results = results
+        # results = []
+        # for result in output.results:
+        #     match result:
+        #         case dict():
+        #             results.append(PydResults(**result))
+        #         case PydResults():
+        #             results.append(result)
+        #         case _:
+        #             pass
+        # output.results = results
+        output.result = [item.to_pydantic() for item in self.results]
+        output.sample_results = flatten_list([[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
         # for sample in output.sample:
         #     sample.enabled = True
         return output
@@ -3117,6 +3118,13 @@ class Results(BaseClass):
     _img = Column(String(128))
 
     @property
+    def sample_id(self):
+        if self.assoc_id:
+            return self.sampleprocedureassociation.sample.sample_id
+        else:
+            return None
+
+    @property
     def image(self) -> bytes|None:
         dir = self.__directory_path__.joinpath("submission_imgs.zip")
         try:
@@ -3131,3 +3139,10 @@ class Results(BaseClass):
     @image.setter
     def image(self, value):
         self._img = value
+
+    def to_pydantic(self, pyd_model_name:str|None=None, **kwargs):
+        output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
+        if self.sample_id:
+            output.sample_id = self.sample_id
+        return output
+

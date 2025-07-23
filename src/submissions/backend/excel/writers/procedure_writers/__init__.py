@@ -80,9 +80,9 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
                             list_worksheet[rng['header_row']] if item.value]
             samples = self.pad_samples_to_length(row_count=row_count, column_names=column_names)
             # samples = self.pydant_obj
-            logger.debug(f"Samples: {[item.submission_rank for item in samples]}")
+            # logger.debug(f"Samples: {[item.submission_rank for item in samples]}")
             for sample in samples:
-                logger.debug(f"Writing sample: {sample}")
+                # logger.debug(f"Writing sample: {sample}")
                 write_row = rng['header_row'] + sample.submission_rank
                 for column in column_names:
                     if column[0].lower() in ["well"]:#, "row", "column"]:
@@ -92,6 +92,6 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
                         value = getattr(sample, column[0])
                     except KeyError:
                         value = ""
-                    logger.debug(f"{column} Writing {value} to row {write_row}, column {write_column}")
+                    # logger.debug(f"{column} Writing {value} to row {write_row}, column {write_column}")
                     list_worksheet.cell(row=write_row, column=write_column, value=value)
         return workbook

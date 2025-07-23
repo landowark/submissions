@@ -75,6 +75,7 @@ class PCRSampleParser(DefaultTABLEParser):
             if assoc and not isinstance(assoc, list):
                 output = self._pyd_object(results=list(item.values())[0], parent=assoc)
                 output.result_type = "PCR"
+                del output.result['result_type']
                 yield output
             else:
                 continue

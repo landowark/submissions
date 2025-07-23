@@ -1,15 +1,16 @@
 from __future__ import annotations
 import logging
 from io import BytesIO
+from pprint import pformat
 
 from openpyxl.reader.excel import load_workbook
 from openpyxl.workbook import Workbook
 
-from backend.managers import DefaultManager
+from backend.managers import DefaultManager, results
 from typing import TYPE_CHECKING
 from pathlib import Path
 from backend.excel.parsers import procedure_parsers
-from backend.excel.writers import procedure_writers
+from backend.excel.writers import procedure_writers, results_writers
 if TYPE_CHECKING:
     from backend.db.models import ProcedureType
 
@@ -81,5 +82,15 @@ class DefaultProcedureManager(DefaultManager):
             sample_writer = procedure_writers.ProcedureSampleWriter
         self.sample_writer = sample_writer(pydant_obj=self.pyd, range_dict=self.proceduretype.sample_map)
         workbook = self.sample_writer.write_to_workbook(workbook)
+        logger.debug(self.pyd.result)
+        # TODO: Find way to group results by result_type.
+        for result in self.pyd.result:
+            Writer = getattr(results_writers, f"{result.result_type}InfoWriter")
+            res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
+            workbook = res_info_writer.write_to_workbook(workbook=workbook)
+        # sample_results = [sample.result for sample in self.pyd.sample]
+        logger.debug(pformat(self.pyd.sample_results))
+        Writer = getattr(results_writers, "PCRSampleWriter")
+        res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
+        workbook = res_sample_writer.write_to_workbook(workbook=workbook)
         return workbook
-

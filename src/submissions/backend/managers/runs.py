@@ -1,6 +1,8 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
+from pprint import pformat
+
 from openpyxl import load_workbook
 from openpyxl.workbook.workbook import Workbook
 from tools import copy_xl_sheet
@@ -18,8 +20,8 @@ class DefaultRunManager(DefaultManager):
         clientsubmission = DefaultClientSubmissionManager(parent=self.parent, input_object=self.pyd.clientsubmission, submissiontype=self.pyd.clientsubmission.submissiontype)
         workbook = clientsubmission.write()
         for procedure in self.pyd.procedure:
-            logger.debug(f"Running procedure: {procedure}")
-            procedure = DefaultProcedureManager(proceduretype=procedure.proceduretype.name, parent=self.parent, input_object=procedure)
+            logger.debug(f"Running procedure: {pformat(procedure.__dict__)}")
+            procedure = DefaultProcedureManager(proceduretype=procedure.proceduretype, parent=self.parent, input_object=procedure)
             wb: Workbook = procedure.write()
             for sheetname in wb.sheetnames:
                 source_sheet = wb[sheetname]

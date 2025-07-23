@@ -424,7 +424,7 @@ class SubmissionsTree(QTreeView):
         # Run.query(id=id).show_details(self)
         obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
         logger.debug(obj)
-        obj.show_details(obj)
+        obj.show_details(self)
 
     def link_extractions(self):
         pass

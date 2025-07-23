@@ -1309,7 +1309,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     reagentrole: dict | None = Field(default={}, validate_default=True)
     sample: List[PydSample] = Field(default=[])
     equipment: List[PydEquipment] = Field(default=[])
-    results: List[PydResults] | List[dict] = Field(default=[])
+    result: List[PydResults] | List[dict] = Field(default=[])
 
     @field_validator("name", "technician", "kittype", mode="before")
     @classmethod
@@ -1749,7 +1749,7 @@ class PydClientSubmission(PydBaseClass):
 
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
-    results: dict = Field(default={})
+    result: dict = Field(default={})
     result_type: str = Field(default="NA")
     img: None | bytes = Field(default=None)
     parent: Procedure | ProcedureSampleAssociation | None = Field(default=None)

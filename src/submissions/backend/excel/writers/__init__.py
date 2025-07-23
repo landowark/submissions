@@ -10,7 +10,7 @@ from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
 
-from backend.db.models import BaseClass
+from backend.db.models import BaseClass, ProcedureType
 from backend.validators.pydant import PydBaseClass
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -21,10 +21,10 @@ class DefaultWriter(object):
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.filepath.stem}>"
 
-    def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
+    def __init__(self, pydant_obj, proceduretype: ProcedureType|None=None, range_dict: dict | None = None, *args, **kwargs):
         # self.filepath = output_filepath
         self.pydant_obj = pydant_obj
-        self.fill_dictionary = pydant_obj.improved_dict()
+        self.proceduretype = proceduretype
         if range_dict:
             self.range_dict = range_dict
         else:
@@ -71,6 +71,10 @@ class DefaultKEYVALUEWriter(DefaultWriter):
         sheet="Sample List"
     )]
 
+    def __init__(self, pydant_obj, proceduretype: ProcedureType|None=None, range_dict: dict | None = None, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, range_dict=range_dict, *args, **kwargs)
+        self.fill_dictionary = self.pydant_obj.improved_dict()
+
     @classmethod
     def check_location(cls, locations: list, sheet: str):
         return any([item['sheet'] == sheet for item in locations])
@@ -82,21 +86,6 @@ class DefaultKEYVALUEWriter(DefaultWriter):
             worksheet = workbook[rng['sheet']]
             try:
                 for ii, (k, v) in enumerate(self.fill_dictionary.items(), start=rng['start_row']):
-                    # match v:
-                    #     case x if issubclass(v.__class__, BaseClass):
-                    #         v = v.name
-                    #     case x if issubclass(v.__class__, PydBaseClass):
-                    #         v = v.name
-                    #     case dict():
-                    #         try:
-                    #             v = v['value']
-                    #         except ValueError:
-                    #             try:
-                    #                 v = v['name']
-                    #             except ValueError:
-                    #                 v = v.__str__()
-                    #     case _:
-                    #         pass
                     try:
                         worksheet.cell(column=rng['key_column'], row=rows[ii], value=self.prettify_key(k))
                         worksheet.cell(column=rng['value_column'], row=rows[ii], value=self.stringify_value(v))
@@ -127,7 +116,7 @@ class DefaultTABLEWriter(DefaultWriter):
         from backend import PydSample
         output_samples = []
         for iii in range(1, row_count + 1):
-            logger.debug(f"Submission rank: {iii}")
+            # logger.debug(f"Submission rank: {iii}")
             if isinstance(self.pydant_obj, list):
                 iterator = self.pydant_obj
             else:
@@ -139,8 +128,8 @@ class DefaultTABLEWriter(DefaultWriter):
                 for column in column_names:
                     setattr(sample, column[0], "")
                 sample.submission_rank = iii
-            logger.debug(f"Appending {sample.sample_id}")
-            logger.debug(f"Iterator now: {[item.submission_rank for item in iterator]}")
+            # logger.debug(f"Appending {sample.sample_id}")
+            # logger.debug(f"Iterator now: {[item.submission_rank for item in iterator]}")
             output_samples.append(sample)
         return sorted(output_samples, key=lambda x: x.submission_rank)
 
