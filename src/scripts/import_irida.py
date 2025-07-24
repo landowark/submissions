@@ -1,4 +1,5 @@
 import logging, sqlite3, json
+import sys
 from pprint import pformat, pprint
 from datetime import datetime
 from tools import Settings
@@ -35,7 +36,10 @@ def import_irida(ctx: Settings):
         dict(name=row[0], submitted_date=row[1], submission_id=row[2], contains=row[3], matches=row[4], kraken=row[5],
              subtype=row[6], refseq_version=row[7], kraken2_version=row[8], kraken2_db_version=row[9],
              sample_id=row[10]) for row in cursor]
+    instances = []
     for record in records:
+        if record['name'] in [i.name for i in instances]:
+            continue
         instance = new_session.query(IridaControl).filter(IridaControl.name == record['name']).first()
         if instance:
             logger.warning(f"Irida Control {instance.name} already exists, skipping.")
@@ -57,7 +61,10 @@ def import_irida(ctx: Settings):
             except IndexError:
                 logger.error(f"Could not get sample for {sample}")
                 instance.submission = None
-            # instance.submission = sample.submission[0]
+            instance.submission = sample.submissions[0]
+        if instance.name not in [i.name for i in instances]:
+            instances.append(instance)
+    for instance in instances:
         new_session.add(instance)
     new_session.commit()
     new_session.close()
