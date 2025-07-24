@@ -128,6 +128,7 @@ class DefaultTABLEWriter(DefaultWriter):
                 for column in column_names:
                     setattr(sample, column[0], "")
                 sample.submission_rank = iii
+                sample.plate_rank = iii
             # logger.debug(f"Appending {sample.sample_id}")
             # logger.debug(f"Iterator now: {[item.submission_rank for item in iterator]}")
             output_samples.append(sample)
@@ -137,7 +138,7 @@ class DefaultTABLEWriter(DefaultWriter):
         workbook = super().write_to_workbook(workbook=workbook)
         for rng in self.range_dict:
             list_worksheet = workbook[rng['sheet']]
-            column_names = [(item.value.lower().replace(" ", "_"), item.column) for item in list_worksheet[rng['header_row']] if item.value]
+            column_names = [(str(item.value).lower().replace(" ", "_"), item.column) for item in list_worksheet[rng['header_row']] if item.value]
             for iii, object in enumerate(self.pydant_obj, start=1):
                 # logger.debug(f"Writing object: {object}")
                 write_row = rng['header_row'] + iii
@@ -155,6 +156,16 @@ class DefaultTABLEWriter(DefaultWriter):
                     # logger.debug(f"{column} Writing {value} to row {write_row}, column {write_column}")
                     list_worksheet.cell(row=write_row, column=write_column, value=self.stringify_value(value))
         return workbook
+
+    @classmethod
+    def construct_column_names(cls, column_item):
+        column = column_item.column
+        match column_item.value:
+            case str():
+                value = column_item.value.lower().replace(" ", "_")
+            case _:
+                value = column_item.value
+        return value, column
 
 
 from .clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter

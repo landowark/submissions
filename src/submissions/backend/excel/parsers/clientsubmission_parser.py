@@ -78,7 +78,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
 
     default_range_dict = [dict(
         start_row=2,
-        end_row=18,
+        end_row=16,
         key_column=1,
         value_column=2,
         sheet="Sample List"
@@ -117,8 +117,8 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     pyd_name = "PydSample"
 
     default_range_dict = [dict(
-        header_row=19,
-        end_row=115,
+        header_row=18,
+        end_row=114,
         sheet="Sample List"
     )]
 

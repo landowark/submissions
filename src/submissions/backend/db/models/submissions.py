@@ -438,7 +438,10 @@ class Run(BaseClass, LogMixin):
         if self._started_date:
             return self._started_date
         else:
-            value = min([proc.started_date for proc in self.procedure])
+            try:
+                value = min([proc.started_date for proc in self.procedure])
+            except ValueError:
+                value = datetime.now()
             return value
 
     @started_date.setter
@@ -2191,6 +2194,7 @@ class ProcedureSampleAssociation(BaseClass):
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
     row = Column(INTEGER)
     column = Column(INTEGER)
+    plate_rank = Column(INTEGER)
 
     procedure = relationship(Procedure,
                              back_populates="proceduresampleassociation")  #: associated procedure

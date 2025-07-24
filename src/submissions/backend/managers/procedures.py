@@ -82,14 +82,14 @@ class DefaultProcedureManager(DefaultManager):
             sample_writer = procedure_writers.ProcedureSampleWriter
         self.sample_writer = sample_writer(pydant_obj=self.pyd, range_dict=self.proceduretype.sample_map)
         workbook = self.sample_writer.write_to_workbook(workbook)
-        logger.debug(self.pyd.result)
+        # logger.debug(self.pyd.result)
         # TODO: Find way to group results by result_type.
         for result in self.pyd.result:
             Writer = getattr(results_writers, f"{result.result_type}InfoWriter")
             res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
             workbook = res_info_writer.write_to_workbook(workbook=workbook)
         # sample_results = [sample.result for sample in self.pyd.sample]
-        logger.debug(pformat(self.pyd.sample_results))
+        # logger.debug(pformat(self.pyd.sample_results))
         Writer = getattr(results_writers, "PCRSampleWriter")
         res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
         workbook = res_sample_writer.write_to_workbook(workbook=workbook)

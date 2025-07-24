@@ -644,7 +644,7 @@ class BaseClass(Base):
         return output
 
     @classmethod
-    def clean_details_dict(cls, dictionary):
+    def clean_details_for_render(cls, dictionary):
         output = {}
         for k, value in dictionary.items():
             match value:
@@ -668,7 +668,6 @@ class BaseClass(Base):
                 case _:
                     pass
             output[k] = value
-
         return output
 
 

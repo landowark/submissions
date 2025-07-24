@@ -1449,7 +1449,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 
     def update_samples(self, sample_list: List[dict]):
         logger.debug(f"Incoming sample_list:\n{pformat(sample_list)}")
-        for sample_dict in sample_list:
+        for iii, sample_dict in enumerate(sample_list, start=1):
             if sample_dict['sample_id'].startswith("blank_"):
                 sample_dict['sample_id'] = ""
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
@@ -1467,11 +1467,12 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 except StopIteration:
                     logger.error(f"Couldn't find sample: {pformat(sample_dict)}")
                     continue
-            logger.debug(f"Sample of interest: {sample.improved_dict()}")
             sample.sample_id = sample_dict['sample_id']
             sample.well_id = sample_dict['sample_id']
             sample.row = row
             sample.column = column
+            sample.plate_rank = sample_dict['index']
+            logger.debug(f"Sample of interest: {sample.improved_dict()}")
         # logger.debug(f"Updated samples:\n{pformat(self.sample)}")
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str):
@@ -1502,6 +1503,14 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sql = super().to_sql()
         logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
         # sql.results = [result.to_sql() for result in self.results]
+        if isinstance(self.name, dict):
+            sql.name = self.name['value']
+        else:
+            sql.name = self.name
+        if isinstance(self.technician, dict):
+            sql.technician = self.technician['value']
+        else:
+            sql.technician = self.technician
         sql.repeat = self.repeat
         if sql.repeat:
             regex = re.compile(r".*\dR\d$")
@@ -1563,7 +1572,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
             if sample_sql not in sql.sample:
                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
-                                                        row=sample.row, column=sample.column)
+                                                        row=sample.row, column=sample.column, plate_rank=sample.plate_rank)
         if self.kittype['value'] not in ["NA", None, ""]:
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
@@ -1675,6 +1684,13 @@ class PydClientSubmission(PydBaseClass):
                 value['value'] = "NA"
         return value
 
+    @field_validator("comment", mode="before")
+    @classmethod
+    def convert_comment_string(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value, missing=True)
+        return value
+
     def to_form(self, parent: QWidget, samples: List = [], disable: list | None = None):
         """
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
@@ -1763,6 +1779,8 @@ class PydResults(PydBaseClass, arbitrary_types_allowed=True):
                 value = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
             case datetime():
                 pass
+            case date():
+                value = datetime.combine(value, datetime.max.time())
             case _:
                 value = datetime.now()
         return value

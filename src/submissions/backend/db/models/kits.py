@@ -1572,7 +1572,7 @@ class Procedure(BaseClass):
         for reagent in output.reagent:
             match reagent:
                 case dict():
-                    reagent['reagentrole'] = next((reagentrole.name for reagentrole in self.kittype.reagentrole if reagentrole == reagent['reagentrole']), None)
+                    # reagent['reagentrole'] = next((reagentrole.name for reagentrole in self.kittype.reagentrole if reagentrole == reagent['reagentrole']), None)
                     reagents.append(PydReagent(**reagent))
                 case PydReagent():
                     reagents.append(reagent)
@@ -2067,10 +2067,12 @@ class ProcedureReagentAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['reagent']}
         output = output['reagent'].details_dict()
+
         misc = output['misc_info']
         output.update(relevant)
+        output['reagentrole'] = self.reagentrole
         output['misc_info'] = misc
-        # output['results'] = [result.details_dict() for result in output['results']]
+        logger.debug(f"Output: {pformat(output)}")
         return output
 
     def delete(self, **kwargs):

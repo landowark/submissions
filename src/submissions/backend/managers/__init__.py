@@ -24,10 +24,10 @@ class DefaultManager(object):
                 self.input_object = input_object
                 self.pyd = self.parse()
             case x if issubclass(input_object.__class__, PydBaseClass):
-                logger.debug("Subclass of PydBaseClass")
+                # logger.debug("Subclass of PydBaseClass")
                 self.pyd = input_object
             case x if issubclass(input_object.__class__, BaseClass):
-                logger.debug("Subclass of BaseClass")
+                # logger.debug("Subclass of BaseClass")
                 self.pyd = input_object.to_pydantic()
             case _:
                 self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))

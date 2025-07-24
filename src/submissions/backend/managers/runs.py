@@ -20,7 +20,7 @@ class DefaultRunManager(DefaultManager):
         clientsubmission = DefaultClientSubmissionManager(parent=self.parent, input_object=self.pyd.clientsubmission, submissiontype=self.pyd.clientsubmission.submissiontype)
         workbook = clientsubmission.write()
         for procedure in self.pyd.procedure:
-            logger.debug(f"Running procedure: {pformat(procedure.__dict__)}")
+            # logger.debug(f"Running procedure: {pformat(procedure.__dict__)}")
             procedure = DefaultProcedureManager(proceduretype=procedure.proceduretype, parent=self.parent, input_object=procedure)
             wb: Workbook = procedure.write()
             for sheetname in wb.sheetnames:

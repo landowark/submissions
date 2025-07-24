@@ -47,15 +47,18 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook)
+        # logger.debug(f"\n\nHello from {self.__class__.__name__} with range_dict: {pformat(self.range_dict)}")
         for rng in self.range_dict:
             list_worksheet = workbook[rng['sheet']]
             row_count = self.get_row_count(list_worksheet, rng)
-            column_names = [(item.value.lower().replace(" ", "_"), item.column) for item in list_worksheet[rng['header_row']] if item.value]
+            column_names = [(str(item.value).lower().replace(" ", "_"), item.column) for item in list_worksheet[rng['header_row']] if item.value]
             samples = self.pad_samples_to_length(row_count=row_count, column_names=column_names)
+            # logger.debug(f"Samples: {pformat(samples)}")
             for sample in samples:
-                # logger.debug(f"Writing sample: {sample}")
                 write_row = rng['header_row'] + sample.submission_rank
+                # logger.debug(f"Writing sample: {sample} to row {write_row}")
                 for column in column_names:
+                    # logger.debug(f"At column {column}")
                     if column[0].lower() in ["well", "row", "column"]:
                         continue
                     write_column = column[1]

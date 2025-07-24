@@ -23,7 +23,7 @@ class PCRInfoWriter(DefaultKEYVALUEWriter):
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         worksheet = workbook[f"{self.proceduretype.name} Results"]
         for key, value in self.fill_dictionary['result'].items():
-            logger.debug(f"Filling in {key} with {value}")
+            # logger.debug(f"Filling in {key} with {value}")
             worksheet.cell(value['location']['row'], value['location']['key_column'], value=key.replace("_", " ").title())
             worksheet.cell(value['location']['row'], value['location']['value_column'], value=value['value'])
         return workbook
@@ -41,7 +41,7 @@ class PCRSampleWriter(DefaultTABLEWriter):
             columns.append((iii, header))
         columns = sorted(columns, key=lambda x: x[0])
         columns = proto_columns + columns
-        logger.debug(columns)
+        # logger.debug(columns)
         all_results = flatten_list([[item for item in self.rearrange_results(result)] for result in self.pydant_obj])
         if len(all_results) > 0 :
             worksheet.cell(row=header_row, column=1, value="Sample")
@@ -58,6 +58,8 @@ class PCRSampleWriter(DefaultTABLEWriter):
     @classmethod
     def rearrange_results(cls, result) -> Generator[dict, None, None]:
         for target, values in result.result.items():
+            if not isinstance(values, dict):
+                continue
             values['target'] = target
             values['sample'] = result.sample_id
             yield values
@@ -66,9 +68,12 @@ class PCRSampleWriter(DefaultTABLEWriter):
     def column_headers(self):
         output = []
         for item in self.pydant_obj:
-            logger.debug(item)
+            # logger.debug(item)
             dicto: dict = item.result
             for value in dicto.values():
+                if not isinstance(value, dict):
+                    # logger.debug(f"Will not include {value} in column headers.")
+                    continue
                 for key in value.keys():
                     output.append(key)
         return sorted(list(set(output)))

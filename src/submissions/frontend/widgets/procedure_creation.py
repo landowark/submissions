@@ -15,7 +15,7 @@ from PyQt6.QtGui import QContextMenuEvent, QAction
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu, QDialogButtonBox
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, List
 
 if TYPE_CHECKING:
     from backend.db.models import Run, Procedure
@@ -36,9 +36,12 @@ class ProcedureCreation(QDialog):
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
         # self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
         self.procedure.update_kittype_reagentroles(kittype=self.procedure.possible_kits[0])
+
         # self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
         # logger.debug(f"Samples to map\n{pformat(self.created_procedure.samples)}")
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
+        self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
+                                                   enumerate(self.procedure.sample, start=1)])
         # logger.debug(f"Plate map: {self.plate_map}")
         # logger.debug(f"Created dummy: {self.created_procedure}")
         self.app = get_application_from_parent(parent)
@@ -63,6 +66,7 @@ class ProcedureCreation(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
+
 
     def set_html(self):
         from .equipment_usage_2 import EquipmentUsage
@@ -151,7 +155,7 @@ class ProcedureCreation(QDialog):
         self.set_html()
 
     @pyqtSlot(list)
-    def rearrange_plate(self, sample_list: list):
+    def rearrange_plate(self, sample_list: List[dict]):
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)

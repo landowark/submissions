@@ -49,8 +49,8 @@
     {% if procedure['results'] %}
     <button type="button"><h3><u>Results:</u></h3></button>
     {% for result in procedure['results'] %}
-    <p>{% for k, v in result['result'].items() %}
-        <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
+    <p>{% for key, value in result['result'].items() %}
+        <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value['value'] }}<br>
     {% endfor %}</p>
     {% endfor %}
     {% endif %}

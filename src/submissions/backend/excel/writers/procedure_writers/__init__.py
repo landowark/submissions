@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging
+import sys
 from pprint import pformat
 
 from openpyxl.workbook import Workbook
@@ -24,7 +25,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
                    'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent', 'reagentrole',
                    'results', 'sample', 'tips']
         self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in exclude}
-        logger.debug(pformat(self.fill_dictionary))
+        # logger.debug(pformat(self.fill_dictionary))
         for rng in self.range_dict:
             if "sheet" not in rng or rng['sheet'] == "":
                 rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
@@ -79,11 +80,14 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
             column_names = [(item.value.lower().replace(" ", "_"), item.column) for item in
                             list_worksheet[rng['header_row']] if item.value]
             samples = self.pad_samples_to_length(row_count=row_count, column_names=column_names)
+            samples = sorted(samples, key=lambda x: x.plate_rank)
             # samples = self.pydant_obj
             # logger.debug(f"Samples: {[item.submission_rank for item in samples]}")
             for sample in samples:
                 # logger.debug(f"Writing sample: {sample}")
-                write_row = rng['header_row'] + sample.submission_rank
+                if sample.row == 0 or sample.column == 0:
+                    continue
+                write_row = rng['header_row'] + sample.plate_rank
                 for column in column_names:
                     if column[0].lower() in ["well"]:#, "row", "column"]:
                         continue

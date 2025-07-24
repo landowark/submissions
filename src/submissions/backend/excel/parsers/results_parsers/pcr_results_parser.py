@@ -61,7 +61,7 @@ class PCRSampleParser(DefaultTABLEParser):
             yield {sample: multi}
 
     def to_pydantic(self):
-        logger.debug(f"running to pydantic")
+        logger.debug("running to pydantic")
         for item in self.parsed_info:
             # sample_obj = Sample.query(sample_id=list(item.keys())[0])
             # NOTE: Ensure that only samples associated with the procedure are used.
@@ -70,12 +70,15 @@ class PCRSampleParser(DefaultTABLEParser):
                     (sample for sample in self.procedure.sample if sample.sample_id == list(item.keys())[0]))
             except StopIteration:
                 continue
-            logger.debug(f"Sample object {sample_obj}")
+            # logger.debug(f"Sample object {sample_obj}")
             assoc = ProcedureSampleAssociation.query(sample=sample_obj, procedure=self.procedure)
             if assoc and not isinstance(assoc, list):
                 output = self._pyd_object(results=list(item.values())[0], parent=assoc)
                 output.result_type = "PCR"
-                del output.result['result_type']
+                try:
+                    del output.result['result_type']
+                except KeyError:
+                    pass
                 yield output
             else:
                 continue

@@ -55,7 +55,7 @@ class SubmissionDetails(QDialog):
         self.webview.page().setWebChannel(self.channel)
 
     def object_details(self, object):
-        details = object.clean_details_dict(object.details_dict())
+        details = object.clean_details_for_render(object.details_dict())
         template = object.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
