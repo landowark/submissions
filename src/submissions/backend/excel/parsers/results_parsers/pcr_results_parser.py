@@ -29,7 +29,7 @@ class PCRInfoParser(DefaultKEYVALUEParser):
 
     def to_pydantic(self):
         # from backend.db.models import Procedure
-        data = dict(results={key: value for key, value in self.parsed_info}, filepath=self.filepath,
+        data = dict(results={k:v for k, v in self.parsed_info}, filepath=self.filepath,
                     result_type="PCR")
         return self._pyd_object(**data, parent=self.procedure)
 

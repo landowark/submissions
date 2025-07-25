@@ -1558,7 +1558,7 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydResults, PydReagent
         output = super().to_pydantic()
-        print(f"Pydantic output: \n\n{pformat(output.__dict__)}\n\n")
+        logger.debug(f"Pydantic output: \n\n{pformat(output.__dict__)}\n\n")
         try:
             output.kittype = dict(value=output.kittype['name'], missing=False)
         except KeyError:

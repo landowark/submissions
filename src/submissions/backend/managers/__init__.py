@@ -19,10 +19,10 @@ class DefaultManager(object):
         match input_object:
             case str():
                 self.input_object = Path(input_object)
-                self.pyd = self.parse()
+                self.pyd = self.to_pydantic()
             case Path():
                 self.input_object = input_object
-                self.pyd = self.parse()
+                self.pyd = self.to_pydantic()
             case x if issubclass(input_object.__class__, PydBaseClass):
                 # logger.debug("Subclass of PydBaseClass")
                 self.pyd = input_object
@@ -31,7 +31,7 @@ class DefaultManager(object):
                 self.pyd = input_object.to_pydantic()
             case _:
                 self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
-                self.pyd = self.parse()
+                self.pyd = self.to_pydantic()
         # logger.debug(f"FName after correction: {input_object}")
 
 

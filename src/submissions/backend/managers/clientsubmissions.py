@@ -39,16 +39,19 @@ class DefaultClientSubmissionManager(DefaultManager):
         self.submissiontype = submissiontype
         super().__init__(parent=parent, input_object=input_object)
 
-    def parse(self):
+    def to_pydantic(self):
         self.info_parser = ClientSubmissionInfoParser(filepath=self.input_object, submissiontype=self.submissiontype)
         self.sample_parser = ClientSubmissionSampleParser(filepath=self.input_object,
                                                           submissiontype=self.submissiontype)
-        self.to_pydantic()
+        logger.debug(f"Info Parser range dict: {self.info_parser.range_dict}")
+        self.clientsubmission = self.info_parser.to_pydantic()
+
+        self.clientsubmission.sample = self.sample_parser.to_pydantic()
         return self.clientsubmission
 
-    def to_pydantic(self):
-        self.clientsubmission = self.info_parser.to_pydantic()
-        self.clientsubmission.sample = self.sample_parser.to_pydantic()
+    # def to_pydantic(self):
+    #     self.clientsubmission = self.info_parser.to_pydantic()
+    #     self.clientsubmission.sample = self.sample_parser.to_pydantic()
 
     def write(self):
         workbook: Workbook = load_workbook(BytesIO(self.submissiontype.template_file))

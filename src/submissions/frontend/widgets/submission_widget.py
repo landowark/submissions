@@ -145,7 +145,7 @@ class SubmissionFormContainer(QWidget):
         # self.pydsamples = self.sampleparser.to_pydantic()
         # logger.debug(f"Samples: {pformat(self.pydclientsubmission.sample)}")
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
-        self.pydclientsubmission = self.clientsubmission_manager.parse()
+        self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
         if checker.exec():
             # logger.debug(pformat(self.pydclientsubmission.sample))

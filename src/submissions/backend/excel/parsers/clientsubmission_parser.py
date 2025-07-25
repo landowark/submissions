@@ -50,7 +50,7 @@ class SubmissionTyperMixin(object):
     def get_subtype_from_preparse(cls, filepath: Path):
         from backend.db.models import SubmissionType
         parser = ClientSubmissionInfoParser(filepath)
-        sub_type = next((value for k, value in parser.parsed_info if k == "submissiontype"), None)
+        sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype"), None)
         sub_type = SubmissionType.query(name=sub_type)
         if isinstance(sub_type, list):
             sub_type = None
@@ -91,9 +91,9 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
             self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         else:
             self.submissiontype = submissiontype
-        if "range_dict" not in kwargs:
-            kwargs['range_dict'] = self.submissiontype.info_map
-        super().__init__(filepath=filepath, **kwargs)
+        # if "range_dict" not in kwargs:
+        #     kwargs['range_dict'] = self.submissiontype.info_map
+        super().__init__(filepath=filepath, range_dict=[dict(sheet="Client Info")], **kwargs)
         allowed_procedure_types = [item.name for item in self.submissiontype.proceduretype]
         for name in allowed_procedure_types:
             if name in self.workbook.sheetnames:
@@ -107,6 +107,18 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
                         manager = procedure_managers.DefaultManager
                     self.manager = manager(proceduretype=name)
                 pass
+
+    @property
+    def parsed_info(self):
+        output = {k:v for k, v in super().parsed_info}
+        try:
+            output['clientlab'] = output['client_lab']
+        except KeyError:
+            pass
+        logger.debug(f"Data: {output}")
+        output['submissiontype'] = self.submissiontype.name
+        return output
+
 
 
 class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
@@ -135,7 +147,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     def parsed_info(self) -> Generator[dict, None, None]:
         output = super().parsed_info
         for ii, sample in enumerate(output):
-            # logger.debug(f"Parsed info sample: {sample}")
+            logger.debug(f"Parsed info sample: {sample}")
             if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
                 try:
                     sample["row"] = row_keys[sample["row"]]
@@ -145,4 +157,5 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
             yield sample
 
     def to_pydantic(self):
+        logger.debug(f"Attempting to pydantify: {self._pyd_object}")
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample['sample_id']]

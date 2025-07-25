@@ -1604,6 +1604,20 @@ class PydClientSubmission(PydBaseClass):
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     sample: List[PydSample] | None = Field(default=[])
 
+    # @field_validator("submissiontype", mode="before")
+    # @classmethod
+    # def enforce_submissiontype(cls, value):
+    #     if isinstance(value, str):
+    #         value = dict(value=value, missing=False)
+    #     return value
+
+    @field_validator("submissiontype", "clientlab", "contact", mode="before")
+    @classmethod
+    def enforce_value(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value, missing=False)
+        return value
+
     @field_validator("submitted_date", mode="before")
     @classmethod
     def enforce_submitted_date(cls, value):
@@ -1659,6 +1673,8 @@ class PydClientSubmission(PydBaseClass):
     @field_validator("submitted_date")
     @classmethod
     def rescue_date(cls, value):
+        if not value:
+            value = dict(value=None)
         try:
             check = value['value'] is None
         except TypeError:
