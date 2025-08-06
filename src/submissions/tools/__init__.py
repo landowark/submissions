@@ -4,6 +4,7 @@ Contains miscellaenous functions used by both frontend and backend.
 from __future__ import annotations
 import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd
 import itertools
+from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from threading import Thread
@@ -467,7 +468,6 @@ def render_details_template(template_name:str, css_in:List[str]|str=[], js_in:Li
     return template.render(css=css_out, js=js_out, **kwargs)
 
 
-
 def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     """
     Converts typical alphanumeric (i.e. "A2") to row, column
@@ -563,6 +563,19 @@ def list_str_comparator(input_str:str, listy: List[str], mode: Literal["starts_w
                 return True
             else:
                 return False
+
+def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:
+    output = OrderedDict()
+    for item in order_list:
+        try:
+            output[item] = dictionary[item]
+        except KeyError:
+            continue
+    for k, v in dictionary.items():
+        if k in output:
+            continue
+        output[k] = v
+    return output
 
 
 def setup_lookup(func):

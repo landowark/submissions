@@ -14,7 +14,6 @@ class DefaultManager(object):
 
     def __init__(self, parent, input_object: Path | str | None = None):
         logger.debug(f"FName before correction: {type(input_object)}")
-        # if input_object != "no_file":
         self.parent = parent
         match input_object:
             case str():

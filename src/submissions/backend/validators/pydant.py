@@ -2,21 +2,19 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
-import uuid, re, logging, csv, sys, string
-from pydantic import BaseModel, field_validator, Field, model_validator, PrivateAttr
+import re, logging, csv, sys, string
+from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser import ParserError
 from typing import List, Tuple, Literal
 from types import GeneratorType
-
-import backend
 from . import RSLNamer
 from pathlib import Path
-from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone
+from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone, sort_dict_by_list
 from backend.db import models
 from backend.db.models import *
-from sqlalchemy.exc import StatementError, IntegrityError
+from sqlalchemy.exc import StatementError
 from sqlalchemy.orm.properties import ColumnProperty
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -26,9 +24,9 @@ logger = logging.getLogger(f"submission.{__name__}")
 
 
 class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
-    _sql_object: ClassVar = None
 
-    # _misc_info: dict|None = None
+    _sql_object: ClassVar = None
+    key_value_order: ClassVar = []
 
     @model_validator(mode="before")
     @classmethod
@@ -37,7 +35,8 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         output = {}
         try:
             items = data.items()
-        except AttributeError:
+        except AttributeError as e:
+            logger.error(f"Could not prevalidate {cls.__name__} due to {e}")
             return data
         for key, value in items:
             new_key = key.replace("_", "")
@@ -69,10 +68,6 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     def __init__(self, **data):
         # NOTE: Grab the sql model for validation purposes.
         self.__class__._sql_object = getattr(models, self.__class__.__name__.replace("Pyd", ""))
-        # try:
-        #     self.template_file = self.__class__._sql_object.template_file
-        # except AttributeError:
-        #     pass
         super().__init__(**data)
 
     def filter_field(self, key: str) -> Any:
@@ -111,13 +106,11 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
             output = {k: getattr(self, k) for k in fields}
         else:
             output = {k: self.filter_field(k) for k in fields}
-        if hasattr(self, "misc_info") and "info_placement" in self.misc_info:
-            for k, v in output.items():
-                try:
-                    output[k]['location'] = [item['location'] for item in self.misc_info['info_placement'] if
-                                             item['name'] == k]
-                except (TypeError, KeyError):
-                    continue
+        if "misc_info" in output.keys():
+            for k, v in output['misc_info'].items():
+                if k not in output.keys():
+                    output[k] = v
+            del output['misc_info']
         return output
 
     def to_sql(self):
@@ -128,6 +121,19 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         if new:
             logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
         return sql
+
+    @property
+    def fields(self):
+        output = []
+        for k, v in self.improved_dict().items():
+            match v:
+                case str() | int() | float() | datetime() | date():
+                    output.append(k)
+                case x if issubclass(v.__class__, PydBaseClass):
+                    output.append(k)
+                case _:
+                    continue
+        return list(set(output))
 
 
 class PydReagent(PydBaseClass):
@@ -496,7 +502,7 @@ class PydEquipment(PydBaseClass):
         return {k: getattr(self, k) for k in fields}
 
 
-class PydRun(PydBaseClass, extra='allow'):
+class PydRun(PydBaseClass):  #, extra='allow'):
 
     clientsubmission: PydClientSubmission | None = Field(default=None)
     rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
@@ -1154,65 +1160,6 @@ class PydEquipmentRole(BaseModel):
         return RoleComboBox(parent=parent, role=self, used=used)
 
 
-# class PydPCRControl(BaseModel):
-#
-#     name: str
-#     subtype: str
-#     target: str
-#     ct: float
-#     reagent_lot: str
-#     submitted_date: datetime  #: Date submitted to Robotics
-#     procedure_id: int
-#     controltype_name: str
-#
-#     @report_result
-#     def to_sql(self):
-#         report = Report
-#         instance = PCRControl.query(name=self.name)
-#         if not instance:
-#             instance = PCRControl()
-#         for key in self.model_fields:
-#             field_value = self.__getattribute__(key)
-#             if instance.__getattribute__(key) != field_value:
-#                 instance.__setattr__(key, field_value)
-#         return instance, report
-#
-#
-# class PydIridaControl(BaseModel, extra='ignore'):
-#
-#     name: str
-#     contains: list | dict  #: unstructured hashes in contains.tsv for each organism
-#     matches: list | dict  #: unstructured hashes in matches.tsv for each organism
-#     kraken: list | dict  #: unstructured output from kraken_report
-#     subtype: Literal["ATCC49226", "ATCC49619", "EN-NOS", "EN-SSTI", "MCS-NOS", "MCS-SSTI", "SN-NOS", "SN-SSTI"]
-#     refseq_version: str  #: version of refseq used in fastq parsing
-#     kraken2_version: str
-#     kraken2_db_version: str
-#     sample_id: int
-#     submitted_date: datetime  #: Date submitted to Robotics
-#     procedure_id: int
-#     controltype_name: str
-#
-#     @field_validator("refseq_version", "kraken2_version", "kraken2_db_version", mode='before')
-#     @classmethod
-#     def enforce_string(cls, value):
-#         if not value:
-#             value = ""
-#         return value
-#
-#     @report_result
-#     def to_sql(self):
-#         report = Report()
-#         instance = IridaControl.query(name=self.name)
-#         if not instance:
-#             instance = IridaControl()
-#         for key in self.model_fields:
-#             field_value = self.__getattribute__(key)
-#             if instance.__getattribute__(key) != field_value:
-#                 instance.__setattr__(key, field_value)
-#         return instance, report
-
-
 class PydProcess(PydBaseClass, extra="allow"):
     name: str
     version: str = Field(default="1")
@@ -1404,6 +1351,27 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             value = None
         return value
 
+    @property
+    def rows_columns_count(self) -> tuple[int, int]:
+        try:
+            proc: ProcedureType = Procedure.query(name=self.name).proceduretype
+        except AttributeError as e:
+            logger.error(f"Can't get rows, columns due to {e}")
+            return 0, 0
+        return proc.plate_rows, proc.plate_columns
+
+    @property
+    def max_sample_rank(self) -> int:
+        rows, columns = self.rows_columns_count
+        output = rows * columns
+        if output > 0:
+            return output
+        else:
+            try:
+                return max([item.procedure_rank for item in self.sample])
+            except TypeError:
+                return len(self.sample)
+
     def update_kittype_reagentroles(self, kittype: str | KitType):
         if kittype == self.__class__.model_fields['kittype'].default['value']:
             return
@@ -1471,7 +1439,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sample.well_id = sample_dict['sample_id']
             sample.row = row
             sample.column = column
-            sample.plate_rank = sample_dict['index']
+            sample.procedure_rank = sample_dict['index']
             logger.debug(f"Sample of interest: {sample.improved_dict()}")
         # logger.debug(f"Updated samples:\n{pformat(self.sample)}")
 
@@ -1495,7 +1463,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         reg = reagent.to_sql()
         reg.save()
 
-    def to_sql(self, new: bool=False):
+    def to_sql(self, new: bool = False):
         from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
         if new:
             sql = Procedure()
@@ -1514,8 +1482,9 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         sql.repeat = self.repeat
         if sql.repeat:
             regex = re.compile(r".*\dR\d$")
-            repeats = [item for item in self.run.procedure if self.repeat_of in item.name and bool(regex.match(item.name))]
-            sql.name = f"{self.repeat_of}R{str(len(repeats)+1)}"
+            repeats = [item for item in self.run.procedure if
+                       self.repeat_of in item.name and bool(regex.match(item.name))]
+            sql.name = f"{self.repeat_of}R{str(len(repeats) + 1)}"
         sql.repeat_of = self.repeat_of
         sql.started_date = datetime.now()
         if self.run:
@@ -1572,7 +1541,8 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
             if sample_sql not in sql.sample:
                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
-                                                        row=sample.row, column=sample.column, plate_rank=sample.plate_rank)
+                                                        row=sample.row, column=sample.column,
+                                                        procedure_rank=sample.procedure_rank)
         if self.kittype['value'] not in ["NA", None, ""]:
             kittype = KitType.query(name=self.kittype['value'], limit=1)
             if kittype:
@@ -1592,11 +1562,22 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 class PydClientSubmission(PydBaseClass):
     # sql_object: ClassVar = ClientSubmission
 
+    key_value_order = ["submitter_plate_id",
+                       "submitted_date",
+                       "client_lab",
+                       "contact",
+                       "contact_email",
+                       "cost_centre",
+                       "submission_type",
+                       "sample_count",
+                       "submission_category"]
+
     filepath: Path | None = Field(default=None)
     submissiontype: dict | None
     submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     clientlab: dict | None
     sample_count: dict | None
+    full_batch_size: int | dict = Field(default=0)
     submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
@@ -1707,6 +1688,14 @@ class PydClientSubmission(PydBaseClass):
             value = dict(value=value, missing=True)
         return value
 
+    @field_validator("full_batch_size")
+    @classmethod
+    def dict_to_int(cls, value):
+        if isinstance(value, dict):
+            value = value['value']
+        value = int(value)
+        return value
+
     def to_form(self, parent: QWidget, samples: List = [], disable: list | None = None):
         """
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
@@ -1721,6 +1710,7 @@ class PydClientSubmission(PydBaseClass):
         """
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         if not samples:
+            # samples = [sample for sample in self.sample if sample.sample_id.lower() not in ["", "blank"]]
             samples = self.sample
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
@@ -1728,9 +1718,18 @@ class PydClientSubmission(PydBaseClass):
         sql = super().to_sql()
         assert not any([isinstance(item, PydSample) for item in sql.sample])
         sql.sample = []
-        if "info_placement" not in sql._misc_info:
-            sql._misc_info['info_placement'] = []
-        info_placement = []
+        # if "info_placement" not in sql._misc_info:
+        #     sql._misc_info['info_placement'] = []
+        # info_placement = []
+        logger.debug(f"PYD Submission type: {self.submissiontype}")
+        logger.debug(f"SQL Submission Type: {sql.submissiontype}")
+        if not sql.submissiontype:
+            sql.submissiontype = SubmissionType.query(name=self.submissiontype['value'])
+        match sql.submissiontype:
+            case SubmissionType():
+                pass
+            case _:
+                sql.submissiontype = SubmissionType.query(name="Test")
         for k in list(self.model_fields.keys()) + list(self.model_extra.keys()):
             logger.debug(f"Running {k}")
             attribute = getattr(self, k)
@@ -1738,41 +1737,52 @@ class PydClientSubmission(PydBaseClass):
                 case "filepath":
                     sql._misc_info[k] = attribute.__str__()
                     continue
-                # case "sample":
-                #     sample = [item.to_sql() for item in self.sample]
-                #     logger.debug(sample)
-                #     for s in sample:
-                #         logger.debug(f"adding {s}")
-                #         sql.add_sample(sample=s)
                 case _:
                     pass
-            logger.debug(f"Setting {k} to {attribute}")
-            if isinstance(attribute, dict):
-                if "location" in attribute:
-                    info_placement.append(dict(name=k, location=attribute['location']))
-                else:
-                    info_placement.append(dict(name=k, location=None))
-        # max_row = max([value['location']['row'] for value in info_placement if value])
-        sql._misc_info['info_placement'] = info_placement
+            # logger.debug(f"Setting {k} to {attribute}")
+        #     if isinstance(attribute, dict):
+        #         if "location" in attribute:
+        #             info_placement.append(dict(name=k, location=attribute['location']))
+        #         else:
+        #             info_placement.append(dict(name=k, location=None))
+        # # max_row = max([value['location']['row'] for value in info_placement if value])
+        # sql._misc_info['info_placement'] = info_placement
         return sql
 
-    def pad_samples_to_length(self, row_count, column_names):
-        output_samples = []
-        for iii in range(1, row_count + 1):
-            try:
-                sample = next((item for item in self.samples if item.submission_rank == iii))
-            except StopIteration:
-                sample = PydSample(sample_id="")
-                for column in column_names:
-                    setattr(sample, column[0], "")
-                sample.submission_rank = iii
-            output_samples.append(sample)
-        return sorted(output_samples, key=lambda x: x.submission_rank)
+    @property
+    def max_sample_rank(self) -> int:
+        output = self.full_batch_size
+        if output > 0:
+            return output
+        else:
+            return max([item.submission_rank for item in self.sample])
+
+    # def pad_samples_to_length(self, row_count, column_names):
+    #     output_samples = []
+    #     for iii in range(1, row_count + 1):
+    #         try:
+    #             sample = next((item for item in self.samples if item.submission_rank == iii))
+    #         except StopIteration:
+    #             sample = PydSample(sample_id="")
+    #             for column in column_names:
+    #                 setattr(sample, column[0], "")
+    #             sample.submission_rank = iii
+    #         output_samples.append(sample)
+    #     return sorted(output_samples, key=lambda x: x.submission_rank)
 
     def improved_dict(self, dictionaries: bool = True) -> dict:
         output = super().improved_dict(dictionaries=dictionaries)
         output['sample'] = self.sample
-        return output
+        output['client_lab'] = output['clientlab']
+        try:
+            output['contact_email'] = output['contact']['email']
+        except TypeError:
+            pass
+        return sort_dict_by_list(output, self.key_value_order)
+
+    # @property
+    # def writable_dict(self):
+    #     output = self.improved_dict()
 
     @property
     def filename_template(self):

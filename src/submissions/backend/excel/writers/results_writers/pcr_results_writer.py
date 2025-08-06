@@ -1,31 +1,46 @@
+from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Generator
+from pprint import pformat
+from typing import Generator, TYPE_CHECKING
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
 
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from tools import flatten_list
+if TYPE_CHECKING:
+    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class PCRInfoWriter(DefaultKEYVALUEWriter):
 
-    default_range_dict = [dict(
-        start_row=1,
-        end_row=24,
-        key_column=1,
-        value_column=2,
-        sheet="Results"
-    )]
+    start_row = 1
 
-    def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        worksheet = workbook[f"{self.proceduretype.name} Results"]
-        for key, value in self.fill_dictionary['result'].items():
-            # logger.debug(f"Filling in {key} with {value}")
-            worksheet.cell(value['location']['row'], value['location']['key_column'], value=key.replace("_", " ").title())
-            worksheet.cell(value['location']['row'], value['location']['value_column'], value=value['value'])
+    def __init__(self, pydant_obj, proceduretype: "ProcedureType" | None = None, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
+        self.fill_dictionary = self.pydant_obj.improved_dict()['result']
+        logger.debug(pformat(self.fill_dictionary))
+
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int | None = None, *args, **kwargs) -> Workbook:
+        workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.proceduretype.name} Results")
+    #     if not start_row:
+    #         try:
+    #             start_row = self.__class__.start_row
+    #         except AttributeError as e:
+    #             logger.error(f"Couldn't get start row due to {e}")
+    #             start_row = 1
+    #     # worksheet = workbook[f"{self.proceduretype.name} Results"]
+    #     self.worksheet = workbook.create_sheet(f"{self.proceduretype.name} Results")
+    #     self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
+    #     # self.start_row = self.delineate_start_row(start_row=start_row)
+    #     # self.end_row = self.delineate_end_row(start_row=start_row)
+    #     # for key, value in self.fill_dictionary['result'].items():
+    #     #     # logger.debug(f"Filling in {key} with {value}")
+    #     #     self.worksheet.cell(value['location']['row'], value['location']['key_column'], value=key.replace("_", " ").title())
+    #     #     self.worksheet.cell(value['location']['row'], value['location']['value_column'], value=value['value'])
         return workbook
 
 
@@ -33,7 +48,7 @@ class PCRSampleWriter(DefaultTABLEWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         worksheet = workbook[f"{self.proceduretype.name} Results"]
-        header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['header_row']
+        header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['start_row']
         proto_columns = [(1, "sample"), (2, "target")]
         columns = []
         for iii, header in enumerate(self.column_headers, start=3):

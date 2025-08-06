@@ -4,6 +4,7 @@ Contains all models for sqlalchemy
 from __future__ import annotations
 
 import sys, logging, json
+from collections import OrderedDict
 
 import sqlalchemy.exc
 from dateutil.parser import parse
@@ -295,8 +296,8 @@ class BaseClass(Base):
         # logger.debug(f"Model: {model}")
         if query is None:
             query: Query = cls.__database_session__.query(cls)
-        else:
-            logger.debug(f"Incoming query: {query}")
+        # else:
+        #     logger.debug(f"Incoming query: {query}")
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
             logger.info(f"Using key: {k} with value: {v} against {cls}")
@@ -611,7 +612,7 @@ class BaseClass(Base):
 
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        output = {}
+        output = OrderedDict()
         output['excluded'] = ["excluded", "misc_info", "_misc_info", "id"]
         for k, v in relevant.items():
             try:
@@ -624,23 +625,11 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
-            # match value:
-            #     case datetime():
-            #         value = value.strftime("%Y-%m-%d %H:%M:%S")
-            #     case bytes():
-            #         continue
-            #     case dict():
-            #         try:
-            #             value = value['name']
-            #         except KeyError:
-            #             if k == "_misc_info":
-            #                 value = value
-            #             else:
-            #                 continue
-            #     case _:
-            #         pass
             output[k.strip("_")] = value
-            # output = self.clean_details_dict(output)
+        if self._misc_info:
+            for key, value in self._misc_info.items():
+                output[key] = value
+
         return output
 
     @classmethod
@@ -669,8 +658,6 @@ class BaseClass(Base):
                     pass
             output[k] = value
         return output
-
-
 
     def to_pydantic(self, pyd_model_name:str|None=None, **kwargs):
         from backend.validators import pydant

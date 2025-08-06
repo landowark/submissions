@@ -206,7 +206,10 @@ class ConcentrationMaker(ReportArchetype):
         self.subs = Run.query(start_date=start_date, end_date=end_date,
                                    submissiontype_name=submission_type, page_size=0)
         # self.sample = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.run])
-        self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
+        try:
+            self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
+        except AttributeError:
+            self.samples = []
         self.records = [self.build_record(sample) for sample in self.samples]
         self.df = DataFrame.from_records(self.records)
         self.sheet_name = "Concentration"

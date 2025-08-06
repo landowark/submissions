@@ -6,96 +6,83 @@ from pprint import pformat
 from openpyxl.workbook import Workbook
 
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
-    default_range_dict = [dict(
-        start_row=1,
-        end_row=6,
-        key_column=1,
-        value_column=2,
-        sheet=""
-    )]
+    start_row = 1
+    header_order = []
+    exclude = ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
+               'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
+               'reagentrole', 'results', 'sample', 'tips']
 
-    def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
-        exclude = ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'procedureequipmentassociation',
-                   'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent', 'reagentrole',
-                   'results', 'sample', 'tips']
-        self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in exclude}
+    def __init__(self, pydant_obj, *args, **kwargs):
+
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+
+        self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
         # logger.debug(pformat(self.fill_dictionary))
-        for rng in self.range_dict:
-            if "sheet" not in rng or rng['sheet'] == "":
-                rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
+        # for rng in self.range_dict:
+        #     if "sheet" not in rng or rng['sheet'] == "":
+        #         rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
+
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int = 1, *args, **kwargs) -> Workbook:
+        workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.pydant_obj.proceduretype.name} Quality")
+        return workbook
 
 
 class ProcedureReagentWriter(DefaultTABLEWriter):
 
-    default_range_dict = [dict(
-        header_row=8
-    )]
+    exclude = ["id", "comments", "missing"]
+    header_order = ["reagentrole", "name", "lot", "expiry"]
 
-    def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
-        for rng in self.range_dict:
-            if "sheet" not in rng:
-                rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
+    def __init__(self, pydant_obj, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+        self.sheet = f"{self.pydant_obj.proceduretype.name} Quality"
         self.pydant_obj = self.pydant_obj.reagent
+
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int = 1, *args, **kwargs) -> Workbook:
+        logger.debug(self.pydant_obj)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet)
+        return workbook
 
 
 class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
-    default_range_dict = [dict(
-        header_row=14
-    )]
+    exclude = ['id']
+    header_order = ['equipmentrole', 'name', 'asset_number', 'process', 'tips']
 
     def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
-        for rng in self.range_dict:
-            if "sheet" not in rng:
-                rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
+        self.sheet = f"{self.pydant_obj.proceduretype.name} Quality"
         self.pydant_obj = self.pydant_obj.equipment
+
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int = 1, *args, **kwargs) -> Workbook:
+        logger.debug(self.pydant_obj)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet)
+        return workbook
 
 
 class ProcedureSampleWriter(DefaultTABLEWriter):
 
-    default_range_dict = [dict(
-        header_row=21
-    )]
+    exclude = ['id', 'enabled', 'name', "submission_rank"]
+    header_order = ['procedure_rank', 'sample_id']
 
     def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
-        for rng in self.range_dict:
-            if "sheet" not in rng:
-                rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
-        self.pydant_obj = self.pydant_obj.sample
+        self.sheet = f"{self.pydant_obj.proceduretype.name} Quality"
+        # self.pydant_obj = self.pydant_obj.sample
+        self.pydant_obj = self.pad_samples_to_length(row_count=pydant_obj.max_sample_rank, mode="procedure")
 
-    def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook)
-        for rng in self.range_dict:
-            list_worksheet = workbook[rng['sheet']]
-            row_count = self.get_row_count(list_worksheet, rng)
-            column_names = [(item.value.lower().replace(" ", "_"), item.column) for item in
-                            list_worksheet[rng['header_row']] if item.value]
-            samples = self.pad_samples_to_length(row_count=row_count, column_names=column_names)
-            samples = sorted(samples, key=lambda x: x.plate_rank)
-            # samples = self.pydant_obj
-            # logger.debug(f"Samples: {[item.submission_rank for item in samples]}")
-            for sample in samples:
-                # logger.debug(f"Writing sample: {sample}")
-                if sample.row == 0 or sample.column == 0:
-                    continue
-                write_row = rng['header_row'] + sample.plate_rank
-                for column in column_names:
-                    if column[0].lower() in ["well"]:#, "row", "column"]:
-                        continue
-                    write_column = column[1]
-                    try:
-                        value = getattr(sample, column[0])
-                    except KeyError:
-                        value = ""
-                    # logger.debug(f"{column} Writing {value} to row {write_row}, column {write_column}")
-                    list_worksheet.cell(row=write_row, column=write_column, value=value)
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int = 1, *args, **kwargs) -> Workbook:
+        logger.debug(self.pydant_obj)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet)
         return workbook

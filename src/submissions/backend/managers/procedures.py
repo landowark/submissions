@@ -56,41 +56,42 @@ class DefaultProcedureManager(DefaultManager):
         self.samples = self.sample_parser.to_pydantic()
         self.equipment = self.equipment_parser.to_pydantic()
 
-    def write(self, worksheet_only: bool=False) -> Workbook:
-        workbook = load_workbook(BytesIO(self.proceduretype.template_file))
+    def write(self, workbook: Workbook) -> Workbook:
+        # workbook = load_workbook(BytesIO(self.proceduretype.template_file))
         try:
             info_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}InfoWriter")
         except AttributeError:
             info_writer = procedure_writers.ProcedureInfoWriter
-        self.info_writer = info_writer(pydant_obj=self.pyd, range_dict=self.proceduretype.info_map)
+        self.info_writer = info_writer(pydant_obj=self.pyd)
         workbook = self.info_writer.write_to_workbook(workbook)
         try:
             reagent_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}ReagentWriter")
         except AttributeError:
             reagent_writer = procedure_writers.ProcedureReagentWriter
-        self.reagent_writer = reagent_writer(pydant_obj=self.pyd, range_dict=self.proceduretype.reagent_map)
+        self.reagent_writer = reagent_writer(pydant_obj=self.pyd)
         workbook = self.reagent_writer.write_to_workbook(workbook)
         try:
             equipment_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}EquipmentWriter")
         except AttributeError:
             equipment_writer = procedure_writers.ProcedureEquipmentWriter
-        self.equipment_writer = equipment_writer(pydant_obj=self.pyd, range_dict=self.proceduretype.equipment_map)
+        self.equipment_writer = equipment_writer(pydant_obj=self.pyd)
         workbook = self.equipment_writer.write_to_workbook(workbook)
         try:
             sample_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}SampleWriter")
         except AttributeError:
             sample_writer = procedure_writers.ProcedureSampleWriter
-        self.sample_writer = sample_writer(pydant_obj=self.pyd, range_dict=self.proceduretype.sample_map)
+        self.sample_writer = sample_writer(pydant_obj=self.pyd)
         workbook = self.sample_writer.write_to_workbook(workbook)
-        # logger.debug(self.pyd.result)
-        # TODO: Find way to group results by result_type.
+        # # logger.debug(self.pyd.result)
+        # # TODO: Find way to group results by result_type.
         for result in self.pyd.result:
+            logger.debug(f"Writing {result.result_type}")
             Writer = getattr(results_writers, f"{result.result_type}InfoWriter")
             res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
             workbook = res_info_writer.write_to_workbook(workbook=workbook)
-        # sample_results = [sample.result for sample in self.pyd.sample]
-        # logger.debug(pformat(self.pyd.sample_results))
-        Writer = getattr(results_writers, "PCRSampleWriter")
-        res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
-        workbook = res_sample_writer.write_to_workbook(workbook=workbook)
+        # # sample_results = [sample.result for sample in self.pyd.sample]
+        # # logger.debug(pformat(self.pyd.sample_results))
+        # Writer = getattr(results_writers, "PCRSampleWriter")
+        # res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
+        # workbook = res_sample_writer.write_to_workbook(workbook=workbook)
         return workbook

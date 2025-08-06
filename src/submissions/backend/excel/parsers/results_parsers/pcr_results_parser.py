@@ -1,57 +1,42 @@
 """
 
 """
+from __future__ import annotations
 import logging
-from backend.db.models import Run, Sample, Procedure, ProcedureSampleAssociation
-from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
+from typing import Generator, TYPE_CHECKING
+from backend.db.models import ProcedureSampleAssociation
+from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
+if TYPE_CHECKING:
+    from backend.validators.pydant import PydSample
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-# class PCRResultsParser(DefaultParser):
-#     pass
+class PCRInfoParser(DefaultResultsInfoParser):
 
-class PCRInfoParser(DefaultKEYVALUEParser):
-    pyd_name = "PydResults"
-
-    default_range_dict = [dict(
-        start_row=1,
-        end_row=24,
-        key_column=1,
-        value_column=2,
-        sheet="Results"
-    )]
-
-    def __init__(self, filepath: Path | str, range_dict: dict | None = None, procedure=None):
-        super().__init__(filepath=filepath, range_dict=range_dict)
+    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
+        self.results_type = "PCR"
         self.procedure = procedure
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype)
 
     def to_pydantic(self):
-        # from backend.db.models import Procedure
-        data = dict(results={k:v for k, v in self.parsed_info}, filepath=self.filepath,
-                    result_type="PCR")
+        data = dict(results={k: v for k, v in self.parsed_info}, filepath=self.filepath,
+                    result_type=self.results_type)
         return self._pyd_object(**data, parent=self.procedure)
 
 
-class PCRSampleParser(DefaultTABLEParser):
+class PCRSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    pyd_name = "PydResults"
-
-    default_range_dict = [dict(
-        header_row=25,
-        sheet="Results"
-    )]
-
-    def __init__(self, filepath: Path | str, range_dict: dict | None = None, procedure=None):
-        super().__init__(filepath=filepath, range_dict=range_dict)
+    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
+        self.results_type = "PCR"
         self.procedure = procedure
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype)
 
     @property
-    def parsed_info(self):
+    def parsed_info(self) -> Generator[dict, None, None]:
         output = [item for item in super().parsed_info]
-        merge_column = "sample"
         sample_names = list(set([item['sample'] for item in output]))
         for sample in sample_names:
             multi = dict(result_type="PCR")
@@ -60,17 +45,14 @@ class PCRSampleParser(DefaultTABLEParser):
                 multi[soi['target']] = {k: v for k, v in soi.items() if k != "target" and k != "sample"}
             yield {sample: multi}
 
-    def to_pydantic(self):
-        logger.debug("running to pydantic")
+    def to_pydantic(self) -> Generator["PydSample", None, None]:
         for item in self.parsed_info:
-            # sample_obj = Sample.query(sample_id=list(item.keys())[0])
             # NOTE: Ensure that only samples associated with the procedure are used.
             try:
                 sample_obj = next(
                     (sample for sample in self.procedure.sample if sample.sample_id == list(item.keys())[0]))
             except StopIteration:
                 continue
-            # logger.debug(f"Sample object {sample_obj}")
             assoc = ProcedureSampleAssociation.query(sample=sample_obj, procedure=self.procedure)
             if assoc and not isinstance(assoc, list):
                 output = self._pyd_object(results=list(item.values())[0], parent=assoc)

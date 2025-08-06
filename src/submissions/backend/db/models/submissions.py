@@ -60,6 +60,7 @@ class ClientSubmission(BaseClass, LogMixin):
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))
     sample_count = Column(INTEGER)  #: Number of sample in the procedure
+    full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
     comment = Column(JSON)
     run = relationship("Run", back_populates="clientsubmission")  #: many-to-one relationship
     contact = relationship("Contact", back_populates="clientsubmission")  #: client org
@@ -85,6 +86,10 @@ class ClientSubmission(BaseClass, LogMixin):
     @hybrid_property
     def name(self):
         return self.submitter_plate_id
+
+    @property
+    def max_sample_rank(self) -> int:
+        return max([item.submission_rank for item in self.clientsubmissionsampleassociation])
 
     @classmethod
     @setup_lookup
@@ -308,6 +313,7 @@ class ClientSubmission(BaseClass, LogMixin):
             row=row,
             column=column
         )
+        # assoc.save()
         return assoc
 
     @property
@@ -357,7 +363,9 @@ class ClientSubmission(BaseClass, LogMixin):
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
         output['clientlab'] = output['clientlab'].details_dict()
-        output['contact'] = output['contact'].details_dict()
+        if "contact" in output and issubclass(output['contact'].__class__, BaseClass):
+            output['contact'] = output['contact'].details_dict()
+            output['contact_email'] = output['contact']['email']
         output['submissiontype'] = output['submissiontype'].details_dict()
         output['run'] = [run.details_dict() for run in output['run']]
         output['sample'] = [sample.details_dict() for sample in output['clientsubmissionsampleassociation']]
@@ -365,15 +373,13 @@ class ClientSubmission(BaseClass, LogMixin):
         output['client_lab'] = output['clientlab']
         output['submission_type'] = output['submissiontype']
         output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                              "expanded", 'clientlab', 'submissiontype', 'id']
+                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name"]
         output['expanded'] = ["clientlab", "contact", "submissiontype"]
-        # output = self.clean_details_dict(output)
-        logger.debug(f"{self.__class__.__name__}\n\n{pformat(output)}")
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
-        output.template_file = self.template_file
+        # output.template_file = self.template_file
         return output
 
 
@@ -690,7 +696,7 @@ class Run(BaseClass, LogMixin):
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
         output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
-                              'permission', "clientsubmission"]
+                               'permission', "clientsubmission"]
         output['sample_count'] = self.sample_count
         output['client_submission'] = self.clientsubmission.name
         output['started_date'] = self.started_date
@@ -1337,6 +1343,10 @@ class Run(BaseClass, LogMixin):
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
         manager = Manager(parent=obj, input_object=self.to_pydantic())
         workbook = manager.write()
+        try:
+            workbook.remove_sheet("Sheet")
+        except ValueError:
+            pass
         workbook.save(filename=output_filepath)
 
     def construct_filename(self):
@@ -1695,8 +1705,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id"),
                                  primary_key=True)  #: id of associated procedure
-    row = Column(INTEGER)
-    column = Column(INTEGER)
+    # row = Column(INTEGER)
+    # column = Column(INTEGER)
     submission_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
     # NOTE: reference to the Submission object
     clientsubmission = relationship("ClientSubmission",
@@ -1740,13 +1750,13 @@ class ClientSubmissionSampleAssociation(BaseClass):
         # NOTE: Get associated sample info
         sample = self.sample.to_sub_dict()
         sample['sample_id'] = self.sample.sample_id
-        sample['row'] = self.row
-        sample['column'] = self.column
-        try:
-            sample['well'] = f"{row_map[self.row]}{self.column}"
-        except KeyError as e:
-            logger.error(f"Unable to find row {self.row} in row_map.")
-            sample['Well'] = None
+        # sample['row'] = self.row
+        # sample['column'] = self.column
+        # try:
+        #     sample['well'] = f"{row_map[self.row]}{self.column}"
+        # except (KeyError, AttributeError) as e:
+        #     logger.error(f"Unable to find row {self.row} in row_map.")
+        #     sample['Well'] = None
         sample['plate_name'] = self.clientsubmission.submitter_plate_id
         sample['positive'] = False
         sample['submitted_date'] = self.clientsubmission.submitted_date
@@ -1760,13 +1770,9 @@ class ClientSubmissionSampleAssociation(BaseClass):
         # logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
         output = output['sample'].details_dict()
         misc = output['misc_info']
-        # logger.debug(f"Output from sample: {pformat(output)}")
+        # # logger.debug(f"Output from sample: {pformat(output)}")
         output.update(relevant)
         output['misc_info'] = misc
-        # output['sample'] = temp
-        # output.update(output['sample'].details_dict())
-
-        # sys.exit()
         return output
 
     def to_pydantic(self) -> "PydSample":
@@ -1777,7 +1783,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
             PydSample: Pydantic Model
         """
         from backend.validators import PydSample
-        return PydSample(**self.to_sub_dict())
+        return PydSample(**self.details_dict())
 
     @property
     def hitpicked(self) -> dict | None:
@@ -2194,7 +2200,7 @@ class ProcedureSampleAssociation(BaseClass):
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
     row = Column(INTEGER)
     column = Column(INTEGER)
-    plate_rank = Column(INTEGER)
+    procedure_rank = Column(INTEGER)
 
     procedure = relationship(Procedure,
                              back_populates="proceduresampleassociation")  #: associated procedure
@@ -2267,4 +2273,3 @@ class ProcedureSampleAssociation(BaseClass):
         except KeyError:
             logger.error(output)
         return output
-

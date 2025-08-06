@@ -4,13 +4,11 @@
 from __future__ import annotations
 import logging, re
 from pathlib import Path
-from typing import Generator, Tuple, TYPE_CHECKING
-
+from typing import Generator, TYPE_CHECKING
+from openpyxl.cell import MergedCell
 from openpyxl.reader.excel import load_workbook
-from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
 from backend.validators import pydant
-
 if TYPE_CHECKING:
     from backend.db.models import ProcedureType
 
@@ -34,8 +32,8 @@ class DefaultParser(object):
         instance.filepath = filepath
         return instance
 
-    def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None = None, range_dict: dict | None = None,
-                 *args, **kwargs):
+    def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None = None, sheet: str | None = None,
+                 start_row: int = 1, *args, **kwargs):
         """
 
         Args:
@@ -45,7 +43,6 @@ class DefaultParser(object):
             *args ():
             **kwargs ():
         """
-
         logger.debug(f"\n\nHello from {self.__class__.__name__}\n\n")
         self.proceduretype = proceduretype
         try:
@@ -55,20 +52,21 @@ class DefaultParser(object):
             logger.error(
                 f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}, using {self.__class__.pyd_name}")
             self._pyd_object = getattr(pydant, self.__class__.pyd_name)
+        if not sheet:
+            sheet = self.__class__.sheet
+        self.sheet = sheet
+        if not start_row:
+            start_row = self.__class__.start_row
         self.workbook = load_workbook(self.filepath, data_only=True)
-        if not range_dict:
-            self.range_dict = self.__class__.default_range_dict
-        else:
-            self.range_dict = range_dict
-        logger.debug(f"Default parser range dict: {self.range_dict}")
-        for item in self.range_dict:
-            item['worksheet'] = self.workbook[item['sheet']]
+        self.worksheet = self.workbook[self.sheet]
+        self.start_row = self.delineate_start_row(start_row=start_row)
+        self.end_row = self.delineate_end_row(start_row=self.start_row)
+        logger.debug(f"Start row: {self.start_row}, End row: {self.end_row}")
 
     def to_pydantic(self):
         # data = {key: value['value'] for key, value in self.parsed_info.items()}
         data = self.parsed_info
         data['filepath'] = self.filepath
-
         return self._pyd_object(**data)
 
     @classmethod
@@ -78,75 +76,68 @@ class DefaultParser(object):
             proceduretype = ProcedureType.query(name=proceduretype)
         return proceduretype
 
-    @classmethod
-    def delineate_end_row(cls, worksheet: Worksheet, start_row: int = 1):
-        for iii, row in enumerate(worksheet.iter_rows(min_row=start_row), start=1):
+    def delineate_start_row(self, start_row: int = 1):
+        for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
+            if not all([item.value is None for item in row]):
+                return iii
+        return self.worksheet.min
+
+    def delineate_end_row(self, start_row: int = 1):
+        for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
                 return iii
+        return self.worksheet.max_row
 
 
 class DefaultKEYVALUEParser(DefaultParser):
-    # default_range_dict = [dict(
-    #     start_row=2,
-    #     end_row=18,
-    #     key_column=1,
-    #     value_column=2,
-    #     sheet="Sample List"
-    # )]
 
-    # default_range_dict = [dict(sheet="Sample List", start_row=2)]
+    sheet = "Client Info"
+    start_row = 1
 
     @property
     def parsed_info(self):
-        for item in self.range_dict:
-            item['end_row'] = self.delineate_end_row(item['worksheet'], start_row=item['start_row'])
-            rows = range(item['start_row'], item['end_row'])
-            # item['start_row'] = item['end_row']
-            # del item['end_row']
-            for row in rows:
-                key = item['worksheet'].cell(row, 1).value
-                if key:
-                    # Note: Remove anything in brackets.
-                    key = re.sub(r"\(.*\)", "", key)
-                    key = key.lower().replace(":", "").strip().replace(" ", "_")
-                    value = item['worksheet'].cell(row, 2).value
-                    missing = False if value else True
-                    location_map = dict(row=row, key_column=1, value_column=2,
-                                        sheet=item['sheet'])
-                    value = dict(value=value, location=location_map, missing=missing)
-                    logger.debug(f"Yielding {value} for {key}")
-                    yield key, value
 
+        rows = range(self.start_row, self.end_row)
+        for row in rows:
+            check_row = [item for item in self.worksheet.rows][row-1]
+            logger.debug(f"Checking row {row-1}, {check_row} for merged cells.")
+            if any([isinstance(cell, MergedCell) for cell in check_row]):
+                continue
+            key = self.worksheet.cell(row, 1).value
+            if key:
+                # Note: Remove anything in brackets.
+                key = re.sub(r"\(.*\)", "", key)
+                key = key.lower().replace(":", "").strip().replace(" ", "_")
+                value = self.worksheet.cell(row, 2).value
+                missing = False if value else True
+                # location_map = dict(row=row, key_column=1, value_column=2, sheet=self.worksheet.title)
+                value = dict(value=value, missing=missing)#, location=location_map)
+                logger.debug(f"Yielding {value} for {key}")
+                yield key, value
 
 
 class DefaultTABLEParser(DefaultParser):
-    default_range_dict = [dict(
-        header_row=18,
-        sheet="Sample List"
-    )]
+
+    sheet = "Client Info"
+    start_row = 18
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
-        for item in self.range_dict:
-            # list_worksheet = self.workbook[item['sheet']]
-            list_worksheet = item['worksheet']
-            if "end_row" in item.keys():
-                list_df = DataFrame(
-                    [item for item in list_worksheet.values][item['header_row'] - 1:item['end_row'] - 1])
-            else:
-                list_df = DataFrame([item for item in list_worksheet.values][item['header_row'] - 1:])
-            list_df.columns = list_df.iloc[0]
-            list_df = list_df[1:]
-            list_df = list_df.dropna(axis=1, how='all')
-            for ii, row in enumerate(list_df.iterrows()):
-                output = {}
-                for key, value in row[1].to_dict().items():
-                    if isinstance(key, str):
-                        key = key.lower().replace(" ", "_")
-                        key = re.sub(r"_(\(.*\)|#)", "", key)
-                    # logger.debug(f"Row {ii} values: {key}: {value}")
-                    output[key] = value
-                yield output
+        logger.debug(f"creating dataframe from {self.start_row} to {self.end_row}")
+        df = DataFrame(
+            [item for item in self.worksheet.values][self.start_row - 1:self.end_row - 1])
+        df.columns = df.iloc[0]
+        df = df[1:]
+        df = df.dropna(axis=1, how='all')
+        for ii, row in enumerate(df.iterrows()):
+            output = {}
+            for key, value in row[1].to_dict().items():
+                if isinstance(key, str):
+                    key = key.lower().replace(" ", "_")
+                    key = re.sub(r"_(\(.*\)|#)", "", key)
+                # logger.debug(f"Row {ii} values: {key}: {value}")
+                output[key] = value
+            yield output
 
     def to_pydantic(self, **kwargs):
         return [self._pyd_object(**output) for output in self.parsed_info]

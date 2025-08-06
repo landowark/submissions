@@ -1,17 +1,17 @@
-import logging
-import re
-from io import BytesIO
-from pathlib import Path
+import logging, sys
+from datetime import datetime, date
 from pprint import pformat
-from typing import Any
+from types import NoneType
+from typing import Any, Literal
 
-from openpyxl.reader.excel import load_workbook
+from openpyxl.styles import Alignment, PatternFill
+from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
-
 from backend.db.models import BaseClass, ProcedureType
 from backend.validators.pydant import PydBaseClass
+from tools import flatten_list, create_plate_grid, sort_dict_by_list
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -21,155 +21,220 @@ class DefaultWriter(object):
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.filepath.stem}>"
 
-    def __init__(self, pydant_obj, proceduretype: ProcedureType|None=None, range_dict: dict | None = None, *args, **kwargs):
-        # self.filepath = output_filepath
+    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         self.pydant_obj = pydant_obj
         self.proceduretype = proceduretype
-        if range_dict:
-            self.range_dict = range_dict
-        else:
-            self.range_dict = self.__class__.default_range_dict
 
     @classmethod
-    def stringify_value(cls, value:Any) -> str:
+    def stringify_value(cls, value: Any) -> str:
+        if isinstance(value, dict):
+            try:
+                value = value['value']
+            except (KeyError, ValueError):
+                try:
+                    value = value['name']
+                except (KeyError, ValueError):
+                    return
         match value:
             case x if issubclass(value.__class__, BaseClass):
                 value = value.name
             case x if issubclass(value.__class__, PydBaseClass):
                 value = value.name
-            case dict():
-                try:
-                    value = value['value']
-                except ValueError:
-                    try:
-                        value = value['name']
-                    except ValueError:
-                        value = value.__str__()
+            case bytes() | list():
+                value = None
+            case datetime() | date():
+                value = value.strftime("%Y-%m-%d")
+
             case _:
                 value = str(value)
+        # logger.debug(f"Returning value: {value}")
         return value
 
     @classmethod
-    def prettify_key(cls, value:str) -> str:
-        value = value.replace("type", " type").strip()
-        value = value.title()
-        return value
+    def prettify_key(cls, key: str) -> str:
+        key = key.replace("type", " type").strip()
+        key = key.replace("_", " ")
+        key = key.title()
+        key = key.replace("Id", "ID")
+        return key
 
-
-    def write_to_workbook(self, workbook: Workbook):
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int | None = None, *args, **kwargs):
         logger.debug(f"Writing to workbook with {self.__class__.__name__}")
+        if not start_row:
+            try:
+                start_row = self.__class__.start_row
+            except AttributeError as e:
+                logger.error(f"Couldn't get start row due to {e}")
+                start_row = 1
+        if not sheet:
+            sheet = self.__class__.sheet
+        self.sheet = sheet
+        if self.sheet not in workbook.sheetnames:
+            try:
+                self.worksheet = workbook["Sheet"]
+                self.worksheet.title = self.sheet
+            except KeyError:
+                self.worksheet = workbook.create_sheet(self.sheet)
+        else:
+            self.worksheet = workbook[self.sheet]
+        self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
+        self.start_row = self.delineate_start_row(start_row=start_row)
+        self.end_row = self.delineate_end_row(start_row=start_row)
+        logger.debug(f"{self.__class__.__name__} Start row: {self.start_row}, end row: {self.end_row}")
         return workbook
+
+    def delineate_start_row(self, start_row: int = 1):
+        logger.debug(f"Attempting to find start row from {start_row}")
+        for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
+            if all([item.value is None for item in row]):
+                logger.debug(f"Returning {iii} for start row.")
+                return iii
+        if self.worksheet.max_row == 1:
+            return self.worksheet.max_row + 1
+        else:
+            return self.worksheet.max_row + 2
+
+    def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
+        return worksheet
+
+    def columns_best_fit(self, worksheet: Worksheet) -> None:
+        """
+        Make all columns best fit
+        """
+        for col in worksheet.columns:
+            setlen = 0
+            column = col[0].column_letter  # Get the column name
+            for cell in col:
+                if len(str(cell.value)) > setlen:
+                    setlen = len(str(cell.value))
+            set_col_width = setlen + 5
+            # Setting the column width
+            worksheet.column_dimensions[column].width = set_col_width
+        return worksheet
 
 
 class DefaultKEYVALUEWriter(DefaultWriter):
+    sheet = "Client Info"
+    start_row = 2
+    exclude = []
+    key_order = []
 
-    default_range_dict = [dict(
-        start_row=2,
-        end_row=18,
-        key_column=1,
-        value_column=2,
-        sheet="Sample List"
-    )]
-
-    def __init__(self, pydant_obj, proceduretype: ProcedureType|None=None, range_dict: dict | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, range_dict=range_dict, *args, **kwargs)
+    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
         self.fill_dictionary = self.pydant_obj.improved_dict()
+
+    def delineate_end_row(self, start_row: int = 1):
+        data_length = len(self.fill_dictionary)
+        return data_length + start_row
 
     @classmethod
     def check_location(cls, locations: list, sheet: str):
+        logger.debug(f"Checking for location against {sheet}")
         return any([item['sheet'] == sheet for item in locations])
 
-    def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook)
-        for rng in self.range_dict:
-            rows = range(rng['start_row'], rng['end_row'] + 1)
-            worksheet = workbook[rng['sheet']]
-            try:
-                for ii, (k, v) in enumerate(self.fill_dictionary.items(), start=rng['start_row']):
-                    try:
-                        worksheet.cell(column=rng['key_column'], row=rows[ii], value=self.prettify_key(k))
-                        worksheet.cell(column=rng['value_column'], row=rows[ii], value=self.stringify_value(v))
-                    except IndexError:
-                        logger.error(f"Not enough rows: {len(rows)} for index {ii}")
-            except ValueError as e:
-                logger.error(self.fill_dictionary)
-                raise e
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int = 1, *args, **kwargs) -> Workbook:
+        workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
+        dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
+        dictionary =  sort_dict_by_list(dictionary=dictionary, order_list=self.key_order)
+        for ii, (k, v) in enumerate(dictionary.items(), start=self.start_row):
+            value = self.stringify_value(value=v)
+            if value is None:
+                continue
+            self.worksheet.cell(column=1, row=ii, value=self.prettify_key(k))
+            self.worksheet.cell(column=2, row=ii, value=value)
+        self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
+    def postwrite(self, worksheet: Worksheet) -> Worksheet:
+        worksheet = self.columns_best_fit(worksheet=worksheet)
+        return worksheet
+
+
 class DefaultTABLEWriter(DefaultWriter):
+    sheet = "Client Info"
+    start_row = 19
+    header_order = []
+    exclude = []
 
-    default_range_dict = [dict(
-        header_row=19,
-        sheet="Sample List"
-    )]
-
-    @classmethod
-    def get_row_count(cls, worksheet: Worksheet, range_dict:dict):
-        if "end_row" in range_dict.keys():
-            list_df = DataFrame([item for item in worksheet.values][range_dict['header_row'] - 1:range_dict['end_row'] - 1])
-        else:
-            list_df = DataFrame([item for item in worksheet.values][range_dict['header_row'] - 1:])
+    def get_row_count(self, start_row: int = 1):
+        list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
         row_count = list_df.shape[0]
         return row_count
 
-    def pad_samples_to_length(self, row_count, column_names):
+    def delineate_end_row(self, start_row: int = 1) -> int:
+        return start_row + len(self.pydant_obj) + 1
+
+    def pad_samples_to_length(self, row_count,
+                              mode: Literal["submission", "procedure"] = "submission"):  #, column_names):
         from backend import PydSample
         output_samples = []
         for iii in range(1, row_count + 1):
-            # logger.debug(f"Submission rank: {iii}")
             if isinstance(self.pydant_obj, list):
                 iterator = self.pydant_obj
             else:
                 iterator = self.pydant_obj.sample
             try:
-                sample = next((item for item in iterator if item.submission_rank == iii))
+                sample = next((item for item in iterator if getattr(item, f"{mode}_rank") == iii))
             except StopIteration:
                 sample = PydSample(sample_id="")
-                for column in column_names:
-                    setattr(sample, column[0], "")
                 sample.submission_rank = iii
-                sample.plate_rank = iii
-            # logger.debug(f"Appending {sample.sample_id}")
-            # logger.debug(f"Iterator now: {[item.submission_rank for item in iterator]}")
+                sample.procedure_rank = iii
+                if mode == "procedure":
+                    if all([item.row for item in self.pydant_obj.sample]):
+                        rows, columns = self.pydant_obj.rows_columns_count
+                        grid = create_plate_grid(rows=rows, columns=columns)
+                        sample.row, sample.column = grid[sample.procedure_rank]
             output_samples.append(sample)
-        return sorted(output_samples, key=lambda x: x.submission_rank)
+        return sorted(output_samples, key=lambda x: getattr(x, f"{mode}_rank"))
 
-    def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook)
-        for rng in self.range_dict:
-            list_worksheet = workbook[rng['sheet']]
-            column_names = [(str(item.value).lower().replace(" ", "_"), item.column) for item in list_worksheet[rng['header_row']] if item.value]
-            for iii, object in enumerate(self.pydant_obj, start=1):
-                # logger.debug(f"Writing object: {object}")
-                write_row = rng['header_row'] + iii
-                for column in column_names:
-                    if column[0].lower() in ["well", "row", "column"]:
-                        continue
-                    write_column = column[1]
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int | None = None, *args, **kwargs) -> Workbook:
+        workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
+        self.header_list = self.sort_header_row(list(set(flatten_list([item.fields for item in self.pydant_obj]))))
+        logger.debug(f"Header row: {self.header_list}")
+        self.worksheet = self.write_header_row(worksheet=self.worksheet)
+        for iii, object in enumerate(self.pydant_obj, start=1):
+            write_row = self.start_row + iii
+            for header in self.header_list:
+                try:
+                    column = next((cell for cell in self.worksheet[self.start_row] if
+                                   cell.value == header.replace("_", " ").title()))
+                except StopIteration:
+                    logger.warning(f'Could not find column for {header.replace("_", " ").title()}')
+                    continue
+                column = column.column
+                try:
+                    value = object.improved_dict()[header.lower().replace(" ", "")]
+                except (AttributeError, KeyError) as e:
                     try:
-                        value = getattr(object, column[0].lower().replace(" ", ""))
-                    except AttributeError:
-                        try:
-                            value = getattr(object, column[0].lower().replace("_", ""))
-                        except AttributeError:
-                            value = ""
-                    # logger.debug(f"{column} Writing {value} to row {write_row}, column {write_column}")
-                    list_worksheet.cell(row=write_row, column=write_column, value=self.stringify_value(value))
+                        value = object.improved_dict()[header.lower().replace(" ", "_")]
+                    except (AttributeError, KeyError):
+                        value = ""
+                self.worksheet.cell(row=write_row, column=column, value=self.stringify_value(value))
+        self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
     @classmethod
-    def construct_column_names(cls, column_item):
-        column = column_item.column
-        match column_item.value:
-            case str():
-                value = column_item.value.lower().replace(" ", "_")
-            case _:
-                value = column_item.value
-        return value, column
+    def sort_header_row(cls, header_list: list) -> list:
+        output = []
+        logger.debug(cls.exclude)
+        for item in cls.header_order:
+            if item in [header for header in header_list if header not in cls.exclude]:
+                output.append(header_list.pop(header_list.index(item)))
+        return output + sorted([item for item in header_list if item not in cls.exclude])
+
+    def write_header_row(self, worksheet: Worksheet) -> Worksheet:
+        for iii, header in enumerate(self.header_list, start=1):
+            worksheet.cell(row=self.start_row, column=iii, value=header.replace("_", " ").title())
+            worksheet.cell(row=self.start_row, column=iii).alignment = Alignment(horizontal='center')
+            worksheet.cell(row=self.start_row, column=iii).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
+        return worksheet
+
+    def postwrite(self, worksheet: Worksheet) -> Worksheet:
+        worksheet = self.columns_best_fit(worksheet=worksheet)
+        return worksheet
 
 
 from .clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter
-
-
-
-

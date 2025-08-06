@@ -55,8 +55,8 @@ class SampleChecker(QDialog):
         self.layout.addWidget(self.buttonBox, 11, 9, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.setLayout(self.layout)
 
-        with open("sample_checker_rendered.html", "w") as f:
-            f.write(html)
+        # with open("sample_checker_rendered.html", "w") as f:
+        #     f.write(html)
         logger.debug(f"HTML sample checker written!")
 
     @pyqtSlot(str, str, str)
@@ -88,7 +88,7 @@ class SampleChecker(QDialog):
     def formatted_list(self) -> List[dict]:
         output = []
         for sample in self.samples:
-            logger.debug(sample)
+            # logger.debug(sample)
             s = sample.improved_dict(dictionaries=False)
             if s['sample_id'] in [item['sample_id'] for item in output]:
                 s['color'] = "red"

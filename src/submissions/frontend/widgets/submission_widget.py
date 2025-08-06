@@ -8,24 +8,20 @@ from PyQt6.QtWidgets import (
     QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
-
-
 from .functions import select_open_file, select_save_file
 import logging
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
-from backend.validators import PydRun, PydReagent, PydClientSubmission, PydSample
+from backend.validators import PydReagent, PydClientSubmission, PydSample
 from backend.db import (
     ClientLab, SubmissionType, Reagent,
-    ReagentRole, KitTypeReagentRoleAssociation, Run
+    ReagentRole, KitTypeReagentRoleAssociation, Run, ClientSubmission
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
 from .omni_add_edit import AddEdit
 from typing import List, Tuple
 from datetime import date
-
 from .sample_checker import SampleChecker
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -368,33 +364,33 @@ class SubmissionFormWidget(QWidget):
             return report
         base_submission = self.pyd.to_sql()
         # NOTE: check output message for issues
-        try:
-            trigger = result.results[-1]
-            code = trigger.code
-        except IndexError as e:
-            logger.error(result.results)
-            logger.error(f"Problem getting error code: {e}")
-            code = 0
-        match code:
-            # NOTE: code 0: everything is fine.
-            case 0:
-                pass
-            # NOTE: code 1: ask for overwrite
-            case 1:
-                dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_number}?", message=trigger.msg)
-                if dlg.exec():
-                    # NOTE: Do not add duplicate reagents.
-                    pass
-                else:
-                    self.app.ctx.database_session.rollback()
-                    report.add_result(Result(msg="Overwrite cancelled", status="Information"))
-                    return report
-            # NOTE: code 2: No RSL plate number given
-            case 2:
-                report.add_result(result)
-                return report
-            case _:
-                pass
+        # try:
+        #     trigger = result.results[-1]
+        #     code = trigger.code
+        # except IndexError as e:
+        #     logger.error(result.results)
+        #     logger.error(f"Problem getting error code: {e}")
+        #     code = 0
+        # match code:
+        #     # NOTE: code 0: everything is fine.
+        #     case 0:
+        #         pass
+        #     # NOTE: code 1: ask for overwrite
+        #     case 1:
+        #         dlg = QuestionAsker(title=f"Review {base_submission.rsl_plate_number}?", message=trigger.msg)
+        #         if dlg.exec():
+        #             # NOTE: Do not add duplicate reagents.
+        #             pass
+        #         else:
+        #             self.app.ctx.database_session.rollback()
+        #             report.add_result(Result(msg="Overwrite cancelled", status="Information"))
+        #             return report
+        #     # NOTE: code 2: No RSL plate number given
+        #     case 2:
+        #         report.add_result(result)
+        #         return report
+        #     case _:
+        #         pass
         # NOTE: add reagents to procedure object
         if base_submission is None:
             return
@@ -517,7 +513,7 @@ class SubmissionFormWidget(QWidget):
 
         def set_widget(self, parent: QWidget, key: str, value: dict,
                        submission_type: str | SubmissionType | None = None,
-                       sub_obj: Run | None = None) -> QWidget:
+                       sub_obj: ClientSubmission | None = None) -> QWidget:
             """
             Creates form widget
 
@@ -596,7 +592,7 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(categories)
                     add_widget.setToolTip("Enter procedure category or select from list.")
                 case _:
-                    if key in sub_obj.timestamps:
+                    if key in ClientSubmission.timestamps:
                         add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
                         # NOTE: sets submitted date based on date found in excel sheet
                         try:
@@ -875,6 +871,9 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             if isinstance(sample, PydSample):
                 sample = sample.to_sql()
             assert not isinstance(sample, PydSample)
+            if sample.sample_id.lower() in ["", "blank"]:
+                continue
+            sample.save()
             # if sample not in sql.sample:
             sql.add_sample(sample=sample)
         logger.debug(pformat(sql.__dict__))

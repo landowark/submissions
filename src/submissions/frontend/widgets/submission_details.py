@@ -66,9 +66,9 @@ class SubmissionDetails(QDialog):
         html = template.render(**d, css=[css])
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")
-        with open(f"{object.__class__.__name__}_details_rendered.html", "w") as f:
+        # with open(f"{object.__class__.__name__}_details_rendered.html", "w") as f:
             # f.write(html)
-            pass
+            # pass
 
 
     def activate_export(self) -> None:

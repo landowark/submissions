@@ -154,8 +154,8 @@ class KitType(BaseClass):
     )  #: Relation to SubmissionType
 
     proceduretype = association_proxy("kittypeproceduretypeassociation", "proceduretype",
-                                      creator=lambda ST: ProcedureTypeKitTypeAssociation(
-                                          submissiontype=ST))  #: Association proxy to SubmissionTypeKitTypeAssociation
+                                      creator=lambda PT: ProcedureTypeKitTypeAssociation(
+                                          proceduretype=PT))  #: Association proxy to SubmissionTypeKitTypeAssociation
 
 
 
@@ -571,6 +571,8 @@ class ReagentRole(BaseClass):
         reagents = [reagent for reagent in self.reagent]
         if assoc:
             last_used = Reagent.query(name=assoc.last_used)
+            if isinstance(last_used, list):
+                last_used = None
             if last_used:
                 reagents.insert(0, reagents.pop(reagents.index(last_used)))
         # return [f"{reagent.name} - {reagent.lot} - {reagent.expiry}" for reagent in reagents]

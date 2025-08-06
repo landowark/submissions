@@ -26,7 +26,7 @@ class PCRManager(DefaultResultsManager):
 
     def parse(self):
         self.info_parser = PCRInfoParser(filepath=self.fname, procedure=self.procedure)
-        self.sample_parser = PCRSampleParser(filepath=self.fname, procedure=self.procedure)
+        self.sample_parser = PCRSampleParser(filepath=self.fname, procedure=self.procedure, start_row=self.info_parser.end_row)
 
     def write(self):
         workbook = load_workbook(BytesIO(self.procedure.proceduretype.template_file))

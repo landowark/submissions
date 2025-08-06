@@ -1,76 +1,52 @@
+from __future__ import annotations
 import logging
-from pathlib import Path
 from pprint import pformat
-
 from openpyxl.workbook import Workbook
-
+from openpyxl.styles import Alignment
+from openpyxl.worksheet.worksheet import Worksheet
+from typing import TYPE_CHECKING
 from . import DefaultKEYVALUEWriter, DefaultTABLEWriter
+if TYPE_CHECKING:
+    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
+    exclude = ["name", "id", "clientlab", "filepath"]
 
-    def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
+    def __init__(self, pydant_obj, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         logger.debug(f"{self.__class__.__name__} recruited!")
 
-    def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        # workbook = super().write_to_workbook(workbook=workbook)
-        logger.debug(f"Skipped super.")
-        for rng in self.range_dict:
-            worksheet = workbook[rng['sheet']]
-            for key, value in self.fill_dictionary.items():
-                logger.debug(f"Checking: key {key}, value {str(value)[:64]}")
-                if isinstance(value, bytes):
-                    continue
-                try:
-                    check = self.check_location(value['location'], rng['sheet'])
-                except TypeError:
-                    check = False
-                if not check:
-                    continue
-                    # relevant_values[k] = v
-                logger.debug(f"Location passed for {value['location']}")
-                for location in value['location']:
-                    if location['sheet'] != rng['sheet']:
-                        continue
-                    logger.debug(f"Writing {value} to row {location['row']}, column {location['value_column']}")
-                    try:
-                        worksheet.cell(location['row'], location['value_column'], value=value['value'])
-                    except KeyError:
-                        worksheet.cell(location['row'], location['value_column'], value=value['name'])
-        return workbook
+    def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
+        # worksheet.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=4)
+        worksheet.cell(row=start_row, column=1, value="Submitter Info")
+        worksheet.cell(row=start_row, column=1).alignment = Alignment(horizontal="center")
+        return worksheet
 
 
 class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
-    def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook)
-        # logger.debug(f"\n\nHello from {self.__class__.__name__} with range_dict: {pformat(self.range_dict)}")
-        for rng in self.range_dict:
-            list_worksheet = workbook[rng['sheet']]
-            row_count = self.get_row_count(list_worksheet, rng)
-            column_names = [(str(item.value).lower().replace(" ", "_"), item.column) for item in list_worksheet[rng['header_row']] if item.value]
-            samples = self.pad_samples_to_length(row_count=row_count, column_names=column_names)
-            # logger.debug(f"Samples: {pformat(samples)}")
-            for sample in samples:
-                write_row = rng['header_row'] + sample.submission_rank
-                # logger.debug(f"Writing sample: {sample} to row {write_row}")
-                for column in column_names:
-                    # logger.debug(f"At column {column}")
-                    if column[0].lower() in ["well", "row", "column"]:
-                        continue
-                    write_column = column[1]
-                    try:
-                        # value = sample[column[0]]
-                        value = getattr(sample, column[0])
-                    except AttributeError:
-                        value = ""
-                    # logger.debug(f"{column} Writing {value} to row {write_row}, column {write_column}")
-                    list_worksheet.cell(row=write_row, column=write_column, value=value)
+
+    exclude = ['id', 'enabled', 'procedure_rank', "name"]
+    header_order = ["submission_rank", "sample_id"]
+
+    def __init__(self, pydant_obj, proceduretype: "ProcedureType" | None = None, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
+
+    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+                          start_row: int | None = None, *args, **kwargs) -> Workbook:
+        self.pydant_obj = self.pad_samples_to_length(row_count=self.pydant_obj.max_sample_rank)#, column_names=header_list)
+        workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
+        self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
-
-
-
+    def postwrite(self, worksheet: Worksheet) -> Worksheet:
+        worksheet = super().postwrite(worksheet)
+        for row in worksheet.iter_rows(min_row=self.start_row, max_row=self.end_row):
+            for cell in row:
+                if cell.value in [0, "0", "None"]:
+                    cell.value = ""
+                cell.alignment = Alignment(horizontal="center")
+        return worksheet

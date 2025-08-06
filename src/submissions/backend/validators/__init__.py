@@ -43,22 +43,28 @@ class ClientSubmissionNamer(DefaultNamer):
             logger.warning(f"Getting submissiontype from file properties failed, falling back on preparse.\nDepending on excel structure this might yield an incorrect submissiontype")
             sub_type = self.get_subtype_from_preparse()
         if not sub_type:
-            logger.warning(f"Getting submissiontype from preparse failed, falling back on filename regex.\nDepending on excel structure this might yield an incorrect submissiontype")
+            logger.warning(f"Getting submissiontype from preparse failed, falling back on filename regex.\nDepending on file name this might yield an incorrect submissiontype")
             sub_type = self.get_subtype_from_regex()
+        if not sub_type:
+            logger.warning(f"Getting submissiontype from regex failed, using default submissiontype.")
+            sub_type = SubmissionType.query(name="Test")
+        logger.debug(f"Submission Type: {sub_type}")
+        sys.exit()
         return sub_type
 
-    def get_subtype_from_regex(self):
+    def get_subtype_from_regex(self) -> SubmissionType:
         regex = SubmissionType.regex
         m = regex.search(self.filepath.__str__())
         try:
             sub_type = m.lastgroup
+            sub_type = SubmissionType.query(name=sub_type)
         except AttributeError as e:
             sub_type = None
             logger.critical(f"No procedure type found or procedure type found!: {e}")
         return sub_type
 
 
-    def get_subtype_from_preparse(self):
+    def get_subtype_from_preparse(self) -> SubmissionType:
         from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser
         parser = ClientSubmissionInfoParser(self.filepath)
         sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype"), None)
@@ -67,7 +73,7 @@ class ClientSubmissionNamer(DefaultNamer):
             sub_type = None
         return sub_type
 
-    def get_subtype_from_properties(self):
+    def get_subtype_from_properties(self) -> SubmissionType:
         wb = load_workbook(self.filepath)
         # NOTE: Gets first category in the metadata.
         categories = wb.properties.category.split(";")
@@ -238,11 +244,13 @@ class RSLNamer(object):
                 today = datetime.now()
         if isinstance(today, str):
             today = datetime.strptime(today, "%Y-%m-%d")
-        if "name" in data.keys():
-            plate_number = data['name'].split("-")[-1][0]
-        else:
-            previous = Run.query(start_date=today, end_date=today, submissiontype=data['submissiontype'])
-            plate_number = len(previous) + 1
+        # if "name" in data.keys():
+        #     logger.debug(f"Found name: {data['name']}")
+        #     plate_number = data['name'].split("-")[-1][0]
+        # else:
+        previous = Run.query(start_date=today, end_date=today, submissiontype=data['submissiontype'])
+        plate_number = len(previous) + 1
+        logger.debug(f"Using plate number: {plate_number}")
         return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
 
     @classmethod
