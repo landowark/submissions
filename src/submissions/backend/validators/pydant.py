@@ -250,7 +250,7 @@ class PydReagent(PydBaseClass):
         report = Report()
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
-        reagent, new = Reagent.query_or_create(lot=self.lot, name=self.name)
+        reagent, new = ReagentLot.query_or_create(lot=self.lot, name=self.name)
         if new:
             reagentrole = ReagentRole.query(name=self.reagentrole)
             reagent.reagentrole = reagentrole
@@ -374,7 +374,7 @@ class PydEquipment(PydBaseClass):
     name: str
     nickname: str | None
     # process: List[dict] | None
-    process: PydProcess | None
+    process: List[PydProcess] | PydProcess | None
     equipmentrole: str | PydEquipmentRole | None
     tips: List[PydTips] | PydTips | None = Field(default=[])
 
@@ -402,7 +402,7 @@ class PydEquipment(PydBaseClass):
         value = convert_nans_to_nones(value)
         if not value:
             value = ['']
-        logger.debug(value)
+        # logger.debug(value)
         try:
             # value = [item.strip() for item in value]
             value = next((PydProcess(**process.details_dict()) for process in value))
@@ -435,7 +435,7 @@ class PydEquipment(PydBaseClass):
         return value
 
     @report_result
-    def to_sql(self, procedure: Procedure | str = None, kittype: KitType | str = None) -> Tuple[
+    def to_sql(self, procedure: Procedure | str = None, proceduretype: ProcedureType | str = None) -> Tuple[
         Equipment, ProcedureEquipmentAssociation]:
         """
         Creates Equipment and SubmssionEquipmentAssociations for this PydEquipment
@@ -449,8 +449,8 @@ class PydEquipment(PydBaseClass):
         report = Report()
         if isinstance(procedure, str):
             procedure = Procedure.query(name=procedure)
-        if isinstance(kittype, str):
-            kittype = KitType.query(name=kittype)
+        if isinstance(proceduretype, str):
+            proceduretype = ProcedureType.query(name=proceduretype)
         logger.debug(f"Querying equipment: {self.asset_number}")
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
@@ -470,8 +470,7 @@ class PydEquipment(PydBaseClass):
                 # NOTE: It looks like the way fetching the process is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
                 # NOTE: I need to find a way to filter this by the kittype involved.
                 if len(self.processes) > 1:
-                    process = Process.query(proceduretype=procedure.get_submission_type(), kittype=kittype,
-                                            equipmentrole=self.role)
+                    process = Process.query(proceduretype=procedure.get_submission_type(), equipmentrole=self.role)
                 else:
                     process = Process.query(name=self.processes[0])
                 if process is None:
@@ -879,15 +878,15 @@ class PydRun(PydBaseClass):  #, extra='allow'):
             pass
         return SubmissionFormWidget(parent=parent, pyd=self, disable=disable)
 
-    def to_writer(self) -> "SheetWriter":
-        """
-        Sends data here to the sheet writer.
-
-        Returns:
-            SheetWriter: Sheetwriter object that will perform writing.
-        """
-        from backend.excel.writer import SheetWriter
-        return SheetWriter(self)
+    # def to_writer(self) -> "SheetWriter":
+    #     """
+    #     Sends data here to the sheet writer.
+    #
+    #     Returns:
+    #         SheetWriter: Sheetwriter object that will perform writing.
+    #     """
+    #     from backend.excel.writer import SheetWriter
+    #     return SheetWriter(self)
 
     def construct_filename(self) -> str:
         """
@@ -1166,10 +1165,10 @@ class PydProcess(PydBaseClass, extra="allow"):
     proceduretype: List[str]
     equipment: List[str]
     equipmentrole: List[str]
-    kittype: List[str]
+    # kittype: List[str]
     tiprole: List[str]
 
-    @field_validator("proceduretype", "equipment", "equipmentrole", "kittype", "tiprole", mode="before")
+    @field_validator("proceduretype", "equipment", "equipmentrole", "tiprole", mode="before")
     @classmethod
     def enforce_list(cls, value):
         if not isinstance(value, list):
@@ -1249,8 +1248,8 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
     repeat_of: str | None = Field(default=None)
-    kittype: dict = Field(default=dict(value="NA", missing=True))
-    possible_kits: list | None = Field(default=[], validate_default=True)
+    # kittype: dict = Field(default=dict(value="NA", missing=True))
+    # possible_kits: list | None = Field(default=[], validate_default=True)
     plate_map: str | None = Field(default=None)
     reagent: list | None = Field(default=[])
     reagentrole: dict | None = Field(default={}, validate_default=True)
@@ -1258,7 +1257,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     equipment: List[PydEquipment] = Field(default=[])
     result: List[PydResults] | List[dict] = Field(default=[])
 
-    @field_validator("name", "technician", "kittype", mode="before")
+    @field_validator("name", "technician", mode="before")#"kittype", mode="before")
     @classmethod
     def convert_to_dict(cls, value):
         if not value:
@@ -1295,18 +1294,18 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             value['missing'] = True
         return value
 
-    @field_validator("possible_kits")
-    @classmethod
-    def rescue_possible_kits(cls, value, values):
-        if not value:
-            try:
-                if values.data['proceduretype']:
-                    value = [kittype.__dict__['name'] for kittype in values.data['proceduretype'].kittype]
-            except KeyError:
-                pass
-        return value
+    # @field_validator("possible_kits")
+    # @classmethod
+    # def rescue_possible_kits(cls, value, values):
+    #     if not value:
+    #         try:
+    #             if values.data['proceduretype']:
+    #                 value = [kittype.__dict__['name'] for kittype in values.data['proceduretype'].kittype]
+    #         except KeyError:
+    #             pass
+    #     return value
 
-    @field_validator("name", "technician", "kittype")
+    @field_validator("name", "technician")#, "kittype")
     @classmethod
     def set_colour(cls, value):
         try:
@@ -1321,20 +1320,26 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     @field_validator("reagentrole")
     @classmethod
     def rescue_reagentrole(cls, value, values):
+        # if not value:
+        #     match values.data['kittype']:
+        #         case dict():
+        #             if "value" in values.data['kittype'].keys():
+        #                 roi = values.data['kittype']['value']
+        #             elif "name" in values.data['kittype'].keys():
+        #                 roi = values.data['kittype']['name']
+        #             else:
+        #                 raise KeyError(f"Couldn't find kittype name in the dictionary: {values.data['kittype']}")
+        #         case str():
+        #             roi = values.data['kittype']
+        #     if roi != cls.model_fields['kittype'].default['value']:
+        #         kittype = KitType.query(name=roi)
+        #         value = {item.name: item.reagent for item in kittype.reagentrole}
         if not value:
-            match values.data['kittype']:
-                case dict():
-                    if "value" in values.data['kittype'].keys():
-                        roi = values.data['kittype']['value']
-                    elif "name" in values.data['kittype'].keys():
-                        roi = values.data['kittype']['name']
-                    else:
-                        raise KeyError(f"Couldn't find kittype name in the dictionary: {values.data['kittype']}")
-                case str():
-                    roi = values.data['kittype']
-            if roi != cls.model_fields['kittype'].default['value']:
-                kittype = KitType.query(name=roi)
-                value = {item.name: item.reagent for item in kittype.reagentrole}
+            value = {}
+            for reagentrole in values.data['proceduretype'].reagentrole:
+                reagents = [reagent.lot_dicts for reagent in reagentrole.reagent]
+                value[reagentrole.name] = flatten_list(reagents)
+            # value = {item.name: item.reagent for item in values.data['proceduretype'].reagentrole}
         return value
 
     @field_validator("run")
@@ -1416,12 +1421,12 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
 
     def update_samples(self, sample_list: List[dict]):
-        logger.debug(f"Incoming sample_list:\n{pformat(sample_list)}")
+        # logger.debug(f"Incoming sample_list:\n{pformat(sample_list)}")
         for iii, sample_dict in enumerate(sample_list, start=1):
             if sample_dict['sample_id'].startswith("blank_"):
                 sample_dict['sample_id'] = ""
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
-            logger.debug(f"Row: {row}, Column: {column}")
+            # logger.debug(f"Row: {row}, Column: {column}")
             try:
                 sample = next(
                     (item for item in self.sample if item.sample_id.upper() == sample_dict['sample_id'].upper()))
@@ -1440,7 +1445,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sample.row = row
             sample.column = column
             sample.procedure_rank = sample_dict['index']
-            logger.debug(f"Sample of interest: {sample.improved_dict()}")
+            # logger.debug(f"Sample of interest: {sample.improved_dict()}")
         # logger.debug(f"Updated samples:\n{pformat(self.sample)}")
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str):
@@ -1456,7 +1461,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             idx = 0
         insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         self.reagent.insert(idx, insertable)
-        logger.debug(self.reagent)
+        # logger.debug(self.reagent)
 
     @classmethod
     def update_new_reagents(cls, reagent: PydReagent):
@@ -1492,24 +1497,24 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         if self.proceduretype:
             sql.proceduretype = self.proceduretype
         # Note: convert any new reagents to sql and save
-        for reagentrole, reagents in self.reagentrole.items():
-            for reagent in reagents:
-                if not reagent.lot or reagent.name == "--New--":
-                    continue
-                self.update_new_reagents(reagent)
+        # for reagentrole, reagents in self.reagentrole.items():
+        for reagent in self.reagent:
+            if not reagent.lot or reagent.name == "--New--":
+                continue
+            self.update_new_reagents(reagent)
         # NOTE: reset reagent associations.
         sql.procedurereagentassociation = []
         for reagent in self.reagent:
             if isinstance(reagent, dict):
                 reagent = PydReagent(**reagent)
-            # logger.debug(reagent)
+            logger.debug(reagent)
             reagentrole = reagent.reagentrole
             reagent = reagent.to_sql()
             # logger.debug(reagentrole)
-            if reagent not in sql.reagent:
+            if reagent not in sql.reagentlot:
                 # NOTE: Remove any previous association for this role.
                 if sql.id:
-                    removable = ProcedureReagentAssociation.query(procedure=sql, reagentrole=reagentrole)
+                    removable = ProcedureReagentLotAssociation.query(procedure=sql, reagentrole=reagentrole)
                 else:
                     removable = []
                 logger.debug(f"Removable: {removable}")
@@ -1520,7 +1525,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     else:
                         removable.delete()
                 # logger.debug(f"Adding {reagent} to {sql}")
-                reagent_assoc = ProcedureReagentAssociation(reagent=reagent, procedure=sql, reagentrole=reagentrole)
+                reagent_assoc = ProcedureReagentLotAssociation(reagentlot=reagent, procedure=sql, reagentrole=reagentrole)
         try:
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
         except ValueError:
@@ -1543,10 +1548,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
-        if self.kittype['value'] not in ["NA", None, ""]:
-            kittype = KitType.query(name=self.kittype['value'], limit=1)
-            if kittype:
-                sql.kittype = kittype
         for equipment in self.equipment:
             equip = Equipment.query(name=equipment.name)
             if equip not in sql.equipment:
@@ -1729,7 +1730,7 @@ class PydClientSubmission(PydBaseClass):
             case SubmissionType():
                 pass
             case _:
-                sql.submissiontype = SubmissionType.query(name="Test")
+                sql.submissiontype = SubmissionType.query(name="Default")
         for k in list(self.model_fields.keys()) + list(self.model_extra.keys()):
             logger.debug(f"Running {k}")
             attribute = getattr(self, k)

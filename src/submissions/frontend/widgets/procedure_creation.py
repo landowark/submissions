@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, List
 if TYPE_CHECKING:
     from backend.db.models import Run, Procedure
     from backend.validators import PydProcedure
-from tools import jinja_template_loading, get_application_from_parent, render_details_template
+from tools import jinja_template_loading, get_application_from_parent, render_details_template, sanitize_object_for_json
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -32,10 +32,11 @@ class ProcedureCreation(QDialog):
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
+        logger.debug(f"procedure: {pformat(self.procedure.__dict__)}")
         self.proceduretype = procedure.proceduretype
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
         # self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
-        self.procedure.update_kittype_reagentroles(kittype=self.procedure.possible_kits[0])
+        # self.procedure.update_kittype_reagentroles(kittype=self.procedure.possible_kits[0])
 
         # self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
         # logger.debug(f"Samples to map\n{pformat(self.created_procedure.samples)}")
@@ -70,8 +71,13 @@ class ProcedureCreation(QDialog):
 
     def set_html(self):
         from .equipment_usage_2 import EquipmentUsage
-        logger.debug(f"Edit: {self.edit}")
+        # logger.debug(f"Edit: {self.edit}")
         proceduretype_dict = self.proceduretype.details_dict()
+        logger.debug(f"Reagent roles: {self.procedure.reagentrole}")
+        logger.debug(f"Equipment roles: {pformat(proceduretype_dict['equipment'])}")
+        # NOTE: Add --New-- as an option for reagents.
+        for key, value in self.procedure.reagentrole.items():
+            value.append(dict(name="--New--"))
         if self.procedure.equipment:
             for equipmentrole in proceduretype_dict['equipment']:
                 # NOTE: Check if procedure equipment is present and move to head of the list if so.
@@ -85,6 +91,8 @@ class ProcedureCreation(QDialog):
                 equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
                     equipmentrole['equipment'].index(item_in_er_list)))
         proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
+        proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
+
         self.update_equipment = EquipmentUsage.update_equipment
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
@@ -94,12 +102,13 @@ class ProcedureCreation(QDialog):
             js_in=["procedure_form", "grid_drag", "context_menu"],
             proceduretype=proceduretype_dict,
             run=self.run.details_dict(),
-            procedure=self.procedure.__dict__,
+            # procedure=self.procedure.__dict__,
+            procedure=self.procedure,
             plate_map=self.plate_map,
             edit=self.edit
         )
-        # with open("procedure_creation_rendered.html", "w") as f:
-        #     f.write(html)
+        with open("procedure_creation_rendered.html", "w") as f:
+            f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
@@ -119,11 +128,13 @@ class ProcedureCreation(QDialog):
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
-        process = next((prcss for prcss in equipment.process if prcss.name == process))
-        eoi.process = process.to_pydantic()
-        tips = next((tps for tps in equipment.tips if tps.name == tips))
-        eoi.tips = tips.to_pydantic()
-        self.procedure.equipment.append(eoi)
+        process = next((prcss for prcss in equipment.process if prcss.name == process), None)
+        if process:
+            eoi.process = process.to_pydantic()
+        tips = next((tps for tps in equipment.tips if tps.name == tips), None)
+        if tips:
+            eoi.tips = tips.to_pydantic()
+            self.procedure.equipment.append(eoi)
         logger.debug(f"Updated equipment: {self.procedure.equipment}")
 
     @pyqtSlot(str, str)

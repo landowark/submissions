@@ -21,7 +21,7 @@ class EquipmentUsage(QDialog):
         self.procedure = procedure
         self.setWindowTitle(f"Equipment Checklist - {procedure.name}")
         self.used_equipment = self.procedure.equipment
-        self.kit = self.procedure.kittype
+        # self.kit = self.procedure.kittype
         self.opt_equipment = procedure.proceduretype.get_equipment()
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)

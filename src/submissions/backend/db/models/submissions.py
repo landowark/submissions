@@ -20,9 +20,7 @@ from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 
 from frontend.widgets.functions import select_save_file
-from . import Base, BaseClass, Reagent, SubmissionType, KitType, ClientLab, Contact, LogMixin, Procedure, \
-    kittype_procedure
-
+from . import Base, BaseClass, Reagent, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table, Sequence
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.orm.attributes import flag_modified
@@ -42,7 +40,7 @@ from jinja2 import Template
 from PIL import Image
 
 if TYPE_CHECKING:
-    from backend.db.models.kits import ProcedureType, Procedure
+    from backend.db.models.procedures import ProcedureType, Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -871,8 +869,8 @@ class Run(BaseClass, LogMixin):
             value (_type_): value of attribute
         """
         match key:
-            case "kittype":
-                field_value = KitType.query(name=value)
+            # case "kittype":
+            #     field_value = KitType.query(name=value)
             case "clientlab":
                 field_value = ClientLab.query(name=value)
             case "contact":
@@ -1241,25 +1239,12 @@ class Run(BaseClass, LogMixin):
 
     def add_procedure(self, obj, proceduretype_name: str):
         from frontend.widgets.procedure_creation import ProcedureCreation
-        procedure_type = next(
+        procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         logger.debug(f"Got ProcedureType: {procedure_type}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
             sql, _ = dlg.return_sql(new=True)
-            # logger.debug(f"Output run samples:\n{pformat(sql.run.sample)}")
-            # previous = [proc for proc in self.procedure if proc.proceduretype == procedure_type]
-            # repeats = len([proc for proc in previous if proc.repeat])
-            # if sql.repeat:
-            #     repeats += 1
-            #     if repeats > 0:
-            #         suffix = f"-{str(len(previous))}R{repeats}"
-            #     else:
-            #         suffix = f"-{str(len(previous)+1)}"
-            #     sql.name = f"{sql.repeat}{suffix}"
-            # else:
-            #     suffix = f"-{str(len(previous)+1)}"
-            #     sql.name = f"{self.name}-{proceduretype_name}{suffix}"
             sql.save()
         obj.set_data()
 

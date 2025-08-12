@@ -9,6 +9,8 @@ from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from threading import Thread
 from inspect import getmembers, isfunction, stack
+from types import NoneType
+
 from dateutil.easter import easter
 from dateutil.parser import parse
 from jinja2 import Environment, FileSystemLoader
@@ -58,6 +60,7 @@ main_form_style = '''
 
 page_size = 250
 
+# micro_char = uni_char = "\u03BC"
 
 def divide_chunks(input_list: list, chunk_count: int) -> Generator[Any, Any, None]:
     """
@@ -464,7 +467,7 @@ def render_details_template(template_name:str, css_in:List[str]|str=[], js_in:Li
     for js in js_in:
         with open(js, "r") as f:
             js_out.append(f.read())
-    logger.debug(f"Kwargs: {kwargs}")
+    # logger.debug(f"Kwargs: {kwargs}")
     return template.render(css=css_out, js=js_out, **kwargs)
 
 
@@ -1017,6 +1020,35 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
 
 def flatten_list(input_list: list):
     return list(itertools.chain.from_iterable(input_list))
+
+
+def sanitize_object_for_json(input_dict: dict) -> dict:
+    if not isinstance(input_dict, dict):
+        match input_dict:
+            case int() | float() | bool():
+                pass
+            case _:
+                try:
+                    js = json.dumps(input_dict)
+                except TypeError:
+                    input_dict = str(input_dict)
+        return input_dict
+        # return input_dict
+    output = {}
+    for key, value in input_dict.items():
+        match value:
+            case list():
+                value = [sanitize_object_for_json(object) for object in value]
+            case dict():
+                value = sanitize_object_for_json(value)
+
+            case _:
+                try:
+                    js = json.dumps(value)
+                except TypeError:
+                    value = str(value)
+        output[key] = value
+    return output
 
 
 def create_plate_grid(rows: int, columns: int):

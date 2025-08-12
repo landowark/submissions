@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QWidget, QComboBox, QPushButton
 )
 from PyQt6.QtCore import QSignalBlocker
-from backend import ChartReportMaker
+from backend.excel.reports import ChartReportMaker
 from backend.db import ControlType
 import logging
 from tools import Report, report_result

@@ -47,7 +47,7 @@ class ClientSubmissionNamer(DefaultNamer):
             sub_type = self.get_subtype_from_regex()
         if not sub_type:
             logger.warning(f"Getting submissiontype from regex failed, using default submissiontype.")
-            sub_type = SubmissionType.query(name="Test")
+            sub_type = SubmissionType.query(name="Default")
         logger.debug(f"Submission Type: {sub_type}")
         sys.exit()
         return sub_type

@@ -15,7 +15,7 @@ from tools import Report, Result, check_not_nan, main_form_style, report_result,
 from backend.validators import PydReagent, PydClientSubmission, PydSample
 from backend.db import (
     ClientLab, SubmissionType, Reagent,
-    ReagentRole, KitTypeReagentRoleAssociation, Run, ClientSubmission
+    ReagentRole, ProcedureTypeReagentRoleAssociation, Run, ClientSubmission
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker, AlertPop
@@ -760,8 +760,8 @@ class SubmissionFormWidget(QWidget):
             def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
                 super().__init__(scrollWidget=scrollWidget)
                 self.setEditable(True)
-                looked_up_rt = KitTypeReagentRoleAssociation.query(reagentrole=reagent.equipmentrole,
-                                                                   kittype=extraction_kit)
+                looked_up_rt = ProcedureTypeReagentRoleAssociation.query(reagentrole=reagent.reagentrole,
+                                                                   proceduretype=extraction_kit)
                 relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
                 # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
                 if str(reagent.lot) not in relevant_reagents:

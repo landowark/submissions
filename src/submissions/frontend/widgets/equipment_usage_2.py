@@ -57,7 +57,7 @@ class EquipmentUsage(QDialog):
         proceduretype = procedure.proceduretype
         proceduretype_dict = proceduretype.details_dict()
         run = procedure.run
-        proceduretype_dict['equipment_json'] = flatten_list([item['equipment_json'] for item in proceduretype_dict['equipment']])
+        # proceduretype_dict['equipment_json'] = flatten_list([item['equipment_json'] for item in proceduretype_dict['equipment']])
         # proceduretype_dict['equipment_json'] = [
         #     {'name': 'Liquid Handler', 'equipment': [
         #         {'name': 'Other', 'asset_number': 'XXX', 'processes': [

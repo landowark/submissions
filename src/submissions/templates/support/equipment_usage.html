@@ -19,7 +19,7 @@
 
 <h1><u>Equipment</u></h1>
 <br><hr><br>
-{% for equipmentrole in proceduretype['equipment_json'] %}
+{% for equipmentrole in equipmentroles %}
     <div class="grid-container">
         <div>
             <label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
@@ -38,6 +38,7 @@
         </div>
 
     </div>
+    <br>
 {% endfor %}
 
 {% if not child %}
@@ -48,7 +49,7 @@
 {% endfor %}
 {% endif %}
 <script>
-    const equipment_json = {{ proceduretype['equipment_json'] }};
+    const equipment_json = {{ equipmentroles }};
 
     window.addEventListener('load', function () {
         equipment_json.forEach(startup);
@@ -98,10 +99,10 @@
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
-        for (let iii = 0; iii < equipment.processes.length; iii++) {
+        for (let iii = 0; iii < equipment.process.length; iii++) {
             var opt = document.createElement('option');
-            opt.value = equipment.processes[iii].name;
-            opt.innerHTML = equipment.processes[iii].name;
+            opt.value = equipment.process[iii].name;
+            opt.innerHTML = equipment.process[iii].name;
             dropdown_oi.appendChild(opt);
         }
         updateTipChoices(equipmentrole);
@@ -117,7 +118,7 @@
         console.log(process_name);
         var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
         console.log(equipment);
-        var process = equipment.processes.filter(function(x){ return x.name == process_name })[0];
+        var process = equipment.process.filter(function(x){ return x.name == process_name })[0];
         console.log(process);
         for (let iii = 0; iii < process.tips.length; iii++) {
             var opt = document.createElement('option');

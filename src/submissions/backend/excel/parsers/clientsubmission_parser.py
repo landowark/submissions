@@ -77,8 +77,10 @@ class SubmissionTyperMixin(object):
             SubmissionType: The determined submissiontype
         """
         from backend.db.models import SubmissionType
-        parser = ClientSubmissionInfoParser(filepath=filepath, submissiontype=SubmissionType.query(name="Test"))
+        parser = ClientSubmissionInfoParser(filepath=filepath, submissiontype=SubmissionType.query(name="Default"))
         sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype" or k == "submission_type"), None)
+        if isinstance(sub_type, dict):
+            sub_type = sub_type['value']
         sub_type = SubmissionType.query(name=sub_type.title())
         if isinstance(sub_type, list):
             return

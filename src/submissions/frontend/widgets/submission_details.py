@@ -7,7 +7,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
-from backend.db.models import Run, Sample, Reagent, KitType, Equipment, Process, Tips
+from backend.db.models import Run, Sample, Reagent, ProcedureType, Equipment, Process, Tips
 from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent, list_str_comparator
 from .functions import select_save_file, save_pdf
 from pathlib import Path
@@ -161,7 +161,7 @@ class SubmissionDetails(QDialog):
         self.setWindowTitle(f"Sample Details - {sample.sample_id}")
 
     @pyqtSlot(str, str)
-    def reagent_details(self, reagent: str | Reagent, kit: str | KitType):
+    def reagent_details(self, reagent: str | Reagent, proceduretype: str | ProcedureType):
         """
         Changes details view to summary of Reagent
 
@@ -172,9 +172,9 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Reagent details.")
         if isinstance(reagent, str):
             reagent = Reagent.query(lot=reagent)
-        if isinstance(kit, str):
-            self.kit = KitType.query(name=kit)
-        base_dict = reagent.to_sub_dict(kittype=self.kit, full_data=True)
+        if isinstance(proceduretype, str):
+            self.proceduretype = ProcedureType.query(name=proceduretype)
+        base_dict = reagent.to_sub_dict(proceduretype=self.proceduretype, full_data=True)
         env = jinja_template_loading()
         temp_name = "reagent_details.html"
         try:

@@ -29,12 +29,7 @@
                       <option value="{{ previous }}">{{ previous }}</option>
                     {% endfor %}
                   </select><br><br>
-                  <label>Kit Type:</label><br>
-                  <select class="dropdown" id="kittype" background-colour="{{ procedure['kittype']['colour'] }}">
-                      {% for kittype in procedure['possible_kits'] %}
-                      <option value="{{ kittype }}">{{ kittype }}</option>
-                      {% endfor %}
-                  </select><br>
+
                   {% if procedure['reagentrole'] %}
                     <br>
                     <h1><u>Reagents</u></h1>
@@ -47,6 +42,7 @@
                         {% endfor %}
                     </select>
                     <div class="new_reagent" id="new_{{ key }}"></div>
+                    <br>
                     {% endfor %}
                   {% endif %}
                 </form>
@@ -58,9 +54,10 @@
                 {% endif %}
             </div>
         </div>
-        {% if proceduretype['equipment_section'] %}
-            {{ proceduretype['equipment_section'] }}
-        {% endif %}
+        {% with equipmentroles=proceduretype['equipment'], child=True %}
+            {% include 'support/equipment_usage.html' %}
+        {% endwith %}
+
         {% include 'support/context_menu.html' %}
         {% endblock %}
 

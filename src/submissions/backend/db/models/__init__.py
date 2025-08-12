@@ -612,8 +612,8 @@ class BaseClass(Base):
 
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        output = OrderedDict()
-        output['excluded'] = ["excluded", "misc_info", "_misc_info", "id"]
+        # output = OrderedDict()
+        output = dict(excluded = ["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
             try:
                 check = v.foreign_keys
@@ -625,11 +625,16 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
+            # try:
+            #     logger.debug(f"Setting {k} to {value} for details dict.")
+            # except AttributeError as e:
+            #     logger.error(f"Can't log {k} value due to {type(e)}")
+            #     continue
             output[k.strip("_")] = value
         if self._misc_info:
             for key, value in self._misc_info.items():
+                # logger.debug(f"Misc info key {key}")
                 output[key] = value
-
         return output
 
     @classmethod
@@ -750,7 +755,7 @@ class ConfigItem(BaseClass):
 from .controls import *
 # NOTE: import order must go: orgs, kittype, run due to circular import issues
 from .organizations import *
-from .kits import *
+from .procedures import *
 from .submissions import *
 from .audit import AuditLog
 
