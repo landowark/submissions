@@ -25,8 +25,12 @@ logger = logging.getLogger(f"submission.{__name__}")
 
 class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
 
-    _sql_object: ClassVar = None
+    # _sql_object: ClassVar = None
     key_value_order: ClassVar = []
+
+    @classproperty
+    def _sql_object(cls):
+        return getattr(models, cls.__name__.replace("Pyd", ""))
 
     @model_validator(mode="before")
     @classmethod
@@ -36,7 +40,7 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         try:
             items = data.items()
         except AttributeError as e:
-            logger.error(f"Could not prevalidate {cls.__name__} due to {e}")
+            logger.error(f"Could not prevalidate {cls.__name__} due to {e} for {pformat(data)}")
             return data
         for key, value in items:
             new_key = key.replace("_", "")
@@ -67,7 +71,8 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
 
     def __init__(self, **data):
         # NOTE: Grab the sql model for validation purposes.
-        self.__class__._sql_object = getattr(models, self.__class__.__name__.replace("Pyd", ""))
+        # self.__class__._sql_object = getattr(models, self.__class__.__name__.replace("Pyd", ""))
+        logger.debug(f"Initial data: {data}")
         super().__init__(**data)
 
     def filter_field(self, key: str) -> Any:
@@ -398,14 +403,17 @@ class PydEquipment(PydBaseClass):
         # if isinstance(value, dict):
         #     value = value['processes']
         if isinstance(value, GeneratorType):
-            value = [item.name for item in value]
+            value = [item for item in value]
         value = convert_nans_to_nones(value)
         if not value:
             value = ['']
         # logger.debug(value)
         try:
             # value = [item.strip() for item in value]
-            value = next((PydProcess(**process.details_dict()) for process in value))
+            d = next((process for process in value), None)
+            logger.debug(f"Next process: {d.detail_dict()}")
+            value = PydProcess(d.details_dict())
+            # value = next((process.to_pydantic() for process in value))
         except AttributeError:
             pass
         return value
@@ -1461,7 +1469,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             idx = 0
         insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         self.reagent.insert(idx, insertable)
-        # logger.debug(self.reagent)
+        logger.debug(self.reagent)
 
     @classmethod
     def update_new_reagents(cls, reagent: PydReagent):
@@ -1501,9 +1509,9 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         for reagent in self.reagent:
             if not reagent.lot or reagent.name == "--New--":
                 continue
-            self.update_new_reagents(reagent)
+            # self.update_new_reagents(reagent)
         # NOTE: reset reagent associations.
-        sql.procedurereagentassociation = []
+        # sql.procedurereagentassociation = []
         for reagent in self.reagent:
             if isinstance(reagent, dict):
                 reagent = PydReagent(**reagent)
@@ -1542,12 +1550,13 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     logger.debug(f"sample {sample_sql} not found in {sql.run.sample}")
                     run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
                                                      column=sample.column)
-                else:
-                    logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
+                # else:
+                #     logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
             if sample_sql not in sql.sample:
                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
+        sys.exit(pformat(self.equipment))
         for equipment in self.equipment:
             equip = Equipment.query(name=equipment.name)
             if equip not in sql.equipment:
@@ -1555,8 +1564,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                                                             equipmentrole=equip.equipmentrole[0])
                 process = equipment.process.to_sql()
                 equip_assoc.process = process
-        # logger.debug(f"Output sql: {[pformat(item.__dict__) for item in sql.procedureequipmentassociation]}")
-        logger.debug(pformat(sql.__dict__))
         return sql, None
 
 

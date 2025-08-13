@@ -175,6 +175,7 @@ class SubmissionDetails(QDialog):
         if isinstance(proceduretype, str):
             self.proceduretype = ProcedureType.query(name=proceduretype)
         base_dict = reagent.to_sub_dict(proceduretype=self.proceduretype, full_data=True)
+        # base_dict = reagent.details_dict(proceduretype=self.proceduretype, full_data=True)
         env = jinja_template_loading()
         temp_name = "reagent_details.html"
         try:
@@ -224,7 +225,8 @@ class SubmissionDetails(QDialog):
         if isinstance(run, str):
             run = Run.query(name=run)
         self.rsl_plate_number = run.rsl_plate_number
-        self.base_dict = run.to_dict(full_data=True)
+        # self.base_dict = run.to_dict(full_data=True)
+        self.base_dict = run.details_dict()
         # NOTE: don't want id
         self.base_dict['platemap'] = run.make_plate_map(sample_list=run.hitpicked)
         self.base_dict['excluded'] = run.get_default_info("details_ignore")

@@ -633,7 +633,7 @@ class Run(BaseClass, LogMixin):
             samples = self.generate_associations(name="clientsubmissionsampleassociation")
             equipment = self.generate_associations(name="submission_equipment_associations")
             tips = self.generate_associations(name="submission_tips_associations")
-            procedures = [item.to_dict(full_data=True) for item in self.procedure]
+            procedures = [item.details_dict() for item in self.procedure]
             custom = self.custom
         else:
             samples = None
@@ -696,7 +696,8 @@ class Run(BaseClass, LogMixin):
         output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
                                'permission', "clientsubmission"]
         output['sample_count'] = self.sample_count
-        output['client_submission'] = self.clientsubmission.name
+        output['clientsubmission'] = self.clientsubmission.name
+        output['clientlab'] = self.clientsubmission.clientlab
         output['started_date'] = self.started_date
         output['completed_date'] = self.completed_date
         return output
@@ -718,7 +719,8 @@ class Run(BaseClass, LogMixin):
             query_out = cls.query(page_size=0, start_date=start_date, end_date=end_date)
         records = []
         for sub in query_out:
-            output = sub.to_dict(full_data=True)
+            # output = sub.to_dict(full_data=True)
+            output = sub.details_dict()
             for k, v in output.items():
                 if isinstance(v, types.GeneratorType):
                     output[k] = [item for item in v]
@@ -839,7 +841,8 @@ class Run(BaseClass, LogMixin):
             pd.DataFrame: Pandas Dataframe of all relevant procedure
         """
         # NOTE: use lookup function to create list of dicts
-        subs = [item.to_dict() for item in
+        # subs = [item.to_dict() for item in
+        subs = [item.details_dict() for item in
                 cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
         df = pd.DataFrame.from_records(subs)

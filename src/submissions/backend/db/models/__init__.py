@@ -227,9 +227,11 @@ class BaseClass(Base):
         """
         if not objects:
             try:
-                records = [obj.to_sub_dict(**kwargs) for obj in cls.query()]
+                # records = [obj.to_sub_dict(**kwargs) for obj in cls.query()]
+                records = [obj.details_dict(**kwargs) for obj in cls.query()]
             except AttributeError:
-                records = [obj.to_dict(**kwargs) for obj in cls.query(page_size=0)]
+                # records = [obj.to_dict(**kwargs) for obj in cls.query(page_size=0)]
+                records = [obj.details_dict(**kwargs) for obj in cls.query(page_size=0)]
         else:
             try:
                 records = [obj.to_sub_dict(**kwargs) for obj in objects]
@@ -244,7 +246,7 @@ class BaseClass(Base):
         # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
-        logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
+        # logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
         instance = cls.query(**sanitized_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
@@ -259,10 +261,10 @@ class BaseClass(Base):
                 from backend.validators.pydant import PydBaseClass
                 if issubclass(v.__class__, PydBaseClass):
                     setattr(instance, k, v.to_sql())
-                else:
-                    logger.error(f"Could not set {k} due to {e}")
+                # else:
+                #     logger.error(f"Could not set {k} due to {e}")
         instance._misc_info.update(outside_kwargs)
-        logger.info(f"Instance from query or create: {instance}, new: {new}")
+        # logger.info(f"Instance from query or create: {instance}, new: {new}")
         return instance, new
 
     @classmethod
@@ -300,7 +302,7 @@ class BaseClass(Base):
         #     logger.debug(f"Incoming query: {query}")
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
-            logger.info(f"Using key: {k} with value: {v} against {cls}")
+            # logger.info(f"Using key: {k} with value: {v} against {cls}")
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
@@ -318,7 +320,7 @@ class BaseClass(Base):
                 except ArgumentError:
                     continue
             else:
-                logger.debug("Single item.")
+                # logger.debug("Single item.")
                 try:
                     query = query.filter(attr == v)
                 except ArgumentError:

@@ -94,6 +94,7 @@ for(let i = 0; i < reagentRoles.length; i++) {
         }
         new_reg.appendChild(new_form);
     } else {
+        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
         newregform = document.getElementById(reagentRoles[i].id + "_addition");
         try {
             newregform.remove();
@@ -101,16 +102,16 @@ for(let i = 0; i < reagentRoles.length; i++) {
         catch(err) {
             console.log("Missed it.");
         }
-        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
-
-
     }
   });
 };
+
+var equipmentroles = document.getElementsByClassName("equipmentrole");
 
 window.onload = function() {
     for(let i = 0; i < reagentRoles.length; i++) {
         backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
     }
+
 }
 

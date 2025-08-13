@@ -7,7 +7,9 @@ from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
 from typing import Tuple, List
-from backend.db.models import Run
+
+# from backend import Procedure
+from backend.db.models import Procedure, Run
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
@@ -45,9 +47,10 @@ class ReportMaker(object):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.runs = Run.query(start_date=start_date, end_date=end_date, page_size=0)
+        # self.runs = Run.query(start_date=start_date, end_date=end_date, page_size=0)
+        self.procedures = Procedure.query(start_date=start_date, end_date=end_date, page_size=0)
         if organizations is not None:
-            self.runs = [run for run in self.runs if run.clientsubmission.clientlab.name in organizations]
+            self.procedures = [procedure for procedure in self.procedures if procedure.run.clientsubmission.clientlab.name in organizations]
         self.detailed_df, self.summary_df = self.make_report_xlsx()
         self.html = self.make_report_html(df=self.summary_df)
 
@@ -58,15 +61,17 @@ class ReportMaker(object):
         Returns:
             DataFrame: output dataframe
         """
-        if not self.runs:
+        if not self.procedures:
             return DataFrame(), DataFrame()
-        df = DataFrame.from_records([item.to_dict(report=True) for item in self.runs])
+        # df = DataFrame.from_records([item.to_dict(report=True) for item in self.runs])
+        df = DataFrame.from_records([item.details_dict() for item in self.procedures])
+        logger.debug(df.columns)
         # NOTE: put procedure with the same lab together
         df = df.sort_values("clientlab")
         # NOTE: aggregate cost and sample count columns
-        df2 = df.groupby(["clientlab", "kittype"]).agg(
-            {'kittype': 'count', 'cost': 'sum', 'sample_count': 'sum'})
-        df2 = df2.rename(columns={"kittype": 'run_count'})
+        df2 = df.groupby(["clientlab", "proceduretype"]).agg(
+            {'proceduretype': 'count', 'cost': 'sum', 'sample_count': 'sum'})
+        df2 = df2.rename(columns={"proceduretype": 'run_count'})
         df = df.drop('id', axis=1)
         df = df.sort_values(['clientlab', "started_date"])
         return df, df2

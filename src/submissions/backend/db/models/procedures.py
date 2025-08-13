@@ -6,7 +6,7 @@ import zipfile, logging, re
 from operator import itemgetter
 from pprint import pformat
 import numpy as np
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, BLOB, func
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, validates, Query
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -1447,7 +1447,7 @@ class Procedure(BaseClass):
     )  #: Relation to ProcedureReagentAssociation
 
     reagentlot = association_proxy("procedurereagentlotassociation",
-                                "reagent", creator=lambda reg: ProcedureReagentLotAssociation(
+                                "reagentlot", creator=lambda reg: ProcedureReagentLotAssociation(
             reagent=reg))  #: Association proxy to RunReagentAssociation.reagent
 
     procedureequipmentassociation = relationship(
@@ -1477,9 +1477,22 @@ class Procedure(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, id: int | None = None, name: str | None = None, limit: int = 0, **kwargs) -> Procedure | List[
+    def query(cls, id: int | None = None, name: str | None = None, start_date: date | datetime | str | int | None = None,
+              end_date: date | datetime | str | int | None = None, limit: int = 0, **kwargs) -> Procedure | List[
         Procedure]:
         query: Query = cls.__database_session__.query(cls)
+        if start_date is not None and end_date is None:
+            logger.warning(f"Start date with no end date, using today.")
+            end_date = date.today()
+        if end_date is not None and start_date is None:
+            # NOTE: this query returns a tuple of (object, datetime), need to get only datetime.
+            start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
+            logger.warning(f"End date with no start date, using first procedure date: {start_date}")
+        if start_date is not None:
+            start_date = cls.rectify_query_date(start_date)
+            end_date = cls.rectify_query_date(end_date, eod=True)
+            logger.debug(f"Start date: {start_date}, end date: {end_date}")
+            query = query.filter(cls.started_date.between(start_date, end_date))
         match id:
             case int():
                 query = query.filter(cls.id == id)
@@ -1574,8 +1587,8 @@ class Procedure(BaseClass):
 
     def details_dict(self, **kwargs):
         output = super().details_dict()
-        output['kittype'] = output['kittype'].details_dict()
-        output['kit_type'] = self.kittype.name
+        # output['kittype'] = output['kittype'].details_dict()
+        # output['kit_type'] = self.kittype.name
         output['proceduretype'] = output['proceduretype'].details_dict()['name']
         output['results'] = [result.details_dict() for result in output['results']]
         run_samples = [sample for sample in self.run.sample]
@@ -1601,6 +1614,9 @@ class Procedure(BaseClass):
                                "procedurereagentlotassociation",
                                "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
                                "tips", "control", "kittype"]
+        output['sample_count'] = len(active_samples)
+        output['clientlab'] = self.run.clientsubmission.clientlab.name
+        output['cost'] = 0.00
         # output = self.clean_details_dict(output)
         return output
 
@@ -1650,6 +1666,27 @@ class Procedure(BaseClass):
         from backend.db.models import ProcedureSampleAssociation
         return ProcedureSampleAssociation(procedure=self, sample=sample)
 
+    @classmethod
+    def get_default_info(cls, *args) -> dict | list | str:
+        dicto = super().get_default_info()
+        recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
+        dicto.update(dict(
+            details_ignore=['excluded', 'reagents', 'sample',
+                            'extraction_info', 'comment', 'barcode',
+                            'platemap', 'export_map', 'equipment', 'tips', 'custom', 'reagentlot',
+                            'procedurereagentassociation'],
+            # NOTE: Fields not placed in ui form
+            form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
+                         'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
+                         'control', "origin_plate"] + recover,
+            # NOTE: Fields not placed in ui form to be moved to pydantic
+            form_recover=recover
+        ))
+        if args:
+            output = {k: v for k, v in dicto.items() if k in args}
+        else:
+            output = {k: v for k, v in dicto.items()}
+        return output
 
 # class ProcedureTypeKitTypeAssociation(BaseClass):
 #     """
@@ -2118,8 +2155,8 @@ class ProcedureReagentLotAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['reagent']}
-        output = output['reagent'].details_dict()
-
+        output = output['reagentlot'].details_dict()
+        output['reagent_name'] = self.reagentlot.reagent.name
         misc = output['misc_info']
         output.update(relevant)
         output['reagentrole'] = self.reagentrole
@@ -2538,7 +2575,7 @@ class EquipmentRole(BaseClass):
         # output['process'] = [item.details_dict() for item in output['process']]
         output['process'] = [version.details_dict() for version in
                              flatten_list([process.processversion for process in self.process])]
-        logger.debug(f"\n\nProcess: {pformat(output['process'])}")
+        # logger.debug(f"\n\nProcess: {pformat(output['process'])}")
         try:
             output['tips'] = [item.details_dict() for item in output['tips']]
         except KeyError:
@@ -2848,6 +2885,7 @@ class Process(BaseClass):
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
         output['processversion'] = [item.details_dict() for item in self.processversion]
+        logger.debug(f"Process output dict: {pformat(output)}")
         return output
 
     def to_pydantic(self):

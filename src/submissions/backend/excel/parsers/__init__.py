@@ -131,7 +131,8 @@ class DefaultTABLEParser(DefaultParser):
         df = df.dropna(axis=1, how='all')
         for ii, row in enumerate(df.iterrows()):
             output = {}
-            for key, value in row[1].to_dict().items():
+            # for key, value in row[1].to_dict().items():
+            for key, value in row[1].details_dict().items():
                 if isinstance(key, str):
                     key = key.lower().replace(" ", "_")
                     key = re.sub(r"_(\(.*\)|#)", "", key)

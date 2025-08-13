@@ -73,8 +73,8 @@ class ProcedureCreation(QDialog):
         from .equipment_usage_2 import EquipmentUsage
         # logger.debug(f"Edit: {self.edit}")
         proceduretype_dict = self.proceduretype.details_dict()
-        logger.debug(f"Reagent roles: {self.procedure.reagentrole}")
-        logger.debug(f"Equipment roles: {pformat(proceduretype_dict['equipment'])}")
+        # logger.debug(f"Reagent roles: {self.procedure.reagentrole}")
+        # logger.debug(f"Equipment roles: {pformat(proceduretype_dict['equipment'])}")
         # NOTE: Add --New-- as an option for reagents.
         for key, value in self.procedure.reagentrole.items():
             value.append(dict(name="--New--"))
@@ -124,7 +124,7 @@ class ProcedureCreation(QDialog):
         if equipment_of_interest:
             eoi = self.procedure.equipment.pop(self.procedure.equipment.index(equipment_of_interest))
         else:
-            eoi = equipment.to_pydantic(proceduretype=self.procedure.proceduretype)
+            eoi = equipment.to_pydantic(equipmentrole=equipmentrole, proceduretype=self.procedure.proceduretype)
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
@@ -185,6 +185,7 @@ class ProcedureCreation(QDialog):
 
     @pyqtSlot(str, str)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str):
+        logger.debug(f"{reagentrole}: {name_lot_expiry}")
         try:
             name, lot, expiry = name_lot_expiry.split(" - ")
         except ValueError as e:
