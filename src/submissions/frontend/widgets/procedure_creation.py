@@ -134,7 +134,7 @@ class ProcedureCreation(QDialog):
         tips = next((tps for tps in equipment.tips if tps.name == tips), None)
         if tips:
             eoi.tips = tips.to_pydantic()
-            self.procedure.equipment.append(eoi)
+        self.procedure.equipment.append(eoi)
         logger.debug(f"Updated equipment: {self.procedure.equipment}")
 
     @pyqtSlot(str, str)

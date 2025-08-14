@@ -2,11 +2,7 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
-
 import sys, logging, json
-from collections import OrderedDict
-
-import sqlalchemy.exc
 from dateutil.parser import parse
 from pandas import DataFrame
 from pydantic import BaseModel
@@ -20,7 +16,6 @@ from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from tools import report_result, list_sort_dict
-
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -41,9 +36,9 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
     singles = ['id']
-    omni_removes = ["id", 'run', "omnigui_class_dict", "omnigui_instance_dict"]
-    omni_sort = ["name"]
-    omni_inheritable = []
+    # omni_removes = ["id", 'run', "omnigui_class_dict", "omnigui_instance_dict"]
+    # omni_sort = ["name"]
+    # omni_inheritable = []
     searchables = []
 
     _misc_info = Column(JSON)
@@ -242,12 +237,13 @@ class BaseClass(Base):
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
         new = False
-        allowed = [k for k, v in cls.__dict__.items() if isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
+        allowed = [k for k, v in cls.__dict__.items() if
+                   isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
         # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
-        # logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
-        instance = cls.query(**sanitized_kwargs)
+        logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
+        instance = cls.query(limit=1, **sanitized_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
             new = True
@@ -280,7 +276,8 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
-    def execute_query(cls, query: Query = None, model=None, limit: int = 0, offset:int|None=None, **kwargs) -> Any | List[Any]:
+    def execute_query(cls, query: Query = None, model=None, limit: int = 0, offset: int | None = None,
+                      **kwargs) -> Any | List[Any]:
         """
         Execute sqlalchemy query with relevant defaults.
 
@@ -610,12 +607,12 @@ class BaseClass(Base):
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
 
-    def details_dict(self, **kwargs):
+    def details_dict(self, **kwargs) -> dict:
 
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
         # output = OrderedDict()
-        output = dict(excluded = ["excluded", "misc_info", "_misc_info", "id"])
+        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
             try:
                 check = v.foreign_keys
@@ -666,7 +663,7 @@ class BaseClass(Base):
             output[k] = value
         return output
 
-    def to_pydantic(self, pyd_model_name:str|None=None, **kwargs):
+    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         from backend.validators import pydant
         if not pyd_model_name:
             pyd_model_name = f"Pyd{self.__class__.__name__}"
@@ -685,7 +682,7 @@ class BaseClass(Base):
         if dlg.exec():
             pass
 
-    def export(self, obj, output_filepath: str|Path|None=None):
+    def export(self, obj, output_filepath: str | Path | None = None):
         # if not hasattr(self, "template_file"):
         #     logger.error(f"Export not implemented for {self.__class__.__name__}")
         #     return

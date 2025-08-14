@@ -44,13 +44,13 @@ equipmentrole_equipment = Table(
     extend_existing=True
 )
 
-equipment_process = Table(
-    "_equipment_process",
-    Base.metadata,
-    Column("process_id", INTEGER, ForeignKey("_process.id")),
-    Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
-    extend_existing=True
-)
+# equipment_process = Table(
+#     "_equipment_process",
+#     Base.metadata,
+#     Column("process_id", INTEGER, ForeignKey("_process.id")),
+#     Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
+#     extend_existing=True
+# )
 
 equipmentrole_process = Table(
     "_equipmentrole_process",
@@ -68,15 +68,15 @@ equipmentrole_process = Table(
 #     extend_existing=True
 # )
 
-tiprole_tips = Table(
-    "_tiprole_tips",
-    Base.metadata,
-    Column("tiprole_id", INTEGER, ForeignKey("_tiprole.id")),
-    Column("tips_id", INTEGER, ForeignKey("_tips.id")),
-    extend_existing=True
-)
+# tiprole_tips = Table(
+#     "_tiprole_tips",
+#     Base.metadata,
+#     Column("tiprole_id", INTEGER, ForeignKey("_tiprole.id")),
+#     Column("tips_id", INTEGER, ForeignKey("_tips.id")),
+#     extend_existing=True
+# )
 
-process_tiprole = Table(
+process_tips = Table(
     "_process_tiprole",
     Base.metadata,
     Column("process_id", INTEGER, ForeignKey("_process.id")),
@@ -84,13 +84,13 @@ process_tiprole = Table(
     extend_existing=True
 )
 
-equipment_tips = Table(
-    "_equipment_tips",
-    Base.metadata,
-    Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
-    Column("tips_id", INTEGER, ForeignKey("_tips.id")),
-    extend_existing=True
-)
+# equipment_tips = Table(
+#     "_equipment_tips",
+#     Base.metadata,
+#     Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
+#     Column("tips_id", INTEGER, ForeignKey("_tips.id")),
+#     extend_existing=True
+# )
 
 # kittype_procedure = Table(
 #     "_kittype_procedure",
@@ -100,13 +100,13 @@ equipment_tips = Table(
 #     extend_existing=True
 # )
 
-proceduretype_process = Table(
-    "_proceduretype_process",
-    Base.metadata,
-    Column("process_id", INTEGER, ForeignKey("_process.id")),
-    Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id")),
-    extend_existing=True
-)
+# proceduretype_process = Table(
+#     "_proceduretype_process",
+#     Base.metadata,
+#     Column("process_id", INTEGER, ForeignKey("_process.id")),
+#     Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id")),
+#     extend_existing=True
+# )
 
 submissiontype_proceduretype = Table(
     "_submissiontype_proceduretype",
@@ -823,7 +823,7 @@ class Reagent(BaseClass, LogMixin):
 
 class ReagentLot(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
-    lot = Column(String(64))  #: lot number of reagent
+    lot = Column(String(64), unique=True)  #: lot number of reagent
     expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
     reagent = relationship("Reagent")  #: joined parent reagent type
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id", ondelete='SET NULL',
@@ -842,6 +842,25 @@ class ReagentLot(BaseClass):
     @hybrid_property
     def name(self):
         return self.lot
+
+    @classmethod
+    def query(cls,
+              lot: str | None = None,
+              name: str | None = None,
+              limit: int = 1,
+              **kwargs) -> ReagentLot | List[ReagentLot]:
+        query: Query = cls.__database_session__.query(cls)
+        match lot:
+            case str():
+                query = query.filter(cls.lot == lot)
+            case _:
+                pass
+        match name:
+            case str():
+                query = query.join(Reagent).filter(Reagent.name == name)
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
 
     def __repr__(self):
         return f"<Lot({self.lot}-{self.expiry}>"
@@ -1447,7 +1466,7 @@ class Procedure(BaseClass):
     )  #: Relation to ProcedureReagentAssociation
 
     reagentlot = association_proxy("procedurereagentlotassociation",
-                                "reagentlot", creator=lambda reg: ProcedureReagentLotAssociation(
+                                   "reagentlot", creator=lambda reg: ProcedureReagentLotAssociation(
             reagent=reg))  #: Association proxy to RunReagentAssociation.reagent
 
     procedureequipmentassociation = relationship(
@@ -1459,13 +1478,13 @@ class Procedure(BaseClass):
     equipment = association_proxy("procedureequipmentassociation",
                                   "equipment")  #: Association proxy to RunEquipmentAssociation.equipment
 
-    proceduretipsassociation = relationship(
-        "ProcedureTipsAssociation",
-        back_populates="procedure",
-        cascade="all, delete-orphan")
-
-    tips = association_proxy("proceduretipsassociation",
-                             "tips")
+    # proceduretipsassociation = relationship(
+    #     "ProcedureTipsAssociation",
+    #     back_populates="procedure",
+    #     cascade="all, delete-orphan")
+    #
+    # tips = association_proxy("proceduretipsassociation",
+    #                          "tips")
 
     @validates('repeat')
     def validate_repeat(self, key, value):
@@ -1477,7 +1496,8 @@ class Procedure(BaseClass):
 
     @classmethod
     @setup_lookup
-    def query(cls, id: int | None = None, name: str | None = None, start_date: date | datetime | str | int | None = None,
+    def query(cls, id: int | None = None, name: str | None = None,
+              start_date: date | datetime | str | int | None = None,
               end_date: date | datetime | str | int | None = None, limit: int = 0, **kwargs) -> Procedure | List[
         Procedure]:
         query: Query = cls.__database_session__.query(cls)
@@ -1610,10 +1630,7 @@ class Procedure(BaseClass):
         output['tips'] = [tips.details_dict() for tips in output['proceduretipsassociation']]
         output['repeat'] = bool(output['repeat'])
         output['run'] = self.run.name
-        output['excluded'] += ['id', "results", "proceduresampleassociation", "sample",
-                               "procedurereagentlotassociation",
-                               "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
-                               "tips", "control", "kittype"]
+        output['excluded'] += self.get_default_info("details_ignore")
         output['sample_count'] = len(active_samples)
         output['clientlab'] = self.run.clientsubmission.clientlab.name
         output['cost'] = 0.00
@@ -1670,11 +1687,17 @@ class Procedure(BaseClass):
     def get_default_info(cls, *args) -> dict | list | str:
         dicto = super().get_default_info()
         recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
+        # ['id', "results", "proceduresampleassociation", "sample",
+        #  "procedurereagentlotassociation",
+        #  "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
+        #  "tips", "control", "kittype"]
         dicto.update(dict(
-            details_ignore=['excluded', 'reagents', 'sample',
-                            'extraction_info', 'comment', 'barcode',
-                            'platemap', 'export_map', 'equipment', 'tips', 'custom', 'reagentlot',
-                            'procedurereagentassociation'],
+            details_ignore=['excluded', 'reagents', 'sample', 'extraction_info', 'comment', 'barcode',
+                            'platemap', 'export_map', 'equipment', 'tips', 'custom', 'reagentlot', 'reagent_lot',
+                            "results", "proceduresampleassociation", "sample",
+                            "procedurereagentlotassociation",
+                            "procedureequipmentassociation", "proceduretipsassociation", "reagent", "equipment",
+                            "tips", "control"],
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
                          'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
@@ -1683,10 +1706,14 @@ class Procedure(BaseClass):
             form_recover=recover
         ))
         if args:
-            output = {k: v for k, v in dicto.items() if k in args}
+            if len(args) > 1:
+                output = {k: v for k, v in dicto.items() if k in args}
+            else:
+                output = dicto[args[0]]
         else:
             output = {k: v for k, v in dicto.items()}
         return output
+
 
 # class ProcedureTypeKitTypeAssociation(BaseClass):
 #     """
@@ -1824,9 +1851,9 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
-    omni_removes = BaseClass.omni_removes + ["submission_type_id", "kits_id", "reagent_roles_id", "last_used"]
-    omni_sort = ["proceduretype", "kittype", "reagentrole", "required", "uses"]
-    omni_inheritable = ["proceduretype", "kittype"]
+    # omni_removes = BaseClass.omni_removes + ["submission_type_id", "kits_id", "reagent_roles_id", "last_used"]
+    # omni_sort = ["proceduretype", "kittype", "reagentrole", "required", "uses"]
+    # omni_inheritable = ["proceduretype", "kittype"]
 
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"),
                             primary_key=True)  #: id of associated reagent type
@@ -2076,7 +2103,7 @@ class ProcedureReagentLotAssociation(BaseClass):
             str: Representation of this RunReagentAssociation
         """
         try:
-            return f"<ProcedureReagentAssociation({self.procedure.procedure.rsl_plate_number} & {self.reagent.lot})>"
+            return f"<ProcedureReagentLotAssociation({self.procedure.name} & {self.reagent.lot})>"
         except AttributeError:
             try:
                 logger.error(f"Reagent {self.reagent.lot} procedure association {self.reagent_id} has no procedure!")
@@ -2584,189 +2611,12 @@ class EquipmentRole(BaseClass):
         return output
 
 
-class ProcedureEquipmentAssociation(BaseClass):
-    """
-    Abstract association between BasicRun and Equipment
-    """
-
-    equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
-    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    equipmentrole = Column(String(64), primary_key=True)  #: name of the reagentrole the equipment fills
-    processversion_id = Column(INTEGER, ForeignKey("_processversion.id", ondelete="SET NULL",
-                                                   name="SEA_Process_id"))  #: Foreign key of process id
-    start_time = Column(TIMESTAMP)  #: start time of equipment use
-    end_time = Column(TIMESTAMP)  #: end time of equipment use
-    comments = Column(String(1024))  #: comments about equipment
-
-    procedure = relationship(Procedure,
-                             back_populates="procedureequipmentassociation")  #: associated procedure
-
-    equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
-
-    tips_id = Column(INTEGER, ForeignKey("_tips.id", ondelete="SET NULL",
-                                         name="SEA_Process_id"))
-
-    def __repr__(self) -> str:
-        try:
-            return f"<ProcedureEquipmentAssociation({self.name})>"
-        except AttributeError:
-            return "<ProcedureEquipmentAssociation(Unknown)>"
-
-    def __init__(self, procedure=None, equipment=None, procedure_id: int | None = None, equipment_id: int | None = None,
-                 equipmentrole: str = "None"):
-        if not procedure:
-            if procedure_id:
-                procedure = Procedure.query(id=procedure_id)
-            else:
-                logger.error("Creation error")
-        self.procedure = procedure
-        if not equipment:
-            if equipment_id:
-                equipment = Equipment.query(id=equipment_id)
-            else:
-                logger.error("Creation error")
-        self.equipment = equipment
-        if isinstance(equipmentrole, list):
-            equipmentrole = equipmentrole[0]
-        if isinstance(equipmentrole, EquipmentRole):
-            equipmentrole = equipmentrole.name
-        self.equipmentrole = equipmentrole
-
-    @property
-    def name(self):
-        return f"{self.procedure.name} & {self.equipment.name}"
-
-    @property
-    def process(self):
-        return ProcessVersion.query(id=self.processversion_id)
-
-    @property
-    def tips(self):
-        try:
-            return Tips.query(id=self.tips_id, limit=1)
-        except AttributeError:
-            return None
-
-    def to_sub_dict(self) -> dict:
-        """
-        This RunEquipmentAssociation as a dictionary
-
-        Returns:
-            dict: This RunEquipmentAssociation as a dictionary
-        """
-        try:
-            process = self.process.name
-        except AttributeError:
-            process = "No process found"
-        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments,
-                      processes=[process], role=self.equipmentrole, nickname=self.equipment.nickname)
-        return output
-
-    def to_pydantic(self) -> "PydEquipment":
-        """
-        Returns a pydantic model based on this object.
-
-        Returns:
-            PydEquipment: pydantic equipment model
-        """
-        from backend.validators import PydEquipment
-        return PydEquipment(**self.details_dict())
-
-    @classmethod
-    @setup_lookup
-    def query(cls,
-              equipment: int | Equipment | None = None,
-              procedure: int | Procedure | None = None,
-              equipmentrole: str | None = None,
-              limit: int = 0, **kwargs) \
-            -> Any | List[Any]:
-        query: Query = cls.__database_session__.query(cls)
-        match equipment:
-            case int():
-                query = query.filter(cls.equipment_id == equipment)
-            case Equipment():
-                query = query.filter(cls.equipment == equipment)
-            case _:
-                pass
-        match procedure:
-            case int():
-                query = query.filter(cls.procedure_id == procedure)
-            case Procedure():
-                query = query.filter(cls.procedure == procedure)
-            case _:
-                pass
-        if equipmentrole is not None:
-            query = query.filter(cls.equipmentrole == equipmentrole)
-        return cls.execute_query(query=query, limit=limit, **kwargs)
-
-    def details_dict(self, **kwargs):
-        output = super().details_dict()
-        # NOTE: Figure out how to merge the misc_info if doing .update instead.
-        relevant = {k: v for k, v in output.items() if k not in ['equipment']}
-        output = output['equipment'].details_dict()
-        misc = output['misc_info']
-        output.update(relevant)
-        output['misc_info'] = misc
-        output['equipment_role'] = self.equipmentrole
-        output['process'] = self.process.details_dict()
-        try:
-            output['tips'] = self.tips.details_dict()
-        except AttributeError:
-            output['tips'] = None
-        return output
-
-
-class ProcedureTypeEquipmentRoleAssociation(BaseClass):
-    """
-    Abstract association between SubmissionType and EquipmentRole
-    """
-    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
-    proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
-                              primary_key=True)  #: id of associated procedure
-    # kittype_id = Column(INTEGER, ForeignKey("_kittype.id"),
-    #                           primary_key=True)
-    uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
-    static = Column(INTEGER,
-                    default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
-
-    proceduretype = relationship(ProcedureType,
-                                 back_populates="proceduretypeequipmentroleassociation")  #: associated procedure
-
-    equipmentrole = relationship(EquipmentRole,
-                                 back_populates="equipmentroleproceduretypeassociation")  #: associated equipment
-
-    # kittype = relationship(KitType, back_populates="proceduretypeequipmentroleassociation")
-
-    @validates('static')
-    def validate_static(self, key, value):
-        """
-        Ensures only 1 & 0 used in 'static'
-
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
-
-        Raises:
-            ValueError: Raised if bad value given
-
-        Returns:
-            _type_: value
-        """
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
-
-    @check_authorization
-    def save(self):
-        super().save()
-
-
 class Process(BaseClass):
     """
     A Process is a method used by a piece of equipment.
     """
 
-    level = 2
+
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     name = Column(String(64), unique=True)  #: Process name
@@ -2885,20 +2735,20 @@ class Process(BaseClass):
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
         output['processversion'] = [item.details_dict() for item in self.processversion]
-        logger.debug(f"Process output dict: {pformat(output)}")
+        # logger.debug(f"Process output dict: {pformat(output)}")
         return output
 
-    def to_pydantic(self):
-        from backend.validators.pydant import PydProcess
-        output = {}
-        for k, v in self.details_dict().items():
-            if isinstance(v, list):
-                output[k] = [item.name if issubclass(item.__class__, BaseClass) else item for item in v]
-            elif issubclass(v.__class__, BaseClass):
-                output[k] = v.name
-            else:
-                output[k] = v
-        return PydProcess(**output)
+    # def to_pydantic(self):
+    #     from backend.validators.pydant import PydProcess
+    #     output = {}
+    #     for k, v in self.details_dict().items():
+    #         if isinstance(v, list):
+    #             output[k] = [item.name if issubclass(item.__class__, BaseClass) else item for item in v]
+    #         elif issubclass(v.__class__, BaseClass):
+    #             output[k] = v.name
+    #         else:
+    #             output[k] = v
+    #     return PydProcess(**output)
 
 
 class ProcessVersion(BaseClass):
@@ -2923,26 +2773,51 @@ class ProcessVersion(BaseClass):
             output['project'] = ""
         return output
 
+    def set_attribute(self, key, value):
+        setattr(self, key, value)
 
-class TipRole(BaseClass):
+    @classmethod
+    def query(cls,
+              version: str | None = None,
+              name: str | None = None,
+              limit: int = 0,
+              **kwargs) -> ReagentLot | List[ReagentLot]:
+        query: Query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.join(Process).filter(Process.name == name)
+            case _:
+                pass
+        match version:
+            case str():
+                query = query.filter(cls.version == version)
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
+
+
+class Tips(BaseClass):
     """
     An abstract reagentrole that a tip fills during a process
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: name of reagent type
-    tips = relationship("Tips", back_populates="tiprole",
+    tipslot = relationship("TipsLot", back_populates="tips",
                         secondary=tiprole_tips)  #: concrete control of this reagent type
-    process = relationship("Process", back_populates="tiprole", secondary=process_tiprole)
+    manufacturer = Column(String(64))
+    capacity = Column(INTEGER)
+    ref = Column(String(64))  #: tip reference number
+    process = relationship("Process", back_populates="tips", secondary=process_tiprole)
 
-    tiproleproceduretypeassociation = relationship(
-        "ProcedureTypeTipRoleAssociation",
-        back_populates="tiprole",
-        cascade="all, delete-orphan"
-    )  #: associated procedure
-
-    proceduretype = association_proxy("tiproleproceduretypeassociation", "proceduretype",
-                                      creator=lambda proceduretype: ProcedureTypeTipRoleAssociation(
-            proceduretype=proceduretype))
+    # tiproleproceduretypeassociation = relationship(
+    #     "ProcedureTypeTipRoleAssociation",
+    #     back_populates="tiprole",
+    #     cascade="all, delete-orphan"
+    # )  #: associated procedure
+    #
+    # proceduretype = association_proxy("tiproleproceduretypeassociation", "proceduretype",
+    #                                   creator=lambda proceduretype: ProcedureTypeTipRoleAssociation(
+    #                                       proceduretype=proceduretype))
 
     # @classmethod
     # def query_or_create(cls, **kwargs) -> Tuple[TipRole, bool]:
@@ -2990,35 +2865,37 @@ class TipRole(BaseClass):
         )
 
 
-class Tips(BaseClass, LogMixin):
+class TipsLot(BaseClass, LogMixin):
     """
     A concrete instance of tips.
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
-    tiprole = relationship("TipRole", back_populates="tips",
+    tips = relationship("Tips", back_populates="tipslot",
                            secondary=tiprole_tips)  #: joined parent reagent type
-    tiprole_id = Column(INTEGER, ForeignKey("_tiprole.id", ondelete='SET NULL',
-                                            name="fk_tip_role_id"))  #: id of parent reagent type
-    manufacturer = Column(String(64))
-    capacity = Column(INTEGER)
-    ref = Column(String(64))  #: tip reference number
-    # lot = Column(String(64))  #: lot number of tips
-    equipment = relationship("Equipment", back_populates="tips",
-                             secondary=equipment_tips)  #: associated procedure
-    tipsprocedureassociation = relationship(
-        "ProcedureTipsAssociation",
-        back_populates="tips",
-        cascade="all, delete-orphan"
-    )  #: associated procedure
+    tips_id = Column(INTEGER, ForeignKey("_tips.id", ondelete='SET NULL',
+                                            name="fk_tips_id"))  #: id of parent reagent type
+    lot = Column(String(64), unique=True)
+    expiry = Column(TIMESTAMP)
 
-    procedure = association_proxy("tipsprocedureassociation", 'procedure')
+    # lot = Column(String(64))  #: lot number of tips
+    # equipment = relationship("Equipment", back_populates="tips",
+    #                          secondary=equipment_tips)  #: associated procedure
+    # tipsprocedureassociation = relationship(
+    #     "ProcedureTipsAssociation",
+    #     back_populates="tips",
+    #     cascade="all, delete-orphan"
+    # )  #: associated procedure
+    #
+    # procedure = association_proxy("tipsprocedureassociation", 'procedure')
+
+    procedureequipmentassociation =
 
     @property
     def size(self) -> str:
         return f"{self.capacity}ul"
 
     @property
-    def name (self) -> str:
+    def name(self) -> str:
         return f"{self.manufacturer}-{self.size}-{self.ref}"
 
     # @classmethod
@@ -3121,6 +2998,187 @@ class Tips(BaseClass, LogMixin):
         return output
 
 
+class ProcedureEquipmentAssociation(BaseClass):
+    """
+    Abstract association between BasicRun and Equipment
+    """
+
+    equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
+    equipmentrole = Column(String(64), primary_key=True)  #: name of the reagentrole the equipment fills
+    processversion_id = Column(INTEGER, ForeignKey("_processversion.id", ondelete="SET NULL",
+                                                   name="SEA_Process_id"))  #: Foreign key of process id
+    start_time = Column(TIMESTAMP)  #: start time of equipment use
+    end_time = Column(TIMESTAMP)  #: end time of equipment use
+    comments = Column(String(1024))  #: comments about equipment
+
+    procedure = relationship(Procedure,
+                             back_populates="procedureequipmentassociation")  #: associated procedure
+
+    equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
+
+    processversion = relationship(ProcessVersion)
+
+    tips_id = Column(INTEGER, ForeignKey("_tips.id", ondelete="SET NULL",
+                                         name="SEA_Process_id"))
+
+    tips = relationship(Tips)
+
+    def __repr__(self) -> str:
+        try:
+            return f"<ProcedureEquipmentAssociation({self.name})>"
+        except AttributeError:
+            return "<ProcedureEquipmentAssociation(Unknown)>"
+
+    def __init__(self, procedure=None, equipment=None, procedure_id: int | None = None, equipment_id: int | None = None,
+                 equipmentrole: str = "None"):
+        if not procedure:
+            if procedure_id:
+                procedure = Procedure.query(id=procedure_id)
+            else:
+                logger.error("Creation error")
+        self.procedure = procedure
+        if not equipment:
+            if equipment_id:
+                equipment = Equipment.query(id=equipment_id)
+            else:
+                logger.error("Creation error")
+        self.equipment = equipment
+        if isinstance(equipmentrole, list):
+            equipmentrole = equipmentrole[0]
+        if isinstance(equipmentrole, EquipmentRole):
+            equipmentrole = equipmentrole.name
+        self.equipmentrole = equipmentrole
+
+    @property
+    def name(self):
+        return f"{self.procedure.name} & {self.equipment.name}"
+
+    @property
+    def process(self):
+        return ProcessVersion.query(id=self.processversion_id)
+
+    @property
+    def tips(self):
+        try:
+            return Tips.query(id=self.tips_id, limit=1)
+        except AttributeError:
+            return None
+
+    def to_sub_dict(self) -> dict:
+        """
+        This RunEquipmentAssociation as a dictionary
+
+        Returns:
+            dict: This RunEquipmentAssociation as a dictionary
+        """
+        try:
+            process = self.process.name
+        except AttributeError:
+            process = "No process found"
+        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comments,
+                      processes=[process], role=self.equipmentrole, nickname=self.equipment.nickname)
+        return output
+
+    def to_pydantic(self) -> "PydEquipment":
+        """
+        Returns a pydantic model based on this object.
+
+        Returns:
+            PydEquipment: pydantic equipment model
+        """
+        from backend.validators import PydEquipment
+        return PydEquipment(**self.details_dict())
+
+    @classmethod
+    @setup_lookup
+    def query(cls,
+              equipment: int | Equipment | None = None,
+              procedure: int | Procedure | None = None,
+              equipmentrole: str | None = None,
+              limit: int = 0, **kwargs) \
+            -> Any | List[Any]:
+        query: Query = cls.__database_session__.query(cls)
+        match equipment:
+            case int():
+                query = query.filter(cls.equipment_id == equipment)
+            case Equipment():
+                query = query.filter(cls.equipment == equipment)
+            case _:
+                pass
+        match procedure:
+            case int():
+                query = query.filter(cls.procedure_id == procedure)
+            case Procedure():
+                query = query.filter(cls.procedure == procedure)
+            case _:
+                pass
+        if equipmentrole is not None:
+            query = query.filter(cls.equipmentrole == equipmentrole)
+        return cls.execute_query(query=query, limit=limit, **kwargs)
+
+    def details_dict(self, **kwargs):
+        output = super().details_dict()
+        # NOTE: Figure out how to merge the misc_info if doing .update instead.
+        relevant = {k: v for k, v in output.items() if k not in ['equipment']}
+        output = output['equipment'].details_dict()
+        misc = output['misc_info']
+        output.update(relevant)
+        output['misc_info'] = misc
+        output['equipment_role'] = self.equipmentrole
+        output['processversion'] = self.processversion.details_dict()
+        try:
+            output['tips'] = self.tips.details_dict()
+        except AttributeError:
+            output['tips'] = None
+        return output
+
+
+class ProcedureTypeEquipmentRoleAssociation(BaseClass):
+    """
+    Abstract association between SubmissionType and EquipmentRole
+    """
+    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
+    proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
+                              primary_key=True)  #: id of associated procedure
+    # kittype_id = Column(INTEGER, ForeignKey("_kittype.id"),
+    #                           primary_key=True)
+    uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
+    static = Column(INTEGER,
+                    default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+
+    proceduretype = relationship(ProcedureType,
+                                 back_populates="proceduretypeequipmentroleassociation")  #: associated procedure
+
+    equipmentrole = relationship(EquipmentRole,
+                                 back_populates="equipmentroleproceduretypeassociation")  #: associated equipment
+
+
+
+    @validates('static')
+    def validate_static(self, key, value):
+        """
+        Ensures only 1 & 0 used in 'static'
+
+        Args:
+            key (str): name of attribute
+            value (_type_): value of attribute
+
+        Raises:
+            ValueError: Raised if bad value given
+
+        Returns:
+            _type_: value
+        """
+        if not 0 <= value < 2:
+            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+        return value
+
+    @check_authorization
+    def save(self):
+        super().save()
+
+
 class ProcedureTypeTipRoleAssociation(BaseClass):
     """
    Abstract association between SubmissionType and TipRole
@@ -3144,71 +3202,71 @@ class ProcedureTypeTipRoleAssociation(BaseClass):
         pass
 
 
-class ProcedureTipsAssociation(BaseClass):
-    """
-    Association between a concrete procedure instance and concrete tips
-    """
-    tips_id = Column(INTEGER, ForeignKey("_tips.id"), primary_key=True)  #: id of associated equipment
-    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    procedure = relationship("Procedure",
-                             back_populates="proceduretipsassociation")  #: associated procedure
-    tips = relationship(Tips,
-                        back_populates="tipsprocedureassociation")  #: associated equipment
-    tiprole = Column(String(32), primary_key=True)  #, ForeignKey("_tiprole.name"))
-
-    def to_sub_dict(self) -> dict:
-        """
-        This item as a dictionary
-
-        Returns:
-            dict: Values of this object
-        """
-        return dict(role=self.role_name, name=self.tips.name, lot=self.tips.lot)
-
-    @classmethod
-    @setup_lookup
-    def query(cls, tips: int | Tips, tiprole: str, procedure: int | Procedure | None = None, limit: int = 0, **kwargs) \
-            -> Any | List[Any]:
-        query: Query = cls.__database_session__.query(cls)
-        match tips:
-            case int():
-                query = query.filter(cls.tips_id == tips)
-            case Tips():
-                query = query.filter(cls.tips == tips)
-            case _:
-                pass
-        match procedure:
-            case int():
-                query = query.filter(cls.procedure_id == procedure)
-            case Procedure():
-                query = query.filter(cls.procedure == procedure)
-            case _:
-                pass
-        query = query.filter(cls.tiprole == tiprole)
-        return cls.execute_query(query=query, limit=limit, **kwargs)
-
-    # TODO: fold this into the BaseClass.query_or_create ?
-    # @classmethod
-    # def query_or_create(cls, tips, procedure, role: str, **kwargs):
-    #     kwargs['limit'] = 1
-    #     instance = cls.query(tips_id=tips.id, role_name=role, procedure_id=procedure.id, **kwargs)
-    #     if instance is None:
-    #         instance = cls(procedure=procedure, tips=tips, role_name=role)
-    #     return instance
-
-    def to_pydantic(self):
-        from backend.validators import PydTips
-        return PydTips(name=self.tips.name, lot=self.tips.lot, role=self.role_name)
-
-    def details_dict(self, **kwargs):
-        output = super().details_dict()
-        # NOTE: Figure out how to merge the misc_info if doing .update instead.
-        relevant = {k: v for k, v in output.items() if k not in ['tips']}
-        output = output['tips'].details_dict()
-        misc = output['misc_info']
-        output.update(relevant)
-        output['misc_info'] = misc
-        return output
+# class ProcedureTipsAssociation(BaseClass):
+#     """
+#     Association between a concrete procedure instance and concrete tips
+#     """
+#     tips_id = Column(INTEGER, ForeignKey("_tips.id"), primary_key=True)  #: id of associated equipment
+#     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
+#     procedure = relationship("Procedure",
+#                              back_populates="proceduretipsassociation")  #: associated procedure
+#     tips = relationship(Tips,
+#                         back_populates="tipsprocedureassociation")  #: associated equipment
+#     tiprole = Column(String(32), primary_key=True)  #, ForeignKey("_tiprole.name"))
+#
+#     def to_sub_dict(self) -> dict:
+#         """
+#         This item as a dictionary
+#
+#         Returns:
+#             dict: Values of this object
+#         """
+#         return dict(role=self.role_name, name=self.tips.name, lot=self.tips.lot)
+#
+#     @classmethod
+#     @setup_lookup
+#     def query(cls, tips: int | Tips, tiprole: str, procedure: int | Procedure | None = None, limit: int = 0, **kwargs) \
+#             -> Any | List[Any]:
+#         query: Query = cls.__database_session__.query(cls)
+#         match tips:
+#             case int():
+#                 query = query.filter(cls.tips_id == tips)
+#             case Tips():
+#                 query = query.filter(cls.tips == tips)
+#             case _:
+#                 pass
+#         match procedure:
+#             case int():
+#                 query = query.filter(cls.procedure_id == procedure)
+#             case Procedure():
+#                 query = query.filter(cls.procedure == procedure)
+#             case _:
+#                 pass
+#         query = query.filter(cls.tiprole == tiprole)
+#         return cls.execute_query(query=query, limit=limit, **kwargs)
+#
+#     # TODO: fold this into the BaseClass.query_or_create ?
+#     # @classmethod
+#     # def query_or_create(cls, tips, procedure, role: str, **kwargs):
+#     #     kwargs['limit'] = 1
+#     #     instance = cls.query(tips_id=tips.id, role_name=role, procedure_id=procedure.id, **kwargs)
+#     #     if instance is None:
+#     #         instance = cls(procedure=procedure, tips=tips, role_name=role)
+#     #     return instance
+#
+#     def to_pydantic(self):
+#         from backend.validators import PydTips
+#         return PydTips(name=self.tips.name, lot=self.tips.lot, role=self.role_name)
+#
+#     def details_dict(self, **kwargs):
+#         output = super().details_dict()
+#         # NOTE: Figure out how to merge the misc_info if doing .update instead.
+#         relevant = {k: v for k, v in output.items() if k not in ['tips']}
+#         output = output['tips'].details_dict()
+#         misc = output['misc_info']
+#         output.update(relevant)
+#         output['misc_info'] = misc
+#         return output
 
 
 class Results(BaseClass):

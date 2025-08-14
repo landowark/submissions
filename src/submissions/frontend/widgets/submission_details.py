@@ -110,7 +110,7 @@ class SubmissionDetails(QDialog):
 
     @pyqtSlot(str)
     def process_details(self, process: str | Process):
-        logger.debug(f"Equipment details")
+        logger.debug(f"Process details")
         if isinstance(process, str):
             process = Process.query(name=process)
         base_dict = process.to_sub_dict(full_data=True)

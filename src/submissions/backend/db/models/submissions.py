@@ -1248,6 +1248,7 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
             sql, _ = dlg.return_sql(new=True)
+            # sys.exit(pformat(sql.__dict__))
             sql.save()
         obj.set_data()
 
@@ -1460,11 +1461,11 @@ class Run(BaseClass, LogMixin):
         return list(sorted(padded_list, key=itemgetter('submission_rank')))
 
 
-class SampleType(BaseClass):
-    id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-
-    sample = relationship("Sample", back_populates="sampletype", uselist=True)
+# class SampleType(BaseClass):
+#     id = Column(INTEGER, primary_key=True)  #: primary key
+#     name = Column(String(64), nullable=False, unique=True)  #: identification from submitter
+#
+#     sample = relationship("Sample", back_populates="sampletype", uselist=True)
 
 
 # NOTE: Sample Classes
@@ -1476,9 +1477,9 @@ class Sample(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     sample_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-    sampletype_id = Column(INTEGER, ForeignKey("_sampletype.id", ondelete="SET NULL",
-                                               name="fk_SAMP_sampletype_id"))
-    sampletype = relationship("SampleType", back_populates="sample")
+    # sampletype_id = Column(INTEGER, ForeignKey("_sampletype.id", ondelete="SET NULL",
+    #                                            name="fk_SAMP_sampletype_id"))
+    # sampletype = relationship("SampleType", back_populates="sample")
     # misc_info = Column(JSON)
     control = relationship("Control", back_populates="sample", uselist=False)
 
@@ -1512,10 +1513,7 @@ class Sample(BaseClass, LogMixin):
         return self.sample_id
 
     def __repr__(self) -> str:
-        try:
-            return f"<{self.sampletype.name.replace('_', ' ').title().replace(' ', '')}({self.sample_id})>"
-        except AttributeError:
-            return f"<Sample({self.sample_id})>"
+        return f"<Sample({self.sample_id})>"
 
     @classproperty
     def searchables(cls):
@@ -1531,13 +1529,13 @@ class Sample(BaseClass, LogMixin):
         Returns:
             dict: submitter id and sample type and linked procedure if full data
         """
-        try:
-            sample_type = self.sampletype.name
-        except AttributeError:
-            sample_type = "NA"
+        # try:
+        #     sample_type = self.sampletype.name
+        # except AttributeError:
+        #     sample_type = "NA"
         sample = dict(
-            sample_id=self.sample_id,
-            sampletype=sample_type
+            sample_id=self.sample_id
+            # sampletype=sample_type
         )
         if full_data:
             sample['clientsubmission'] = sorted([item.to_sub_dict() for item in self.sampleclientsubmissionassociation],
@@ -1565,7 +1563,7 @@ class Sample(BaseClass, LogMixin):
     @setup_lookup
     def query(cls,
               sample_id: str | None = None,
-              sampletype: str | SampleType | None = None,
+              # sampletype: str | SampleType | None = None,
               limit: int = 0,
               **kwargs
               ) -> Sample | List[Sample]:
@@ -1574,20 +1572,19 @@ class Sample(BaseClass, LogMixin):
 
         Args:
             sample_id (str | None, optional): Name of the sample (limits results to 1). Defaults to None.
-            sampletype (str | None, optional): Sample type. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
             models.Sample|List[models.Sample]: Sample(s) of interest.
         """
         query = cls.__database_session__.query(cls)
-        match sampletype:
-            case str():
-                query = query.join(SampleType).filter(SampleType.name == sampletype)
-            case SampleType():
-                query = query.filter(cls.sampletype == sampletype)
-            case _:
-                pass
+        # match sampletype:
+        #     case str():
+        #         query = query.join(SampleType).filter(SampleType.name == sampletype)
+        #     case SampleType():
+        #         query = query.filter(cls.sampletype == sampletype)
+        #     case _:
+        #         pass
         match sample_id:
             case str():
                 query = query.filter(cls.sample_id == sample_id)
@@ -1596,37 +1593,37 @@ class Sample(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    @classmethod
-    def fuzzy_search(cls,
-                     sampletype: str | Sample | None = None,
-                     **kwargs
-                     ) -> List[Sample]:
-        """
-        Allows for fuzzy search of sample.
-
-        Args:
-            sampletype (str | BasicSample | None, optional): Type of sample. Defaults to None.
-
-        Returns:
-            List[Sample]: List of sample that match kwarg search parameters.
-        """
-        query: Query = cls.__database_session__.query(cls)
-        match sampletype:
-            case str():
-                query = query.join(SampleType).filter(SampleType.name == sampletype)
-            case SampleType():
-                query = query.filter(cls.sampletype == sampletype)
-            case _:
-                pass
-        for k, v in kwargs.items():
-            search = f"%{v}%"
-            try:
-                attr = getattr(cls, k)
-                # NOTE: the secret sauce is in attr.like
-                query = query.filter(attr.like(search))
-            except (ArgumentError, AttributeError) as e:
-                logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
-        return query.limit(50).all()
+    # @classmethod
+    # def fuzzy_search(cls,
+    #                  sampletype: str | Sample | None = None,
+    #                  **kwargs
+    #                  ) -> List[Sample]:
+    #     """
+    #     Allows for fuzzy search of sample.
+    #
+    #     Args:
+    #         sampletype (str | BasicSample | None, optional): Type of sample. Defaults to None.
+    #
+    #     Returns:
+    #         List[Sample]: List of sample that match kwarg search parameters.
+    #     """
+    #     query: Query = cls.__database_session__.query(cls)
+    #     match sampletype:
+    #         case str():
+    #             query = query.join(SampleType).filter(SampleType.name == sampletype)
+    #         case SampleType():
+    #             query = query.filter(cls.sampletype == sampletype)
+    #         case _:
+    #             pass
+    #     for k, v in kwargs.items():
+    #         search = f"%{v}%"
+    #         try:
+    #             attr = getattr(cls, k)
+    #             # NOTE: the secret sauce is in attr.like
+    #             query = query.filter(attr.like(search))
+    #         except (ArgumentError, AttributeError) as e:
+    #             logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
+    #     return query.limit(50).all()
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")

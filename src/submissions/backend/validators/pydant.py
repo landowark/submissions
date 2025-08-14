@@ -35,6 +35,7 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     @model_validator(mode="before")
     @classmethod
     def prevalidate(cls, data):
+        # logger.debug(f"Initial data for {cls.__name__}: {pformat(data)}")
         sql_fields = [k for k, v in cls._sql_object.__dict__.items() if isinstance(v, InstrumentedAttribute)]
         output = {}
         try:
@@ -72,7 +73,7 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     def __init__(self, **data):
         # NOTE: Grab the sql model for validation purposes.
         # self.__class__._sql_object = getattr(models, self.__class__.__name__.replace("Pyd", ""))
-        logger.debug(f"Initial data: {data}")
+
         super().__init__(**data)
 
     def filter_field(self, key: str) -> Any:
@@ -284,7 +285,7 @@ class PydReagent(PydBaseClass):
 
 class PydSample(PydBaseClass):
     sample_id: str
-    sampletype: str | None = Field(default=None)
+    # sampletype: str | None = Field(default=None)
     submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
     enabled: bool = Field(default=True)
     row: int = Field(default=0)
@@ -327,7 +328,7 @@ class PydSample(PydBaseClass):
     def improved_dict(self, dictionaries: bool = True) -> dict:
         output = super().improved_dict(dictionaries=dictionaries)
         output['name'] = self.sample_id
-        del output['sampletype']
+        # del output['sampletype']
         return output
 
     def to_sql(self):
@@ -399,22 +400,24 @@ class PydEquipment(PydBaseClass):
 
     @field_validator('process', mode='before')
     @classmethod
-    def make_empty_list(cls, value):
+    def make_empty_list(cls, value, values):
         # if isinstance(value, dict):
         #     value = value['processes']
         if isinstance(value, GeneratorType):
             value = [item for item in value]
         value = convert_nans_to_nones(value)
         if not value:
-            value = ['']
-        # logger.debug(value)
+            value = []
+        logger.debug(value)
         try:
             # value = [item.strip() for item in value]
-            d = next((process for process in value), None)
-            logger.debug(f"Next process: {d.detail_dict()}")
-            value = PydProcess(d.details_dict())
+            d: Process = next((process for process in value if values.data['name'] in [item.name for item in process.equipment]), None)
+            # logger.debug(f"Next process: {d.details_dict()}")
+            value = d.to_pydantic()
+            # value = PydProcess(**d.details_dict())
             # value = next((process.to_pydantic() for process in value))
-        except AttributeError:
+        except AttributeError as e:
+            logger.error(f"Process Validation error due to {e}")
             pass
         return value
 
@@ -1179,6 +1182,7 @@ class PydProcess(PydBaseClass, extra="allow"):
     @field_validator("proceduretype", "equipment", "equipmentrole", "tiprole", mode="before")
     @classmethod
     def enforce_list(cls, value):
+        # logger.debug(f"Validating field: {value}")
         if not isinstance(value, list):
             value = [value]
         output = []
@@ -1192,32 +1196,36 @@ class PydProcess(PydBaseClass, extra="allow"):
     @report_result
     def to_sql(self):
         report = Report()
-        instance = Process.query(name=self.name)
+        logger.debug(f"Query process: {self.name}, version = {self.version}")
+        # NOTE: can't use query_or_create due to name not being part of ProcessVersion
+        instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
+        logger.debug(f"Got instance: {instance}")
         if not instance:
-            instance = Process()
-        fields = [item for item in self.model_fields]
-        for field in fields:
-            logger.debug(f"Field: {field}")
-            try:
-                field_type = getattr(instance.__class__, field).property
-            except AttributeError:
-                logger.error(f"No attribute: {field} in {instance.__class__}")
-                continue
-            match field_type:
-                case _RelationshipDeclared():
-                    logger.debug(f"{field} is a relationship with {field_type.entity.class_}")
-                    query_str = getattr(self, field)
-                    if isinstance(query_str, list):
-                        query_str = query_str[0]
-                    if query_str in ["", " ", None]:
-                        continue
-                    logger.debug(f"Querying {field_type.entity.class_} with name {query_str}")
-                    field_value = field_type.entity.class_.query(name=query_str)
-                    logger.debug(f"{field} query result: {field_value}")
-                case ColumnProperty():
-                    logger.debug(f"{field} is a property.")
-                    field_value = getattr(self, field)
-            instance.set_attribute(key=field, value=field_value)
+            instance = ProcessVersion()
+        # fields = [item for item in self.model_fields]
+        # for field in fields:
+        #     logger.debug(f"Field: {field}")
+        #     try:
+        #         field_type = getattr(instance.__class__, field).property
+        #     except AttributeError:
+        #         logger.error(f"No attribute: {field} in {instance.__class__}")
+        #         continue
+        #     match field_type:
+        #         case _RelationshipDeclared():
+        #             logger.debug(f"{field} is a relationship with {field_type.entity.class_}")
+        #             query_str = getattr(self, field)
+        #             if isinstance(query_str, list):
+        #                 query_str = query_str[0]
+        #             if query_str in ["", " ", None]:
+        #                 continue
+        #             logger.debug(f"Querying {field_type.entity.class_} with name {query_str}")
+        #             field_value = field_type.entity.class_.query(name=query_str)
+        #             logger.debug(f"{field} query result: {field_value}")
+        #         case ColumnProperty():
+        #             logger.debug(f"{field} is a property.")
+        #             field_value = getattr(self, field)
+        #     # instance.set_attribute(key=field, value=field_value)
+        #     setattr(instance, field, field_value)
         return instance, report
 
 
@@ -1469,7 +1477,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             idx = 0
         insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         self.reagent.insert(idx, insertable)
-        logger.debug(self.reagent)
+        # logger.debug(self.reagent)
 
     @classmethod
     def update_new_reagents(cls, reagent: PydReagent):
@@ -1506,9 +1514,9 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sql.proceduretype = self.proceduretype
         # Note: convert any new reagents to sql and save
         # for reagentrole, reagents in self.reagentrole.items():
-        for reagent in self.reagent:
-            if not reagent.lot or reagent.name == "--New--":
-                continue
+        # for reagent in self.reagent:
+        #     if not reagent.lot or reagent.name == "--New--":
+        #         continue
             # self.update_new_reagents(reagent)
         # NOTE: reset reagent associations.
         # sql.procedurereagentassociation = []
@@ -1532,7 +1540,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                             r.delete()
                     else:
                         removable.delete()
-                # logger.debug(f"Adding {reagent} to {sql}")
+                logger.debug(f"Adding {reagent} to {sql}")
                 reagent_assoc = ProcedureReagentLotAssociation(reagentlot=reagent, procedure=sql, reagentrole=reagentrole)
         try:
             start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
@@ -1556,14 +1564,18 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
-        sys.exit(pformat(self.equipment))
+        # sys.exit(pformat(self.equipment))
         for equipment in self.equipment:
-            equip = Equipment.query(name=equipment.name)
+            logger.debug(f"Equipment: {equipment}")
+            # equip = Equipment.query(name=equipment.name)
+            equip, _ = equipment.to_sql()
+            logger.debug(f"Process: {equipment.process}")
             if equip not in sql.equipment:
                 equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql,
                                                             equipmentrole=equip.equipmentrole[0])
                 process = equipment.process.to_sql()
-                equip_assoc.process = process
+                equip_assoc.processversion = process
+        # sys.exit(pformat([item.__dict__ for item in sql.procedureequipmentassociation]))
         return sql, None
 
 
