@@ -1,6 +1,7 @@
 '''
 Creates forms that the user can enter equipment info into.
 '''
+import sys
 from pprint import pformat
 from PyQt6.QtCore import Qt, QSignalBlocker, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
@@ -98,6 +99,7 @@ class EquipmentUsage(QDialog):
 
     @pyqtSlot(str, str, str, str)
     def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
+
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))

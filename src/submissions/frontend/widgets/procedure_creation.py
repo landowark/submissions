@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, List
 
 if TYPE_CHECKING:
     from backend.db.models import Run, Procedure
-    from backend.validators import PydProcedure
+    from backend.validators import PydProcedure, PydEquipment
 from tools import jinja_template_loading, get_application_from_parent, render_details_template, sanitize_object_for_json
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -92,7 +92,7 @@ class ProcedureCreation(QDialog):
                     equipmentrole['equipment'].index(item_in_er_list)))
         proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
-
+        logger.debug(proceduretype_dict['equipment'])
         self.update_equipment = EquipmentUsage.update_equipment
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
@@ -124,18 +124,26 @@ class ProcedureCreation(QDialog):
         if equipment_of_interest:
             eoi = self.procedure.equipment.pop(self.procedure.equipment.index(equipment_of_interest))
         else:
-            eoi = equipment.to_pydantic(equipmentrole=equipmentrole, proceduretype=self.procedure.proceduretype)
+            eoi: PydEquipment = equipment.to_pydantic(equipmentrole=equipmentrole)
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
-        process = next((prcss for prcss in equipment.process if prcss.name == process), None)
-        if process:
-            eoi.process = process.to_pydantic()
-        tips = next((tps for tps in equipment.tips if tps.name == tips), None)
-        if tips:
-            eoi.tips = tips.to_pydantic()
+        logger.warning("Setting processes.")
+        eoi.process = [process for process in equipment.get_processes(equipmentrole=equipmentrole)]
+        # process = next((prcss for prcss in equipment.process if prcss.name == process), None)
+        # if process:
+        # for process in equipment.process:
+        #     logger.debug(f"Retrieved process: {process}")
+        #     # tips = [tip.to_pydantic() for tip in process.tips]
+        #     # if tips:
+        #     #     process.tips = tips
+        #     # else:
+        #     #     process.tips = [""]
+        #     eoi.process.append(process.to_pydantic())
+        #     # tips = next((tps for tps in process.tips if tps.name == tips), None)
+
         self.procedure.equipment.append(eoi)
-        logger.debug(f"Updated equipment: {self.procedure.equipment}")
+        logger.debug(f"Updated equipment: {pformat(self.procedure.equipment)}")
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):

@@ -672,7 +672,8 @@ class BaseClass(Base):
             pyd = getattr(pydant, pyd_model_name)
         except AttributeError:
             raise AttributeError(f"Could not get pydantic class {pyd_model_name}")
-        logger.debug(f"Kwargs: {kwargs}")
+        # logger.debug(f"Kwargs: {kwargs}")
+        # logger.debug(f"Dict: {pformat(self.details_dict())}")
         return pyd(**self.details_dict(**kwargs))
 
     def show_details(self, obj):

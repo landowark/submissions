@@ -12,7 +12,8 @@ from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QIc
 from typing import Dict, List
 
 # from backend import Procedure
-from backend.db.models import Run, ClientSubmission, Procedure
+from backend.db.models.submissions import Run, ClientSubmission
+from backend.db.models.procedures import  Procedure
 from tools import Report, Result, report_result, get_application_from_parent
 from .functions import select_open_file
 
