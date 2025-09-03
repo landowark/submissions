@@ -2,25 +2,19 @@
 
 """
 from __future__ import annotations
-
-import datetime
-import os
-import re
-import sys, logging
+import sys, logging, os, re, datetime
 from pathlib import Path
 from pprint import pformat
-
 from PyQt6.QtCore import pyqtSlot, Qt
 from PyQt6.QtGui import QContextMenuEvent, QAction
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu, QDialogButtonBox
 from typing import TYPE_CHECKING, Any, List
-
 if TYPE_CHECKING:
     from backend.db.models import Run, Procedure
     from backend.validators import PydProcedure, PydEquipment
-from tools import jinja_template_loading, get_application_from_parent, render_details_template, sanitize_object_for_json
+from tools import get_application_from_parent, render_details_template, sanitize_object_for_json
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -32,26 +26,18 @@ class ProcedureCreation(QDialog):
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
-        logger.debug(f"procedure: {pformat(self.procedure.__dict__)}")
+        # logger.debug(f"procedure: {pformat(self.procedure.__dict__)}")
         self.proceduretype = procedure.proceduretype
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
-        # self.created_procedure = self.proceduretype.construct_dummy_procedure(run=self.run)
-        # self.procedure.update_kittype_reagentroles(kittype=self.procedure.possible_kits[0])
-
-        # self.created_procedure.samples = self.run.constuct_sample_dicts_for_proceduretype(proceduretype=self.proceduretype)
-        # logger.debug(f"Samples to map\n{pformat(self.created_procedure.samples)}")
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
         self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
                                                    enumerate(self.procedure.sample, start=1)])
-        # logger.debug(f"Plate map: {self.plate_map}")
-        # logger.debug(f"Created dummy: {self.created_procedure}")
         self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
         self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.webview.setMinimumSize(1200, 800)
         self.webview.setMaximumWidth(1200)
         # NOTE: Decide if exporting should be allowed.
-        # self.webview.loadFinished.connect(self.activate_export)
         self.layout = QGridLayout()
         # NOTE: button to export a pdf version
         self.layout.addWidget(self.webview, 1, 0, 10, 10)
@@ -71,10 +57,7 @@ class ProcedureCreation(QDialog):
 
     def set_html(self):
         from .equipment_usage_2 import EquipmentUsage
-        # logger.debug(f"Edit: {self.edit}")
         proceduretype_dict = self.proceduretype.details_dict()
-        # logger.debug(f"Reagent roles: {self.procedure.reagentrole}")
-        # logger.debug(f"Equipment roles: {pformat(proceduretype_dict['equipment'])}")
         # NOTE: Add --New-- as an option for reagents.
         for key, value in self.procedure.reagentrole.items():
             value.append(dict(name="--New--"))
@@ -107,14 +90,12 @@ class ProcedureCreation(QDialog):
             plate_map=self.plate_map,
             edit=self.edit
         )
-        with open("procedure_creation_rendered.html", "w") as f:
-            f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
     def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
         from backend.db.models import Equipment
-        logger.debug("Updating equipment")
+        # logger.debug("Updating equipment")
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
@@ -128,22 +109,10 @@ class ProcedureCreation(QDialog):
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
-        logger.warning("Setting processes.")
+        # logger.warning("Setting processes.")
         eoi.process = [process for process in equipment.get_processes(equipmentrole=equipmentrole)]
-        # process = next((prcss for prcss in equipment.process if prcss.name == process), None)
-        # if process:
-        # for process in equipment.process:
-        #     logger.debug(f"Retrieved process: {process}")
-        #     # tips = [tip.to_pydantic() for tip in process.tips]
-        #     # if tips:
-        #     #     process.tips = tips
-        #     # else:
-        #     #     process.tips = [""]
-        #     eoi.process.append(process.to_pydantic())
-        #     # tips = next((tps for tps in process.tips if tps.name == tips), None)
-
         self.procedure.equipment.append(eoi)
-        logger.debug(f"Updated equipment: {pformat(self.procedure.equipment)}")
+        # logger.debug(f"Updated equipment: {pformat(self.procedure.equipment)}")
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
