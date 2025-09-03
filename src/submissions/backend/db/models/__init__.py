@@ -222,10 +222,8 @@ class BaseClass(Base):
         """
         if not objects:
             try:
-                # records = [obj.to_sub_dict(**kwargs) for obj in cls.query()]
                 records = [obj.details_dict(**kwargs) for obj in cls.query()]
             except AttributeError:
-                # records = [obj.to_dict(**kwargs) for obj in cls.query(page_size=0)]
                 records = [obj.details_dict(**kwargs) for obj in cls.query(page_size=0)]
         else:
             try:
@@ -248,7 +246,6 @@ class BaseClass(Base):
             instance = cls()
             new = True
         for k, v in sanitized_kwargs.items():
-            # logger.debug(f"QorC Setting {k} to {v}")
             if k == "id":
                 continue
             try:
