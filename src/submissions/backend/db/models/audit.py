@@ -18,10 +18,10 @@ class AuditLog(Base):
     __tablename__ = "_auditlog"
 
     id = Column(INTEGER, primary_key=True, autoincrement=True)  #: primary key
-    user = Column(String(64))
-    time = Column(TIMESTAMP)
-    object = Column(String(64))
-    changes = Column(JSON)
+    user = Column(String(64)) #: The user who made the change
+    time = Column(TIMESTAMP) #: When the change was made
+    object = Column(String(64)) #: What was changed
+    changes = Column(JSON) #: List of changes that were made
 
     def __repr__(self):
         return f"<{self.object}: {self.user} @ {self.time}>"

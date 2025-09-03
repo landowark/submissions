@@ -120,6 +120,10 @@ class ProcedureCreation(QDialog):
         match key:
             case "rsl_plate_num":
                 setattr(self.procedure.run, key, new_value)
+            case "repeat_of":
+                from backend.db.models import Procedure
+                parent = Procedure.query(name=new_value, limit=1)
+                self.procedure.repeat_of = parent
             case _:
                 attribute = getattr(self.procedure, key)
                 match attribute:
@@ -128,6 +132,7 @@ class ProcedureCreation(QDialog):
                     case _:
                         setattr(self.procedure, key, new_value.strip('\"'))
         logger.debug(f"Set value for {key}: {getattr(self.procedure, key)}")
+        # sys.exit()
 
 
 

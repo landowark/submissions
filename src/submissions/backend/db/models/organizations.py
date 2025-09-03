@@ -3,14 +3,11 @@ All client organization related models.
 '''
 from __future__ import annotations
 import logging
-from pathlib import Path
-from pprint import pformat
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
-from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from . import Base, BaseClass
 from tools import check_authorization, setup_lookup
-from typing import List, Tuple
+from typing import List
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -31,7 +28,7 @@ class ClientLab(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: clientlab name
-    clientsubmission = relationship("ClientSubmission", back_populates="clientlab")  #: procedure this clientlab has submitted
+    clientsubmission = relationship("ClientSubmission", back_populates="clientlab")  #: submission this clientlab has submitted
     cost_centre = Column(String())  #: cost centre used by org for payment
     contact = relationship("Contact", back_populates="clientlab",
                            secondary=clientlab_contact)  #: contact involved with this org
@@ -47,6 +44,7 @@ class ClientLab(BaseClass):
         Lookup clientlabs in the database by a number of parameters.
 
         Args:
+            id (int | None, optional): id integer of the clientlab. Defaults to None.
             name (str | None, optional): Name of the clientlab. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
@@ -104,20 +102,6 @@ class Contact(BaseClass):
     def searchables(cls):
         return []
 
-    # @classmethod
-    # def query_or_create(cls, **kwargs) -> Tuple[Contact, bool]:
-    #     new = False
-    #     disallowed = []
-    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-    #     instance = cls.query(**sanitized_kwargs)
-    #     if not instance or isinstance(instance, list):
-    #         instance = cls()
-    #         new = True
-    #     for k, v in sanitized_kwargs.items():
-    #         setattr(instance, k, v)
-    #     logger.info(f"Instance from contact query or create: {instance}")
-    #     return instance, new
-
     @classmethod
     @setup_lookup
     def query(cls,
@@ -131,6 +115,7 @@ class Contact(BaseClass):
         Lookup contact in the database by a number of parameters.
 
         Args:
+            id (int | None, optional): id integer of the contact. Defaults to None.
             name (str | None, optional): Name of the contact. Defaults to None.
             email (str | None, optional): Email of the contact. Defaults to None.
             phone (str | None, optional): Phone number of the contact. Defaults to None.

@@ -2,43 +2,26 @@
 Models for the main procedure and sample types.
 """
 from __future__ import annotations
-
-import itertools
-import pickle
-from copy import deepcopy
 from getpass import getuser
-import logging, uuid, tempfile, re, base64, numpy as np, pandas as pd, types, sys
+import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
 from inspect import isclass
-from io import BytesIO
-from zipfile import ZipFile, BadZipfile
-from tempfile import TemporaryDirectory, TemporaryFile
+from zipfile import BadZipfile
 from operator import itemgetter
 from pprint import pformat
-
-import openpyxl
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
-
 from frontend.widgets.functions import select_save_file
-from . import Base, BaseClass, Reagent, SubmissionType, ClientLab, Contact, LogMixin, Procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func, Table, Sequence
-from sqlalchemy.orm import relationship, validates, Query
+from . import Base, BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
+from sqlalchemy.orm import relationship, Query
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError, \
-    ArgumentError
+from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from openpyxl import Workbook
-from openpyxl.drawing.image import Image as OpenpyxlImage
-from tools import row_map, setup_lookup, jinja_template_loading, rreplace, row_keys, check_key_or_attr, Result, Report, \
-    report_result, create_holidays_for_year, check_dictionary_inclusion_equality, is_power_user
+from tools import setup_lookup, jinja_template_loading, create_holidays_for_year, check_dictionary_inclusion_equality, is_power_user
 from datetime import datetime, date
-from typing import List, Any, Tuple, Literal, Generator, Type, TYPE_CHECKING
+from typing import List, Literal, Generator, TYPE_CHECKING
 from pathlib import Path
-from jinja2.exceptions import TemplateNotFound
-from jinja2 import Template
-from PIL import Image
-
 if TYPE_CHECKING:
     from backend.db.models.procedures import ProcedureType, Procedure
 
@@ -51,21 +34,21 @@ class ClientSubmission(BaseClass, LogMixin):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    submitter_plate_id = Column(String(127), unique=True)  #: The number given to the procedure by the submitting lab
-    submitted_date = Column(TIMESTAMP)  #: Date procedure received
+    submitter_plate_id = Column(String(127), unique=True)  #: The number given to the submission by the submitting lab
+    submitted_date = Column(TIMESTAMP)  #: Date submission received
     clientlab = relationship("ClientLab", back_populates="clientsubmission")  #: client org
     clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL",
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
-    submission_category = Column(String(64))
+    submission_category = Column(String(64))  #: i.e. Surveillance
     sample_count = Column(INTEGER)  #: Number of sample in the procedure
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
-    comment = Column(JSON)
+    comment = Column(JSON)  #: comment objects from users.
     run = relationship("Run", back_populates="clientsubmission")  #: many-to-one relationship
-    contact = relationship("Contact", back_populates="clientsubmission")  #: client org
+    contact = relationship("Contact", back_populates="clientsubmission")  #: contact representing submitting lab.
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
-                                            name="fk_BS_contact_id"))  #: client lab id from _organizations
+                                            name="fk_BS_contact_id"))  #: contact id from _organizations
     submissiontype_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL",
-                                                    name="fk_BS_subtype_name"))  #: name of joined procedure type
+                                                    name="fk_BS_subtype_name"))  #: name of joined submission type
     submissiontype = relationship("SubmissionType", back_populates="clientsubmission")  #: archetype of this procedure
     cost_centre = Column(
         String(64))  #: Permanent storage of used cost centre in case organization field changed in the future.
@@ -93,7 +76,7 @@ class ClientSubmission(BaseClass, LogMixin):
     @setup_lookup
     def query(cls,
               submissiontype: str | SubmissionType | None = None,
-              submissiontype_name: str | None = None,
+              # submissiontype_name: str | None = None,
               id: int | str | None = None,
               submitter_plate_id: str | None = None,
               start_date: date | datetime | str | int | None = None,
@@ -108,7 +91,7 @@ class ClientSubmission(BaseClass, LogMixin):
         Lookup procedure based on a number of parameters. Overrides parent.
 
         Args:
-            submission_type (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
+            submissiontype (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
             id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
             rsl_plate_number (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
@@ -142,9 +125,11 @@ class ClientSubmission(BaseClass, LogMixin):
                 limit = 1
             case _:
                 pass
-        match submissiontype_name:
+        match submissiontype:
+            case SubmissionType():
+                query = query.filter(cls.submissiontype == submissiontype)
             case str():
-                query = query.filter(cls.submissiontype_name == submissiontype_name)
+                query = query.filter(cls.submissiontype_name == submissiontype)
             case _:
                 pass
         # NOTE: by id (returns only a single value)
@@ -157,7 +142,6 @@ class ClientSubmission(BaseClass, LogMixin):
                 limit = 1
             case _:
                 pass
-        # query = query.order_by(cls.submitted_date.desc())
         # NOTE: Split query results into pages of size {page_size}
         if page_size > 0 and limit == 0:
             limit = page_size
@@ -249,11 +233,8 @@ class ClientSubmission(BaseClass, LogMixin):
         if report:
             return output
         if full_data:
-            # dicto, _ = self.kittype.construct_xl_map_for_use(self.proceduretype)
-            # sample = self.generate_associations(name="clientsubmissionsampleassociation")
             samples = None
             runs = [item.to_dict(full_data=True) for item in self.run]
-            # custom = self.custom
         else:
             samples = None
             custom = None
@@ -280,7 +261,6 @@ class ClientSubmission(BaseClass, LogMixin):
         output["comment"] = comments
         output["contact"] = contact
         output["contact_phone"] = contact_phone
-        # output["custom"] = custom
         output["run"] = runs
         output['name'] = self.name
         return output
@@ -291,7 +271,6 @@ class ClientSubmission(BaseClass, LogMixin):
         except AssertionError:
             logger.warning(f"Converting {sample} to sql.")
             sample = sample.to_sql()
-        # logger.debug(sample.__dict__)
         try:
             row = sample._misc_info['row']
         except (KeyError, AttributeError):
@@ -300,7 +279,6 @@ class ClientSubmission(BaseClass, LogMixin):
             column = sample._misc_info['column']
         except KeyError:
             column = 0
-        # logger.debug(f"Sample: {sample}")
         submission_rank = sample._misc_info['submission_rank']
         if sample in self.sample:
             return
@@ -311,7 +289,6 @@ class ClientSubmission(BaseClass, LogMixin):
             row=row,
             column=column
         )
-        # assoc.save()
         return assoc
 
     @property
@@ -333,13 +310,10 @@ class ClientSubmission(BaseClass, LogMixin):
         if checker.exec():
             run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
             active_samples = [sample for sample in samples if sample.enabled]
-            logger.debug(active_samples)
             for sample in active_samples:
                 sample = sample.to_sql()
-                logger.debug(f"Sample: {sample.id}")
                 if sample not in run.sample:
                     assoc = run.add_sample(sample)
-                    # assoc.save()
             run.save()
         else:
             logger.warning("Run cancelled.")
@@ -350,13 +324,6 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def add_comment(self, obj):
         logger.debug("Add Comment")
-
-    # def show_details(self, obj):
-    #     logger.debug("Show Details")
-    #     from frontend.widgets.submission_details import SubmissionDetails
-    #     dlg = SubmissionDetails(parent=obj, sub=self)
-    #     if dlg.exec():
-    #         pass
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
@@ -377,7 +344,6 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
-        # output.template_file = self.template_file
         return output
 
 
@@ -389,18 +355,16 @@ class Run(BaseClass, LogMixin):
     id = Column(INTEGER, primary_key=True)  #: primary key
     rsl_plate_number = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="SET NULL",
-                                                     name="fk_BS_clientsub_id"))  #: client lab id from _organizations)
-    clientsubmission = relationship("ClientSubmission", back_populates="run")
+                                                     name="fk_BS_clientsub_id"))  #: id of parent clientsubmission
+    clientsubmission = relationship("ClientSubmission", back_populates="run")  #: parent clientsubmission
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     run_cost = Column(
         FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
     signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
     comment = Column(JSON)  #: user notes
-    custom = Column(JSON)
-
-    _completed_date = Column(TIMESTAMP)
-
-    procedure = relationship("Procedure", back_populates="run", uselist=True)
+    custom = Column(JSON)  #: unknown
+    _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
+    procedure = relationship("Procedure", back_populates="run", uselist=True)  #: children procedures
 
     runsampleassociation = relationship(
         "RunSampleAssociation",
@@ -411,20 +375,6 @@ class Run(BaseClass, LogMixin):
     sample = association_proxy("runsampleassociation",
                                "sample", creator=lambda sample: RunSampleAssociation(
             sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
-
-    # NOTE: Allows for subclassing into ex. BacterialCulture, Wastewater, etc.
-    # __mapper_args__ = {
-    #     "polymorphic_identity": "Basic Submission",
-    #     "polymorphic_on": case(
-    #
-    #         (submissiontype_name == "Wastewater", "Wastewater"),
-    #         (submissiontype_name == "Wastewater Artic", "Wastewater Artic"),
-    #         (submissiontype_name == "Bacterial Culture", "Bacterial Culture"),
-    #
-    #         else_="Basic Submission"
-    #     ),
-    #     "with_polymorphic": "*",
-    # }
 
     def __repr__(self) -> str:
         return f"<Submission({self.name})>"
@@ -556,7 +506,6 @@ class Run(BaseClass, LogMixin):
             case SubmissionType():
                 return submissiontype
             case _:
-                # return SubmissionType.query(cls.__mapper_args__['polymorphic_identity'])
                 return None
 
     @classmethod
@@ -712,14 +661,12 @@ class Run(BaseClass, LogMixin):
             query_out = []
             for sub_type in submissiontype:
                 subs = cls.query(page_size=0, start_date=start_date, end_date=end_date, submissiontype=sub_type)
-                # logger.debug(f"Sub results: {run}")
                 query_out.append(subs)
             query_out = list(itertools.chain.from_iterable(query_out))
         else:
             query_out = cls.query(page_size=0, start_date=start_date, end_date=end_date)
         records = []
         for sub in query_out:
-            # output = sub.to_dict(full_data=True)
             output = sub.details_dict()
             for k, v in output.items():
                 if isinstance(v, types.GeneratorType):
@@ -746,29 +693,6 @@ class Run(BaseClass, LogMixin):
         Calculates cost of the plate
         """
         # NOTE: Calculate number of columns based on largest column number
-        # try:
-        #     cols_count_96 = self.column_count
-        # except Exception as e:
-        #     logger.error(f"Column count error: {e}")
-        # # NOTE: Get kittype associated with this procedure
-        # # logger.debug(f"Checking associations with procedure type: {self.submissiontype_name}")
-        # assoc = next((item for item in self.kittype.kit_submissiontype_associations if
-        #               item.proceduretype == self.submission_type),
-        #              None)
-        # # logger.debug(f"Got association: {assoc}")
-        # # NOTE: If every individual cost is 0 this is probably an old plate.
-        # if all(item == 0.0 for item in [assoc.constant_cost, assoc.mutable_cost_column, assoc.mutable_cost_sample]):
-        #     try:
-        #         self.run_cost = self.kittype.cost_per_run
-        #     except Exception as e:
-        #         logger.error(f"Calculation error: {e}")
-        # else:
-        #     try:
-        #         self.run_cost = assoc.constant_cost + (assoc.mutable_cost_column * cols_count_96) + (
-        #                 assoc.mutable_cost_sample * int(self.sample_count))
-        #     except Exception as e:
-        #         logger.error(f"Calculation error: {e}")
-        # self.run_cost = round(self.run_cost, 2)
         pass
 
     @property
@@ -802,7 +726,6 @@ class Run(BaseClass, LogMixin):
         """
         rows = range(1, plate_rows + 1)
         columns = range(1, plate_columns + 1)
-        # logger.debug(f"sample list for plate map: {pformat(sample_list)}")
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         output_samples = [next((item for item in sample_list if item['row'] == row and item['column'] == column),
@@ -841,7 +764,6 @@ class Run(BaseClass, LogMixin):
             pd.DataFrame: Pandas Dataframe of all relevant procedure
         """
         # NOTE: use lookup function to create list of dicts
-        # subs = [item.to_dict() for item in
         subs = [item.details_dict() for item in
                 cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
@@ -872,8 +794,6 @@ class Run(BaseClass, LogMixin):
             value (_type_): value of attribute
         """
         match key:
-            # case "kittype":
-            #     field_value = KitType.query(name=value)
             case "clientlab":
                 field_value = ClientLab.query(name=value)
             case "contact":
@@ -900,13 +820,11 @@ class Run(BaseClass, LogMixin):
                         existing = value
                     case _:
                         existing = self.__getattribute__(key)
-                        logger.debug(f"Existing value is {pformat(existing)}")
                         if value in ['', 'null', None]:
                             logger.error(f"No value given, not setting.")
                             return
                         if existing is None:
                             existing = []
-                        # if value in existing:
                         if check_dictionary_inclusion_equality(existing, value):
                             logger.warning("Value already exists. Preventing duplicate addition.")
                             return
@@ -954,17 +872,6 @@ class Run(BaseClass, LogMixin):
             except AttributeError:
                 pass
         return assoc
-
-    # def update_reagentassoc(self, reagent: Reagent, role: str):
-    #     # NOTE: get the first reagent assoc that fills the given reagentrole.
-    #     try:
-    #         assoc = next(item for item in self.submission_reagent_associations if
-    #                      item.reagent and role in [role.name for role in item.reagent.equipmentrole])
-    #         assoc.reagent = reagent
-    #     except StopIteration as e:
-    #         logger.error(f"Association for {role} not found, creating new association.")
-    #         assoc = ProcedureReagentAssociation(procedure=self, reagent=reagent)
-    #         self.submission_reagent_associations.append(assoc)
 
     def to_pydantic(self, backup: bool = False) -> "PydSubmission":
         """
@@ -1028,7 +935,6 @@ class Run(BaseClass, LogMixin):
         Returns:
             str: String from which regex will be compiled.
         """
-        # logger.debug(f"Class for regex: {cls}")
         try:
             regex = cls.get_submission_type(submission_type).defaults['regex']
         except AttributeError as e:
@@ -1038,7 +944,6 @@ class Run(BaseClass, LogMixin):
             regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
         except re.error as e:
             regex = cls.construct_regex()
-        # logger.debug(f"Returning regex: {regex}")
         return regex
 
     # NOTE: Polymorphic functions
@@ -1089,15 +994,6 @@ class Run(BaseClass, LogMixin):
         Returns:
             models.Run | List[models.Run]: Run(s) of interest
         """
-        # from ... import RunReagentAssociation
-        # NOTE: if you go back to using 'model' change the appropriate cls to model in the query filters
-        # if submissiontype is not None:
-        #     model = cls.find_polymorphic_subclass(polymorphic_identity=submissiontype)
-        # elif len(kwargs) > 0:
-        #     # NOTE: find the subclass containing the relevant attributes
-        #     model = cls.find_polymorphic_subclass(attrs=kwargs)
-        # else:
-        #     model = cls
         query: Query = cls.__database_session__.query(cls)
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
@@ -1107,38 +1003,8 @@ class Run(BaseClass, LogMixin):
             start_date = cls.__database_session__.query(cls, func.min(cls.submitted_date)).first()[1]
             logger.warning(f"End date with no start date, using first procedure date: {start_date}")
         if start_date is not None:
-            # match start_date:
-            #     case date():
-            #         pass
-            #     case datetime():
-            #         start_date = start_date.date()
-            #     case int():
-            #         start_date = datetime.fromordinal(
-            #             datetime(1900, 1, 1).toordinal() + start_date - 2).date()
-            #     case _:
-            #         start_date = parse(start_date).date()
-            # # start_date = start_date.strftime("%Y-%m-%d")
-            # match end_date:
-            #     case date():
-            #         pass
-            #     case datetime():
-            #         end_date = end_date  # + timedelta(days=1)
-            #         # pass
-            #     case int():
-            #         end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date()  # \
-            #         # + timedelta(days=1)
-            #     case _:
-            #         end_date = parse(end_date).date()  # + timedelta(days=1)
-            # # end_date = end_date.strftime("%Y-%m-%d")
-            # start_date = datetime.combine(start_date, datetime.min.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
-            # end_date = datetime.combine(end_date, datetime.max.time()).strftime("%Y-%m-%d %H:%M:%S.%f")
-            # # if start_date == end_date:
-            # #     start_date = start_date.strftime("%Y-%m-%d %H:%M:%S.%f")
-            # #     query = query.filter(model.submitted_date == start_date)
-            # # else:
             start_date = cls.rectify_query_date(start_date)
             end_date = cls.rectify_query_date(end_date, eod=True)
-            logger.debug(f"Start date: {start_date}, end date: {end_date}")
             query = query.join(ClientSubmission).filter(ClientSubmission.submitted_date.between(start_date, end_date))
         # NOTE: by rsl number (returns only a single value)
         match name:
@@ -1164,7 +1030,6 @@ class Run(BaseClass, LogMixin):
                 limit = 1
             case _:
                 pass
-        # query = query.order_by(cls.submitted_date.desc())
         # NOTE: Split query results into pages of size {page_size}
         if page_size > 0:
             query = query.limit(page_size)
@@ -1172,58 +1037,6 @@ class Run(BaseClass, LogMixin):
         if page is not None:
             query = query.offset(page * page_size)
         return cls.execute_query(query=query, limit=limit, **kwargs)
-
-    # @classmethod
-    # def query_or_create(cls, submissiontype: str | SubmissionType | None = None, **kwargs) -> Run:
-    #     """
-    #     Returns object from db if exists, else, creates new. Due to need for user input, doesn't see much use ATM.
-    #
-    #     Args:
-    #         submissiontype (str | SubmissionType | None, optional): Submission type to be created. Defaults to None.
-    #
-    #     Raises:
-    #         ValueError: Raised if no kwargs passed.
-    #         ValueError: Raised if disallowed key is passed.
-    #
-    #     Returns:
-    #         cls: A Run subclass instance.
-    #     """
-    #     code = 0
-    #     msg = ""
-    #     report = Report()
-    #     disallowed = ["id"]
-    #     if kwargs == {}:
-    #         raise ValueError("Need to narrow down query or the first available instance will be returned.")
-    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-    #     instance = cls.query(submissiontype=submissiontype, limit=1, **sanitized_kwargs)
-    #     if instance is None:
-    #         used_class = cls.find_polymorphic_subclass(attrs=kwargs, polymorphic_identity=submissiontype)
-    #         instance = used_class(**sanitized_kwargs)
-    #         match submissiontype:
-    #             case str():
-    #                 submissiontype = SubmissionType.query(name=submissiontype)
-    #             case _:
-    #                 pass
-    #         instance.proceduretype = submissiontype
-    #         instance.submissiontype_name = submissiontype.name
-    #         if "submitted_date" not in kwargs.keys():
-    #             instance.submitted_date = date.today()
-    #     else:
-    #         from frontend.widgets.pop_ups import QuestionAsker
-    #         logger.warning(f"Found existing instance: {instance}, asking to overwrite.")
-    #         #     code = 1
-    #         #     msg = "This procedure already exists.\nWould you like to overwrite?"
-    #         # report.add_result(Result(msg=msg, code=code))
-    #         dlg = QuestionAsker(title="Overwrite?",
-    #                             message="This procedure already exists.\nWould you like to overwrite?")
-    #         if dlg.exec():
-    #             pass
-    #         else:
-    #             code = 1
-    #             msg = "This procedure already exists.\nWould you like to overwrite?"
-    #             report.add_result(Result(msg=msg, code=code))
-    #             return None, report
-    #     return instance, report
 
     # NOTE: Custom context events for the ui
 
@@ -1237,18 +1050,15 @@ class Run(BaseClass, LogMixin):
         """
         names = ["Add Procedure", "Edit", "Export", "Add Comment", "Show Details", "Delete"]
         output = {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
-        logger.debug(output)
         return output
 
     def add_procedure(self, obj, proceduretype_name: str):
         from frontend.widgets.procedure_creation import ProcedureCreation
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
-        logger.debug(f"Got ProcedureType: {procedure_type}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
             sql, _ = dlg.return_sql(new=True)
-            # sys.exit(pformat(sql.__dict__))
             sql.save()
         obj.set_data()
 
@@ -1282,18 +1092,6 @@ class Run(BaseClass, LogMixin):
             except AttributeError:
                 logger.error("App will not refresh data at this time.")
 
-    # def show_details(self, obj):
-    #     """
-    #     Creates Widget for showing procedure details.
-    #
-    #     Args:
-    #         obj (Widget): Parent widget
-    #     """
-    #     from frontend.widgets.submission_details import SubmissionDetails
-    #     dlg = SubmissionDetails(parent=obj, sub=self)
-    #     if dlg.exec():
-    #         pass
-
     def edit(self, obj):
         """
         Return procedure to form widget for updating
@@ -1315,7 +1113,6 @@ class Run(BaseClass, LogMixin):
         Args:
             obj (_type_): parent widget
         """
-        logger.debug(obj)
         from frontend.widgets.submission_details import SubmissionComment
         dlg = SubmissionComment(parent=obj, submission=self)
         if dlg.exec():
@@ -1437,8 +1234,6 @@ class Run(BaseClass, LogMixin):
                 unranked_samples.append(sample)
         possible_ranks = (item for item in list(plate_dict.keys()) if
                           item not in [sample['submission_rank'] for sample in ranked_samples])
-        # logger.debug(possible_ranks)
-        # possible_ranks = (plate_dict[idx] for idx in possible_ranks)
         for sample in unranked_samples:
             try:
                 submission_rank = next(possible_ranks)
@@ -1457,15 +1252,7 @@ class Run(BaseClass, LogMixin):
                                background_color="#ffffff", enabled=False)
                           )
             padded_list.append(sample)
-        # logger.debug(f"Final padded list:\n{pformat(list(sorted(padded_list, key=itemgetter('submission_rank'))))}")
         return list(sorted(padded_list, key=itemgetter('submission_rank')))
-
-
-# class SampleType(BaseClass):
-#     id = Column(INTEGER, primary_key=True)  #: primary key
-#     name = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-#
-#     sample = relationship("Sample", back_populates="sampletype", uselist=True)
 
 
 # NOTE: Sample Classes
@@ -1477,11 +1264,7 @@ class Sample(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     sample_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-    # sampletype_id = Column(INTEGER, ForeignKey("_sampletype.id", ondelete="SET NULL",
-    #                                            name="fk_SAMP_sampletype_id"))
-    # sampletype = relationship("SampleType", back_populates="sample")
-    # misc_info = Column(JSON)
-    control = relationship("Control", back_populates="sample", uselist=False)
+    control = relationship("Control", back_populates="sample", uselist=False)  #: Control function this sample fills.
 
     sampleclientsubmissionassociation = relationship(
         "ClientSubmissionSampleAssociation",
@@ -1529,13 +1312,8 @@ class Sample(BaseClass, LogMixin):
         Returns:
             dict: submitter id and sample type and linked procedure if full data
         """
-        # try:
-        #     sample_type = self.sampletype.name
-        # except AttributeError:
-        #     sample_type = "NA"
         sample = dict(
             sample_id=self.sample_id
-            # sampletype=sample_type
         )
         if full_data:
             sample['clientsubmission'] = sorted([item.to_sub_dict() for item in self.sampleclientsubmissionassociation],
@@ -1563,7 +1341,6 @@ class Sample(BaseClass, LogMixin):
     @setup_lookup
     def query(cls,
               sample_id: str | None = None,
-              # sampletype: str | SampleType | None = None,
               limit: int = 0,
               **kwargs
               ) -> Sample | List[Sample]:
@@ -1578,13 +1355,6 @@ class Sample(BaseClass, LogMixin):
             models.Sample|List[models.Sample]: Sample(s) of interest.
         """
         query = cls.__database_session__.query(cls)
-        # match sampletype:
-        #     case str():
-        #         query = query.join(SampleType).filter(SampleType.name == sampletype)
-        #     case SampleType():
-        #         query = query.filter(cls.sampletype == sampletype)
-        #     case _:
-        #         pass
         match sample_id:
             case str():
                 query = query.filter(cls.sample_id == sample_id)
@@ -1592,38 +1362,6 @@ class Sample(BaseClass, LogMixin):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
-
-    # @classmethod
-    # def fuzzy_search(cls,
-    #                  sampletype: str | Sample | None = None,
-    #                  **kwargs
-    #                  ) -> List[Sample]:
-    #     """
-    #     Allows for fuzzy search of sample.
-    #
-    #     Args:
-    #         sampletype (str | BasicSample | None, optional): Type of sample. Defaults to None.
-    #
-    #     Returns:
-    #         List[Sample]: List of sample that match kwarg search parameters.
-    #     """
-    #     query: Query = cls.__database_session__.query(cls)
-    #     match sampletype:
-    #         case str():
-    #             query = query.join(SampleType).filter(SampleType.name == sampletype)
-    #         case SampleType():
-    #             query = query.filter(cls.sampletype == sampletype)
-    #         case _:
-    #             pass
-    #     for k, v in kwargs.items():
-    #         search = f"%{v}%"
-    #         try:
-    #             attr = getattr(cls, k)
-    #             # NOTE: the secret sauce is in attr.like
-    #             query = query.filter(attr.like(search))
-    #         except (ArgumentError, AttributeError) as e:
-    #             logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
-    #     return query.limit(50).all()
 
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
@@ -1686,12 +1424,9 @@ class ClientSubmissionSampleAssociation(BaseClass):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
-    # id = Column(INTEGER, unique=True, nullable=False, autoincrement=True)  #: id to be used for inheriting purposes
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id"),
-                                 primary_key=True)  #: id of associated procedure
-    # row = Column(INTEGER)
-    # column = Column(INTEGER)
+                                 primary_key=True)  #: id of associated client submission
     submission_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
     # NOTE: reference to the Submission object
     clientsubmission = relationship("ClientSubmission",
@@ -1708,10 +1443,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         self.row = row
         self.column = column
         self.submission_rank = submission_rank
-        # if id is not None:
-        #     self.id = id
-        # else:
-        #     self.id = self.__class__.autoincrement_id()
         for k, v in kwargs.items():
             try:
                 self.__setattr__(k, v)
@@ -1735,13 +1466,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         # NOTE: Get associated sample info
         sample = self.sample.to_sub_dict()
         sample['sample_id'] = self.sample.sample_id
-        # sample['row'] = self.row
-        # sample['column'] = self.column
-        # try:
-        #     sample['well'] = f"{row_map[self.row]}{self.column}"
-        # except (KeyError, AttributeError) as e:
-        #     logger.error(f"Unable to find row {self.row} in row_map.")
-        #     sample['Well'] = None
         sample['plate_name'] = self.clientsubmission.submitter_plate_id
         sample['positive'] = False
         sample['submitted_date'] = self.clientsubmission.submitted_date
@@ -1752,10 +1476,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        # logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
         output = output['sample'].details_dict()
         misc = output['misc_info']
-        # # logger.debug(f"Output from sample: {pformat(output)}")
         output.update(relevant)
         output['misc_info'] = misc
         return output
@@ -1798,48 +1520,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
         return sample
 
-    # @classmethod
-    # def autoincrement_id(cls) -> int:
-    #     """
-    #     Increments the association id automatically
-    #
-    #     Returns:
-    #         int: incremented id
-    #     """
-    #     if cls.__name__ == "ClientSubmissionSampleAssociation":
-    #         model = cls
-    #     else:
-    #         model = next((base for base in cls.__bases__ if base.__name__ == "ClientSubmissionSampleAssociation"),
-    #                      ClientSubmissionSampleAssociation)
-    #     try:
-    #         return max([item.id for item in model.query()]) + 1
-    #     except ValueError as e:
-    #         logger.error(f"Problem incrementing id: {e}")
-    #         return 1
-
-    # @classmethod
-    # def find_polymorphic_subclass(cls, polymorphic_identity: str | None = None) -> ClientSubmissionSampleAssociation:
-    #     """
-    #     Retrieves subclasses of ClientSubmissionSampleAssociation based on type name.
-    #
-    #     Args:
-    #         polymorphic_identity (str | None, optional): Name of subclass fed to polymorphic identity. Defaults to None.
-    #
-    #     Returns:
-    #         ClientSubmissionSampleAssociation: Subclass of interest.
-    #     """
-    #     if isinstance(polymorphic_identity, dict):
-    #         polymorphic_identity = polymorphic_identity['value']
-    #     if polymorphic_identity is None:
-    #         model = cls
-    #     else:
-    #         try:
-    #             model = cls.__mapper__.polymorphic_map[polymorphic_identity].class_
-    #         except Exception as e:
-    #             logger.error(f"Could not get polymorph {polymorphic_identity} of {cls} due to {e}")
-    #             model = cls
-    #     return model
-
     @classmethod
     @setup_lookup
     def query(cls,
@@ -1857,12 +1537,14 @@ class ClientSubmissionSampleAssociation(BaseClass):
         Lookup junction of Submission and Sample in the database
 
         Args:
-            run (models.Run | str | None, optional): Submission of interest. Defaults to None.
+            clientsubmission (models.ClientSubmission | str | None, optional): Submission of interest. Defaults to None.
+            exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
             sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
             row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
             column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
             chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
 
         Returns:
             models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
@@ -1960,12 +1642,8 @@ class RunSampleAssociation(BaseClass):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
-    # id = Column(INTEGER, unique=True, nullable=False)  #: id to be used for inheriting purposes
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
-    # row = Column(INTEGER)  #: row on the 96 well plate
-    # column = Column(INTEGER)  #: column on the 96 well plate
-    # misc_info = Column(JSON)
 
     # NOTE: reference to the Submission object
 
@@ -2003,13 +1681,6 @@ class RunSampleAssociation(BaseClass):
         # NOTE: Get associated sample info
         sample = self.sample.to_sub_dict()
         sample['name'] = self.sample.sample_id
-        # sample['row'] = self.row
-        # sample['column'] = self.column
-        # try:
-        #     sample['well'] = f"{row_map[self.row]}{self.column}"
-        # except KeyError as e:
-        #     logger.error(f"Unable to find row {self.row} in row_map.")
-        #     sample['Well'] = None
         sample['plate_name'] = self.run.rsl_plate_number
         sample['positive'] = False
         return sample
@@ -2070,11 +1741,13 @@ class RunSampleAssociation(BaseClass):
 
         Args:
             run (models.Run | str | None, optional): Submission of interest. Defaults to None.
+            exclude_submission_type ( str | None, optional): Name of submissiontype to exclude. Defaults to None.
             sample (models.Sample | str | None, optional): Sample of interest. Defaults to None.
             row (int, optional): Row of the sample location on procedure plate. Defaults to 0.
             column (int, optional): Column of the sample location on the procedure plate. Defaults to 0.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
             chronologic (bool, optional): Return results in chronologic order. Defaults to False.
+            reverse (bool, optional): Whether or not to reverse order of list. Defaults to False.
 
         Returns:
             models.ClientSubmissionSampleAssociation|List[models.ClientSubmissionSampleAssociation]: Junction(s) of interest
@@ -2169,13 +1842,10 @@ class RunSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        # logger.debug(f"Relevant info from assoc output: {pformat(relevant)}")
         output = output['sample'].details_dict()
         misc = output['misc_info']
-        # logger.debug(f"Output from sample: {pformat(output)}")
         output.update(relevant)
         output['misc_info'] = misc
-
         return output
 
 
@@ -2192,7 +1862,7 @@ class ProcedureSampleAssociation(BaseClass):
 
     sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
 
-    results = relationship("Results", back_populates="sampleprocedureassociation")
+    results = relationship("Results", back_populates="sampleprocedureassociation")  #: associated results
 
     @classmethod
     def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,
@@ -2242,9 +1912,6 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = output['sample'].details_dict()
-        logger.debug(f"Output: {pformat(output)}")
-        logger.debug(f"Relevant: {pformat(relevant)}")
-        # relevant['submission_rank'] = output['misc_info']['submission_rank']
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc

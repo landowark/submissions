@@ -164,8 +164,7 @@ class BaseClass(Base):
             dict | list | str: Output of key:value dict or single (list, str) desired variable
         """
         # NOTE: singles is a list of fields that need to be limited to 1 result.
-        singles = list(set(cls.singles + BaseClass.singles))
-        return dict(singles=singles)
+        return dict(singles=list(set(cls.singles + BaseClass.singles)))
 
     @classmethod
     def find_regular_subclass(cls, name: str | None = None) -> Any:
@@ -237,10 +236,8 @@ class BaseClass(Base):
         new = False
         allowed = [k for k, v in cls.__dict__.items() if
                    isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
-        # and not isinstance(v.property, _RelationshipDeclared)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
-        logger.debug(f"Sanitized kwargs: {sanitized_kwargs}")
         instance = cls.query(limit=1, **sanitized_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
@@ -254,10 +251,8 @@ class BaseClass(Base):
                 from backend.validators.pydant import PydBaseClass
                 if issubclass(v.__class__, PydBaseClass):
                     setattr(instance, k, v.to_sql())
-                # else:
-                #     logger.error(f"Could not set {k} due to {e}")
         instance._misc_info.update(outside_kwargs)
-        # logger.info(f"Instance from query or create: {instance}, new: {new}")
+        logger.info(f"Instance from query or create: {instance}, new: {new}")
         return instance, new
 
     @classmethod
@@ -286,17 +281,10 @@ class BaseClass(Base):
         Returns:
             Any | List[Any]: Single result if limit = 1 or List if other.
         """
-        # logger.debug(f"Kwargs: {kwargs}")
-        # if model is None:
-        #     model = cls
-        # logger.debug(f"Model: {model}")
         if query is None:
             query: Query = cls.__database_session__.query(cls)
-        # else:
-        #     logger.debug(f"Incoming query: {query}")
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
-            # logger.info(f"Using key: {k} with value: {v} against {cls}")
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
@@ -314,7 +302,6 @@ class BaseClass(Base):
                 except ArgumentError:
                     continue
             else:
-                # logger.debug("Single item.")
                 try:
                     query = query.filter(attr == v)
                 except ArgumentError:
@@ -354,9 +341,6 @@ class BaseClass(Base):
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
-        # except sqlalchemy.exc.IntegrityError as i:
-        #     logger.error(f"Integrity error saving {self} due to: {i}")
-        #     logger.error(pformat(self.__dict__))
         except Exception as e:
             logger.critical(f"Problem saving {self} due to: {e}")
             logger.error(f"Error message: {type(e)}")
@@ -434,7 +418,7 @@ class BaseClass(Base):
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
-            #     logger.error(f"Couldn't find template {e}")
+            logger.error(f"Couldn't find template {e}")
             template = env.get_template("details.html")
         return template
 
@@ -448,14 +432,11 @@ class BaseClass(Base):
         Returns:
             bool: If a single unequivocal value is found will be false, else true.
         """
-        # logger.debug(f"Incoming attributes: {attributes}")
         for key, value in attributes.items():
             if value.lower() == "none":
                 value = None
-            # logger.debug(f"Attempting to grab attribute: {key}")
             self_value = getattr(self, key)
             class_attr = getattr(self.__class__, key)
-            # logger.debug(f"Self value: {self_value}, class attr: {class_attr} of type: {type(class_attr)}")
             if isinstance(class_attr, property):
                 filter = "property"
             else:
@@ -475,7 +456,6 @@ class BaseClass(Base):
                 case "property":
                     pass
                 case _RelationshipDeclared():
-                    # logger.debug(f"Checking {self_value}")
                     try:
                         self_value = self_value.name
                     except AttributeError:
@@ -483,18 +463,14 @@ class BaseClass(Base):
                     if class_attr.property.uselist:
                         self_value = self_value.__str__()
             try:
-                # logger.debug(f"Check if {self_value.__class__} is subclass of {self.__class__}")
                 check = issubclass(self_value.__class__, self.__class__)
             except TypeError as e:
                 logger.error(f"Couldn't check if {self_value.__class__} is subclass of {self.__class__} due to {e}")
                 check = False
             if check:
-                # logger.debug(f"Checking for subclass name.")
                 self_value = self_value.name
-            # logger.debug(f"Checking self_value {self_value} of type {type(self_value)} against attribute {value} of type {type(value)}")
             if self_value != value:
                 output = False
-                # logger.debug(f"Value {key} is False, returning.")
                 return output
         return True
 
@@ -502,13 +478,9 @@ class BaseClass(Base):
         """
         Custom dunder method to handle potential list relationship issues.
         """
-        # logger.debug(f"Attempting to set: {key} to {value}")
         if key.startswith("_"):
             return super().__setattr__(key, value)
-        # try:
         check = not hasattr(self, key)
-        # except:
-        #     return
         if check:
             try:
                 value = json.dumps(value)
@@ -524,27 +496,21 @@ class BaseClass(Base):
         except AttributeError:
             return super().__setattr__(key, value)
         if isinstance(field_type, InstrumentedAttribute):
-            # logger.debug(f"{key} is an InstrumentedAttribute.")
             match field_type.property:
                 case ColumnProperty():
-                    # logger.debug(f"Setting ColumnProperty to {value}")
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
-                    # logger.debug(f"{self.__class__.__name__} Setting _RelationshipDeclared for {key} to {value}")
                     if field_type.property.uselist:
-                        # logger.debug(f"Setting with uselist")
                         existing = self.__getattribute__(key)
                         # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
                         if existing is not None:
                             logger.debug(f"{key} Existing: {existing}, incoming: {value}")
                             if isinstance(value, list):
-                                # value = existing + value
                                 value = value
                             else:
                                 value = existing + [value]
                         else:
                             if isinstance(value, list):
-                                # value = value
                                 pass
                             else:
                                 value = [value]
@@ -552,7 +518,6 @@ class BaseClass(Base):
                             value = list(set(value))
                         except TypeError:
                             pass
-                        # logger.debug(f"Final value for {key}: {value}")
                         return super().__setattr__(key, value)
                     else:
                         if isinstance(value, list):
@@ -608,7 +573,6 @@ class BaseClass(Base):
 
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        # output = OrderedDict()
         output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
             try:
@@ -621,15 +585,9 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
-            # try:
-            #     logger.debug(f"Setting {k} to {value} for details dict.")
-            # except AttributeError as e:
-            #     logger.error(f"Can't log {k} value due to {type(e)}")
-            #     continue
             output[k.strip("_")] = value
         if self._misc_info:
             for key, value in self._misc_info.items():
-                # logger.debug(f"Misc info key {key}")
                 output[key] = value
         return output
 
@@ -669,28 +627,15 @@ class BaseClass(Base):
             pyd = getattr(pydant, pyd_model_name)
         except AttributeError:
             raise AttributeError(f"Could not get pydantic class {pyd_model_name}")
-        # logger.debug(f"Kwargs: {kwargs}")
-        # logger.debug(f"Dict: {pformat(self.details_dict())}")
         return pyd(**self.details_dict(**kwargs))
 
     def show_details(self, obj):
-        logger.debug("Show Details")
         from frontend.widgets.submission_details import SubmissionDetails
         dlg = SubmissionDetails(parent=obj, sub=self)
         if dlg.exec():
             pass
 
     def export(self, obj, output_filepath: str | Path | None = None):
-        # if not hasattr(self, "template_file"):
-        #     logger.error(f"Export not implemented for {self.__class__.__name__}")
-        #     return
-        # pyd = self.to_pydantic()
-        # if not output_filepath:
-        #     from frontend import select_save_file
-        #     output_filepath = select_save_file(obj=obj, default_name=pyd.construct_filename(), extension="xlsx")
-        # Writer = getattr(writers, f"{self.__class__.__name__}Writer")
-        # writer = Writer(output_filepath=output_filepath, pydant_obj=pyd, range_dict=self.range_dict)
-        # workbook = writer
         from backend import managers
         Manager = getattr(managers, f"Default{self.__class__.__name__}")
         manager = Manager(parent=obj, input_object=self)

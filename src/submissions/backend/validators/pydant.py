@@ -1244,7 +1244,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
-    repeat_of: str | None = Field(default=None)
+    repeat_of: Procedure | None = Field(default=None)
     # kittype: dict = Field(default=dict(value="NA", missing=True))
     # possible_kits: list | None = Field(default=[], validate_default=True)
     plate_map: str | None = Field(default=None)
@@ -1485,8 +1485,8 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         if sql.repeat:
             regex = re.compile(r".*\dR\d$")
             repeats = [item for item in self.run.procedure if
-                       self.repeat_of in item.name and bool(regex.match(item.name))]
-            sql.name = f"{self.repeat_of}R{str(len(repeats) + 1)}"
+                       self.repeat_of.name in item.name and bool(regex.match(item.name))]
+            sql.name = f"{self.repeat_of.name}-R{str(len(repeats) + 1)}"
         sql.repeat_of = self.repeat_of
         sql.started_date = datetime.now()
         if self.run:
