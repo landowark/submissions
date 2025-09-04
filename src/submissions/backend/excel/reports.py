@@ -7,8 +7,6 @@ from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
 from typing import Tuple, List
-
-# from backend import Procedure
 from backend.db.models import Procedure, Run
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
@@ -47,7 +45,6 @@ class ReportMaker(object):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        # self.runs = Run.query(start_date=start_date, end_date=end_date, page_size=0)
         self.procedures = Procedure.query(start_date=start_date, end_date=end_date, page_size=0)
         if organizations is not None:
             self.procedures = [procedure for procedure in self.procedures if procedure.run.clientsubmission.clientlab.name in organizations]
@@ -63,9 +60,7 @@ class ReportMaker(object):
         """
         if not self.procedures:
             return DataFrame(), DataFrame()
-        # df = DataFrame.from_records([item.to_dict(report=True) for item in self.runs])
         df = DataFrame.from_records([item.details_dict() for item in self.procedures])
-        logger.debug(df.columns)
         # NOTE: put procedure with the same lab together
         df = df.sort_values("clientlab")
         # NOTE: aggregate cost and sample count columns
@@ -203,14 +198,12 @@ class TurnaroundMaker(ReportArchetype):
 class ConcentrationMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture",
-                 # controls_only: bool = True):
                  include: List[str] = []):
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = Run.query(start_date=start_date, end_date=end_date,
                                    submissiontype_name=submission_type, page_size=0)
-        # self.sample = flatten_list([sub.get_provisional_controls(controls_only=controls_only) for sub in self.run])
         try:
             self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
         except AttributeError:
