@@ -1,12 +1,12 @@
+"""
+
+"""
 from __future__ import annotations
 import logging
-from pathlib import Path
 from pprint import pformat
 from typing import Generator, TYPE_CHECKING
-
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
-
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from tools import flatten_list
 if TYPE_CHECKING:
@@ -21,26 +21,10 @@ class PCRInfoWriter(DefaultKEYVALUEWriter):
     def __init__(self, pydant_obj, proceduretype: "ProcedureType" | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
         self.fill_dictionary = self.pydant_obj.improved_dict()['result']
-        logger.debug(pformat(self.fill_dictionary))
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.proceduretype.name} Results")
-    #     if not start_row:
-    #         try:
-    #             start_row = self.__class__.start_row
-    #         except AttributeError as e:
-    #             logger.error(f"Couldn't get start row due to {e}")
-    #             start_row = 1
-    #     # worksheet = workbook[f"{self.proceduretype.name} Results"]
-    #     self.worksheet = workbook.create_sheet(f"{self.proceduretype.name} Results")
-    #     self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
-    #     # self.start_row = self.delineate_start_row(start_row=start_row)
-    #     # self.end_row = self.delineate_end_row(start_row=start_row)
-    #     # for key, value in self.fill_dictionary['result'].items():
-    #     #     # logger.debug(f"Filling in {key} with {value}")
-    #     #     self.worksheet.cell(value['location']['row'], value['location']['key_column'], value=key.replace("_", " ").title())
-    #     #     self.worksheet.cell(value['location']['row'], value['location']['value_column'], value=value['value'])
         return workbook
 
 
@@ -56,7 +40,6 @@ class PCRSampleWriter(DefaultTABLEWriter):
             columns.append((iii, header))
         columns = sorted(columns, key=lambda x: x[0])
         columns = proto_columns + columns
-        # logger.debug(columns)
         all_results = flatten_list([[item for item in self.rearrange_results(result)] for result in self.pydant_obj])
         if len(all_results) > 0 :
             worksheet.cell(row=header_row, column=1, value="Sample")
@@ -83,21 +66,10 @@ class PCRSampleWriter(DefaultTABLEWriter):
     def column_headers(self):
         output = []
         for item in self.pydant_obj:
-            # logger.debug(item)
             dicto: dict = item.result
             for value in dicto.values():
                 if not isinstance(value, dict):
-                    # logger.debug(f"Will not include {value} in column headers.")
                     continue
                 for key in value.keys():
                     output.append(key)
         return sorted(list(set(output)))
-
-
-
-
-
-
-
-
-

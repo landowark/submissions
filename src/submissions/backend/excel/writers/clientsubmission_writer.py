@@ -1,3 +1,6 @@
+"""
+Module for ClientSubmission writing
+"""
 from __future__ import annotations
 import logging
 from pprint import pformat
@@ -17,10 +20,8 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        logger.debug(f"{self.__class__.__name__} recruited!")
 
     def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
-        # worksheet.merge_cells(start_row=start_row, start_column=1, end_row=start_row, end_column=4)
         worksheet.cell(row=start_row, column=1, value="Submitter Info")
         worksheet.cell(row=start_row, column=1).alignment = Alignment(horizontal="center")
         return worksheet

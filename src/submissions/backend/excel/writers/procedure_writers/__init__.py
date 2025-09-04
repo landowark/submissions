@@ -1,14 +1,11 @@
+"""
+Default
+"""
 from __future__ import annotations
-import logging
-import sys
+import logging, sys
 from pprint import pformat
-
 from openpyxl.workbook import Workbook
-
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -25,10 +22,6 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
 
         self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
-        # logger.debug(pformat(self.fill_dictionary))
-        # for rng in self.range_dict:
-        #     if "sheet" not in rng or rng['sheet'] == "":
-        #         rng['sheet'] = f"{pydant_obj.proceduretype.name} Quality"
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
@@ -48,7 +41,6 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        logger.debug(self.pydant_obj)
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet)
         return workbook
 
@@ -65,7 +57,6 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        logger.debug(self.pydant_obj)
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet)
         return workbook
 
@@ -78,11 +69,9 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
     def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name} Quality"
-        # self.pydant_obj = self.pydant_obj.sample
         self.pydant_obj = self.pad_samples_to_length(row_count=pydant_obj.max_sample_rank, mode="procedure")
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        logger.debug(self.pydant_obj)
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet)
         return workbook

@@ -1,11 +1,12 @@
+"""
+Module for default excel writers
+"""
+from __future__ import annotations
 import logging, sys
 from datetime import datetime, date
 from pprint import pformat
-from types import NoneType
 from typing import Any, Literal
-
 from openpyxl.styles import Alignment, PatternFill
-from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
@@ -47,7 +48,6 @@ class DefaultWriter(object):
 
             case _:
                 value = str(value)
-        # logger.debug(f"Returning value: {value}")
         return value
 
     @classmethod
@@ -60,7 +60,6 @@ class DefaultWriter(object):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs):
-        logger.debug(f"Writing to workbook with {self.__class__.__name__}")
         if not start_row:
             try:
                 start_row = self.__class__.start_row
@@ -81,14 +80,11 @@ class DefaultWriter(object):
         self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
         self.start_row = self.delineate_start_row(start_row=start_row)
         self.end_row = self.delineate_end_row(start_row=start_row)
-        logger.debug(f"{self.__class__.__name__} Start row: {self.start_row}, end row: {self.end_row}")
         return workbook
 
     def delineate_start_row(self, start_row: int = 1):
-        logger.debug(f"Attempting to find start row from {start_row}")
         for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
-                logger.debug(f"Returning {iii} for start row.")
                 return iii
         if self.worksheet.max_row == 1:
             return self.worksheet.max_row + 1
@@ -109,7 +105,7 @@ class DefaultWriter(object):
                 if len(str(cell.value)) > setlen:
                     setlen = len(str(cell.value))
             set_col_width = setlen + 5
-            # Setting the column width
+            # Note: Setting the column width
             worksheet.column_dimensions[column].width = set_col_width
         return worksheet
 
@@ -130,7 +126,6 @@ class DefaultKEYVALUEWriter(DefaultWriter):
 
     @classmethod
     def check_location(cls, locations: list, sheet: str):
-        logger.debug(f"Checking for location against {sheet}")
         return any([item['sheet'] == sheet for item in locations])
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
@@ -193,7 +188,6 @@ class DefaultTABLEWriter(DefaultWriter):
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.header_list = self.sort_header_row(list(set(flatten_list([item.fields for item in self.pydant_obj]))))
-        logger.debug(f"Header row: {self.header_list}")
         self.worksheet = self.write_header_row(worksheet=self.worksheet)
         for iii, object in enumerate(self.pydant_obj, start=1):
             write_row = self.start_row + iii
@@ -219,7 +213,6 @@ class DefaultTABLEWriter(DefaultWriter):
     @classmethod
     def sort_header_row(cls, header_list: list) -> list:
         output = []
-        logger.debug(cls.exclude)
         for item in cls.header_order:
             if item in [header for header in header_list if header not in cls.exclude]:
                 output.append(header_list.pop(header_list.index(item)))
