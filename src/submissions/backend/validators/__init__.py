@@ -48,8 +48,6 @@ class ClientSubmissionNamer(DefaultNamer):
         if not sub_type:
             logger.warning(f"Getting submissiontype from regex failed, using default submissiontype.")
             sub_type = SubmissionType.query(name="Default")
-        logger.debug(f"Submission Type: {sub_type}")
-        # sys.exit()
         return sub_type
 
     def get_subtype_from_regex(self) -> SubmissionType:
@@ -84,9 +82,6 @@ class ClientSubmissionNamer(DefaultNamer):
         return sub_type
 
 
-
-
-
 class RSLNamer(object):
     """
     Object that will enforce proper formatting on RSL plate names.
@@ -98,17 +93,10 @@ class RSLNamer(object):
         self.submission_type = submission_type
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
-        # logger.info(f"got submission type: {self.submission_type}")
         if self.submission_type:
-            # self.sub_object = BasicRun.find_polymorphic_subclass(polymorphic_identity=self.submission_type)
             self.sub_object = SubmissionType.query(name=self.submission_type['name'], limit=1)
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
                 submission_type=self.submission_type))
-            # if not data:
-            #     data = dict(submission_type=self.submission_type)
-            # if "proceduretype" not in data.keys():
-            #     data['proceduretype'] = self.submission_type
-            # self.parsed_name = self.sub_object.enforce_name(instr=self.parsed_name, data=data)
             logger.info(f"Parsed name: {self.parsed_name}")
 
     @classmethod
@@ -227,7 +215,6 @@ class RSLNamer(object):
         Returns:
             str: Output filename
         """
-        logger.debug(data)
         if "submitted_date" in data.keys():
             if isinstance(data['submitted_date'], dict):
                 if data['submitted_date']['value'] is not None:
@@ -244,13 +231,8 @@ class RSLNamer(object):
                 today = datetime.now()
         if isinstance(today, str):
             today = datetime.strptime(today, "%Y-%m-%d")
-        # if "name" in data.keys():
-        #     logger.debug(f"Found name: {data['name']}")
-        #     plate_number = data['name'].split("-")[-1][0]
-        # else:
         previous = Run.query(start_date=today, end_date=today, submissiontype=data['submissiontype'])
         plate_number = len(previous) + 1
-        logger.debug(f"Using plate number: {plate_number}")
         return f"RSL-{data['abbreviation']}-{today.year}{str(today.month).zfill(2)}{str(today.day).zfill(2)}-{plate_number}"
 
     @classmethod
@@ -283,5 +265,5 @@ class RSLNamer(object):
             return ""
 
 
-from .pydant import PydRun, PydKitType, PydContact, PydOrganization, PydSample, PydReagent, PydReagentRole, \
+from .pydant import PydRun, PydKitType, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, \
     PydEquipment, PydEquipmentRole, PydTips, PydProcess, PydElastic, PydClientSubmission, PydProcedure, PydResults
