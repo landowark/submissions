@@ -62,7 +62,7 @@ class SubmissionDetails(QDialog):
             css = f.read()
         key = object.__class__.__name__.lower()
         d = {key: details}
-        logger.debug(f"Using details: {pformat(d['procedure']['equipment'])}")
+        # logger.debug(f"Using details: {pformat(d['procedure']['equipment'])}")
         html = template.render(**d, css=[css])
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")

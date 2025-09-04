@@ -538,7 +538,10 @@ class BaseClass(Base):
                 case _:
                     return super().__setattr__(key, value)
         else:
-            return super().__setattr__(key, value)
+            try:
+                return super().__setattr__(key, value)
+            except AttributeError:
+                raise AttributeError(f"Can't set {key} to {value}")
 
     def delete(self, **kwargs):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")

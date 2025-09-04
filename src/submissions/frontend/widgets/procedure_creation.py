@@ -1,18 +1,15 @@
 """
-
+Main module to construct the procedure form
 """
 from __future__ import annotations
-import sys, logging, os, re, datetime
-from pathlib import Path
+import sys, logging, re, datetime
 from pprint import pformat
 from PyQt6.QtCore import pyqtSlot, Qt
-from PyQt6.QtGui import QContextMenuEvent, QAction
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QDialog, QGridLayout, QMenu, QDialogButtonBox
+from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
 from typing import TYPE_CHECKING, Any, List
 if TYPE_CHECKING:
-    from backend.db.models import Run, Procedure
     from backend.validators import PydProcedure, PydEquipment
 from tools import get_application_from_parent, render_details_template, sanitize_object_for_json
 
@@ -26,7 +23,6 @@ class ProcedureCreation(QDialog):
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
-        # logger.debug(f"procedure: {pformat(self.procedure.__dict__)}")
         self.proceduretype = procedure.proceduretype
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
@@ -75,17 +71,14 @@ class ProcedureCreation(QDialog):
                     equipmentrole['equipment'].index(item_in_er_list)))
         proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
-        logger.debug(proceduretype_dict['equipment'])
         self.update_equipment = EquipmentUsage.update_equipment
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
         html = render_details_template(
             template_name="procedure_creation",
-            # css_in=['new_context_menu'],
             js_in=["procedure_form", "grid_drag", "context_menu"],
             proceduretype=proceduretype_dict,
             run=self.run.details_dict(),
-            # procedure=self.procedure.__dict__,
             procedure=self.procedure,
             plate_map=self.plate_map,
             edit=self.edit
@@ -94,8 +87,12 @@ class ProcedureCreation(QDialog):
 
     @pyqtSlot(str, str, str, str)
     def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
-        from backend.db.models import Equipment
-        # logger.debug("Updating equipment")
+        from backend.db.models import Equipment, ProcessVersion, TipsLot
+        logger.debug(f"Updating equipment with"
+                     f"\n\tEquipment role: {equipmentrole}"
+                     f"\n\tEquipment: {equipment}"
+                     f"\n\tProcess: {process}"
+                     f"\n\tTips: {tips}")
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
@@ -109,14 +106,25 @@ class ProcedureCreation(QDialog):
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
-        # logger.warning("Setting processes.")
-        eoi.process = [process for process in equipment.get_processes(equipmentrole=equipmentrole)]
+        process_name, version = process.split("-v")
+        process = ProcessVersion.query(name=process_name, version=version, limit=1)
+        eoi.process = process
+        # sys.exit(f"Process:\n{pformat(eoi.process.__dict__)}")
+        try:
+            tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
+            logger.debug(f"Querying with '{tips_manufacturer}', '{tipsref}', '{lot}'")
+            tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
+            logger.debug(f"Found tips: {tips}")
+            eoi.tips = tips
+        except ValueError:
+            logger.warning(f"No tips info to unpack")
+        # tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
+        # eoi.tips = tips
         self.procedure.equipment.append(eoi)
-        # logger.debug(f"Updated equipment: {pformat(self.procedure.equipment)}")
+        logger.debug(f"Updated equipment:\n{pformat([item.__dict__ for item in self.procedure.equipment])}")
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
-        logger.debug(f"New value for {key}: {new_value}")
         match key:
             case "rsl_plate_num":
                 setattr(self.procedure.run, key, new_value)
@@ -131,20 +139,14 @@ class ProcedureCreation(QDialog):
                         attribute['value'] = new_value.strip('\"')
                     case _:
                         setattr(self.procedure, key, new_value.strip('\"'))
-        logger.debug(f"Set value for {key}: {getattr(self.procedure, key)}")
-        # sys.exit()
-
-
 
     @pyqtSlot(str, bool)
     def check_toggle(self, key: str, ischecked: bool):
-        logger.debug(f"{key} is checked: {ischecked}")
         setattr(self.procedure, key, ischecked)
 
     @pyqtSlot(str)
     def update_kit(self, kittype):
         self.procedure.update_kittype_reagentroles(kittype=kittype)
-        logger.debug({k: v for k, v in self.procedure.__dict__.items() if k != "plate_map"})
         self.set_html()
 
     @pyqtSlot(list)
@@ -160,9 +162,7 @@ class ProcedureCreation(QDialog):
         from backend.validators.pydant import PydReagent
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
         pyd = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
-        logger.debug(pyd)
         self.procedure.reagentrole[reagentrole].insert(0, pyd)
-        logger.debug(pformat(self.procedure.__dict__))
         self.set_html()
 
     @pyqtSlot(str, str)
@@ -177,16 +177,3 @@ class ProcedureCreation(QDialog):
 
     def return_sql(self, new: bool = False):
         return self.procedure.to_sql(new=new)
-
-# class ProcedureWebViewer(QWebEngineView):
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#
-#     def contextMenuEvent(self, event: QContextMenuEvent):
-# self.menu = self.page().createStandardContextMenu()
-# self.menu = self.createStandardContextMenu()
-# add_sample = QAction("Add Sample")
-# self.menu = QMenu()
-# self.menu.addAction(add_sample)
-# self.menu.popup(event.globalPos())

@@ -8,6 +8,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+"""
+TODO
+
+- range dicts should hopefully not be necessary in this type of parser. Hopefully all procedure parsers are the same.
+"""
+
+
 class ProcedureInfoParser(DefaultKEYVALUEParser):
 
     default_range_dict = [dict(

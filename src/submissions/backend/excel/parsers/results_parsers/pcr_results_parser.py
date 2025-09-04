@@ -1,5 +1,5 @@
 """
-
+Parser for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
 import logging
@@ -15,7 +15,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class PCRInfoParser(DefaultResultsInfoParser):
 
-    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
+    def __init__(self, filepath: Path | str, procedure=None, **kwargs):
         self.results_type = "PCR"
         self.procedure = procedure
         super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype)

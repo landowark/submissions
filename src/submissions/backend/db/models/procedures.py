@@ -1027,7 +1027,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"),
                             primary_key=True)  #: id of associated reagentrole
-    proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated proceduretype
+    proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
+                              primary_key=True)  #: id of associated proceduretype
     uses = Column(JSON)  #: map to location on excel sheets of different procedure types
     required = Column(INTEGER)  #: whether the reagent type is required for the kittype (Boolean 1 or 0)
     last_used = Column(String(32))  #: last used lot number of this type of reagent
@@ -1324,7 +1325,7 @@ class ProcedureReagentLotAssociation(BaseClass):
         output.update(relevant)
         output['reagentrole'] = self.reagentrole
         output['misc_info'] = misc
-        logger.debug(f"Output: {pformat(output)}")
+        # logger.debug(f"Output: {pformat(output)}")
         return output
 
     def delete(self, **kwargs):
@@ -1543,7 +1544,6 @@ class Equipment(BaseClass, LogMixin):
             return {k: v for k, v in self.__dict__.items() if k != 'process'}
         else:
             return {k: v for k, v in self.__dict__.items()}
-
 
     @classmethod
     @setup_lookup
@@ -1842,7 +1842,7 @@ class ProcessVersion(BaseClass):
 
     @classmethod
     def query(cls,
-              version: str | None = None,
+              version: str | float | None = None,
               name: str | None = None,
               limit: int = 0,
               **kwargs) -> ReagentLot | List[ReagentLot]:
@@ -1853,8 +1853,8 @@ class ProcessVersion(BaseClass):
             case _:
                 pass
         match version:
-            case str():
-                query = query.filter(cls.version == version)
+            case str() | float():
+                query = query.filter(cls.version == float(version))
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
@@ -1879,12 +1879,31 @@ class Tips(BaseClass):
     @setup_lookup
     def query(cls,
               name: str | None = None,
+              manufacturer: str | None = None,
+              capacity: str | None = None,
+              ref: str | None = None,
               limit: int = 0,
               **kwargs) -> Tips | List[Tips]:
         query = cls.__database_session__.query(cls)
         match name:
             case str():
                 query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
+        match manufacturer:
+            case str():
+                query = query.filter(cls.manufacturer == manufacturer)
+            case _:
+                pass
+        match capacity:
+            case int():
+                query = query.filter(cls.capacity == capacity)
+            case _:
+                pass
+        match ref:
+            case str():
+                query = query.filter(cls.ref == ref)
                 limit = 1
             case _:
                 pass
@@ -1944,15 +1963,21 @@ class TipsLot(BaseClass, LogMixin):
 
     @property
     def name(self) -> str:
-        return f"{self.tips.manufacturer}-{self.tips.capacity}-{self.lot}"
+        return f"{self.tips.manufacturer}-{self.tips.ref}-{self.lot}"
 
     @classmethod
-    def query(cls, name: str | None = None, lot: str | None = None, limit: int = 0, **kwargs) -> Tips | List[Tips]:
+    def query(cls,
+              manufacturer: str | None = None,
+              ref: str | None = None,
+              lot: str | None = None,
+              limit: int = 0,
+              **kwargs) -> Tips | List[Tips]:
         """
         Lookup tips
 
         Args:
-            name (str | None, optional): Informal name of tips. Defaults to None.
+            manufacturer (str | None, optional): Name of parent tip manufacturer. Defaults to None.
+            ref (str | None, optional): Name of parent tip reference number. Defaults to None.
             lot (str | None, optional): Lot number. Defaults to None.
             limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
 
@@ -1960,9 +1985,17 @@ class TipsLot(BaseClass, LogMixin):
             Tips | List[Tips]: Tips matching criteria
         """
         query = cls.__database_session__.query(cls)
-        match name:
+        if manufacturer is not None and ref is not None:
+            manufacturer = None
+        match manufacturer:
             case str():
-                query = query.filter(cls.name == name)
+                logger.debug(f"Looking for {manufacturer}")
+                query = query.join(Tips).filter(Tips.manufacturer == manufacturer)
+            case _:
+                pass
+        match ref:
+            case str():
+                query = query.join(Tips).filter(Tips.ref == ref)
             case _:
                 pass
         match lot:
@@ -2032,7 +2065,8 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
 
-    processversion = relationship(ProcessVersion, back_populates="procedureequipmentassociation")  #: Associated process version
+    processversion = relationship(ProcessVersion,
+                                  back_populates="procedureequipmentassociation")  #: Associated process version
 
     tipslot_id = Column(INTEGER, ForeignKey("_tipslot.id", ondelete="SET NULL",
                                             name="SEA_Tipslot_id"))
@@ -2153,7 +2187,10 @@ class ProcedureEquipmentAssociation(BaseClass):
         output.update(relevant)
         output['misc_info'] = misc
         output['equipment_role'] = self.equipmentrole
-        output['processversion'] = self.processversion.details_dict()
+        try:
+            output['processversion'] = self.processversion.details_dict()
+        except AttributeError:
+            output['processversion'] = None
         try:
             output['tips'] = self.tipslot.details_dict()
         except AttributeError:

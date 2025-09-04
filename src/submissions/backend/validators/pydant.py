@@ -357,7 +357,7 @@ class PydTips(PydBaseClass):
     #     return value
 
     @report_result
-    def to_sql(self, procedure: Run) -> Tuple[Tips, Report]:
+    def to_sql(self) -> Tuple[Tips, Report]:
         """
         Convert this object to the SQL version for database storage.
 
@@ -382,7 +382,7 @@ class PydEquipment(PydBaseClass):
     # process: List[dict] | None
     process: List[PydProcess] | PydProcess | None
     equipmentrole: str | PydEquipmentRole | None
-    # tips: List[PydTips] | PydTips | None = Field(default=[])
+    tips: List[PydTips] | PydTips | None = Field(default=[])
 
     @field_validator('equipmentrole', mode='before')
     @classmethod
@@ -400,7 +400,7 @@ class PydEquipment(PydBaseClass):
 
     @field_validator('process', mode='before')
     @classmethod
-    def make_empty_list(cls, value, values):
+    def process_to_pydantic(cls, value, values):
         # if isinstance(value, dict):
         #     value = value['processes']
         if isinstance(value, GeneratorType):
@@ -408,17 +408,48 @@ class PydEquipment(PydBaseClass):
         value = convert_nans_to_nones(value)
         if not value:
             value = []
-        try:
-            # value = [item.strip() for item in value]
-            d: Process = next((process for process in value if values.data['name'] in [item.name for item in process.equipment]), None)
-            print(f"Next process: {d.details_dict()}")
-            if d:
-                # value = PydProcess(**d.details_dict())
-                value = d.to_pydantic()
-            # value = next((process.to_pydantic() for process in value))
-        except AttributeError as e:
-            logger.error(f"Process Validation error due to {e}")
-            pass
+        if isinstance(value, ProcessVersion):
+            value = value.to_pydantic(pyd_model_name="PydProcess")
+        else:
+            try:
+                # value = [item.strip() for item in value]
+                d: Process = next((process for process in value if values.data['name'] in [item.name for item in process.equipment]), None)
+                print(f"Next process: {d.details_dict()}")
+                if d:
+                    # value = PydProcess(**d.details_dict())
+                    value = d.to_pydantic()
+                # value = next((process.to_pydantic() for process in value))
+            except AttributeError as e:
+                logger.error(f"Process Validation error due to {e}")
+                pass
+        return value
+
+    @field_validator('tips', mode='before')
+    @classmethod
+    def tips_to_pydantic(cls, value, values):
+        # if isinstance(value, dict):
+        #     value = value['processes']
+        if isinstance(value, GeneratorType):
+            value = [item for item in value]
+        value = convert_nans_to_nones(value)
+        if not value:
+            value = []
+        if isinstance(value, TipsLot):
+            value = value.to_pydantic(pyd_model_name="PydTips")
+        else:
+            try:
+                # value = [item.strip() for item in value]
+                d: Tips = next(
+                    (tips for tips in value if values.data['name'] in [item.name for item in tips.equipment]),
+                    None)
+                print(f"Next process: {d.details_dict()}")
+                if d:
+                    # value = PydProcess(**d.details_dict())
+                    value = d.to_pydantic()
+                # value = next((process.to_pydantic() for process in value))
+            except AttributeError as e:
+                logger.error(f"Process Validation error due to {e}")
+                pass
         return value
 
     # @field_validator('tips', mode='before')
@@ -1172,7 +1203,7 @@ class PydEquipmentRole(BaseModel):
 
 class PydProcess(PydBaseClass, extra="allow"):
     name: str
-    version: str = Field(default="1")
+    version: str = Field(default="1.0")
     # equipment: List[str]
     tips: List[PydTips]
 
@@ -1198,12 +1229,20 @@ class PydProcess(PydBaseClass, extra="allow"):
         value = [item for item in value if item]
         return value
 
+    @field_validator("version", mode="before")
+    @classmethod
+    def enforce_float_string(cls, value):
+        if isinstance(value, float):
+            value = str(value)
+        return value
+
     @report_result
     def to_sql(self):
         report = Report()
+        name = self.name.split("-")[0]
         logger.debug(f"Query process: {self.name}, version = {self.version}")
         # NOTE: can't use query_or_create due to name not being part of ProcessVersion
-        instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
+        instance = ProcessVersion.query(name=name, version=self.version, limit=1)
         logger.debug(f"Got instance: {instance}")
         if not instance:
             instance = ProcessVersion()
@@ -1245,8 +1284,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
     repeat_of: Procedure | None = Field(default=None)
-    # kittype: dict = Field(default=dict(value="NA", missing=True))
-    # possible_kits: list | None = Field(default=[], validate_default=True)
     plate_map: str | None = Field(default=None)
     reagent: list | None = Field(default=[])
     reagentrole: dict | None = Field(default={}, validate_default=True)
@@ -1290,17 +1327,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             value['value'] = f"{run}-{procedure_type}"
             value['missing'] = True
         return value
-
-    # @field_validator("possible_kits")
-    # @classmethod
-    # def rescue_possible_kits(cls, value, values):
-    #     if not value:
-    #         try:
-    #             if values.data['proceduretype']:
-    #                 value = [kittype.__dict__['name'] for kittype in values.data['proceduretype'].kittype]
-    #         except KeyError:
-    #             pass
-    #     return value
 
     @field_validator("name", "technician")#, "kittype")
     @classmethod
@@ -1471,8 +1497,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sql = Procedure()
         else:
             sql = super().to_sql()
-        logger.debug(f"Initial PYD: {pformat(self.__dict__)}")
-        # sql.results = [result.to_sql() for result in self.results]
         if isinstance(self.name, dict):
             sql.name = self.name['value']
         else:
@@ -1481,7 +1505,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sql.technician = self.technician['value']
         else:
             sql.technician = self.technician
-        sql.repeat = self.repeat
+        # sql.repeat = int(self.repeat)
         if sql.repeat:
             regex = re.compile(r".*\dR\d$")
             repeats = [item for item in self.run.procedure if
@@ -1493,21 +1517,12 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sql.run = self.run
         if self.proceduretype:
             sql.proceduretype = self.proceduretype
-        # Note: convert any new reagents to sql and save
-        # for reagentrole, reagents in self.reagentrole.items():
-        # for reagent in self.reagent:
-        #     if not reagent.lot or reagent.name == "--New--":
-        #         continue
-            # self.update_new_reagents(reagent)
         # NOTE: reset reagent associations.
-        # sql.procedurereagentassociation = []
         for reagent in self.reagent:
             if isinstance(reagent, dict):
                 reagent = PydReagent(**reagent)
-            logger.debug(reagent)
             reagentrole = reagent.reagentrole
             reagent = reagent.to_sql()
-            # logger.debug(reagentrole)
             if reagent not in sql.reagentlot:
                 # NOTE: Remove any previous association for this role.
                 if sql.id:
@@ -1529,36 +1544,36 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             start_index = 1
         relevant_samples = [sample for sample in self.sample if
                             not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
-        # logger.debug(f"start index: {start_index}")
         assoc_id_range = range(start_index, start_index + len(relevant_samples) + 1)
-        # logger.debug(f"Association id range: {assoc_id_range}")
         for iii, sample in enumerate(relevant_samples):
             sample_sql = sample.to_sql()
             if sql.run:
                 if sample_sql not in sql.run.sample:
-                    logger.debug(f"sample {sample_sql} not found in {sql.run.sample}")
                     run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
                                                      column=sample.column)
-                # else:
-                #     logger.debug(f"sample {sample_sql} found in {sql.run.sample}")
             if sample_sql not in sql.sample:
                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
-        # sys.exit(pformat(self.equipment))
         for equipment in self.equipment:
-            logger.debug(f"Equipment: {equipment}")
-            # equip = Equipment.query(name=equipment.name)
             equip, _ = equipment.to_sql()
-            logger.debug(f"Process: {equipment.process}")
             if isinstance(equipment.process, list):
                 equipment.process = equipment.process[0]
+            if isinstance(equipment.tips, list):
+                try:
+                    equipment.tips = equipment.tips[0]
+                except IndexError:
+                    equipment.tips = None
             if equip not in sql.equipment:
                 equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql,
                                                             equipmentrole=equip.equipmentrole[0])
                 process = equipment.process.to_sql()
                 equip_assoc.processversion = process
-        # sys.exit(pformat([item.__dict__ for item in sql.procedureequipmentassociation]))
+                try:
+                    tipslot = equipment.tips.to_sql()
+                except AttributeError:
+                    tipslot = None
+                equip_assoc.tipslot = tipslot
         return sql, None
 
 

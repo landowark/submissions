@@ -1,5 +1,5 @@
 """
-
+Default Parser archetypes.
 """
 from __future__ import annotations
 import logging, re
@@ -43,7 +43,8 @@ class DefaultParser(object):
             *args ():
             **kwargs ():
         """
-        logger.debug(f"\n\nHello from {self.__class__.__name__}\n\n")
+        logger.info(f"\n\nHello from {self.__class__.__name__}\n\n")
+        self.filepath = filepath
         self.proceduretype = proceduretype
         try:
             self._pyd_object = getattr(pydant,
@@ -61,10 +62,8 @@ class DefaultParser(object):
         self.worksheet = self.workbook[self.sheet]
         self.start_row = self.delineate_start_row(start_row=start_row)
         self.end_row = self.delineate_end_row(start_row=self.start_row)
-        logger.debug(f"Start row: {self.start_row}, End row: {self.end_row}")
 
     def to_pydantic(self):
-        # data = {key: value['value'] for key, value in self.parsed_info.items()}
         data = self.parsed_info
         data['filepath'] = self.filepath
         return self._pyd_object(**data)
@@ -100,7 +99,6 @@ class DefaultKEYVALUEParser(DefaultParser):
         rows = range(self.start_row, self.end_row)
         for row in rows:
             check_row = [item for item in self.worksheet.rows][row-1]
-            logger.debug(f"Checking row {row-1}, {check_row} for merged cells.")
             if any([isinstance(cell, MergedCell) for cell in check_row]):
                 continue
             key = self.worksheet.cell(row, 1).value
@@ -110,9 +108,7 @@ class DefaultKEYVALUEParser(DefaultParser):
                 key = key.lower().replace(":", "").strip().replace(" ", "_")
                 value = self.worksheet.cell(row, 2).value
                 missing = False if value else True
-                # location_map = dict(row=row, key_column=1, value_column=2, sheet=self.worksheet.title)
                 value = dict(value=value, missing=missing)#, location=location_map)
-                logger.debug(f"Yielding {value} for {key}")
                 yield key, value
 
 
@@ -123,7 +119,6 @@ class DefaultTABLEParser(DefaultParser):
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
-        logger.debug(f"creating dataframe from {self.start_row} to {self.end_row}")
         df = DataFrame(
             [item for item in self.worksheet.values][self.start_row - 1:self.end_row - 1])
         df.columns = df.iloc[0]
@@ -131,12 +126,10 @@ class DefaultTABLEParser(DefaultParser):
         df = df.dropna(axis=1, how='all')
         for ii, row in enumerate(df.iterrows()):
             output = {}
-            # for key, value in row[1].to_dict().items():
             for key, value in row[1].details_dict().items():
                 if isinstance(key, str):
                     key = key.lower().replace(" ", "_")
                     key = re.sub(r"_(\(.*\)|#)", "", key)
-                # logger.debug(f"Row {ii} values: {key}: {value}")
                 output[key] = value
             yield output
 

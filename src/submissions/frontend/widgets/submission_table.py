@@ -372,7 +372,7 @@ class SubmissionsTree(QTreeView):
         self.clear()
         self.data = [item.to_dict(full_data=True) for item in
                      ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
-        logger.debug(f"setting data:\n {pformat(self.data)}")
+        # logger.debug(f"setting data:\n {pformat(self.data)}")
         # sys.exit()
         root = self.model.invisibleRootItem()
         for submission in self.data:

@@ -1,11 +1,11 @@
 """
-
+Module for clientsubmission parsing
 """
 from __future__ import annotations
 import logging
 from pathlib import Path
 from string import ascii_lowercase
-from typing import Generator, TYPE_CHECKING, Literal
+from typing import Generator, TYPE_CHECKING
 from openpyxl.reader.excel import load_workbook
 from tools import row_keys
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
@@ -122,20 +122,6 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
         else:
             self.submissiontype = submissiontype
         super().__init__(filepath=filepath, sheet="Client Info", start_row=1, **kwargs)
-        # NOTE: move to the manager class.
-        # allowed_procedure_types = [item.name for item in self.submissiontype.proceduretype]
-        # for name in allowed_procedure_types:
-        #     if name in self.workbook.sheetnames:
-        #         # TODO: check if run with name already exists
-        #         add_run = QuestionAsker(title="Add Run?", message="We've detected a sheet corresponding to an associated procedure type.\nWould you like to add a new run?")
-        #         if add_run.accepted:
-        #         # NOTE: recruit parser.
-        #             try:
-        #                 manager = getattr(procedure_managers, name)
-        #             except AttributeError:
-        #                 manager = procedure_managers.DefaultManager
-        #             self.manager = manager(proceduretype=name)
-        #         pass
 
     @property
     def parsed_info(self):
@@ -144,13 +130,11 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
             output['clientlab'] = output['client_lab']
         except KeyError:
             pass
-        # output['submissiontype'] = dict(value=self.submissiontype.name.title())
         try:
             output['submissiontype'] = output['submission_type']
             output['submissiontype']['value'] = self.submissiontype.name.title()
         except KeyError:
             pass
-        logger.debug(f"Data: {output}")
         return output
 
 
@@ -173,8 +157,6 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     def parsed_info(self) -> Generator[dict, None, None]:
         output = super().parsed_info
         for ii, sample in enumerate(output, start=1):
-            # logger.debug(f"Parsed info sample: {sample}")
-
             if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
                 try:
                     sample["row"] = row_keys[sample["row"]]
@@ -184,5 +166,4 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
             yield sample
 
     def to_pydantic(self):
-        logger.debug(f"Attempting to pydantify: {self._pyd_object}")
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample['sample_id']]
