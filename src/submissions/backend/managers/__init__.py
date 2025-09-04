@@ -1,8 +1,8 @@
+"""
+Module for manager defaults.
+"""
 import logging
 from pathlib import Path
-from typing import Literal
-
-from backend.db.models import ProcedureType
 from frontend.widgets.functions import select_open_file
 from tools import get_application_from_parent
 from backend.validators.pydant import PydBaseClass
@@ -13,7 +13,6 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DefaultManager(object):
 
     def __init__(self, parent, input_object: Path | str | None = None):
-        logger.debug(f"FName before correction: {type(input_object)}")
         self.parent = parent
         match input_object:
             case str():
@@ -23,16 +22,12 @@ class DefaultManager(object):
                 self.input_object = input_object
                 self.pyd = self.to_pydantic()
             case x if issubclass(input_object.__class__, PydBaseClass):
-                # logger.debug("Subclass of PydBaseClass")
                 self.pyd = input_object
             case x if issubclass(input_object.__class__, BaseClass):
-                # logger.debug("Subclass of BaseClass")
                 self.pyd = input_object.to_pydantic()
             case _:
                 self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
                 self.pyd = self.to_pydantic()
-        # logger.debug(f"FName after correction: {input_object}")
-
 
 
 from .clientsubmissions import DefaultClientSubmissionManager

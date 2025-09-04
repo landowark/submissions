@@ -1,14 +1,12 @@
 """
-
+Module for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
 import logging
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple, List, TYPE_CHECKING
-
+from typing import TYPE_CHECKING
 from openpyxl.reader.excel import load_workbook
-
 from backend.db.models import Procedure
 from backend.excel.parsers.results_parsers.pcr_results_parser import PCRSampleParser, PCRInfoParser
 from backend.excel.writers.results_writers.pcr_results_writer import PCRInfoWriter, PCRSampleWriter
@@ -33,9 +31,3 @@ class PCRManager(DefaultResultsManager):
         self.info_writer = PCRInfoWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
         workbook = self.info_writer.write_to_workbook(workbook)
         self.sample_writer = PCRSampleWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
-
-
-
-
-
-

@@ -1,9 +1,10 @@
+"""
+Module for manager of ClientSubmission object
+"""
 from __future__ import annotations
-import logging
-import sys
+import logging, sys
 from typing import TYPE_CHECKING
 from pathlib import Path
-from openpyxl.reader.excel import load_workbook
 from openpyxl.workbook import Workbook
 from backend.validators import RSLNamer
 from backend.managers import DefaultManager
@@ -42,23 +43,15 @@ class DefaultClientSubmissionManager(DefaultManager):
         self.sample_parser = ClientSubmissionSampleParser(filepath=self.input_object,
                                                           submissiontype=self.submissiontype,
                                                           start_row=self.info_parser.end_row)
-        logger.debug(self.sample_parser.__dict__)
         self.clientsubmission = self.info_parser.to_pydantic()
         self.clientsubmission.full_batch_size = self.sample_parser.end_row - self.sample_parser.start_row
         self.clientsubmission.sample = self.sample_parser.to_pydantic()
 
         return self.clientsubmission
 
-    # def to_pydantic(self):
-    #     self.clientsubmission = self.info_parser.to_pydantic()
-    #     self.clientsubmission.sample = self.sample_parser.to_pydantic()
-
     def write(self, workbook: Workbook) -> Workbook:
-        # workbook: Workbook = load_workbook(BytesIO(self.submissiontype.template_file))
-
         self.info_writer = ClientSubmissionInfoWriter(pydant_obj=self.pyd)
         assert isinstance(self.info_writer, ClientSubmissionInfoWriter)
-        logger.debug("Attempting write.")
         workbook = self.info_writer.write_to_workbook(workbook)
         self.sample_writer = ClientSubmissionSampleWriter(pydant_obj=self.pyd)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.info_writer.worksheet.max_row + 1)

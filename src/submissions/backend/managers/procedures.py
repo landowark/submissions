@@ -1,12 +1,10 @@
+"""
+Module for manager of Procedure object.
+"""
 from __future__ import annotations
-import logging
-from io import BytesIO
-from pprint import pformat
-
-from openpyxl.reader.excel import load_workbook
+import logging, sys
 from openpyxl.workbook import Workbook
-
-from backend.managers import DefaultManager, results
+from backend.managers import DefaultManager
 from typing import TYPE_CHECKING
 from pathlib import Path
 from backend.excel.parsers import procedure_parsers
@@ -57,7 +55,6 @@ class DefaultProcedureManager(DefaultManager):
         self.equipment = self.equipment_parser.to_pydantic()
 
     def write(self, workbook: Workbook) -> Workbook:
-        # workbook = load_workbook(BytesIO(self.proceduretype.template_file))
         try:
             info_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}InfoWriter")
         except AttributeError:
@@ -82,16 +79,9 @@ class DefaultProcedureManager(DefaultManager):
             sample_writer = procedure_writers.ProcedureSampleWriter
         self.sample_writer = sample_writer(pydant_obj=self.pyd)
         workbook = self.sample_writer.write_to_workbook(workbook)
-        # # logger.debug(self.pyd.result)
         # # TODO: Find way to group results by result_type.
         for result in self.pyd.result:
-            logger.debug(f"Writing {result.result_type}")
             Writer = getattr(results_writers, f"{result.result_type}InfoWriter")
             res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
             workbook = res_info_writer.write_to_workbook(workbook=workbook)
-        # # sample_results = [sample.result for sample in self.pyd.sample]
-        # # logger.debug(pformat(self.pyd.sample_results))
-        # Writer = getattr(results_writers, "PCRSampleWriter")
-        # res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
-        # workbook = res_sample_writer.write_to_workbook(workbook=workbook)
         return workbook

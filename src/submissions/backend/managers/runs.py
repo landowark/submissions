@@ -1,13 +1,10 @@
+"""
+Module for managing Runs object
+"""
 from __future__ import annotations
-import logging
-from pathlib import Path
+import logging, sys
 from pprint import pformat
-
-from openpyxl import load_workbook
 from openpyxl.workbook.workbook import Workbook
-from tools import copy_xl_sheet
-
-
 from backend.managers import DefaultManager
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -16,16 +13,11 @@ class DefaultRunManager(DefaultManager):
 
     def write(self) -> Workbook:
         from backend.managers import DefaultClientSubmissionManager, DefaultProcedureManager
-        logger.debug(f"Initializing write")
+        logger.info(f"Initializing write")
         clientsubmission = DefaultClientSubmissionManager(parent=self.parent, input_object=self.pyd.clientsubmission, submissiontype=self.pyd.clientsubmission.submissiontype)
         workbook = Workbook()
         workbook = clientsubmission.write(workbook=workbook)
         for procedure in self.pyd.procedure:
-        #     # logger.debug(f"Running procedure: {pformat(procedure.__dict__)}")
             procedure = DefaultProcedureManager(proceduretype=procedure.proceduretype, parent=self.parent, input_object=procedure)
             workbook: Workbook = procedure.write(workbook=workbook)
-        #     for sheetname in wb.sheetnames:
-        #         source_sheet = wb[sheetname]
-        #         ws = workbook.create_sheet(sheetname)
-        #         copy_xl_sheet(source_sheet, ws)
         return workbook
