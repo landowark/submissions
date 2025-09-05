@@ -1497,9 +1497,11 @@ class PydClientSubmission(PydBaseClass):
     @field_validator("sample_count")
     @classmethod
     def enforce_integer(cls, value):
+        if not value['value']:
+            value['value'] = 0
         try:
             value['value'] = int(value['value'])
-        except ValueError:
+        except (ValueError, TypeError):
             raise f"sample count value must be an integer"
         return value
 

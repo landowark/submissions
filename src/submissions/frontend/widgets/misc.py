@@ -1,7 +1,7 @@
 """
 Contains miscellaneous widgets for frontend functions
 """
-import math
+import math, logging
 from PyQt6.QtGui import QStandardItem, QIcon
 from PyQt6.QtWidgets import (
     QLabel, QLineEdit, QComboBox, QDateEdit, QPushButton, QWidget,
@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QDate, QSize
 from tools import jinja_template_loading
 from backend.db.models import *
-import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

@@ -5,10 +5,9 @@ from operator import itemgetter
 from PyQt6.QtWidgets import (
     QWidget, QDialog, QGridLayout, QLabel, QLineEdit, QDialogButtonBox, QTextEdit, QComboBox
 )
-import pyqtgraph as pg
 from PyQt6.QtGui import QIcon
 from PIL import Image
-import logging, numpy as np
+import logging, numpy as np, pyqtgraph as pg
 from pprint import pformat
 from typing import Tuple, List
 from pathlib import Path

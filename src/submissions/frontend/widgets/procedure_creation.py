@@ -8,7 +8,7 @@ from PyQt6.QtCore import pyqtSlot, Qt
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from backend.validators import PydProcedure, PydEquipment
 from tools import get_application_from_parent, render_details_template, sanitize_object_for_json
@@ -52,7 +52,7 @@ class ProcedureCreation(QDialog):
 
 
     def set_html(self):
-        from .equipment_usage_2 import EquipmentUsage
+        from .equipment_usage import EquipmentUsage
         proceduretype_dict = self.proceduretype.details_dict()
         # NOTE: Add --New-- as an option for reagents.
         for key, value in self.procedure.reagentrole.items():
@@ -88,11 +88,6 @@ class ProcedureCreation(QDialog):
     @pyqtSlot(str, str, str, str)
     def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
-        logger.debug(f"Updating equipment with"
-                     f"\n\tEquipment role: {equipmentrole}"
-                     f"\n\tEquipment: {equipment}"
-                     f"\n\tProcess: {process}"
-                     f"\n\tTips: {tips}")
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
@@ -109,19 +104,13 @@ class ProcedureCreation(QDialog):
         process_name, version = process.split("-v")
         process = ProcessVersion.query(name=process_name, version=version, limit=1)
         eoi.process = process
-        # sys.exit(f"Process:\n{pformat(eoi.process.__dict__)}")
         try:
             tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
-            logger.debug(f"Querying with '{tips_manufacturer}', '{tipsref}', '{lot}'")
             tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
-            logger.debug(f"Found tips: {tips}")
             eoi.tips = tips
         except ValueError:
             logger.warning(f"No tips info to unpack")
-        # tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
-        # eoi.tips = tips
         self.procedure.equipment.append(eoi)
-        logger.debug(f"Updated equipment:\n{pformat([item.__dict__ for item in self.procedure.equipment])}")
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
@@ -167,11 +156,9 @@ class ProcedureCreation(QDialog):
 
     @pyqtSlot(str, str)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str):
-        logger.debug(f"{reagentrole}: {name_lot_expiry}")
         try:
             name, lot, expiry = name_lot_expiry.split(" - ")
         except ValueError as e:
-            logger.debug(f"Couldn't perform split due to {e}")
             return
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
 

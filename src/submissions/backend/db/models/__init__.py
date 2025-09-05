@@ -484,7 +484,8 @@ class BaseClass(Base):
         if check:
             try:
                 value = json.dumps(value)
-            except TypeError:
+            except TypeError as e:
+                logger.error(f"Error json dumping value: {e}")
                 value = str(value)
             try:
                 self._misc_info.update({key: value})

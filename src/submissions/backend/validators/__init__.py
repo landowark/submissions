@@ -265,5 +265,5 @@ class RSLNamer(object):
             return ""
 
 
-from .pydant import PydRun, PydKitType, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, \
+from .pydant import PydRun, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, \
     PydEquipment, PydEquipmentRole, PydTips, PydProcess, PydElastic, PydClientSubmission, PydProcedure, PydResults

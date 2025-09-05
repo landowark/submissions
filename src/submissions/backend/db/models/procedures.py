@@ -917,7 +917,7 @@ class Procedure(BaseClass):
             obj (_type_): parent widget
         """
         logger.info(f"Add equipment")
-        from frontend.widgets.equipment_usage_2 import EquipmentUsage
+        from frontend.widgets.equipment_usage import EquipmentUsage
         dlg = EquipmentUsage(parent=obj, procedure=self.to_pydantic())
         if dlg.exec():
             dlg.save_procedure()

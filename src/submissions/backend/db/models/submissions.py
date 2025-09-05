@@ -646,7 +646,7 @@ class Run(BaseClass, LogMixin):
                                'permission', "clientsubmission"]
         output['sample_count'] = self.sample_count
         output['clientsubmission'] = self.clientsubmission.name
-        output['clientlab'] = self.clientsubmission.clientlab
+        # output['clientlab'] = self.clientsubmission.clientlab
         output['started_date'] = self.started_date
         output['completed_date'] = self.completed_date
         return output

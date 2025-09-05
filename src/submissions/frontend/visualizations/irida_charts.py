@@ -3,11 +3,9 @@ Functions for constructing irida control graphs using plotly.
 """
 from datetime import date
 from pprint import pformat
-import plotly.express as px
-import pandas as pd
+import logging, plotly.express as px, pandas as pd
 from PyQt6.QtWidgets import QWidget
 from . import CustomFigure
-import logging
 from tools import get_unique_values_in_df_column
 
 logger = logging.getLogger(f"submissions.{__name__}")

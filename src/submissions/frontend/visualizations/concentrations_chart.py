@@ -3,10 +3,9 @@ Construct BC control concentration charts
 """
 from pprint import pformat
 from . import CustomFigure
-import plotly.express as px
+import logging, sys, plotly.express as px
 import pandas as pd
 from PyQt6.QtWidgets import QWidget
-import logging
 from operator import itemgetter
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -31,7 +30,6 @@ class ConcentrationsChart(CustomFigure):
             self.df = self.df.sort_values(['submitted_date', 'procedure'], ascending=[True, True]).reset_index(
                 drop=True)
             self.df = self.df.reset_index().rename(columns={"index": "idx"})
-            # logger.debug(f"DF after changes:\n{self.df}")
             scatter = px.scatter(data_frame=self.df, x='procedure', y="concentration",
                                  hover_data=["name", "procedure", "submitted_date", "concentration"],
                                  color="positive", color_discrete_map={"positive": "red", "negative": "green", "sample":"orange"}

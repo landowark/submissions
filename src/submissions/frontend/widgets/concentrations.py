@@ -43,10 +43,8 @@ class Concentrations(InfoPane):
             None
         """
         include = self.pos_neg.get_checked()
-        # logger.debug(f"Include: {include}")
         super().update_data()
         months = self.diff_month(self.start_date, self.end_date)
-        # logger.debug(f"Box checked: {self.all_box.isChecked()}")
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date,
                               include=include)
         self.report_obj = ConcentrationMaker(**chart_settings)

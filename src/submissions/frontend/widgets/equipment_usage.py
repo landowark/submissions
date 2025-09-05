@@ -1,91 +1,97 @@
-'''
+"""
 Creates forms that the user can enter equipment info into.
-'''
+"""
+import sys, logging
 from pprint import pformat
-from PyQt6.QtCore import Qt, QSignalBlocker
-from PyQt6.QtWidgets import (
-    QDialog, QComboBox, QCheckBox, QLabel, QWidget, QVBoxLayout, QDialogButtonBox, QGridLayout
-)
-from backend.db.models import Equipment, Run, Process, Procedure
-from backend.validators.pydant import PydEquipment, PydEquipmentRole, PydTips
-import logging
 from typing import Generator
+from PyQt6.QtCore import Qt, pyqtSlot, QSignalBlocker
+from PyQt6.QtWebChannel import QWebChannel
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWidgets import (
+    QDialog, QVBoxLayout, QDialogButtonBox, QGridLayout, QWidget, QCheckBox, QComboBox, QLabel
+)
+from backend import Process
+from backend.db.models import Equipment
+from backend.validators.pydant import PydProcedure, PydEquipmentRole, PydTips, PydEquipment
+from tools import get_application_from_parent, render_details_template
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class EquipmentUsage(QDialog):
 
-    def __init__(self, parent, procedure: Procedure):
+    def __init__(self, parent, procedure: PydProcedure):
         super().__init__(parent)
         self.procedure = procedure
         self.setWindowTitle(f"Equipment Checklist - {procedure.name}")
         self.used_equipment = self.procedure.equipment
-        # self.kit = self.procedure.kittype
+        self.kit = self.procedure.kittype
         self.opt_equipment = procedure.proceduretype.get_equipment()
         self.layout = QVBoxLayout()
+        self.app = get_application_from_parent(parent)
+        self.webview = QWebEngineView(parent=self)
+        self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self.webview.setMinimumSize(1200, 800)
+        self.webview.setMaximumWidth(1200)
+        # NOTE: Decide if exporting should be allowed.
+        self.layout = QGridLayout()
+        # NOTE: button to export a pdf version
+        self.layout.addWidget(self.webview, 1, 0, 10, 10)
         self.setLayout(self.layout)
-        self.populate_form()
-
-    def populate_form(self):
-        """
-        Create form widgets
-        """
+        self.setFixedWidth(self.webview.width() + 20)
+        # NOTE: setup channel
+        self.channel = QWebChannel()
+        self.channel.registerObject('backend', self)
+        html = self.construct_html(procedure=procedure)
+        self.webview.setHtml(html)
+        self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        label = self.LabelRow(parent=self)
-        self.layout.addWidget(label)
-        for equipment in self.opt_equipment:
-            widg = equipment.to_form(parent=self, used=self.used_equipment)
-            self.layout.addWidget(widg)
-            widg.update_processes()
-        self.layout.addWidget(self.buttonBox)
+        self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
 
-    def parse_form(self) -> Generator[PydEquipment, None, None]:
-        """
-        Pull info from all RoleComboBox widgets
+    @classmethod
+    def construct_html(cls, procedure: PydProcedure, child: bool = False):
+        proceduretype = procedure.proceduretype
+        proceduretype_dict = proceduretype.details_dict()
+        run = procedure.run
+        html = render_details_template(
+            template_name="support/equipment_usage",
+            css_in=[],
+            js_in=[],
+            proceduretype=proceduretype_dict,
+            run=run.details_dict(),
+            procedure=procedure.__dict__,
+            child=child
+        )
+        return html
 
-        Returns:
-            Generator[PydEquipment, None, None]: All equipment pulled from widgets
-        """
-        for widget in self.findChildren(QWidget):
-            match widget:
-                case RoleComboBox():
-                    if widget.check.isChecked():
-                        item = widget.parse_form()
-                        if item:
-                            yield item
-                        else:
-                            continue
-                    else:
-                        continue
-                case _:
-                    continue
+    @pyqtSlot(str, str, str, str)
+    def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
+        try:
+            equipment_of_interest = next(
+                (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
+        except StopIteration:
+            equipment_of_interest = None
+        equipment = Equipment.query(name=equipment)
+        if equipment_of_interest:
+            eoi = self.procedure.equipment.pop(self.procedure.equipment.index(equipment_of_interest))
+        else:
+            eoi = equipment.to_pydantic(proceduretype=self.procedure.proceduretype)
+        eoi.name = equipment.name
+        eoi.asset_number = equipment.asset_number
+        eoi.nickname = equipment.nickname
+        process = next((prcss for prcss in equipment.process if prcss.name == process))
+        eoi.process = process.to_pydantic()
+        tips = next((tps for tps in equipment.tips if tps.name == tips))
+        eoi.tips = tips.to_pydantic()
+        self.procedure.equipment.append(eoi)
+        logger.debug(f"Updated equipment: {self.procedure.equipment}")
 
-    class LabelRow(QWidget):
-        """Provides column headers"""
-
-        def __init__(self, parent) -> None:
-            super().__init__(parent)
-            self.layout = QGridLayout()
-            self.check = QCheckBox()
-            self.layout.addWidget(self.check, 0, 0)
-            self.check.stateChanged.connect(self.check_all)
-            for iii, item in enumerate(["Role", "Equipment", "Process", "Tips"], start=1):
-                label = QLabel(item)
-                label.setMaximumWidth(200)
-                label.setMinimumWidth(200)
-                self.layout.addWidget(label, 0, iii, alignment=Qt.AlignmentFlag.AlignRight)
-            self.setLayout(self.layout)
-
-        def check_all(self):
-            """
-            Toggles all checkboxes in the form
-            """
-            for object in self.parent().findChildren(QCheckBox):
-                object.setChecked(self.check.isChecked())
+    def save_procedure(self):
+        sql, _ = self.procedure.to_sql()
+        sql.save()
 
 
 class RoleComboBox(QWidget):
@@ -124,7 +130,6 @@ class RoleComboBox(QWidget):
         """
         equip = self.box.currentText()
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
-        logger.debug(f"Equip2: {equip2}")
         with QSignalBlocker(self.process) as blocker:
             self.process.clear()
         self.process.addItems([item for item in equip2.process if item in self.role.process])
@@ -180,7 +185,7 @@ class RoleComboBox(QWidget):
     def toggle_checked(self):
         """
         If this equipment is disabled, the input fields will be disabled.
-        """        
+        """
         for widget in self.findChildren(QWidget):
             match widget:
                 case QCheckBox():

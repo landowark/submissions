@@ -22,9 +22,9 @@ from .date_type_picker import DateTypePicker
 from .functions import select_save_file
 from .pop_ups import HTMLPop
 from .misc import Pagifier
-from .submission_table import SubmissionsSheet, SubmissionsTree, ClientSubmissionRunModel
+from .submission_table import SubmissionsTree, ClientSubmissionRunModel
 from .submission_widget import SubmissionFormContainer
-from .controls_chart import ControlsViewer
+# from .controls_chart import ControlsViewer
 from .summary import Summary
 from .turnaround import TurnaroundTime
 from .concentrations import Concentrations
@@ -132,7 +132,7 @@ class App(QMainWindow):
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
         self.editReagentAction.triggered.connect(self.edit_reagent)
         self.manageOrgsAction.triggered.connect(self.manage_orgs)
-        self.manageKitsAction.triggered.connect(self.manage_kits)
+        # self.manageKitsAction.triggered.connect(self.manage_kits)
 
     def showAbout(self):
         """
@@ -195,24 +195,23 @@ class App(QMainWindow):
             new_org = dlg.parse_form()
             new_org.save()
 
-    def manage_kits(self, *args, **kwargs):
-        from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
-        dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
-        if dlg.exec():
-            # logger.debug("\n\nBeginning parsing\n\n")
-            output = dlg.parse_form()
-            # logger.debug(f"Kit output: {pformat(output.__dict__)}")
-            # logger.debug("\n\nBeginning transformation\n\n")
-            sql = output.to_sql()
-            assert isinstance(sql, KitType)
-            sql.save()
+    # def manage_kits(self, *args, **kwargs):
+    #     from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
+    #     dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
+    #     if dlg.exec():
+    #         output = dlg.parse_form()
+    #         sql = output.to_sql()
+    #         assert isinstance(sql, KitType)
+    #         sql.save()
 
     @under_development
     def submissions_to_excel(self, *args, **kwargs):
+        from backend.db.models import Run
         dlg = DateTypePicker(self)
         if dlg.exec():
             output = dlg.parse_form()
-            df = BasicRun.archive_submissions(**output)
+            # TODO: Move to ClientSubmissions
+            df = Run.archive_submissions(**output)
             filepath = select_save_file(self, f"Submissions {output['start_date']}-{output['end_date']}", "xlsx")
             writer = ExcelWriter(filepath, "openpyxl")
             df.to_excel(writer)
@@ -254,7 +253,6 @@ class AddSubForm(QWidget):
         self.sheetwidget = QWidget(self)
         self.sheetlayout = QVBoxLayout(self)
         self.sheetwidget.setLayout(self.sheetlayout)
-        # self.sub_wid = SubmissionsSheet(parent=parent)
         self.sub_wid = SubmissionsTree(parent=parent, model=ClientSubmissionRunModel(self))
         self.pager = Pagifier(page_max=self.sub_wid.total_count / page_size)
         self.sheetlayout.addWidget(self.sub_wid)
@@ -265,12 +263,10 @@ class AddSubForm(QWidget):
         self.tab1.layout.addWidget(self.interior)
         self.tab1.layout.addWidget(self.sheetwidget)
         self.tab2.layout = QVBoxLayout(self)
-        # self.irida_viewer = ControlsViewer(self, archetype="Irida Control")
         self.irida_viewer = None
         self.tab2.layout.addWidget(self.irida_viewer)
         self.tab2.setLayout(self.tab2.layout)
         self.tab3.layout = QVBoxLayout(self)
-        # self.pcr_viewer = ControlsViewer(self, archetype="PCR Control")
         self.pcr_viewer = None
         self.tab3.layout.addWidget(self.pcr_viewer)
         self.tab3.setLayout(self.tab3.layout)
