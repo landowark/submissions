@@ -1,18 +1,16 @@
-'''
+"""
 Contains miscellaenous functions used by both frontend and backend.
-'''
+"""
 from __future__ import annotations
-import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd
-import itertools
+import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd, \
+    itertools, openpyxl
+from copy import copy
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
 from threading import Thread
 from inspect import getmembers, isfunction, stack
-from types import NoneType
-
 from dateutil.easter import easter
-from dateutil.parser import parse
 from jinja2 import Environment, FileSystemLoader
 from logging import handlers, Logger
 from pathlib import Path
@@ -60,7 +58,6 @@ main_form_style = '''
 
 page_size = 250
 
-# micro_char = uni_char = "\u03BC"
 
 def divide_chunks(input_list: list, chunk_count: int) -> Generator[Any, Any, None]:
     """
@@ -447,16 +444,18 @@ def jinja_template_loading() -> Environment:
     return env
 
 
-def render_details_template(template_name:str, css_in:List[str]|str=[], js_in:List[str]|str=[], **kwargs) -> str:
+def render_details_template(template_name: str, css_in: List[str] | str = [], js_in: List[str] | str = [],
+                            **kwargs) -> str:
     if isinstance(css_in, str):
         css_in = [css_in]
+    env = jinja_template_loading()
+    html_folder = Path(env.loader.__getattribute__("searchpath")[0])
     css_in = ["styles"] + css_in
-    css_in = [project_path.joinpath("src", "submissions", "templates", "css", f"{c}.css") for c in css_in]
+    css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
     if isinstance(js_in, str):
         js_in = [js_in]
     js_in = ["details"] + js_in
-    js_in = [project_path.joinpath("src", "submissions", "templates", "js", f"{j}.js") for j in js_in]
-    env = jinja_template_loading()
+    js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
     template = env.get_template(f"{template_name}.html")
     # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
     css_out = []
@@ -467,7 +466,6 @@ def render_details_template(template_name:str, css_in:List[str]|str=[], js_in:Li
     for js in js_in:
         with open(js, "r") as f:
             js_out.append(f.read())
-    # logger.debug(f"Kwargs: {kwargs}")
     return template.render(css=css_out, js=js_out, **kwargs)
 
 
@@ -489,10 +487,10 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
         return None, None
     return row, column
 
+
 # Copy a sheet with style, format, layout, ect. from one Excel file to another Excel file
 # Please add the ..path\\+\\file..  and  ..sheet_name.. according to your desire.
-import openpyxl
-from copy import copy
+
 
 
 def copy_xl_sheet(source_sheet, target_sheet):
@@ -509,8 +507,8 @@ def copy_sheet_attributes(source_sheet, target_sheet):
     target_sheet.page_margins = copy(source_sheet.page_margins)
     target_sheet.freeze_panes = copy(source_sheet.freeze_panes)
 
-    # set row dimensions
-    # So you cannot copy the row_dimensions attribute. Does not work (because of meta data in the attribute I think). So we copy every row's row_dimensions. That seems to work.
+    # NOTE: set row dimensions
+    # NOTE: So you cannot copy the row_dimensions attribute. Does not work (because of meta data in the attribute I think). So we copy every row's row_dimensions. That seems to work.
     for rn in range(len(source_sheet.row_dimensions)):
         target_sheet.row_dimensions[rn] = copy(source_sheet.row_dimensions[rn])
 
@@ -519,12 +517,15 @@ def copy_sheet_attributes(source_sheet, target_sheet):
     else:
         target_sheet.sheet_format.defaultColWidth = copy(source_sheet.sheet_format.defaultColWidth)
 
-    # set specific column width and hidden property
-    # we cannot copy the entire column_dimensions attribute so we copy selected attributes
+    # NOTE: set specific column width and hidden property
+    # NOTE: we cannot copy the entire column_dimensions attribute so we copy selected attributes
     for key, value in source_sheet.column_dimensions.items():
-        target_sheet.column_dimensions[key].min = copy(source_sheet.column_dimensions[key].min)   # Excel actually groups multiple columns under 1 key. Use the min max attribute to also group the columns in the targetSheet
-        target_sheet.column_dimensions[key].max = copy(source_sheet.column_dimensions[key].max)  # https://stackoverflow.com/questions/36417278/openpyxl-can-not-read-consecutive-hidden-columns discussed the issue. Note that this is also the case for the width, not onl;y the hidden property
-        target_sheet.column_dimensions[key].width = copy(source_sheet.column_dimensions[key].width) # set width for every column
+        target_sheet.column_dimensions[key].min = copy(source_sheet.column_dimensions[
+                                                           key].min)  # Excel actually groups multiple columns under 1 key. Use the min max attribute to also group the columns in the targetSheet
+        target_sheet.column_dimensions[key].max = copy(source_sheet.column_dimensions[
+                                                           key].max)  # https://stackoverflow.com/questions/36417278/openpyxl-can-not-read-consecutive-hidden-columns discussed the issue. Note that this is also the case for the width, not onl;y the hidden property
+        target_sheet.column_dimensions[key].width = copy(
+            source_sheet.column_dimensions[key].width)  # set width for every column
         target_sheet.column_dimensions[key].hidden = copy(source_sheet.column_dimensions[key].hidden)
 
 
@@ -534,11 +535,9 @@ def copy_cells(source_sheet, target_sheet):
             source_cell = cell
             if isinstance(source_cell, openpyxl.cell.read_only.EmptyCell):
                 continue
-            target_cell = target_sheet.cell(column=c+1, row=r+1)
-
+            target_cell = target_sheet.cell(column=c + 1, row=r + 1)
             target_cell._value = source_cell._value
             target_cell.data_type = source_cell.data_type
-
             if source_cell.has_style:
                 target_cell.font = copy(source_cell.font)
                 target_cell.border = copy(source_cell.border)
@@ -546,15 +545,13 @@ def copy_cells(source_sheet, target_sheet):
                 target_cell.number_format = copy(source_cell.number_format)
                 target_cell.protection = copy(source_cell.protection)
                 target_cell.alignment = copy(source_cell.alignment)
-
             if not isinstance(source_cell, openpyxl.cell.ReadOnlyCell) and source_cell.hyperlink:
                 target_cell._hyperlink = copy(source_cell.hyperlink)
-
             if not isinstance(source_cell, openpyxl.cell.ReadOnlyCell) and source_cell.comment:
                 target_cell.comment = copy(source_cell.comment)
 
 
-def list_str_comparator(input_str:str, listy: List[str], mode: Literal["starts_with", "contains"]) -> bool:
+def list_str_comparator(input_str: str, listy: List[str], mode: Literal["starts_with", "contains"]) -> bool:
     match mode:
         case "starts_with":
             if any([input_str.startswith(item) for item in listy]):
@@ -566,6 +563,7 @@ def list_str_comparator(input_str:str, listy: List[str], mode: Literal["starts_w
                 return True
             else:
                 return False
+
 
 def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:
     output = OrderedDict()
@@ -602,14 +600,12 @@ def setup_lookup(func):
             elif v is not None:
                 sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)
-
     return wrapper
 
 
 def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
     if manager is None:
         return None, False
-    # logger.debug(f"Manager: {manager}, aliases: {manager.aliases}, Key: {object_name}")
     if object_name in manager.aliases:
         return manager, True
     relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
@@ -617,21 +613,17 @@ def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bo
     relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
     for relationship in relationships:
         if relationship.key == object_name and "association" not in relationship.key:
-            logger.debug(f"Checking {relationship.key}")
             try:
                 rel_obj = getattr(manager, relationship.key)
                 if rel_obj is not None:
-                    logger.debug(f"Returning {rel_obj}")
                     return rel_obj, False
             except AttributeError:
                 pass
         if "association" in relationship.key:
             try:
-                logger.debug(f"Checking association {relationship.key}")
                 rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
                                 if getattr(item, object_name) is not None), None)
                 if rel_obj is not None:
-                    logger.debug(f"Returning {rel_obj}")
                     return rel_obj, False
             except AttributeError:
                 pass
@@ -862,7 +854,6 @@ def check_authorization(func):
             report.add_result(
                 Result(owner=func.__str__(), code=1, msg=error_msg, status="warning"))
             return report, kwargs
-
     return wrapper
 
 
@@ -888,7 +879,6 @@ def under_development(func):
                 Result(owner=func.__str__(), code=1, msg=error_msg,
                        status="warning"))
             return report
-
     return wrapper
 
 
@@ -906,7 +896,6 @@ def report_result(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # logger.info(f"Report result being called by {func.__name__}")
         output = func(*args, **kwargs)
         match output:
             case Report():
@@ -931,6 +920,7 @@ def report_result(func):
                 logger.error(f"Problem reporting due to {e}")
                 logger.error(result.msg)
         if output:
+            logger.info(f"Report result being called by {func.__name__}")
             if is_list_etc(output):
                 true_output = tuple(item for item in output if not isinstance(item, Report))
                 if len(true_output) == 1:
@@ -943,7 +933,6 @@ def report_result(func):
         else:
             true_output = None
         return true_output
-
     return wrapper
 
 
@@ -962,11 +951,32 @@ def is_list_etc(object):
 
 
 def create_holidays_for_year(year: int | None = None) -> List[date]:
-    def find_nth_monday(year, month, occurence: int | None = None, day: int | None = None):
-        if not occurence:
-            occurence = 1
+    """
+    Gives stat holidays for the input year.
+
+    Args:
+        year (int | None, optional): The input year as an integer. Defaults to None.
+
+    Returns:
+        List[date]
+    """
+    def find_nth_monday(year, month, occurrence: int | None = None, day: int | None = None) -> date:
+        """
+        Gets the nth (eg 2nd) monday of the given month.
+
+        Args:
+            year (int): The year the month occurs in.
+            month (int): The month of interest.
+            occurrence (int): The n in nth.
+            day (int): The day of the month to start after.
+
+        Returns:
+            date
+        """
+        if not occurrence:
+            occurrence = 1
         if not day:
-            day = occurence * 7
+            day = occurrence * 7
         max_days = (date(2012, month + 1, 1) - date(2012, month, 1)).days
         if day > max_days:
             day = max_days
@@ -977,17 +987,16 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
         offset = -d.weekday()  # weekday == 0 means Monday
         output = d + timedelta(offset)
         return output.date()
-
     if not year:
         year = date.today().year
-    # NOTE: Includes New Year's day for next year.
+    # NOTE: Static holidays. Includes New Year's day for next year.
     holidays = [date(year, 1, 1), date(year, 7, 1), date(year, 9, 30),
                 date(year, 11, 11), date(year, 12, 25), date(year, 12, 26),
                 date(year + 1, 1, 1)]
     # NOTE: Labour Day
     holidays.append(find_nth_monday(year, 9))
     # NOTE: Thanksgiving
-    holidays.append(find_nth_monday(year, 10, occurence=2))
+    holidays.append(find_nth_monday(year, 10, occurrence=2))
     # NOTE: Victoria Day
     holidays.append(find_nth_monday(year, 5, day=25))
     # NOTE: Easter, etc
@@ -1007,7 +1016,6 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
     Returns:
         bool: True if dicto is equal to any dictionary in the list.
     """
-    # logger.debug(f"Comparing: {listo} and {dicto}")
     if isinstance(dicto, list) and isinstance(listo, list):
         return listo == dicto
     elif isinstance(dicto, dict) and isinstance(listo, dict):
@@ -1018,22 +1026,39 @@ def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -
         raise TypeError(f"Unsupported variable: {type(listo)}")
 
 
-def flatten_list(input_list: list):
+def flatten_list(input_list: list) -> list:
+    """
+    Takes nested lists and returns a single flat list.
+
+    Args:
+        input_list (list): input nested list.
+
+    Returns:
+        list:
+    """
     return list(itertools.chain.from_iterable(input_list))
 
 
 def sanitize_object_for_json(input_dict: dict) -> dict:
+    """
+    Takes an object and makes sure its components can be converted to JSON
+
+    Args:
+        input_dict (dict): Dictionary of interest
+
+    Returns:
+        dict:
+    """
     if not isinstance(input_dict, dict):
         match input_dict:
             case int() | float() | bool():
                 pass
             case _:
                 try:
-                    js = json.dumps(input_dict)
+                    input_dict = json.dumps(input_dict)
                 except TypeError:
                     input_dict = str(input_dict)
         return input_dict
-        # return input_dict
     output = {}
     for key, value in input_dict.items():
         match value:
@@ -1041,22 +1066,37 @@ def sanitize_object_for_json(input_dict: dict) -> dict:
                 value = [sanitize_object_for_json(object) for object in value]
             case dict():
                 value = sanitize_object_for_json(value)
-
             case _:
                 try:
-                    js = json.dumps(value)
+                    value = json.dumps(value)
                 except TypeError:
                     value = str(value)
         output[key] = value
     return output
 
 
-def create_plate_grid(rows: int, columns: int):
-    matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
-    return {iii: (item[0][1]+1, item[0][0]+1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
+def create_plate_grid(rows: int, columns: int) -> dict:
+    """
+    Makes an x by y array to represent a plate.
+
+    Args:
+        rows (int): Number of rows.
+        columns (int): Number of columns
+
+    Returns:
+        dict: cell number : (row, column)
+    """
+    # NOTE: columns/rows
+    # matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
+    # NOTE: rows/columns
+    matrix = np.array([[0 for xxx in range(1, rows + 1)] for yyy in range(1, columns + 1)])
+    return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
 
 class classproperty(property):
+    """
+    Allows for properties on classes as well as objects.
+    """
     def __get__(self, owner_self, owner_cls):
         return self.fget(owner_cls)
 
@@ -1396,6 +1436,16 @@ class Settings(BaseSettings, extra="allow"):
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:
+        """
+        Retrieves database variables from alembic.ini file.
+
+        Args:
+            alembic_path (Any): Path of the alembic.ini file.
+            mode (Literal['path', 'schema', 'user', 'pass']): Variable of interest.
+
+        Returns:
+            Path | str
+        """
         c = ConfigParser()
         c.read(alembic_path)
         url = c['alembic']['sqlalchemy.url']

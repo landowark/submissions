@@ -116,7 +116,6 @@ class ClientSubmission(BaseClass, LogMixin):
         if start_date is not None:
             start_date = cls.rectify_query_date(start_date)
             end_date = cls.rectify_query_date(end_date, eod=True)
-            logger.debug(f"Start date: {start_date}, end date: {end_date}")
             query = query.filter(cls.submitted_date.between(start_date, end_date))
         # NOTE: by rsl number (returns only a single value)
         match submitter_plate_id:
@@ -303,7 +302,6 @@ class ClientSubmission(BaseClass, LogMixin):
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
     def add_run(self, obj):
-        logger.debug("Add Run")
         from frontend.widgets.sample_checker import SampleChecker
         samples = [sample.to_pydantic() for sample in self.clientsubmissionsampleassociation]
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
@@ -455,13 +453,14 @@ class Run(BaseClass, LogMixin):
             output = {k: v for k, v in dicto.items() if k in args}
         else:
             output = {k: v for k, v in dicto.items()}
-        logger.debug(f"Submission type for get default info: {submissiontype}")
+        # logger.debug(f"Submission type for get default info: {submissiontype}")
         if isinstance(submissiontype, SubmissionType):
             st = submissiontype
         else:
             st = cls.get_submission_type(submissiontype)
         if st is None:
-            logger.error("No default info for Run.")
+            # logger.error("No default info for Run.")
+            pass
         else:
             output['submissiontype'] = st.name
             for k, v in st.defaults.items():

@@ -163,4 +163,5 @@ class ProcedureCreation(QDialog):
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
 
     def return_sql(self, new: bool = False):
-        return self.procedure.to_sql(new=new)
+        output = self.procedure.to_sql(new=new)
+        return output

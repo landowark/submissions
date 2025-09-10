@@ -32,8 +32,10 @@ a = Analysis(
     binaries=[],
     datas=[
             ("src\\config.yml", "files"),
-            ("src\\submissions\\templates\\*", "files\\templates"),
-            ("src\\submissions\\templates\\css\\*", "files\\templates\\css"),
+            ("src\\submissions\\templates\\*.html", "files\\templates"),
+            ("src\\submissions\\templates\\css\\*.css", "files\\templates\\css"),
+            ("src\\submissions\\templates\\js\\*.js", "files\\templates\\js"),
+            ("src\\submissions\\templates\\support\\*", "files\\templates\\support"),
             ("docs\\build", "files\\docs"),
             ("src\\submissions\\resources\\*", "files\\resources"),
             ("alembic.ini", "files"),
@@ -51,12 +53,32 @@ a = Analysis(
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+#exe = EXE(
+#    pyz,
+#    a.scripts,
+#    a.binaries,
+#    a.datas,
+#    [],
+#    name=f"{__project__}_{__version__}",
+#    debug=True,
+#    bootloader_ignore_signals=False,
+#    strip=False,
+#    upx=True,
+#    upx_exclude=[],
+#    runtime_tmpdir=None,
+#    console=True,
+#    disable_windowed_traceback=False,
+#    argv_emulation=False,
+#    target_arch=None,
+#    codesign_identity=None,
+#    entitlements_file=None,
+#)
 exe = EXE(
     pyz,
     a.scripts,
     [],
     exclude_binaries=True,
-    name=f"{__project__}_{__version__}",
+    name=f"{__project__}_{__version__}_2",
     debug=True,
     bootloader_ignore_signals=False,
     strip=False,

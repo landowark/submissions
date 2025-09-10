@@ -35,7 +35,7 @@ class ConcentrationsChart(CustomFigure):
                                  color="positive", color_discrete_map={"positive": "red", "negative": "green", "sample":"orange"}
                                  )
         except (ValueError, AttributeError) as e:
-            logger.error(f"Error constructing chart: {e}")
+            # logger.error(f"Error constructing chart: {e}")
             scatter = px.scatter()
         # NOTE: For some reason if data is allowed to sort itself it leads to wrong ordering of x axis.
         traces = sorted(scatter.data, key=itemgetter("name"))

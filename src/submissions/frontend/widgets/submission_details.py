@@ -264,7 +264,6 @@ class SubmissionComment(QDialog):
     """
 
     def __init__(self, parent, submission: Run) -> None:
-        logger.debug(parent)
         super().__init__(parent)
         self.app = get_application_from_parent(parent)
         self.submission = submission
@@ -284,7 +283,7 @@ class SubmissionComment(QDialog):
         self.layout.addWidget(self.buttonBox, alignment=Qt.AlignmentFlag.AlignBottom)
         self.setLayout(self.layout)
 
-    def parse_form(self) -> List[dict]:
+    def parse_form(self) -> dict:
         """
         Adds comment to procedure object.
         """

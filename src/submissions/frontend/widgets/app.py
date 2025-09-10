@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from backend.db.models import Reagent
+from backend.db.models import ReagentLot
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -181,7 +181,7 @@ class App(QMainWindow):
 
     @check_authorization
     def edit_reagent(self, *args, **kwargs):
-        dlg = SearchBox(parent=self, object_type=Reagent, extras=[dict(name='Role', field="reagentrole")])
+        dlg = SearchBox(parent=self, object_type=ReagentLot, extras=[dict(name='Role', field="reagentrole")])
         dlg.exec()
 
     def update_data(self):

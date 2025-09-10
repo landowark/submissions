@@ -72,18 +72,14 @@ class SearchBox(QDialog):
                 self.object_type = self.original_type
             else:
                 self.object_type = self.original_type.find_regular_subclass(self.sub_class.currentText())
-        # logger.debug(f"Object type: {self.object_type} - {self.object_type.searchables}")
-        # logger.debug(f"Original type: {self.original_type} - {self.original_type.searchables}")
-        for item in self.object_type.searchables:
-            if item['field'] in [item['field'] for item in search_fields]:
-                logger.debug(f"Already have {item['field']}")
+        for item in self.object_type.get_searchables():
+            if item in [thing for thing in search_fields]:
                 continue
             else:
                 search_fields.append(item)
-        logger.debug(f"Search fields: {search_fields}")
         for iii, searchable in enumerate(search_fields):
-            widget = FieldSearch(parent=self, label=searchable['label'], field_name=searchable['field'])
-            widget.setObjectName(searchable['field'])
+            widget = FieldSearch(parent=self, label=searchable, field_name=searchable)
+            widget.setObjectName(searchable)
             self.layout.addWidget(widget, 1 + iii, 0)
             widget.search_widget.textChanged.connect(self.update_data)
         self.update_data()
@@ -172,7 +168,6 @@ class SearchResults(QTableView):
             self.extras = extras + [item for item in deepcopy(self.object_type.searchables)]
         except AttributeError:
             self.extras = extras
-        # logger.debug(f"Extras: {self.extras}")
 
     def setData(self, df: DataFrame) -> None:
         """

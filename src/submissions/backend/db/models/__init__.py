@@ -2,11 +2,12 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
-import sys, logging, json
+import sys, logging, json, inspect
 from dateutil.parser import parse
+from jinja2 import TemplateNotFound
 from pandas import DataFrame
 from pydantic import BaseModel
-from sqlalchemy import Column, INTEGER, String, JSON
+from sqlalchemy import Column, INTEGER, String, JSON, DATETIME
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
@@ -36,10 +37,6 @@ class BaseClass(Base):
     __table_args__ = {'extend_existing': True}  #: NOTE Will only add new columns
 
     singles = ['id']
-    # omni_removes = ["id", 'run', "omnigui_class_dict", "omnigui_instance_dict"]
-    # omni_sort = ["name"]
-    # omni_inheritable = []
-    searchables = []
 
     _misc_info = Column(JSON)
 
@@ -154,6 +151,33 @@ class BaseClass(Base):
             return [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         except AttributeError:
             return []
+
+    @classmethod
+    def get_omni_sort(cls):
+        output = [item[0] for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a)))
+                  if isinstance(item[1], InstrumentedAttribute)]  # and not isinstance(item[1].property, _RelationshipDeclared)]
+        output = [item for item in output if item not in ['_misc_info']]
+        return output
+
+    @classmethod
+    def get_searchables(cls):
+        output = []
+        for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a))):
+            if item[0] in ["_misc_info"]:
+                continue
+            if not isinstance(item[1], InstrumentedAttribute):
+                continue
+            if not isinstance(item[1].property, ColumnProperty):
+                continue
+            # if isinstance(item[1], _RelationshipDeclared):
+            #     if "association" in item[0]:
+            #         continue
+            if len(item[1].foreign_keys) > 0:
+                continue
+            if item[1].type.__class__.__name__ not in ["String"]:
+                continue
+            output.append(item[0])
+        return output
 
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
@@ -296,7 +320,6 @@ class BaseClass(Base):
             except AttributeError:
                 check = False
             if check:
-                logger.debug("Got uselist")
                 try:
                     query = query.filter(attr.contains(v))
                 except ArgumentError:
@@ -358,16 +381,14 @@ class BaseClass(Base):
             dict: Dictionary of object minus _sa_instance_state with id at the front.
         """
         dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
-                 for key in dir(self.__class__) if
-                 isinstance(getattr(self.__class__, key), InstrumentedAttribute) and key not in self.omni_removes
-                 }
+                 for key in self.get_omni_sort()}
         for k, v in dicto.items():
             try:
                 v['instance_attr'] = v['instance_attr'].name
             except AttributeError:
                 continue
         try:
-            dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.omni_sort)
+            dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.get_omni_sort())
         except TypeError as e:
             logger.error(f"Could not sort {self.__class__.__name__} by list due to :{e}")
         try:
@@ -418,7 +439,7 @@ class BaseClass(Base):
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
-            logger.error(f"Couldn't find template {e}")
+            # logger.error(f"Couldn't find template {e}")
             template = env.get_template("details.html")
         return template
 
@@ -505,7 +526,6 @@ class BaseClass(Base):
                         existing = self.__getattribute__(key)
                         # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
                         if existing is not None:
-                            logger.debug(f"{key} Existing: {existing}, incoming: {value}")
                             if isinstance(value, list):
                                 value = value
                             else:
@@ -626,7 +646,7 @@ class BaseClass(Base):
         from backend.validators import pydant
         if not pyd_model_name:
             pyd_model_name = f"Pyd{self.__class__.__name__}"
-        logger.debug(f"Looking for pydant model {pyd_model_name}")
+        logger.info(f"Looking for pydant model {pyd_model_name}")
         try:
             pyd = getattr(pydant, pyd_model_name)
         except AttributeError:

@@ -12,7 +12,7 @@ from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
 from backend.validators import PydReagent, PydClientSubmission, PydSample
 from backend.db import (
-    ClientLab, SubmissionType, Reagent,
+    ClientLab, SubmissionType, Reagent, ReagentLot,
     ReagentRole, ProcedureTypeReagentRoleAssociation, Run, ClientSubmission
 )
 from pprint import pformat
@@ -137,7 +137,7 @@ class SubmissionFormContainer(QWidget):
         return report
 
     @report_result
-    def add_reagent(self, instance: Reagent | None = None):
+    def add_reagent(self, instance: ReagentLot | None = None):
         """
         Action to create new reagent in DB.
 
@@ -149,7 +149,7 @@ class SubmissionFormContainer(QWidget):
         """
         report = Report()
         if not instance:
-            instance = Reagent()
+            instance = ReagentLot()
         dlg = AddEdit(parent=self, instance=instance)
         if dlg.exec():
             reagent = dlg.parse_form()

@@ -3,7 +3,7 @@ A widget to handle adding/updating any database object.
 """
 from datetime import date
 from pprint import pformat
-from typing import Any, Tuple
+from typing import Any, Tuple, List
 from pydantic import BaseModel
 from PyQt6.QtWidgets import (
     QLabel, QDialog, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox, QDateEdit, QSpinBox, QDoubleSpinBox,
@@ -13,6 +13,8 @@ from sqlalchemy import String, TIMESTAMP, INTEGER, FLOAT, JSON, BLOB
 from sqlalchemy.orm import ColumnProperty
 import logging
 from sqlalchemy.orm.relationships import _RelationshipDeclared
+from backend.db.models import BaseClass
+from backend.validators.pydant import PydBaseClass
 from tools import Report, report_result
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -20,20 +22,19 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class AddEdit(QDialog):
 
-    def __init__(self, parent, instance: Any | None = None, managers: set = set()):
+    def __init__(self, parent, instance: Any | None = None, managers: set = set(), disabled: List[str] = []):
         super().__init__(parent)
-        # logger.debug(f"Managers: {managers}")
+        logger.debug(f"Disable = {disabled}")
         self.instance = instance
         self.object_type = instance.__class__
         self.managers = managers
-        # logger.debug(f"Managers: {managers}")
         self.layout = QGridLayout(self)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         self.buttonBox = QDialogButtonBox(QBtn)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
-        # logger.debug(f"Fields: {pformat(self.instance.omnigui_instance_dict)}")
         fields = {k: v for k, v in self.instance.omnigui_instance_dict.items() if "id" not in k}
+        logger.debug(f"Fields: {pformat(fields)}")
         # NOTE: Move 'name' to the front
         try:
             fields = {'name': fields.pop('name'), **fields}
@@ -41,13 +42,13 @@ class AddEdit(QDialog):
             pass
         height_counter = 0
         for key, field in fields.items():
+            disable = key in disabled
             try:
                 value = getattr(self.instance, key)
             except AttributeError:
                 value = None
             try:
-                logger.debug(f"{key} property: {type(field['class_attr'].property)}")
-                widget = EditProperty(self, key=key, column_type=field, value=value)
+                widget = EditProperty(self, key=key, column_type=field, value=value, disable=disable)
             except AttributeError as e:
                 logger.error(f"Problem setting widget {key}: {e}")
                 continue
@@ -55,7 +56,7 @@ class AddEdit(QDialog):
                 self.layout.addWidget(widget, self.layout.rowCount(), 0)
                 height_counter += 1
         self.layout.addWidget(self.buttonBox)
-        self.setWindowTitle(f"Add/Edit {self.object_type.__name__} - Manager: {self.managers}")
+        self.setWindowTitle(f"Add/Edit {self.object_type.__name__}")# - Manager: {self.managers}")
         self.setMinimumSize(600, 50 * height_counter)
         self.setLayout(self.layout)
 
@@ -64,11 +65,8 @@ class AddEdit(QDialog):
         report = Report()
         parsed = {result[0].strip(":"): result[1] for result in
                   [item.parse_form() for item in self.findChildren(EditProperty)] if result[0]}
-        # logger.debug(f"Parsed form: {parsed}")
         model = self.object_type.pydantic_model
-        # logger.debug(f"Model type: {model.__name__}")
         if model.__name__ == "PydElastic":
-            # logger.debug(f"We have an elastic model.")
             parsed['instance'] = self.instance
         # NOTE: Hand-off to pydantic model for validation.
         # NOTE: Also, why am I not just using the toSQL method here. I could write one for contact.
@@ -78,8 +76,9 @@ class AddEdit(QDialog):
 
 class EditProperty(QWidget):
 
-    def __init__(self, parent: AddEdit, key: str, column_type: Any, value):
+    def __init__(self, parent: AddEdit, key: str, column_type: Any, value, disable: bool):
         super().__init__(parent)
+        logger.debug(f"Widget column type for {key}: {column_type}")
         self.name = key
         self.label = QLabel(key.title().replace("_", " "))
         self.layout = QGridLayout()
@@ -88,6 +87,7 @@ class EditProperty(QWidget):
             self.property_class = column_type['class_attr'].property.entity.class_
         except AttributeError:
             self.property_class = None
+        logger.debug(f"Property class: {self.property_class}")
         try:
             self.is_list = column_type['class_attr'].property.uselist
         except AttributeError:
@@ -96,23 +96,26 @@ class EditProperty(QWidget):
             case ColumnProperty():
                 self.column_property_set(column_type, value=value)
             case _RelationshipDeclared():
-                if not self.property_class.skip_on_edit:
+                try:
+                    check = self.property_class.skip_on_edit
+                except AttributeError:
+                    check = False
+                if not check:
                     self.relationship_property_set(column_type, value=value)
                 else:
                     return
             case _:
                 logger.error(f"{column_type} not a supported type.")
                 return
+        self.widget.setDisabled(disable)
         self.layout.addWidget(self.label, 0, 0, 1, 1)
         self.layout.addWidget(self.widget, 0, 1, 1, 3)
         self.setLayout(self.layout)
 
     def relationship_property_set(self, relationship, value=None):
         self.widget = QComboBox()
-        # logger.debug(self.parent().managers)
         for manager in self.parent().managers:
             if self.name in manager.aliases:
-                # logger.debug(f"Name: {self.name} is in aliases: {manager.aliases}")
                 choices = [manager.name]
                 self.widget.setEnabled(False)
                 break
@@ -127,11 +130,17 @@ class EditProperty(QWidget):
         if isinstance(instance_value, list):
             instance_value = next((item.name for item in instance_value), None)
         if instance_value:
+            match instance_value:
+                case x if issubclass(instance_value.__class__, BaseClass):
+                    instance_value = instance_value.name
+                case x if issubclass(instance_value.__class__, PydBaseClass):
+                    instance_value = instance_value.name
+                case _:
+                    pass
             choices.insert(0, choices.pop(choices.index(instance_value)))
         self.widget.addItems(choices)
 
     def column_property_set(self, column_property, value=None):
-        # logger.debug(f"Column Property: {column_property['class_attr'].expression} {column_property}, Value: {value}")
         match column_property['class_attr'].expression.type:
             case String():
                 if value is None:
@@ -176,7 +185,6 @@ class EditProperty(QWidget):
             check = self.widget
         except AttributeError:
             return None, None
-        # match self.widget
         match check:
             case QLineEdit():
                 value = self.widget.text()

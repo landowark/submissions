@@ -321,7 +321,7 @@ class PydTips(PydBaseClass):
             SubmissionTipsAssociation: Association between queried tips and procedure
         """
         report = Report()
-        tips = TipsLot.query(name=self.name, limit=1)
+        tips = TipsLot.query(lot=self.lot, limit=1)
         return tips, report
 
 
@@ -329,7 +329,8 @@ class PydEquipment(PydBaseClass):
     asset_number: str
     name: str
     nickname: str | None
-    process: List[PydProcess] | PydProcess | None
+    processes: List[PydProcess] | PydProcess | None
+    processversion: PydProcess | None
     equipmentrole: str | PydEquipmentRole | None
     tips: List[PydTips] | PydTips | None = Field(default=[])
 
@@ -347,7 +348,7 @@ class PydEquipment(PydBaseClass):
             value = value.name
         return value
 
-    @field_validator('process', mode='before')
+    @field_validator('processes', mode='before')
     @classmethod
     def process_to_pydantic(cls, value, values):
         if isinstance(value, GeneratorType):
@@ -355,16 +356,25 @@ class PydEquipment(PydBaseClass):
         value = convert_nans_to_nones(value)
         if not value:
             value = []
-        if isinstance(value, ProcessVersion):
-            value = value.to_pydantic(pyd_model_name="PydProcess")
-        else:
-            try:
-                d: Process = next((process for process in value if values.data['name'] in [item.name for item in process.equipment]), None)
-                if d:
-                    value = d.to_pydantic()
-            except AttributeError as e:
-                logger.error(f"Process Validation error due to {e}")
-                pass
+        match value:
+            case ProcessVersion():
+                value = value.to_pydantic(pyd_model_name="PydProcess")
+            case _:
+                try:
+                    # d: Process = next((process for process in value if values.data['name'] in [item.name for item in process.equipment]), None)
+                    for process in value:
+                        match process:
+                            case Process():
+                                if values.data['name'] in [item.name for item in process.equipment]:
+                                    return process.to_pydantic()
+                                return None
+                            case str():
+                                return process
+                    # else:
+                    #     value = []
+                except AttributeError as e:
+                    logger.error(f"Process Validation error due to {e}")
+                    value = []
         return value
 
     @field_validator('tips', mode='before')
@@ -386,7 +396,7 @@ class PydEquipment(PydBaseClass):
                     value = d.to_pydantic()
             except AttributeError as e:
                 logger.error(f"Process Validation error due to {e}")
-                pass
+                value = []
         return value
 
     @report_result
@@ -1347,6 +1357,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 
     def to_sql(self, new: bool = False):
         from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
+        logger.debug(f"incoming pyd: {pformat([item.__dict__ for item in self.equipment])}")
         if new:
             sql = Procedure()
         else:
@@ -1408,6 +1419,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                                                         procedure_rank=sample.procedure_rank)
         for equipment in self.equipment:
             equip, _ = equipment.to_sql()
+            logger.debug(f"Equipment:\n{pformat(equip.__dict__)}")
             if isinstance(equipment.process, list):
                 equipment.process = equipment.process[0]
             if isinstance(equipment.tips, list):
@@ -1420,10 +1432,13 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                                                             equipmentrole=equip.equipmentrole[0])
                 process = equipment.process.to_sql()
                 equip_assoc.processversion = process
+                logger.debug(f"Tips: {type(equipment.tips)}")
                 try:
                     tipslot = equipment.tips.to_sql()
+                    logger.debug(f"Tipslot: {tipslot.__dict__}")
                 except AttributeError:
                     tipslot = None
+
                 equip_assoc.tipslot = tipslot
         return sql, None
 
@@ -1558,6 +1573,13 @@ class PydClientSubmission(PydBaseClass):
         if isinstance(value, dict):
             value = value['value']
         value = int(value)
+        return value
+
+    @field_validator("cost_centre", mode="before")
+    @classmethod
+    def str_to_dict(cls, value):
+        if isinstance(value, str):
+            value = dict(value=value)
         return value
 
     def to_form(self, parent: QWidget, samples: List = [], disable: list | None = None):

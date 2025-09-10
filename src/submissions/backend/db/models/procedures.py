@@ -194,6 +194,7 @@ class Reagent(BaseClass, LogMixin):
     Concrete reagent instance
     """
 
+    skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
     reagentrole = relationship("ReagentRole", back_populates="reagent",
                                secondary=reagentrole_reagent)  #: joined parent ReagentRole
@@ -319,15 +320,7 @@ class Reagent(BaseClass, LogMixin):
         except AttributeError as e:
             logger.error(f"Could not set {key} due to {e}")
 
-    @check_authorization
-    def edit_from_search(self, obj, **kwargs):
-        from frontend.widgets.omni_add_edit import AddEdit
-        dlg = AddEdit(parent=None, instance=self)
-        if dlg.exec():
-            pyd = dlg.parse_form()
-            for field in pyd.model_fields:
-                self.set_attribute(field, pyd.__getattribute__(field))
-            self.save()
+
 
     @classproperty
     def add_edit_tooltips(self):
@@ -418,6 +411,15 @@ class ReagentLot(BaseClass):
                 pass
         setattr(self, key, value)
 
+    @check_authorization
+    def edit_from_search(self, obj, **kwargs):
+        from frontend.widgets.omni_add_edit import AddEdit
+        dlg = AddEdit(parent=None, instance=self, disabled=['reagent'])
+        if dlg.exec():
+            pyd = dlg.parse_form()
+            for field in pyd.model_fields:
+                self.set_attribute(field, pyd.__getattribute__(field))
+            self.save()
 
 class Discount(BaseClass):
     """
@@ -952,6 +954,7 @@ class Procedure(BaseClass):
         output['sample'] = active_samples + inactive_samples
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentlotassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
+        logger.debug(f"equipment: {pformat([item for item in output['equipment']])}")
         output['repeat'] = self.repeat
         output['run'] = self.run.name
         output['excluded'] += self.get_default_info("details_ignore")
@@ -963,14 +966,6 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydReagent
         output = super().to_pydantic()
-        try:
-            output.kittype = dict(value=output.kittype['name'], missing=False)
-        except KeyError:
-            try:
-                output.kittype = dict(value=output.kittype['value'], missing=False)
-            except KeyError as e:
-                logger.error(f"Output.kittype: {output.kittype}")
-                raise e
         output.sample = [item.to_pydantic() for item in output.proceduresampleassociation]
         reagents = []
         for reagent in output.reagent:
@@ -985,6 +980,7 @@ class Procedure(BaseClass):
         output.result = [item.to_pydantic() for item in self.results]
         output.sample_results = flatten_list(
             [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
+
         return output
 
     def create_proceduresampleassociations(self, sample):
@@ -1607,7 +1603,7 @@ class Equipment(BaseClass, LogMixin):
         from backend.validators.pydant import PydEquipment
         creation_dict = self.details_dict()
         processes = self.get_processes(equipmentrole=equipmentrole)
-        creation_dict['process'] = processes
+        creation_dict['processes'] = processes
         creation_dict['equipmentrole'] = equipmentrole or creation_dict['equipmentrole']
         return PydEquipment(**creation_dict)
 
@@ -2187,6 +2183,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         output.update(relevant)
         output['misc_info'] = misc
         output['equipment_role'] = self.equipmentrole
+        output['processes'] = [item for item in self.equipment.get_processes(equipmentrole=output['equipment_role'])]
         try:
             output['processversion'] = self.processversion.details_dict()
         except AttributeError:
