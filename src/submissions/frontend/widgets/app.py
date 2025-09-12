@@ -13,7 +13,7 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-from backend.db.models import ReagentLot
+# from backend.db.models import ReagentLot
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -24,7 +24,6 @@ from .pop_ups import HTMLPop
 from .misc import Pagifier
 from .submission_table import SubmissionsTree, ClientSubmissionRunModel
 from .submission_widget import SubmissionFormContainer
-# from .controls_chart import ControlsViewer
 from .summary import Summary
 from .turnaround import TurnaroundTime
 from .concentrations import Concentrations
@@ -181,7 +180,8 @@ class App(QMainWindow):
 
     @check_authorization
     def edit_reagent(self, *args, **kwargs):
-        dlg = SearchBox(parent=self, object_type=ReagentLot, extras=[dict(name='Role', field="reagentrole")])
+        from backend.db.models import ReagentLot
+        dlg = SearchBox(parent=self, object_type=ReagentLot, extras=ReagentLot.get_searchables())
         dlg.exec()
 
     def update_data(self):

@@ -3,6 +3,7 @@ Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
 import re, logging, csv, sys, string
+from pprint import pformat
 from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
@@ -11,7 +12,8 @@ from typing import List, Tuple, Literal
 from types import GeneratorType
 from . import RSLNamer
 from pathlib import Path
-from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone, sort_dict_by_list, row_keys
+from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone, sort_dict_by_list, row_keys, \
+    flatten_list
 from backend.db import models
 from backend.db.models import *
 from sqlalchemy.exc import StatementError
@@ -136,6 +138,12 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         return list(set(output))
 
 
+class PydReagentLot(PydBaseClass):
+    lot: str | None
+    expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
+    missing: bool = Field(default=True)
+    comment: str | None = Field(default="", validate_default=True)
+
 class PydReagent(PydBaseClass):
     lot: str | None
     reagentrole: str | None
@@ -219,6 +227,7 @@ class PydReagent(PydBaseClass):
             return convert_nans_to_nones(str(value).strip())
         else:
             return values.data['reagentrole'].strip()
+
 
     def improved_dict(self) -> dict:
         """

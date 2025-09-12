@@ -11,12 +11,12 @@ from .functions import select_open_file, select_save_file
 from pathlib import Path
 from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
 from backend.validators import PydReagent, PydClientSubmission, PydSample
-from backend.db import (
+from backend.db.models import (
     ClientLab, SubmissionType, Reagent, ReagentLot,
     ReagentRole, ProcedureTypeReagentRoleAssociation, Run, ClientSubmission
 )
 from pprint import pformat
-from .pop_ups import QuestionAsker, AlertPop
+from .pop_ups import QuestionAsker
 from .omni_add_edit import AddEdit
 from typing import List, Tuple
 from datetime import date

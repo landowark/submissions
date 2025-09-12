@@ -11,9 +11,9 @@ from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
-from . import Base, BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
+from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
-from sqlalchemy.orm import relationship, Query
+from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
@@ -947,7 +947,8 @@ class Run(BaseClass, LogMixin):
 
     # NOTE: Polymorphic functions
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def regex(cls) -> re.Pattern:
         """
         Constructs catchall regex.
@@ -1297,7 +1298,8 @@ class Sample(BaseClass, LogMixin):
     def __repr__(self) -> str:
         return f"<Sample({self.sample_id})>"
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def searchables(cls):
         return [dict(label="Submitter ID", field="sample_id")]
 

@@ -1,7 +1,6 @@
 """
 Search box that performs fuzzy search for various object types
 """
-from copy import deepcopy
 from pprint import pformat
 from typing import Tuple, Any, List, Generator
 from pandas import DataFrame
@@ -10,8 +9,8 @@ from PyQt6.QtWidgets import (
     QLabel, QVBoxLayout, QDialog,
     QTableView, QWidget, QLineEdit, QGridLayout, QComboBox, QDialogButtonBox
 )
-from .submission_table import pandasModel
-import logging
+from . import pandasModel
+import logging, sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -164,10 +163,10 @@ class SearchResults(QTableView):
         self.context = kwargs
         self.parent = parent
         self.object_type = object_type
-        try:
-            self.extras = extras + [item for item in deepcopy(self.object_type.searchables)]
-        except AttributeError:
-            self.extras = extras
+        # try:
+        #     self.extras = extras + [item for item in deepcopy(self.object_type.searchables)]
+        # except AttributeError:
+        #     self.extras = extras
 
     def setData(self, df: DataFrame) -> None:
         """
@@ -176,10 +175,11 @@ class SearchResults(QTableView):
 
         self.data = df
         try:
-            self.columns_of_interest = [dict(name=item['field'], column=self.data.columns.get_loc(item['field'])) for
-                                        item in self.extras]
+            self.columns_of_interest = [dict(name=item, column=self.data.columns.get_loc(item)) for
+                                        item in self.object_type.get_searchables()]
         except KeyError:
             self.columns_of_interest = []
+        logger.debug(f"Columns of Interest: {pformat(self.columns_of_interest)}")
         try:
             self.data['id'] = self.data['id'].apply(str)
             self.data['id'] = self.data['id'].str.zfill(3)
@@ -204,10 +204,13 @@ class SearchResults(QTableView):
             None
         """
         context = {item['name']: x.sibling(x.row(), item['column']).data() for item in self.columns_of_interest}
+        logger.debug(f"Context: {pformat(context)}")
         try:
             object = self.object_type.query(**context)
-        except KeyError:
+        except KeyError as e:
+            logger.error(e)
             object = None
+        logger.debug(f"Object: {object}")
         try:
             object.edit_from_search(obj=self.parent, **context)
         except AttributeError as e:

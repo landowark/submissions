@@ -245,4 +245,8 @@ class DefaultTABLEWriter(DefaultWriter):
         return worksheet
 
 
+from .procedure_writers import ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter
+from .results_writers import (
+    PCRInfoWriter, PCRSampleWriter
+)
 from .clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter

@@ -7,13 +7,13 @@ from operator import itemgetter
 from pprint import pformat
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, func
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, validates, Query
+from sqlalchemy.orm import relationship, validates, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, timezone, \
     jinja_template_loading, flatten_list
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
-from . import Base, BaseClass, ClientLab, LogMixin
+from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(f'submissions.{__name__}')
 
 reagentrole_reagent = Table(
     "_reagentrole_reagent",
-    Base.metadata,
+    BaseClass.__base__.metadata,
     Column("reagent_id", INTEGER, ForeignKey("_reagent.id")),
     Column("reagentrole_id", INTEGER, ForeignKey("_reagentrole.id")),
     extend_existing=True
@@ -33,7 +33,7 @@ reagentrole_reagent = Table(
 
 equipment_process = Table(
     "_equipment_process",
-    Base.metadata,
+    BaseClass.__base__.metadata,
     Column("process_id", INTEGER, ForeignKey("_process.id")),
     Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
     extend_existing=True
@@ -41,7 +41,7 @@ equipment_process = Table(
 
 process_tips = Table(
     "_process_tips",
-    Base.metadata,
+    BaseClass.__base__.metadata,
     Column("process_id", INTEGER, ForeignKey("_process.id")),
     Column("tips_id", INTEGER, ForeignKey("_tips.id")),
     extend_existing=True
@@ -49,7 +49,7 @@ process_tips = Table(
 
 submissiontype_proceduretype = Table(
     "_submissiontype_proceduretype",
-    Base.metadata,
+    BaseClass.__base__.metadata,
     Column("submissiontype_id", INTEGER, ForeignKey("_submissiontype.id")),
     Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id")),
     extend_existing=True
@@ -217,7 +217,8 @@ class Reagent(BaseClass, LogMixin):
         self.name = name
         self.eol_ext = eol_ext
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def searchables(cls):
         return [dict(label="Lot", field="lot")]
 
@@ -322,7 +323,8 @@ class Reagent(BaseClass, LogMixin):
 
 
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def add_edit_tooltips(self):
         return dict(
             expiry="Use exact date on reagent.\nEOL will be calculated from kittype automatically"
@@ -342,6 +344,9 @@ class Reagent(BaseClass, LogMixin):
 
 
 class ReagentLot(BaseClass):
+
+    pyd_model_name = "Reagent"
+
     id = Column(INTEGER, primary_key=True)  #: primary key
     lot = Column(String(64), unique=True)  #: lot number of reagent
     expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
@@ -368,7 +373,7 @@ class ReagentLot(BaseClass):
     def query(cls,
               lot: str | None = None,
               name: str | None = None,
-              limit: int = 1,
+              limit: int = 0,
               **kwargs) -> ReagentLot | List[ReagentLot]:
         """
 
@@ -386,6 +391,7 @@ class ReagentLot(BaseClass):
         match lot:
             case str():
                 query = query.filter(cls.lot == lot)
+                limit = 1
             case _:
                 pass
         match name:
@@ -414,12 +420,27 @@ class ReagentLot(BaseClass):
     @check_authorization
     def edit_from_search(self, obj, **kwargs):
         from frontend.widgets.omni_add_edit import AddEdit
+        from backend.validators.pydant import PydElastic
         dlg = AddEdit(parent=None, instance=self, disabled=['reagent'])
         if dlg.exec():
             pyd = dlg.parse_form()
-            for field in pyd.model_fields:
-                self.set_attribute(field, pyd.__getattribute__(field))
+            logger.debug(f"Pydantic returned: {type(pyd)} {pyd.model_fields}")
+            fields = pyd.model_fields
+            if isinstance(pyd, PydElastic):
+                fields.update(pyd.model_extra)
+            for field in fields:
+                if field in ['instance']:
+                    continue
+                field_value = pyd.__getattribute__(field)
+                logger.debug(f"Setting {field} in Reagent Lot to {field_value}")
+                self.set_attribute(field, field_value)
             self.save()
+
+    def details_dict(self, **kwargs) -> dict:
+        output = super().details_dict(**kwargs)
+        output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
+        output['reagent'] = output['reagent'].name
+        return output
 
 class Discount(BaseClass):
     """
@@ -508,7 +529,8 @@ class SubmissionType(BaseClass):
         """
         return f"<SubmissionType({self.name})>"
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
@@ -604,12 +626,14 @@ class SubmissionType(BaseClass):
             sample_map=self.sample_map
         )
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def info_map_json_edit_fields(cls):
         dicto = dict()
         return dicto
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def regex(cls) -> re.Pattern:
         """
         Constructs catchall regex.
@@ -1182,7 +1206,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         dicto['required']['instance_attr'] = bool(dicto['required']['instance_attr'])
         return dicto
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def json_edit_fields(cls) -> dict:
         dicto = dict(
             sheet="str",
@@ -1607,7 +1632,8 @@ class Equipment(BaseClass, LogMixin):
         creation_dict['equipmentrole'] = equipmentrole or creation_dict['equipmentrole']
         return PydEquipment(**creation_dict)
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def manufacturer_regex(cls) -> re.Pattern:
         """
         Creates regex to determine tip manufacturer

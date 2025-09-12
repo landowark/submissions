@@ -3,11 +3,14 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging, json, inspect
+from datetime import datetime, date
+from pprint import pformat
+
 from dateutil.parser import parse
-from jinja2 import TemplateNotFound
+from jinja2 import TemplateNotFound, Template
 from pandas import DataFrame
 from pydantic import BaseModel
-from sqlalchemy import Column, INTEGER, String, JSON, DATETIME
+from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
@@ -16,7 +19,7 @@ from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-from tools import report_result, list_sort_dict
+from tools import report_result, list_sort_dict, jinja_template_loading, Report, Result
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -46,7 +49,9 @@ class BaseClass(Base):
         except AttributeError:
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def aliases(cls) -> List[str]:
         """
         List of other names this class might be known by.
@@ -56,7 +61,8 @@ class BaseClass(Base):
         """
         return [cls.query_alias]
 
-    @classproperty
+    @classmethod
+    @declared_attr
     def query_alias(cls) -> str:
         """
         What to query this class as.
@@ -126,7 +132,9 @@ class BaseClass(Base):
         super().__init__(*args, **kwargs)
         self._misc_info = dict()
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def jsons(cls) -> List[str]:
         """
         Get list of JSON db columns
@@ -139,7 +147,9 @@ class BaseClass(Base):
         except AttributeError:
             return []
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def timestamps(cls) -> List[str]:
         """
         Get list of TIMESTAMP columns
@@ -169,9 +179,6 @@ class BaseClass(Base):
                 continue
             if not isinstance(item[1].property, ColumnProperty):
                 continue
-            # if isinstance(item[1], _RelationshipDeclared):
-            #     if "association" in item[0]:
-            #         continue
             if len(item[1].foreign_keys) > 0:
                 continue
             if item[1].type.__class__.__name__ not in ["String"]:
@@ -245,14 +252,15 @@ class BaseClass(Base):
         """
         if not objects:
             try:
-                records = [obj.details_dict(**kwargs) for obj in cls.query()]
+                q = cls.query()
             except AttributeError:
-                records = [obj.details_dict(**kwargs) for obj in cls.query(page_size=0)]
+                q = cls.query(page_size=0)
         else:
-            try:
-                records = [obj.to_sub_dict(**kwargs) for obj in objects]
-            except AttributeError:
-                records = [{k: v['instance_attr'] for k, v in obj.omnigui_instance_dict.items()} for obj in objects]
+            q = objects
+        records = []
+        for obj in q:
+            dicto = obj.details_dict(**kwargs)
+            records.append({key: value for key, value in dicto.items() if key not in dicto['excluded']})
         return DataFrame.from_records(records)
 
     @classmethod
@@ -397,7 +405,9 @@ class BaseClass(Base):
             pass
         return dicto
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def pydantic_model(cls) -> BaseModel:
         """
         Gets the pydantic model corresponding to this object.
@@ -410,10 +420,15 @@ class BaseClass(Base):
             model = getattr(pydant, f"Pyd{cls.__name__}")
         except AttributeError:
             logger.warning(f"Couldn't get {cls.__name__} pydantic model.")
-            return pydant.PydElastic
+            try:
+                model = getattr(pydant, f"Pyd{cls.pyd_model_name}")
+            except AttributeError:
+                return pydant.PydElastic
         return model
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def add_edit_tooltips(cls) -> dict:
         """
         Gets tooltips for Omni-add-edit
@@ -423,7 +438,9 @@ class BaseClass(Base):
         """
         return dict()
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def details_template(cls) -> Template:
         """
         Get the details jinja template for the correct class
@@ -609,6 +626,11 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
+            match value:
+                case str():
+                    value = value.strip('\"')
+                case _:
+                    pass
             output[k.strip("_")] = value
         if self._misc_info:
             for key, value in self._misc_info.items():
@@ -718,12 +740,20 @@ class ConfigItem(BaseClass):
         return config_items
 
 
-from .controls import *
 # NOTE: import order must go: orgs, kittype, run due to circular import issues
-from .organizations import *
-from .procedures import *
-from .submissions import *
 from .audit import AuditLog
+from .organizations import (
+    ClientLab, Contact, BaseClass # NOTE: For some reason I  need to import BaseClass at this point for queries to work.
+)
+from .procedures import (
+    ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
+    ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
+    Tips, TipsLot, ProcedureEquipmentAssociation, ProcedureTypeEquipmentRoleAssociation, Results
+)
+from .submissions import (
+    ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation
+)
+from .controls import ControlType, Control
 
 # NOTE: Add a creator to the procedure for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator

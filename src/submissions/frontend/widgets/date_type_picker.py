@@ -5,7 +5,6 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QDialog, QDialogButtonBox
 )
 from .misc import CheckableComboBox, StartEndDatePicker
-from backend.db.models.procedures import SubmissionType
 import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -14,6 +13,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DateTypePicker(QDialog):
     
     def __init__(self, parent):
+        from backend.db.models.procedures import SubmissionType
         super().__init__(parent)
         self.layout = QVBoxLayout()
         self.setFixedWidth(500)

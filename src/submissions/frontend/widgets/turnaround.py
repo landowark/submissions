@@ -4,7 +4,7 @@ Pane showing turnaround time summary.
 from PyQt6.QtWidgets import QWidget, QPushButton, QComboBox, QLabel
 from .info_tab import InfoPane
 from backend.excel.reports import TurnaroundMaker
-from backend.db import SubmissionType
+from backend.db.models import SubmissionType
 from frontend.visualizations.turnaround_chart import TurnaroundChart
 import logging
 

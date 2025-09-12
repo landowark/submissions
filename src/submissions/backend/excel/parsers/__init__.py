@@ -137,5 +137,10 @@ class DefaultTABLEParser(DefaultParser):
         return [self._pyd_object(**output) for output in self.parsed_info]
 
 
+from .procedure_parsers import ProcedureInfoParser, ProcedureSampleParser, ProcedureReagentParser, ProcedureEquipmentParser
+from .results_parsers import (
+    DefaultResultsInfoParser, DefaultResultsSampleParser,
+    PCRSampleParser, PCRInfoParser
+)
 from .clientsubmission_parser import ClientSubmissionSampleParser, ClientSubmissionInfoParser
-from backend.excel.parsers.results_parsers.pcr_results_parser import PCRInfoParser, PCRSampleParser
+from .results_parsers.pcr_results_parser import PCRInfoParser, PCRSampleParser

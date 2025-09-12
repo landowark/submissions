@@ -3,7 +3,7 @@ Pane to hold information e.g. cost summary.
 """
 from .info_tab import InfoPane
 from PyQt6.QtWidgets import QWidget, QLabel, QPushButton
-from backend.db import ClientLab
+from backend.db.models import ClientLab
 from backend.excel.reports import ReportMaker
 from .misc import CheckableComboBox
 import logging

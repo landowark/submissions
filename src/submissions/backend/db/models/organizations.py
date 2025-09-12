@@ -4,8 +4,8 @@ All client organization related models.
 from __future__ import annotations
 import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
-from sqlalchemy.orm import relationship, Query
-from . import Base, BaseClass
+from sqlalchemy.orm import relationship, Query, declared_attr
+from . import BaseClass
 from tools import check_authorization, setup_lookup
 from typing import List
 
@@ -14,7 +14,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # table containing clientlab/contact relationship
 clientlab_contact = Table(
     "_clientlab_contact",
-    Base.metadata,
+    # Base.metadata,
+    BaseClass.__base__.metadata,
     Column("clientlab_id", INTEGER, ForeignKey("_clientlab.id")),
     Column("contact_id", INTEGER, ForeignKey("_contact.id")),
     extend_existing=True
@@ -98,7 +99,9 @@ class Contact(BaseClass):
                              secondary=clientlab_contact)  #: relationship to joined clientlab
     clientsubmission = relationship("ClientSubmission", back_populates="contact")  #: procedure this contact has submitted
 
-    @classproperty
+    # @classproperty
+    @classmethod
+    @declared_attr
     def searchables(cls):
         return []
 

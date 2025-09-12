@@ -1,9 +1,14 @@
 """
 All database related operations.
 """
+from datetime import datetime
+from getpass import getuser
 from sqlalchemy import event, inspect
 from sqlalchemy.engine import Engine
 from tools import ctx
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 @event.listens_for(Engine, "connect")
@@ -28,7 +33,17 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.close()
 
 
-from .models import *
+from .models import (
+    LogMixin, ConfigItem,
+    AuditLog,
+    ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
+    ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
+    Tips, TipsLot, ProcedureEquipmentAssociation,
+    ProcedureTypeEquipmentRoleAssociation, Results,
+    ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation,
+    ControlType, Control,
+    ClientLab, Contact
+)
 
 
 def update_log(mapper, connection, target):

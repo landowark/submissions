@@ -34,7 +34,6 @@ class AddEdit(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         fields = {k: v for k, v in self.instance.omnigui_instance_dict.items() if "id" not in k}
-        logger.debug(f"Fields: {pformat(fields)}")
         # NOTE: Move 'name' to the front
         try:
             fields = {'name': fields.pop('name'), **fields}

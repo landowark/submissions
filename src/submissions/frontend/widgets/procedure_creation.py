@@ -69,11 +69,13 @@ class ProcedureCreation(QDialog):
                                         equipment['name'] == relevant_procedure_item.name))
                 equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
                     equipmentrole['equipment'].index(item_in_er_list)))
-        proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
+        # proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         self.update_equipment = EquipmentUsage.update_equipment
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
+        logger.debug(f"Procedure:\n{pformat(self.procedure.__dict__)}")
+        logger.debug(f"ProcedureType:\n{pformat(proceduretype_dict)}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

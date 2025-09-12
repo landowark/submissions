@@ -11,6 +11,7 @@ import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+# NOTE: Need a seperate base for this.
 Base: DeclarativeMeta = declarative_base()
 
 class AuditLog(Base):
