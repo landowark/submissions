@@ -8,6 +8,7 @@ from copy import copy
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from json import JSONDecodeError
+from pprint import pformat
 from threading import Thread
 from inspect import getmembers, isfunction, stack
 from dateutil.easter import easter
@@ -1039,7 +1040,7 @@ def flatten_list(input_list: list) -> list:
     return list(itertools.chain.from_iterable(input_list))
 
 
-def sanitize_object_for_json(input_dict: dict) -> dict:
+def sanitize_object_for_json(input_dict: dict) -> dict | str:
     """
     Takes an object and makes sure its components can be converted to JSON
 
@@ -1057,8 +1058,12 @@ def sanitize_object_for_json(input_dict: dict) -> dict:
                 try:
                     input_dict = json.dumps(input_dict)
                 except TypeError:
-                    input_dict = str(input_dict)
-        return input_dict
+                    match input_dict:
+                        case str():
+                            pass
+                        case _:
+                            input_dict = str(input_dict)
+        return input_dict.strip('\"')
     output = {}
     for key, value in input_dict.items():
         match value:
@@ -1070,7 +1075,13 @@ def sanitize_object_for_json(input_dict: dict) -> dict:
                 try:
                     value = json.dumps(value)
                 except TypeError:
-                    value = str(value)
+                    match value:
+                        case str():
+                            pass
+                        case _:
+                            value = str(value)
+        if isinstance(value, str):
+            value = value.strip('\"')
         output[key] = value
     return output
 

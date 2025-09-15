@@ -8,7 +8,7 @@ from pathlib import Path
 from datetime import date
 from typing import Tuple, List
 from backend.db.models import Procedure, Run
-from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
+from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list, ctx
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -173,10 +173,6 @@ class TurnaroundMaker(ReportArchetype):
         Returns:
 
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
         days = sub.turnaround_time
         try:
             tat = sub.get_default_info("turnaround_time")

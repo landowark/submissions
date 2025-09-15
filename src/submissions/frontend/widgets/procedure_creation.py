@@ -69,13 +69,10 @@ class ProcedureCreation(QDialog):
                                         equipment['name'] == relevant_procedure_item.name))
                 equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
                     equipmentrole['equipment'].index(item_in_er_list)))
-        # proceduretype_dict['equipment_section'] = EquipmentUsage.construct_html(procedure=self.procedure, child=True)
         proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
-        self.update_equipment = EquipmentUsage.update_equipment
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
-        logger.debug(f"Procedure:\n{pformat(self.procedure.__dict__)}")
-        logger.debug(f"ProcedureType:\n{pformat(proceduretype_dict)}")
+        # sys.exit(f"ProcedureDict:\n{pformat(proceduretype_dict)}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
@@ -88,8 +85,9 @@ class ProcedureCreation(QDialog):
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
-    def update_equipment(self, equipmentrole: str, equipment: str, process: str, tips: str):
+    def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
+        logger.debug(f"\n\nEquipmentRole: {equipmentrole}, Equipment: {equipment}, Process: {processversion}, Tips: {tips}\n\n")
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
@@ -103,9 +101,9 @@ class ProcedureCreation(QDialog):
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
-        process_name, version = process.split("-v")
-        process = ProcessVersion.query(name=process_name, version=version, limit=1)
-        eoi.process = process
+        process_name, version = processversion.split("-v")
+        processversion = ProcessVersion.query(name=process_name, version=version, limit=1)
+        eoi.processversion = processversion.to_pydantic()
         try:
             tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
             tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)

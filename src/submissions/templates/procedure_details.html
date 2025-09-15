@@ -56,9 +56,14 @@
     {% endif %}
     {% if procedure['sample'] %}
     <button type="button"><h3><u>Procedure Samples:</u></h3></button>
+    {% if procedure['platemap']|length > 5 %}
+    <br>
+    {{ procedure['platemap'] }}
+    {% else %}
     <p>{% for sample in procedure['sample'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
+        <a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
     {% endfor %}</p>
+    {% endif %}
     {% endif %}
     {% endblock %}
 {% if not child %}

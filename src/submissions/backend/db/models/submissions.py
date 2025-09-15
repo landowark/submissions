@@ -879,7 +879,7 @@ class Run(BaseClass, LogMixin):
         Returns:
             PydSubmission: converted object.
         """
-        from backend.validators import PydRun
+        from backend.validators import PydClientSubmission, PydRun
         dicto = self.details_dict(full_data=True, backup=backup)
         new_dict = {}
         for key, value in dicto.items():
@@ -1916,6 +1916,8 @@ class ProcedureSampleAssociation(BaseClass):
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc
+        output['row'] = self.row
+        output['column'] = self.column
         output['results'] = [result.details_dict() for result in output['results']]
         return output
 

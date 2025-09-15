@@ -1,5 +1,5 @@
 """
-Default
+Default writers for procedures.
 """
 from __future__ import annotations
 import logging, sys
@@ -18,9 +18,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
                'reagentrole', 'results', 'sample', 'tips', 'reagentlot']
 
     def __init__(self, pydant_obj, *args, **kwargs):
-
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-
         self.fill_dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,

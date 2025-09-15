@@ -87,7 +87,7 @@ class ReagentRole(BaseClass):
             new = True
         for k, v in sanitized_kwargs.items():
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance}")
+        # logger.info(f"Instance from query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -785,7 +785,7 @@ class ProcedureType(BaseClass):
         )
         return PydProcedure(**output)
 
-    def construct_plate_map(self, sample_dicts: List["PydSample"]) -> str:
+    def construct_plate_map(self, sample_dicts: List["PydSample"], creation:bool=True, vw_modifier:float=1.0) -> str:
         """
         Constructs an html based plate map for procedure details.
 
@@ -800,13 +800,13 @@ class ProcedureType(BaseClass):
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
         sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
-        vw = round((-0.07 * len(sample_dicts)) + 12.2, 1)
+        vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         env = jinja_template_loading()
         template = env.get_template("support/plate_map.html")
         html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts,
-                               vw=vw)
+                               vw=vw, creation=creation)
         return html + "<br/>"
 
     def pad_sample_dicts(self, sample_dicts: List["PydSample"]):
@@ -985,6 +985,7 @@ class Procedure(BaseClass):
         output['sample_count'] = len(active_samples)
         output['clientlab'] = self.run.clientsubmission.clientlab.name
         output['cost'] = 0.00
+        output['platemap'] = self.make_procedure_platemap()
         return output
 
     def to_pydantic(self, **kwargs):
@@ -1037,6 +1038,12 @@ class Procedure(BaseClass):
         else:
             output = {k: v for k, v in dicto.items()}
         return output
+
+    def make_procedure_platemap(self):
+        dicto = [sample.to_pydantic() for sample in self.proceduresampleassociation]
+        html = self.proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
+        return html
+
 
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
@@ -1143,7 +1150,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 case _:
                     pass
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
+        # logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
         return instance, new
 
     @classmethod
@@ -1423,7 +1430,7 @@ class EquipmentRole(BaseClass):
             new = True
         for k, v in sanitized_kwargs.items():
             setattr(instance, k, v)
-        logger.info(f"Instance from query or create: {instance}")
+        # logger.info(f"Instance from query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -1816,6 +1823,9 @@ class Process(BaseClass):
 
 
 class ProcessVersion(BaseClass):
+
+    pyd_model_name = "Process"
+
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     version = Column(FLOAT(2), default=1.00)  #: Version number
     date_verified = Column(TIMESTAMP)  #: Date this version was deemed worthy
@@ -1867,7 +1877,7 @@ class ProcessVersion(BaseClass):
               version: str | float | None = None,
               name: str | None = None,
               limit: int = 0,
-              **kwargs) -> ReagentLot | List[ReagentLot]:
+              **kwargs) -> ProcessVersion | List[ProcessVersion]:
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -1880,6 +1890,9 @@ class ProcessVersion(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
+
+    # def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
+    #     output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
 
 
 class Tips(BaseClass):

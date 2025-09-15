@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys, logging, json, inspect
 from datetime import datetime, date
 from pprint import pformat
-
 from dateutil.parser import parse
 from jinja2 import TemplateNotFound, Template
 from pandas import DataFrame
@@ -19,7 +18,7 @@ from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-from tools import report_result, list_sort_dict, jinja_template_loading, Report, Result
+from tools import report_result, list_sort_dict, jinja_template_loading, Report, Result, ctx
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -92,10 +91,6 @@ class BaseClass(Base):
         Returns:
             Session: DB session from ctx settings.
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
         return ctx.database_session
 
     @classmethod
@@ -107,10 +102,6 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions directory in Settings object
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
         return ctx.directory_path
 
     @classmethod
@@ -122,10 +113,6 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions backup directory in Settings object
         """
-        if 'pytest' not in sys.modules:
-            from tools import ctx
-        else:
-            from test_settings import ctx
         return ctx.backup_path
 
     def __init__(self, *args, **kwargs):
@@ -284,7 +271,7 @@ class BaseClass(Base):
                 if issubclass(v.__class__, PydBaseClass):
                     setattr(instance, k, v.to_sql())
         instance._misc_info.update(outside_kwargs)
-        logger.info(f"Instance from query or create: {instance}, new: {new}")
+        # logger.info(f"Instance from query or create: {instance}, new: {new}")
         return instance, new
 
     @classmethod
