@@ -655,7 +655,7 @@ class BaseClass(Base):
         from backend.validators import pydant
         if not pyd_model_name:
             pyd_model_name = f"Pyd{self.__class__.__name__}"
-        logger.info(f"Looking for pydant model {pyd_model_name}")
+        # logger.info(f"Looking for pydant model {pyd_model_name}")
         try:
             pyd = getattr(pydant, pyd_model_name)
         except AttributeError:

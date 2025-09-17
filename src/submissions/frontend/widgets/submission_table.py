@@ -23,7 +23,9 @@ class SubmissionsTree(QTreeView):
         self.app = get_application_from_parent(parent)
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         self.setExpandsOnDoubleClick(False)
-        self.model = model
+        self.model: ClientSubmissionRunModel = model
+        header_labels = ["Name", "Submission Type", "Client Lab", "Submitted Date"]
+        self.model.setHorizontalHeaderLabels(header_labels)
         self.setModel(self.model)
         self.setSelectionBehavior(QAbstractItemView.selectionBehavior(self).SelectRows)
         self.set_data()
@@ -48,7 +50,8 @@ class SubmissionsTree(QTreeView):
         self.setAlternatingRowColors(True)
         self.setIndentation(20)
         self.setItemsExpandable(True)
-        for ii in range(2):
+        self.setSortingEnabled(True)
+        for ii, _ in enumerate(header_labels):
             self.resizeColumnToContents(ii)
 
     def expand_item(self, event: QModelIndex):
@@ -107,15 +110,19 @@ class SubmissionsTree(QTreeView):
         """
         self.clear()
         self.data = [item.to_dict(full_data=True) for item in
+        # self.data = [item.details_dict() for item in
                      ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
         root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
-            submission_item = self.model.add_child(parent=root, child=dict(
+            submission_item: QStandardItem = self.model.add_child(parent=root, child=dict(
                 name=group_str,
+                client=submission['clientlab'],
+                date=submission['submitted_date'],
+                type=submission['submissiontype'],
                 query_str=submission['submitter_plate_id'],
                 item_type=ClientSubmission
-            ))
+            ), additions=True)
             for run in submission['run']:
                 run_item = self.model.add_child(parent=submission_item, child=dict(
                     name=run['plate_number'],
@@ -156,10 +163,19 @@ class SubmissionsTree(QTreeView):
 
 class ClientSubmissionRunModel(QStandardItemModel):
 
-    def add_child(self, parent: QStandardItem, child:dict):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def add_child(self, parent: QStandardItem, child:dict, additions:bool=False) -> QStandardItem:
         item = QStandardItem(child['name'])
         item.setData(dict(item_type=child['item_type'], query_str=child['query_str']), 1)
-        parent.appendRow(item)
+        if additions:
+            item_client = QStandardItem(child['client'])
+            item_date = QStandardItem(child['date'])
+            item_type = QStandardItem(child['type'])
+            parent.appendRow([item, item_type, item_client, item_date])
+        else:
+            parent.appendRow([item])
         item.setEditable(False)
         return item
 

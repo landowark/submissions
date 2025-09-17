@@ -978,7 +978,7 @@ class Procedure(BaseClass):
         output['sample'] = active_samples + inactive_samples
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentlotassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
-        logger.debug(f"equipment: {pformat([item for item in output['equipment']])}")
+        # logger.debug(f"equipment: {pformat([item for item in output['equipment']])}")
         output['repeat'] = self.repeat
         output['run'] = self.run.name
         output['excluded'] += self.get_default_info("details_ignore")
@@ -1043,7 +1043,6 @@ class Procedure(BaseClass):
         dicto = [sample.to_pydantic() for sample in self.proceduresampleassociation]
         html = self.proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
         return html
-
 
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
