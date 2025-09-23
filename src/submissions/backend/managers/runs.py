@@ -14,10 +14,12 @@ class DefaultRunManager(DefaultManager):
     def write(self) -> Workbook:
         from backend.managers import DefaultClientSubmissionManager, DefaultProcedureManager
         logger.info(f"Initializing write")
-        clientsubmission = DefaultClientSubmissionManager(parent=self.parent, input_object=self.pyd.clientsubmission, submissiontype=self.pyd.clientsubmission.submissiontype)
+        self.clientsubmission = DefaultClientSubmissionManager(parent=self.parent, input_object=self.pyd.clientsubmission, submissiontype=self.pyd.clientsubmission.submissiontype)
         workbook = Workbook()
-        workbook = clientsubmission.write(workbook=workbook)
+        workbook = self.clientsubmission.write(workbook=workbook)
+        self.procedures = []
         for procedure in self.pyd.procedure:
             procedure = DefaultProcedureManager(proceduretype=procedure.proceduretype, parent=self.parent, input_object=procedure)
             workbook: Workbook = procedure.write(workbook=workbook)
+            self.procedures.append(procedure)
         return workbook

@@ -143,6 +143,7 @@ class PydReagentLot(PydBaseClass):
     missing: bool = Field(default=True)
     comment: str | None = Field(default="", validate_default=True)
 
+
 class PydReagent(PydBaseClass):
     lot: str | None
     reagentrole: str | None
@@ -388,23 +389,29 @@ class PydEquipment(PydBaseClass):
     @field_validator('tips', mode='before')
     @classmethod
     def tips_to_pydantic(cls, value, values):
+        print(f"Value coming into tips: {value}")
         if isinstance(value, GeneratorType):
             value = [item for item in value]
         value = convert_nans_to_nones(value)
         if not value:
             value = []
-        if isinstance(value, TipsLot):
-            value = value.to_pydantic(pyd_model_name="PydTips")
-        else:
-            try:
-                d: Tips = next(
-                    (tips for tips in value if values.data['name'] in [item.name for item in tips.equipment]),
-                    None)
-                if d:
-                    value = d.to_pydantic()
-            except AttributeError as e:
-                logger.error(f"Process Validation error due to {e}")
-                value = []
+        match value:
+            case TipsLot():
+                value = value.to_pydantic(pyd_model_name="PydTips")
+            case dict():
+                value = PydTips(**value)
+            case _:
+                pass
+        # else:
+        #     try:
+        #         d: Tips = next(
+        #             (tips for tips in value if values.data['name'] in [item.name for item in tips.equipment]),
+        #             None)
+        #         if d:
+        #             value = d.to_pydantic()
+        #     except AttributeError as e:
+        #         logger.error(f"Process Validation error due to {e}")
+        #         value = []
         return value
 
     @report_result
@@ -469,7 +476,6 @@ class PydEquipment(PydBaseClass):
             extras = []
         fields = list(self.model_fields.keys()) + extras
         return {k: getattr(self, k) for k in fields}
-
 
 
 class PydContact(BaseModel):

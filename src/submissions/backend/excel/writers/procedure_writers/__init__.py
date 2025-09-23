@@ -15,7 +15,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
     header_order = []
     exclude = ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot']
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap']
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -45,7 +45,7 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
 
 class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
-    exclude = ['id']
+    exclude = ['id', "equipment_role"]
     header_order = ['equipmentrole', 'name', 'asset_number', 'process', 'tips']
 
     def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):

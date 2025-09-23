@@ -995,6 +995,7 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydReagent
         output = super().to_pydantic()
+        print(f"Super to_pydantic: {output.equipment}")
         output.sample = [item.to_pydantic() for item in output.proceduresampleassociation]
         reagents = []
         for reagent in output.reagent:
@@ -1009,7 +1010,6 @@ class Procedure(BaseClass):
         output.result = [item.to_pydantic() for item in self.results]
         output.sample_results = flatten_list(
             [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
-
         return output
 
     def create_proceduresampleassociations(self, sample):
@@ -2148,7 +2148,7 @@ class ProcedureEquipmentAssociation(BaseClass):
     @property
     def tips(self):
         try:
-            return Tips.query(id=self.tips_id, limit=1)
+            return TipsLot.query(id=self.tipslot_id, limit=1)
         except AttributeError:
             return None
 
@@ -2175,7 +2175,9 @@ class ProcedureEquipmentAssociation(BaseClass):
             PydEquipment: pydantic equipment model
         """
         from backend.validators import PydEquipment
-        return PydEquipment(**self.details_dict())
+        output = PydEquipment(**self.details_dict())
+        output.tips = self.tips.to_pydantic(pyd_model_name="PydTips")
+        return output
 
     @classmethod
     @setup_lookup
@@ -2232,7 +2234,7 @@ class ProcedureEquipmentAssociation(BaseClass):
             output['processversion'] = None
         try:
             output['tips'] = self.tipslot.details_dict()
-        except AttributeError:
+        except AttributeError as e:
             output['tips'] = None
         return output
 
