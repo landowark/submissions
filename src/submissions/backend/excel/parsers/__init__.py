@@ -2,11 +2,13 @@
 Default Parser archetypes.
 """
 from __future__ import annotations
-import logging, re
+import logging, re, csv
 from pathlib import Path
+from pprint import pformat
 from typing import Generator, TYPE_CHECKING
 from openpyxl.cell import MergedCell
 from openpyxl.reader.excel import load_workbook
+from openpyxl.workbook import Workbook
 from pandas import DataFrame
 from backend.validators import pydant
 if TYPE_CHECKING:
@@ -44,6 +46,8 @@ class DefaultParser(object):
             **kwargs ():
         """
         logger.info(f"\n\nHello from {self.__class__.__name__}\n\n")
+        if isinstance(filepath, str):
+            filepath = Path(filepath)
         self.filepath = filepath
         self.proceduretype = proceduretype
         try:
@@ -58,13 +62,27 @@ class DefaultParser(object):
         self.sheet = sheet
         if not start_row:
             start_row = self.__class__.start_row
-        self.workbook = load_workbook(self.filepath, data_only=True)
-        self.worksheet = self.workbook[self.sheet]
+        if self.filepath.suffix == ".xslx":
+            self.workbook = load_workbook(self.filepath, data_only=True)
+            self.worksheet = self.workbook[self.sheet]
+        elif self.filepath.suffix == ".csv":
+            self.workbook, self.worksheet = self.csv2xlsx(self.filepath)
         self.start_row = self.delineate_start_row(start_row=start_row)
         self.end_row = self.delineate_end_row(start_row=self.start_row)
 
+    @classmethod
+    def csv2xlsx(cls, filepath):
+        wb = Workbook()
+        ws = wb.active
+        with open(filepath, "r") as f:
+            reader = csv.reader(f, delimiter=",")
+            for row in reader:
+                ws.append(row)
+        return wb, ws
+
     def to_pydantic(self):
         data = self.parsed_info
+        logger.debug(f"Data for {self.__class__.__name__}: {pformat(data)}")
         data['filepath'] = self.filepath
         return self._pyd_object(**data)
 
@@ -85,7 +103,7 @@ class DefaultParser(object):
         for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
                 return iii
-        return self.worksheet.max_row
+        return self.worksheet.max_row + 1
 
 
 class DefaultKEYVALUEParser(DefaultParser):

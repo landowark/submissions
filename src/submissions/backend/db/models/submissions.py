@@ -18,7 +18,8 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from tools import setup_lookup, jinja_template_loading, create_holidays_for_year, check_dictionary_inclusion_equality, is_power_user
+from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
+                   check_dictionary_inclusion_equality, is_power_user, row_map)
 from datetime import datetime, date
 from typing import List, Literal, Generator, TYPE_CHECKING
 from pathlib import Path
@@ -1864,6 +1865,16 @@ class ProcedureSampleAssociation(BaseClass):
     sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
 
     results = relationship("Results", back_populates="sampleprocedureassociation")  #: associated results
+
+    @property
+    def well(self):
+        if self.row > 0:
+            if self.column > 0:
+                return f"{row_map[self.row]}{self.column}"
+            else:
+                return self.row
+        else:
+            return None
 
     @classmethod
     def query(cls, sample: Sample | str | None = None, procedure: Procedure | str | None = None, limit: int = 0,

@@ -12,7 +12,7 @@ from typing import List, Tuple, Literal, Generator
 from types import GeneratorType
 from . import RSLNamer
 from pathlib import Path
-from tools import check_not_nan, convert_nans_to_nones, Report, Result, timezone, sort_dict_by_list, row_keys, flatten_list
+from tools import check_not_nan, convert_nans_to_nones, Report, Alert, timezone, sort_dict_by_list, row_keys, flatten_list
 from backend.db import models
 from backend.db.models import *
 from sqlalchemy.orm.properties import ColumnProperty
@@ -1397,14 +1397,14 @@ class PydRun(PydBaseClass):  #, extra='allow'):
         Converts this instance into a backend.db.models.procedure.BasicRun instance
 
         Returns:
-            Tuple[BasicRun, Result]: BasicRun instance, result object
+            Tuple[BasicRun, Alert]: BasicRun instance, result object
         """
         report = Report()
         dicto = self.improved_dict()
         instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
                                                rsl_plate_number=self.rsl_plate_number['value'])
         if instance is None:
-            report.add_result(Result(msg="Overwrite Cancelled."))
+            report.add_result(Alert(msg="Overwrite Cancelled."))
             return None, report
         report.add_result(result)
         self.handle_duplicate_samples()
@@ -1585,7 +1585,7 @@ class PydRun(PydBaseClass):  #, extra='allow'):
                     expired.append(f"{reagent.role}, {reagent.lot}: {reagent.expiry.date()} + {role_eol.days}")
         if expired:
             output = '\n'.join(expired)
-            result = Result(status="Warning",
+            result = Alert(status="Warning",
                             msg=f"The following reagents are expired:\n\n{output}"
                             )
             report.add_result(result)

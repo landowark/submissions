@@ -109,9 +109,7 @@ class SubmissionsTree(QTreeView):
         sets data in model
         """
         self.clear()
-        self.data = [item.to_dict(full_data=True) for item in
-        # self.data = [item.details_dict() for item in
-                     ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+        self.data = [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
         root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"

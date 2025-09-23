@@ -458,7 +458,6 @@ def render_details_template(template_name: str, css_in: List[str] | str = [], js
     js_in = ["details"] + js_in
     js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
     template = env.get_template(f"{template_name}.html")
-    # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
     css_out = []
     for css in css_in:
         with open(css, "r") as f:
@@ -645,7 +644,7 @@ def get_application_from_parent(widget):
     return widget
 
 
-class Result(BaseModel, arbitrary_types_allowed=True):
+class Alert(BaseModel, arbitrary_types_allowed=True):
     owner: str = Field(default="", validate_default=True)
     code: int = Field(default=0)
     msg: str | Exception
@@ -704,7 +703,7 @@ class Result(BaseModel, arbitrary_types_allowed=True):
 
 
 class Report(BaseModel):
-    results: List[Result] = Field(default=[])
+    results: List[Alert] = Field(default=[])
 
     def __repr__(self):
         return f"<Report(result_count:{len(self.results)})>"
@@ -717,10 +716,10 @@ class Report(BaseModel):
         Takes a result object or all results in another report and adds them to this one.
 
         Args:
-            result (Result | Report | None): Results to be added.
+            result (Alert | Report | None): Results to be added.
         """
         match result:
-            case Result():
+            case Alert():
                 logger.info(f"Adding {result} to results.")
                 try:
                     self.results.append(result)
@@ -853,7 +852,7 @@ def check_authorization(func):
             logger.error(error_msg)
             report = Report()
             report.add_result(
-                Result(owner=func.__str__(), code=1, msg=error_msg, status="warning"))
+                Alert(owner=func.__str__(), code=1, msg=error_msg, status="warning"))
             return report, kwargs
     return wrapper
 
@@ -877,7 +876,7 @@ def under_development(func):
             logger.error(error_msg)
             report = Report()
             report.add_result(
-                Result(owner=func.__str__(), code=1, msg=error_msg,
+                Alert(owner=func.__str__(), code=1, msg=error_msg,
                        status="warning"))
             return report
     return wrapper

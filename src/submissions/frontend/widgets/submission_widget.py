@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
 from .functions import select_open_file, select_save_file
 from pathlib import Path
-from tools import Report, Result, check_not_nan, main_form_style, report_result, get_application_from_parent
+from tools import Report, Alert, check_not_nan, main_form_style, report_result, get_application_from_parent
 from backend.validators import PydReagent, PydClientSubmission, PydSample
 from backend.db.models import (
     ClientLab, SubmissionType, Reagent, ReagentLot,
@@ -116,7 +116,7 @@ class SubmissionFormContainer(QWidget):
         if isinstance(fname, bool) or fname is None:
             fname = select_open_file(self, file_extension="xlsx")
         if not fname:
-            report.add_result(Result(msg=f"File {fname.__str__()} not found.", status="critical"))
+            report.add_result(Alert(msg=f"File {fname.__str__()} not found.", status="critical"))
             return report
         # NOTE: create sheetparser using excel sheet and context from gui
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
@@ -133,7 +133,7 @@ class SubmissionFormContainer(QWidget):
         else:
             message = "Submission cancelled."
             logger.warning(message)
-            report.add_result(Result(msg=message, owner=self.__class__.__name__, status="Warning"))
+            report.add_result(Alert(msg=message, owner=self.__class__.__name__, status="Warning"))
         return report
 
     @report_result
@@ -157,7 +157,7 @@ class SubmissionFormContainer(QWidget):
             # NOTE: send reagent to db
             sqlobj = reagent.to_sql()
             sqlobj.save()
-            report.add_result(Result(owner=__name__, code=0, msg="New reagent created.", status="Information"))
+            report.add_result(Alert(owner=__name__, code=0, msg="New reagent created.", status="Information"))
             return reagent, report
 
 
@@ -386,7 +386,7 @@ class SubmissionFormWidget(QWidget):
                     if reagent is not None:
                         reagents.append(reagent)
                     else:
-                        report.add_result(Result(msg="Failed integrity check", status="Critical"))
+                        report.add_result(Alert(msg="Failed integrity check", status="Critical"))
                         return report
                 case self.InfoItem():
                     field, value = widget.parse_form()
@@ -779,7 +779,7 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                     if reagent is not None:
                         reagents.append(reagent)
                     else:
-                        report.add_result(Result(msg="Failed integrity check", status="Critical"))
+                        report.add_result(Alert(msg="Failed integrity check", status="Critical"))
                         return report
                 case self.InfoItem():
                     field, value = widget.parse_form()

@@ -1,10 +1,11 @@
 # 202509.03
 
 - Sortable headers in treeview.
+- Added gitea remote.
 
 # 202509.02
 
-- First Useable updated version.
+- First usable updated version.
 
 # 202504.04
 
@@ -12,7 +13,7 @@
 
 # 202504.03
 
-- Split Concentration controls on the chart so they are individually selectable.
+- Split Concentration controls on the chart, so they are individually selectable.
 
 # 202504.02
 
@@ -315,7 +316,7 @@
 
 ## 202307.03
 
-- Auto-filling of some empty cells in Excel file.
+- Autofilling of some empty cells in Excel file.
 - Better pydantic validations of missing data.
 
 ## 202307.02

@@ -4,13 +4,14 @@ All kittype and reagent related models
 from __future__ import annotations
 import zipfile, logging, re, numpy as np
 from operator import itemgetter
+from pathlib import Path
 from pprint import pformat
 from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, func
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, validates, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
-from tools import check_authorization, setup_lookup, Report, Result, check_regex_match, timezone, \
+from tools import check_authorization, setup_lookup, Report, Alert, check_regex_match, timezone, \
     jinja_template_loading, flatten_list
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
@@ -926,10 +927,13 @@ class Procedure(BaseClass):
         logger.info(f"Add Results! {resultstype_name}")
         from backend.managers import results
         results_manager = getattr(results, f"{resultstype_name}Manager")
-        rs = results_manager(procedure=self, parent=obj)
+        rs = results_manager(procedure=self, parent=obj, fname=Path("C:\\Users\lwark\Documents\Submission_Forms\QubitData_18-09-2025_13-43-53.csv"))
         procedure = rs.procedure_to_pydantic()
         samples = rs.samples_to_pydantic()
-        procedure_sql = procedure.to_sql()
+        if procedure:
+            procedure_sql = procedure.to_sql()
+        else:
+            return
         procedure_sql.save()
         for sample in samples:
             sample_sql = sample.to_sql()

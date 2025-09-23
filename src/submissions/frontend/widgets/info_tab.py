@@ -5,7 +5,7 @@ from datetime import date
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout
-from tools import Report, report_result, Result
+from tools import Report, report_result, Alert
 from .misc import StartEndDatePicker
 from .functions import select_save_file, save_pdf
 import logging
@@ -42,7 +42,7 @@ class InfoPane(QWidget):
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(lastmonth)
             self.update_data()
-            report.add_result(Result(owner=self.__str__(), msg=msg, status="Warning"))
+            report.add_result(Alert(owner=self.__str__(), msg=msg, status="Warning"))
             return report
 
     @classmethod

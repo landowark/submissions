@@ -17,16 +17,20 @@ logger = logging.getLogger(f"submission.{__name__}")
 
 class DefaultResultsManager(DefaultManager):
 
-    def __init__(self, procedure: Procedure, parent, fname: Path | str | None = None):
+    def __init__(self, procedure: Procedure, parent, fname: Path | str | None = None, extension: str|None="xlsx"):
         self.procedure = procedure
         if not fname:
-            self.fname = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
+            fname = select_open_file(file_extension=extension, obj=get_application_from_parent(parent))
         elif isinstance(fname, str):
-            self.fname = Path(fname)
+            fname = Path(fname)
+        self.fname = fname
+
 
     def procedure_to_pydantic(self) -> PydResults:
+        logger.debug(f"Info parser: {self.info_parser}")
         info = self.info_parser.to_pydantic()
-        info.parent = self.procedure
+        if info:
+            info.parent = self.procedure
         return info
 
     def samples_to_pydantic(self) -> List[PydResults]:
@@ -34,3 +38,4 @@ class DefaultResultsManager(DefaultManager):
         return sample
 
 from .pcr_results_manager import PCRManager
+from .qubit_results_manager import QubitManager

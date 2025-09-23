@@ -1,5 +1,5 @@
-- [ ] Add in database objects for rsl_run (submission -> run), procedure (run -> procedure), many more things will likely be associated with procedure.
-- [ ] Add in database object for client submission.
+- [x] Add in database objects for rsl_run (submission -> run), procedure (run -> procedure), many more things will likely be associated with procedure.
+- [x] Add in database object for client submission.
 - [ ] Add arbitrary pipette addition to equipment UI.
 - [ ] transfer details template rendering fully into sql objects
 - [x] Add in connecting links for tips.

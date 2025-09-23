@@ -18,7 +18,7 @@ from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
-from tools import report_result, list_sort_dict, jinja_template_loading, Report, Result, ctx
+from tools import report_result, list_sort_dict, jinja_template_loading, Report, Alert, ctx
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -364,7 +364,7 @@ class BaseClass(Base):
             logger.error(f"Error message: {type(e)}")
             logger.error(pformat(self.__dict__))
             self.__database_session__.rollback()
-            report.add_result(Result(msg=e, status="Critical"))
+            report.add_result(Alert(msg=e, status="Critical"))
             return report
 
     @property

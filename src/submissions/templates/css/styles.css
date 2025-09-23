@@ -104,8 +104,6 @@ div.gallery {
   padding: 5px;
 }
 
-
-
 .plate {
     display: inline-grid;
     grid-auto-flow: column;
@@ -189,3 +187,9 @@ ul.no-bullets {
           display: grid;
           grid-auto-flow: column;
         }
+
+.disable_section {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
