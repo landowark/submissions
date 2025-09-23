@@ -646,7 +646,6 @@ class Run(BaseClass, LogMixin):
                                'permission', "clientsubmission"]
         output['sample_count'] = self.sample_count
         output['clientsubmission'] = self.clientsubmission.name
-        # output['clientlab'] = self.clientsubmission.clientlab
         output['started_date'] = self.started_date
         output['completed_date'] = self.completed_date
         return output
@@ -1852,6 +1851,9 @@ class RunSampleAssociation(BaseClass):
 
 
 class ProcedureSampleAssociation(BaseClass):
+
+    pyd_model_name = "PydSample"
+
     id = Column(INTEGER, unique=True, nullable=False)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
@@ -1924,12 +1926,13 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = output['sample'].details_dict()
+        logger.debug(output)
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc
         output['row'] = self.row
         output['column'] = self.column
-        output['results'] = [result.details_dict() for result in output['results']]
+        output['results'] = [item.details_dict() for item in self.results]
         return output
 
     def to_pydantic(self, **kwargs):

@@ -7,14 +7,15 @@ from pprint import pformat
 from typing import Generator, TYPE_CHECKING
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
-from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
+# from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
+from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
 from tools import flatten_list
 if TYPE_CHECKING:
     from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class PCRInfoWriter(DefaultKEYVALUEWriter):
+class PCRInfoWriter(DefaultResultsInfoWriter):
 
     start_row = 1
 
@@ -28,7 +29,7 @@ class PCRInfoWriter(DefaultKEYVALUEWriter):
         return workbook
 
 
-class PCRSampleWriter(DefaultTABLEWriter):
+class PCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         worksheet = workbook[f"{self.proceduretype.name} Results"]

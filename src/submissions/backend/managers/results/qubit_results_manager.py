@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from openpyxl.reader.excel import load_workbook
 from backend.db.models import Procedure
 from backend.excel.parsers.results_parsers.qubit_results_parser import QubitSampleParser, QubitInfoParser
-# from backend.excel.writers.results_writers.pcr_results_writer import QubitInfoWriter, QubitSampleWriter
+from backend.excel.writers.results_writers.qubit_results_writer import QubitInfoWriter, QubitSampleWriter
 from . import DefaultResultsManager
 if TYPE_CHECKING:
     from backend.validators.pydant import PydResults
@@ -28,6 +28,6 @@ class QubitManager(DefaultResultsManager):
 
     def write(self):
         workbook = load_workbook(BytesIO(self.procedure.proceduretype.template_file))
-        self.info_writer = PCRInfoWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
-        workbook = self.info_writer.write_to_workbook(workbook)
-        self.sample_writer = PCRSampleWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
+        self.sample_writer = QubitSampleWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
+        workbook = self.sample_writer.write_to_workbook(workbook)
+        return workbook

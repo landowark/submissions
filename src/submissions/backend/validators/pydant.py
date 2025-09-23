@@ -268,6 +268,7 @@ class PydSample(PydBaseClass):
     enabled: bool = Field(default=True)
     row: int = Field(default=0)
     column: int = Field(default=0)
+    results: List[PydResults] | PydResults = Field(default=[])
 
     @field_validator("sample_id", mode="before")
     @classmethod
@@ -389,7 +390,6 @@ class PydEquipment(PydBaseClass):
     @field_validator('tips', mode='before')
     @classmethod
     def tips_to_pydantic(cls, value, values):
-        print(f"Value coming into tips: {value}")
         if isinstance(value, GeneratorType):
             value = [item for item in value]
         value = convert_nans_to_nones(value)

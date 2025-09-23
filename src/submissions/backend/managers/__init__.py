@@ -2,6 +2,7 @@
 Module for manager defaults.
 """
 import logging
+from pprint import pformat
 from pathlib import Path
 from frontend.widgets.functions import select_open_file
 from tools import get_application_from_parent
@@ -14,6 +15,7 @@ class DefaultManager(object):
 
     def __init__(self, parent, input_object: Path | str | None = None):
         self.parent = parent
+        logger.debug(f"Input object: {pformat(input_object.__dict__)}")
         match input_object:
             case str():
                 self.input_object = Path(input_object)

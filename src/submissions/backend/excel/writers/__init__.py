@@ -40,7 +40,6 @@ class DefaultWriter(object):
             case x if issubclass(value.__class__, BaseClass):
                 value = value.name
             case x if issubclass(value.__class__, PydBaseClass):
-                logger.warning(f"PydBaseClass: {value}")
                 value = value.name
             case bytes() | list():
                 value = None
@@ -241,6 +240,7 @@ class DefaultTABLEWriter(DefaultWriter):
 
 from .procedure_writers import ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter
 from .results_writers import (
-    PCRInfoWriter, PCRSampleWriter
+    PCRInfoWriter, PCRSampleWriter,
+    QubitInfoWriter, QubitSampleWriter
 )
 from .clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter

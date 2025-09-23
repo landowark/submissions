@@ -2,6 +2,8 @@
 All kittype and reagent related models
 """
 from __future__ import annotations
+
+import sys
 import zipfile, logging, re, numpy as np
 from operator import itemgetter
 from pathlib import Path
@@ -593,7 +595,7 @@ class SubmissionType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                logger.debug(f"querying with {name}")
+                # logger.debug(f"querying with {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
@@ -982,7 +984,6 @@ class Procedure(BaseClass):
         output['sample'] = active_samples + inactive_samples
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentlotassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
-        # logger.debug(f"equipment: {pformat([item for item in output['equipment']])}")
         output['repeat'] = self.repeat
         output['run'] = self.run.name
         output['excluded'] += self.get_default_info("details_ignore")
@@ -995,7 +996,6 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydReagent
         output = super().to_pydantic()
-        print(f"Super to_pydantic: {output.equipment}")
         output.sample = [item.to_pydantic() for item in output.proceduresampleassociation]
         reagents = []
         for reagent in output.reagent:

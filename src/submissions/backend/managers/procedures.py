@@ -22,6 +22,7 @@ class DefaultProcedureManager(DefaultManager):
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
         self.proceduretype = proceduretype
+        self.procedure = input_object
         super().__init__(parent=parent, input_object=input_object)
 
 
@@ -84,4 +85,8 @@ class DefaultProcedureManager(DefaultManager):
             Writer = getattr(results_writers, f"{result.result_type}InfoWriter")
             res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
             workbook = res_info_writer.write_to_workbook(workbook=workbook)
+        for result in self.pyd.sample_results:
+            Writer = getattr(results_writers, f"{result.result_type}SampleWriter")
+            res_sample_writer = Writer(pydant_obj=self.procedure, proceduretype=self.proceduretype)
+            workbook = res_sample_writer.write_to_workbook(workbook=workbook)
         return workbook
