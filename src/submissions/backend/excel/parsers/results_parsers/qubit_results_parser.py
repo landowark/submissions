@@ -1,0 +1,58 @@
+"""
+
+"""
+from __future__ import annotations
+import logging
+from csv import reader
+from typing import Generator, TYPE_CHECKING
+from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
+from backend import Procedure
+from backend.db.models import ProcedureSampleAssociation
+from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
+from pathlib import Path
+if TYPE_CHECKING:
+    from backend.validators.pydant import PydSample
+
+logger = logging.getLogger(f"submissions.{__name__}")
+
+class QubitInfoParser(DefaultResultsInfoParser):
+
+    def __init__(self, filepath: Path | str, procedure=None, **kwargs):
+        self.results_type = "Qubit"
+        self.procedure = procedure
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit")
+
+    def to_pydantic(self):
+        """
+        Since there is no overview generated, return blank PydResults object.
+
+        Returns:
+            PydResults
+        """
+        from backend.validators.pydant import PydResults
+        return None
+
+
+class QubitSampleParser(DefaultResultsSampleParser):
+    """Object to pull data from Design and Analysis PCR export file."""
+
+    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
+        self.results_type = "Qubit"
+        self.procedure = procedure
+
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit")
+        self.sample_matcher()
+
+    def sample_matcher(self):
+        # samples = [item for item in self.procedure.proceduresampleassociation]
+        dlg = ResultsSampleMatcher(
+            parent=None,
+            results_var_name="original_sample_conc.",
+            results=self.parsed_info,
+            samples=self.procedure.proceduresampleassociation,
+            procedure=self.procedure,
+            results_type="Qubit"
+        )
+        if dlg.exec():
+            for result in dlg.output:
+                result.save()
