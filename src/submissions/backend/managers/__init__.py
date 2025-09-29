@@ -15,7 +15,7 @@ class DefaultManager(object):
 
     def __init__(self, parent, input_object: Path | str | None = None):
         self.parent = parent
-        logger.debug(f"Input object: {pformat(input_object.__dict__)}")
+
         match input_object:
             case str():
                 self.input_object = Path(input_object)

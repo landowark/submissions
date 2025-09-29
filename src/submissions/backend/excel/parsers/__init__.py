@@ -62,7 +62,7 @@ class DefaultParser(object):
         self.sheet = sheet
         if not start_row:
             start_row = self.__class__.start_row
-        if self.filepath.suffix == ".xslx":
+        if self.filepath.suffix == ".xlsx":
             self.workbook = load_workbook(self.filepath, data_only=True)
             self.worksheet = self.workbook[self.sheet]
         elif self.filepath.suffix == ".csv":

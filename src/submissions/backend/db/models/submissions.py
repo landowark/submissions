@@ -1926,7 +1926,7 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = output['sample'].details_dict()
-        logger.debug(output)
+        # logger.debug(output)
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc

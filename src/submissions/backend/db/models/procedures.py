@@ -929,7 +929,7 @@ class Procedure(BaseClass):
         logger.info(f"Add Results! {resultstype_name}")
         from backend.managers import results
         results_manager = getattr(results, f"{resultstype_name}Manager")
-        rs = results_manager(procedure=self, parent=obj, fname=Path("C:\\Users\lwark\Documents\Submission_Forms\QubitData_18-09-2025_13-43-53.csv"))
+        rs = results_manager(procedure=self, parent=obj)#, fname=Path("C:\\Users\lwark\Documents\Submission_Forms\QubitData_18-09-2025_13-43-53.csv"))
         procedure = rs.procedure_to_pydantic()
         samples = rs.samples_to_pydantic()
         if procedure:

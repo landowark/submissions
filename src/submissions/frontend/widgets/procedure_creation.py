@@ -56,7 +56,15 @@ class ProcedureCreation(QDialog):
         proceduretype_dict = self.proceduretype.details_dict()
         # NOTE: Add --New-- as an option for reagents.
         for key, value in self.procedure.reagentrole.items():
-            value.append(dict(name="--New--"))
+            try:
+                check = "--New--" in [v['name'] for v in value]
+            except TypeError:
+                try:
+                    check = "--New--" in [v.name for v in value]
+                except (TypeError, AttributeError):
+                    check = True
+            if not check:
+                value.append(dict(name="--New--"))
         if self.procedure.equipment:
             for equipmentrole in proceduretype_dict['equipment']:
                 # NOTE: Check if procedure equipment is present and move to head of the list if so.
@@ -150,6 +158,7 @@ class ProcedureCreation(QDialog):
     def add_new_reagent(self, reagentrole: str, name: str, lot: str, expiry: str):
         from backend.validators.pydant import PydReagent
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
+        logger.debug(f"{reagentrole}, {name}, {lot}, {expiry}")
         pyd = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         self.procedure.reagentrole[reagentrole].insert(0, pyd)
         self.set_html()

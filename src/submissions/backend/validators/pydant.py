@@ -254,12 +254,12 @@ class PydReagent(PydBaseClass):
         report = Report()
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
-        reagent, new = ReagentLot.query_or_create(lot=self.lot, name=self.name)
+        reagentlot, new = ReagentLot.query_or_create(lot=self.lot, name=self.name)
         if new:
-            reagentrole = ReagentRole.query(name=self.reagentrole)
-            reagent.reagentrole = reagentrole
-            reagent.expiry = self.expiry
-        return reagent, report
+            reagent = Reagent.query(name=self.name)
+            reagentlot.reagent = reagent
+            reagentlot.expiry = self.expiry
+        return reagentlot, report
 
 
 class PydSample(PydBaseClass):
