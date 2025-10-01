@@ -1937,6 +1937,8 @@ class ProcedureSampleAssociation(BaseClass):
 
     def to_pydantic(self, **kwargs):
         output = super().to_pydantic(pyd_model_name="PydSample")
+        # from backend.validators.pydant import PydSample
+        # output = PydSample(**self.details_dict(**kwargs))
         try:
             output.submission_rank = output.misc_info['submission_rank']
         except KeyError:

@@ -48,10 +48,10 @@ class BaseClass(Base):
         except AttributeError:
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
-    # @classproperty
-    @classmethod
+
     @declared_attr
-    def aliases(cls) -> List[str]:
+    @classmethod
+    def aliases(cls):
         """
         List of other names this class might be known by.
 
@@ -60,9 +60,9 @@ class BaseClass(Base):
         """
         return [cls.query_alias]
 
-    @classmethod
     @declared_attr
-    def query_alias(cls) -> str:
+    @classmethod
+    def query_alias(cls):
         """
         What to query this class as.
 
@@ -71,8 +71,8 @@ class BaseClass(Base):
         """
         return cls.__name__.lower()
 
-    @classmethod
     @declared_attr
+    @classmethod
     def __tablename__(cls) -> str:
         """
         Sets table name to lower case class name.
@@ -82,8 +82,8 @@ class BaseClass(Base):
         """
         return f"_{cls.__name__.lower()}"
 
-    @classmethod
     @declared_attr
+    @classmethod
     def __database_session__(cls) -> Session:
         """
         Pull db session from ctx to be used in operations
@@ -93,8 +93,8 @@ class BaseClass(Base):
         """
         return ctx.database_session
 
-    @classmethod
     @declared_attr
+    @classmethod
     def __directory_path__(cls) -> Path:
         """
         Pull directory path from ctx to be used in operations.
@@ -104,8 +104,8 @@ class BaseClass(Base):
         """
         return ctx.directory_path
 
-    @classmethod
     @declared_attr
+    @classmethod
     def __backup_path__(cls) -> Path:
         """
         Pull backup directory path from ctx to be used in operations.
@@ -119,10 +119,9 @@ class BaseClass(Base):
         super().__init__(*args, **kwargs)
         self._misc_info = dict()
 
-    # @classproperty
-    @classmethod
     @declared_attr
-    def jsons(cls) -> List[str]:
+    @classmethod
+    def jsons(cls):
         """
         Get list of JSON db columns
 
@@ -134,10 +133,9 @@ class BaseClass(Base):
         except AttributeError:
             return []
 
-    # @classproperty
-    @classmethod
     @declared_attr
-    def timestamps(cls) -> List[str]:
+    @classmethod
+    def timestamps(cls):
         """
         Get list of TIMESTAMP columns
 
@@ -392,10 +390,9 @@ class BaseClass(Base):
             pass
         return dicto
 
-    # @classproperty
-    @classmethod
     @declared_attr
-    def pydantic_model(cls) -> BaseModel:
+    @classmethod
+    def pydantic_model(cls):
         """
         Gets the pydantic model corresponding to this object.
 
@@ -414,9 +411,9 @@ class BaseClass(Base):
         return model
 
     # @classproperty
-    @classmethod
     @declared_attr
-    def add_edit_tooltips(cls) -> dict:
+    @classmethod
+    def add_edit_tooltips(cls):
         """
         Gets tooltips for Omni-add-edit
 
@@ -425,10 +422,9 @@ class BaseClass(Base):
         """
         return dict()
 
-    # @classproperty
-    @classmethod
     @declared_attr
-    def details_template(cls) -> Template:
+    @classmethod
+    def details_template(cls):
         """
         Get the details jinja template for the correct class
 
@@ -660,6 +656,7 @@ class BaseClass(Base):
             pyd = getattr(pydant, pyd_model_name)
         except AttributeError:
             raise AttributeError(f"Could not get pydantic class {pyd_model_name}")
+        pyd.model_rebuild()
         return pyd(**self.details_dict(**kwargs))
 
     def show_details(self, obj):
@@ -699,6 +696,7 @@ class ConfigItem(BaseClass):
     """
     Key:JSON objects to store config settings in database. 
     """
+
     id = Column(INTEGER, primary_key=True)
     key = Column(String(32))  #: Name of the configuration item.
     value = Column(JSON)  #: Value associated with the config item.

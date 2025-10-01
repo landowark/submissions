@@ -1,15 +1,18 @@
 """
 Contains all validators
 """
+from __future__ import annotations
 import logging, re
 import sys
 from pathlib import Path
 from openpyxl import load_workbook
-from backend.db.models import Run, SubmissionType
 from tools import jinja_template_loading
 from jinja2 import Template
 from dateutil.parser import parse
 from datetime import datetime
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import SubmissionType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -27,15 +30,17 @@ class DefaultNamer(object):
 
 class ClientSubmissionNamer(DefaultNamer):
 
-    def __init__(self, filepath: str | Path, submissiontype: str|SubmissionType|None=None,
+    def __init__(self, filepath: str | Path, submissiontype: str|"SubmissionType"|None=None,
                  data: dict | None = None, **kwargs):
+        from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
         if not submissiontype:
-            submissiontype = self.retrieve_submissiontype(filepath=self.filepath)
+            self.submissiontype = self.retrieve_submissiontype(filepath=self.filepath)
         if isinstance(submissiontype, str):
-            submissiontype = SubmissionType.query(name=submissiontype)
+            self.submissiontype = SubmissionType.query(name=submissiontype)
 
-    def retrieve_submissiontype(self, filepath: str | Path):
+    def retrieve_submissiontype(self):
+        from backend.db.models import SubmissionType
         # NOTE: Attempt 1, get from form properties:
         sub_type = self.get_subtype_from_properties()
         if not sub_type:
@@ -51,6 +56,7 @@ class ClientSubmissionNamer(DefaultNamer):
         return sub_type
 
     def get_subtype_from_regex(self) -> SubmissionType:
+        from backend.db.models import SubmissionType
         regex = SubmissionType.regex
         m = regex.search(self.filepath.__str__())
         try:
@@ -64,6 +70,7 @@ class ClientSubmissionNamer(DefaultNamer):
 
     def get_subtype_from_preparse(self) -> SubmissionType:
         from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser
+        from backend.db.models import SubmissionType
         parser = ClientSubmissionInfoParser(self.filepath)
         sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype"), None)
         sub_type = SubmissionType.query(name=sub_type)
@@ -72,6 +79,7 @@ class ClientSubmissionNamer(DefaultNamer):
         return sub_type
 
     def get_subtype_from_properties(self) -> SubmissionType:
+        from backend.db.models import SubmissionType
         wb = load_workbook(self.filepath)
         # NOTE: Gets first category in the metadata.
         categories = wb.properties.category.split(";")
@@ -88,6 +96,7 @@ class RSLNamer(object):
     """
 
     def __init__(self, filename: str, submission_type: str | None = None, data: dict | None = None):
+        from backend.db.models import SubmissionType
         # NOTE: Preferred method is path retrieval, but might also need validation for just string.
         filename = Path(filename) if Path(filename).exists() else filename
         self.submission_type = submission_type
@@ -113,7 +122,7 @@ class RSLNamer(object):
         Returns:
             str: parsed procedure type
         """
-
+        from backend.db.models import SubmissionType
         def st_from_path(filepath: Path) -> str:
             """
             Sub def to get proceduretype from a file path
@@ -186,8 +195,9 @@ class RSLNamer(object):
             regex (str): string to construct pattern
             filename (str): string to be parsed
         """
+        from backend.db.models import Run
         if regex is None:
-            regex = BasicRun.regex
+            regex = Run.regex
         match filename:
             case Path():
                 m = regex.search(filename.stem)
@@ -215,6 +225,7 @@ class RSLNamer(object):
         Returns:
             str: Output filename
         """
+        from backend.db.models import Run
         if "submitted_date" in data.keys():
             if isinstance(data['submitted_date'], dict):
                 if data['submitted_date']['value'] is not None:
