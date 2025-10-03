@@ -121,8 +121,8 @@ class App(QMainWindow):
         """
         self.importAction.triggered.connect(lambda fname: self.table_widget.formwidget.import_submission_function(fname=fname))
         self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
-        self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
-        self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
+        # self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
+        # self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
         self.searchSample.triggered.connect(self.runSampleSearch)

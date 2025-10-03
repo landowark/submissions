@@ -763,6 +763,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     @field_validator("proceduretype", mode="before")
     @classmethod
     def lookup_proceduretype(cls, value):
+        from backend.db.models import ProcedureType
         match value:
             case dict():
                 value = ProcedureType.query(name=value['name'])
@@ -813,6 +814,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     @field_validator("run")
     @classmethod
     def lookup_run(cls, value):
+        from backend.db.models import Run
         if isinstance(value, str):
             value = Run.query(name=value)
         return value
@@ -826,6 +828,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 
     @property
     def rows_columns_count(self) -> tuple[int, int]:
+        from backend.db.models import Procedure
         try:
             proc: ProcedureType = Procedure.query(name=self.name).proceduretype
         except AttributeError as e:

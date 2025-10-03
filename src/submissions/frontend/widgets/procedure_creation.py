@@ -52,7 +52,6 @@ class ProcedureCreation(QDialog):
 
 
     def set_html(self):
-        from .equipment_usage import EquipmentUsage
         proceduretype_dict = self.proceduretype.details_dict()
         # NOTE: Add --New-- as an option for reagents.
         for key, value in self.procedure.reagentrole.items():
@@ -89,8 +88,6 @@ class ProcedureCreation(QDialog):
             plate_map=self.plate_map,
             edit=self.edit
         )
-        # with open("procedure_creation.html", "w") as f:
-        #     f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)

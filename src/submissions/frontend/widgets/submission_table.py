@@ -2,9 +2,10 @@
 Contains widgets specific to the procedure summary and procedure details.
 """
 import sys, logging
+from operator import itemgetter
 from pprint import pformat
 from PyQt6.QtWidgets import QMenu, QTreeView, QAbstractItemView
-from PyQt6.QtCore import QModelIndex
+from PyQt6.QtCore import QModelIndex, Qt
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QContextMenuEvent
 from typing import List
 from backend.db.models import Run, ClientSubmission, Procedure
@@ -53,16 +54,7 @@ class SubmissionsTree(QTreeView):
         self.setSortingEnabled(True)
         for ii, _ in enumerate(header_labels):
             self.resizeColumnToContents(ii)
-
-    def expand_item(self, event: QModelIndex):
-        logger.debug(f"Data: {event.data()}")
-        logger.debug(f"Parent {event.parent().data()}")
-        logger.debug(f"Row: {event.row()}")
-        logger.debug(f"Sibling: {event.siblingAtRow(event.row()).data()}")
-        try:
-            logger.debug(f"Model: {event.model().event()}")
-        except TypeError as e:
-            logger.error(f"Couldn't expand due to {e}")
+        self.sortByColumn(3, Qt.SortOrder.DescendingOrder)
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         """
@@ -109,7 +101,10 @@ class SubmissionsTree(QTreeView):
         sets data in model
         """
         self.clear()
-        self.data = [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+        self.data = sorted(
+            [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
+            key=itemgetter('submitted_date'), reverse=True
+        )
         root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
@@ -151,12 +146,6 @@ class SubmissionsTree(QTreeView):
         dicto = next((item.data(1) for item in indexes if item.data(1)))
         obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
         obj.show_details(self)
-
-    def link_extractions(self):
-        pass
-
-    def link_pcr(self):
-        pass
 
 
 class ClientSubmissionRunModel(QStandardItemModel):
