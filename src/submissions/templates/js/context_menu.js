@@ -194,7 +194,7 @@ function contextListener() {
 function clickListener() {
     document.addEventListener( "click", function(e) {
         var clickeElIsLink = clickInsideElement( e, contextMenuLinkClassName );
-        backend.log(e.target.id)
+
         if ( clickeElIsLink ) {
             e.preventDefault();
             menuItemListener( clickeElIsLink );

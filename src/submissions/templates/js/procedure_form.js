@@ -42,7 +42,7 @@ var changed_it = new Event('change');
 var reagentRoles = document.getElementsByClassName("reagentrole");
 
 for(let i = 0; i < reagentRoles.length; i++) {
-  reagentRoles[i].addEventListener("change", function() {
+  reagentRoles[i].addEventListener("change", async function() {
     if (reagentRoles[i].value.includes("--New--")) {
 //        alert("Create new reagent.")
         var br = document.createElement("br");
@@ -50,9 +50,15 @@ for(let i = 0; i < reagentRoles.length; i++) {
         var new_form = document.createElement("form");
         new_form.setAttribute("class", "new_reagent_form")
         new_form.setAttribute("id", reagentRoles[i].id + "_addition")
-        var rr_name = document.createElement("input");
-        rr_name.setAttribute("type", "text");
+        var rr_name = document.createElement("select");
         rr_name.setAttribute("id", "new_" + reagentRoles[i].id + "_name");
+        var rr_options = await backend.get_reagent_names(reagentRoles[i].id).then(
+            function(result) {
+                result.forEach( function(item) {
+                    rr_name.options.add( new Option(item));
+                });
+            }
+        );
         var rr_name_label = document.createElement("label");
         rr_name_label.setAttribute("for", "new_" + reagentRoles[i].id + "_name");
         rr_name_label.innerHTML = "Name:";

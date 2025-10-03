@@ -43,7 +43,7 @@ class ClientSubmission(BaseClass, LogMixin):
     submission_category = Column(String(64))  #: i.e. Surveillance
     sample_count = Column(INTEGER)  #: Number of sample in the procedure
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
-    comment = Column(JSON)  #: comment objects from users.
+    comments = Column(JSON)  #: comment objects from users.
     run = relationship("Run", back_populates="clientsubmission")  #: many-to-one relationship
     contact = relationship("Contact", back_populates="clientsubmission")  #: contact representing submitting lab.
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
@@ -240,9 +240,9 @@ class ClientSubmission(BaseClass, LogMixin):
             custom = None
             runs = None
         try:
-            comments = self.comment
+            comments = self.comments
         except Exception as e:
-            logger.error(f"Error setting comment: {self.comment}, {e}")
+            logger.error(f"Error setting comment: {self.comments}, {e}")
             comments = None
         try:
             contact = self.contact.name

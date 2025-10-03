@@ -346,6 +346,7 @@ class Reagent(BaseClass, LogMixin):
         return [dict(name=self.name, lot=lot.lot, expiry=lot.expiry + self.eol_ext) for lot in self.reagentlot]
 
 
+
 class ReagentLot(BaseClass):
 
     pyd_model_name = "Reagent"
@@ -444,6 +445,7 @@ class ReagentLot(BaseClass):
         output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
         output['reagent'] = output['reagent'].name
         return output
+
 
 class Discount(BaseClass):
     """

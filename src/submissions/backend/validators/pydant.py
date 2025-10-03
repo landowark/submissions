@@ -37,17 +37,21 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     def prevalidate(cls, data):
         sql_fields = [k for k, v in cls._sql_object.__dict__.items() if isinstance(v, InstrumentedAttribute)]
         output = {}
-        try:
-            items = data.items()
-        except AttributeError as e:
-            logger.error(f"Could not prevalidate {cls.__name__} due to {e} for {pformat(data)}")
-            return data
-        for key, value in items:
-            new_key = key.replace("_", "")
-            if new_key in sql_fields:
-                output[new_key] = value
-            else:
-                output[key] = value
+        match data:
+            case dict():
+                try:
+                    items = data.items()
+                except AttributeError as e:
+                    logger.error(f"Could not prevalidate {cls.__name__} due to {e} for {pformat(data)}")
+                    return data
+                for key, value in items:
+                    new_key = key.replace("_", "")
+                    if new_key in sql_fields:
+                        output[new_key] = value
+                    else:
+                        output[key] = value
+            case _:
+                output = data
         return output
 
     @model_validator(mode='after')
@@ -135,6 +139,7 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
                     continue
         return list(set(output))
 
+
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
     result: dict = Field(default={})
     result_type: str = Field(default="NA")
@@ -186,9 +191,9 @@ class PydReagentLot(PydBaseClass):
 
 
 class PydReagent(PydBaseClass):
-    lot: str | None
+    # lot: str | None
     reagentrole: str | None
-    expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
+    # expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
     name: str | None = Field(default=None, validate_default=True)
     missing: bool = Field(default=True)
     comment: str | None = Field(default="", validate_default=True)
@@ -219,47 +224,47 @@ class PydReagent(PydBaseClass):
                 return value
         return value
 
-    @field_validator("lot", mode='before')
-    @classmethod
-    def rescue_lot_string(cls, value):
-        if value is not None:
-            return convert_nans_to_nones(str(value).strip())
-        return value
-
-    @field_validator("lot")
-    @classmethod
-    def enforce_lot_string(cls, value):
-        if value is not None:
-            return value.upper().strip()
-        return value
-
-    @field_validator("expiry", mode="before")
-    @classmethod
-    def enforce_date(cls, value):
-        if value is not None:
-            match value:
-                case int():
-                    return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-                case 'NA':
-                    return value
-                case str():
-                    return parse(value)
-                case date():
-                    return datetime.combine(value, datetime.max.time())
-                case datetime():
-                    return value
-                case _:
-                    return convert_nans_to_nones(str(value))
-        if value is None:
-            value = datetime.combine(date.today(), datetime.max.time())
-        return value
-
-    @field_validator("expiry")
-    @classmethod
-    def date_na(cls, value):
-        if isinstance(value, date) and value.year == 1970:
-            value = "NA"
-        return value
+    # @field_validator("lot", mode='before')
+    # @classmethod
+    # def rescue_lot_string(cls, value):
+    #     if value is not None:
+    #         return convert_nans_to_nones(str(value).strip())
+    #     return value
+    #
+    # @field_validator("lot")
+    # @classmethod
+    # def enforce_lot_string(cls, value):
+    #     if value is not None:
+    #         return value.upper().strip()
+    #     return value
+    #
+    # @field_validator("expiry", mode="before")
+    # @classmethod
+    # def enforce_date(cls, value):
+    #     if value is not None:
+    #         match value:
+    #             case int():
+    #                 return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+    #             case 'NA':
+    #                 return value
+    #             case str():
+    #                 return parse(value)
+    #             case date():
+    #                 return datetime.combine(value, datetime.max.time())
+    #             case datetime():
+    #                 return value
+    #             case _:
+    #                 return convert_nans_to_nones(str(value))
+    #     if value is None:
+    #         value = datetime.combine(date.today(), datetime.max.time())
+    #     return value
+    #
+    # @field_validator("expiry")
+    # @classmethod
+    # def date_na(cls, value):
+    #     if isinstance(value, date) and value.year == 1970:
+    #         value = "NA"
+    #     return value
 
     @field_validator("name", mode="before")
     @classmethod
@@ -268,7 +273,6 @@ class PydReagent(PydBaseClass):
             return convert_nans_to_nones(str(value).strip())
         else:
             return values.data['reagentrole'].strip()
-
 
     def improved_dict(self) -> dict:
         """
@@ -292,14 +296,17 @@ class PydReagent(PydBaseClass):
         Returns:
             Tuple[Reagent, Report]: Reagent instance and result of function
         """
+        from backend.db.models import ReagentLot, Reagent
         report = Report()
         if self.model_extra is not None:
             self.__dict__.update(self.model_extra)
         reagentlot, new = ReagentLot.query_or_create(lot=self.lot, name=self.name)
         if new:
-            reagent = Reagent.query(name=self.name)
+            reagent = Reagent.query(name=self.name, limit=1)
             reagentlot.reagent = reagent
             reagentlot.expiry = self.expiry
+            if isinstance(reagentlot.expiry, str):
+                reagentlot.expiry = datetime.combine(datetime.strptime(reagentlot.expiry, "%Y-%m-%d"), datetime.max.time())
         return reagentlot, report
 
 
@@ -371,6 +378,7 @@ class PydTips(PydBaseClass):
         Returns:
             SubmissionTipsAssociation: Association between queried tips and procedure
         """
+        from backend.db.models import TipsLot
         report = Report()
         tips = TipsLot.query(lot=self.lot, limit=1)
         return tips, report
@@ -388,6 +396,7 @@ class PydEquipment(PydBaseClass):
     @field_validator('equipmentrole', mode='before')
     @classmethod
     def get_role_name(cls, value):
+        from backend.db.models import EquipmentRole
         match value:
             case list():
                 value = value[0]
@@ -402,6 +411,7 @@ class PydEquipment(PydBaseClass):
     @field_validator('processes', mode='before')
     @classmethod
     def process_to_pydantic(cls, value, values):
+        from backend.db.models import ProcessVersion, Process
         if isinstance(value, GeneratorType):
             value = [item for item in value]
         value = convert_nans_to_nones(value)
@@ -431,6 +441,7 @@ class PydEquipment(PydBaseClass):
     @field_validator('tips', mode='before')
     @classmethod
     def tips_to_pydantic(cls, value, values):
+        from backend.db.models import TipsLot
         if isinstance(value, GeneratorType):
             value = [item for item in value]
         value = convert_nans_to_nones(value)
@@ -467,6 +478,7 @@ class PydEquipment(PydBaseClass):
         Returns:
             Tuple[Equipment, RunEquipmentAssociation]: SQL objects
         """
+        from backend.db.models import Equipment, ProcedureEquipmentAssociation, Process
         report = Report()
         if isinstance(procedure, str):
             procedure = Procedure.query(name=procedure)
@@ -680,6 +692,7 @@ class PydProcess(PydBaseClass, extra="allow"):
 
     @report_result
     def to_sql(self):
+        from backend.db.models import ProcessVersion
         report = Report()
         name = self.name.split("-")[0]
         # NOTE: can't use query_or_create due to name not being part of ProcessVersion
@@ -725,12 +738,12 @@ class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
 # NOTE: Generified objects below:
 
 class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
-    proceduretype: ProcedureType | None = Field(default=None)
-    run: Run | str | None = Field(default=None)
+    proceduretype: Any | None = Field(default=None)
+    run: Any | str | None = Field(default=None)
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
-    repeat_of: Procedure | None = Field(default=None)
+    repeat_of: Any | None = Field(default=None)
     plate_map: str | None = Field(default=None)
     reagent: list | None = Field(default=[])
     reagentrole: dict | None = Field(default={}, validate_default=True)
@@ -919,7 +932,10 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         reg.save()
 
     def to_sql(self, new: bool = False):
-        from backend.db.models import RunSampleAssociation, ProcedureSampleAssociation
+        from backend.db.models import (
+            RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
+            ProcedureEquipmentAssociation
+        )
         logger.debug(f"incoming pyd: {pformat([item.__dict__ for item in self.equipment])}")
         if new:
             sql = Procedure()
@@ -1042,9 +1058,11 @@ class PydClientSubmission(PydBaseClass):
     def enforce_submitted_date(cls, value):
         match value:
             case str():
-                value = dict(value=datetime.strptime(value, "%Y-%m-%d %H:%M:%S"), missing=False)
-            case date() | datetime():
+                value = dict(value=datetime.strptime(value, "%Y-%m-%d %H:%M:%S").date(), missing=False)
+            case date():
                 value = dict(value=value, missing=False)
+            case datetime():
+                value = dict(value=value.date(), missing=False)
             case _:
                 pass
         return value
@@ -1162,6 +1180,7 @@ class PydClientSubmission(PydBaseClass):
 
     def to_sql(self):
         sql = super().to_sql()
+        from backend.db.models import SubmissionType
         assert not any([isinstance(item, PydSample) for item in sql.sample])
         sql.sample = []
         if not sql.submissiontype:
@@ -1662,44 +1681,3 @@ class PydRun(PydBaseClass):  #, extra='allow'):
             samples.append(sample)
         samples = sorted(samples, key=itemgetter("submission_rank"))
         return samples
-
-
-# class PydResults(PydBaseClass, arbitrary_types_allowed=True):
-#     result: dict = Field(default={})
-#     result_type: str = Field(default="NA")
-#     img: None | bytes = Field(default=None)
-#     parent: Procedure | ProcedureSampleAssociation | None = Field(default=None)
-#     date_analyzed: datetime | None = Field(default=None)
-#
-#     @field_validator("date_analyzed")
-#     @classmethod
-#     def set_today(cls, value):
-#         match value:
-#             case str():
-#                 value = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-#             case datetime():
-#                 pass
-#             case date():
-#                 value = datetime.combine(value, datetime.max.time())
-#             case _:
-#                 value = datetime.now()
-#         return value
-#
-#     def to_sql(self):
-#         sql, _ = Results.query_or_create(result_type=self.result_type, result=self.results)
-#         try:
-#             check = sql.image
-#         except FileNotFoundError:
-#             check = False
-#         if not check:
-#             sql.image = self.img
-#         if not sql.date_analyzed:
-#             sql.date_analyzed = self.date_analyzed
-#         match self.parent:
-#             case ProcedureSampleAssociation():
-#                 sql.sampleprocedureassociation = self.parent
-#             case Procedure():
-#                 sql.procedure = self.parent
-#             case _:
-#                 logger.error("Improper association found.")
-#         return sql

@@ -80,7 +80,6 @@ class ProcedureCreation(QDialog):
         proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
-        # sys.exit(f"ProcedureDict:\n{pformat(proceduretype_dict)}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
@@ -90,12 +89,13 @@ class ProcedureCreation(QDialog):
             plate_map=self.plate_map,
             edit=self.edit
         )
+        # with open("procedure_creation.html", "w") as f:
+        #     f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
-        logger.debug(f"\n\nEquipmentRole: {equipmentrole}, Equipment: {equipment}, Process: {processversion}, Tips: {tips}\n\n")
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
@@ -156,10 +156,10 @@ class ProcedureCreation(QDialog):
 
     @pyqtSlot(str, str, str, str)
     def add_new_reagent(self, reagentrole: str, name: str, lot: str, expiry: str):
-        from backend.validators.pydant import PydReagent
+        from backend.validators.pydant import PydReagentLot
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
         logger.debug(f"{reagentrole}, {name}, {lot}, {expiry}")
-        pyd = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
+        pyd = PydReagentLot(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         self.procedure.reagentrole[reagentrole].insert(0, pyd)
         self.set_html()
 
@@ -170,6 +170,12 @@ class ProcedureCreation(QDialog):
         except ValueError as e:
             return
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
+
+    @pyqtSlot(str, result=list)
+    def get_reagent_names(self, reagentrole_name: str):
+        from backend.db.models import ReagentRole
+        reagentrole = ReagentRole.query(name=reagentrole_name)
+        return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
 
     def return_sql(self, new: bool = False):
         output = self.procedure.to_sql(new=new)

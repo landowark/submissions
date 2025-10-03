@@ -520,6 +520,7 @@ class BaseClass(Base):
         if isinstance(field_type, InstrumentedAttribute):
             match field_type.property:
                 case ColumnProperty():
+
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
                     if field_type.property.uselist:

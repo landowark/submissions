@@ -3,6 +3,8 @@ Module for clientsubmission parsing
 """
 from __future__ import annotations
 import logging
+import sys
+from datetime import datetime
 from pathlib import Path
 from string import ascii_lowercase
 from typing import Generator, TYPE_CHECKING
@@ -135,6 +137,9 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
             output['submissiontype']['value'] = self.submissiontype.name.title()
         except KeyError:
             pass
+        if isinstance(output['submitted_date']['value'], datetime):
+            output['submitted_date']['value'] = output['submitted_date']['value'].date()
+
         return output
 
 
