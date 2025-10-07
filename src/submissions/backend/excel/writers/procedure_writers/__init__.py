@@ -29,7 +29,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
 class ProcedureReagentWriter(DefaultTABLEWriter):
 
-    exclude = ["id", "comments", "missing", "active", "name"]
+    exclude = ["id", "comments", "missing", "active", "name", "reagent"]
     header_order = ["reagentrole", "reagent_name", "lot", "expiry"]
 
     def __init__(self, pydant_obj, *args, **kwargs):

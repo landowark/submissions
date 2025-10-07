@@ -66,7 +66,7 @@ class ReagentRole(BaseClass):
 
     skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64))  #: name of reagentrole reagent plays
+    name = Column(String(64), unique=True)  #: name of reagentrole reagent plays
     reagent = relationship("Reagent", back_populates="reagentrole",
                            secondary=reagentrole_reagent)  #: concrete control of this reagent type
     reagentroleproceduretypeassociation = relationship(
@@ -204,7 +204,7 @@ class Reagent(BaseClass, LogMixin):
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete='SET NULL',
                                                 name="fk_REG_reagent_role_id"))  #: id of parent ReagentRole
     eol_ext = Column(Interval())  #: extension of life interval
-    name = Column(String(64))  #: reagent name
+    name = Column(String(64), unique=True)  #: reagent name
     cost_per_ml = Column(FLOAT(2))  #: amount a millilitre of reagent costs
     reagentlot = relationship("ReagentLot", back_populates="reagent")
 
@@ -324,8 +324,6 @@ class Reagent(BaseClass, LogMixin):
         except AttributeError as e:
             logger.error(f"Could not set {key} due to {e}")
 
-
-
     @classmethod
     @declared_attr
     def add_edit_tooltips(self):
@@ -344,7 +342,6 @@ class Reagent(BaseClass, LogMixin):
     @property
     def lot_dicts(self):
         return [dict(name=self.name, lot=lot.lot, expiry=lot.expiry + self.eol_ext) for lot in self.reagentlot]
-
 
 
 class ReagentLot(BaseClass):
@@ -684,7 +681,7 @@ class SubmissionType(BaseClass):
 
 class ProcedureType(BaseClass):
     id = Column(INTEGER, primary_key=True)
-    name = Column(String(64))
+    name = Column(String(64), unique=True)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
     allowed_result_methods = Column(JSON)

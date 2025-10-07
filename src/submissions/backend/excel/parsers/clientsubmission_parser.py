@@ -162,11 +162,11 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     def parsed_info(self) -> Generator[dict, None, None]:
         output = super().parsed_info
         for ii, sample in enumerate(output, start=1):
-            if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
-                try:
+            try:
+                if isinstance(sample["row"], str) and sample["row"].lower() in ascii_lowercase[0:8]:
                     sample["row"] = row_keys[sample["row"]]
-                except KeyError:
-                    pass
+            except KeyError:
+                pass
             sample['submission_rank'] = ii
             yield sample
 

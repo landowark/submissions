@@ -1227,7 +1227,12 @@ class Run(BaseClass, LogMixin):
         for sample in self.sample:
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
-                row, column = plate_dict[submission_rank]
+                logger.debug(submission_rank)
+                try:
+                    row, column = plate_dict[submission_rank]
+                except KeyError as e:
+                    logger.error(pformat(plate_dict))
+                    raise e
                 ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
                                            submission_rank=submission_rank, background_color="#6ffe1d"))
             else:

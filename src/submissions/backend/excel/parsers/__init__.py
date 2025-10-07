@@ -122,6 +122,8 @@ class DefaultKEYVALUEParser(DefaultParser):
             key = self.worksheet.cell(row, 1).value
             if key:
                 # Note: Remove anything in brackets.
+                if key.count(" ") > 3:
+                    continue
                 key = re.sub(r"\(.*\)", "", key)
                 key = key.lower().replace(":", "").strip().replace(" ", "_")
                 value = self.worksheet.cell(row, 2).value
