@@ -33,7 +33,7 @@ class PCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         worksheet = workbook[f"{self.proceduretype.name} Results"]
-        header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['start_row']
+        header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['header_row']
         proto_columns = [(1, "sample"), (2, "target")]
         columns = []
         for iii, header in enumerate(self.column_headers, start=3):
@@ -60,7 +60,11 @@ class PCRSampleWriter(DefaultResultsSampleWriter):
             if not isinstance(values, dict):
                 continue
             values['target'] = target
-            values['sample'] = result.sample_id
+            try:
+                values['sample'] = result.sample_id
+            except AttributeError as e:
+                logger.error(f"No sample_id found for {pformat(result.__dict__)}")
+                raise e
             yield values
 
     @property

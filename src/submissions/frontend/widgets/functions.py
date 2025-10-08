@@ -27,7 +27,10 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
     except FileNotFoundError:
         home_dir = Path.home().resolve().__str__()
     except AttributeError:
-        home_dir = obj.app.last_dir.resolve().__str__()
+        if obj:
+            home_dir = obj.app.last_dir.resolve().__str__()
+        else:
+            home_dir = Path.home().resolve().__str__()
     if file_extension is None:
         fname = Path(QFileDialog.getExistingDirectory(obj, "Open Folder", home_dir))
     else:

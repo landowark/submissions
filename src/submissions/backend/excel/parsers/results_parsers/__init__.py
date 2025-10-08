@@ -35,7 +35,7 @@ class DefaultResultsInfoParser(DefaultKEYVALUEParser):
 class DefaultResultsSampleParser(DefaultTABLEParser):
     pyd_name = "PydResults"
 
-    def __init__(self, filepath: Path | str, results_type: str, proceduretype: "ProcedureType" | None = None,
+    def __init__(self, filepath: Path | str, results_type: str, proceduretype: ProcedureType | None = None,
                  *args, **kwargs):
         if results_type:
             self.results_type = results_type
@@ -45,7 +45,7 @@ class DefaultResultsSampleParser(DefaultTABLEParser):
             sheet = 1
         if "start_row" not in kwargs:
             try:
-                start_row = proceduretype.allowed_result_methods[results_type]['sample']['start_row']
+                start_row = proceduretype.allowed_result_methods[results_type]['sample']['header_row']
             except KeyError:
                 start_row = 1
         else:

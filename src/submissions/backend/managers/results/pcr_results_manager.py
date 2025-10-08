@@ -20,6 +20,7 @@ class PCRManager(DefaultResultsManager):
 
     def __init__(self, procedure: Procedure, parent, fname: Path | str | None = None):
         super().__init__(procedure=procedure, parent=parent, fname=fname)
+        logger.debug(f"PCRManager initialized with procedure: {procedure}")
         self.parse()
 
     def parse(self):

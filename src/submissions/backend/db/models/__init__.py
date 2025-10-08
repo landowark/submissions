@@ -596,7 +596,7 @@ class BaseClass(Base):
 
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
+        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id", "background_color"])
         for k, v in relevant.items():
             try:
                 check = v.foreign_keys

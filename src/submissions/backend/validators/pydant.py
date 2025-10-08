@@ -163,6 +163,7 @@ class PydResults(PydBaseClass, arbitrary_types_allowed=True):
         return value
 
     def to_sql(self):
+        from backend.db.models import Results, ProcedureSampleAssociation, Procedure
         sql, _ = Results.query_or_create(result_type=self.result_type, result=self.results)
         try:
             check = sql.image
@@ -951,7 +952,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     def to_sql(self, new: bool = False):
         from backend.db.models import (
             RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
-            ProcedureEquipmentAssociation, EquipmentRole
+            ProcedureEquipmentAssociation, EquipmentRole, ReagentRole
         )
         logger.debug(f"incoming pyd: {pformat([item.__dict__ for item in self.equipment])}")
         if new:
@@ -981,7 +982,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         for reagent in self.reagent:
             if isinstance(reagent, dict):
                 reagent = PydReagent(**reagent)
-            reagentrole = reagent.reagentrole
+            reagentrole = ReagentRole.query(reagent.reagentrole, limit=1)
             reagent = reagent.to_sql()
             if reagent not in sql.reagentlot:
                 # NOTE: Remove any previous association for this role.

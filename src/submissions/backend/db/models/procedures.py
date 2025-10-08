@@ -929,14 +929,14 @@ class Procedure(BaseClass):
         from backend.managers import results
         results_manager = getattr(results, f"{resultstype_name}Manager")
         rs = results_manager(procedure=self, parent=obj)#, fname=Path("C:\\Users\lwark\Documents\Submission_Forms\QubitData_18-09-2025_13-43-53.csv"))
-        procedure = rs.procedure_to_pydantic()
-        samples = rs.samples_to_pydantic()
-        if procedure:
-            procedure_sql = procedure.to_sql()
+        procedure_results = rs.procedure_to_pydantic()
+        samples_results = rs.samples_to_pydantic()
+        if procedure_results:
+            procedure_sql = procedure_results.to_sql()
         else:
             return
         procedure_sql.save()
-        for sample in samples:
+        for sample in samples_results:
             sample_sql = sample.to_sql()
             sample_sql.save()
 
@@ -984,7 +984,6 @@ class Procedure(BaseClass):
         output['sample'] = active_samples + inactive_samples
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentlotassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
-        # logger.debug(f"Equipment: {output['equipment']}")
         output['repeat'] = self.repeat
         output['run'] = self.run.name
         output['excluded'] += self.get_default_info("details_ignore")
@@ -1272,13 +1271,16 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     reagentlot_id = Column(INTEGER, ForeignKey("_reagentlot.id"), primary_key=True)  #: id of associated reagent
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    reagentrole = Column(String(64))  #: Name of associated reagentrole (for some reason can't be relationship).
+    # reagentrole = Column(String(64))  #: Name of associated reagentrole (for some reason can't be relationship).
+    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)
     comments = Column(String(1024))  #: Comments about reagents
 
     procedure = relationship("Procedure",
                              back_populates="procedurereagentlotassociation")  #: associated procedure
 
     reagentlot = relationship(ReagentLot, back_populates="reagentlotprocedureassociation")  #: associated reagent
+
+    reagentrole = relationship(ReagentRole)
 
     def __repr__(self) -> str:
         """
@@ -1308,7 +1310,7 @@ class ProcedureReagentLotAssociation(BaseClass):
     def query(cls,
               procedure: Procedure | str | int | None = None,
               reagentlot: Reagent | str | None = None,
-              reagentrole: str | None = None,
+              reagentrole: str | ReagentRole | None = None,
               limit: int = 0) -> ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]:
         """
         Lookup SubmissionReagentAssociations of interest.
@@ -1340,6 +1342,8 @@ class ProcedureReagentLotAssociation(BaseClass):
             case _:
                 pass
         if reagentrole:
+            if isinstance(reagentrole, str):
+                reagentrole = ReagentRole.query(name=reagentrole)
             query = query.filter(cls.reagentrole == reagentrole)
         return cls.execute_query(query=query, limit=limit)
 
@@ -1355,7 +1359,7 @@ class ProcedureReagentLotAssociation(BaseClass):
         output['reagent_name'] = self.reagentlot.reagent.name
         misc = output['misc_info']
         output.update(relevant)
-        output['reagentrole'] = self.reagentrole
+        output['reagentrole'] = self.reagentrole.name
         output['misc_info'] = misc
         # logger.debug(f"Output: {pformat(output)}")
         return output

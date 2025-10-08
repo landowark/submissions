@@ -61,7 +61,7 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
 class ProcedureSampleWriter(DefaultTABLEWriter):
 
-    exclude = ['id', 'enabled', 'name', "submission_rank"]
+    exclude = ['id', 'enabled', 'name', "submission_rank", 'background_color']
     header_order = ['procedure_rank', 'sample_id']
 
     def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):

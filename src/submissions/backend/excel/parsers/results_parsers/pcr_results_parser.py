@@ -3,6 +3,7 @@ Parser for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
 import logging
+from pprint import pformat
 from typing import Generator, TYPE_CHECKING
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
@@ -17,7 +18,7 @@ class PCRInfoParser(DefaultResultsInfoParser):
     def __init__(self, filepath: Path | str, procedure=None, **kwargs):
         self.results_type = "PCR"
         self.procedure = procedure
-        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype)
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type=self.results_type)
 
     def to_pydantic(self):
         data = dict(results={k: v for k, v in self.parsed_info}, filepath=self.filepath,
@@ -31,11 +32,12 @@ class PCRSampleParser(DefaultResultsSampleParser):
     def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
         self.results_type = "PCR"
         self.procedure = procedure
-        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype)
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type=self.results_type)
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
         output = [item for item in super().parsed_info]
+        # logger.debug(f"PCRSampleParser parsed info: {pformat(output)}")
         sample_names = list(set([item['sample'] for item in output]))
         for sample in sample_names:
             multi = dict(result_type="PCR")
@@ -47,6 +49,7 @@ class PCRSampleParser(DefaultResultsSampleParser):
     def to_pydantic(self) -> Generator["PydSample", None, None]:
         from backend.db.models import ProcedureSampleAssociation
         for item in self.parsed_info:
+            logger.debug(f"PCRSampleParser parsed info: {pformat(item.keys())}")
             # NOTE: Ensure that only samples associated with the procedure are used.
             try:
                 sample_obj = next(
