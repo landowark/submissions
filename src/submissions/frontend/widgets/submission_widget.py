@@ -1,6 +1,7 @@
 """
 Contains all procedure related frontend functions
 """
+from __future__ import annotations
 import sys, logging
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout,
@@ -13,14 +14,16 @@ from tools import Report, Alert, check_not_nan, main_form_style, report_result, 
 from backend.validators import PydReagent, PydClientSubmission, PydSample
 from backend.db.models import (
     ClientLab, SubmissionType, Reagent, ReagentLot,
-    ReagentRole, ProcedureTypeReagentRoleAssociation, Run, ClientSubmission
+    ReagentRole, ProcedureTypeReagentRoleAssociation
 )
 from pprint import pformat
 from .pop_ups import QuestionAsker
 from .omni_add_edit import AddEdit
-from typing import List, Tuple
+from typing import List, Tuple, TYPE_CHECKING
 from datetime import date
 from .sample_checker import SampleChecker
+if TYPE_CHECKING:
+    from backend.db.models import Run, ClientSubmission
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -166,6 +169,7 @@ class SubmissionFormWidget(QWidget):
 
     def __init__(self, parent: QWidget, pyd: PydClientSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
+        from backend.db.models import Run
         if disable is None:
             disable = []
         self.app = get_application_from_parent(parent)
@@ -468,7 +472,7 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 QWidget: Form object
             """
-
+            from backend.db.models import ClientSubmission
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             if sub_obj is None:

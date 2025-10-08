@@ -8,7 +8,6 @@ from PyQt6.QtWidgets import QMenu, QTreeView, QAbstractItemView
 from PyQt6.QtCore import QModelIndex, Qt
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QContextMenuEvent
 from typing import List
-from backend.db.models import Run, ClientSubmission, Procedure
 from tools import get_application_from_parent
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -21,6 +20,7 @@ class SubmissionsTree(QTreeView):
 
     def __init__(self, model, parent=None):
         super(SubmissionsTree, self).__init__(parent)
+        from backend.db.models import ClientSubmission
         self.app = get_application_from_parent(parent)
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         self.setExpandsOnDoubleClick(False)
@@ -100,6 +100,7 @@ class SubmissionsTree(QTreeView):
         """
         sets data in model
         """
+        from backend.db.models import Run, ClientSubmission, Procedure
         self.clear()
         self.data = sorted(
             [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],

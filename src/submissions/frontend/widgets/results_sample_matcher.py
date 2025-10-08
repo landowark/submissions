@@ -2,7 +2,6 @@
 
 """
 from __future__ import annotations
-
 import json
 import logging, sys
 from pprint import pformat
@@ -12,7 +11,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import pyqtSlot
 from tools import render_details_template, row_keys
-from backend.db.models import Procedure, ProcedureSampleAssociation, Results
+from backend.db.models import Procedure, Results
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -43,6 +42,7 @@ class ResultsSampleMatcher(QDialog):
 
     @pyqtSlot(bool, str, str, str)
     def set_match(self, enabled: bool, sample: str, result_text:str, result: str):
+        from backend.db.models import ProcedureSampleAssociation
         logger.debug(f"Sample: {sample}")
         if ":" in sample:
             sample_id = sample.split(":")[0]
@@ -74,6 +74,7 @@ class ResultsSampleMatcher(QDialog):
 
     @pyqtSlot(str, str)
     def update_match(self, sample: str, result_text: str):
+        from backend.db.models import ProcedureSampleAssociation
         if ":" in sample:
             sample_id = sample.split(":")[0]
             well = sample.split(":")[1]

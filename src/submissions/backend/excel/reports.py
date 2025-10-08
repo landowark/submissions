@@ -1,16 +1,19 @@
 """
 Contains functions for generating summary reports
 """
+from __future__ import annotations
 import re, sys, logging
 from pprint import pformat
 from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
-from typing import Tuple, List
-from backend.db.models import Procedure, Run
+from typing import Tuple, List, TYPE_CHECKING
+from backend.db.models import Procedure
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list, ctx
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
+if TYPE_CHECKING:
+    from backend.db.models import Run
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -153,6 +156,7 @@ class ReportMaker(object):
 class TurnaroundMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type: str):
+        from backend.db.models import Run
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
@@ -195,6 +199,7 @@ class ConcentrationMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture",
                  include: List[str] = []):
+        from backend.db.models import Run
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.

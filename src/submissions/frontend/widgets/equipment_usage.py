@@ -10,8 +10,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QDialogButtonBox, QGridLayout, QWidget, QCheckBox, QComboBox, QLabel
 )
-from backend import Process
-from backend.db.models import Equipment
+from backend.db.models import Equipment, Process
 from backend.validators.pydant import PydProcedure, PydEquipmentRole, PydTips, PydEquipment
 from tools import get_application_from_parent, render_details_template
 

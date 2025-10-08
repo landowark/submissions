@@ -6,8 +6,6 @@ import logging
 from csv import reader
 from typing import Generator, TYPE_CHECKING
 from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
-from backend import Procedure
-from backend.db.models import ProcedureSampleAssociation
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:

@@ -959,6 +959,7 @@ class Procedure(BaseClass):
         dlg = ProcedureCreation(parent=obj, procedure=self.to_pydantic(), edit=True)
         if dlg.exec():
             sql, _ = dlg.return_sql()
+            # NOTE: Print out all procedureequipmentassociation objects
             sql.save()
 
     def add_comment(self, obj):
@@ -983,6 +984,7 @@ class Procedure(BaseClass):
         output['sample'] = active_samples + inactive_samples
         output['reagent'] = [reagent.details_dict() for reagent in output['procedurereagentlotassociation']]
         output['equipment'] = [equipment.details_dict() for equipment in output['procedureequipmentassociation']]
+        # logger.debug(f"Equipment: {output['equipment']}")
         output['repeat'] = self.repeat
         output['run'] = self.run.name
         output['excluded'] += self.get_default_info("details_ignore")
@@ -2090,7 +2092,8 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    equipmentrole = Column(String(64), primary_key=True)  #: name of the role the equipment fills
+    # equipmentrole = Column(String(64), primary_key=True)  #: name of the role the equipment fills
+    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)
     processversion_id = Column(INTEGER, ForeignKey("_processversion.id", ondelete="SET NULL",
                                                    name="SEA_Process_id"))  #: Foreign key of process id
     start_time = Column(TIMESTAMP)  #: start time of equipment use
@@ -2101,6 +2104,8 @@ class ProcedureEquipmentAssociation(BaseClass):
                              back_populates="procedureequipmentassociation")  #: associated procedure
 
     equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
+
+    equipmentrole = relationship(EquipmentRole)
 
     processversion = relationship(ProcessVersion,
                                   back_populates="procedureequipmentassociation")  #: Associated process version
@@ -2132,8 +2137,8 @@ class ProcedureEquipmentAssociation(BaseClass):
         self.equipment = equipment
         if isinstance(equipmentrole, list):
             equipmentrole = equipmentrole[0]
-        if isinstance(equipmentrole, EquipmentRole):
-            equipmentrole = equipmentrole.name
+        # if isinstance(equipmentrole, EquipmentRole):
+        #     equipmentrole = equipmentrole.name
         self.equipmentrole = equipmentrole
 
     @property
@@ -2225,7 +2230,7 @@ class ProcedureEquipmentAssociation(BaseClass):
         misc = output['misc_info']
         output.update(relevant)
         output['misc_info'] = misc
-        output['equipment_role'] = self.equipmentrole
+        output['equipment_role'] = self.equipmentrole.name
         output['processes'] = [item for item in self.equipment.get_processes(equipmentrole=output['equipment_role'])]
         try:
             output['processversion'] = self.processversion.details_dict()

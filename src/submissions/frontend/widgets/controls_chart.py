@@ -7,7 +7,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QSignalBlocker
 from backend.excel.reports import ChartReportMaker
-from backend.db import ControlType
 import logging
 from tools import Report, report_result
 from frontend.visualizations import CustomFigure
@@ -20,6 +19,7 @@ class ControlsViewer(InfoPane):
 
     def __init__(self, parent: QWidget, archetype: str) -> None:
         super().__init__(parent)
+        from backend.db.models import ControlType
         self.archetype = ControlType.query(name=archetype)
         if not self.archetype:
             return

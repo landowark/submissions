@@ -1,13 +1,17 @@
 """
 Webview to show procedure and sample details.
 """
+from __future__ import annotations
+
+import sys
+
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
-from backend.db.models import Run, Sample, Reagent, ProcedureType, Equipment, Process, Tips
+from backend.db.models import Reagent, ProcedureType, Equipment, Process, Tips
 from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent, list_str_comparator
 from .functions import select_save_file, save_pdf
 from pathlib import Path
@@ -15,7 +19,9 @@ import logging
 from getpass import getuser
 from datetime import datetime
 from pprint import pformat
-from typing import List
+from typing import List, TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.db.models import Run, Sample
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -62,6 +68,7 @@ class SubmissionDetails(QDialog):
             css = f.read()
         key = object.__class__.__name__.lower()
         d = {key: details}
+        # sys.exit(pformat(d))
         html = template.render(**d, css=[css])
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")
@@ -139,6 +146,7 @@ class SubmissionDetails(QDialog):
         Args:
             sample (str): Submitter Id of the sample.
         """
+        from backend.db.models import Sample
         if isinstance(sample, str):
             sample = Sample.query(sample_id=sample)
         # base_dict = sample.to_sub_dict(full_data=True)
@@ -214,6 +222,7 @@ class SubmissionDetails(QDialog):
         Args:
             run (str | BasicRun): Submission of interest.
         """
+        from backend.db.models import Run
         if isinstance(run, str):
             run = Run.query(name=run)
         self.rsl_plate_number = run.rsl_plate_number
@@ -241,6 +250,7 @@ class SubmissionDetails(QDialog):
         Returns:
             None
         """
+        from backend.db.models import Run
         logger.info(f"Signing off on {run} - ({getuser()})")
         if isinstance(run, str):
             run = Run.query(name=run)

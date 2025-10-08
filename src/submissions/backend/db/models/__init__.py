@@ -359,8 +359,6 @@ class BaseClass(Base):
             self.__database_session__.commit()
         except Exception as e:
             logger.critical(f"Problem saving {self} due to: {e}")
-            logger.error(f"Error message: {type(e)}")
-            logger.error(pformat(self.__dict__))
             self.__database_session__.rollback()
             report.add_result(Alert(msg=e, status="Critical"))
             return report

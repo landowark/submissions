@@ -478,7 +478,7 @@ class PydEquipment(PydBaseClass):
         Returns:
             Tuple[Equipment, RunEquipmentAssociation]: SQL objects
         """
-        from backend.db.models import Equipment, ProcedureEquipmentAssociation, Process
+        from backend.db.models import Equipment, ProcedureEquipmentAssociation, Process, EquipmentRole
         report = Report()
         if isinstance(procedure, str):
             procedure = Procedure.query(name=procedure)
@@ -507,13 +507,14 @@ class PydEquipment(PydBaseClass):
                 if process is None:
                     logger.error(f"Found unknown process: {process}.")
                 assoc.process = process
-                assoc.equipmentrole = self.equipmentrole
+                assoc.equipmentrole = EquipmentRole.query(name=self.equipmentrole, limit=1)
             else:
                 logger.warning(f"Found already existing association: {assoc}")
                 assoc = None
         else:
             logger.warning(f"No procedure found")
             assoc = None
+
         return equipment, assoc, report
 
     def improved_dict(self) -> dict:
@@ -696,19 +697,32 @@ class PydProcess(PydBaseClass, extra="allow"):
         report = Report()
         name = self.name.split("-")[0]
         # NOTE: can't use query_or_create due to name not being part of ProcessVersion
-        instance = ProcessVersion.query(name=name, version=self.version, limit=1)
+        logger.debug(f"Querying name: {name}, version: {self.version}")
+        instance = ProcessVersion.query(name=name, version=float(self.version), limit=1)
         if not instance:
+            logger.warning(f"Gonna have to make a new process version {self.version}")
             instance = ProcessVersion()
+        logger.debug(f"Got instance: {instance.__dict__}")
         return instance, report
 
 
-class PydProcessVersion(BaseModel, extra="allow", arbitrary_types_allowed=True):
+class PydProcessVersion(PydBaseClass, extra="allow", arbitrary_types_allowed=True):
     version: float
     name: str
 
+    @field_validator("name")
+    @classmethod
+    def split_name(cls, value):
+        if "-" in value:
+            value = value.split("-")[0]
+        return value
+
     def to_sql(self):
+        from backend.db.models import ProcessVersion
+        logger.debug(f"Querying name:{self.name}, version: {self.version}")
         instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
         if not instance:
+            logger.warning(f"PV: Gonna have to make a new process version {self.version}")
             instance = ProcessVersion()
         return instance
 
@@ -937,7 +951,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     def to_sql(self, new: bool = False):
         from backend.db.models import (
             RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
-            ProcedureEquipmentAssociation
+            ProcedureEquipmentAssociation, EquipmentRole
         )
         logger.debug(f"incoming pyd: {pformat([item.__dict__ for item in self.equipment])}")
         if new:
@@ -1000,23 +1014,26 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
         for equipment in self.equipment:
+            logger.debug(f"Equipment:\n{pformat(equipment.__dict__)}\n")
             equip, _ = equipment.to_sql()
+            equipment_role = EquipmentRole.query(equipment.equipmentrole, limit=1)
             logger.debug(f"Equipment:\n{pformat(equip.__dict__)}")
-            if isinstance(equipment.processes, list):
-                equipment.process = equipment.processes[0]
+            # if isinstance(equipment.processes, list):
+            #     equipment.process = equipment.processes[0]
             if isinstance(equipment.tips, list):
                 try:
                     equipment.tips = equipment.tips[0]
                 except IndexError:
                     equipment.tips = None
             if equip not in sql.equipment:
-                equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql,
-                                                            equipmentrole=equip.equipmentrole[0])
-                process = equipment.process.to_sql()
-                equip_assoc.processversion = process
+                # logger.debug(f"Equipment roles: {equip.equipmentrole}")
+                equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql, equipmentrole=equipment_role)
+                logger.debug(f"Process pyd:\n{pformat(equipment.processversion.__dict__)}")
+                processversion = equipment.processversion.to_sql()
+                logger.debug(f"Process sql:\n{pformat(processversion.__dict__)}")
+                equip_assoc.processversion = processversion
                 try:
                     tipslot = equipment.tips.to_sql()
-                    logger.debug(f"Tipslot: {tipslot.__dict__}")
                 except AttributeError:
                     tipslot = None
                 equip_assoc.tipslot = tipslot

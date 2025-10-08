@@ -1059,6 +1059,7 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
         if dlg.exec():
             sql, _ = dlg.return_sql(new=True)
+            # NOTE: save commit disabled currently
             sql.save()
         obj.set_data()
 

@@ -4,7 +4,6 @@ Parser for pcr results from Design and Analysis Studio
 from __future__ import annotations
 import logging
 from typing import Generator, TYPE_CHECKING
-from backend.db.models import ProcedureSampleAssociation
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:
@@ -46,6 +45,7 @@ class PCRSampleParser(DefaultResultsSampleParser):
             yield {sample: multi}
 
     def to_pydantic(self) -> Generator["PydSample", None, None]:
+        from backend.db.models import ProcedureSampleAssociation
         for item in self.parsed_info:
             # NOTE: Ensure that only samples associated with the procedure are used.
             try:

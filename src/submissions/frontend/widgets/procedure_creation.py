@@ -93,6 +93,7 @@ class ProcedureCreation(QDialog):
     @pyqtSlot(str, str, str, str)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
+        logger.debug(f"Updating equipment: {equipment}, role: {equipmentrole}, process: {processversion}, tips: {tips}")
         try:
             equipment_of_interest = next(
                 (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
@@ -107,8 +108,13 @@ class ProcedureCreation(QDialog):
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
         process_name, version = processversion.split("-v")
+        logger.debug(f"Query version: {type(version)}")
         processversion = ProcessVersion.query(name=process_name, version=version, limit=1)
+        logger.debug(f"Got instance: {processversion}")
+        # Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
+        logger.debug(f"Pydantic output: {type(eoi.processversion)}:{eoi.processversion.__dict__}")
+        # Correct pydprocessverion
         try:
             tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
             tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)

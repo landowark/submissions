@@ -1,6 +1,7 @@
 """
 Gel box for artic quality control
 """
+from __future__ import annotations
 from operator import itemgetter
 from PyQt6.QtWidgets import (
     QWidget, QDialog, QGridLayout, QLabel, QLineEdit, QDialogButtonBox, QTextEdit, QComboBox
@@ -9,9 +10,10 @@ from PyQt6.QtGui import QIcon
 from PIL import Image
 import logging, numpy as np, pyqtgraph as pg
 from pprint import pformat
-from typing import Tuple, List
+from typing import Tuple, List, TYPE_CHECKING
 from pathlib import Path
-from backend.db.models import Run
+if TYPE_CHECKING:
+    from backend.db.models import Run
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

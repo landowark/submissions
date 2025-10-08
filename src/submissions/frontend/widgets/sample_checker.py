@@ -1,15 +1,17 @@
 """
 
 """
+from __future__ import annotations
 import logging
-from typing import List
+from typing import List, TYPE_CHECKING
 from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QGridLayout
-from backend.db.models import ClientSubmission
 from backend.validators import PydSample, RSLNamer
 from tools import get_application_from_parent, jinja_template_loading, render_details_template
+if TYPE_CHECKING:
+    from backend.db.models import ClientSubmission
 
 env = jinja_template_loading()
 
