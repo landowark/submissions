@@ -7,7 +7,6 @@ from pprint import pformat
 from typing import Generator, TYPE_CHECKING
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
-# from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
 from tools import flatten_list
 if TYPE_CHECKING:
@@ -19,7 +18,7 @@ class PCRInfoWriter(DefaultResultsInfoWriter):
 
     start_row = 1
 
-    def __init__(self, pydant_obj, proceduretype: "ProcedureType" | None = None, *args, **kwargs):
+    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
         self.fill_dictionary = self.pydant_obj.improved_dict()['result']
 
@@ -60,11 +59,7 @@ class PCRSampleWriter(DefaultResultsSampleWriter):
             if not isinstance(values, dict):
                 continue
             values['target'] = target
-            try:
-                values['sample'] = result.sample_id
-            except AttributeError as e:
-                logger.error(f"No sample_id found for {pformat(result.__dict__)}")
-                raise e
+            values['sample'] = result.sampleprocedureassociation.sample.sample_id
             yield values
 
     @property

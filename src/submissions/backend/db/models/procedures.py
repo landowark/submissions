@@ -2324,6 +2324,6 @@ class Results(BaseClass):
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
-        if self.sample_id:
+        if bool(self.sample_id):
             output.sample_id = self.sample_id
         return output
