@@ -82,7 +82,7 @@ class DefaultParser(object):
 
     def to_pydantic(self):
         data = self.parsed_info
-        logger.debug(f"Data for {self.__class__.__name__}: {pformat(data)}")
+        # logger.debug(f"Data for {self.__class__.__name__}: {pformat(data)}")
         data['filepath'] = self.filepath
         return self._pyd_object(**data)
 

@@ -3,22 +3,20 @@
 """
 from __future__ import annotations
 import logging
-from csv import reader
 from typing import Generator, TYPE_CHECKING
-
 from dateutil.parser import parse
-
 from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:
     from backend.validators.pydant import PydSample
+    from backend.db.models import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class QubitInfoParser(DefaultResultsInfoParser):
 
-    def __init__(self, filepath: Path | str, procedure=None, **kwargs):
+    def __init__(self, filepath: Path | str, procedure: Procedure | None = None, **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
         super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit")
@@ -37,15 +35,13 @@ class QubitInfoParser(DefaultResultsInfoParser):
 class QubitSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
+    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure: Procedure | None = None, **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
-
         super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit")
         self.sample_matcher()
 
     def sample_matcher(self):
-        # samples = [item for item in self.procedure.proceduresampleassociation]
         dlg = ResultsSampleMatcher(
             parent=None,
             results_var_name="original_sample_conc.",
@@ -63,4 +59,3 @@ class QubitSampleParser(DefaultResultsSampleParser):
         for item in super().parsed_info:
             item['date_analyzed'] = parse(item['test_date'])
             yield item
-

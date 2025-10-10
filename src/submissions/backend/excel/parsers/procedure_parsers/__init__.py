@@ -1,5 +1,5 @@
 """
-Default procedure parsers.
+Default procedure parsers (currently unused).
 """
 from __future__ import annotations
 from pathlib import Path
@@ -20,65 +20,28 @@ TODO
 
 class ProcedureInfoParser(DefaultKEYVALUEParser):
 
-    # default_range_dict = [dict(
-    #     start_row=1,
-    #     end_row=6,
-    #     key_column=1,
-    #     value_column=2,
-    #     sheet=""
-    # )]
-
     def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None=None, *args, **kwargs):
         from backend.validators.pydant import PydProcedure
-        # proceduretype = self.correct_procedure_type(proceduretype)
-        # if not range_dict:
-        #     range_dict = proceduretype.info_map
-        #     if not range_dict:
-        #         range_dict = self.__class__.default_range_dict
-        #         for item in range_dict:
-        #             item['sheet'] = proceduretype.name
+        proceduretype = self.correct_procedure_type(proceduretype)
         super().__init__(filepath=filepath, proceduretype=proceduretype, *args, **kwargs)
         self._pyd_object = PydProcedure
 
 
 class ProcedureSampleParser(DefaultTABLEParser):
 
-    default_range_dict = [dict(
-        header_row=41,
-        sheet=""
-    )]
-
-    def __init__(self, filepath: Path | str, proceduretype: "ProcedureType"|None=None, range_dict: dict | None = None, *args, **kwargs):
+    def __init__(self, filepath: Path | str, proceduretype: ProcedureType|None=None, range_dict: dict | None = None, *args, **kwargs):
         from backend.validators.pydant import PydSample
         proceduretype = self.correct_procedure_type(proceduretype)
-        if not range_dict:
-            range_dict = proceduretype.sample_map
-            if not range_dict:
-                range_dict = self.__class__.default_range_dict
-                for item in range_dict:
-                    item['sheet'] = proceduretype.name
-        super().__init__(filepath=filepath, procedure=proceduretype, range_dict=range_dict, *args, **kwargs)
+        super().__init__(filepath=filepath, procedure=proceduretype, *args, **kwargs)
         self._pyd_object = PydSample
 
 
 class ProcedureReagentParser(DefaultTABLEParser):
 
-    default_range_dict = [dict(
-        header_row=17,
-        end_row=29,
-        sheet=""
-    )]
-
-    def __init__(self, filepath: Path | str, proceduretype: "ProcedureType"|None=None, range_dict: dict | None = None, *args, **kwargs):
+    def __init__(self, filepath: Path | str, proceduretype: ProcedureType|None=None, *args, **kwargs):
         from backend.validators.pydant import PydReagent
         proceduretype = self.correct_procedure_type(proceduretype)
-        if not range_dict:
-            range_dict = proceduretype.sample_map
-            if not range_dict:
-                range_dict = self.__class__.default_range_dict
-                for item in range_dict:
-                    item['sheet'] = proceduretype.name
-        super().__init__(filepath=filepath, proceduretype=proceduretype, range_dict=range_dict, *args, **kwargs)
+        super().__init__(filepath=filepath, proceduretype=proceduretype, *args, **kwargs)
         self._pyd_object = PydReagent
 
     @property
@@ -92,22 +55,10 @@ class ProcedureReagentParser(DefaultTABLEParser):
 
 class ProcedureEquipmentParser(DefaultTABLEParser):
 
-    default_range_dict = [dict(
-        header_row=32,
-        end_row=39,
-        sheet=""
-    )]
-
-    def __init__(self, filepath: Path | str, proceduretype: "ProcedureType"|None=None, range_dict: dict | None = None, *args, **kwargs):
+    def __init__(self, filepath: Path | str, proceduretype: ProcedureType|None=None, *args, **kwargs):
         from backend.validators.pydant import PydEquipment
         proceduretype = self.correct_procedure_type(proceduretype)
-        if not range_dict:
-            range_dict = proceduretype.sample_map
-            if not range_dict:
-                range_dict = self.__class__.default_range_dict
-                for item in range_dict:
-                    item['sheet'] = proceduretype.name
-        super().__init__(filepath=filepath, proceduretype=proceduretype, range_dict=range_dict, *args, **kwargs)
+        super().__init__(filepath=filepath, proceduretype=proceduretype, *args, **kwargs)
         self._pyd_object = PydEquipment
 
     @property

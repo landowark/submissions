@@ -6,9 +6,7 @@ import logging
 from datetime import datetime
 from pprint import pformat
 from typing import Generator, TYPE_CHECKING
-
 from dateutil.parser import parse
-
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:
@@ -47,7 +45,6 @@ class PCRSampleParser(DefaultResultsSampleParser):
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
         output = [item for item in super().parsed_info]
-        # logger.debug(f"PCRSampleParser parsed info: {pformat(output)}")
         sample_names = list(set([item['sample'] for item in output]))
         for sample in sample_names:
             multi = dict(result_type="PCR")

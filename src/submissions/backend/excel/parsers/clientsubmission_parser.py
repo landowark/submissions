@@ -2,8 +2,7 @@
 Module for clientsubmission parsing
 """
 from __future__ import annotations
-import logging
-import sys
+import logging, sys
 from datetime import datetime
 from pathlib import Path
 from string import ascii_lowercase
@@ -44,7 +43,7 @@ class SubmissionTyperMixin(object):
         return sub_type
 
     @classmethod
-    def get_subtype_from_regex(cls, filepath: Path) -> "SubmissionType":
+    def get_subtype_from_regex(cls, filepath: Path) -> SubmissionType:
         """
         Uses regex of the file name to determine submissiontype
 
@@ -68,7 +67,7 @@ class SubmissionTyperMixin(object):
         return sub_type
 
     @classmethod
-    def get_subtype_from_preparse(cls, filepath: Path) -> "SubmissionType":
+    def get_subtype_from_preparse(cls, filepath: Path) -> SubmissionType:
         """
         Performs a default parse of the file in an attempt to find the submission type.
 
@@ -117,8 +116,8 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
 
     pyd_name = "PydClientSubmission"
 
-    def __init__(self, filepath: Path | str, submissiontype: "SubmissionType" | None = None, *args, **kwargs):
-        logger.debug(f"Set submission type: {submissiontype}")
+    def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, *args, **kwargs):
+        # logger.debug(f"Set submission type: {submissiontype}")
         if not submissiontype:
             self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         else:
@@ -139,7 +138,6 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
             pass
         if isinstance(output['submitted_date']['value'], datetime):
             output['submitted_date']['value'] = output['submitted_date']['value'].date()
-
         return output
 
 
