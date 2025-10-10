@@ -50,7 +50,7 @@
     <button type="button"><h3><u>Results:</u></h3></button>
     {% for result in procedure['results'] %}
     <p>{% for key, value in result['result'].items() %}
-        <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value['value'] }}<br>
+        <b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
     {% endfor %}</p>
     {% endfor %}
     {% endif %}

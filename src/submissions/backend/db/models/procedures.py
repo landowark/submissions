@@ -811,13 +811,14 @@ class ProcedureType(BaseClass):
                                vw=vw, creation=creation)
         return html + "<br/>"
 
-    def pad_sample_dicts(self, sample_dicts: List["PydSample"]):
+    def pad_sample_dicts(self, sample_dicts: List[PydSample]):
         from backend.validators.pydant import PydSample
         output = []
         for row, column in self.ranked_plate.values():
             sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
-                          PydSample(**dict(sample_id="", row=row, column=column, enabled=False)))
-            sample.background_color = "#6ffe1d" if sample.enabled else "#ffffff"
+                          PydSample(**dict(sample_id="", row=row, column=column, enabled=False, background_color="white")))
+            # if not hasattr(sample, "background_color"):
+            #     sample.background_color = "white"
             output.append(sample)
         return output
 
@@ -846,7 +847,7 @@ class Procedure(BaseClass):
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="SET NULL",
                                         name="fk_PRO_basicrun_id"))  #: client lab id from _organizations))
     run = relationship("Run", back_populates="procedure")
-    control = relationship("Control", back_populates="procedure", uselist=True)  #: A control sample added to procedure
+    # control = relationship("Control", back_populates="procedure", uselist=True)  #: A control sample added to procedure
 
     proceduresampleassociation = relationship(
         "ProcedureSampleAssociation",
@@ -1832,7 +1833,7 @@ class Process(BaseClass):
 
 class ProcessVersion(BaseClass):
 
-    pyd_model_name = "Process"
+    pyd_model_name = "ProcessVersion"
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     version = Column(FLOAT(2), default=1.00)  #: Version number

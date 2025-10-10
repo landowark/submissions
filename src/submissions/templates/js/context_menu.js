@@ -1,51 +1,3 @@
-//function openMulti() {
-//  if (document.querySelector(".selectWrapper").style.pointerEvents == "all") {
-//    document.querySelector(".selectWrapper").style.opacity = 0;
-//    document.querySelector(".selectWrapper").style.pointerEvents = "none";
-//    resetAllMenus();
-//  } else {
-//    document.querySelector(".selectWrapper").style.opacity = 1;
-//    document.querySelector(".selectWrapper").style.pointerEvents = "all";
-//  }
-//}
-//function nextMenu(e) {
-//  menuIndex = eval(event.target.parentNode.id.slice(-1));
-//  document.querySelectorAll(".multiSelect")[menuIndex].style.transform =
-//    "translateX(-100%)";
-//  document.querySelectorAll(".multiSelect")[menuIndex].style.clipPath = "polygon(0 0, 0 0, 0 100%, 0% 100%)";
-//  document.querySelectorAll(".multiSelect")[menuIndex].style.clipPath =
-//    "polygon(100% 0, 100% 0, 100% 100%, 100% 100%)";
-//  document.querySelectorAll(".multiSelect")[menuIndex + 1].style.transform =
-//    "translateX(0)";
-//  document.querySelectorAll(".multiSelect")[menuIndex + 1].style.clipPath =
-//    "polygon(0 0, 100% 0, 100% 100%, 0% 100%)";
-//}
-//function prevMenu(e) {
-//  menuIndex = eval(event.target.parentNode.id.slice(-1));
-//  document.querySelectorAll(".multiSelect")[menuIndex].style.transform =
-//    "translateX(100%)";
-//  document.querySelectorAll(".multiSelect")[menuIndex].style.clipPath =
-//    "polygon(0 0, 0 0, 0 100%, 0% 100%)";
-//  document.querySelectorAll(".multiSelect")[menuIndex - 1].style.transform =
-//    "translateX(0)";
-//  document.querySelectorAll(".multiSelect")[menuIndex - 1].style.clipPath =
-//    "polygon(0 0, 100% 0, 100% 100%, 0% 100%)";
-//}
-//function resetAllMenus() {
-//  setTimeout(function () {
-//    var x = document.getElementsByClassName("multiSelect");
-//    var i;
-//    for (i = 1; i < x.length; i++) {
-//      x[i].style.transform = "translateX(100%)";
-//      x[i].style.clipPath = "polygon(0 0, 0 0, 0 100%, 0% 100%)";
-//    }
-//    document.querySelectorAll(".multiSelect")[0].style.transform =
-//      "translateX(0)";
-//    document.querySelectorAll(".multiSelect")[0].style.clipPath =
-//      "polygon(0 0, 100% 0, 100% 100%, 0% 100%)";
-//  }, 300);
-//}
-
 
 ///////////////////////////////////////
 ///////////////////////////////////////
@@ -110,13 +62,19 @@ function positionMenu(e) {
 function menuItemListener( link ) {
     const contextIndex = [...gridContainer.children].indexOf(taskItemInContext);
     const task_id = taskItemInContext.getAttribute("id")
-    backend.log("Task action - " + link.getAttribute("data-action"))
+//    backend.log("Task action - " + link.getAttribute("data-action"));
     switch (link.getAttribute("data-action")) {
         case "InsertSample":
             insertSample(contextIndex, task_id);
         break;
-        case "InsertControl":
-            insertControl(taskItemInContext);
+        case "InsertEN":
+            insertEN(taskItemInContext);
+        break;
+        case "InsertPositive":
+            insertPositive(taskItemInContext);
+        break;
+        case "InsertNegative":
+            insertNegative(taskItemInContext);
         break;
         case "RemoveSample":
             removeSample(contextIndex);
@@ -244,7 +202,7 @@ function insertSample( index ) {
     backend.log( "Index - " + index + ", InsertSample");
 }
 
-function insertControl( targetItem ) {
+function insertEN( targetItem ) {
 
     const gridC = document.getElementById("plate-container");
     var existing_ens = document.getElementsByClassName("EN");
@@ -255,6 +213,36 @@ function insertControl( targetItem ) {
     elem.setAttribute("class", "well negativecontrol EN");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + en_name + '</p>'
+    gridC.insertBefore(elem, targetItem.nextSibling);
+    targetItem.remove();
+}
+
+function insertPositive( targetItem ) {
+
+    const gridC = document.getElementById("plate-container");
+    var existing_pos = document.getElementsByClassName("positivecontrol");
+    var pos_num = existing_pos.length + 1;
+    const pos_name = "PC" + pos_num + "-" + rsl_plate_num;
+    var elem = document.createElement("div");
+    elem.setAttribute("id", pos_name);
+    elem.setAttribute("class", "well positivecontrol");
+    elem.setAttribute("draggable", "true");
+    elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + pos_name + '</p>'
+    gridC.insertBefore(elem, targetItem.nextSibling);
+    targetItem.remove();
+}
+
+function insertNegative( targetItem ) {
+
+    const gridC = document.getElementById("plate-container");
+    var existing_neg = document.getElementsByClassName("negativecontrol");
+    var neg_num = existing_neg.length + 1;
+    const neg_name = "NC" + neg_num + "-" + rsl_plate_num;
+    var elem = document.createElement("div");
+    elem.setAttribute("id", neg_name);
+    elem.setAttribute("class", "well negativecontrol");
+    elem.setAttribute("draggable", "true");
+    elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + neg_name + '</p>'
     gridC.insertBefore(elem, targetItem.nextSibling);
     targetItem.remove();
 }

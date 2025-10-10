@@ -6,19 +6,20 @@ import sys, logging, json, inspect
 from datetime import datetime, date
 from pprint import pformat
 from dateutil.parser import parse
-from jinja2 import TemplateNotFound, Template
+from jinja2 import TemplateNotFound
 from pandas import DataFrame
-from pydantic import BaseModel
-from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP
+from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT
 from sqlalchemy.ext.associationproxy import AssociationProxy
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
-from typing import Any, List, ClassVar
+from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from tools import report_result, list_sort_dict, jinja_template_loading, Report, Alert, ctx
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -147,12 +148,13 @@ class BaseClass(Base):
         except AttributeError:
             return []
 
-    @classmethod
-    def get_omni_sort(cls):
-        output = [item[0] for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a)))
-                  if isinstance(item[1], InstrumentedAttribute)]  # and not isinstance(item[1].property, _RelationshipDeclared)]
-        output = [item for item in output if item not in ['_misc_info']]
-        return output
+    # Marked for removal
+    # @classmethod
+    # def get_omni_sort(cls):
+    #     output = [item[0] for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a)))
+    #               if isinstance(item[1], InstrumentedAttribute)]  # and not isinstance(item[1].property, _RelationshipDeclared)]
+    #     output = [item for item in output if item not in ['_misc_info']]
+    #     return output
 
     @classmethod
     def get_searchables(cls):
@@ -182,23 +184,24 @@ class BaseClass(Base):
         # NOTE: singles is a list of fields that need to be limited to 1 result.
         return dict(singles=list(set(cls.singles + BaseClass.singles)))
 
-    @classmethod
-    def find_regular_subclass(cls, name: str | None = None) -> Any:
-        """
-        Args:
-            name (str): name of subclass of interest.
-
-        Returns:
-            Any: Subclass of this object.
-        """
-        if name:
-            if " " in name:
-                search = name.title().replace(" ", "")
-            else:
-                search = name
-            return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
-        else:
-            return cls.__subclasses__()
+    # Marked for removal
+    # @classmethod
+    # def find_regular_subclass(cls, name: str | None = None) -> Any:
+    #     """
+    #     Args:
+    #         name (str): name of subclass of interest.
+    #
+    #     Returns:
+    #         Any: Subclass of this object.
+    #     """
+    #     if name:
+    #         if " " in name:
+    #             search = name.title().replace(" ", "")
+    #         else:
+    #             search = name
+    #         return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
+    #     else:
+    #         return cls.__subclasses__()
 
     @classmethod
     def fuzzy_search(cls, **kwargs) -> List[Any]:
@@ -226,11 +229,11 @@ class BaseClass(Base):
     @classmethod
     def results_to_df(cls, objects: list | None = None, **kwargs) -> DataFrame:
         """
-        Converts class sub_dicts into a Dataframe for all control of the class.
+        Converts class details_dicts into a Dataframe for all control of the class.
 
         Args:
-            objects (list): Objects to be converted to dataframe.
-            **kwargs (): Arguments necessary for the to_sub_dict method. eg kittype=X
+            objects (list, Optional): Objects to be converted to dataframe. Defaults to None.
+            **kwargs (): Arguments necessary for the details_dict method. eg proceduretype=X
 
         Returns:
             Dataframe
@@ -250,10 +253,20 @@ class BaseClass(Base):
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:
+        """
+        Gets existing object or creates new one.
+
+        Args:
+            **kwargs:
+
+        Returns:
+            Tuple[Any, bool]: Object and whether or not it's new.
+        """
         new = False
         allowed = [k for k, v in cls.__dict__.items() if
                    isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+        # NOTE: outside kwargs will be reintroduced into misc_info
         outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
         instance = cls.query(limit=1, **sanitized_kwargs)
         if not instance or isinstance(instance, list):
@@ -262,14 +275,15 @@ class BaseClass(Base):
         for k, v in sanitized_kwargs.items():
             if k == "id":
                 continue
+            # NOTE: Setattr used to make use of overridden method.
             try:
                 setattr(instance, k, v)
             except AttributeError as e:
+                # TODO move to __setattr__?
                 from backend.validators.pydant import PydBaseClass
                 if issubclass(v.__class__, PydBaseClass):
                     setattr(instance, k, v.to_sql())
         instance._misc_info.update(outside_kwargs)
-        # logger.info(f"Instance from query or create: {instance}, new: {new}")
         return instance, new
 
     @classmethod
@@ -291,9 +305,10 @@ class BaseClass(Base):
         Execute sqlalchemy query with relevant defaults.
 
         Args:
-            model (Any, optional): model to be queried, allows for plugging in. Defaults to None
             query (Query, optional): input query object. Defaults to None
+            model (Any, optional): model to be queried, allows for plugging in. Defaults to None
             limit (int): Maximum number of results. (0 = all). Defaults to 0
+            offset (int, optional): Offset from which to start. Defaults to None.
 
         Returns:
             Any | List[Any]: Single result if limit = 1 or List if other.
@@ -307,7 +322,7 @@ class BaseClass(Base):
             except (ArgumentError, AttributeError) as e:
                 logger.error(f"Attribute {k} unavailable due to:\n\t{e}\n.")
                 continue
-                # NOTE: account for attrs that use list.
+            # NOTE: account for attrs that use list.
             try:
                 check = attr.property.uselist
             except AttributeError:
@@ -347,6 +362,7 @@ class BaseClass(Base):
             items = self._misc_info.items()
         except AttributeError:
             items = []
+        # NOTE: Ensure values in misc_info are json serializable.
         for key, value in items:
             try:
                 json.dumps(value)
@@ -363,34 +379,35 @@ class BaseClass(Base):
             report.add_result(Alert(msg=e, status="Critical"))
             return report
 
-    @property
-    def omnigui_instance_dict(self) -> dict:
-        """
-        For getting any object in an omni-thing friendly output.
+    # Marked for removal
+    # @property
+    # def omnigui_instance_dict(self) -> dict:
+    #     """
+    #     For getting any object in an omni-thing friendly output.
+    #
+    #     Returns:
+    #         dict: Dictionary of object minus _sa_instance_state with id at the front.
+    #     """
+    #     dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
+    #              for key in self.get_omni_sort()}
+    #     for k, v in dicto.items():
+    #         try:
+    #             v['instance_attr'] = v['instance_attr'].name
+    #         except AttributeError:
+    #             continue
+    #     try:
+    #         dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.get_omni_sort())
+    #     except TypeError as e:
+    #         logger.error(f"Could not sort {self.__class__.__name__} by list due to :{e}")
+    #     try:
+    #         dicto = {'id': dicto.pop('id'), **dicto}
+    #     except KeyError:
+    #         pass
+    #     return dicto
 
-        Returns:
-            dict: Dictionary of object minus _sa_instance_state with id at the front.
-        """
-        dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
-                 for key in self.get_omni_sort()}
-        for k, v in dicto.items():
-            try:
-                v['instance_attr'] = v['instance_attr'].name
-            except AttributeError:
-                continue
-        try:
-            dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.get_omni_sort())
-        except TypeError as e:
-            logger.error(f"Could not sort {self.__class__.__name__} by list due to :{e}")
-        try:
-            dicto = {'id': dicto.pop('id'), **dicto}
-        except KeyError:
-            pass
-        return dicto
-
-    @declared_attr
+    # @declared_attr
     @classmethod
-    def pydantic_model(cls):
+    def pydantic_model(cls, pyd_model_name: str | None = None, **kwargs) -> Any:
         """
         Gets the pydantic model corresponding to this object.
 
@@ -398,27 +415,33 @@ class BaseClass(Base):
             Pydantic model with name "Pyd{cls.__name__}"
         """
         from backend.validators import pydant
-        try:
-            model = getattr(pydant, f"Pyd{cls.__name__}")
-        except AttributeError:
-            logger.warning(f"Couldn't get {cls.__name__} pydantic model.")
+        if not pyd_model_name:
             try:
-                model = getattr(pydant, f"Pyd{cls.pyd_model_name}")
+                pyd_model_name = f"Pyd{cls.pyd_model_name}"
             except AttributeError:
-                return pydant.PydElastic
+                pyd_model_name = f"Pyd{cls.__name__}"
+        try:
+            model = getattr(pydant, pyd_model_name)
+        except AttributeError:
+            # logger.error(f"Couldn't get {pyd_model_name} pydantic model. Falling back to declared pyd_model_name")
+            # try:
+            #     model = getattr(pydant, f"Pyd{cls.pyd_model_name}")
+            # except AttributeError:
+            logger.error(f"Could get model {pyd_model_name}, returning None")
+            return None
         return model
 
-    # @classproperty
-    @declared_attr
-    @classmethod
-    def add_edit_tooltips(cls):
-        """
-        Gets tooltips for Omni-add-edit
-
-        Returns:
-            dict: custom dictionary for this class.
-        """
-        return dict()
+    # Marked for removal
+    # @declared_attr
+    # @classmethod
+    # def add_edit_tooltips(cls):
+    #     """
+    #     Gets tooltips for Omni-add-edit
+    #
+    #     Returns:
+    #         dict: custom dictionary for this class.
+    #     """
+    #     return dict()
 
     @declared_attr
     @classmethod
@@ -437,7 +460,6 @@ class BaseClass(Base):
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
-            # logger.error(f"Couldn't find template {e}")
             template = env.get_template("details.html")
         return template
 
@@ -489,8 +511,8 @@ class BaseClass(Base):
             if check:
                 self_value = self_value.name
             if self_value != value:
-                output = False
-                return output
+                # output = False
+                return False
         return True
 
     def __setattr__(self, key, value):
@@ -499,8 +521,10 @@ class BaseClass(Base):
         """
         if key.startswith("_"):
             return super().__setattr__(key, value)
+        # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         check = not hasattr(self, key)
         if check:
+            # NOTE: ensure value is json serializable.
             try:
                 value = json.dumps(value)
             except TypeError as e:
@@ -518,7 +542,6 @@ class BaseClass(Base):
         if isinstance(field_type, InstrumentedAttribute):
             match field_type.property:
                 case ColumnProperty():
-
                     return super().__setattr__(key, value)
                 case _RelationshipDeclared():
                     if field_type.property.uselist:
@@ -550,6 +573,7 @@ class BaseClass(Base):
                         except AttributeError:
                             logger.warning(f"Possible attempt to set relationship {key} to simple var type. {value}")
                             relationship_class = field_type.property.entity.entity
+                            logger.warning(f"Running query for {relationship_class.__name__}")
                             value = relationship_class.query(name=value)
                             try:
                                 return super().__setattr__(key, value)
@@ -571,8 +595,8 @@ class BaseClass(Base):
         Converts input into a datetime string for querying purposes
 
         Args:
-            eod (bool, optional): Whether to use max time to indicate end of day.
-            input_date ():
+            eod (bool, optional): Whether to use max time to indicate end of day. Defaults to False.
+            input_date (datetime): Input date to convert.
 
         Returns:
             datetime: properly formated datetime
@@ -593,11 +617,20 @@ class BaseClass(Base):
         return output_date
 
     def details_dict(self, **kwargs) -> dict:
+        """
+        Primary method for getting BaseClass subclasses as dictionaries
 
+        Args:
+            **kwargs:
+
+        Returns:
+            dict():
+        """
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id", "background_color"])
+        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
+            # NOTE: foreign keys handled in child overrides.
             try:
                 check = v.foreign_keys
             except AttributeError:
@@ -620,7 +653,16 @@ class BaseClass(Base):
         return output
 
     @classmethod
-    def clean_details_for_render(cls, dictionary):
+    def clean_details_for_render(cls, dictionary) -> dict:
+        """
+        Cleans dictionary for rendering.
+
+        Args:
+            dictionary: input dictionary
+
+        Returns:
+            dict: cleaned dictionary
+        """
         output = {}
         for k, value in dictionary.items():
             match value:
@@ -636,7 +678,7 @@ class BaseClass(Base):
                             value = value
                         else:
                             continue
-                case x if issubclass(value.__class__, cls):
+                case x if issubclass(value.__class__, BaseClass):
                     try:
                         value = value.name
                     except AttributeError:
@@ -646,23 +688,14 @@ class BaseClass(Base):
             output[k] = value
         return output
 
-    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
-        from backend.validators import pydant
-        if not pyd_model_name:
-            pyd_model_name = f"Pyd{self.__class__.__name__}"
-        # logger.info(f"Looking for pydant model {pyd_model_name}")
-        try:
-            pyd = getattr(pydant, pyd_model_name)
-        except AttributeError:
-            raise AttributeError(f"Could not get pydantic class {pyd_model_name}")
-        pyd.model_rebuild()
+    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
+        pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
         return pyd(**self.details_dict(**kwargs))
 
     def show_details(self, obj):
         from frontend.widgets.submission_details import SubmissionDetails
         dlg = SubmissionDetails(parent=obj, sub=self)
-        if dlg.exec():
-            pass
+        dlg.exec()
 
     def export(self, obj, output_filepath: str | Path | None = None):
         from backend import managers
@@ -737,7 +770,7 @@ from .procedures import (
 from .submissions import (
     ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation
 )
-from .controls import ControlType, Control
+# from .controls import ControlType, Control
 
 # NOTE: Add a creator to the procedure for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator

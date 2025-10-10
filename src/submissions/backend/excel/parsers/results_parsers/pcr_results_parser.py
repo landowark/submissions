@@ -3,8 +3,12 @@ Parser for pcr results from Design and Analysis Studio
 """
 from __future__ import annotations
 import logging
+from datetime import datetime
 from pprint import pformat
 from typing import Generator, TYPE_CHECKING
+
+from dateutil.parser import parse
+
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:
@@ -19,19 +23,25 @@ class PCRInfoParser(DefaultResultsInfoParser):
         self.results_type = "PCR"
         self.procedure = procedure
         super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type=self.results_type)
+        date_analyzed = next((v for k,v in self.parsed_info if k == "analysis_date/time"),
+                             datetime.combine(datetime.today(), datetime.min.time()))
+        if not isinstance(date_analyzed, datetime):
+            date_analyzed = parse(date_analyzed, tzinfos={"CDT":"America/Winnipeg"})
+        self.date_analyzed = date_analyzed
 
     def to_pydantic(self):
         data = dict(results={k: v for k, v in self.parsed_info}, filepath=self.filepath,
                     result_type=self.results_type)
-        return self._pyd_object(**data, parent=self.procedure)
+        return self._pyd_object(**data, date_analyzed=self.date_analyzed, parent=self.procedure)
 
 
 class PCRSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure=None, **kwargs):
+    def __init__(self, filepath: Path | str, date_analyzed: datetime, sheet: str | None = None, start_row: int = 1,  procedure=None, **kwargs):
         self.results_type = "PCR"
         self.procedure = procedure
+        self.date_analyzed = date_analyzed
         super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type=self.results_type)
 
     @property
@@ -58,7 +68,7 @@ class PCRSampleParser(DefaultResultsSampleParser):
                 continue
             assoc = ProcedureSampleAssociation.query(sample=sample_obj, procedure=self.procedure)
             if assoc and not isinstance(assoc, list):
-                output = self._pyd_object(results=list(item.values())[0], parent=assoc)
+                output = self._pyd_object(results=list(item.values())[0], parent=assoc, date_analyzed=self.date_analyzed)
                 output.result_type = "PCR"
                 try:
                     del output.result['result_type']

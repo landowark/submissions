@@ -318,6 +318,20 @@ class PydSample(PydBaseClass):
     row: int = Field(default=0)
     column: int = Field(default=0)
     results: List[PydResults] | PydResults = Field(default=[])
+    is_control: int = Field(default=0)
+
+    @field_validator('is_control', mode='before')
+    @classmethod
+    def enforce_value_range(cls, value):
+        if value is None:
+            value = 0
+        if value >= 1:
+            value = 1
+        elif value <= -1:
+            value = -1
+        else:
+            value = 0
+        return value
 
     @field_validator("sample_id", mode="before")
     @classmethod
@@ -727,7 +741,7 @@ class PydProcessVersion(PydBaseClass, extra="allow", arbitrary_types_allowed=Tru
             instance = ProcessVersion()
         return instance
 
-
+# Marked for removalq
 class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
     """Allows for creation of arbitrary pydantic models"""
     instance: BaseClass
@@ -915,7 +929,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                 sample = next(
                     (item for item in self.sample if item.sample_id.upper() == sample_dict['sample_id'].upper()))
             except StopIteration:
-                # NOTE: Code to check for added controls.
+                # NOTE Code to check for added controls.
                 logger.debug(
                     f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
                 try:
@@ -923,14 +937,29 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                         (item for item in self.sample if item.row == row and item.column == column))
                 except StopIteration:
                     logger.error(f"Couldn't find sample: {pformat(sample_dict)}")
-                    continue
+                    if sample_dict['sample_id'] == "":
+                        continue
+                    else:
+                        sample = PydSample(sample_id=sample_dict['sample_id'], row=row, column=column)
+                        self.sample.append(sample)
             sample.sample_id = sample_dict['sample_id']
             sample.well_id = sample_dict['sample_id']
             sample.row = row
             sample.column = column
             sample.procedure_rank = sample_dict['index']
+            try:
+                well_class = sample_dict['class'].split(" ")[-1]
+            except KeyError:
+                well_class = ""
+            match well_class:
+                case "negativecontrol":
+                    sample.is_control = -1
+                case "positivecontrol":
+                    sample.is_control = 1
+                case _:
+                    sample.is_control = 0
 
-    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str):
+    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str, checked:bool=True):
         try:
             removable = next((item for item in self.reagent if item.reagentrole == reagentrole), None)
         except AttributeError as e:
@@ -942,7 +971,44 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         else:
             idx = 0
         insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
-        self.reagent.insert(idx, insertable)
+        if checked:
+            self.reagent.insert(idx, insertable)
+        logger.debug(f"reagent output: {pformat(self.reagent)}")
+
+    def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
+        from backend.db.models import Equipment, ProcessVersion, TipsLot
+        logger.debug(f"Updating equipment: {equipment}, role: {equipmentrole}, process: {processversion}, tips: {tips}")
+        try:
+            equipment_of_interest = next(
+                (item for item in self.equipment if item.equipmentrole == equipmentrole))
+        except StopIteration:
+            equipment_of_interest = None
+        equipment = Equipment.query(name=equipment)
+        if equipment_of_interest:
+            eoi = self.equipment.pop(self.equipment.index(equipment_of_interest))
+        else:
+            eoi: PydEquipment = equipment.to_pydantic(equipmentrole=equipmentrole)
+        eoi.name = equipment.name
+        eoi.asset_number = equipment.asset_number
+        eoi.nickname = equipment.nickname
+        process_name, version = processversion.split("-v")
+        # logger.debug(f"Query version: {type(version)}")
+        processversion = ProcessVersion.query(name=process_name, version=version, limit=1)
+        # logger.debug(f"Got instance: {processversion}")
+        # NOTE Retrieves correct instance.
+        eoi.processversion = processversion.to_pydantic()
+        # logger.debug(f"Pydantic output: {type(eoi.processversion)}:{eoi.processversion.__dict__}")
+        # NOTE Correct pydprocessverion
+        try:
+            tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
+            tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
+            eoi.tips = tips
+        except ValueError:
+            logger.warning(f"No tips info to unpack")
+        if checked:
+            self.equipment.append(eoi)
+        # logger.debug(f"Equipment output: {pformat(self.equipment)}")
+
 
     @classmethod
     def update_new_reagents(cls, reagent: PydReagent):
@@ -1008,10 +1074,12 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             sample_sql = sample.to_sql()
             if sql.run:
                 if sample_sql not in sql.run.sample:
-                    run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
+                    with sample_sql.__database_session__.no_autoflush:
+                        run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
                                                      column=sample.column)
             if sample_sql not in sql.sample:
-                proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
+                with sample_sql.__database_session__.no_autoflush:
+                    proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
         for equipment in self.equipment:

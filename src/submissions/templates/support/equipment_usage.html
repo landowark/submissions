@@ -22,7 +22,7 @@
 {% for equipmentrole in equipmentroles %}
     <div class="grid-container">
         <div>
-            <label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
+            <input type="checkbox" class="procedure_checkbox" checked id="{{ equipmentrole['name'] }}_check" name="{{ equipmentrole['name'] }}"><label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
             <select class="equipmentrole dropdown" id="{{ equipmentrole['name'] }}" name="{{ equipmentrole['name'] }}">
             </select>
         </div>

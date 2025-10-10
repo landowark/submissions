@@ -1,6 +1,6 @@
-'''
+"""
 All client organization related models.
-'''
+"""
 from __future__ import annotations
 import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
@@ -11,10 +11,9 @@ from typing import List
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-# table containing clientlab/contact relationship
+# NOTE: table containing clientlab/contact relationship
 clientlab_contact = Table(
     "_clientlab_contact",
-    # Base.metadata,
     BaseClass.__base__.metadata,
     Column("clientlab_id", INTEGER, ForeignKey("_clientlab.id")),
     Column("contact_id", INTEGER, ForeignKey("_contact.id")),

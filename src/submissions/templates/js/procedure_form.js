@@ -112,6 +112,25 @@ for(let i = 0; i < reagentRoles.length; i++) {
   });
 };
 
+var checkboxes = document.getElementsByClassName("procedure_checkbox");
+
+for(let i = 0; i < checkboxes.length; i++) {
+
+    checkboxes[i].addEventListener("input", function() {
+        neighbour = document.getElementById(checkboxes[i].name);
+        neighbour.disabled = !checkboxes[i].checked;
+        if (neighbour.classList.contains("equipmentrole")) {
+            process = document.getElementById(checkboxes[i].name + "_process");
+            process.disabled = !checkboxes[i].checked;
+            tips = document.getElementById(checkboxes[i].name + "_tips");
+            tips.disabled = !checkboxes[i].checked;
+            backend.update_equipment(neighbour.name, neighbour.value, process.value, tips.value, checkboxes[i].checked);
+        } else if (neighbour.classList.contains("reagentrole")) {
+            backend.update_reagent(neighbour.name, neighbour.value, checkboxes[i].checked);
+        };
+    });
+}
+
 var equipmentroles = document.getElementsByClassName("equipmentrole");
 
 window.onload = function() {

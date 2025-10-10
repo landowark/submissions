@@ -1,13 +1,14 @@
 """
 Contains the audit log class and functions.
 """
+from __future__ import annotations
 from typing import List
 from dateutil.parser import parse
 from sqlalchemy.orm import declarative_base, DeclarativeMeta, Query
 from . import BaseClass
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
-import logging
+import logging, sys
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -28,7 +29,7 @@ class AuditLog(Base):
         return f"<{self.object}: {self.user} @ {self.time}>"
 
     @classmethod
-    def query(cls, start_date: date | str | int | None = None, end_date: date | str | int | None = None) -> List["AuditLog"]:
+    def query(cls, start_date: date | str | int | None = None, end_date: date | str | int | None = None) -> List[AuditLog]:
         """
         Searches for database transactions by date.
 

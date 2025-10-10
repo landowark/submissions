@@ -31,24 +31,25 @@ class PCRInfoWriter(DefaultResultsInfoWriter):
 class PCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
-        worksheet = workbook[f"{self.proceduretype.name} Results"]
+        workbook = super().write_to_workbook(workbook)
+        # worksheet = workbook[f"{self.proceduretype.name} Results"]
         header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['header_row']
         proto_columns = [(1, "sample"), (2, "target")]
         columns = []
         for iii, header in enumerate(self.column_headers, start=3):
-            worksheet.cell(row=header_row, column=iii, value=header.replace("_", " ").title())
+            self.worksheet.cell(row=header_row, column=iii, value=header.replace("_", " ").title())
             columns.append((iii, header))
         columns = sorted(columns, key=lambda x: x[0])
         columns = proto_columns + columns
         all_results = flatten_list([[item for item in self.rearrange_results(result)] for result in self.pydant_obj])
         if len(all_results) > 0 :
-            worksheet.cell(row=header_row, column=1, value="Sample")
-            worksheet.cell(row=header_row, column=2, value="Target")
+            self.worksheet.cell(row=header_row, column=1, value="Sample")
+            self.worksheet.cell(row=header_row, column=2, value="Target")
         for iii, item in enumerate(all_results, start=1):
             row = header_row + iii
             for k, v in item.items():
                 column = next((col[0] for col in columns if col[1]==k), None)
-                cell = worksheet.cell(row=row, column=column)
+                cell = self.worksheet.cell(row=row, column=column)
                 cell.value = v
                 cell.alignment = Alignment(horizontal='left')
         return workbook

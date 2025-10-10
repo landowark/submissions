@@ -25,6 +25,7 @@ class ProcedureCreation(QDialog):
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
+
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
         self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
                                                    enumerate(self.procedure.sample, start=1)])
@@ -32,13 +33,13 @@ class ProcedureCreation(QDialog):
         self.webview = QWebEngineView(parent=self)
         self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.webview.setMinimumSize(1200, 800)
-        self.webview.setMaximumWidth(1200)
+        # self.webview.setMaximumWidth(1200)
         # NOTE: Decide if exporting should be allowed.
         self.layout = QGridLayout()
         # NOTE: button to export a pdf version
         self.layout.addWidget(self.webview, 1, 0, 10, 10)
         self.setLayout(self.layout)
-        self.setFixedWidth(self.webview.width() + 20)
+        # self.setFixedWidth(self.webview.width() + 20)
         # NOTE: setup channel
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
@@ -49,6 +50,9 @@ class ProcedureCreation(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
         self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
+        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
+
 
 
     def set_html(self):
@@ -88,40 +92,15 @@ class ProcedureCreation(QDialog):
             plate_map=self.plate_map,
             edit=self.edit
         )
+        with open("platemap.html", "w") as f:
+            f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
-    def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str):
-        from backend.db.models import Equipment, ProcessVersion, TipsLot
-        logger.debug(f"Updating equipment: {equipment}, role: {equipmentrole}, process: {processversion}, tips: {tips}")
-        try:
-            equipment_of_interest = next(
-                (item for item in self.procedure.equipment if item.equipmentrole == equipmentrole))
-        except StopIteration:
-            equipment_of_interest = None
-        equipment = Equipment.query(name=equipment)
-        if equipment_of_interest:
-            eoi = self.procedure.equipment.pop(self.procedure.equipment.index(equipment_of_interest))
-        else:
-            eoi: PydEquipment = equipment.to_pydantic(equipmentrole=equipmentrole)
-        eoi.name = equipment.name
-        eoi.asset_number = equipment.asset_number
-        eoi.nickname = equipment.nickname
-        process_name, version = processversion.split("-v")
-        logger.debug(f"Query version: {type(version)}")
-        processversion = ProcessVersion.query(name=process_name, version=version, limit=1)
-        logger.debug(f"Got instance: {processversion}")
-        # Retrieves correct instance.
-        eoi.processversion = processversion.to_pydantic()
-        logger.debug(f"Pydantic output: {type(eoi.processversion)}:{eoi.processversion.__dict__}")
-        # Correct pydprocessverion
-        try:
-            tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
-            tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
-            eoi.tips = tips
-        except ValueError:
-            logger.warning(f"No tips info to unpack")
-        self.procedure.equipment.append(eoi)
+    @pyqtSlot(str, str, str, str, bool)
+    def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
+        logger.debug(f"update_equipment: {equipmentrole}, {equipment}, {checked}")
+        self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
     def text_changed(self, key: str, new_value: str):
@@ -151,6 +130,7 @@ class ProcedureCreation(QDialog):
 
     @pyqtSlot(list)
     def rearrange_plate(self, sample_list: List[dict]):
+        logger.debug(f"Start updating samples: {pformat(sample_list)}")
         self.procedure.update_samples(sample_list=sample_list)
 
     @pyqtSlot(str)
@@ -167,18 +147,27 @@ class ProcedureCreation(QDialog):
         self.set_html()
 
     @pyqtSlot(str, str)
-    def update_reagent(self, reagentrole: str, name_lot_expiry: str):
+    @pyqtSlot(str, str, bool)
+    def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
+        logger.debug(f"Updating reagent {reagentrole}, {name_lot_expiry}, {checked}")
         try:
             name, lot, expiry = name_lot_expiry.split(" - ")
         except ValueError as e:
             return
-        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
+        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry, checked=checked)
 
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):
         from backend.db.models import ReagentRole
         reagentrole = ReagentRole.query(name=reagentrole_name)
         return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
+
+
+    @pyqtSlot(str)
+    def remove_element(self, element: str):
+        logger.debug(f"Removing element: {element}")
+        logger.debug(f"Removing element: {pformat(self)}")
+
 
     def return_sql(self, new: bool = False):
         output = self.procedure.to_sql(new=new)

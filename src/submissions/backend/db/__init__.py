@@ -41,7 +41,7 @@ from .models import (
     Tips, TipsLot, ProcedureEquipmentAssociation,
     ProcedureTypeEquipmentRoleAssociation, Results,
     ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation,
-    ControlType, Control,
+    # ControlType, Control,
     ClientLab, Contact
 )
 

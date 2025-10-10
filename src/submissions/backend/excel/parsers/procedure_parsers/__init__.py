@@ -1,3 +1,6 @@
+"""
+Default procedure parsers.
+"""
 from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -17,24 +20,24 @@ TODO
 
 class ProcedureInfoParser(DefaultKEYVALUEParser):
 
-    default_range_dict = [dict(
-        start_row=1,
-        end_row=6,
-        key_column=1,
-        value_column=2,
-        sheet=""
-    )]
+    # default_range_dict = [dict(
+    #     start_row=1,
+    #     end_row=6,
+    #     key_column=1,
+    #     value_column=2,
+    #     sheet=""
+    # )]
 
-    def __init__(self, filepath: Path | str, proceduretype: "ProcedureType"|None=None, range_dict: dict | None = None, *args, **kwargs):
+    def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None=None, *args, **kwargs):
         from backend.validators.pydant import PydProcedure
-        proceduretype = self.correct_procedure_type(proceduretype)
-        if not range_dict:
-            range_dict = proceduretype.info_map
-            if not range_dict:
-                range_dict = self.__class__.default_range_dict
-                for item in range_dict:
-                    item['sheet'] = proceduretype.name
-        super().__init__(filepath=filepath, proceduretype=proceduretype, range_dict=range_dict, *args, **kwargs)
+        # proceduretype = self.correct_procedure_type(proceduretype)
+        # if not range_dict:
+        #     range_dict = proceduretype.info_map
+        #     if not range_dict:
+        #         range_dict = self.__class__.default_range_dict
+        #         for item in range_dict:
+        #             item['sheet'] = proceduretype.name
+        super().__init__(filepath=filepath, proceduretype=proceduretype, *args, **kwargs)
         self._pyd_object = PydProcedure
 
 

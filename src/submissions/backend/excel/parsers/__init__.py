@@ -113,7 +113,6 @@ class DefaultKEYVALUEParser(DefaultParser):
 
     @property
     def parsed_info(self):
-
         rows = range(self.start_row, self.end_row)
         for row in rows:
             check_row = [item for item in self.worksheet.rows][row-1]

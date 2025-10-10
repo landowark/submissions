@@ -1228,7 +1228,6 @@ class Run(BaseClass, LogMixin):
         for sample in self.sample:
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
-                logger.debug(submission_rank)
                 try:
                     row, column = plate_dict[submission_rank]
                 except KeyError as e:
@@ -1270,7 +1269,7 @@ class Sample(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     sample_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-    control = relationship("Control", back_populates="sample", uselist=False)  #: Control function this sample fills.
+    is_control = Column(INTEGER, default=0) #: 1 = positive, -1 = negative, 0 = not a control
 
     sampleclientsubmissionassociation = relationship(
         "ClientSubmissionSampleAssociation",
@@ -1939,6 +1938,7 @@ class ProcedureSampleAssociation(BaseClass):
         output['row'] = self.row
         output['column'] = self.column
         output['results'] = [item.details_dict() for item in self.results]
+        # output['excluded'] += ["is_control", "well_id", "sample_location", "sample_type"]
         return output
 
     def to_pydantic(self, **kwargs):
@@ -1949,4 +1949,17 @@ class ProcedureSampleAssociation(BaseClass):
             output.submission_rank = output.misc_info['submission_rank']
         except KeyError:
             logger.error(output)
+        match self.sample.is_control:
+            case 1:
+                output.sample_type = "positivecontrol"
+                output.background_color = "pink"
+            case -1:
+                output.sample_type = "negativecontrol"
+                output.background_color = "cyan"
+            case _:
+                output.sample_type = "regular"
+                if output.enabled:
+                    output.background_color = "#66ff66"
+                else:
+                    output.background_color = "white"
         return output

@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 from csv import reader
 from typing import Generator, TYPE_CHECKING
+
+from dateutil.parser import parse
+
 from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
@@ -54,3 +57,10 @@ class QubitSampleParser(DefaultResultsSampleParser):
         if dlg.exec():
             for result in dlg.output:
                 result.save()
+
+    @property
+    def parsed_info(self) -> Generator[dict, None, None]:
+        for item in super().parsed_info:
+            item['date_analyzed'] = parse(item['test_date'])
+            yield item
+

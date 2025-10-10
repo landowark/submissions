@@ -35,7 +35,7 @@
                     <h1><u>Reagents</u></h1>
                     <hr>
                     {% for key, value in procedure['reagentrole'].items() %}
-                    <label for="{{ key }}">{{ key }}:</label><br>
+                    <input type="checkbox" class="procedure_checkbox" checked id="{{ key }}_check" name="{{ key }}"><label for="{{ key }}">{{ key }}:</label><br>
                     <select class="reagentrole dropdown" id="{{ key }}" name="{{ key }}"><br>
                         {% for reagent in value %}
                         <option value="{{ reagent.name }} {% if reagent.lot %}- {{ reagent.lot }} - {{ reagent.expiry.date() }}{% endif %}">{{ reagent.name }} {% if reagent.lot %}- {{ reagent.lot }} - {{ reagent.expiry.date() }}{% endif %}</option>
@@ -70,7 +70,7 @@
             output = [];
             fullGrid = [...gridContainer.children];
             fullGrid.forEach(function(item, index) {
-                output.push({sample_id: item.id, index: index + 1})
+                output.push({sample_id: item.id, index: index + 1, class: item.className})
             });
             backend.rearrange_plate(output);
         }

@@ -1,3 +1,8 @@
+# 202510.02
+
+- Addition of samples to platemap.
+- Disable reagent/equipment roles.
+
 # 202510.01
 
 - Update for Python 3.13
