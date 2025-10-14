@@ -22,20 +22,17 @@ class QubitSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, *args, **kwargs)
-        header_row = self.proceduretype.allowed_result_methods['Qubit']['sample']['start_row']
+        header_row = self.proceduretype.allowed_result_methods['Qubit']['sample']['header_row']
         for iii, header in enumerate(self.column_headers, start=1):
-            # logger.debug(f"Row: {header_row}, column: {iii}")
             self.worksheet.cell(row=header_row, column=iii, value=header.replace("_", " ").title())
-        # logger.debug(f"Column headers: {self.column_headers}")
         for iii, result in enumerate(self.pydant_obj, start = 1):
             row = header_row + iii
             for k, v in result.result.items():
                 try:
                     column = next((col[0].column for col in self.worksheet.iter_cols() if col[0].value == k.replace("_", " ").title()))
                 except StopIteration:
-                    print(f"fail for {k.replace('_', ' ').title()}")
+                    logger.error(f"fail for {k.replace('_', ' ').title()}")
                     continue
-                # logger.debug(f"Writing to row: {row}, column {column}")
                 cell = self.worksheet.cell(row=row, column=column)
                 cell.value = v
                 cell.alignment = Alignment(horizontal='left')

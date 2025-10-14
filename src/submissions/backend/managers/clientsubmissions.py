@@ -18,7 +18,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultClientSubmissionManager(DefaultManager):
 
-    def __init__(self, parent, submissiontype: "SubmissionType" | str | None = None,
+    def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
                  input_object: Path | str | None = None):
         from backend.db.models import SubmissionType
         match input_object:
@@ -46,7 +46,6 @@ class DefaultClientSubmissionManager(DefaultManager):
         self.clientsubmission = self.info_parser.to_pydantic()
         self.clientsubmission.full_batch_size = self.sample_parser.end_row - self.sample_parser.start_row
         self.clientsubmission.sample = self.sample_parser.to_pydantic()
-
         return self.clientsubmission
 
     def write(self, workbook: Workbook) -> Workbook:

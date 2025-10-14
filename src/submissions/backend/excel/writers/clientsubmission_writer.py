@@ -2,7 +2,7 @@
 Module for ClientSubmission writing
 """
 from __future__ import annotations
-import logging
+import logging, sys
 from pprint import pformat
 from openpyxl.workbook import Workbook
 from openpyxl.styles import Alignment
@@ -33,12 +33,12 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
     exclude = ['id', 'enabled', 'procedure_rank', "name"]
     header_order = ["submission_rank", "sample_id"]
 
-    def __init__(self, pydant_obj, proceduretype: "ProcedureType" | None = None, *args, **kwargs):
+    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
-        self.pydant_obj = self.pad_samples_to_length(row_count=self.pydant_obj.max_sample_rank)#, column_names=header_list)
+        self.pydant_obj = self.pad_samples_to_length(row_count=self.pydant_obj.max_sample_rank)
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook

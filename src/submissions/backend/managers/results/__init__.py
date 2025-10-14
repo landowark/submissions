@@ -27,7 +27,6 @@ class DefaultResultsManager(DefaultManager):
 
 
     def procedure_to_pydantic(self) -> PydResults:
-        logger.debug(f"Info parser: {self.info_parser}")
         info = self.info_parser.to_pydantic()
         if info:
             info.parent = self.procedure

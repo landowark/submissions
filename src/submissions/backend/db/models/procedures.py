@@ -1049,6 +1049,10 @@ class Procedure(BaseClass):
         html = self.proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
         return html
 
+    @property
+    def submissiontype(self):
+        return self.run.clientsubmission.submissiontype
+
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """

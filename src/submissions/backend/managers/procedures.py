@@ -17,14 +17,13 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultProcedureManager(DefaultManager):
 
-    def __init__(self, proceduretype: "ProcedureType"|str, parent, input_object: Path | str | None = None):
+    def __init__(self, proceduretype: ProcedureType | str, parent, input_object: Path | str | None = None):
         from backend.db.models import ProcedureType
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
         self.proceduretype = proceduretype
         self.procedure = input_object
         super().__init__(parent=parent, input_object=input_object)
-
 
     def parse(self):
         try:

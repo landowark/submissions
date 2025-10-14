@@ -26,8 +26,8 @@ class QubitManager(DefaultResultsManager):
         self.info_parser = QubitInfoParser(filepath=self.fname, procedure=self.procedure)
         self.sample_parser = QubitSampleParser(filepath=self.fname, procedure=self.procedure, start_row=self.info_parser.end_row)
 
-    def write(self):
-        workbook = load_workbook(BytesIO(self.procedure.proceduretype.template_file))
-        self.sample_writer = QubitSampleWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
-        workbook = self.sample_writer.write_to_workbook(workbook)
-        return workbook
+    # def write(self):
+    #     workbook = load_workbook(BytesIO(self.procedure.proceduretype.template_file))
+    #     self.sample_writer = QubitSampleWriter(pydant_obj=self.procedure.to_pydantic(), proceduretype=self.procedure.proceduretype)
+    #     workbook = self.sample_writer.write_to_workbook(workbook)
+    #     return workbook

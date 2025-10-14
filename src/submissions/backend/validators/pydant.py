@@ -8,7 +8,7 @@ from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse
 from dateutil.parser import ParserError
-from typing import List, Tuple, Literal, Generator
+from typing import List, Tuple, Literal, Generator, TYPE_CHECKING
 from types import GeneratorType
 from . import RSLNamer
 from pathlib import Path
@@ -19,6 +19,9 @@ from sqlalchemy.orm.properties import ColumnProperty
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from PyQt6.QtWidgets import QWidget
+if TYPE_CHECKING:
+    from frontend import RoleComboBox
+
 
 logger = logging.getLogger(f"submission.{__name__}")
 
@@ -58,9 +61,11 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
     @classmethod
     def validate_model(cls, data):
         for key, value in data.model_extra.items():
+            # NOTE: make sure all date variables are date objects.
             if key in cls._sql_object.timestamps:
                 if isinstance(value, str):
                     data.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
+            # NOTE: translate row letter to an integer
             if key == "row" and isinstance(value, str):
                 if value.lower() in string.ascii_lowercase[0:8]:
                     try:
@@ -69,12 +74,6 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
                         value = value
                 data.__setattr__(key, value)
         return data
-
-    # def __init__(self, **data):
-    #     # NOTE: Grab the sql model for validation purposes.
-    #     # self.__class__._sql_object = getattr(models, self.__class__.__name__.replace("Pyd", ""))
-    #
-    #     super().__init__(**data)
 
     def filter_field(self, key: str) -> Any:
         """
@@ -127,7 +126,13 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
         return sql
 
     @property
-    def fields(self):
+    def fields(self) -> list:
+        """
+        Retrieves list of field names.
+
+        Returns:
+            list: List of field names.
+        """
         output = []
         for k, v in self.improved_dict().items():
             match v:
@@ -141,10 +146,10 @@ class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
 
 
 class PydResults(PydBaseClass, arbitrary_types_allowed=True):
+
     result: dict = Field(default={})
     result_type: str = Field(default="NA")
     img: None | bytes = Field(default=None)
-    # parent: Procedure | ProcedureSampleAssociation | None = Field(default=None)
     parent: Any | None = Field(default=None)
     date_analyzed: datetime | None = Field(default=None)
 
@@ -184,17 +189,17 @@ class PydResults(PydBaseClass, arbitrary_types_allowed=True):
 
 
 class PydReagentLot(PydBaseClass):
+
     lot: str | None
-    name: str | None = Field(default=None)
+    name: str | None = Field(default=None) #:attr Derived from Reagent
     expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
     missing: bool = Field(default=True)
     comment: str | None = Field(default="", validate_default=True)
 
 
 class PydReagent(PydBaseClass):
-    # lot: str | None
+
     reagentrole: str | None
-    # expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
     name: str | None = Field(default=None, validate_default=True)
     missing: bool = Field(default=True)
     comment: str | None = Field(default="", validate_default=True)
@@ -206,14 +211,14 @@ class PydReagent(PydBaseClass):
             return ""
         return value
 
-    @field_validator("reagentrole", mode='before')
-    @classmethod
-    def remove_undesired_types(cls, value):
-        match value:
-            case "atcc":
-                return None
-            case _:
-                return value
+    # @field_validator("reagentrole", mode='before')
+    # @classmethod
+    # def remove_undesired_types(cls, value):
+    #     match value:
+    #         case "atcc":
+    #             return None
+    #         case _:
+    #             return value
 
     @field_validator("reagentrole")
     @classmethod
@@ -224,48 +229,6 @@ class PydReagent(PydBaseClass):
             except AttributeError:
                 return value
         return value
-
-    # @field_validator("lot", mode='before')
-    # @classmethod
-    # def rescue_lot_string(cls, value):
-    #     if value is not None:
-    #         return convert_nans_to_nones(str(value).strip())
-    #     return value
-    #
-    # @field_validator("lot")
-    # @classmethod
-    # def enforce_lot_string(cls, value):
-    #     if value is not None:
-    #         return value.upper().strip()
-    #     return value
-    #
-    # @field_validator("expiry", mode="before")
-    # @classmethod
-    # def enforce_date(cls, value):
-    #     if value is not None:
-    #         match value:
-    #             case int():
-    #                 return datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
-    #             case 'NA':
-    #                 return value
-    #             case str():
-    #                 return parse(value)
-    #             case date():
-    #                 return datetime.combine(value, datetime.max.time())
-    #             case datetime():
-    #                 return value
-    #             case _:
-    #                 return convert_nans_to_nones(str(value))
-    #     if value is None:
-    #         value = datetime.combine(date.today(), datetime.max.time())
-    #     return value
-    #
-    # @field_validator("expiry")
-    # @classmethod
-    # def date_na(cls, value):
-    #     if isinstance(value, date) and value.year == 1970:
-    #         value = "NA"
-    #     return value
 
     @field_validator("name", mode="before")
     @classmethod
@@ -292,7 +255,7 @@ class PydReagent(PydBaseClass):
     @report_result
     def to_sql(self, procedure: Procedure | str = None) -> Tuple[Reagent, Report]:
         """
-        Converts this instance into a backend.db.models.kittype.Reagent instance
+        Converts this instance into a backend.db.models.procedures.ReagentLot instance
 
         Returns:
             Tuple[Reagent, Report]: Reagent instance and result of function
@@ -312,6 +275,7 @@ class PydReagent(PydBaseClass):
 
 
 class PydSample(PydBaseClass):
+
     sample_id: str
     submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
     enabled: bool = Field(default=True)
@@ -379,6 +343,7 @@ class PydSample(PydBaseClass):
 
 
 class PydTips(PydBaseClass):
+
     name: str
     lot: str | None = Field(default=None)
 
@@ -386,9 +351,6 @@ class PydTips(PydBaseClass):
     def to_sql(self) -> Tuple[Tips, Report]:
         """
         Convert this object to the SQL version for database storage.
-
-        Args:
-            procedure (BasicRun): A procedure object to associate tips represented here.
 
         Returns:
             SubmissionTipsAssociation: Association between queried tips and procedure
@@ -400,6 +362,7 @@ class PydTips(PydBaseClass):
 
 
 class PydEquipment(PydBaseClass):
+
     asset_number: str
     name: str
     nickname: str | None
@@ -437,7 +400,6 @@ class PydEquipment(PydBaseClass):
                 value = value.to_pydantic(pyd_model_name="PydProcess")
             case _:
                 try:
-                    # d: Process = next((process for process in value if values.data['name'] in [item.name for item in process.equipment]), None)
                     for process in value:
                         match process:
                             case Process():
@@ -446,8 +408,6 @@ class PydEquipment(PydBaseClass):
                                 return None
                             case str():
                                 return process
-                    # else:
-                    #     value = []
                 except AttributeError as e:
                     logger.error(f"Process Validation error due to {e}")
                     value = []
@@ -469,16 +429,6 @@ class PydEquipment(PydBaseClass):
                 value = PydTips(**value)
             case _:
                 pass
-        # else:
-        #     try:
-        #         d: Tips = next(
-        #             (tips for tips in value if values.data['name'] in [item.name for item in tips.equipment]),
-        #             None)
-        #         if d:
-        #             value = d.to_pydantic()
-        #     except AttributeError as e:
-        #         logger.error(f"Process Validation error due to {e}")
-        #         value = []
         return value
 
     @report_result
@@ -497,8 +447,8 @@ class PydEquipment(PydBaseClass):
         report = Report()
         if isinstance(procedure, str):
             procedure = Procedure.query(name=procedure)
-        if isinstance(proceduretype, str):
-            proceduretype = ProcedureType.query(name=proceduretype)
+        # if isinstance(proceduretype, str):
+        #     proceduretype = ProcedureType.query(name=proceduretype)
         equipment = Equipment.query(asset_number=self.asset_number)
         if equipment is None:
             logger.error("No equipment found. Returning None.")
@@ -514,9 +464,8 @@ class PydEquipment(PydBaseClass):
             if new:
                 # TODO: This seems precarious. What if there is more than one process?
                 # NOTE: It looks like the way fetching the process is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
-                # NOTE: I need to find a way to filter this by the kittype involved.
                 if len(self.processes) > 1:
-                    process = Process.query(proceduretype=procedure.get_submission_type(), equipmentrole=self.role)
+                    process = Process.query(proceduretype=procedure.submissiontype, equipmentrole=self.role, limit=1)
                 else:
                     process = Process.query(name=self.processes[0], limit=1)
                 if process is None:
@@ -529,7 +478,6 @@ class PydEquipment(PydBaseClass):
         else:
             logger.warning(f"No procedure found")
             assoc = None
-
         return equipment, assoc, report
 
     def improved_dict(self) -> dict:
@@ -548,6 +496,7 @@ class PydEquipment(PydBaseClass):
 
 
 class PydContact(BaseModel):
+
     name: str
     phone: str | None
     email: str | None
@@ -593,6 +542,7 @@ class PydContact(BaseModel):
 
 
 class PydClientLab(BaseModel):
+
     name: str
     cost_centre: str
     contact: List[PydContact] | None
@@ -632,6 +582,7 @@ class PydClientLab(BaseModel):
 
 
 class PydReagentRole(BaseModel):
+
     name: str
     eol_ext: timedelta | int | None
     uses: dict | None
@@ -646,6 +597,7 @@ class PydReagentRole(BaseModel):
 
 
 class PydEquipmentRole(BaseModel):
+
     name: str
     equipment: List[PydEquipment]
     process: List[str] | None
@@ -657,7 +609,7 @@ class PydEquipmentRole(BaseModel):
             value = [item for item in value]
         return value
 
-    def to_form(self, parent, used: list) -> "RoleComboBox":
+    def to_form(self, parent, used: list) -> RoleComboBox:
         """
         Creates a widget for user input into this class.
 
@@ -675,7 +627,6 @@ class PydEquipmentRole(BaseModel):
 class PydProcess(PydBaseClass, extra="allow"):
     name: str
     version: str = Field(default="1.0")
-    # equipment: List[str]
     tips: List[PydTips]
 
     @field_validator("tips", mode="before")
@@ -734,37 +685,12 @@ class PydProcessVersion(PydBaseClass, extra="allow", arbitrary_types_allowed=Tru
 
     def to_sql(self):
         from backend.db.models import ProcessVersion
-        logger.debug(f"Querying name:{self.name}, version: {self.version}")
         instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
         if not instance:
             logger.warning(f"PV: Gonna have to make a new process version {self.version}")
             instance = ProcessVersion()
         return instance
 
-# Marked for removalq
-class PydElastic(BaseModel, extra="allow", arbitrary_types_allowed=True):
-    """Allows for creation of arbitrary pydantic models"""
-    instance: BaseClass
-
-    @report_result
-    def to_sql(self):
-        fields = [item for item in self.model_extra]
-        for field in fields:
-            try:
-                field_type = getattr(self.instance.__class__, field).property
-            except AttributeError:
-                logger.error(f"No attribute: {field} in {self.instance.__class__}")
-                continue
-            match field_type:
-                case _RelationshipDeclared():
-                    field_value = field_type.entity.class_.argument.query(name=getattr(self, field))
-                case ColumnProperty():
-                    field_value = getattr(self, field)
-            self.instance.__setattr__(field, field_value)
-        return self.instance
-
-
-# NOTE: Generified objects below:
 
 class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
     proceduretype: Any | None = Field(default=None)
@@ -825,7 +751,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             if value["missing"]:
                 value["colour"] = "FE441D"
             else:
-                value["colour"] = "6ffe1d"
+                value["colour"] = "6FFE1D"
         except KeyError:
             pass
         return value
@@ -877,26 +803,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             except TypeError:
                 return len(self.sample)
 
-    # def update_kittype_reagentroles(self, kittype: str | KitType):
-    #     if kittype == self.__class__.model_fields['kittype'].default['value']:
-    #         return
-    #     if isinstance(kittype, str):
-    #         kittype_obj = KitType.query(name=kittype)
-    #     try:
-    #         self.reagentrole = {
-    #             item.name: item.get_reagents(kittype=kittype_obj) + [PydReagent(name="--New--", lot="", reagentrole="")]
-    #             for item in
-    #             kittype_obj.get_reagents(proceduretype=self.proceduretype)}
-    #     except AttributeError:
-    #         self.reagentrole = {}
-    #     reordered_options = {}
-    #     if self.reagentrole:
-    #         for k, v in self.reagentrole.items():
-    #             reordered_options[k] = self.reorder_reagents(reagentrole=k, options=v)
-    #     self.reagentrole = reordered_options
-    #     self.kittype['value'] = kittype
-    #     self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
-
     def reorder_reagents(self, reagentrole: str, options: list):
         reagent_used = next((reagent for reagent in self.reagent if reagent.reagentrole == reagentrole), None)
         if not reagent_used:
@@ -906,19 +812,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             return options
         options.insert(0, options.pop(options.index(roi)))
         return options
-
-    # def update_kittype_equipmentroles(self, kittype: str | KitType):
-    #     if kittype == self.__class__.model_fields['kittype'].default['value']:
-    #         return
-    #     if isinstance(kittype, str):
-    #         kittype_obj = KitType.query(name=kittype)
-    #     try:
-    #         self.equipment = {item.name: item.get_reagents(kittype=kittype_obj) for item in
-    #                           kittype_obj.get_reagents(proceduretype=self.proceduretype)}
-    #     except AttributeError:
-    #         self.reagentrole = {}
-    #     self.kittype['value'] = kittype
-    #     self.possible_kits.insert(0, self.possible_kits.pop(self.possible_kits.index(kittype)))
 
     def update_samples(self, sample_list: List[dict]):
         for iii, sample_dict in enumerate(sample_list, start=1):
@@ -930,7 +823,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                     (item for item in self.sample if item.sample_id.upper() == sample_dict['sample_id'].upper()))
             except StopIteration:
                 # NOTE Code to check for added controls.
-                logger.debug(
+                logger.warning(
                     f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
                 try:
                     sample = next(
@@ -973,11 +866,10 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         if checked:
             self.reagent.insert(idx, insertable)
-        logger.debug(f"reagent output: {pformat(self.reagent)}")
+
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
-        logger.debug(f"Updating equipment: {equipment}, role: {equipmentrole}, process: {processversion}, tips: {tips}")
         try:
             equipment_of_interest = next(
                 (item for item in self.equipment if item.equipmentrole == equipmentrole))
@@ -985,19 +877,16 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             equipment_of_interest = None
         equipment = Equipment.query(name=equipment)
         if equipment_of_interest:
-            eoi = self.equipment.pop(self.equipment.index(equipment_of_interest))
+            eoi = self.equipment.pop(self.procedure.equipment.index(equipment_of_interest))
         else:
             eoi: PydEquipment = equipment.to_pydantic(equipmentrole=equipmentrole)
         eoi.name = equipment.name
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
         process_name, version = processversion.split("-v")
-        # logger.debug(f"Query version: {type(version)}")
         processversion = ProcessVersion.query(name=process_name, version=version, limit=1)
-        # logger.debug(f"Got instance: {processversion}")
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
-        # logger.debug(f"Pydantic output: {type(eoi.processversion)}:{eoi.processversion.__dict__}")
         # NOTE Correct pydprocessverion
         try:
             tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tips.split("-")]
@@ -1007,8 +896,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             logger.warning(f"No tips info to unpack")
         if checked:
             self.equipment.append(eoi)
-        # logger.debug(f"Equipment output: {pformat(self.equipment)}")
-
 
     @classmethod
     def update_new_reagents(cls, reagent: PydReagent):
@@ -1020,7 +907,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
             RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
             ProcedureEquipmentAssociation, EquipmentRole, ReagentRole
         )
-        logger.debug(f"incoming pyd: {pformat([item.__dict__ for item in self.equipment])}")
         if new:
             sql = Procedure()
         else:
@@ -1083,23 +969,16 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
                                                         row=sample.row, column=sample.column,
                                                         procedure_rank=sample.procedure_rank)
         for equipment in self.equipment:
-            logger.debug(f"Equipment:\n{pformat(equipment.__dict__)}\n")
             equip, _ = equipment.to_sql()
             equipment_role = EquipmentRole.query(equipment.equipmentrole, limit=1)
-            logger.debug(f"Equipment:\n{pformat(equip.__dict__)}")
-            # if isinstance(equipment.processes, list):
-            #     equipment.process = equipment.processes[0]
             if isinstance(equipment.tips, list):
                 try:
                     equipment.tips = equipment.tips[0]
                 except IndexError:
                     equipment.tips = None
             if equip not in sql.equipment:
-                # logger.debug(f"Equipment roles: {equip.equipmentrole}")
                 equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql, equipmentrole=equipment_role)
-                logger.debug(f"Process pyd:\n{pformat(equipment.processversion.__dict__)}")
                 processversion = equipment.processversion.to_sql()
-                logger.debug(f"Process sql:\n{pformat(processversion.__dict__)}")
                 equip_assoc.processversion = processversion
                 try:
                     tipslot = equipment.tips.to_sql()
@@ -1110,7 +989,6 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
 
 
 class PydClientSubmission(PydBaseClass):
-    # sql_object: ClassVar = ClientSubmission
 
     key_value_order = ["submitter_plate_id",
                        "submitted_date",
@@ -1212,10 +1090,10 @@ class PydClientSubmission(PydBaseClass):
         else:
             match value['value']:
                 case str():
-                    value['value'] = datetime.strptime(value['value'], "%Y-%m-%d")
-                    value['value'] = datetime.combine(value['value'], datetime.now().time())
+                    value['value'] = date.strptime(value['value'], "%Y-%m-%d")
                 case _:
                     pass
+        value['value'] = datetime.combine(value['value'], datetime.now().time())
         return value
 
     @field_validator("submission_category")
@@ -1255,7 +1133,7 @@ class PydClientSubmission(PydBaseClass):
         Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
 
         Args:
-            samples ():
+            samples (list): a list of samples from this submission.
             disable (list, optional): a list of widgets to be disabled in the form. Defaults to None.
             parent (QWidget): parent widget of the constructed object
 
@@ -1309,7 +1187,10 @@ class PydClientSubmission(PydBaseClass):
 
     @property
     def filename_template(self):
-        submissiontype = SubmissionType.query(name=self.submissiontype['value'])
+        try:
+            submissiontype = SubmissionType.query(name=self.submissiontype['value'])
+        except KeyError as e:
+            submissiontype = SubmissionType.query(name=self.submissiontype['name'])
         return submissiontype.defaults['filename_template']
 
 
@@ -1503,12 +1384,12 @@ class PydRun(PydBaseClass):  #, extra='allow'):
         fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
         if dictionaries:
             output = {k: getattr(self, k) for k in fields}
-            output['reagents'] = [item.improved_dict() for item in self.reagents]
-            output['sample'] = [item.improved_dict() for item in self.samples]
-            try:
-                output['equipment'] = [item.improved_dict() for item in self.equipment]
-            except TypeError:
-                pass
+            # output['reagents'] = [item.improved_dict() for item in self.reagents]
+            output['sample'] = [item.improved_dict() for item in self.sample]
+            # try:
+            #     output['equipment'] = [item.improved_dict() for item in self.equipment]
+            # except TypeError:
+            #     pass
         else:
             output = {k: self.filter_field(k) for k in fields}
         return output
@@ -1683,48 +1564,13 @@ class PydRun(PydBaseClass):  #, extra='allow'):
         Returns:
             str: Output filename
         """
-        template = self.clientsubmission.filename_template
+        try:
+            template = self.clientsubmission.filename_template
+        except KeyError as e:
+            template = "{{ rsl_plate_number }} - {{ clientsubmission.clientlab.name }} - {{ clientsubmission.submitter_plate_id['value'] }}"
         render = self.namer.construct_export_name(template=template, **self.improved_dict(dictionaries=False)).replace(
             "/", "")
         return render
-
-    # def check_kit_integrity(self, extraction_kit: str | dict | None = None, exempt: List[PydReagent] = []) -> Tuple[
-    #     List[PydReagent], Report, List[PydReagent]]:
-    #     """
-    #     Ensures all reagents expected in kittype are listed in Submission
-    #
-    #     Args:
-    #         extraction_kit (str | dict | None, optional): kittype to be checked. Defaults to None.
-    #         exempt (List[PydReagent], optional): List of reagents that don't need to be checked. Defaults to []
-    #
-    #     Returns:
-    #         Tuple[List[PydReagent], Report]: List of reagents and Result object containing a message and any missing components.
-    #     """
-    #     report = Report()
-    #     if isinstance(extraction_kit, str):
-    #         extraction_kit = dict(value=extraction_kit)
-    #     if extraction_kit is not None and extraction_kit != self.extraction_kit['value']:
-    #         self.extraction_kit['value'] = extraction_kit['value']
-    #     ext_kit = KitType.query(name=self.extraction_kit['value'])
-    #     ext_kit_rtypes = [item.to_pydantic() for item in
-    #                       ext_kit.get_reagents(required_only=True, proceduretype=self.submission_type['value'])]
-    #     # NOTE: Exclude any reagenttype found in this pydclientsubmission not expected in kittype.
-    #     expected_check = [item.equipmentrole for item in ext_kit_rtypes]
-    #     output_reagents = [rt for rt in self.reagents if rt.role in expected_check]
-    #     missing_check = [item.role for item in output_reagents]
-    #     missing_reagents = [rt for rt in ext_kit_rtypes if
-    #                         rt.equipmentrole not in missing_check and rt.equipmentrole not in exempt]
-    #     missing_reagents += [rt for rt in output_reagents if rt.missing]
-    #     output_reagents += [rt for rt in missing_reagents if rt not in output_reagents]
-    #     # NOTE: if lists are equal return no problem
-    #     if len(missing_reagents) == 0:
-    #         result = None
-    #     else:
-    #         result = Result(
-    #             msg=f"The excel sheet you are importing is missing some reagents expected by the kittype.\n\nIt looks like you are missing: {[item.equipmentrole.upper() for item in missing_reagents]}\n\nAlternatively, you may have set the wrong extraction kittype.\n\nThe program will populate lists using existing reagents.\n\nPlease make sure you check the lots carefully!",
-    #             status="Warning")
-    #     report.add_result(result)
-    #     return output_reagents, report, missing_reagents
 
     def check_reagent_expiries(self, exempt: List[PydReagent] = []):
         report = Report()

@@ -28,5 +28,5 @@ from .excel import (
 from .validators import (
     DefaultNamer, ClientSubmissionNamer, RSLNamer,
     PydRun, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, PydEquipment, PydEquipmentRole, PydTips,
-    PydProcess, PydElastic, PydClientSubmission, PydProcedure, PydResults, PydReagentLot
+    PydProcess, PydClientSubmission, PydProcedure, PydResults, PydReagentLot
 )

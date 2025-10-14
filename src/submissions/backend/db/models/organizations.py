@@ -70,20 +70,6 @@ class ClientLab(BaseClass):
     def save(self):
         super().save()
 
-    def to_omni(self, expand: bool = False):
-        from backend.validators.omni_gui_objects import OmniOrganization
-        if self.cost_centre:
-            cost_centre = self.cost_centre
-        else:
-            cost_centre = "NA"
-        if self.name:
-            name = self.name
-        else:
-            name = "NA"
-        return OmniOrganization(instance_object=self,
-                                name=name, cost_centre=cost_centre,
-                                contact=[item.to_omni() for item in self.contact])
-
 
 class Contact(BaseClass):
     """
@@ -156,22 +142,3 @@ class Contact(BaseClass):
     def to_pydantic(self) -> "PydContact":
         from backend.validators import PydContact
         return PydContact(name=self.name, email=self.email, phone=self.phone)
-
-    def to_omni(self, expand: bool = False):
-        from backend.validators.omni_gui_objects import OmniContact
-        if self.email:
-            email = self.email
-        else:
-            email = "NA"
-        if self.name:
-            name = self.name
-        else:
-            name = "NA"
-        if self.phone:
-            phone = self.phone
-        else:
-            phone = "NA"
-        return OmniContact(instance_object=self,
-                                name=name, email=email,
-                                phone=phone)
-

@@ -32,7 +32,6 @@ class PCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         workbook = super().write_to_workbook(workbook)
-        # worksheet = workbook[f"{self.proceduretype.name} Results"]
         header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['header_row']
         proto_columns = [(1, "sample"), (2, "target")]
         columns = []

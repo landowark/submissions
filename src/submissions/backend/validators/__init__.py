@@ -30,7 +30,7 @@ class DefaultNamer(object):
 
 class ClientSubmissionNamer(DefaultNamer):
 
-    def __init__(self, filepath: str | Path, submissiontype: str|"SubmissionType"|None=None,
+    def __init__(self, filepath: str | Path, submissiontype: str|SubmissionType|None=None,
                  data: dict | None = None, **kwargs):
         from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
@@ -66,7 +66,6 @@ class ClientSubmissionNamer(DefaultNamer):
             sub_type = None
             logger.critical(f"No procedure type found or procedure type found!: {e}")
         return sub_type
-
 
     def get_subtype_from_preparse(self) -> SubmissionType:
         from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser
@@ -175,8 +174,6 @@ class RSLNamer(object):
         except UnboundLocalError:
             check = True
         if check:
-            if "pytest" in sys.modules:
-                raise ValueError("Submission Type came back as None.")
             from frontend.widgets import ObjectSelector
             dlg = ObjectSelector(title="Couldn't parse procedure type.",
                                  message="Please select procedure type from list below.",
@@ -278,5 +275,5 @@ class RSLNamer(object):
 
 from .pydant import (
     PydRun, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, PydEquipment, PydEquipmentRole, PydTips,
-    PydProcess, PydElastic, PydClientSubmission, PydProcedure, PydResults, PydReagentLot
+    PydProcess, PydClientSubmission, PydProcedure, PydResults, PydReagentLot
 )

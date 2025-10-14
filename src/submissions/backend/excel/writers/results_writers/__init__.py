@@ -1,8 +1,7 @@
 """
-
+Default results writers.
 """
 from openpyxl import Workbook
-
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from backend.db.models import ProcedureType
 from tools import flatten_list
@@ -24,7 +23,6 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
             self.worksheet = workbook[f"{self.proceduretype.name[:15]} Results"]
         except KeyError:
             self.worksheet = workbook.create_sheet(f"{self.proceduretype.name[:15]} Results")
-            # worksheet = workbook[f"{self.proceduretype.name[:15]} Results"]
         return workbook
 
 

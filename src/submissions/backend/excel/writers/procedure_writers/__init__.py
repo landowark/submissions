@@ -48,8 +48,8 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
     exclude = ['id', "equipment_role"]
     header_order = ['equipmentrole', 'name', 'asset_number', 'process', 'tips']
 
-    def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
+    def __init__(self, pydant_obj, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
         self.pydant_obj = self.pydant_obj.equipment
 
@@ -64,8 +64,8 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
     exclude = ['id', 'enabled', 'name', "submission_rank", 'background_color', "is_control", "well_id", "sample", "sample_location", "sample_type"]
     header_order = ['procedure_rank', 'sample_id']
 
-    def __init__(self, pydant_obj, range_dict: dict | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, range_dict=range_dict, *args, **kwargs)
+    def __init__(self, pydant_obj, *args, **kwargs):
+        super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
         self.pydant_obj = self.pad_samples_to_length(row_count=pydant_obj.max_sample_rank, mode="procedure")
 
