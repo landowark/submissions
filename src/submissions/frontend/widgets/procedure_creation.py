@@ -92,8 +92,8 @@ class ProcedureCreation(QDialog):
             plate_map=self.plate_map,
             edit=self.edit
         )
-        with open("platemap.html", "w") as f:
-            f.write(html)
+        # with open("platemap.html", "w") as f:
+        #     f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)

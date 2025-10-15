@@ -3,6 +3,7 @@ Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
 import re, logging, csv, sys, string
+from operator import itemgetter
 from pprint import pformat
 from pydantic import BaseModel, field_validator, Field, model_validator
 from datetime import date, datetime, timedelta
