@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(f"submission.{__name__}")
 
 
-class PydBaseClass(BaseModel, extra='allow', validate_assignment=True):
+class PydBaseClass(BaseModel, extra='allow'):#, validate_assignment=True):
 
     # _sql_object: ClassVar = None
     key_value_order: ClassVar = []
