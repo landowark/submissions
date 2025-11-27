@@ -360,9 +360,8 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
         return instance
 
 
-
-
-class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
+class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
+    
     proceduretype: Any | None = Field(default=None)
     run: Any | str | None = Field(default=None)
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
@@ -658,7 +657,7 @@ class PydProcedure(PydBaseClass, arbitrary_types_allowed=True):
         return sql, None
 
 
-class PydClientSubmission(PydBaseClass):
+class PydClientSubmission(PydConcrete):
 
     key_value_order = ["submitter_plate_id",
                        "submitted_date",
@@ -864,7 +863,7 @@ class PydClientSubmission(PydBaseClass):
         return submissiontype.defaults['filename_template']
 
 
-class PydRun(PydBaseClass):  #, extra='allow'):
+class PydRun(PydConcrete):  #, extra='allow'):
 
     clientsubmission: PydClientSubmission | None = Field(default=None)
     rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
