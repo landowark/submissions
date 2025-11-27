@@ -151,23 +151,6 @@ class PydBaseClass(BaseModel, extra='allow'):#, validate_assignment=True):
 
 
 
-class PydTips(PydBaseClass):
-
-    name: str
-    lot: str | None = Field(default=None)
-
-    @report_result
-    def to_sql(self) -> Tuple[Tips, Report]:
-        """
-        Convert this object to the SQL version for database storage.
-
-        Returns:
-            SubmissionTipsAssociation: Association between queried tips and procedure
-        """
-        from backend.db.models import TipsLot
-        report = Report()
-        tips = TipsLot.query(lot=self.lot, limit=1)
-        return tips, report
 
 
 class PydEquipment(PydBaseClass):
