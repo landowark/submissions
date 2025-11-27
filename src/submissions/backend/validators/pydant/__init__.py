@@ -149,3 +149,21 @@ class PydBaseClass(BaseModel, extra='allow'):#, validate_assignment=True):
                     continue
         return list(set(output))
 
+
+class PydAbstract(PydBaseClass):
+
+    @classmethod
+    def get_managables(cls):
+        for class_ in PydAbstract.__subclasses__:
+            if len(class_.get_described_attributes()):
+                yield class_._sql_object
+
+
+class PydConcrete(PydBaseClass):
+
+    @classmethod
+    def get_managables(cls):
+        for class_ in PydConcrete.__subclasses__:
+            if len(class_.get_described_attributes()):
+                yield class_._sql_object
+        
