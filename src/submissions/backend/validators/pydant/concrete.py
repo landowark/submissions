@@ -337,3 +337,25 @@ class PydClientLab(PydConcrete):
             if value:
                 setattr(instance, field, value)
         return instance, report
+
+
+class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True):
+    
+    version: float
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def split_name(cls, value):
+        if "-" in value:
+            value = value.split("-")[0]
+        return value
+
+    def to_sql(self):
+        from backend.db.models import ProcessVersion
+        instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
+        if not instance:
+            logger.warning(f"PV: Gonna have to make a new process version {self.version}")
+            instance = ProcessVersion()
+        return instance
+
