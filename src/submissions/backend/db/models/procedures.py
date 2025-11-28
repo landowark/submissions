@@ -3236,7 +3236,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 class Results(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     result = Column(JSON)  #:
-    date_analyzed = Column(TIMESTAMP)
+    _date_analyzed = Column(TIMESTAMP)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
                                               name="fk_RES_procedure_id"))
     _procedure = relationship("Procedure", back_populates="results")
@@ -3250,27 +3250,52 @@ class Results(BaseClass):
     _resultstype = relationship("ResultsType", back_populates="results")
 
     @hybrid_property
-    def proceduretype(self):
-        return self._proceduretype
+    def resultstype(self):
+        return self._resultstype
 
-    @proceduretype.setter
-    def proceduretype(self, value):
-        from backend.validators.pydant import PydProcedureType
-        error_msg = f"Can't add item {item} to {self.name}._proceduretype"
+    @resultstype.setter
+    def resultstype(self, value):
+        from backend.validators.pydant import PydResultsType
+        error_msg = f"Can't add item {item} to {self.name}._resultstype"
         match item:
             case str():
-                output = ProcedureType.query(name=item, limit=1)
+                output = ResultsType.query(name=item, limit=1)
             case dict():
-                output = ProcedureType.query_or_create(**item)
-            case PydProcedureType():
+                output = ResultsType.query_or_create(**item)
+            case PydResultsType():
                 output = item.to_sql()
-            case ProcedureType():
+            case ResultsType():
                 output = item
             case _:
                 logger.error(error_msg)
                 continue
-        if isinstance(output, ProcedureType):
-            self._proceduretype =output
+        if isinstance(output, ResultsType):
+            self._resultstype =output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
+        error_msg = f"Can't add item {item} to {self.name}._procedure"
+        match item:
+            case str():
+                output = Procedure.query(name=item, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**item)
+            case PydProcedure():
+                output = item.to_sql()
+            case Procedure():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Procedure):
+            self._procedure =output
         else:
             logger.error(error_msg)
     
@@ -3307,5 +3332,33 @@ class ResultsType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = id = Column(String(64))  #: primary key
-    results = relationship("Results", back_populates="resultstype")
+    _results = relationship("Results", back_populates="resultstype")
+
+    @hybrid_property
+    def results(self):
+        return self._results
+
+    @results.setter
+    def results(self, value):
+        from backend.validators.pydant import PydResults
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._results"
+            match item:
+                case str():
+                    output = PydResults.query(name=item, limit=1)
+                case dict():
+                    output = PydResults.query_or_create(**item)
+                case PydResults():
+                    output = item.to_sql()
+                case Results():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Results):
+                self._results.append(output)
+            else:
+                logger.error(error_msg)
     
