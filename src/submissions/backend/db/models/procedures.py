@@ -26,13 +26,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
-# reagentrole_reagent = Table(
-#     "_reagentrole_reagent",
-#     BaseClass.__base__.metadata,
-#     Column("reagent_id", INTEGER, ForeignKey("_reagent.id")),
-#     Column("reagentrole_id", INTEGER, ForeignKey("_reagentrole.id")),
-#     extend_existing=True
-# )
+proceduretype_resulttype = Table(
+    "_proceduretype_resulttype",
+    BaseClass.__base__.metadata,
+    Column("proceduretype_id", INTEGER, ForeignKey("_proceduretype.id")),
+    Column("resulttype_id", INTEGER, ForeignKey("_resulttype.id")),
+    extend_existing=True
+)
 
 equipment_process = Table(
     "_equipment_process",
@@ -163,25 +163,11 @@ class ReagentRole(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_pydantic(self) -> "PydReagent":
-        """
-        Create default PydReagent from this object
-
-        Returns:
-            PydReagent: PydReagent representation of this object.
-        """
-        from backend.validators.pydant import PydReagent
-        return PydReagent(lot=None, reagentrole=self.name, name=self.name, expiry=date.today())
-
     @check_authorization
     def save(self):
         super().save()
 
-    def to_omni(self, expand: bool = False):
-        from backend.validators.omni_gui_objects import OmniReagentRole
-        return OmniReagentRole(instance_object=self, name=self.name, eol_ext=self.eol_ext)
-
-    def get_reagents(self, proceduretype: str | ProcedureType | None = None):
+   def get_reagents(self, proceduretype: str | ProcedureType | None = None):
         if not proceduretype:
             return [reagent.to_pydantic() for reagent in self.reagent]
         if isinstance(proceduretype, str):
@@ -197,11 +183,7 @@ class ReagentRole(BaseClass):
                 reagents.insert(0, reagents.pop(reagents.index(last_used)))
         return [reagent.to_pydantic(reagentrole=self.name) for reagent in reagents]
 
-    # def details_dict(self, **kwargs):
-    #     output = super().details_dict(**kwargs)
-    #     return output
-
-
+    
 class Reagent(BaseClass, LogMixin):
     """
     Concrete reagent instance
@@ -344,13 +326,6 @@ class Reagent(BaseClass, LogMixin):
         except AttributeError as e:
             logger.error(f"Could not set {key} due to {e}")
 
-    @classmethod
-    @declared_attr
-    def add_edit_tooltips(self):
-        return dict(
-            expiry="Use exact date on reagent.\nEOL will be calculated from kittype automatically"
-        )
-
     def details_dict(self, reagentrole: str | None = None, **kwargs):
         output = super().details_dict()
         if reagentrole:
@@ -365,8 +340,6 @@ class Reagent(BaseClass, LogMixin):
 
 
 class ReagentLot(BaseClass):
-
-    pyd_model_name = "Reagent"
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     lot = Column(String(64), unique=True)  #: lot number of reagent
@@ -479,9 +452,13 @@ class Discount(BaseClass):
     clientlab_id = Column(INTEGER,
                           ForeignKey("_clientlab.id", ondelete='SET NULL',
                                      name="fk_DIS_org_id"))  #: id of joined client
-    name = Column(String(128))  #: Short description
+    description = Column(String(128))  #: Short description
     amount = Column(FLOAT(2))  #: Dollar amount of discount
 
+    @hybrid_property
+    def name(self) -> str:
+        return self.description
+    
     def __repr__(self) -> str:
         """
         Returns:
@@ -562,22 +539,6 @@ class SubmissionType(BaseClass):
         """
         return super().aliases + ["submissiontypes"]
 
-    # def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
-    #     """
-    #     Make a map of all locations for tips or equipment.
-    #
-    #     Args:
-    #         field (Literal['equipment', 'tip']): the field to construct a map for
-    #
-    #     Returns:
-    #         Generator[(str, dict), None, None]: Generator composing key, locations for each item in the map
-    #     """
-    #     for item in self.__getattribute__(f"submissiontype_{field}role_associations"):
-    #         fmap = item.uses
-    #         if fmap is None:
-    #             fmap = {}
-    #         yield getattr(item, f"{field}_role").name, fmap
-
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[SubmissionType, bool]:
         new = False
@@ -632,21 +593,6 @@ class SubmissionType(BaseClass):
         Adds this control to the database and commits.
         """
         super().save()
-
-    def to_omni(self, expand: bool = False):
-        from backend.validators.omni_gui_objects import OmniSubmissionType
-        try:
-            template_file = self.template_file
-        except AttributeError:
-            template_file = bytes()
-        return OmniSubmissionType(
-            instance_object=self,
-            name=self.name,
-            info_map=self.info_map,
-            defaults=self.defaults,
-            template_file=template_file,
-            sample_map=self.sample_map
-        )
 
     @classmethod
     @declared_attr
@@ -704,7 +650,7 @@ class ProcedureType(BaseClass):
     name = Column(String(64), unique=True)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
-    allowed_result_methods = Column(JSON)
+    # allowed_result_methods = Column(JSON)
     plate_cost = Column(FLOAT(2))
 
     procedure = relationship("Procedure",
@@ -713,6 +659,9 @@ class ProcedureType(BaseClass):
     submissiontype = relationship("SubmissionType", back_populates="proceduretype",
                                   secondary=submissiontype_proceduretype)  #: run this kittype was used for
 
+    resultstype = relationship("ResultsType", back_populates="proceduretype",
+                                  secondary=proceduretype_resultstype)  #: run this kittype was used for
+    
     proceduretypeequipmentroleassociation = relationship(
         "ProcedureTypeEquipmentRoleAssociation",
         back_populates="proceduretype",
@@ -732,10 +681,6 @@ class ProcedureType(BaseClass):
     reagentrole = association_proxy("proceduretypereagentroleassociation", "reagentrole",
                                     creator=lambda reagentrole: ProcedureTypeReagentRoleAssociation(
                                         reagentrole=reagentrole))  #: Proxy of equipmentrole associations
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.allowed_result_methods = dict()
 
     def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
         """
@@ -853,6 +798,7 @@ class ProcedureType(BaseClass):
 
 
 class Procedure(BaseClass):
+    
     id = Column(INTEGER, primary_key=True)  #: Primary key
     name = Column(String, unique=True)  #: Name of the procedure (RSL number)
     repeat_of_id = Column(INTEGER, ForeignKey("_procedure.id", name="fk_repeat_id"))
@@ -1087,7 +1033,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     uses = Column(JSON)  #: map to location on excel sheets of different procedure types
     required = Column(INTEGER)  #: whether the reagent type is required for the kittype (Boolean 1 or 0)
     last_used = Column(String(32))  #: last used lot number of this type of reagent
-    ml_used_per_sample = Column(FLOAT(2))  #: amount of reagent used in the procedure
+    
 
     # NOTE: reference to the "ReagentType" object
     reagentrole = relationship(ReagentRole,
@@ -1235,12 +1181,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         for rel_reagent in relevant_reagents:
             yield rel_reagent
 
-    @property
-    def omnigui_instance_dict(self) -> dict:
-        dicto = super().omnigui_instance_dict
-        dicto['required']['instance_attr'] = bool(dicto['required']['instance_attr'])
-        return dicto
-
     @classmethod
     @declared_attr
     def json_edit_fields(cls) -> dict:
@@ -1251,39 +1191,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             name=dict(column="int", row="int")
         )
         return dicto
-
-    def to_omni(self, expand: bool = False) -> "OmniReagentRole":
-        from backend.validators.omni_gui_objects import OmniKitTypeReagentRoleAssociation
-        try:
-            eol_ext = self.reagentrole.eol_ext
-        except AttributeError:
-            eol_ext = timedelta(days=0)
-        if expand:
-            try:
-                submission_type = self.proceduretype.to_omni()
-            except AttributeError:
-                submission_type = ""
-            try:
-                kit_type = self.kittype.to_omni()
-            except AttributeError:
-                kit_type = ""
-            try:
-                reagent_role = self.reagentrole.to_omni()
-            except AttributeError:
-                reagent_role = ""
-        else:
-            submission_type = self.proceduretype.name
-            kit_type = self.kittype.name
-            reagent_role = self.reagentrole.name
-        return OmniKitTypeReagentRoleAssociation(
-            instance_object=self,
-            reagent_role=reagent_role,
-            eol_ext=eol_ext,
-            required=self.required,
-            submission_type=submission_type,
-            kit_type=kit_type,
-            uses=self.uses
-        )
 
 
 class ProcedureReagentLotAssociation(BaseClass):
@@ -1372,10 +1279,6 @@ class ProcedureReagentLotAssociation(BaseClass):
             query = query.filter(cls.reagentrole == reagentrole)
         return cls.execute_query(query=query, limit=limit)
 
-    def to_pydantic(self):
-        from backend.validators import PydReagent
-        return PydReagent(**self.details_dict())
-
     def details_dict(self, **kwargs):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
@@ -1396,6 +1299,18 @@ class ProcedureReagentLotAssociation(BaseClass):
         except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
             self.__database_session__.rollback()
             raise e
+
+
+class ReagentRoleReagentAssociation(BaseClass):
+
+    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)  #: id of associated reagent
+    reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated procedure
+    # reagentrole = Column(String(64))  #: Name of associated reagentrole (for some reason can't be relationship).
+    ml_used_per_sample = Column(FLOAT(3))  #: amount of reagent used for this role.
+    
+    reagent = relationship("Reagent", back_populates="reagentreagentroleassociation")  #: associated procedure
+
+    reagentrole = relationship(ReagentRole, back_populates="reagentrolereagentassociation")  #: associated reagent
 
 
 class EquipmentRole(BaseClass):
@@ -1434,7 +1349,7 @@ class EquipmentRole(BaseClass):
         """
         return {key: value for key, value in self.__dict__.items() if key != "process" and key != "equipment"}
 
-    def to_pydantic(self, proceduretype: ProcedureType) -> "PydEquipmentRole":
+    def to_pydantic(self, proceduretype: ProcedureType) -> PydEquipmentRole:
         """
         Creates a PydEquipmentRole of this EquipmentRole
 
@@ -1518,10 +1433,6 @@ class EquipmentRole(BaseClass):
                 continue
             yield process.name
 
-    def to_omni(self, expand: bool = False) -> "OmniEquipmentRole":
-        from backend.validators.omni_gui_objects import OmniEquipmentRole
-        return OmniEquipmentRole(instance_object=self, name=self.name)
-
     def details_dict(self, **kwargs):
         if "proceduretype" in kwargs:
             proceduretype = kwargs['proceduretype']
@@ -1544,10 +1455,7 @@ class EquipmentRole(BaseClass):
                 for process in eq['process']
             ]
             for process in dicto['process']:
-                # try:
                 process['tips'] = [tr['name'] for tr in process['tips']]
-                # except KeyError:
-                #     raise KeyError("Problem ")
             equip.append(dicto)
         output['equipment'] = equip
         return output
@@ -1654,7 +1562,7 @@ class Equipment(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_pydantic(self, equipmentrole: str = None) -> "PydEquipment":
+    def to_pydantic(self, equipmentrole: str = None) -> PydEquipment:
         """
         Creates PydEquipment of this Equipment
 
@@ -1724,6 +1632,7 @@ class Equipment(BaseClass, LogMixin):
 
 
 class EquipmentRoleEquipmentAssociation(BaseClass):
+    
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated reagent
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated procedure
     process_id = Column(INTEGER, ForeignKey("_process.id"))
@@ -2314,7 +2223,6 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
 class Results(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
-    result_type = Column(String(32))  #: Name of the type of this result.
     result = Column(JSON)  #:
     date_analyzed = Column(TIMESTAMP)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
@@ -2324,6 +2232,10 @@ class Results(BaseClass):
                                           name="fk_RES_ASSOC_id"))
     sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="results")
     _img = Column(String(128))
+
+    resultstype_id = Column(INTEGER, ForeignKey("_resultstype.id", ondelete='SET NULL',
+                                              name="fk_RES_resultstype_id"))
+    resultstype = relationship("ResultsType", back_populates="results")
 
     @property
     def sample_id(self):
@@ -2352,3 +2264,11 @@ class Results(BaseClass):
         if bool(self.sample_id):
             output.sample_id = self.sample_id
         return output
+
+
+class ResultsType(BaseClass):
+
+    id = Column(INTEGER, primary_key=True)  #: primary key
+    name = id = Column(String(64))  #: primary key
+    results = relationship("Results", back_populates="resultstype")
+    
