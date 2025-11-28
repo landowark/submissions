@@ -35,6 +35,13 @@ class ClientLab(BaseClass):
     _contact = relationship("Contact", back_populates="_clientlab",
                            secondary=clientlab_contact)  #: contact involved with this org
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._clientsubmission is None:
+            self._clientsubmission = []
+        if self._contact is None:
+            self._contact = []
+
     ##### Properties #####
     
     @hybrid_property
@@ -146,6 +153,15 @@ class Contact(BaseClass):
                              secondary=clientlab_contact)  #: relationship to joined clientlab
     _clientsubmission = relationship("ClientSubmission", back_populates="_contact")  #: procedure this contact has submitted
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._clientsubmission is None:
+            self._clientsubmission = []
+        if self._clientlab is None:
+            self._clientlab = []
+
+    ##### Properties #####
+    
     @hybrid_property
     def clientlab(self):
         return self._clientlab
@@ -208,6 +224,8 @@ class Contact(BaseClass):
     def searchables(cls):
         return []
 
+    ##### Query Function #####
+
     @classmethod
     @setup_lookup
     def query(cls,
@@ -257,6 +275,6 @@ class Contact(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_pydantic(self) -> PydContact:
-        from backend.validators import PydContact
-        return PydContact(name=self.name, email=self.email, phone=self.phone)
+    # def to_pydantic(self) -> PydContact:
+    #     from backend.validators import PydContact
+    #     return PydContact(name=self.name, email=self.email, phone=self.phone)
