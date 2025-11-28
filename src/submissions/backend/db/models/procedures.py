@@ -871,20 +871,20 @@ class SubmissionType(BaseClass):
 
 
 class ProcedureType(BaseClass):
+    
     id = Column(INTEGER, primary_key=True)
     name = Column(String(64), unique=True)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
-    # allowed_result_methods = Column(JSON)
     plate_cost = Column(FLOAT(2))
 
-    procedure = relationship("Procedure",
+    _procedure = relationship("Procedure",
                              back_populates="proceduretype")  #: Concrete control of this type.
 
-    submissiontype = relationship("SubmissionType", back_populates="proceduretype",
+    _submissiontype = relationship("SubmissionType", back_populates="proceduretype",
                                   secondary=submissiontype_proceduretype)  #: run this kittype was used for
 
-    resultstype = relationship("ResultsType", back_populates="proceduretype",
+    _resultstype = relationship("ResultsType", back_populates="proceduretype",
                                   secondary=proceduretype_resultstype)  #: run this kittype was used for
     
     proceduretypeequipmentroleassociation = relationship(
@@ -906,6 +906,99 @@ class ProcedureType(BaseClass):
     reagentrole = association_proxy("proceduretypereagentroleassociation", "reagentrole",
                                     creator=lambda reagentrole: ProcedureTypeReagentRoleAssociation(
                                         reagentrole=reagentrole))  #: Proxy of equipmentrole associations
+
+    def __init__(self, *args, **kwargs):
+        super().__init(*args, **kwargs)
+        if self._procedure is None:
+            self._procedure = []
+        if self._submissiontype is None:
+            self._submissiontype = []
+        if self._resultstype is None:
+            self._resultstype = []
+    
+    @hybrid_property
+    def resultstype(self):
+        return self._resultstype
+
+    @resultstype.setter
+    def resultstype(self, value):
+        from backend.validators.pydant import PydResultsType
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._resultstype"
+            match item:
+                case str():
+                    output = ResultsType.query(name=item, limit=1)
+                case dict():
+                    output = ResultsType.query_or_create(**item)
+                case PydResultsType():
+                    output = item.to_sql()
+                case ResultsType():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ResultsType):
+                self._resultstype.append(output)
+            else:
+                logger.error(error_msg)
+    
+    @hybrid_property
+    def submissiontype(self):
+        return self._submissiontype
+
+    @submissiontype.setter
+    def submissiontype(self, value):
+        from backend.validators.pydant import PydSubmissionType
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._submissiontype"
+            match item:
+                case str():
+                    output = SubmissionType.query(name=item, limit=1)
+                case dict():
+                    output = SubmissionType.query_or_create(**item)
+                case PydSubmissionType():
+                    output = item.to_sql()
+                case SubmissionType():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, SubmissionType):
+                self._submissiontype.append(output)
+            else:
+                logger.error(error_msg)
+    
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._procedure"
+            match item:
+                case str():
+                    output = Procedure.query(name=item, limit=1)
+                case dict():
+                    output = Procedure.query_or_create(**item)
+                case PydProcedure():
+                    output = item.to_sql()
+                case Procedure():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Procedure):
+                self._procedure.append(output)
+            else:
+                logger.error(error_msg)
 
     def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
         """
@@ -1027,17 +1120,17 @@ class Procedure(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: Primary key
     name = Column(String, unique=True)  #: Name of the procedure (RSL number)
     repeat_of_id = Column(INTEGER, ForeignKey("_procedure.id", name="fk_repeat_id"))
-    repeat_of = relationship("Procedure", remote_side=[id])
-    started_date = Column(TIMESTAMP)
-    completed_date = Column(TIMESTAMP)
+    _repeat_of = relationship("Procedure", remote_side=[id])
+    _started_date = Column(TIMESTAMP)
+    _completed_date = Column(TIMESTAMP)
     technician = Column(String(64))  #: name of processing tech(s)
-    results = relationship("Results", back_populates="procedure", uselist=True)
+    _results = relationship("Results", back_populates="procedure", uselist=True)
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete="SET NULL",
                                                   name="fk_PRO_proceduretype_id"))  #: client lab id from _organizations))
-    proceduretype = relationship("ProcedureType", back_populates="procedure")
+    _proceduretype = relationship("ProcedureType", back_populates="procedure")
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="SET NULL",
                                         name="fk_PRO_basicrun_id"))  #: client lab id from _organizations))
-    run = relationship("Run", back_populates="procedure")
+    _run = relationship("Run", back_populates="procedure")
     # control = relationship("Control", back_populates="procedure", uselist=True)  #: A control sample added to procedure
 
     proceduresampleassociation = relationship(
@@ -1069,9 +1162,136 @@ class Procedure(BaseClass):
     equipment = association_proxy("procedureequipmentassociation",
                                   "equipment")  #: Association proxy to RunEquipmentAssociation.equipment
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._results is None:
+            self._results = []
+    
+    @hybrid_property
+    def started_date(self):
+        return self._started_date
+
+    @started_date.setter
+    def started_date(self, value):
+        self._started_date = value
+
+    @hybrid_property
+    def completed_date(self):
+        return self._completed_date
+
+    @completed_date.setter
+    def completed_date(self, value):
+        self._completed_date = value
+
+    @hybrid_property
+    def proceduretype(self):
+        return self._proceduretype
+
+    @proceduretype.setter
+    def proceduretype(self, value):
+        from backend.validators.pydant import PydProcedureType
+        error_msg = f"Can't add item {item} to {self.name}._proceduretype"
+        match value:
+            case str():
+                output = ProcedureType.query(name=value, limit=1)
+            case dict():
+                output = ProcedureType.query_or_create(**value)
+            case PydProcedureType():
+                output = item.to_sql()
+            case ProcedureType():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ProcedureType):
+            self._proceduretype = output
+        else:
+            logger.error(error_msg)
+
+    @hybrid_property
+    def run(self):
+        return self._run
+
+    @run.setter
+    def run(self, value):
+        from backend.validators.pydant import PydRun
+        error_msg = f"Can't add item {item} to {self.name}._run"
+        match value:
+            case str():
+                output = Run.query(name=value, limit=1)
+            case dict():
+                output = Run.query_or_create(**value)
+            case PydRun():
+                output = item.to_sql()
+            case Run():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Run):
+            self._run = output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def results(self):
+        return self._results
+
+    @results.setter
+    def results(self, value):
+        from backend.validators.pydant import PydResults
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._results"
+            match item:
+                case str():
+                    output = Results.query(name=item, limit=1)
+                case dict():
+                    output = Results.query_or_create(**item)
+                case PydResults():
+                    output = item.to_sql()
+                case Results():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Results):
+                self._results.append(output)
+            else:
+                logger.error(error_msg)
+    
+    @hybrid_property
+    def repeat_of(self):
+        return self._repeat_of
+
+    @repeat_of.setter
+    def repeat_of(self, value):
+        from backend.validators.pydant import PydProcedure
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._repeat_of"
+            match item:
+                case str():
+                    output = Procedure.query(name=item, limit=1)
+                case dict():
+                    output = Procedure.query_or_create(**item)
+                case PydProcedure():
+                    output = item.to_sql()
+                case Procedure():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Procedure):
+                self._procedure.append(output)
+            else:
+                logger.error(error_msg)
+    
     @hybrid_property
     def repeat(self) -> bool:
-        return self.repeat_of is not None
+        return self._repeat_of is not None
 
     @classmethod
     @setup_lookup
@@ -1255,8 +1475,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                             primary_key=True)  #: id of associated reagentrole
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
                               primary_key=True)  #: id of associated proceduretype
-    uses = Column(JSON)  #: map to location on excel sheets of different procedure types
-    required = Column(INTEGER)  #: whether the reagent type is required for the kittype (Boolean 1 or 0)
+    # uses = Column(JSON)  #: map to location on excel sheets of different procedure types
+    # required = Column(INTEGER)  #: whether the reagent type is required for the kittype (Boolean 1 or 0)
     last_used = Column(String(32))  #: last used lot number of this type of reagent
     
 
@@ -1268,11 +1488,11 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypereagentroleassociation")  #: relationship to associated SubmissionType
 
-    def __init__(self, proceduretype=None, reagentrole=None, uses=None, required=1):
-        self.proceduretype = proceduretype
-        self.reagentrole = reagentrole
-        self.uses = uses
-        self.required = required
+    # def __init__(self, proceduretype=None, reagentrole=None, uses=None, required=1):
+    #     self.proceduretype = proceduretype
+    #     self.reagentrole = reagentrole
+    #     self.uses = uses
+    #     self.required = required
 
     def __repr__(self) -> str:
         return f"<ProcedureTypeReagentRoleAssociation({self.proceduretype} & {self.reagentrole})>"
@@ -1436,13 +1656,22 @@ class ProcedureReagentLotAssociation(BaseClass):
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)
     comments = Column(String(1024))  #: Comments about reagents
 
-    procedure = relationship("Procedure",
+    _procedure = relationship("Procedure",
                              back_populates="procedurereagentlotassociation")  #: associated procedure
 
-    reagentlot = relationship(ReagentLot, back_populates="reagentlotprocedureassociation")  #: associated reagent
+    _reagentlot = relationship(ReagentLot, back_populates="reagentlotprocedureassociation")  #: associated reagent
 
-    reagentrole = relationship(ReagentRole)
+    _reagentrole = relationship(ReagentRole)
 
+    def __init__(self, reagentlot=None, procedure=None, reagentrole=None):
+        if isinstance(reagentlot, list):
+            logger.warning(f"Got list for reagent. Likely no lot was provided. Using {reagentlot[0]}")
+            reagentlot = reagentlot[0]
+        self._reagentlot = reagentlot
+        self._procedure = procedure
+        self._reagentrole = reagentrole
+        self._comments = ""
+    
     def __repr__(self) -> str:
         """
         Returns:
@@ -1457,14 +1686,55 @@ class ProcedureReagentLotAssociation(BaseClass):
                 return "<ProcedureReagentAssociation(Unknown Submission & Unknown Reagent)>"
             return f"<ProcedureReagentAssociation(Unknown Submission & {self.reagent.lot})>"
 
-    def __init__(self, reagentlot=None, procedure=None, reagentrole=""):
-        if isinstance(reagentlot, list):
-            logger.warning(f"Got list for reagent. Likely no lot was provided. Using {reagentlot[0]}")
-            reagentlot = reagentlot[0]
-        self.reagentlot = reagentlot
-        self.procedure = procedure
-        self.reagentrole = reagentrole
-        self.comments = ""
+    @hybrid_property
+    def reagentlot(self):
+        return self._reagentlot
+
+    @reagentlot.setter
+    def reagentlot(self, value):
+        from backend.validators.pydant import PydReagentLot
+        error_msg = f"Can't add item {item} to {self.name}._reagentlot"
+        match value:
+            case str():
+                output = ReagentLot.query(name=value, limit=1)
+            case dict():
+                output = ReagentLot.query_or_create(**value)
+            case PydReagentLot():
+                output = item.to_sql()
+            case ReagentLot():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ReagentLot):
+            self._reagentlot = output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
+        error_msg = f"Can't add item {item} to {self.name}._procedure"
+        match value:
+            case str():
+                output = Procedure.query(name=value, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**value)
+            case PydProcedure():
+                output = item.to_sql()
+            case Procedure():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Procedure):
+            self._procedure = output
+        else:
+            logger.error(error_msg)
 
     @classmethod
     @setup_lookup
@@ -1537,9 +1807,59 @@ class ReagentRoleReagentAssociation(BaseClass):
     # reagentrole = Column(String(64))  #: Name of associated reagentrole (for some reason can't be relationship).
     ml_used_per_sample = Column(FLOAT(3))  #: amount of reagent used for this role.
     
-    reagent = relationship("Reagent", back_populates="reagentreagentroleassociation")  #: associated procedure
+    _reagent = relationship("Reagent", back_populates="reagentreagentroleassociation")  #: associated procedure
 
-    reagentrole = relationship(ReagentRole, back_populates="reagentrolereagentassociation")  #: associated reagent
+    _reagentrole = relationship(ReagentRole, back_populates="reagentrolereagentassociation")  #: associated reagent
+
+    @hybrid_property
+    def reagent(self):
+        return self._reagent
+
+    @reagent.setter
+    def reagent(self, value):
+        from backend.validators.pydant import PydReagent
+        error_msg = f"Can't add item {item} to {self.name}._reagent"
+        match value:
+            case str():
+                output = Reagent.query(name=value, limit=1)
+            case dict():
+                output = Reagent.query_or_create(**value)
+            case PydReagent():
+                output = item.to_sql()
+            case Reagent():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Reagent):
+            self._reagent = output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def reagentrole(self):
+        return self._reagentrole
+
+    @reagentrole.setter
+    def reagentrole(self, value):
+        from backend.validators.pydant import PydReagentRole
+        error_msg = f"Can't add item {item} to {self.name}._reagentrole"
+        match value:
+            case str():
+                output = ReagentRole.query(name=value, limit=1)
+            case dict():
+                output = ReagentRole.query_or_create(**value)
+            case PydReagentRole():
+                output = item.to_sql()
+            case ReagentRole():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ReagentRole):
+            self._reagentrole = output
+        else:
+            logger.error(error_msg)
 
 
 class EquipmentRole(BaseClass):
@@ -1569,14 +1889,14 @@ class EquipmentRole(BaseClass):
                                   "equipmentrole", creator=lambda equipment: EquipmentRoleEquipmentAssociation(
             equipment=equipment))
 
-    def to_dict(self) -> dict:
-        """
-        This EquipmentRole as a dictionary
+    # def to_dict(self) -> dict:
+    #     """
+    #     This EquipmentRole as a dictionary
 
-        Returns:
-            dict: This EquipmentRole dict
-        """
-        return {key: value for key, value in self.__dict__.items() if key != "process" and key != "equipment"}
+    #     Returns:
+    #         dict: This EquipmentRole dict
+    #     """
+    #     return {key: value for key, value in self.__dict__.items() if key != "process" and key != "equipment"}
 
     def to_pydantic(self, proceduretype: ProcedureType) -> PydEquipmentRole:
         """
@@ -1592,7 +1912,7 @@ class EquipmentRole(BaseClass):
         from backend.validators.pydant import PydEquipmentRole
         equipment = [item.to_pydantic(proceduretype=proceduretype, equipmentrole=self) for item in
                      self.equipment]
-        pyd_dict = self.to_dict()
+        pyd_dict = self.details_dict()
         pyd_dict['process'] = self.get_processes(proceduretype=proceduretype)
         return PydEquipmentRole(equipment=equipment, **pyd_dict)
 
@@ -1728,20 +2048,20 @@ class Equipment(BaseClass, LogMixin):
             self.nickname = self.name
         self.asset_number = asset_number
 
-    def to_dict(self, processes: bool = False) -> dict:
-        """
-        This Equipment as a dictionary
+    # def to_dict(self, processes: bool = False) -> dict:
+    #     """
+    #     This Equipment as a dictionary
 
-        Args:
-            processes (bool, optional): Whether to include process. Defaults to False.
+    #     Args:
+    #         processes (bool, optional): Whether to include process. Defaults to False.
 
-        Returns:
-            dict: Dictionary representation of this equipment
-        """
-        if not processes:
-            return {k: v for k, v in self.__dict__.items() if k != 'process'}
-        else:
-            return {k: v for k, v in self.__dict__.items()}
+    #     Returns:
+    #         dict: Dictionary representation of this equipment
+    #     """
+    #     if not processes:
+    #         return {k: v for k, v in self.__dict__.items() if k != 'process'}
+    #     else:
+    #         return {k: v for k, v in self.__dict__.items()}
 
     @classmethod
     @setup_lookup
@@ -1866,15 +2186,98 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated procedure
     process_id = Column(INTEGER, ForeignKey("_process.id"))
 
-    equipmentrole = relationship("EquipmentRole",
+    _equipmentrole = relationship("EquipmentRole",
                                  back_populates="equipmentroleequipmentassociation")  #: associated procedure
 
-    equipment = relationship("Equipment",
+    _equipment = relationship("Equipment",
                              back_populates="equipmentequipmentroleassociation")  #: associated procedure
 
-    process = relationship("Process",
+    _process = relationship("Process",
                            back_populates="equipmentroleeequipmentassociation")  #: associated procedure
 
+    @hybrid_property
+    def name(self):
+        return f"{self._equipmentrole.name}->{self.equipment.name}"
+
+    @name.expression
+    def name(self):
+        return func.concat(self._equipmentrole.name, "->", self.equipment.name)
+    
+    @hybrid_property
+    def process(self):
+        return self._process
+
+    @process.setter
+    def process(self, value):
+        from backend.validators.pydant import PydProcess
+        error_msg = f"Can't add item {item} to {self.name}._process"
+        match value:
+            case str():
+                output = Process.query(name=value, limit=1)
+            case dict():
+                output = Process.query_or_create(**value)
+            case PydProcess():
+                output = item.to_sql()
+            case Process():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Process):
+            self._process = output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def equipment(self):
+        return self._equipment
+
+    @equipment.setter
+    def equipment(self, value):
+        from backend.validators.pydant import PydEquipment
+        error_msg = f"Can't add item {item} to {self.name}._equipment"
+        match value:
+            case str():
+                output = Equipment.query(name=value, limit=1)
+            case dict():
+                output = Equipment.query_or_create(**value)
+            case PydEquipment():
+                output = item.to_sql()
+            case Equipment():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Equipment):
+            self._equipment = output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def equipmentrole(self):
+        return self._equipmentrole
+
+    @reagentrole.setter
+    def equipmentrole(self, value):
+        from backend.validators.pydant import PydEquipmentRole
+        error_msg = f"Can't add item {item} to {self.name}._equipmentrole"
+        match value:
+            case str():
+                output = EquipmentRole.query(name=value, limit=1)
+            case dict():
+                output = EquipmentRole.query_or_create(**value)
+            case PydEquipmentRole():
+                output = item.to_sql()
+            case EquipmentRole():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, EquipmentRole):
+            self._equipmentrole = output
+        else:
+            logger.error(error_msg)
+    
     def details_dict(self, **kwargs) -> dict:
         output = super().details_dict(**kwargs)
         output['equipment'] = self.equipment.details_dict()
@@ -1890,21 +2293,98 @@ class Process(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     name = Column(String(64), unique=True)  #: Process name
-    tips = relationship("Tips", back_populates='process',
+    _tips = relationship("Tips", back_populates='process',
                         secondary=process_tips)  #: relation to KitType
 
-    processversion = relationship("ProcessVersion", back_populates="process")
+    _processversion = relationship("ProcessVersion", back_populates="process")
 
-    equipmentroleeequipmentassociation = relationship("EquipmentRoleEquipmentAssociation", back_populates="process")
+    _equipmentroleeequipmentassociation = relationship("EquipmentRoleEquipmentAssociation", back_populates="process")
 
-    def set_attribute(self, key, value):
-        match key:
-            case "name":
-                self.name = value
-            case _:
-                field = getattr(self, key)
-                if value not in field:
-                    field.append(value)
+    @hybrid_property
+    def equipmentroleeequipmentassociation(self):
+        return self._equipmentroleeequipmentassociation
+
+    @equipmentroleeequipmentassociation.setter
+    def equipmentroleeequipmentassociation(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._processversion"
+            # match item:
+            #     case EquipmentRoleEquipmentAssociation():
+            #         output = item
+            #     case _:
+            #         logger.error(error_msg)
+            #         continue
+            if isinstance(output, EquipmentRoleEquipmentAssociation):
+                self._processversion.append(output)
+            else:
+                logger.error(error_msg)
+    
+    @hybrid_property
+    def processversion(self):
+        return self._processversion
+
+    @processversion.setter
+    def processversion(self, value):
+        from backend.validators.pydant import PydProcessVersion
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._processversion"
+            match item:
+                case str():
+                    output = ProcessVersion.query(name=item, limit=1)
+                case dict():
+                    output = ProcessVersion.query_or_create(**item)
+                case PydProcessVersion():
+                    output = item.to_sql()
+                case ProcessVersion():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ProcessVersion):
+                self._processversion.append(output)
+            else:
+                logger.error(error_msg)
+
+    @hybrid_property
+    def tips(self):
+        return self._tips
+
+    @tips.setter
+    def tips(self, value):
+        from backend.validators.pydant import PydTips
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._tips"
+            match item:
+                case str():
+                    output = Tips.query(name=item, limit=1)
+                case dict():
+                    output = Tips.query_or_create(**item)
+                case PydTips():
+                    output = item.to_sql()
+                case Tips():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Tips):
+                self._tips.append(output)
+            else:
+                logger.error(error_msg)
+
+    # def set_attribute(self, key, value):
+    #     match key:
+    #         case "name":
+    #             self.name = value
+    #         case _:
+    #             field = getattr(self, key)
+    #             if value not in field:
+    #                 field.append(value)
 
     @classmethod
     @setup_lookup
@@ -1998,15 +2478,40 @@ class ProcessVersion(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     version = Column(FLOAT(2), default=1.00)  #: Version number
-    date_verified = Column(TIMESTAMP)  #: Date this version was deemed worthy
+    _date_verified = Column(TIMESTAMP)  #: Date this version was deemed worthy
     project = Column(String(128))  #: Name of the project this belonds to.
     _active = Column(INTEGER, default=1)  #: Is this version in use?
-    process = relationship("Process", back_populates="processversion")
+    _process = relationship("Process", back_populates="processversion")
     process_id = Column(INTEGER, ForeignKey("_process.id", ondelete="SET NULL",
                                             name="fk_version_process_id"))
     procedureequipmentassociation = relationship("ProcedureEquipmentAssociation",
                                                  back_populates='processversion')  #: relation to RunEquipmentAssociation
 
+    @hybrid_property
+    def process(self):
+        return self._process
+
+    @process.setter
+    def process(self, value):
+        from backend.validators.pydant import PydProcess
+        error_msg = f"Can't add item {item} to {self.name}._process"
+        match value:
+            case str():
+                output = Process.query(name=value, limit=1)
+            case dict():
+                output = Process.query_or_create(**value)
+            case PydProcess():
+                output = item.to_sql()
+            case Process():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Process):
+            self._process = output
+        else:
+            logger.error(error_msg)
+    
     @hybrid_property
     def name(self) -> str:
         return f"{self.process.name}-v{str(self.version)}"
@@ -2018,6 +2523,16 @@ class ProcessVersion(BaseClass):
     @hybrid_property
     def active(self):
         return bool(self.active)
+
+    @active.setter
+    def active(self, value):
+        match value:
+            case int():
+                self._active = value
+            case bool():
+                self.active = int(value)
+            case _:
+                raise TypeError(f"Unsupported type {type(value)} for {self.name}._active")
 
     # @validates('active')
     # def validate_active(self, key, value):
@@ -2078,11 +2593,67 @@ class Tips(BaseClass):
     An abstract reagentrole that a tip fills during a process
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
-    tipslot = relationship("TipsLot", back_populates="tips")  #: concrete instance of this tip type
+    _tipslot = relationship("TipsLot", back_populates="tips")  #: concrete instance of this tip type
     manufacturer = Column(String(64))  #: Name of manufacturer
     capacity = Column(INTEGER)  #: How many uL the tip can hold.
     ref = Column(String(64))  #: tip reference number
-    process = relationship("Process", back_populates="tips", secondary=process_tips)  #: Associated process
+    _process = relationship("Process", back_populates="tips", secondary=process_tips)  #: Associated process
+
+    @hybrid_property
+    def process(self):
+        return self._process
+
+    @process.setter
+    def process(self, value):
+        from backend.validators.pydant import PydProcess
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._process"
+            match item:
+                case str():
+                    output = Process.query(name=item, limit=1)
+                case dict():
+                    output = Process.query_or_create(**item)
+                case PydProcess():
+                    output = item.to_sql()
+                case Process():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Process):
+                self._process.append(output)
+            else:
+                logger.error(error_msg)
+    
+    @hybrid_property
+    def tipslot(self):
+        return self._tipslot
+
+    @tipslot.setter
+    def tipslot(self, value):
+        from backend.validators.pydant import PydTipsLot
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._tipslot"
+            match item:
+                case str():
+                    output = TipsLot.query(name=item, limit=1)
+                case dict():
+                    output = TipsLot.query_or_create(**item)
+                case PydTipsLot():
+                    output = item.to_sql()
+                case TipsLot():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, TipsLot):
+                self._tipslot.append(output)
+            else:
+                logger.error(error_msg)
 
     @hybrid_property
     def name(self):
@@ -2148,32 +2719,46 @@ class TipsLot(BaseClass, LogMixin):
     A concrete instance of tips.
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
-    tips = relationship("Tips", back_populates="tipslot")  #: joined parent tip type
+    _tips = relationship("Tips", back_populates="tipslot")  #: joined parent tip type
     tips_id = Column(INTEGER, ForeignKey("_tips.id", ondelete='SET NULL',
                                          name="fk_tips_id"))  #: id of parent tip type
     lot = Column(String(64), unique=True)  #: lot number
-    expiry = Column(TIMESTAMP)  #: date of expiry
+    _expiry = Column(TIMESTAMP)  #: date of expiry
     _active = Column(INTEGER, default=1)  #: whether or not these tips are currently in use.
 
-    # @validates('active')
-    # def validate_active(self, key, value):
-    #     """
-    #     Ensures only 1 & 0 used in 'active'
+    @hybrid_property
+    def expiry(self) -> str:
+        return self._expiry
 
-    #     Args:
-    #         key (str): name of attribute
-    #         value (_type_): value of attribute
+    @expiry.setter
+    def expiry(value):
+        self._expiry = value
+    
+    @hybrid_property
+    def tips(self):
+        return self._tips
 
-    #     Raises:
-    #         ValueError: Raised if bad value given
-
-    #     Returns:
-    #         _type_: value
-    #     """
-    #     if not 0 <= value < 2:
-    #         raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-    #     return value
-
+    @tips.setter
+    def tips(self, value):
+        from backend.validators.pydant import PydTips
+        error_msg = f"Can't add item {item} to {self.name}._tips"
+        match value:
+            case str():
+                output = Tips.query(name=value, limit=1)
+            case dict():
+                output = Tips.query_or_create(**value)
+            case PydTips():
+                output = item.to_sql()
+            case Tips():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Tips):
+            self._tips = output
+        else:
+            logger.error(error_msg)
+    
     @property
     def size(self) -> str:
         return f"{self.capacity}ul"
@@ -2286,24 +2871,24 @@ class ProcedureEquipmentAssociation(BaseClass):
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)
     processversion_id = Column(INTEGER, ForeignKey("_processversion.id", ondelete="SET NULL",
                                                    name="SEA_Process_id"))  #: Foreign key of process id
-    start_time = Column(TIMESTAMP)  #: start time of equipment use
-    end_time = Column(TIMESTAMP)  #: end time of equipment use
+    _start_time = Column(TIMESTAMP)  #: start time of equipment use
+    _end_time = Column(TIMESTAMP)  #: end time of equipment use
     comments = Column(String(1024))  #: comments about equipment
 
-    procedure = relationship(Procedure,
+    _procedure = relationship(Procedure,
                              back_populates="procedureequipmentassociation")  #: associated procedure
 
-    equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
+    _equipment = relationship(Equipment, back_populates="equipmentprocedureassociation")  #: associated equipment
 
-    equipmentrole = relationship(EquipmentRole)
+    _equipmentrole = relationship(EquipmentRole)
 
-    processversion = relationship(ProcessVersion,
+    _processversion = relationship(ProcessVersion,
                                   back_populates="procedureequipmentassociation")  #: Associated process version
 
     tipslot_id = Column(INTEGER, ForeignKey("_tipslot.id", ondelete="SET NULL",
                                             name="SEA_Tipslot_id"))
 
-    tipslot = relationship(TipsLot)
+    _tipslot = relationship(TipsLot)
 
     def __repr__(self) -> str:
         try:
@@ -2331,6 +2916,131 @@ class ProcedureEquipmentAssociation(BaseClass):
         #     equipmentrole = equipmentrole.name
         self.equipmentrole = equipmentrole
 
+    @hybrid_property
+    def tipslot(self):
+        return self._tipslot
+
+    @tipslot.setter
+    def tipslot(self, value):
+        from backend.validators.pydant import PydTipsLot
+        error_msg = f"Can't add item {item} to {self.name}._tipslot"
+        match item:
+            case str():
+                output = TipsLot.query(name=item, limit=1)
+            case dict():
+                output = TipsLot.query_or_create(**item)
+            case PydTipsLot():
+                output = item.to_sql()
+            case TipsLot():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, TipsLot):
+            self._tipslot =output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def equipmentrole(self):
+        return self._equipmentrole
+
+    @equipment.setter
+    def equipment(self, value):
+        from backend.validators.pydant import PydEquipmentRole
+        error_msg = f"Can't add item {item} to {self.name}._equipmentrole"
+        match item:
+            case str():
+                output = EquipmentRole.query(name=item, limit=1)
+            case dict():
+                output = EquipmentRole.query_or_create(**item)
+            case PydEquipmentRole():
+                output = item.to_sql()
+            case EquipmentRole():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, EquipmentRole):
+            self._equipmentrole =output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def equipment(self):
+        return self._equipment
+
+    @equipment.setter
+    def equipment(self, value):
+        from backend.validators.pydant import PydEquipment
+        error_msg = f"Can't add item {item} to {self.name}._equipment"
+        match item:
+            case str():
+                output = Equipment.query(name=item, limit=1)
+            case dict():
+                output = Equipment.query_or_create(**item)
+            case PydEquipment():
+                output = item.to_sql()
+            case Equipment():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Equipment):
+            self._equipment =output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
+        error_msg = f"Can't add item {item} to {self.name}._procedure"
+        match item:
+            case str():
+                output = Procedure.query(name=item, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**item)
+            case PydProcedure():
+                output = item.to_sql()
+            case Procedure():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Procedure):
+            self._procedure =output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def processversion(self):
+        return self._processversion
+
+    @processversion.setter
+    def processversion(self, value):
+        from backend.validators.pydant import PydProcessVersion
+        error_msg = f"Can't add item {item} to {self.name}._processversion"
+        match item:
+            case str():
+                output = ProcessVersion.query(name=item, limit=1)
+            case dict():
+                output = ProcessVersion.query_or_create(**item)
+            case PydProcessVersion():
+                output = item.to_sql()
+            case ProcessVersion():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ProcessVersion):
+            self._processversion =output
+        else:
+            logger.error(error_msg)
+    
     @property
     def name(self):
         return f"{self.procedure.name} & {self.equipment.name}"
@@ -2439,34 +3149,84 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
-    uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
+    # uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
     static = Column(INTEGER,
                     default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
-    proceduretype = relationship(ProcedureType,
+    _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypeequipmentroleassociation",
                                  foreign_keys=[proceduretype_id])  #: associated procedure
-    equipmentrole = relationship(EquipmentRole,
+    _equipmentrole = relationship(EquipmentRole,
                                  back_populates="equipmentroleproceduretypeassociation",
                                  foreign_keys=[equipmentrole_id])  #: associated equipment
 
-    @validates('static')
-    def validate_static(self, key, value):
-        """
-        Ensures only 1 & 0 used in 'static'
+    @hybrid_property
+    def proceduretype(self):
+        return self._proceduretype
 
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
+    @proceduretype.setter
+    def proceduretype(self, value):
+        from backend.validators.pydant import PydProcedureType
+        error_msg = f"Can't add item {item} to {self.name}._proceduretype"
+        match item:
+            case str():
+                output = ProcedureType.query(name=item, limit=1)
+            case dict():
+                output = ProcedureType.query_or_create(**item)
+            case PydProcedureType():
+                output = item.to_sql()
+            case ProcedureType():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ProcedureType):
+            self._proceduretype =output
+        else:
+            logger.error(error_msg)
+    
+    @hybrid_property
+    def equipmentrole(self):
+        return self._equipmentrole
 
-        Raises:
-            ValueError: Raised if bad value given
+    @processversion.setter
+    def processversion(self, value):
+        from backend.validators.pydant import PydEquipmentRole
+        error_msg = f"Can't add item {item} to {self.name}._equipmentrole"
+        match item:
+            case str():
+                output = EquipmentRole.query(name=item, limit=1)
+            case dict():
+                output = EquipmentRole.query_or_create(**item)
+            case PydEquipmentRole():
+                output = item.to_sql()
+            case EquipmentRole():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, EquipmentRole):
+            self._equipmentrole =output
+        else:
+            logger.error(error_msg)
+    
+    # @validates('static')
+    # def validate_static(self, key, value):
+    #     """
+    #     Ensures only 1 & 0 used in 'static'
 
-        Returns:
-            _type_: value
-        """
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
+    #     Args:
+    #         key (str): name of attribute
+    #         value (_type_): value of attribute
+
+    #     Raises:
+    #         ValueError: Raised if bad value given
+
+    #     Returns:
+    #         _type_: value
+    #     """
+    #     if not 0 <= value < 2:
+    #         raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+    #     return value
 
     @check_authorization
     def save(self):
@@ -2479,16 +3239,41 @@ class Results(BaseClass):
     date_analyzed = Column(TIMESTAMP)
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete='SET NULL',
                                               name="fk_RES_procedure_id"))
-    procedure = relationship("Procedure", back_populates="results")
+    _procedure = relationship("Procedure", back_populates="results")
     assoc_id = Column(INTEGER, ForeignKey("_proceduresampleassociation.id", ondelete='SET NULL',
                                           name="fk_RES_ASSOC_id"))
-    sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="results")
+    _sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="results")
     _img = Column(String(128))
 
     resultstype_id = Column(INTEGER, ForeignKey("_resultstype.id", ondelete='SET NULL',
                                               name="fk_RES_resultstype_id"))
-    resultstype = relationship("ResultsType", back_populates="results")
+    _resultstype = relationship("ResultsType", back_populates="results")
 
+    @hybrid_property
+    def proceduretype(self):
+        return self._proceduretype
+
+    @proceduretype.setter
+    def proceduretype(self, value):
+        from backend.validators.pydant import PydProcedureType
+        error_msg = f"Can't add item {item} to {self.name}._proceduretype"
+        match item:
+            case str():
+                output = ProcedureType.query(name=item, limit=1)
+            case dict():
+                output = ProcedureType.query_or_create(**item)
+            case PydProcedureType():
+                output = item.to_sql()
+            case ProcedureType():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ProcedureType):
+            self._proceduretype =output
+        else:
+            logger.error(error_msg)
+    
     @property
     def sample_id(self):
         if self.assoc_id:
