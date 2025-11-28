@@ -209,14 +209,24 @@ class Reagent(BaseClass, LogMixin):
 
     skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
-    reagentrole = relationship("ReagentRole", back_populates="reagent",
-                               secondary=reagentrole_reagent)  #: joined parent ReagentRole
-    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete='SET NULL',
-                                                name="fk_REG_reagent_role_id"))  #: id of parent ReagentRole
+    # reagentrole = relationship("ReagentRole", back_populates="reagent",
+    #                            secondary=reagentrole_reagent)  #: joined parent ReagentRole
+    # reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete='SET NULL',
+    #                                             name="fk_REG_reagent_role_id"))  #: id of parent ReagentRole
     eol_ext = Column(Interval())  #: extension of life interval
     name = Column(String(64), unique=True)  #: reagent name
     cost_per_ml = Column(FLOAT(2))  #: amount a millilitre of reagent costs
     reagentlot = relationship("ReagentLot", back_populates="reagent")
+
+    reagentreagentroleassociation = relationship(
+        "ReagentRoleReagentAssociation",
+        back_populates="reagent",
+        cascade="all, delete-orphan",
+    )  #: Relation to KitTypeReagentTypeAssociation
+    # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
+    reagentrole = association_proxy("reagentrolereagentassociation", "reagentrole",
+                                      creator=lambda reagentrole: ReagentRoleReagentAssociation(
+                                          reagentrole=reagentrole))  #: Association proxy to KitTypeReagentRoleAssociation
 
     def __repr__(self):
         if self.name:
