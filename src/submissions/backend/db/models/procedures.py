@@ -935,7 +935,7 @@ class Procedure(BaseClass):
     def delete(self, obj):
         logger.debug("Delete!")
 
-    def details_dict(self, **kwargs):
+    def details_dict(self, **kwargs) -> dict:
         output = super().details_dict()
         output['proceduretype'] = output['proceduretype'].details_dict()['name']
         output['results'] = [result.details_dict() for result in output['results']]
@@ -979,9 +979,9 @@ class Procedure(BaseClass):
             [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
         return output
 
-    def create_proceduresampleassociations(self, sample):
-        from backend.db.models import ProcedureSampleAssociation
-        return ProcedureSampleAssociation(procedure=self, sample=sample)
+    # def create_proceduresampleassociations(self, sample):
+    #     from backend.db.models import ProcedureSampleAssociation
+    #     return ProcedureSampleAssociation(procedure=self, sample=sample)
 
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
@@ -1052,12 +1052,16 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     def __repr__(self) -> str:
         return f"<ProcedureTypeReagentRoleAssociation({self.proceduretype} & {self.reagentrole})>"
 
-    @property
+    @hybrid_property
     def name(self):
         try:
             return f"{self.proceduretype.name} -> {self.reagentrole.name}"
         except AttributeError:
             return "Blank ProcedureTypeReagentRole"
+
+    @name.expression
+    def name(cls):
+        return func.concat(cls.proceduretype.name, ' -> ', cls.reagentrole.name)
 
     # @validates('required')
     # def validate_required(self, key, value):
@@ -1707,7 +1711,6 @@ class Process(BaseClass):
                 query = query.filter(cls.proceduretype.contains(proceduretype))
             case _:
                 pass
-
         match equipmentrole:
             case str():
                 equipmentrole = EquipmentRole.query(name=equipmentrole)
@@ -1734,23 +1737,23 @@ class Process(BaseClass):
     def save(self):
         super().save()
 
-    def to_omni(self, expand: bool = False):
-        from backend.validators.omni_gui_objects import OmniProcess
-        if expand:
-            proceduretype = [item.to_omni() for item in self.proceduretype]
-            equipmentrole = [item.to_omni() for item in self.equipmentrole]
-            tiprole = [item.to_omni() for item in self.tiprole]
-        else:
-            proceduretype = [item.name for item in self.proceduretype]
-            equipmentrole = [item.name for item in self.equipmentrole]
-            tiprole = [item.name for item in self.tiprole]
-        return OmniProcess(
-            instance_object=self,
-            name=self.name,
-            proceduretype=proceduretype,
-            equipmentrole=equipmentrole,
-            tiprole=tiprole
-        )
+    # def to_omni(self, expand: bool = False):
+    #     from backend.validators.omni_gui_objects import OmniProcess
+    #     if expand:
+    #         proceduretype = [item.to_omni() for item in self.proceduretype]
+    #         equipmentrole = [item.to_omni() for item in self.equipmentrole]
+    #         tiprole = [item.to_omni() for item in self.tiprole]
+    #     else:
+    #         proceduretype = [item.name for item in self.proceduretype]
+    #         equipmentrole = [item.name for item in self.equipmentrole]
+    #         tiprole = [item.name for item in self.tiprole]
+    #     return OmniProcess(
+    #         instance_object=self,
+    #         name=self.name,
+    #         proceduretype=proceduretype,
+    #         equipmentrole=equipmentrole,
+    #         tiprole=tiprole
+    #     )
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
@@ -1759,9 +1762,9 @@ class Process(BaseClass):
         output['tips'] = [tipslot.details_dict() for tipslot in tips]
         return output
 
-    def to_pydantic(self):
-        output = super().to_pydantic()
-        return output
+    # def to_pydantic(self):
+    #     output = super().to_pydantic()
+    #     return output
 
 
 class ProcessVersion(BaseClass):
@@ -1772,35 +1775,43 @@ class ProcessVersion(BaseClass):
     version = Column(FLOAT(2), default=1.00)  #: Version number
     date_verified = Column(TIMESTAMP)  #: Date this version was deemed worthy
     project = Column(String(128))  #: Name of the project this belonds to.
-    active = Column(INTEGER, default=1)  #: Is this version in use?
+    _active = Column(INTEGER, default=1)  #: Is this version in use?
     process = relationship("Process", back_populates="processversion")
     process_id = Column(INTEGER, ForeignKey("_process.id", ondelete="SET NULL",
                                             name="fk_version_process_id"))
     procedureequipmentassociation = relationship("ProcedureEquipmentAssociation",
                                                  back_populates='processversion')  #: relation to RunEquipmentAssociation
 
-    @property
+    @hybrid_property
     def name(self) -> str:
         return f"{self.process.name}-v{str(self.version)}"
 
-    @validates('active')
-    def validate_active(self, key, value):
-        """
-        Ensures only 1 & 0 used in 'active'
+    @name.expression
+    def name(cls):
+        return func.concat(cls.process.name, '-v', cls.version)
 
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
+    @hybrid_property
+    def active(self):
+        return bool(self.active)
 
-        Raises:
-            ValueError: Raised if bad value given
+    # @validates('active')
+    # def validate_active(self, key, value):
+    #     """
+    #     Ensures only 1 & 0 used in 'active'
 
-        Returns:
-            _type_: value
-        """
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
+    #     Args:
+    #         key (str): name of attribute
+    #         value (_type_): value of attribute
+
+    #     Raises:
+    #         ValueError: Raised if bad value given
+
+    #     Returns:
+    #         _type_: value
+    #     """
+    #     if not 0 <= value < 2:
+    #         raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+    #     return value
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
@@ -1852,6 +1863,10 @@ class Tips(BaseClass):
     def name(self):
         return f"{self.manufacturer}-{self.ref}"
 
+    @name.expression
+    def name(cls):
+        return func.concat(cls.manufacturer, '-', cls.ref)
+
     @classmethod
     @setup_lookup
     def query(cls,
@@ -1890,17 +1905,17 @@ class Tips(BaseClass):
     def save(self):
         super().save()
 
-    def to_omni(self, expand: bool = False):
-        from backend.validators.omni_gui_objects import OmniTipRole
-        if expand:
-            tips = [item.to_omni() for item in self.tips]
-        else:
-            tips = [item.name for item in self.tips]
-        return OmniTipRole(
-            instance_object=self,
-            name=self.name,
-            tips=tips
-        )
+    # def to_omni(self, expand: bool = False):
+    #     from backend.validators.omni_gui_objects import OmniTipRole
+    #     if expand:
+    #         tips = [item.to_omni() for item in self.tips]
+    #     else:
+    #         tips = [item.name for item in self.tips]
+    #     return OmniTipRole(
+    #         instance_object=self,
+    #         name=self.name,
+    #         tips=tips
+    #     )
 
 
 class TipsLot(BaseClass, LogMixin):
@@ -1913,34 +1928,46 @@ class TipsLot(BaseClass, LogMixin):
                                          name="fk_tips_id"))  #: id of parent tip type
     lot = Column(String(64), unique=True)  #: lot number
     expiry = Column(TIMESTAMP)  #: date of expiry
-    active = Column(INTEGER, default=1)  #: whether or not these tips are currently in use.
+    _active = Column(INTEGER, default=1)  #: whether or not these tips are currently in use.
 
-    @validates('active')
-    def validate_active(self, key, value):
-        """
-        Ensures only 1 & 0 used in 'active'
+    # @validates('active')
+    # def validate_active(self, key, value):
+    #     """
+    #     Ensures only 1 & 0 used in 'active'
 
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
+    #     Args:
+    #         key (str): name of attribute
+    #         value (_type_): value of attribute
 
-        Raises:
-            ValueError: Raised if bad value given
+    #     Raises:
+    #         ValueError: Raised if bad value given
 
-        Returns:
-            _type_: value
-        """
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
+    #     Returns:
+    #         _type_: value
+    #     """
+    #     if not 0 <= value < 2:
+    #         raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+    #     return value
 
     @property
     def size(self) -> str:
         return f"{self.capacity}ul"
 
-    @property
+    @hybrid_property
     def name(self) -> str:
         return f"{self.tips.manufacturer}-{self.tips.ref}-{self.lot}"
+
+    @name.expression
+    def name(cls):
+        return func.concat(cls.tips.manufacturer, '-', cls.tips.lot, '-' self.lot)
+
+    @hybrid_property
+    def active(self):
+        return bool(self._active)
+
+    @active.setter
+    def active(self, value):
+        self._active = int(value)   
 
     @classmethod
     def query(cls,
