@@ -1059,45 +1059,45 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         except AttributeError:
             return "Blank ProcedureTypeReagentRole"
 
-    @validates('required')
-    def validate_required(self, key, value):
-        """
-        Ensures only 1 & 0 used in 'required'
+    # @validates('required')
+    # def validate_required(self, key, value):
+    #     """
+    #     Ensures only 1 & 0 used in 'required'
 
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
+    #     Args:
+    #         key (str): name of attribute
+    #         value (_type_): value of attribute
 
-        Raises:
-            ValueError: Raised if bad value given
+    #     Raises:
+    #         ValueError: Raised if bad value given
 
-        Returns:
-            _type_: value
-        """
-        if isinstance(value, bool):
-            value = int(value)
-        if not 0 <= value < 2:
-            raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
-        return value
+    #     Returns:
+    #         _type_: value
+    #     """
+    #     if isinstance(value, bool):
+    #         value = int(value)
+    #     if not 0 <= value < 2:
+    #         raise ValueError(f'Invalid required value {value}. Must be 0 or 1.')
+    #     return value
 
-    @validates('reagentrole')
-    def validate_reagentrole(self, key, value):
-        """
-        Ensures reagenttype is an actual ReagentType
+    # @validates('reagentrole')
+    # def validate_reagentrole(self, key, value):
+    #     """
+    #     Ensures reagenttype is an actual ReagentType
 
-        Args:
-            key (str)): name of attribute
-            value (_type_): value of attribute
+    #     Args:
+    #         key (str)): name of attribute
+    #         value (_type_): value of attribute
 
-        Raises:
-            ValueError: raised if reagenttype is not a ReagentType
+    #     Raises:
+    #         ValueError: raised if reagenttype is not a ReagentType
 
-        Returns:
-            _type_: ReagentType
-        """
-        if not isinstance(value, ReagentRole):
-            raise ValueError(f'{value} is not a reagentrole')
-        return value
+    #     Returns:
+    #         _type_: ReagentType
+    #     """
+    #     if not isinstance(value, ReagentRole):
+    #         raise ValueError(f'{value} is not a reagentrole')
+    #     return value
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[ProcedureTypeReagentRoleAssociation, bool]:
