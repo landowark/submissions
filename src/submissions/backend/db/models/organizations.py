@@ -7,7 +7,9 @@ from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query, declared_attr
 from . import BaseClass
 from tools import check_authorization, setup_lookup
-from typing import List
+from typing import List, TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.validators.pydant import PydContact
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -139,6 +141,6 @@ class Contact(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_pydantic(self) -> "PydContact":
+    def to_pydantic(self) -> PydContact:
         from backend.validators import PydContact
         return PydContact(name=self.name, email=self.email, phone=self.phone)
