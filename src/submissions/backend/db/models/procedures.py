@@ -64,7 +64,7 @@ class ReagentRole(BaseClass):
     Base of reagent type abstract
     """
 
-    skip_on_edit = False
+    # skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of reagentrole reagent plays
     # reagent = relationship("Reagent", back_populates="reagentrole",
@@ -89,19 +89,21 @@ class ReagentRole(BaseClass):
                                       creator=lambda reagent: ReagentRoleReagentAssociation(
                                           reagent=reagent))  #: Association proxy to KitTypeReagentRoleAssociation
 
-    @classmethod
-    def query_or_create(cls, **kwargs) -> Tuple[ReagentRole, bool]:
-        new = False
-        disallowed = ['expiry']
-        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        instance = cls.query(**sanitized_kwargs)
-        if not instance or isinstance(instance, list):
-            instance = cls()
-            new = True
-        for k, v in sanitized_kwargs.items():
-            setattr(instance, k, v)
-        # logger.info(f"Instance from query or create: {instance}")
-        return instance, new
+    ##### Query Functions #####
+    
+    # @classmethod
+    # def query_or_create(cls, **kwargs) -> Tuple[ReagentRole, bool]:
+    #     new = False
+    #     disallowed = ['expiry']
+    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+    #     instance = cls.query(**sanitized_kwargs)
+    #     if not instance or isinstance(instance, list):
+    #         instance = cls()
+    #         new = True
+    #     for k, v in sanitized_kwargs.items():
+    #         setattr(instance, k, v)
+    #     # logger.info(f"Instance from query or create: {instance}")
+    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -195,10 +197,10 @@ class Reagent(BaseClass, LogMixin):
     #                            secondary=reagentrole_reagent)  #: joined parent ReagentRole
     # reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete='SET NULL',
     #                                             name="fk_REG_reagent_role_id"))  #: id of parent ReagentRole
-    eol_ext = Column(Interval())  #: extension of life interval
+    _eol_ext = Column(Interval())  #: extension of life interval
     name = Column(String(64), unique=True)  #: reagent name
     cost_per_ml = Column(FLOAT(2))  #: amount a millilitre of reagent costs
-    reagentlot = relationship("ReagentLot", back_populates="reagent")
+    _reagentlot = relationship("ReagentLot", back_populates="reagent")
 
     reagentreagentroleassociation = relationship(
         "ReagentRoleReagentAssociation",
@@ -210,6 +212,13 @@ class Reagent(BaseClass, LogMixin):
                                       creator=lambda reagentrole: ReagentRoleReagentAssociation(
                                           reagentrole=reagentrole))  #: Association proxy to KitTypeReagentRoleAssociation
 
+    @hybrid_property
+    def reagentlot(self):
+        return self._reagentlot
+    
+    @reagentlot.setter
+    def 
+    
     def __repr__(self):
         if self.name:
             name = f"<Reagent({self.name})>"
