@@ -30,11 +30,13 @@ class ClientLab(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: clientlab name
-    _clientsubmission = relationship("ClientSubmission", back_populates="clientlab")  #: submission this clientlab has submitted
+    _clientsubmission = relationship("ClientSubmission", back_populates="_clientlab")  #: submission this clientlab has submitted
     cost_centre = Column(String(32))  #: cost centre used by org for payment
-    _contact = relationship("Contact", back_populates="clientlab",
+    _contact = relationship("Contact", back_populates="_clientlab",
                            secondary=clientlab_contact)  #: contact involved with this org
 
+    ##### Properties #####
+    
     @hybrid_property
     def clientsubmission(self):
         return self._clientsubmssion
@@ -45,25 +47,54 @@ class ClientLab(BaseClass):
         if not isinstance(value, list):
             value = [value]
         for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
             match item:
                 case str():
                     output = ClientSubmission.query(name=item, limit=1)
                 case dict():
-                    output = ClientSubmission.query(name=item['name'], limit=1)
+                    output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
                     output = item.to_pydantic()
-                case ClientSubmission:
+                case ClientSubmission():
                     output = item
                 case _:
-                    logger.error(f"Can't add item {item} to {self.name}._clientsubmission")
+                    logger.error(error_msg)
                     continue
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:
-                logger.error(f"Can't add item {item} to {self.name}._clientsubmission")
-            
-        
+                logger.error(error_msg)
 
+    @hybrid_property
+    def contact(self):
+        return self._contact
+
+    @contact.setter
+    def contact(self, value):
+        from backend.validators.pydant import PydContact
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._contact"
+            match item:
+                case str():
+                    output = Contact.query(name=item, limit=1)
+                case dict():
+                    output = Contact.query_or_create(**item)
+                case PydContact():
+                    output = item.to_pydantic()
+                case Contact():
+                    output = item
+                case _:
+                    logger.error(f"Can't add item {item} to {self.name}._contact")
+                    continue
+            if isinstance(output, Contact):
+                self._contact.append(output)
+            else:
+                logger.error(f"Can't add item {item} to {self.name}._contact")
+
+    ##### Query Function #####
+    
     @classmethod
     @setup_lookup
     def query(cls,
@@ -110,10 +141,66 @@ class Contact(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: contact name
     email = Column(String(64))  #: contact email
-    phone = Column(String(32))  #: contact phone number
-    clientlab = relationship("ClientLab", back_populates="contact", uselist=True,
+    phone = Column(String(16))  #: contact phone number
+    _clientlab = relationship("ClientLab", back_populates="_contact", uselist=True,
                              secondary=clientlab_contact)  #: relationship to joined clientlab
-    clientsubmission = relationship("ClientSubmission", back_populates="contact")  #: procedure this contact has submitted
+    _clientsubmission = relationship("ClientSubmission", back_populates="_contact")  #: procedure this contact has submitted
+
+    @hybrid_property
+    def clientlab(self):
+        return self._clientlab
+
+    @clientlab.setter
+    def clientlab(self, value):
+        from backend.validators.pydant import PydClientLab
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._clientlab"
+            match item:
+                case str():
+                    output = ClientLab.query(name=item, limit=1)
+                case dict():
+                    output = ClientLab.query_or_create(**item)
+                case PydClientLab():
+                    output = item.to_pydantic()
+                case ClientLab():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ClientLab):
+                self._contact.append(output)
+            else:
+                logger.error(error_msg)
+
+    @hybrid_property
+    def clientsubmission(self):
+        return self._clientsubmssion
+
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        from backend.validators.pydant import PydClientSubmission
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
+            match item:
+                case str():
+                    output = ClientSubmission.query(name=item, limit=1)
+                case dict():
+                    output = ClientSubmission.query_or_create(**item)
+                case PydClientSubmission():
+                    output = item.to_pydantic()
+                case ClientSubmission():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ClientSubmission):
+                self._clientsubmission.append(output)
+            else:
+                logger.error(error_msg)
 
     # @classproperty
     @classmethod
