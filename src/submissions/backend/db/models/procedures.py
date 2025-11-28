@@ -191,7 +191,7 @@ class Reagent(BaseClass, LogMixin):
     Concrete reagent instance
     """
 
-    skip_on_edit = False
+    # skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
     # reagentrole = relationship("ReagentRole", back_populates="reagent",
     #                            secondary=reagentrole_reagent)  #: joined parent ReagentRole
@@ -212,13 +212,49 @@ class Reagent(BaseClass, LogMixin):
                                       creator=lambda reagentrole: ReagentRoleReagentAssociation(
                                           reagentrole=reagentrole))  #: Association proxy to KitTypeReagentRoleAssociation
 
+    def __init__(self, name: str, eol_ext: timedelta = timedelta(0), *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+        self._eol_ext = eol_ext
+        if self._reagentlot is None:
+            self._reagentlot = []
+
+    @hybrid_property
+    def eol_ext(self):
+        return self._eol_ext
+
+    @eol_ext.setter
+    def eol_ext(self, value):
+        self._eol_ext = value
+    
     @hybrid_property
     def reagentlot(self):
         return self._reagentlot
     
     @reagentlot.setter
-    def 
-    
+    def reagentlot(self, value):
+        from backend.validators.pydant import PydReagentLot
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._reagentlot"
+            match item:
+                case str():
+                    output = ReagentLot.query(name=item, limit=1)
+                case dict():
+                    output = ReagentLot.query_or_create(**item)
+                case PydReagentLot():
+                    output = item.to_pydantic()
+                case ReagentLot():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ReagentLot):
+                self._reagentlot.append(output)
+            else:
+                logger.error(error_msg)
+
     def __repr__(self):
         if self.name:
             name = f"<Reagent({self.name})>"
@@ -226,38 +262,33 @@ class Reagent(BaseClass, LogMixin):
             name = f"<Reagent({self.reagentrole.name})>"
         return name
 
-    def __init__(self, name: str, eol_ext: timedelta = timedelta(0), *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.name = name
-        self.eol_ext = eol_ext
-
     @classmethod
     @declared_attr
     def searchables(cls):
         return [dict(label="Lot", field="lot")]
 
-    def update_last_used(self, proceduretype: ProcedureType) -> Report:
-        """
-        Updates last used reagent lot for ReagentType/KitType
+    # def update_last_used(self, proceduretype: ProcedureType) -> Report:
+    #     """
+    #     Updates last used reagent lot for ReagentType/KitType
 
-        Args:
-            proceduretype (ProcedureType): ProcedureType this instance is used in.
+    #     Args:
+    #         proceduretype (ProcedureType): ProcedureType this instance is used in.
 
-        Returns:
-            Report: Result of operation
-        """
-        report = Report()
-        rt = ReagentRole.query(proceduretype=proceduretype, reagent=self, limit=1)
-        if rt is not None:
-            assoc = ProcedureTypeReagentRoleAssociation.query(proceduretype=proceduretype, reagentrole=rt)
-            if assoc is not None:
-                if assoc.last_used != self.lot:
-                    assoc.last_used = self.lot
-                    result = assoc.save()
-                    report.add_result(result)
-                    return report
-        report.add_result(Result(msg=f"Updating last used {rt} was not performed.", status="Information"))
-        return report
+    #     Returns:
+    #         Report: Result of operation
+    #     """
+    #     report = Report()
+    #     rt = ReagentRole.query(proceduretype=proceduretype, reagent=self, limit=1)
+    #     if rt is not None:
+    #         assoc = ProcedureTypeReagentRoleAssociation.query(proceduretype=proceduretype, reagentrole=rt)
+    #         if assoc is not None:
+    #             if assoc.last_used != self.lot:
+    #                 assoc.last_used = self.lot
+    #                 result = assoc.save()
+    #                 report.add_result(result)
+    #                 return report
+    #     report.add_result(Result(msg=f"Updating last used {rt} was not performed.", status="Information"))
+    #     return report
 
     @classmethod
     @setup_lookup
@@ -311,29 +342,29 @@ class Reagent(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    def set_attribute(self, key, value):
-        match key:
-            case "lot":
-                value = value.upper()
-            case "reagentrole":
-                match value:
-                    case ReagentRole():
-                        role = value
-                    case str():
-                        role = ReagentRole.query(name=value, limit=1)
-                    case _:
-                        return
-                if role and role not in self.reagentrole:
-                    self.reagentrole.append(role)
-                return
-            case "comment":
-                return
-            case _:
-                pass
-        try:
-            self.__setattr__(key, value)
-        except AttributeError as e:
-            logger.error(f"Could not set {key} due to {e}")
+    # def set_attribute(self, key, value):
+    #     match key:
+    #         case "lot":
+    #             value = value.upper()
+    #         case "reagentrole":
+    #             match value:
+    #                 case ReagentRole():
+    #                     role = value
+    #                 case str():
+    #                     role = ReagentRole.query(name=value, limit=1)
+    #                 case _:
+    #                     return
+    #             if role and role not in self.reagentrole:
+    #                 self.reagentrole.append(role)
+    #             return
+    #         case "comment":
+    #             return
+    #         case _:
+    #             pass
+    #     try:
+    #         self.__setattr__(key, value)
+    #     except AttributeError as e:
+    #         logger.error(f"Could not set {key} due to {e}")
 
     def details_dict(self, reagentrole: str | None = None, **kwargs):
         output = super().details_dict()
@@ -352,11 +383,11 @@ class ReagentLot(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     lot = Column(String(64), unique=True)  #: lot number of reagent
-    expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
-    active = Column(INTEGER, default=1)
+    _expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
+    _active = Column(INTEGER, default=1)
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id", ondelete='SET NULL',
                                             name="fk_REGLOT_reagent_id"))  #: id of parent reagent type
-    reagent = relationship("Reagent", back_populates="reagentlot")  #: joined parent reagent type
+    _reagent = relationship("Reagent", back_populates="reagentlot")  #: joined parent reagent type
 
     reagentlotprocedureassociation = relationship(
         "ProcedureReagentLotAssociation",
@@ -364,13 +395,69 @@ class ReagentLot(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
-    procedures = association_proxy("reagentlotprocedureassociation", "procedure",
+    procedure = association_proxy("reagentlotprocedureassociation", "procedure",
                                    creator=lambda procedure: ProcedureReagentLotAssociation(
                                        procedure=procedure))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
     @hybrid_property
+    def expiry(self):
+        return self._expiry
+
+    @expiry.setter
+    def expiry(self, value):
+        self._expiry = value
+    
+    @hybrid_property
+    def reagent(self):
+        return self._reagent
+        
+    @reagent.setter
+    def reagent(self, value):
+        from backend.validators.pydant import PydReagentLot
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._reagent"
+            match item:
+                case str():
+                    output = Reagent.query(name=item, limit=1)
+                case dict():
+                    output = Reagent.query_or_create(**item)
+                case PydReagent():
+                    output = item.to_pydantic()
+                case Reagent():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Reagent):
+                self._reagent.append(output)
+            else:
+                logger.error(error_msg)
+        
+    
+    @hybrid_property
+    def active(self):
+        return self._active
+
+    @active.setter
+    def active(self, value):
+        match value:
+            case int():
+                output = value
+            case bool():
+                output = int(value)
+            case _:
+                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
+        self._active = output
+    
+    @hybrid_property
     def name(self):
         return self.lot
+
+    @name.setter
+    def name(self, value):
+        self.lot = value
 
     @classmethod
     def query(cls,
@@ -407,18 +494,18 @@ class ReagentLot(BaseClass):
     def __repr__(self):
         return f"<Lot({self.lot}-{self.expiry}>"
 
-    def set_attribute(self, key, value):
-        match key:
-            case "expiry":
-                if isinstance(value, str):
-                    value = date(year=1970, month=1, day=1)
-                # NOTE: if min time is used, any reagent set to expire today (Bac postive control, eg) will have expired at midnight and therefore be flagged.
-                # NOTE: Make expiry at date given, plus maximum time = end of day
-                value = datetime.combine(value, datetime.max.time())
-                value = value.replace(tzinfo=timezone)
-            case _:
-                pass
-        setattr(self, key, value)
+    # def set_attribute(self, key, value):
+    #     match key:
+    #         case "expiry":
+    #             if isinstance(value, str):
+    #                 value = date(year=1970, month=1, day=1)
+    #             # NOTE: if min time is used, any reagent set to expire today (Bac postive control, eg) will have expired at midnight and therefore be flagged.
+    #             # NOTE: Make expiry at date given, plus maximum time = end of day
+    #             value = datetime.combine(value, datetime.max.time())
+    #             value = value.replace(tzinfo=timezone)
+    #         case _:
+    #             pass
+    #     setattr(self, key, value)
 
     @check_authorization
     def edit_from_search(self, obj, **kwargs):
