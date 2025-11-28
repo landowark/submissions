@@ -81,7 +81,7 @@ class BaseClass(Base):
         Returns:
             str: lower case class name
         """
-        return f"_{cls.__name__.lower()}"
+        return f"_{cls.query_alias}"
 
     @declared_attr
     @classmethod
@@ -456,7 +456,7 @@ class BaseClass(Base):
             Tuple(dict, Template): (Updated dictionary, Template to be rendered)
         """
         env = jinja_template_loading()
-        temp_name = f"{cls.__name__.lower()}_details.html"
+        temp_name = f"{cls.query_alias}_details.html"
         try:
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
