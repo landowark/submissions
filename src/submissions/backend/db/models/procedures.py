@@ -26,13 +26,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
-reagentrole_reagent = Table(
-    "_reagentrole_reagent",
-    BaseClass.__base__.metadata,
-    Column("reagent_id", INTEGER, ForeignKey("_reagent.id")),
-    Column("reagentrole_id", INTEGER, ForeignKey("_reagentrole.id")),
-    extend_existing=True
-)
+# reagentrole_reagent = Table(
+#     "_reagentrole_reagent",
+#     BaseClass.__base__.metadata,
+#     Column("reagent_id", INTEGER, ForeignKey("_reagent.id")),
+#     Column("reagentrole_id", INTEGER, ForeignKey("_reagentrole.id")),
+#     extend_existing=True
+# )
 
 equipment_process = Table(
     "_equipment_process",
@@ -67,8 +67,8 @@ class ReagentRole(BaseClass):
     skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of reagentrole reagent plays
-    reagent = relationship("Reagent", back_populates="reagentrole",
-                           secondary=reagentrole_reagent)  #: concrete control of this reagent type
+    # reagent = relationship("Reagent", back_populates="reagentrole",
+    #                        secondary=reagentrole_reagent)  #: concrete control of this reagent type
     reagentroleproceduretypeassociation = relationship(
         "ProcedureTypeReagentRoleAssociation",
         back_populates="reagentrole",
@@ -78,6 +78,16 @@ class ReagentRole(BaseClass):
     proceduretype = association_proxy("reagentroleproceduretypeassociation", "proceduretype",
                                       creator=lambda proceduretype: ProcedureTypeReagentRoleAssociation(
                                           proceduretype=proceduretype))  #: Association proxy to KitTypeReagentRoleAssociation
+
+    reagentrolereagentassociation = relationship(
+        "ReagentRoleReagentAssociation",
+        back_populates="reagentrole",
+        cascade="all, delete-orphan",
+    )  #: Relation to KitTypeReagentTypeAssociation
+    # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
+    reagent = association_proxy("reagentrolereagentassociation", "reagent",
+                                      creator=lambda reagent: ReagentRoleReagentAssociation(
+                                          reagent=reagent))  #: Association proxy to KitTypeReagentRoleAssociation
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[ReagentRole, bool]:
