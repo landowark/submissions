@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query, declared_attr
-from . import BaseClass
+from . import BaseClass, ClientSubmission
 from tools import check_authorization, setup_lookup
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
@@ -30,10 +30,39 @@ class ClientLab(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: clientlab name
-    clientsubmission = relationship("ClientSubmission", back_populates="clientlab")  #: submission this clientlab has submitted
-    cost_centre = Column(String())  #: cost centre used by org for payment
-    contact = relationship("Contact", back_populates="clientlab",
+    _clientsubmission = relationship("ClientSubmission", back_populates="clientlab")  #: submission this clientlab has submitted
+    cost_centre = Column(String(32))  #: cost centre used by org for payment
+    _contact = relationship("Contact", back_populates="clientlab",
                            secondary=clientlab_contact)  #: contact involved with this org
+
+    @hybrid_property
+    def clientsubmission(self):
+        return self._clientsubmssion
+
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        from backend.validators.pydant import PydClientSubmission
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case str():
+                    output = ClientSubmission.query(name=item, limit=1)
+                case dict():
+                    output = ClientSubmission.query(name=item['name'], limit=1)
+                case PydClientSubmission():
+                    output = item.to_pydantic()
+                case ClientSubmission:
+                    output = item
+                case _:
+                    logger.error(f"Can't add item {item} to {self.name}._clientsubmission")
+                    continue
+            if isinstance(output, ClientSubmission):
+                self._clientsubmission.append(output)
+            else:
+                logger.error(f"Can't add item {item} to {self.name}._clientsubmission")
+            
+        
 
     @classmethod
     @setup_lookup
