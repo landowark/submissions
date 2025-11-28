@@ -244,7 +244,7 @@ class Reagent(BaseClass, LogMixin):
                 case dict():
                     output = ReagentLot.query_or_create(**item)
                 case PydReagentLot():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
                 case ReagentLot():
                     output = item
                 case _:
@@ -322,9 +322,9 @@ class Reagent(BaseClass, LogMixin):
                 pass
         match reagentrole:
             case str():
-                query = query.join(cls.reagentrole).filter(ReagentRole.name == reagentrole)
+                query = query.join(cls._reagentrole).filter(ReagentRole.name == reagentrole)
             case ReagentRole():
-                query = query.filter(cls.reagentrole.contains(reagentrole))
+                query = query.filter(cls._reagentrole.contains(reagentrole))
             case _:
                 pass
         match name:
@@ -413,7 +413,7 @@ class ReagentLot(BaseClass):
         
     @reagent.setter
     def reagent(self, value):
-        from backend.validators.pydant import PydReagentLot
+        from backend.validators.pydant import PydReagent
         if not isinstance(value, list):
             value = [value]
         for item in value:
@@ -424,7 +424,7 @@ class ReagentLot(BaseClass):
                 case dict():
                     output = Reagent.query_or_create(**item)
                 case PydReagent():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
                 case Reagent():
                     output = item
                 case _:
@@ -538,22 +538,89 @@ class Discount(BaseClass):
     Relationship table for client labs for certain kits.
     """
 
-    skip_on_edit = True
+    # skip_on_edit = True
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    proceduretype = relationship("ProcedureType")  #: joined parent proceduretype
+    _proceduretype = relationship("ProcedureType")  #: joined parent proceduretype
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete='SET NULL',
                                                   name="fk_DIS_procedure_type_id"))  #: id of joined proceduretype
-    clientlab = relationship("ClientLab")  #: joined client lab
+    _clientlab = relationship("ClientLab")  #: joined client lab
     clientlab_id = Column(INTEGER,
                           ForeignKey("_clientlab.id", ondelete='SET NULL',
                                      name="fk_DIS_org_id"))  #: id of joined client
     description = Column(String(128))  #: Short description
     amount = Column(FLOAT(2))  #: Dollar amount of discount
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._proceduretype is None:
+            self._proceduretype = []
+        if self._clientlab is None:
+            self._clientlab = []
+
+    @hybrid_property
+    def clientlab(self) -> List[ClientLab]:
+        return self._clientlab
+
+    @clientlab.setter
+    def clientlab(self, value):
+        from backend.validators.pydant import PydClientLab
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._clientlab"
+            match item:
+                case str():
+                    output = ClientLab.query(name=item, limit=1)
+                case dict():
+                    output = ClientLab.query_or_create(**item)
+                case PydClientLab():
+                    output = item.to_sql()
+                case ClientLab():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ClientLab):
+                self._clientlab.append(output)
+            else:
+                logger.error(error_msg)
+    
+    @hybrid_property
+    def proceduretype(self) -> List[ProcedureType]:
+        return self._proceduretype
+
+    @proceduretype.setter
+    def proceduretype(self, value):
+        from backend.validators.pydant import PydProcedureType
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._proceduretype"
+            match item:
+                case str():
+                    output = ProcedureType.query(name=item, limit=1)
+                case dict():
+                    output = ProcedureType.query_or_create(**item)
+                case PydProcedureType():
+                    output = item.to_sql()
+                case ProcedureType():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ProcedureType):
+                self._proceduretype.append(output)
+            else:
+                logger.error(error_msg)
+    
     @hybrid_property
     def name(self) -> str:
         return self.description
+
+    @name.setter
+    def name(self, value):
+        self.description = value
     
     def __repr__(self) -> str:
         """
@@ -581,7 +648,7 @@ class Discount(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match clientlab:
             case ClientLab():
-                query = query.filter(cls.clientlab == clientlab)
+                query = query.filter(cls._clientlab == clientlab)
             case str():
                 query = query.join(ClientLab).filter(ClientLab.name == clientlab)
             case int():
@@ -590,7 +657,7 @@ class Discount(BaseClass):
                 pass
         match proceduretype:
             case ProcedureType():
-                query = query.filter(cls.proceduretype == proceduretype)
+                query = query.filter(cls._proceduretype == proceduretype)
             case str():
                 query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
             case int():
@@ -612,11 +679,17 @@ class SubmissionType(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(128), unique=True)  #: name of procedure type
     defaults = Column(JSON)  #: Basic information about this procedure type
-    clientsubmission = relationship("ClientSubmission",
+    _clientsubmission = relationship("ClientSubmission",
                                     back_populates="submissiontype")  #: Instances of this submission type
-    proceduretype = relationship("ProcedureType", back_populates="submissiontype",
+    _proceduretype = relationship("ProcedureType", back_populates="submissiontype",
                                  secondary=submissiontype_proceduretype)  #: Procedures associated with this submission type
 
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.defaults is None:
+            self.defaults = {}
+    
     def __repr__(self) -> str:
         """
         Returns:
@@ -624,6 +697,62 @@ class SubmissionType(BaseClass):
         """
         return f"<SubmissionType({self.name})>"
 
+    @hybrid_property
+    def clientsubmission(self):
+        return self._clientsubmission
+
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        from backend.validators.pydant import PydClientSubmission
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
+            match item:
+                case str():
+                    output = ClientSubmission.query(name=item, limit=1)
+                case dict():
+                    output = ClientSubmission.query_or_create(**item)
+                case PydClientSubmission():
+                    output = item.to_sql()
+                case SubmissionType():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, SubmissionType):
+                self._submissiontype.append(output)
+            else:
+                logger.error(error_msg)
+
+    @hybrid_property
+    def proceduretype(self):
+        return self._proceduretype
+
+    @proceduretype.setter
+    def proceduretype(self, value):
+        from backend.validators.pydant import PydProcedureType
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._proceduretype"
+            match item:
+                case str():
+                    output = ProcedureType.query(name=item, limit=1)
+                case dict():
+                    output = ProcedureType.query_or_create(**item)
+                case PydProcedureType():
+                    output = item.to_pydantic()
+                case ProcedureType():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ProcedureType):
+                self._proceduretype.append(output)
+            else:
+                logger.error(error_msg)
+    
     @classmethod
     @declared_attr
     def aliases(cls) -> List[str]:
