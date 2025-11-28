@@ -49,6 +49,9 @@ class BaseClass(Base):
         except AttributeError:
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
+    @hybrid_property
+    def misc_info(self):
+        return self._misc_info
 
     @declared_attr
     @classmethod
