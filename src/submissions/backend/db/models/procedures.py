@@ -22,7 +22,7 @@ from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as S
 
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
-    from backend.validators.pydant import PydSample
+    from backend.validators.pydant import PydSample, PydEquipment
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -2109,7 +2109,7 @@ class ProcedureEquipmentAssociation(BaseClass):
                       processes=[process], role=self.equipmentrole, nickname=self.equipment.nickname)
         return output
 
-    def to_pydantic(self) -> "PydEquipment":
+    def to_pydantic(self) -> PydEquipment:
         """
         Returns a pydantic model based on this object.
 
