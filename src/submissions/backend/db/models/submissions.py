@@ -36,21 +36,21 @@ class ClientSubmission(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     submitter_plate_id = Column(String(127), unique=True)  #: The number given to the submission by the submitting lab
-    submitted_date = Column(TIMESTAMP)  #: Date submission received
-    clientlab = relationship("ClientLab", back_populates="clientsubmission")  #: client org
+    _submitted_date = Column(TIMESTAMP)  #: Date submission received
+    _clientlab = relationship("ClientLab", back_populates="clientsubmission")  #: client org
     clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL",
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
     sample_count = Column(INTEGER)  #: Number of sample in the procedure
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
     comments = Column(JSON)  #: comment objects from users.
-    run = relationship("Run", back_populates="clientsubmission")  #: many-to-one relationship
-    contact = relationship("Contact", back_populates="clientsubmission")  #: contact representing submitting lab.
+    _run = relationship("Run", back_populates="clientsubmission")  #: many-to-one relationship
+    _contact = relationship("Contact", back_populates="clientsubmission")  #: contact representing submitting lab.
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
                                             name="fk_BS_contact_id"))  #: contact id from _organizations
     submissiontype_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL",
                                                     name="fk_BS_subtype_name"))  #: name of joined submission type
-    submissiontype = relationship("SubmissionType", back_populates="clientsubmission")  #: archetype of this procedure
+    _submissiontype = relationship("SubmissionType", back_populates="clientsubmission")  #: archetype of this procedure
     cost_centre = Column(
         String(64))  #: Permanent storage of used cost centre in case organization field changed in the future.
 
@@ -61,9 +61,119 @@ class ClientSubmission(BaseClass, LogMixin):
     )  #: Relation to ClientSubmissionSampleAssociation
 
     sample = association_proxy("clientsubmissionsampleassociation",
-                               "sample")  #, creator=lambda sample: ClientSubmissionSampleAssociation(
+                               "sample", creator=lambda sample: ClientSubmissionSampleAssociation(
+                                sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
-    # sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
+    @hybrid_property
+    def submissiontype(self):
+        return self._submissiontype
+
+    @submissiontype.setter
+    def submissiontype(self, value):
+        from backend.validators.pydant import PydSubmissionType
+        error_msg = f"Can't add item {item} to {self.name}._submissiontype"
+        match value:
+            case str():
+                output = SubmissionType.query(name=value, limit=1)
+            case dict():
+                output = SubmissionType.query_or_create(**value)
+            case PydSubmissionType():
+                output = item.to_sql()
+            case SubmissionType():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, SubmissionType):
+            self._submissiontype = output
+        else:
+            logger.error(error_msg)
+
+    @hybrid_property
+    def contact(self):
+        return self._contact
+
+    @contact.setter
+    def contact(self, value):
+        from backend.validators.pydant import PydContact
+        error_msg = f"Can't add item {item} to {self.name}._contact"
+        match value:
+            case str():
+                output = Contact.query(name=value, limit=1)
+            case dict():
+                output = Contact.query_or_create(**value)
+            case PydContact():
+                output = item.to_sql()
+            case Contact():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Contact):
+            self._contact = output
+        else:
+            logger.error(error_msg)
+
+    @hybrid_property
+    def run(self):
+        return self._run
+    
+    @run.setter
+    def run(self, value):
+        from backend.validators.pydant import PydRun
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._run"
+            match item:
+                case str():
+                    output = Run.query(name=item, limit=1)
+                case dict():
+                    output = Run.query_or_create(**item)
+                case PydRun():
+                    output = item.to_sql()
+                case Run():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, ReagentLot):
+                self._run.append(output)
+            else:
+                logger.error(error_msg)
+
+    @hybrid_property
+    def client_lab(self):
+        return self._clientlab
+
+    @client_lab.setter
+    def client_lab(self, value):
+        from backend.validators.pydant import PydClientLab
+        error_msg = f"Can't add item {item} to {self.name}._client_lab"
+        match value:
+            case str():
+                output = ClientLab.query(name=value, limit=1)
+            case dict():
+                output = ClientLab.query_or_create(**value)
+            case PydClientLab():
+                output = item.to_sql()
+            case ClientLab():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ClientLab):
+            self._client_lab = output
+        else:
+            logger.error(error_msg)
+
+    @hybrid_property
+    def submitted_date(self):
+      return self._submitted_date
+
+    @submitted_date.setter
+    def submitted_date(self, value):
+      self._submitted_date = value
 
     @hybrid_property
     def name(self):
@@ -355,7 +465,7 @@ class Run(BaseClass, LogMixin):
     rsl_plate_number = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="SET NULL",
                                                      name="fk_BS_clientsub_id"))  #: id of parent clientsubmission
-    clientsubmission = relationship("ClientSubmission", back_populates="run")  #: parent clientsubmission
+    _clientsubmission = relationship("ClientSubmission", back_populates="run")  #: parent clientsubmission
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     run_cost = Column(
         FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
@@ -363,7 +473,7 @@ class Run(BaseClass, LogMixin):
     comment = Column(JSON)  #: user notes
     custom = Column(JSON)  #: unknown
     _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
-    procedure = relationship("Procedure", back_populates="run", uselist=True)  #: children procedures
+    _procedure = relationship("Procedure", back_populates="run", uselist=True)  #: children procedures
 
     runsampleassociation = relationship(
         "RunSampleAssociation",
@@ -377,6 +487,56 @@ class Run(BaseClass, LogMixin):
 
     def __repr__(self) -> str:
         return f"<Submission({self.name})>"
+
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
+        error_msg = f"Can't add item {item} to {self.name}._procedure"
+        match value:
+            case str():
+                output = Procedure.query(name=value, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**value)
+            case PydProcedure():
+                output = item.to_sql()
+            case Procedure():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Procedure):
+            self._procedure = output
+        else:
+            logger.error(error_msg)
+
+    @hybrid_property
+    def clientsubmission(self):
+        return self._clientsubmission
+
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        from backend.validators.pydant import PydClientSubmission
+        error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
+        match value:
+            case str():
+                output = ClientSubmission.query(name=value, limit=1)
+            case dict():
+                output = ClientSubmission.query_or_create(**value)
+            case PydClientSubmission():
+                output = item.to_sql()
+            case ClientSubmission():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ClientSubmission):
+            self._clientsubmission = output
+        else:
+            logger.error(error_msg)
 
     @hybrid_property
     def name(self):
@@ -1269,7 +1429,7 @@ class Sample(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     sample_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
-    is_control = Column(INTEGER, default=0) #: 1 = positive, -1 = negative, 0 = not a control
+    _is_control = Column(INTEGER, default=0) #: 1 = positive, -1 = negative, 0 = not a control
 
     sampleclientsubmissionassociation = relationship(
         "ClientSubmissionSampleAssociation",
@@ -1296,6 +1456,21 @@ class Sample(BaseClass, LogMixin):
 
     procedure = association_proxy("sampleprocedureassociation", "procedure")
 
+    @hybrid_property
+    def is_control(self):
+        return self._is_control
+
+    @is_control.setter
+    def is_control(self, value):
+        match value:
+            case int():
+                output = value
+            case bool():
+                output = int(value)
+            case _:
+                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}._is_control")
+        self._is_control = output
+  
     @hybrid_property
     def name(self):
         return self.sample_id
@@ -1435,11 +1610,11 @@ class ClientSubmissionSampleAssociation(BaseClass):
                                  primary_key=True)  #: id of associated client submission
     submission_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
     # NOTE: reference to the Submission object
-    clientsubmission = relationship("ClientSubmission",
+    _clientsubmission = relationship("ClientSubmission",
                                     back_populates="clientsubmissionsampleassociation")  #: associated procedure
 
     # NOTE: reference to the Sample object
-    sample = relationship("Sample", back_populates="sampleclientsubmissionassociation")  #: associated sample
+    _sample = relationship("Sample", back_populates="sampleclientsubmissionassociation")  #: associated sample
 
     def __init__(self, submission: ClientSubmission = None, sample: Sample = None, row: int = 0, column: int = 0,
                  submission_rank: int = 0, **kwargs):
@@ -1461,6 +1636,56 @@ class ClientSubmissionSampleAssociation(BaseClass):
         except AttributeError as e:
             logger.error(f"Unable to construct __repr__ due to: {e}")
             return super().__repr__()
+
+    @hybrid_property
+    def sample(self):
+        return self._sample
+
+    @sample.setter
+    def sample(self, value):
+        from backend.validators.pydant import PydSample
+        error_msg = f"Can't add item {item} to {self.name}._sample"
+        match value:
+            case str():
+                output = Sample.query(name=value, limit=1)
+            case dict():
+                output = Sample.query_or_create(**value)
+            case PydSample():
+                output = item.to_sql()
+            case Sample():
+                output = item
+            case _:
+                logger.error(error_msg)
+                return
+        if isinstance(output, Sample):
+            self._sample = output
+        else:
+            logger.error(error_msg)
+  
+    @hybrid_property
+    def clientsubmission(self):
+        return self._clientsubmission
+
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        from backend.validators.pydant import PydClientSubmission
+        error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
+        match value:
+            case str():
+                output = ClientSubmission.query(name=value, limit=1)
+            case dict():
+                output = ClientSubmission.query_or_create(**value)
+            case PydClientSubmission():
+                output = item.to_sql()
+            case ClientSubmission():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, ClientSubmission):
+            self._clientsubmission = output
+        else:
+            logger.error(error_msg)
 
     def to_sub_dict(self) -> dict:
         """
