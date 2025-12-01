@@ -1878,11 +1878,11 @@ class RunSampleAssociation(BaseClass):
 
     # NOTE: reference to the Submission object
 
-    run = relationship(Run,
+    _run = relationship(Run,
                        back_populates="runsampleassociation")  #: associated procedure
 
     # NOTE: reference to the Sample object
-    sample = relationship(Sample, back_populates="samplerunassociation")  #: associated sample
+    _sample = relationship(Sample, back_populates="samplerunassociation")  #: associated sample
 
     def __init__(self, run: Run = None, sample: Sample = None, row: int = 1, column: int = 1, **kwargs):
         self.run = run
@@ -1901,6 +1901,56 @@ class RunSampleAssociation(BaseClass):
         except AttributeError as e:
             logger.error(f"Unable to construct __repr__ due to: {e}")
             return super().__repr__()
+
+    @hybrid_property
+    def sample(self):
+        return self._sample
+
+    @sample.setter
+    def sample(self, value):
+        from backend.validators.pydant import PydSample
+        error_msg = f"Can't add item {item} to {self.name}._sample"
+        match value:
+            case str():
+                output = Sample.query(name=value, limit=1)
+            case dict():
+                output = Sample.query_or_create(**value)
+            case PydSample():
+                output = item.to_sql()
+            case Sample():
+                output = item
+            case _:
+                logger.error(error_msg)
+                return
+        if isinstance(output, Sample):
+            self._sample = output
+        else:
+            logger.error(error_msg)
+  
+    @hybrid_property
+    def run(self):
+        return self._run
+
+    @run.setter
+    def run(self, value):
+        from backend.validators.pydant import PydRun
+        error_msg = f"Can't add item {item} to {self.name}._run"
+        match value:
+            case str():
+                output = Run.query(name=value, limit=1)
+            case dict():
+                output = Run.query_or_create(**value)
+            case PydRun():
+                output = item.to_sql()
+            case Run():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Run):
+            self._run = output
+        else:
+            logger.error(error_msg)
 
     def to_sub_dict(self) -> dict:
         """
@@ -2091,12 +2141,89 @@ class ProcedureSampleAssociation(BaseClass):
     column = Column(INTEGER)
     procedure_rank = Column(INTEGER)
 
-    procedure = relationship(Procedure,
+    _procedure = relationship(Procedure,
                              back_populates="proceduresampleassociation")  #: associated procedure
 
-    sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
+    _sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
+    _results = relationship("Results", back_populates="sampleprocedureassociation")  #: associated results
 
-    results = relationship("Results", back_populates="sampleprocedureassociation")  #: associated results
+    @hybrid_property
+    def results(self):
+        return self._results
+
+    @results.setter
+    def results(self, value):
+        from backend.validators.pydant import PydResults
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._results"
+            match item:
+                case str():
+                    output = Results.query(name=item, limit=1)
+                case dict():
+                    output = Results.query_or_create(**item)
+                case PydResults():
+                    output = item.to_sql()
+                case Procedure():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Results):
+                self._results.append(output)
+            else:
+                logger.error(error_msg)
+  
+    @hybrid_property
+    def sample(self):
+        return self._sample
+
+    @sample.setter
+    def sample(self, value):
+        from backend.validators.pydant import PydSample
+        error_msg = f"Can't add item {item} to {self.name}._sample"
+        match value:
+            case str():
+                output = Sample.query(name=value, limit=1)
+            case dict():
+                output = Sample.query_or_create(**value)
+            case PydSample():
+                output = item.to_sql()
+            case Sample():
+                output = item
+            case _:
+                logger.error(error_msg)
+                return
+        if isinstance(output, Sample):
+            self._sample = output
+        else:
+            logger.error(error_msg)
+  
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        from backend.validators.pydant import PydProcedure
+        error_msg = f"Can't add item {item} to {self.name}._procedure"
+        match value:
+            case str():
+                output = Procedure.query(name=value, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**value)
+            case PydProcedure():
+                output = item.to_sql()
+            case Procedure():
+                output = item
+            case _:
+                logger.error(error_msg)
+                continue
+        if isinstance(output, Procedure):
+            self._procedure = output
+        else:
+            logger.error(error_msg)
 
     @property
     def well(self):
