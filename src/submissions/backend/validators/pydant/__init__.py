@@ -2,26 +2,15 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
-import re, logging, csv, sys, string
-from operator import itemgetter
+import logging, sys, string
 from pprint import pformat
-from pydantic import BaseModel, field_validator, Field, model_validator
-from datetime import date, datetime, timedelta
-from dateutil.parser import parse
-from dateutil.parser import ParserError
-from typing import List, Tuple, Literal, Generator, TYPE_CHECKING
-from types import GeneratorType
-from . import RSLNamer
-from pathlib import Path
-from tools import check_not_nan, convert_nans_to_nones, Report, Alert, timezone, sort_dict_by_list, row_keys, flatten_list
+from pydantic import BaseModel, model_validator
+from datetime import date, datetime
+from typing import TYPE_CHECKING
+from tools import classproperty, row_keys
 from backend.db import models
 from backend.db.models import *
-from sqlalchemy.orm.properties import ColumnProperty
-from sqlalchemy.orm.relationships import _RelationshipDeclared
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from PyQt6.QtWidgets import QWidget
-if TYPE_CHECKING:
-    from frontend import RoleComboBox
 
 
 logger = logging.getLogger(f"submission.{__name__}")

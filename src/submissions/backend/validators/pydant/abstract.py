@@ -1,5 +1,16 @@
 
+import logging
+from datetime import datetime, timedelta
+from types import GeneratorType
+from typing import List, Tuple
+from pydantic import field_validator, Field
+from backend.db.models.procedures import Procedure, Reagent, Tips
+from backend.validators.pydant import PydAbstract
+from submissions.backend.db.models import BaseClass
+from submissions.backend.validators.pydant.concrete import PydEquipment
+from tools import Report, convert_nans_to_nones, report_result
 
+logger = logging.getLogger(f"submissions.{__name__}")
 
 class PydReagent(PydAbstract):
 
@@ -14,15 +25,6 @@ class PydReagent(PydAbstract):
         if value is None:
             return ""
         return value
-
-    # @field_validator("reagentrole", mode='before')
-    # @classmethod
-    # def remove_undesired_types(cls, value):
-    #     match value:
-    #         case "atcc":
-    #             return None
-    #         case _:
-    #             return value
 
     @field_validator("reagentrole")
     @classmethod
@@ -97,7 +99,7 @@ class PydTips(PydAbstract):
         return tips, report
 
 
-class PydReagentRole(BaseModel):
+class PydReagentRole(PydAbstract):
 
     name: str
     eol_ext: timedelta | int | None
@@ -112,7 +114,7 @@ class PydReagentRole(BaseModel):
         return value
 
 
-class PydEquipmentRole(BaseModel):
+class PydEquipmentRole(PydAbstract):
 
     name: str
     equipment: List[PydEquipment]
@@ -125,22 +127,8 @@ class PydEquipmentRole(BaseModel):
             value = [item for item in value]
         return value
 
-    def to_form(self, parent, used: list) -> RoleComboBox:
-        """
-        Creates a widget for user input into this class.
 
-        Args:
-            parent (_type_): parent widget
-            used (list): list of equipment already added to procedure
-
-        Returns:
-            RoleComboBox: widget
-        """
-        from frontend.widgets.equipment_usage import RoleComboBox
-        return RoleComboBox(parent=parent, role=self, used=used)
-
-
-class PydProcess(PydBaseClass, extra="allow"):
+class PydProcess(PydAbstract, extra="allow"):
     name: str
     version: str = Field(default="1.0")
     tips: List[PydTips]
@@ -172,18 +160,3 @@ class PydProcess(PydBaseClass, extra="allow"):
         if isinstance(value, float):
             value = str(value)
         return value
-
-    @report_result
-    def to_sql(self):
-        from backend.db.models import ProcessVersion
-        report = Report()
-        name = self.name.split("-")[0]
-        # NOTE: can't use query_or_create due to name not being part of ProcessVersion
-        logger.debug(f"Querying name: {name}, version: {self.version}")
-        instance = ProcessVersion.query(name=name, version=float(self.version), limit=1)
-        if not instance:
-            logger.warning(f"Gonna have to make a new process version {self.version}")
-            instance = ProcessVersion()
-        logger.debug(f"Got instance: {instance.__dict__}")
-        return instance, report
-

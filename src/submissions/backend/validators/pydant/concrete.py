@@ -1,4 +1,26 @@
 
+from __future__ import annotations
+from pprint import pformat
+import csv, logging, re, sys
+from datetime import date, datetime, timezone
+from operator import itemgetter
+from pathlib import Path
+from types import GeneratorType
+from typing import Any, Generator, List, Literal, Tuple
+from pydantic import Field, field_validator
+from PyQt6.QtWidgets import QWidget
+from dateutil.parser import parse, ParserError
+from submissions.backend.db.models.organizations import ClientLab, Contact
+from submissions.backend.db.models.procedures import Discount, Equipment, Procedure, ProcedureEquipmentAssociation, ProcedureType, ReagentRole, SubmissionType
+from submissions.backend.db.models.submissions import Run
+from submissions.backend.validators import RSLNamer
+from submissions.backend.validators.pydant import PydConcrete
+from submissions.backend.validators.pydant.abstract import PydEquipmentRole, PydProcess, PydTips, PydReagent
+from tools import Alert, Report, check_not_nan, convert_nans_to_nones, flatten_list, report_result, row_keys, sort_dict_by_list
+
+logger = logging.getLogger(f"submissions.{__name__}")
+
+
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
     result: dict = Field(default={})
@@ -119,7 +141,7 @@ class PydSample(PydConcrete):
         return sql
 
 
-class PydEquipment(PydBaseClass):
+class PydEquipment(PydConcrete):
 
     asset_number: str
     name: str
