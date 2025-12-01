@@ -64,6 +64,11 @@ class ClientSubmission(BaseClass, LogMixin):
                                "sample", creator=lambda sample: ClientSubmissionSampleAssociation(
                                 sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._run is None:
+            self._run = []
+      
     @hybrid_property
     def submissiontype(self):
         return self._submissiontype
@@ -488,6 +493,11 @@ class Run(BaseClass, LogMixin):
     def __repr__(self) -> str:
         return f"<Submission({self.name})>"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._procedure is None:
+            self._procedure = []
+
     @hybrid_property
     def procedure(self):
         return self._procedure
@@ -495,24 +505,26 @@ class Run(BaseClass, LogMixin):
     @procedure.setter
     def procedure(self, value):
         from backend.validators.pydant import PydProcedure
-        error_msg = f"Can't add item {item} to {self.name}._procedure"
-        match value:
-            case str():
-                output = Procedure.query(name=value, limit=1)
-            case dict():
-                output = Procedure.query_or_create(**value)
-            case PydProcedure():
-                output = item.to_sql()
-            case Procedure():
-                output = item
-            case _:
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            error_msg = f"Can't add item {item} to {self.name}._procedure"
+            match item:
+                case str():
+                    output = Procedure.query(name=item, limit=1)
+                case dict():
+                    output = Procedure.query_or_create(**item)
+                case PydProcedure():
+                    output = item.to_sql()
+                case Procedure():
+                    output = item
+                case _:
+                    logger.error(error_msg)
+                    continue
+            if isinstance(output, Procedure):
+                self._procedure.append(output)
+            else:
                 logger.error(error_msg)
-                continue
-        if isinstance(output, Procedure):
-            self._procedure = output
-        else:
-            logger.error(error_msg)
-
     @hybrid_property
     def clientsubmission(self):
         return self._clientsubmission
@@ -2146,6 +2158,11 @@ class ProcedureSampleAssociation(BaseClass):
 
     _sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
     _results = relationship("Results", back_populates="sampleprocedureassociation")  #: associated results
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self._results is None:
+            self._results = []
 
     @hybrid_property
     def results(self):
