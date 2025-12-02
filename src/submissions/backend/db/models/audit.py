@@ -15,6 +15,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 # NOTE: Need a seperate base for this.
 Base: DeclarativeMeta = declarative_base()
 
+# NOTE: When rebuilding db, change this to baseclass for alembic  
 class AuditLog(Base):
 
     __tablename__ = "_auditlog"

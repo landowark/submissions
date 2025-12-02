@@ -30,7 +30,7 @@ class DefaultParser(object):
             assert filepath.exists()
         except AssertionError:
             raise FileNotFoundError(f"File {filepath} does not exist.")
-        instance = super().__new__(cls)
+        instance = super().__new__(cls, **kwargs)
         instance.filepath = filepath
         return instance
 

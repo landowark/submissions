@@ -1,0 +1,20 @@
+{
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
+    "terminal.integrated.profiles.windows": {
+        "Command Prompt": {
+            "path": [
+                "${env:windir}\\Sysnative\\cmd.exe",
+                "${env:windir}\\System32\\cmd.exe"
+            ],
+            "args": [],
+            "icon": "terminal-cmd"
+        }
+    },
+    "jupyter.notebookFileRoot": "${workspaceFolder}/submissions/src",
+    "python.analysis.extraPaths": [
+            "./submissions" // Add paths for Pylance to resolve imports
+        ],
+    "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
+    "python.terminal.activateEnvironment": true,
+    
+}

@@ -11,6 +11,7 @@ from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
+from backend.db.models.procedures import ReagentLot
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
 from sqlalchemy.orm import relationship, Query, declared_attr
@@ -37,31 +38,31 @@ class ClientSubmission(BaseClass, LogMixin):
     id = Column(INTEGER, primary_key=True)  #: primary key
     submitter_plate_id = Column(String(127), unique=True)  #: The number given to the submission by the submitting lab
     _submitted_date = Column(TIMESTAMP)  #: Date submission received
-    _clientlab = relationship("ClientLab", back_populates="clientsubmission")  #: client org
+    _clientlab = relationship("ClientLab", back_populates="_clientsubmission")  #: client org
     clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL",
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
     sample_count = Column(INTEGER)  #: Number of sample in the procedure
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
     comments = Column(JSON)  #: comment objects from users.
-    _run = relationship("Run", back_populates="clientsubmission")  #: many-to-one relationship
-    _contact = relationship("Contact", back_populates="clientsubmission")  #: contact representing submitting lab.
+    _run = relationship("Run", back_populates="_clientsubmission")  #: many-to-one relationship
+    _contact = relationship("Contact", back_populates="_clientsubmission")  #: contact representing submitting lab.
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
                                             name="fk_BS_contact_id"))  #: contact id from _organizations
     submissiontype_name = Column(String, ForeignKey("_submissiontype.name", ondelete="SET NULL",
                                                     name="fk_BS_subtype_name"))  #: name of joined submission type
-    _submissiontype = relationship("SubmissionType", back_populates="clientsubmission")  #: archetype of this procedure
+    _submissiontype = relationship("SubmissionType", back_populates="_clientsubmission")  #: archetype of this procedure
     cost_centre = Column(
         String(64))  #: Permanent storage of used cost centre in case organization field changed in the future.
 
     clientsubmissionsampleassociation = relationship(
         "ClientSubmissionSampleAssociation",
-        back_populates="clientsubmission",
+        back_populates="_clientsubmission",
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
     sample = association_proxy("clientsubmissionsampleassociation",
-                               "sample", creator=lambda sample: ClientSubmissionSampleAssociation(
+                               "_sample", creator=lambda sample: ClientSubmissionSampleAssociation(
                                 sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
     def __init__(self, *args, **kwargs):
@@ -76,19 +77,19 @@ class ClientSubmission(BaseClass, LogMixin):
     @submissiontype.setter
     def submissiontype(self, value):
         from backend.validators.pydant import PydSubmissionType
-        error_msg = f"Can't add item {item} to {self.name}._submissiontype"
+        error_msg = f"Can't add item {value} to {self.name}._submissiontype"
         match value:
             case str():
                 output = SubmissionType.query(name=value, limit=1)
             case dict():
                 output = SubmissionType.query_or_create(**value)
             case PydSubmissionType():
-                output = item.to_sql()
+                output = value.to_sql()
             case SubmissionType():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, SubmissionType):
             self._submissiontype = output
         else:
@@ -101,19 +102,19 @@ class ClientSubmission(BaseClass, LogMixin):
     @contact.setter
     def contact(self, value):
         from backend.validators.pydant import PydContact
-        error_msg = f"Can't add item {item} to {self.name}._contact"
+        error_msg = f"Can't add item {value} to {self.name}._contact"
         match value:
             case str():
                 output = Contact.query(name=value, limit=1)
             case dict():
                 output = Contact.query_or_create(**value)
             case PydContact():
-                output = item.to_sql()
+                output = value.to_sql()
             case Contact():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, Contact):
             self._contact = output
         else:
@@ -154,19 +155,19 @@ class ClientSubmission(BaseClass, LogMixin):
     @client_lab.setter
     def client_lab(self, value):
         from backend.validators.pydant import PydClientLab
-        error_msg = f"Can't add item {item} to {self.name}._client_lab"
+        error_msg = f"Can't add item {value} to {self.name}._client_lab"
         match value:
             case str():
                 output = ClientLab.query(name=value, limit=1)
             case dict():
                 output = ClientLab.query_or_create(**value)
             case PydClientLab():
-                output = item.to_sql()
+                output = value.to_sql()
             case ClientLab():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, ClientLab):
             self._client_lab = output
         else:
@@ -470,7 +471,7 @@ class Run(BaseClass, LogMixin):
     rsl_plate_number = Column(String(32), unique=True, nullable=False)  #: RSL name (e.g. RSL-22-0012)
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="SET NULL",
                                                      name="fk_BS_clientsub_id"))  #: id of parent clientsubmission
-    _clientsubmission = relationship("ClientSubmission", back_populates="run")  #: parent clientsubmission
+    _clientsubmission = relationship("ClientSubmission", back_populates="_run")  #: parent clientsubmission
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
     run_cost = Column(
         FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
@@ -478,16 +479,16 @@ class Run(BaseClass, LogMixin):
     comment = Column(JSON)  #: user notes
     custom = Column(JSON)  #: unknown
     _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
-    _procedure = relationship("Procedure", back_populates="run", uselist=True)  #: children procedures
+    _procedure = relationship("Procedure", back_populates="_run", uselist=True)  #: children procedures
 
     runsampleassociation = relationship(
         "RunSampleAssociation",
-        back_populates="run",
+        back_populates="_run",
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
     sample = association_proxy("runsampleassociation",
-                               "sample", creator=lambda sample: RunSampleAssociation(
+                               "_sample", creator=lambda sample: RunSampleAssociation(
             sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
     def __repr__(self) -> str:
@@ -532,19 +533,19 @@ class Run(BaseClass, LogMixin):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
-        error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
+        error_msg = f"Can't add item {value} to {self.name}._clientsubmission"
         match value:
             case str():
                 output = ClientSubmission.query(name=value, limit=1)
             case dict():
                 output = ClientSubmission.query_or_create(**value)
             case PydClientSubmission():
-                output = item.to_sql()
+                output = value.to_sql()
             case ClientSubmission():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
@@ -1445,28 +1446,28 @@ class Sample(BaseClass, LogMixin):
 
     sampleclientsubmissionassociation = relationship(
         "ClientSubmissionSampleAssociation",
-        back_populates="sample",
+        back_populates="_sample",
         cascade="all, delete-orphan",
     )  #: associated procedure
 
     clientsubmission = association_proxy("sampleclientsubmissionassociation",
-                                         "clientsubmission")  #: proxy of associated procedure
+                                         "_clientsubmission")  #: proxy of associated procedure
 
     samplerunassociation = relationship(
         "RunSampleAssociation",
-        back_populates="sample",
+        back_populates="_sample",
         cascade="all, delete-orphan",
     )  #: associated procedure
 
-    run = association_proxy("samplerunassociation", "run")  #: proxy of associated procedure
+    run = association_proxy("samplerunassociation", "_run")  #: proxy of associated procedure
 
     sampleprocedureassociation = relationship(
         "ProcedureSampleAssociation",
-        back_populates="sample",
+        back_populates="_sample",
         cascade="all, delete-orphan",
     )
 
-    procedure = association_proxy("sampleprocedureassociation", "procedure")
+    procedure = association_proxy("sampleprocedureassociation", "_procedure")
 
     @hybrid_property
     def is_control(self):
@@ -1681,19 +1682,19 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
-        error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
+        error_msg = f"Can't add item {value} to {self.name}._clientsubmission"
         match value:
             case str():
                 output = ClientSubmission.query(name=value, limit=1)
             case dict():
                 output = ClientSubmission.query_or_create(**value)
             case PydClientSubmission():
-                output = item.to_sql()
+                output = value.to_sql()
             case ClientSubmission():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
@@ -1946,19 +1947,19 @@ class RunSampleAssociation(BaseClass):
     @run.setter
     def run(self, value):
         from backend.validators.pydant import PydRun
-        error_msg = f"Can't add item {item} to {self.name}._run"
+        error_msg = f"Can't add item {value} to {self.name}._run"
         match value:
             case str():
                 output = Run.query(name=value, limit=1)
             case dict():
                 output = Run.query_or_create(**value)
             case PydRun():
-                output = item.to_sql()
+                output = value.to_sql()
             case Run():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, Run):
             self._run = output
         else:
@@ -2157,7 +2158,7 @@ class ProcedureSampleAssociation(BaseClass):
                              back_populates="proceduresampleassociation")  #: associated procedure
 
     _sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
-    _results = relationship("Results", back_populates="sampleprocedureassociation")  #: associated results
+    _results = relationship("Results", back_populates="_sampleprocedureassociation")  #: associated results
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -2171,6 +2172,7 @@ class ProcedureSampleAssociation(BaseClass):
     @results.setter
     def results(self, value):
         from backend.validators.pydant import PydResults
+        from backend.db.models import Results
         if not isinstance(value, list):
             value = [value]
         for item in value:
@@ -2221,22 +2223,22 @@ class ProcedureSampleAssociation(BaseClass):
     def procedure(self):
         return self._procedure
 
-    @clientsubmission.setter
-    def clientsubmission(self, value):
+    @procedure.setter
+    def procedure(self, value):
         from backend.validators.pydant import PydProcedure
-        error_msg = f"Can't add item {item} to {self.name}._procedure"
+        error_msg = f"Can't add item {value} to {self.name}._procedure"
         match value:
             case str():
                 output = Procedure.query(name=value, limit=1)
             case dict():
                 output = Procedure.query_or_create(**value)
             case PydProcedure():
-                output = item.to_sql()
+                output = value.to_sql()
             case Procedure():
-                output = item
+                output = value
             case _:
                 logger.error(error_msg)
-                continue
+                return
         if isinstance(output, Procedure):
             self._procedure = output
         else:

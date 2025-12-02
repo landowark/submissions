@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
 from sqlalchemy.orm import relationship, Query, declared_attr
-from . import BaseClass, ClientSubmission
+from sqlalchemy.ext.hybrid import hybrid_property
+from . import BaseClass
 from tools import check_authorization, setup_lookup
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
@@ -51,6 +52,7 @@ class ClientLab(BaseClass):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
+        from backend.db.models import ClientSubmission
         if not isinstance(value, list):
             value = [value]
         for item in value:
@@ -197,6 +199,7 @@ class Contact(BaseClass):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
+        from backend.db.models import ClientSubmission
         if not isinstance(value, list):
             value = [value]
         for item in value:

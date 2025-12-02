@@ -6,43 +6,19 @@ from typing import List, Tuple
 from pydantic import field_validator, Field
 from backend.db.models.procedures import Procedure, Reagent, Tips
 from backend.validators.pydant import PydAbstract
-from submissions.backend.db.models import BaseClass
-from submissions.backend.validators.pydant.concrete import PydEquipment
+from backend.db.models import BaseClass
 from tools import Report, convert_nans_to_nones, report_result
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class PydReagent(PydAbstract):
 
-    reagentrole: str | None
-    name: str | None = Field(default=None, validate_default=True)
-    missing: bool = Field(default=True)
-    comment: str | None = Field(default="", validate_default=True)
-
-    @field_validator('comment', mode='before')
-    @classmethod
-    def create_comment(cls, value):
-        if value is None:
-            return ""
-        return value
-
-    @field_validator("reagentrole")
-    @classmethod
-    def rescue_type_with_lookup(cls, value, values):
-        if value is None and values.data['lot'] is not None:
-            try:
-                return Reagent.query(lot=values.data['lot']).name
-            except AttributeError:
-                return value
-        return value
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def enforce_name(cls, value, values):
-        if value is not None:
-            return convert_nans_to_nones(str(value).strip())
-        else:
-            return values.data['reagentrole'].strip()
+    reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this reagent can fill.")
+    eol_ext: timedelta | int = Field(default_factory=timedelta, description="Extension of Life (days)")
+    name: str = Field(default="NA", validate_default=True, description="Name of this reagent.")
+    comment: str = Field(default="", validate_default=True)
+    cost_per_ml: float = Field(default=0.00, description="Cost of a millilitre of this reagent.")
+    reagentlot: List[str] | List[dict] = Field(default_factory=list, description="Lot numbers of this reagent.")
 
     def improved_dict(self) -> dict:
         """
@@ -117,7 +93,7 @@ class PydReagentRole(PydAbstract):
 class PydEquipmentRole(PydAbstract):
 
     name: str
-    equipment: List[PydEquipment]
+    equipment: List[str]
     process: List[str] | None
 
     @field_validator("process", mode="before")

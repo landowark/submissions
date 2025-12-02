@@ -705,6 +705,17 @@ class BaseClass(Base):
         Manager = getattr(managers, f"Default{self.__class__.__name__}")
         manager = Manager(parent=obj, input_object=self)
 
+    @classmethod
+    def find_subclasses(cls, class_name: str|None=None, class_alias: str|None=None):
+        if class_name:
+            object_ = next((cl for cl in BaseClass.__subclasses__() if cl.__name__.lower() == class_name.lower().strip("_")), None)
+            return object_
+        elif class_alias:
+            object_ = next((cl for cl in BaseClass.__subclasses__() if class_alias.lower().strip("_") in cl.aliases))
+            return object_
+        else:
+            return BaseClass.__subclasses__()
+
 
 class LogMixin(Base):
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',
@@ -760,7 +771,7 @@ class ConfigItem(BaseClass):
         return config_items
 
 
-# NOTE: import order must go: orgs, kittype, run due to circular import issues
+# NOTE: import order must go: orgs, procedure, submissions due to circular import issues
 from .audit import AuditLog
 from .organizations import (
     ClientLab, Contact, BaseClass # NOTE: For some reason I  need to import BaseClass at this point for queries to work.

@@ -4,9 +4,9 @@ Contains pydantic models and accompanying validators
 from __future__ import annotations
 import logging, sys, string
 from pprint import pformat
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import date, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar, Generator
 from tools import classproperty, row_keys
 from backend.db import models
 from backend.db.models import *
@@ -16,10 +16,15 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 logger = logging.getLogger(f"submission.{__name__}")
 
 
-class PydBaseClass(BaseModel, extra='allow'):#, validate_assignment=True):
+class PydBaseClass(BaseModel):#, validate_assignment=True):
+
+    model_config = ConfigDict(
+        extra="allow",
+        arbitrary_types_allowed=True,
+    )
 
     # _sql_object: ClassVar = None
-    key_value_order: ClassVar = []
+    key_value_order: ClassVar[List] = []
 
     @classproperty
     def _sql_name(cls) -> str:
@@ -137,6 +142,25 @@ class PydBaseClass(BaseModel, extra='allow'):#, validate_assignment=True):
                 case _:
                     continue
         return list(set(output))
+    
+    @classproperty
+    def described_fields(cls) -> List[str]:
+        return [k for k, v in cls.model_fields.items() if v.description]
+    
+    @classproperty
+    def sql_classes(cls) -> List[str]:
+        return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], BaseClass)]
+    
+    @property
+    def construct_form_dictionary(self) -> Generator[dict, None, None]:
+        data = self.model_dump()
+        for field in self.described_fields:
+            type_ = self.model_fields[field].annotation
+            value = data[field]
+            if field.lower().strip("_") in self.sql_classes:
+                model = models.BaseClass
+            
+
 
 
 class PydAbstract(PydBaseClass):
@@ -156,3 +180,7 @@ class PydConcrete(PydBaseClass):
             if len(class_.get_described_attributes()):
                 yield class_._sql_object
         
+
+from .abstract import (PydEquipmentRole, PydProcess, PydReagent, PydReagentRole, PydTips)
+from .concrete import (PydEquipment, PydClientLab, PydClientSubmission, PydContact, PydProcedure, PydProcessVersion, PydResults, PydRun,
+                       PydReagentLot, PydSample)

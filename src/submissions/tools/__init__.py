@@ -1166,8 +1166,8 @@ class Settings(BaseSettings, extra="allow"):
             if cls.configdir.joinpath("config.yml").exists():
                 settings_path = cls.configdir.joinpath("config.yml")
             # NOTE: Check user .procedure directory
-            elif Path.home().joinpath(".procedure", "config.yml").exists():
-                settings_path = Path.home().joinpath(".procedure", "config.yml")
+            elif Path.home().joinpath(".submissions", "config.yml").exists():
+                settings_path = Path.home().joinpath(".submissions", "config.yml")
             # NOTE: finally look in the local config
             else:
                 if check_if_app():
@@ -1186,7 +1186,7 @@ class Settings(BaseSettings, extra="allow"):
         # NOTE: how to load default settings into this?
         print(f"Loading settings from {settings_path}")
         cls.model_config = SettingsConfigDict(yaml_file=settings_path, yaml_file_encoding='utf-8', extra="allow")
-        return super().__new__(cls)
+        return super().__new__(cls, **kwargs)
 
     @classmethod
     def settings_customise_sources(
@@ -1255,7 +1255,7 @@ class Settings(BaseSettings, extra="allow"):
         except AttributeError:
             check = False
         if not check:
-            value.mkdir(exist_ok=True)
+            value.mkdir(exist_ok=True, parents=True)
         return value
 
     @field_validator('database_path', mode="before")
@@ -1396,7 +1396,10 @@ class Settings(BaseSettings, extra="allow"):
         # NOTE: Get all .py files that don't have __ in them.
         modules = p.glob("[!__]*.py")
         for module in modules:
-            mod = importlib.import_module(module.stem)
+            try:
+                mod = importlib.import_module(module.stem)
+            except ImportError:
+                continue
             for function in getmembers(mod, isfunction):
                 name = function[0]
                 func = function[1]

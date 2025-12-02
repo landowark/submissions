@@ -6,17 +6,17 @@ from datetime import date, datetime, timezone
 from operator import itemgetter
 from pathlib import Path
 from types import GeneratorType
-from typing import Any, Generator, List, Literal, Tuple
+from typing import Any, ClassVar, Generator, List, Literal, Tuple, TYPE_CHECKING
 from pydantic import Field, field_validator
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
-from submissions.backend.db.models.organizations import ClientLab, Contact
-from submissions.backend.db.models.procedures import Discount, Equipment, Procedure, ProcedureEquipmentAssociation, ProcedureType, ReagentRole, SubmissionType
-from submissions.backend.db.models.submissions import Run
-from submissions.backend.validators import RSLNamer
-from submissions.backend.validators.pydant import PydConcrete
-from submissions.backend.validators.pydant.abstract import PydEquipmentRole, PydProcess, PydTips, PydReagent
+from backend.db.models.organizations import (ClientLab, Contact)
+from backend.validators import RSLNamer
+from backend.validators.pydant import PydConcrete
+from backend.validators.pydant.abstract import PydEquipmentRole, PydProcess, PydTips, PydReagent
 from tools import Alert, Report, check_not_nan, convert_nans_to_nones, flatten_list, report_result, row_keys, sort_dict_by_list
+if TYPE_CHECKING:
+    from backend.db.models.submissions import Run
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -681,7 +681,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
 class PydClientSubmission(PydConcrete):
 
-    key_value_order = ["submitter_plate_id",
+    key_value_order: ClassVar = ["submitter_plate_id",
                        "submitted_date",
                        "client_lab",
                        "contact",
@@ -875,6 +875,7 @@ class PydClientSubmission(PydConcrete):
         except TypeError:
             pass
         return sort_dict_by_list(output, self.key_value_order)
+        # return output
 
     @property
     def filename_template(self):
@@ -1126,6 +1127,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
         Returns:
             Tuple[BasicRun, Alert]: BasicRun instance, result object
         """
+        from backend.db.models import Run
         report = Report()
         dicto = self.improved_dict()
         instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
