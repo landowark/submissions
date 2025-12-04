@@ -1,138 +1,73 @@
-
-import logging
-from datetime import datetime, timedelta
-from types import GeneratorType
-from typing import List, Tuple
+from __future__ import annotations
+import logging, sys
+from typing import List
 from pydantic import field_validator, Field
-from backend.db.models.procedures import Procedure, Reagent, Tips
 from backend.validators.pydant import PydAbstract
-from backend.db.models import BaseClass
-from tools import Report, convert_nans_to_nones, report_result
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class PydReagent(PydAbstract):
 
-    reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this reagent can fill.")
-    eol_ext: timedelta | int = Field(default_factory=timedelta, description="Extension of Life (days)")
+    reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this reagent can fill.", repr=False)
+    eol_ext: int = Field(default=0, description="Extension of Life (days)")
     name: str = Field(default="NA", validate_default=True, description="Name of this reagent.")
     comment: str = Field(default="", validate_default=True)
     cost_per_ml: float = Field(default=0.00, description="Cost of a millilitre of this reagent.")
-    reagentlot: List[str] | List[dict] = Field(default_factory=list, description="Lot numbers of this reagent.")
-
-    def improved_dict(self) -> dict:
-        """
-        Constructs a dictionary consisting of model.fields and model.extras
-
-        Returns:
-            dict: Information dictionary
-        """
-        try:
-            extras = list(self.model_extra.keys())
-        except AttributeError:
-            extras = []
-        fields = list(self.model_fields.keys()) + extras
-        return {k: getattr(self, k) for k in fields}
-
-    @report_result
-    def to_sql(self, procedure: Procedure | str = None) -> Tuple[Reagent, Report]:
-        """
-        Converts this instance into a backend.db.models.procedures.ReagentLot instance
-
-        Returns:
-            Tuple[Reagent, Report]: Reagent instance and result of function
-        """
-        from backend.db.models import ReagentLot, Reagent
-        report = Report()
-        if self.model_extra is not None:
-            self.__dict__.update(self.model_extra)
-        reagentlot, new = ReagentLot.query_or_create(lot=self.lot, name=self.name)
-        if new:
-            reagent = Reagent.query(name=self.name, limit=1)
-            reagentlot.reagent = reagent
-            reagentlot.expiry = self.expiry
-            if isinstance(reagentlot.expiry, str):
-                reagentlot.expiry = datetime.combine(datetime.strptime(reagentlot.expiry, "%Y-%m-%d"), datetime.max.time())
-        return reagentlot, report
-
-
+    reagentlot: List[str] | List[dict] = Field(default_factory=list, description="Lot numbers of this reagent.", repr=False)
+    
+    
 class PydTips(PydAbstract):
 
-    name: str
-    lot: str | None = Field(default=None)
-
-    @report_result
-    def to_sql(self) -> Tuple[Tips, Report]:
-        """
-        Convert this object to the SQL version for database storage.
-
-        Returns:
-            SubmissionTipsAssociation: Association between queried tips and procedure
-        """
-        from backend.db.models import TipsLot
-        report = Report()
-        tips = TipsLot.query(lot=self.lot, limit=1)
-        return tips, report
-
+    tipslot: List[str] | List[dict] = Field(default_factory=list, description="Lots of this tip archetype", repr=False)
+    manufacturer: str = Field(default="NA", description="Company that makes these tips")
+    capacity: int = Field(default=1000, description="Maximum volume (uL).")
+    ref: str = Field(default="NA", description="Reference number from manufacturer.")
+    process: List[str] | List[dict] = Field(default_factory=list, description="List of processes using these tips.", repr=False) 
+    
 
 class PydReagentRole(PydAbstract):
 
-    name: str
-    eol_ext: timedelta | int | None
-    uses: dict | None
-    required: int | None = Field(default=1)
-
-    @field_validator("eol_ext")
-    @classmethod
-    def int_to_timedelta(cls, value):
-        if isinstance(value, int):
-            return timedelta(days=value)
-        return value
+    name: str = Field(default="NA", description="Name of this reagent role.")
+    reagent: List[str] | List[dict] = Field(default_factory=list, description="Reagents filling this role.", alias="reagentrolereagentassociation", repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", alias="proceduretypreagentroleassociation", repr=False)
 
 
 class PydEquipmentRole(PydAbstract):
 
-    name: str
-    equipment: List[str]
-    process: List[str] | None
-
-    @field_validator("process", mode="before")
-    @classmethod
-    def expand_processes(cls, value):
-        if isinstance(value, GeneratorType):
-            value = [item for item in value]
-        return value
+    name: str = Field(default="NA", description="Name of this equipment role.")
+    equipment: List[str] | List[dict] = Field(default_factory=list, description="Equipment this role can use.", alias="equipmentroleequipmentassociation", repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", alias="proceduretypequipmentroleassociation", repr=False)
 
 
-class PydProcess(PydAbstract, extra="allow"):
-    name: str
-    version: str = Field(default="1.0")
-    tips: List[PydTips]
+class PydProcess(PydAbstract):
+    
+    name: str = Field(default="NA", description="Name of this process.")
+    tips: List[str] | List[dict] = Field(default_factory=list, description="Tips used by this process.", repr=False)
+    processversion: List[str] | List[dict] = Field(default_factory=list, description="Versions of this process.", repr=False)
 
-    @field_validator("tips", mode="before")
-    @classmethod
-    def enforce_list(cls, value):
-        if not isinstance(value, list):
-            value = [value]
-        output = []
-        for v in value:
-            if issubclass(v.__class__, BaseClass):
-                output.append(v.name)
-            else:
-                output.append(v)
-        return output
+    
+class PydResultsType(PydAbstract):
 
-    @field_validator("tips", mode="before")
-    @classmethod
-    def validate_tips(cls, value):
-        if not value:
-            return []
-        value = [item for item in value if item]
-        return value
+    name: str = Field(default="NA", description="Brief description of this type.")
+    results: List[dict] = Field(default_factory=list, repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this type.", repr=False)
 
-    @field_validator("version", mode="before")
-    @classmethod
-    def enforce_float_string(cls, value):
-        if isinstance(value, float):
-            value = str(value)
-        return value
+class PydSubmissionType(PydAbstract):
+    
+    name: str = Field(default="NA", description="Name of this Submission Type.")
+    defaults: dict = Field(default_factory=dict, repr=False)
+    clientsubmission: List[str] | List[dict] = Field(default_factory=list, repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
+
+
+class PydProcedureType(PydAbstract):
+    
+    name: str = Field(default="NA", description="Name of this Procedure Type.")
+    plate_columns: int = Field(default=0, description="If this uses a plate, this is the column count.")
+    plate_rows: int = Field(default=0, description="If this uses a plate, this is the row count.")
+    plate_cost: float = Field(default=0.00, description="Minimum cost of running a plate.")
+    procedure: List[str] | List[dict] = Field(default_factory=list, repr=False)
+    submissiontype: List[str] | List[dict] = Field(default_factory=list, description="Submission Types using this type.", repr=False)
+    resultstype: List[str] | List[dict] = Field(default_factory=list, description="Results Types used by this type.", repr=False)
+    equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Equipment roles used by this type.", alias="proceduretypeequipmentroleassociation", repr=False)
+    reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Reagent roles used by this type.", alias="proceduretypereagentroleassociation", repr=False)

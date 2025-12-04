@@ -10,7 +10,7 @@
             "icon": "terminal-cmd"
         }
     },
-    "jupyter.notebookFileRoot": "${workspaceFolder}/submissions/src",
+    "jupyter.notebookFileRoot": "${workspaceFolder}/src/submissions",
     "python.analysis.extraPaths": [
             "./submissions" // Add paths for Pylance to resolve imports
         ],

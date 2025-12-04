@@ -56,8 +56,10 @@ class AuditLog(Base):
                 case int():
                     start_date = datetime.fromordinal(
                         datetime(1900, 1, 1).toordinal() + start_date - 2).date().strftime("%Y-%m-%d")
-                case _:
+                case str():
                     start_date = parse(start_date).strftime("%Y-%m-%d")
+                case _:
+                    raise TypeError(f"Unsupported type {type(start_date)} for start_date")
             match end_date:
                 case date() | datetime():
                     end_date = end_date + timedelta(days=1)
@@ -65,9 +67,11 @@ class AuditLog(Base):
                 case int():
                     end_date = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + end_date - 2).date() + timedelta(days=1)
                     end_date = end_date.strftime("%Y-%m-%d")
-                case _:
+                case str():
                     end_date = parse(end_date) + timedelta(days=1)
                     end_date = end_date.strftime("%Y-%m-%d")
+                case _:
+                    raise TypeError(f"Unsupported type {type(end_date)} for end_date")
             if start_date == end_date:
                 start_date = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y-%m-%d %H:%M:%S.%f")
                 query = query.filter(cls.time == start_date)

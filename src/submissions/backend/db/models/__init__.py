@@ -268,25 +268,27 @@ class BaseClass(Base):
         new = False
         allowed = [k for k, v in cls.__dict__.items() if
                    isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
-        sanitized_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+        query_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+        print(f"Sanitized Kwargs: {query_kwargs}")
         # NOTE: outside kwargs will be reintroduced into misc_info
         outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
-        instance = cls.query(limit=1, **sanitized_kwargs)
+        print(f"Outside kwargs: {outside_kwargs}")
+        instance = cls.query(limit=1, **query_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
             new = True
-        for k, v in sanitized_kwargs.items():
+        for k, v in kwargs.items():
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
-            try:
-                setattr(instance, k, v)
-            except AttributeError as e:
+            # try:
+            setattr(instance, k, v)
+            # except AttributeError as e:
                 # TODO move to __setattr__?
-                from backend.validators.pydant import PydBaseClass
-                if issubclass(v.__class__, PydBaseClass):
-                    setattr(instance, k, v.to_sql())
-        instance._misc_info.update(outside_kwargs)
+                # from backend.validators.pydant import PydBaseClass
+                # if issubclass(v.__class__, PydBaseClass):
+                #     setattr(instance, k, v.to_sql())
+        # instance._misc_info.update(outside_kwargs)
         return instance, new
 
     @classmethod
@@ -525,66 +527,67 @@ class BaseClass(Base):
         if key.startswith("_"):
             return super().__setattr__(key, value)
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
-        check = not hasattr(self, key)
-        if check:
+        if not hasattr(self.__class__, key):
             # NOTE: ensure value is json serializable.
+            print(f"To misc_info: {key}: {value}")
             try:
                 value = json.dumps(value)
             except TypeError as e:
-                logger.error(f"Error json dumping value: {e}")
+                logger.error(f"Error json dumping value {key}: {value}: {e}")
                 value = str(value)
             try:
                 self._misc_info.update({key: value})
             except AttributeError:
                 self._misc_info = {key: value}
             return
-        try:
-            field_type = getattr(self.__class__, key)
-        except AttributeError:
-            return super().__setattr__(key, value)
-        if isinstance(field_type, InstrumentedAttribute):
-            match field_type.property:
-                case ColumnProperty():
-                    return super().__setattr__(key, value)
-                case _RelationshipDeclared():
-                    if field_type.property.uselist:
-                        existing = self.__getattribute__(key)
-                        # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
-                        if existing is not None:
-                            if isinstance(value, list):
-                                value = value
-                            else:
-                                value = existing + [value]
-                        else:
-                            if isinstance(value, list):
-                                pass
-                            else:
-                                value = [value]
-                        try:
-                            value = list(set(value))
-                        except TypeError:
-                            pass
-                        return super().__setattr__(key, value)
-                    else:
-                        if isinstance(value, list):
-                            if len(value) == 1:
-                                value = value[0]
-                            else:
-                                raise ValueError("Object is too long to parse a single value.")
-                        try:
-                            return super().__setattr__(key, value)
-                        except AttributeError:
-                            logger.warning(f"Possible attempt to set relationship {key} to simple var type. {value}")
-                            relationship_class = field_type.property.entity.entity
-                            logger.warning(f"Running query for {relationship_class.__name__}")
-                            value = relationship_class.query(name=value)
-                            try:
-                                return super().__setattr__(key, value)
-                            except AttributeError:
-                                return super().__setattr__(key, None)
-                case _:
-                    return super().__setattr__(key, value)
+        # try:
+        #     field_type = getattr(self.__class__, key)
+        # except AttributeError:
+        #     return super().__setattr__(key, value)
+        # if isinstance(field_type, InstrumentedAttribute):
+        #     match field_type.property:
+        #         case ColumnProperty():
+        #             return super().__setattr__(key, value)
+        #         case _RelationshipDeclared():
+        #             if field_type.property.uselist:
+        #                 existing = self.__getattribute__(key)
+        #                 # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
+        #                 if existing is not None:
+        #                     if isinstance(value, list):
+        #                         value = value
+        #                     else:
+        #                         value = existing + [value]
+        #                 else:
+        #                     if isinstance(value, list):
+        #                         pass
+        #                     else:
+        #                         value = [value]
+        #                 try:
+        #                     value = list(set(value))
+        #                 except TypeError as e:
+        #                     logger.error(f"Hit type error: {e}")
+        #                 return super().__setattr__(key, value)
+        #             else:
+        #                 if isinstance(value, list):
+        #                     if len(value) == 1:
+        #                         value = value[0]
+        #                     else:
+        #                         raise ValueError("Object is too long to parse a single value.")
+        #                 try:
+        #                     return super().__setattr__(key, value)
+        #                 except AttributeError:
+        #                     logger.warning(f"Possible attempt to set relationship {key} to simple var type. {value}")
+        #                     relationship_class = field_type.property.entity.entity
+        #                     logger.warning(f"Running query for {relationship_class.__name__}")
+        #                     value = relationship_class.query(name=value)
+        #                     try:
+        #                         return super().__setattr__(key, value)
+        #                     except AttributeError:
+        #                         return super().__setattr__(key, None)
+        #         case _:
+        #             return super().__setattr__(key, value)
         else:
+            print(f"Setting {key} to {value}")
             try:
                 return super().__setattr__(key, value)
             except AttributeError:
@@ -631,8 +634,11 @@ class BaseClass(Base):
         """
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
+        excluded=["excluded", "misc_info", "_misc_info", "id"]
+        output = dict()
         for k, v in relevant.items():
+            if k in excluded:
+                continue
             # NOTE: foreign keys handled in child overrides.
             try:
                 check = v.foreign_keys
@@ -652,6 +658,8 @@ class BaseClass(Base):
             output[k.strip("_")] = value
         if self._misc_info:
             for key, value in self._misc_info.items():
+                if key in excluded:
+                    continue
                 output[key] = value
         return output
 
@@ -706,7 +714,7 @@ class BaseClass(Base):
         manager = Manager(parent=obj, input_object=self)
 
     @classmethod
-    def find_subclasses(cls, class_name: str|None=None, class_alias: str|None=None):
+    def find_subclasses(cls, class_name: str|None=None, class_alias: str|None=None) -> BaseClass | List[BaseClass] | None:
         if class_name:
             object_ = next((cl for cl in BaseClass.__subclasses__() if cl.__name__.lower() == class_name.lower().strip("_")), None)
             return object_

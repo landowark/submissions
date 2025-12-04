@@ -88,12 +88,12 @@ class ClientSubmission(BaseClass, LogMixin):
             case SubmissionType():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, SubmissionType):
             self._submissiontype = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def contact(self):
@@ -113,12 +113,12 @@ class ClientSubmission(BaseClass, LogMixin):
             case Contact():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Contact):
             self._contact = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def run(self):
@@ -141,12 +141,12 @@ class ClientSubmission(BaseClass, LogMixin):
                 case Run():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ReagentLot):
                 self._run.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     @hybrid_property
     def client_lab(self):
@@ -166,12 +166,12 @@ class ClientSubmission(BaseClass, LogMixin):
             case ClientLab():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ClientLab):
             self._client_lab = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def submitted_date(self):
@@ -520,12 +520,13 @@ class Run(BaseClass, LogMixin):
                 case Procedure():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Procedure):
                 self._procedure.append(output)
             else:
                 logger.error(error_msg)
+
     @hybrid_property
     def clientsubmission(self):
         return self._clientsubmission
@@ -544,12 +545,12 @@ class Run(BaseClass, LogMixin):
             case ClientSubmission():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def name(self):
@@ -1518,18 +1519,18 @@ class Sample(BaseClass, LogMixin):
         from backend.validators import PydSample
         return PydSample(**self.to_sub_dict())
 
-    def set_attribute(self, name: str, value):
-        """
-        Custom attribute setter (depreciated over built-in __setattr__)
+    # def set_attribute(self, name: str, value):
+    #     """
+    #     Custom attribute setter (depreciated over built-in __setattr__)
 
-        Args:
-            name (str): name of attribute
-            value (_type_): value to be set to attribute
-        """
-        try:
-            setattr(self, name, value)
-        except AttributeError:
-            logger.error(f"Attribute {name} not found")
+    #     Args:
+    #         name (str): name of attribute
+    #         value (_type_): value to be set to attribute
+    #     """
+    #     try:
+    #         setattr(self, name, value)
+    #     except AttributeError:
+    #         logger.error(f"Attribute {name} not found")
 
     @classmethod
     @setup_lookup
@@ -1668,12 +1669,12 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case Sample():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
   
     @hybrid_property
     def clientsubmission(self):
@@ -1693,12 +1694,12 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case ClientSubmission():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     def to_sub_dict(self) -> dict:
         """
@@ -1933,12 +1934,12 @@ class RunSampleAssociation(BaseClass):
             case Sample():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
   
     @hybrid_property
     def run(self):
@@ -1958,12 +1959,12 @@ class RunSampleAssociation(BaseClass):
             case Run():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Run):
             self._run = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     def to_sub_dict(self) -> dict:
         """
@@ -2187,12 +2188,12 @@ class ProcedureSampleAssociation(BaseClass):
                 case Procedure():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Results):
                 self._results.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
   
     @hybrid_property
     def sample(self):
@@ -2212,12 +2213,12 @@ class ProcedureSampleAssociation(BaseClass):
             case Sample():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
   
     @hybrid_property
     def procedure(self):
@@ -2237,12 +2238,12 @@ class ProcedureSampleAssociation(BaseClass):
             case Procedure():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @property
     def well(self):

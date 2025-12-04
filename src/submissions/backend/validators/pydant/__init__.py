@@ -2,15 +2,16 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
-import logging, sys, string
+import logging, sys, string, inspect
 from pprint import pformat
 from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import date, datetime
-from typing import TYPE_CHECKING, ClassVar, Generator
+from typing import TYPE_CHECKING, Any, ClassVar, Generator, List
 from tools import classproperty, row_keys
 from backend.db import models
-from backend.db.models import *
+# from backend.db.models import *
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm import DeclarativeMeta
 
 
 logger = logging.getLogger(f"submission.{__name__}")
@@ -105,7 +106,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             dict: This instance as a dictionary
         """
-        fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
+        fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         if dictionaries:
             output = {k: getattr(self, k) for k in fields}
         else:
@@ -149,26 +150,31 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     
     @classproperty
     def sql_classes(cls) -> List[str]:
-        return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], BaseClass)]
+        return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
     
     @property
-    def construct_form_dictionary(self) -> Generator[dict, None, None]:
+    def form_dictionary(self) -> Generator[dict, None, None]:
+        if self.__class__.__name__ == "PydBaseClass":
+            raise NotImplementedError("Must be used in subclass only")
         data = self.model_dump()
         for field in self.described_fields:
-            type_ = self.model_fields[field].annotation
+            type_ = self.__class__.model_fields[field].annotation
+            tooltip = self.__class__.model_fields[field].description
             value = data[field]
             if field.lower().strip("_") in self.sql_classes:
-                model = models.BaseClass
+                model: models.BaseClass = models.BaseClass.find_subclasses(class_alias=field.lower().strip("_"))
+                excluded = [item.name for item in model.query() if self.name not in [i.name for i in getattr(item, field)]]
+            else:
+                excluded = None
+            yield dict(field=field, type=type_, value=value, tooltip=tooltip, excluded=excluded)
             
-
-
 
 class PydAbstract(PydBaseClass):
 
     @classmethod
     def get_managables(cls):
-        for class_ in PydAbstract.__subclasses__:
-            if len(class_.get_described_attributes()):
+        for class_ in PydAbstract.__subclasses__():
+            if len(class_.described_fields) > 0:
                 yield class_._sql_object
 
 
@@ -176,11 +182,11 @@ class PydConcrete(PydBaseClass):
 
     @classmethod
     def get_managables(cls):
-        for class_ in PydConcrete.__subclasses__:
-            if len(class_.get_described_attributes()):
+        for class_ in PydConcrete.__subclasses__():
+            if len(class_.described_fields) > 0:
                 yield class_._sql_object
         
 
-from .abstract import (PydEquipmentRole, PydProcess, PydReagent, PydReagentRole, PydTips)
+from .abstract import (PydEquipmentRole, PydProcess, PydReagent, PydReagentRole, PydTips, PydProcedureType, PydResultsType, PydSubmissionType)
 from .concrete import (PydEquipment, PydClientLab, PydClientSubmission, PydContact, PydProcedure, PydProcessVersion, PydResults, PydRun,
                        PydReagentLot, PydSample)

@@ -59,14 +59,10 @@ class ReagentRole(BaseClass):
     Base of reagent type abstract
     """
 
-    # skip_on_edit = False
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64), unique=True)  #: name of reagentrole reagent plays
-    # reagent = relationship("Reagent", back_populates="reagentrole",
-    #                        secondary=reagentrole_reagent)  #: concrete control of this reagent type
     reagentroleproceduretypeassociation = relationship(
         "ProcedureTypeReagentRoleAssociation",
-        back_populates="_reagentrole",
         cascade="all, delete-orphan",
     )  #: Relation to KitTypeReagentTypeAssociation
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
@@ -83,22 +79,6 @@ class ReagentRole(BaseClass):
     reagent = association_proxy("reagentrolereagentassociation", "reagent",
                                       creator=lambda reagent: ReagentRoleReagentAssociation(
                                           reagent=reagent))  #: Association proxy to KitTypeReagentRoleAssociation
-
-    ##### Query Functions #####
-    
-    # @classmethod
-    # def query_or_create(cls, **kwargs) -> Tuple[ReagentRole, bool]:
-    #     new = False
-    #     disallowed = ['expiry']
-    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-    #     instance = cls.query(**sanitized_kwargs)
-    #     if not instance or isinstance(instance, list):
-    #         instance = cls()
-    #         new = True
-    #     for k, v in sanitized_kwargs.items():
-    #         setattr(instance, k, v)
-    #     # logger.info(f"Instance from query or create: {instance}")
-    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -215,6 +195,8 @@ class Reagent(BaseClass, LogMixin):
     def eol_ext(self, value):
         if isinstance(value, int):
             value = timedelta(days=value)
+        elif isinstance(value, timedelta):
+            pass
         else:
             raise TypeError(f"Unsupported variable type {type(value)} for eol_ext: {value} must be an integer for number of days.")
         self._eol_ext = value
@@ -240,12 +222,12 @@ class Reagent(BaseClass, LogMixin):
                 case ReagentLot():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ReagentLot):
                 self._reagentlot.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     def __repr__(self):
         if self.name:
@@ -373,12 +355,12 @@ class ReagentLot(BaseClass):
                 case Reagent():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Reagent):
                 self._reagent.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
         
     
     @hybrid_property
@@ -524,12 +506,12 @@ class Discount(BaseClass):
                 case ClientLab():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ClientLab):
                 self._clientlab.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def proceduretype(self) -> List[ProcedureType]:
@@ -552,12 +534,12 @@ class Discount(BaseClass):
                 case ProcedureType():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ProcedureType):
                 self._proceduretype.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def name(self) -> str:
@@ -663,12 +645,12 @@ class SubmissionType(BaseClass):
                 case SubmissionType():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, SubmissionType):
                 self._submissiontype.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     @hybrid_property
     def proceduretype(self):
@@ -691,12 +673,12 @@ class SubmissionType(BaseClass):
                 case ProcedureType():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ProcedureType):
                 self._proceduretype.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @classmethod
     @declared_attr
@@ -821,7 +803,7 @@ class ProcedureType(BaseClass):
     name = Column(String(64), unique=True)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
-    plate_cost = Column(FLOAT(2))
+    plate_cost = Column(FLOAT(2), default=0.00)
 
     _procedure = relationship("Procedure",
                              back_populates="_proceduretype")  #: Concrete control of this type.
@@ -853,7 +835,7 @@ class ProcedureType(BaseClass):
                                         reagentrole=reagentrole))  #: Proxy of equipmentrole associations
 
     def __init__(self, *args, **kwargs):
-        super().__init(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         if self._procedure is None:
             self._procedure = []
         if self._submissiontype is None:
@@ -882,12 +864,12 @@ class ProcedureType(BaseClass):
                 case ResultsType():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ResultsType):
                 self._resultstype.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def submissiontype(self):
@@ -910,12 +892,12 @@ class ProcedureType(BaseClass):
                 case SubmissionType():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, SubmissionType):
                 self._submissiontype.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def procedure(self):
@@ -938,12 +920,12 @@ class ProcedureType(BaseClass):
                 case Procedure():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Procedure):
                 self._procedure.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
         """
@@ -1146,12 +1128,12 @@ class Procedure(BaseClass):
             case ProcedureType():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ProcedureType):
             self._proceduretype = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def run(self):
@@ -1171,12 +1153,12 @@ class Procedure(BaseClass):
             case Run():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Run):
             self._run = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def results(self):
@@ -1199,12 +1181,12 @@ class Procedure(BaseClass):
                 case Results():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Results):
                 self._results.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def repeat_of(self):
@@ -1227,12 +1209,12 @@ class Procedure(BaseClass):
                 case Procedure():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Procedure):
                 self._procedure.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def repeat(self) -> bool:
@@ -1460,12 +1442,12 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             case ProcedureType():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ProcedureType):
             self._proceduretype = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def reagentrole(self):
@@ -1485,12 +1467,12 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             case ReagentRole():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @hybrid_property
     def name(self):
@@ -1699,12 +1681,12 @@ class ProcedureReagentLotAssociation(BaseClass):
             case ReagentLot():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ReagentLot):
             self._reagentlot = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def procedure(self):
@@ -1724,12 +1706,12 @@ class ProcedureReagentLotAssociation(BaseClass):
             case Procedure():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
     @classmethod
     @setup_lookup
@@ -1807,6 +1789,17 @@ class ReagentRoleReagentAssociation(BaseClass):
     _reagentrole = relationship(ReagentRole, back_populates="reagentrolereagentassociation")  #: associated reagent
 
     @hybrid_property
+    def name(self):
+        try:
+            return f"{self.reagentrole.name} -> {self.reagent.name}"
+        except AttributeError:
+            return "Blank ReagentRoleReagent"
+
+    @name.expression
+    def name(cls):
+        return func.concat(cls.reagentrole.name, ' -> ', cls.reagent.name)
+
+    @hybrid_property
     def reagent(self):
         return self._reagent
 
@@ -1824,12 +1817,11 @@ class ReagentRoleReagentAssociation(BaseClass):
             case Reagent():
                 output = value
             case _:
-                logger.error(error_msg)
-                return
+                raise TypeError(error_msg)
         if isinstance(output, Reagent):
             self._reagent = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def reagentrole(self):
@@ -1849,12 +1841,12 @@ class ReagentRoleReagentAssociation(BaseClass):
             case ReagentRole():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
 
 
 class EquipmentRole(BaseClass):
@@ -2216,12 +2208,12 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
             case Process():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Process):
             self._process = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def equipment(self):
@@ -2241,12 +2233,12 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
             case Equipment():
                 output = item
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Equipment):
             self._equipment = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def equipmentrole(self):
@@ -2266,12 +2258,12 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
             case EquipmentRole():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, EquipmentRole):
             self._equipmentrole = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     def details_dict(self, **kwargs) -> dict:
         output = super().details_dict(**kwargs)
@@ -2309,12 +2301,12 @@ class Process(BaseClass):
             #     case EquipmentRoleEquipmentAssociation():
             #         output = item
             #     case _:
-            #         logger.error(error_msg)
+            #         raise TypeError(error_msg)
             #         continue
             if isinstance(output, EquipmentRoleEquipmentAssociation):
                 self._processversion.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def processversion(self):
@@ -2337,12 +2329,12 @@ class Process(BaseClass):
                 case ProcessVersion():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ProcessVersion):
                 self._processversion.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     @hybrid_property
     def tips(self):
@@ -2365,12 +2357,12 @@ class Process(BaseClass):
                 case Tips():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Tips):
                 self._tips.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     # def set_attribute(self, key, value):
     #     match key:
@@ -2500,12 +2492,12 @@ class ProcessVersion(BaseClass):
             case Process():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Process):
             self._process = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def name(self) -> str:
@@ -2615,12 +2607,12 @@ class Tips(BaseClass):
                 case Process():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Process):
                 self._process.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
     @hybrid_property
     def tipslot(self):
@@ -2643,12 +2635,12 @@ class Tips(BaseClass):
                 case TipsLot():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, TipsLot):
                 self._tipslot.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     @hybrid_property
     def name(self):
@@ -2747,12 +2739,12 @@ class TipsLot(BaseClass, LogMixin):
             case Tips():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Tips):
             self._tips = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @property
     def size(self) -> str:
@@ -2929,12 +2921,12 @@ class ProcedureEquipmentAssociation(BaseClass):
             case TipsLot():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, TipsLot):
             self._tipslot =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def equipmentrole(self):
@@ -2954,12 +2946,12 @@ class ProcedureEquipmentAssociation(BaseClass):
             case EquipmentRole():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, EquipmentRole):
             self._equipmentrole =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def equipment(self):
@@ -2979,12 +2971,12 @@ class ProcedureEquipmentAssociation(BaseClass):
             case Equipment():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Equipment):
             self._equipment =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def procedure(self):
@@ -3004,12 +2996,12 @@ class ProcedureEquipmentAssociation(BaseClass):
             case Procedure():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Procedure):
             self._procedure =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def processversion(self):
@@ -3029,12 +3021,12 @@ class ProcedureEquipmentAssociation(BaseClass):
             case ProcessVersion():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ProcessVersion):
             self._processversion =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @property
     def name(self):
@@ -3155,6 +3147,17 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                                  foreign_keys=[equipmentrole_id])  #: associated equipment
 
     @hybrid_property
+    def name(self):
+        try:
+            return f"{self.proceduretype.name} -> {self.equipmentrole.name}"
+        except AttributeError:
+            return "Blank ProcedureTypeReagentRole"
+
+    @name.expression
+    def name(cls):
+        return func.concat(cls.proceduretype.name, ' -> ', cls.equipmentrole.name)
+
+    @hybrid_property
     def proceduretype(self):
         return self._proceduretype
 
@@ -3172,12 +3175,12 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             case ProcedureType():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ProcedureType):
             self._proceduretype =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def equipmentrole(self):
@@ -3197,12 +3200,12 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             case EquipmentRole():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, EquipmentRole):
             self._equipmentrole =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     # @validates('static')
     # def validate_static(self, key, value):
@@ -3263,12 +3266,12 @@ class Results(BaseClass):
             case ResultsType():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, ResultsType):
             self._resultstype = output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @hybrid_property
     def procedure(self):
@@ -3288,12 +3291,12 @@ class Results(BaseClass):
             case Procedure():
                 output = value
             case _:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
                 return
         if isinstance(output, Procedure):
             self._procedure =output
         else:
-            logger.error(error_msg)
+            raise TypeError(error_msg)
     
     @property
     def sample_id(self):
@@ -3352,12 +3355,12 @@ class ResultsType(BaseClass):
                 case Results():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, ProcedureType):
                 self._results.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
 
     @hybrid_property
     def results(self):
@@ -3380,10 +3383,10 @@ class ResultsType(BaseClass):
                 case Results():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    raise TypeError(error_msg)
                     continue
             if isinstance(output, Results):
                 self._results.append(output)
             else:
-                logger.error(error_msg)
+                raise TypeError(error_msg)
     
