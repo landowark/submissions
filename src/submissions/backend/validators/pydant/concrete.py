@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pprint import pformat
 import csv, logging, re, sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from operator import itemgetter
 from pathlib import Path
 from types import GeneratorType
@@ -13,7 +13,7 @@ from dateutil.parser import parse, ParserError
 from backend.db.models.organizations import (ClientLab, Contact)
 from backend.validators import RSLNamer
 from backend.validators.pydant import PydConcrete
-from backend.validators.pydant.abstract import PydEquipmentRole, PydProcess, PydTips, PydReagent
+from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydProcess, PydTips, PydReagent
 from tools import Alert, Report, check_not_nan, convert_nans_to_nones, flatten_list, report_result, row_keys, sort_dict_by_list
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
@@ -66,11 +66,37 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
 class PydReagentLot(PydConcrete):
 
-    lot: str | None
-    name: str | None = Field(default=None) #:attr Derived from Reagent
-    expiry: date | datetime | Literal['NA'] | None = Field(default=None, validate_default=True)
-    missing: bool = Field(default=True)
-    comment: str | None = Field(default="", validate_default=True)
+    lot: str = Field(default="NA", description="Lot number of this reagent.")
+    reagent: str | PydReagent | None = Field(default=None, description="Type of reagent this lot is.")
+    expiry: datetime = Field(default = None, description="Expiry date of this reagent lot.", validate_default=True)
+    missing: bool = Field(default=True, repr=False)
+
+    @field_validator("expiry", mode="before")
+    @classmethod
+    def parse_expiry(cls, value):
+        if not value:
+            value = date.today() + timedelta(days=365)
+        match value:
+            case str():
+                try:
+                    value = parse(value)
+                except ParserError:
+                    value = None
+            case date():
+                value = datetime.combine(value, datetime.max.time())
+            case datetime():
+                pass
+            case _:
+                raise ValueError(f"Could not parse expiry date: {value}")
+        return value
+
+
+class PydDiscount(PydConcrete):
+
+    description: str = Field(default="NA", description="Brief description of this discount.")
+    proceduretype: str | None = Field(default=None, description="ProcedureType this discount applies to.", repr=False)
+    clientlab: str | None = Field(default=None, description="ClientLab this discount applies to.", repr=False)
+    amount: float = Field(default=0.0, description="Amount of discount to apply.")
 
 
 class PydSample(PydConcrete):
@@ -384,18 +410,17 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
 
 class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     
-    proceduretype: Any | None = Field(default=None)
-    run: Any | str | None = Field(default=None)
+    proceduretype: str | PydProcedureType | None = Field(default=None)
+    run: str | PydRun | None = Field(default=None)
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
     technician: dict = Field(default=dict(value="NA", missing=True))
     repeat: bool = Field(default=False)
-    repeat_of: Any | None = Field(default=None)
+    repeat_of: str | PydProcedure | None = Field(default=None)
     plate_map: str | None = Field(default=None)
-    reagent: list | None = Field(default=[])
-    reagentrole: dict | None = Field(default={}, validate_default=True)
-    sample: List[PydSample] = Field(default=[])
-    equipment: List[PydEquipment] = Field(default=[])
-    result: List[PydResults] | List[dict] = Field(default=[])
+    reagentlot: List[str] | List[PydReagentLot] = Field(default_factory=list)
+    sample: List[str] | List[PydSample] = Field(default_factory=list)
+    equipment: List[str] | List[PydEquipment] = Field(default_factory=list)
+    results: List[dict] | List[PydResults] = Field(default=[])
 
     @field_validator("name", "technician", mode="before")#"kittype", mode="before")
     @classmethod
@@ -557,7 +582,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
         if checked:
             self.reagent.insert(idx, insertable)
-
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot

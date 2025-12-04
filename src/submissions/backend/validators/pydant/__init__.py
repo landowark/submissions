@@ -6,7 +6,7 @@ import logging, sys, string, inspect
 from pprint import pformat
 from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, ClassVar, Generator, List
+from typing import TYPE_CHECKING, Any, ClassVar, Generator, List, Tuple
 from tools import classproperty, row_keys
 from backend.db import models
 # from backend.db.models import *
@@ -152,21 +152,43 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def sql_classes(cls) -> List[str]:
         return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
     
+    @classmethod
+    def determine_field_type(cls, field: str) -> str:
+        type_ = getattr(cls._sql_object, field.lower().strip("_"))
+        type_name = type_.__class__.__name__
+        match type_name:
+            case "hybrid_propertyProxy":
+                type_ = getattr(cls._sql_object, type_.property.key)
+                type_name = type_.__class__.__name__
+                if type_name == "InstrumentedAttribute":
+                    type_ = type_.property
+                    type_name = type_.__class__.__name__
+                    if type_name == "_RelationshipDeclared":
+                        if type_.uselist:
+                            type_name = "RelationshipList"
+                        else:
+                            type_name = "RelationshipScalar"
+            case "ObjectAssociationProxyInstance":
+                type_name = "AssociationList"
+            case _:
+                logger.debug(f"Got type: {type_name} for field {field}.")
+        return type_name
+
     @property
     def form_dictionary(self) -> Generator[dict, None, None]:
         if self.__class__.__name__ == "PydBaseClass":
             raise NotImplementedError("Must be used in subclass only")
         data = self.model_dump()
         for field in self.described_fields:
-            type_ = self.__class__.model_fields[field].annotation
-            tooltip = self.__class__.model_fields[field].description
-            value = data[field]
+            type_name = self.determine_field_type(field)
             if field.lower().strip("_") in self.sql_classes:
                 model: models.BaseClass = models.BaseClass.find_subclasses(class_alias=field.lower().strip("_"))
-                excluded = [item.name for item in model.query() if self.name not in [i.name for i in getattr(item, field)]]
+                excluded = [item.name for item in model.query() if self.name not in [i.name for i in getattr(item, self.__class__.__name__.lower().replace("pyd", ""))]]
             else:
                 excluded = None
-            yield dict(field=field, type=type_, value=value, tooltip=tooltip, excluded=excluded)
+            tooltip = self.__class__.model_fields[field].description
+            value = data[field]
+            yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
             
 
 class PydAbstract(PydBaseClass):

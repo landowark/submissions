@@ -1108,8 +1108,14 @@ class classproperty(property):
     """
     Allows for properties on classes as well as objects.
     """
-    def __get__(self, owner_self, owner_cls):
-        return self.fget(owner_cls)
+    # def __get__(self, owner_self, owner_cls):
+    #     return self.fget(owner_cls)
+    def __init__(self, f):
+        self.f = f
+    def __get__(self, obj, cls=None):
+        if cls is None:
+            cls = type(obj)
+        return self.f(cls)
 
 
 # NOTE: Monkey patching... hooray!

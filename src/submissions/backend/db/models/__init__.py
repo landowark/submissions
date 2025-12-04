@@ -52,9 +52,13 @@ class BaseClass(Base):
     @hybrid_property
     def misc_info(self):
         return self._misc_info
+    
+    @misc_info.setter
+    def misc_info(self, value):
+        print(f"Setting misc_info to {value}")
+        self._misc_info = value
 
-    @declared_attr
-    @classmethod
+    @classproperty
     def aliases(cls):
         """
         List of other names this class might be known by.
@@ -151,14 +155,6 @@ class BaseClass(Base):
         except AttributeError:
             return []
 
-    # Marked for removal
-    # @classmethod
-    # def get_omni_sort(cls):
-    #     output = [item[0] for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a)))
-    #               if isinstance(item[1], InstrumentedAttribute)]  # and not isinstance(item[1].property, _RelationshipDeclared)]
-    #     output = [item for item in output if item not in ['_misc_info']]
-    #     return output
-
     @classmethod
     def get_searchables(cls):
         output = []
@@ -186,25 +182,6 @@ class BaseClass(Base):
         """
         # NOTE: singles is a list of fields that need to be limited to 1 result.
         return dict(singles=list(set(cls.singles + BaseClass.singles)))
-
-    # Marked for removal
-    # @classmethod
-    # def find_regular_subclass(cls, name: str | None = None) -> Any:
-    #     """
-    #     Args:
-    #         name (str): name of subclass of interest.
-    #
-    #     Returns:
-    #         Any: Subclass of this object.
-    #     """
-    #     if name:
-    #         if " " in name:
-    #             search = name.title().replace(" ", "")
-    #         else:
-    #             search = name
-    #         return next((item for item in cls.__subclasses__() if item.__name__ == search), cls)
-    #     else:
-    #         return cls.__subclasses__()
 
     @classmethod
     def fuzzy_search(cls, **kwargs) -> List[Any]:
@@ -281,14 +258,7 @@ class BaseClass(Base):
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
-            # try:
             setattr(instance, k, v)
-            # except AttributeError as e:
-                # TODO move to __setattr__?
-                # from backend.validators.pydant import PydBaseClass
-                # if issubclass(v.__class__, PydBaseClass):
-                #     setattr(instance, k, v.to_sql())
-        # instance._misc_info.update(outside_kwargs)
         return instance, new
 
     @classmethod
@@ -384,33 +354,6 @@ class BaseClass(Base):
             report.add_result(Alert(msg=e, status="Critical"))
             return report
 
-    # Marked for removal
-    # @property
-    # def omnigui_instance_dict(self) -> dict:
-    #     """
-    #     For getting any object in an omni-thing friendly output.
-    #
-    #     Returns:
-    #         dict: Dictionary of object minus _sa_instance_state with id at the front.
-    #     """
-    #     dicto = {key: dict(class_attr=getattr(self.__class__, key), instance_attr=getattr(self, key))
-    #              for key in self.get_omni_sort()}
-    #     for k, v in dicto.items():
-    #         try:
-    #             v['instance_attr'] = v['instance_attr'].name
-    #         except AttributeError:
-    #             continue
-    #     try:
-    #         dicto = list_sort_dict(input_dict=dicto, sort_list=self.__class__.get_omni_sort())
-    #     except TypeError as e:
-    #         logger.error(f"Could not sort {self.__class__.__name__} by list due to :{e}")
-    #     try:
-    #         dicto = {'id': dicto.pop('id'), **dicto}
-    #     except KeyError:
-    #         pass
-    #     return dicto
-
-    # @declared_attr
     @classmethod
     def pydantic_model(cls, pyd_model_name: str | None = None, **kwargs) -> Any:
         """
@@ -435,18 +378,6 @@ class BaseClass(Base):
             logger.error(f"Could get model {pyd_model_name}, returning None")
             return None
         return model
-
-    # Marked for removal
-    # @declared_attr
-    # @classmethod
-    # def add_edit_tooltips(cls):
-    #     """
-    #     Gets tooltips for Omni-add-edit
-    #
-    #     Returns:
-    #         dict: custom dictionary for this class.
-    #     """
-    #     return dict()
 
     @declared_attr
     @classmethod
@@ -525,9 +456,16 @@ class BaseClass(Base):
         Custom dunder method to handle potential list relationship issues.
         """
         if key.startswith("_"):
+            print(f"Key {key} starts with _ using default method.")
             return super().__setattr__(key, value)
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
-        if not hasattr(self.__class__, key):
+        try:
+            inspect.getattr_static(self.__class__, key)
+            class_has_attr = True
+        except AttributeError:
+            class_has_attr = False
+        # NOTE: if attribute not found in this object, value gets shoved into misc_info
+        if not class_has_attr:
             # NOTE: ensure value is json serializable.
             print(f"To misc_info: {key}: {value}")
             try:
@@ -540,56 +478,11 @@ class BaseClass(Base):
             except AttributeError:
                 self._misc_info = {key: value}
             return
-        # try:
-        #     field_type = getattr(self.__class__, key)
-        # except AttributeError:
-        #     return super().__setattr__(key, value)
-        # if isinstance(field_type, InstrumentedAttribute):
-        #     match field_type.property:
-        #         case ColumnProperty():
-        #             return super().__setattr__(key, value)
-        #         case _RelationshipDeclared():
-        #             if field_type.property.uselist:
-        #                 existing = self.__getattribute__(key)
-        #                 # NOTE: This is causing problems with removal of items from lists. Have to overhaul it.
-        #                 if existing is not None:
-        #                     if isinstance(value, list):
-        #                         value = value
-        #                     else:
-        #                         value = existing + [value]
-        #                 else:
-        #                     if isinstance(value, list):
-        #                         pass
-        #                     else:
-        #                         value = [value]
-        #                 try:
-        #                     value = list(set(value))
-        #                 except TypeError as e:
-        #                     logger.error(f"Hit type error: {e}")
-        #                 return super().__setattr__(key, value)
-        #             else:
-        #                 if isinstance(value, list):
-        #                     if len(value) == 1:
-        #                         value = value[0]
-        #                     else:
-        #                         raise ValueError("Object is too long to parse a single value.")
-        #                 try:
-        #                     return super().__setattr__(key, value)
-        #                 except AttributeError:
-        #                     logger.warning(f"Possible attempt to set relationship {key} to simple var type. {value}")
-        #                     relationship_class = field_type.property.entity.entity
-        #                     logger.warning(f"Running query for {relationship_class.__name__}")
-        #                     value = relationship_class.query(name=value)
-        #                     try:
-        #                         return super().__setattr__(key, value)
-        #                     except AttributeError:
-        #                         return super().__setattr__(key, None)
-        #         case _:
-        #             return super().__setattr__(key, value)
         else:
-            print(f"Setting {key} to {value}")
+            print(f"Default setting {key} to {value}")
             try:
-                return super().__setattr__(key, value)
+                super().__setattr__(key, value)
+                print(self.__dict__)
             except AttributeError:
                 raise AttributeError(f"Can't set {key} to {value}")
 
@@ -719,7 +612,7 @@ class BaseClass(Base):
             object_ = next((cl for cl in BaseClass.__subclasses__() if cl.__name__.lower() == class_name.lower().strip("_")), None)
             return object_
         elif class_alias:
-            object_ = next((cl for cl in BaseClass.__subclasses__() if class_alias.lower().strip("_") in cl.aliases))
+            object_ = next((cl for cl in BaseClass.__subclasses__() if class_alias.lower().strip("_") in cl.aliases), None)
             return object_
         else:
             return BaseClass.__subclasses__()

@@ -6,6 +6,7 @@ from backend.validators.pydant import PydAbstract
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 class PydReagent(PydAbstract):
 
     reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this reagent can fill.", repr=False)
@@ -52,6 +53,7 @@ class PydResultsType(PydAbstract):
     results: List[dict] = Field(default_factory=list, repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this type.", repr=False)
 
+
 class PydSubmissionType(PydAbstract):
     
     name: str = Field(default="NA", description="Name of this Submission Type.")
@@ -71,3 +73,5 @@ class PydProcedureType(PydAbstract):
     resultstype: List[str] | List[dict] = Field(default_factory=list, description="Results Types used by this type.", repr=False)
     equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Equipment roles used by this type.", alias="proceduretypeequipmentroleassociation", repr=False)
     reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Reagent roles used by this type.", alias="proceduretypereagentroleassociation", repr=False)
+    testbool: bool = Field(default=False, description="A test boolean field.", repr=False)
+

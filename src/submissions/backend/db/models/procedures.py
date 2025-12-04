@@ -14,6 +14,7 @@ from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
+from inspect import getattr_static
 
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
@@ -680,8 +681,7 @@ class SubmissionType(BaseClass):
             else:
                 raise TypeError(error_msg)
     
-    @classmethod
-    @declared_attr
+    @classproperty
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
