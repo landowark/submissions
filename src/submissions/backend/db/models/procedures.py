@@ -607,12 +607,12 @@ class SubmissionType(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(128), unique=True)  #: name of procedure type
     defaults = Column(JSON)  #: Basic information about this procedure type
+    file_name_template = Column(String(256))  #: Jinja2 template for naming files of this submission type
     _clientsubmission = relationship("ClientSubmission",
                                     back_populates="_submissiontype")  #: Instances of this submission type
     _proceduretype = relationship("ProcedureType", back_populates="_submissiontype",
                                  secondary=submissiontype_proceduretype)  #: Procedures associated with this submission type
 
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.defaults is None:
@@ -1058,7 +1058,6 @@ class Procedure(BaseClass):
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="SET NULL",
                                         name="fk_PRO_basicrun_id"))  #: client lab id from _organizations))
     _run = relationship("Run", back_populates="_procedure")
-    # control = relationship("Control", back_populates="procedure", uselist=True)  #: A control sample added to procedure
 
     proceduresampleassociation = relationship(
         "ProcedureSampleAssociation",
@@ -2004,7 +2003,7 @@ class Equipment(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: id, primary key
     name = Column(String(64))  #: equipment name
-    nickname = Column(String(64))  #: equipment nickname
+    _nickname = Column(String(64))  #: equipment nickname
     asset_number = Column(String(16))  #: Given asset number (corpo nickname if you will)
 
     equipmentprocedureassociation = relationship(
@@ -2024,16 +2023,25 @@ class Equipment(BaseClass, LogMixin):
 
     equipmentrole = association_proxy("equipmentequipmentroleassociation",
                                       "_equipmentrole", creator=lambda equipmentrole: EquipmentRoleEquipmentAssociation(
-            equipmentrole=equipmentrole)
-                                      )
-
-    def __init__(self, name: str, nickname: str | None = None, asset_number: str = ""):
-        self.name = name
-        if nickname:
-            self.nickname = nickname
+            equipmentrole=equipmentrole))
+     
+    @hybrid_property
+    def nickname(self) -> str:
+        return self._nickname
+                            
+    @nickname.setter
+    def nickname(self, value: str|None):
+        if value is None or value == "":
+            self._nickname = self.name
         else:
-            self.nickname = self.name
-        self.asset_number = asset_number
+            self._nickname = value
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.procedure is None:
+            self.procedure = []
+        if self.equipmentrole is None:
+            self.equipmentrole = []
 
     # def to_dict(self, processes: bool = False) -> dict:
     #     """

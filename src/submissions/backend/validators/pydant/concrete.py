@@ -11,9 +11,10 @@ from pydantic import Field, field_validator
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
 from backend.db.models.organizations import (ClientLab, Contact)
+from backend.db.models.procedures import SubmissionType
 from backend.validators import RSLNamer
 from backend.validators.pydant import PydConcrete
-from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydProcess, PydTips, PydReagent
+from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydProcess, PydTips, PydReagent, PydResultsType, PydSubmissionType
 from tools import Alert, Report, check_not_nan, convert_nans_to_nones, flatten_list, report_result, row_keys, sort_dict_by_list
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
@@ -23,24 +24,30 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
-    result: dict = Field(default={})
-    result_type: str = Field(default="NA")
-    img: None | bytes = Field(default=None)
-    parent: Any | None = Field(default=None)
-    date_analyzed: datetime | None = Field(default=None)
+    result: dict = Field(default={}, repr=False)
+    result_type: str | PydResultsType = Field(default="NA")
+    image: None | bytes = Field(default=None, repr=False)
+    procedure: str | PydProcedure | None = Field(default=None, description="Parent procedure this result is associated with.")
+    sample: str | PydSample | None = Field(default=None, description="Parent sample this result is associated with.")
+    date_analyzed: datetime | None = Field(default=None, repr=False, description="Date this result was analyzed.", validate_default=True)
 
     @field_validator("date_analyzed")
     @classmethod
-    def set_today(cls, value):
+    def parse_analyzed(cls, value):
         match value:
             case str():
-                value = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-            case datetime():
-                pass
+                try:
+                    value = parse(value)
+                except ParserError:
+                    value = None
             case date():
-                value = datetime.combine(value, datetime.max.time())
+                pass
+            case datetime():
+                value = value.date()
             case _:
-                value = datetime.now()
+                value = None
+        if isinstance(value, date):
+            value = datetime.combine(value, datetime.max.time())
         return value
 
     def to_sql(self):
@@ -169,136 +176,18 @@ class PydSample(PydConcrete):
 
 class PydEquipment(PydConcrete):
 
-    asset_number: str
-    name: str
-    nickname: str | None
-    processes: List[PydProcess] | PydProcess | None
-    processversion: PydProcessVersion | None = Field(default=None)
-    equipmentrole: str | PydEquipmentRole | None
-    tips: List[PydTips] | PydTips | None = Field(default=[])
+    asset_number: str = Field(default="NA", description="Asset number of this equipment.")
+    name: str = Field(default="NA", description="Name of this equipment.")
+    nickname: str | None = Field(default=None, description="Nickname of this equipment.")
+    procedure: List[str] | List[dict] = Field(default_factory=list, description="Procedures using this equipment.", repr=False)
+    equipmentrole: List[str] | List[PydEquipmentRole] = Field(default_factory=list, description="Roles this equipment can fill.", alias="equipmentrolequipmentassociation", repr=False)
 
-    @field_validator('equipmentrole', mode='before')
+    @field_validator('nickname')
     @classmethod
-    def get_role_name(cls, value):
-        from backend.db.models import EquipmentRole
-        match value:
-            case list():
-                value = value[0]
-            case GeneratorType():
-                value = next(value)
-            case _:
-                pass
-        if isinstance(value, EquipmentRole):
-            value = value.name
+    def set_nickname_to_name(cls, value, values):
+        if not value or value == "NA":
+            value = values.data['name']
         return value
-
-    @field_validator('processes', mode='before')
-    @classmethod
-    def process_to_pydantic(cls, value, values):
-        from backend.db.models import ProcessVersion, Process
-        if isinstance(value, GeneratorType):
-            value = [item for item in value]
-        value = convert_nans_to_nones(value)
-        if not value:
-            value = []
-        match value:
-            case ProcessVersion():
-                value = value.to_pydantic(pyd_model_name="PydProcess")
-            case _:
-                try:
-                    for process in value:
-                        match process:
-                            case Process():
-                                if values.data['name'] in [item.name for item in process.equipment]:
-                                    return process.to_pydantic()
-                                return None
-                            case str():
-                                return process
-                except AttributeError as e:
-                    logger.error(f"Process Validation error due to {e}")
-                    value = []
-        return value
-
-    @field_validator('tips', mode='before')
-    @classmethod
-    def tips_to_pydantic(cls, value, values):
-        from backend.db.models import TipsLot
-        if isinstance(value, GeneratorType):
-            value = [item for item in value]
-        value = convert_nans_to_nones(value)
-        if not value:
-            value = []
-        match value:
-            case TipsLot():
-                value = value.to_pydantic(pyd_model_name="PydTips")
-            case dict():
-                value = PydTips(**value)
-            case _:
-                pass
-        return value
-
-    @report_result
-    def to_sql(self, procedure: Procedure | str = None, proceduretype: ProcedureType | str = None) -> Tuple[
-        Equipment, ProcedureEquipmentAssociation]:
-        """
-        Creates Equipment and SubmssionEquipmentAssociations for this PydEquipment
-
-        Args:
-            procedure ( BasicRun | str ): BasicRun of interest
-
-        Returns:
-            Tuple[Equipment, RunEquipmentAssociation]: SQL objects
-        """
-        from backend.db.models import Equipment, ProcedureEquipmentAssociation, Process, EquipmentRole
-        report = Report()
-        if isinstance(procedure, str):
-            procedure = Procedure.query(name=procedure)
-        # if isinstance(proceduretype, str):
-        #     proceduretype = ProcedureType.query(name=proceduretype)
-        equipment = Equipment.query(asset_number=self.asset_number)
-        if equipment is None:
-            logger.error("No equipment found. Returning None.")
-            return None, None
-        if procedure is not None:
-            # NOTE: Need to make sure the same association is not added to the procedure
-            try:
-                assoc, new = ProcedureEquipmentAssociation.query_or_create(equipment=equipment, procedure=procedure,
-                                                                           equipmentrole=self.equipmentrole, limit=1)
-            except TypeError as e:
-                logger.error(f"Couldn't get association due to {e}, returning...")
-                return None, None
-            if new:
-                # TODO: This seems precarious. What if there is more than one process?
-                # NOTE: It looks like the way fetching the process is done in the SQL model, this shouldn't be a problem, but I'll include a failsafe.
-                if len(self.processes) > 1:
-                    process = Process.query(proceduretype=procedure.submissiontype, equipmentrole=self.role, limit=1)
-                else:
-                    process = Process.query(name=self.processes[0], limit=1)
-                if process is None:
-                    logger.error(f"Found unknown process: {process}.")
-                assoc.process = process
-                assoc.equipmentrole = EquipmentRole.query(name=self.equipmentrole, limit=1)
-            else:
-                logger.warning(f"Found already existing association: {assoc}")
-                assoc = None
-        else:
-            logger.warning(f"No procedure found")
-            assoc = None
-        return equipment, assoc, report
-
-    def improved_dict(self) -> dict:
-        """
-        Constructs a dictionary consisting of model.fields and model.extras
-
-        Returns:
-            dict: Information dictionary
-        """
-        try:
-            extras = list(self.model_extra.keys())
-        except AttributeError:
-            extras = []
-        fields = list(self.model_fields.keys()) + extras
-        return {k: getattr(self, k) for k in fields}
 
 
 class PydContact(PydConcrete):
@@ -389,23 +278,57 @@ class PydClientLab(PydConcrete):
 
 class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True):
     
-    version: float
-    name: str
+    version: float = Field(default=1.0, description="Version number of this process.")
+    date_verified: datetime | None = Field(default_factory=lambda: datetime.now(), description="Date this version was verified.", validate_default=True)
+    project: str = Field(default="NA", description="Project this process version is for.")
+    active: bool = Field(default=True, description="Is this the active version?")
+    process: str | PydProcess | None = Field(default=None, description="Process this is a version of.")
 
-    @field_validator("name")
+    field_validator("date_verified", mode="before")
     @classmethod
-    def split_name(cls, value):
-        if "-" in value:
-            value = value.split("-")[0]
+    def parse_date_verified(cls, value):
+        if not value:
+            value = date.today()
+        match value:
+            case str():
+                try:
+                    value = parse(value)
+                except ParserError:
+                    value = None
+            case date():
+                pass
+            case datetime():
+                value = value.date()
+            case _:
+                value = None
+        if isinstance(value, date):
+            value = datetime.combine(value, datetime.min.time())
+        else:
+            raise ValueError(f"Could not parse date_verified: {value}")
+        return value
+    
+    @field_validator("active", mode="before")
+    @classmethod
+    def int_to_bool(cls, value):
+        if isinstance(value, int):
+            value = bool(value)
         return value
 
-    def to_sql(self):
-        from backend.db.models import ProcessVersion
-        instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
-        if not instance:
-            logger.warning(f"PV: Gonna have to make a new process version {self.version}")
-            instance = ProcessVersion()
-        return instance
+
+    # @field_validator("name")
+    # @classmethod
+    # def split_name(cls, value):
+    #     if "-" in value:
+    #         value = value.split("-")[0]
+    #     return value
+
+    # def to_sql(self):
+    #     from backend.db.models import ProcessVersion
+    #     instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
+    #     if not instance:
+    #         logger.warning(f"PV: Gonna have to make a new process version {self.version}")
+    #         instance = ProcessVersion()
+    #     return instance
 
 
 class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
@@ -426,7 +349,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @classmethod
     def convert_to_dict(cls, value):
         if not value:
-            value = "NA"
+            value = dict(value="NA", missing=True)
         if isinstance(value, str):
             value = dict(value=value, missing=False)
         return value
@@ -437,9 +360,13 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         from backend.db.models import ProcedureType
         match value:
             case dict():
-                value = ProcedureType.query(name=value['name'])
+                value = ProcedureType.query(name=value['name']).to_pydantic()
             case str():
-                value = ProcedureType.query(name=value)
+                value = ProcedureType.query(name=value).to_pydantic()
+            case ProcedureType():
+                value = value.to_pydantic()
+            case PydProcedureType():
+                value = value
             case _:
                 pass
         return value
@@ -458,28 +385,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 run = None
             value['value'] = f"{run}-{procedure_type}"
             value['missing'] = True
-        return value
-
-    @field_validator("name", "technician")#, "kittype")
-    @classmethod
-    def set_colour(cls, value):
-        try:
-            if value["missing"]:
-                value["colour"] = "FE441D"
-            else:
-                value["colour"] = "6FFE1D"
-        except KeyError:
-            pass
-        return value
-
-    @field_validator("reagentrole")
-    @classmethod
-    def rescue_reagentrole(cls, value, values):
-        if not value:
-            value = {}
-            for reagentrole in values.data['proceduretype'].reagentrole:
-                reagents = [reagent.lot_dicts for reagent in reagentrole.reagent]
-                value[reagentrole.name] = flatten_list(reagents)
         return value
 
     @field_validator("run")
@@ -617,90 +522,90 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         reg = reagent.to_sql()
         reg.save()
 
-    def to_sql(self, new: bool = False):
-        from backend.db.models import (
-            RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
-            ProcedureEquipmentAssociation, EquipmentRole, ReagentRole
-        )
-        if new:
-            sql = Procedure()
-        else:
-            sql = super().to_sql()
-        if isinstance(self.name, dict):
-            sql.name = self.name['value']
-        else:
-            sql.name = self.name
-        if isinstance(self.technician, dict):
-            sql.technician = self.technician['value']
-        else:
-            sql.technician = self.technician
-        if sql.repeat:
-            regex = re.compile(r".*\dR\d$")
-            repeats = [item for item in self.run.procedure if
-                       self.repeat_of.name in item.name and bool(regex.match(item.name))]
-            sql.name = f"{self.repeat_of.name}-R{str(len(repeats) + 1)}"
-        sql.repeat_of = self.repeat_of
-        sql.started_date = datetime.now()
-        if self.run:
-            sql.run = self.run
-        if self.proceduretype:
-            sql.proceduretype = self.proceduretype
-        # NOTE: reset reagent associations.
-        for reagent in self.reagent:
-            if isinstance(reagent, dict):
-                reagent = PydReagent(**reagent)
-            reagentrole = ReagentRole.query(reagent.reagentrole, limit=1)
-            reagent = reagent.to_sql()
-            if reagent not in sql.reagentlot:
-                # NOTE: Remove any previous association for this role.
-                if sql.id:
-                    removable = ProcedureReagentLotAssociation.query(procedure=sql, reagentrole=reagentrole)
-                else:
-                    removable = []
-                if removable:
-                    if isinstance(removable, list):
-                        for r in removable:
-                            r.delete()
-                    else:
-                        removable.delete()
-                reagent_assoc = ProcedureReagentLotAssociation(reagentlot=reagent, procedure=sql, reagentrole=reagentrole)
-        try:
-            start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
-        except ValueError:
-            start_index = 1
-        relevant_samples = [sample for sample in self.sample if
-                            not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
-        assoc_id_range = range(start_index, start_index + len(relevant_samples) + 1)
-        for iii, sample in enumerate(relevant_samples):
-            sample_sql = sample.to_sql()
-            if sql.run:
-                if sample_sql not in sql.run.sample:
-                    with sample_sql.__database_session__.no_autoflush:
-                        run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
-                                                     column=sample.column)
-            if sample_sql not in sql.sample:
-                with sample_sql.__database_session__.no_autoflush:
-                    proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
-                                                        row=sample.row, column=sample.column,
-                                                        procedure_rank=sample.procedure_rank)
-        for equipment in self.equipment:
-            equip, _ = equipment.to_sql()
-            equipment_role = EquipmentRole.query(equipment.equipmentrole, limit=1)
-            if isinstance(equipment.tips, list):
-                try:
-                    equipment.tips = equipment.tips[0]
-                except IndexError:
-                    equipment.tips = None
-            if equip not in sql.equipment:
-                equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql, equipmentrole=equipment_role)
-                processversion = equipment.processversion.to_sql()
-                equip_assoc.processversion = processversion
-                try:
-                    tipslot = equipment.tips.to_sql()
-                except AttributeError:
-                    tipslot = None
-                equip_assoc.tipslot = tipslot
-        return sql, None
+    # def to_sql(self, new: bool = False):
+    #     from backend.db.models import (
+    #         RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
+    #         ProcedureEquipmentAssociation, EquipmentRole, ReagentRole
+    #     )
+    #     if new:
+    #         sql = Procedure()
+    #     else:
+    #         sql = super().to_sql()
+    #     if isinstance(self.name, dict):
+    #         sql.name = self.name['value']
+    #     else:
+    #         sql.name = self.name
+    #     if isinstance(self.technician, dict):
+    #         sql.technician = self.technician['value']
+    #     else:
+    #         sql.technician = self.technician
+    #     if sql.repeat:
+    #         regex = re.compile(r".*\dR\d$")
+    #         repeats = [item for item in self.run.procedure if
+    #                    self.repeat_of.name in item.name and bool(regex.match(item.name))]
+    #         sql.name = f"{self.repeat_of.name}-R{str(len(repeats) + 1)}"
+    #     sql.repeat_of = self.repeat_of
+    #     sql.started_date = datetime.now()
+    #     if self.run:
+    #         sql.run = self.run
+    #     if self.proceduretype:
+    #         sql.proceduretype = self.proceduretype
+    #     # NOTE: reset reagent associations.
+    #     for reagent in self.reagent:
+    #         if isinstance(reagent, dict):
+    #             reagent = PydReagent(**reagent)
+    #         reagentrole = ReagentRole.query(reagent.reagentrole, limit=1)
+    #         reagent = reagent.to_sql()
+    #         if reagent not in sql.reagentlot:
+    #             # NOTE: Remove any previous association for this role.
+    #             if sql.id:
+    #                 removable = ProcedureReagentLotAssociation.query(procedure=sql, reagentrole=reagentrole)
+    #             else:
+    #                 removable = []
+    #             if removable:
+    #                 if isinstance(removable, list):
+    #                     for r in removable:
+    #                         r.delete()
+    #                 else:
+    #                     removable.delete()
+    #             reagent_assoc = ProcedureReagentLotAssociation(reagentlot=reagent, procedure=sql, reagentrole=reagentrole)
+    #     try:
+    #         start_index = max([item.id for item in ProcedureSampleAssociation.query()]) + 1
+    #     except ValueError:
+    #         start_index = 1
+    #     relevant_samples = [sample for sample in self.sample if
+    #                         not sample.sample_id.startswith("blank_") and not sample.sample_id == ""]
+    #     assoc_id_range = range(start_index, start_index + len(relevant_samples) + 1)
+    #     for iii, sample in enumerate(relevant_samples):
+    #         sample_sql = sample.to_sql()
+    #         if sql.run:
+    #             if sample_sql not in sql.run.sample:
+    #                 with sample_sql.__database_session__.no_autoflush:
+    #                     run_assoc = RunSampleAssociation(sample=sample_sql, run=self.run, row=sample.row,
+    #                                                  column=sample.column)
+    #         if sample_sql not in sql.sample:
+    #             with sample_sql.__database_session__.no_autoflush:
+    #                 proc_assoc = ProcedureSampleAssociation(new_id=assoc_id_range[iii], procedure=sql, sample=sample_sql,
+    #                                                     row=sample.row, column=sample.column,
+    #                                                     procedure_rank=sample.procedure_rank)
+    #     for equipment in self.equipment:
+    #         equip, _ = equipment.to_sql()
+    #         equipment_role = EquipmentRole.query(equipment.equipmentrole, limit=1)
+    #         if isinstance(equipment.tips, list):
+    #             try:
+    #                 equipment.tips = equipment.tips[0]
+    #             except IndexError:
+    #                 equipment.tips = None
+    #         if equip not in sql.equipment:
+    #             equip_assoc = ProcedureEquipmentAssociation(equipment=equip, procedure=sql, equipmentrole=equipment_role)
+    #             processversion = equipment.processversion.to_sql()
+    #             equip_assoc.processversion = processversion
+    #             try:
+    #                 tipslot = equipment.tips.to_sql()
+    #             except AttributeError:
+    #                 tipslot = None
+    #             equip_assoc.tipslot = tipslot
+    #     return sql, None
 
 
 class PydClientSubmission(PydConcrete):
@@ -726,7 +631,7 @@ class PydClientSubmission(PydConcrete):
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    sample: List[PydSample] | None = Field(default=[])
+    sample: List[str] | List[PydSample] | None = Field(default=[])
 
     @field_validator("submissiontype", "clientlab", "contact", mode="before")
     @classmethod
@@ -884,7 +789,7 @@ class PydClientSubmission(PydConcrete):
 
     @property
     def max_sample_rank(self) -> int:
-        output = self.full_batch_size
+        output: int = self.full_batch_size
         if output > 0:
             return output
         else:
@@ -1333,3 +1238,40 @@ class PydRun(PydConcrete):  #, extra='allow'):
             samples.append(sample)
         samples = sorted(samples, key=itemgetter("submission_rank"))
         return samples
+
+
+class PydTipsLot(PydConcrete):
+    
+    lot: str = Field(default="NA", description="Lot number of the tips")
+    expiry: datetime = Field(default_factory=lambda: datetime.now() + timedelta(365), description="Expiry date of the tips", validate_default=True)
+    active: bool = Field(default=True, description="Is this tips lot active?", validate_default=True)
+
+    @field_validator("expiry")
+    @classmethod
+    def parse_expiry(cls, value):
+        if not value:
+            value = date.today()
+        match value:
+            case str():
+                try:
+                    value = parse(value)
+                except ParserError:
+                    value = None
+            case date():
+                pass
+            case datetime():
+                value = value.date()
+            case _:
+                value = None
+        if isinstance(value, date):
+            value = datetime.combine(value, datetime.max.time())
+        else:
+            raise ValueError(f"Could not parse date_verified: {value}")
+        return value
+    
+    @field_validator("active", mode="before")
+    @classmethod
+    def int_to_bool(cls, value):
+        if isinstance(value, int):
+            value = bool(value)
+        return value

@@ -168,8 +168,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             type_name = "RelationshipList"
                         else:
                             type_name = "RelationshipScalar"
+                    else:
+                        type_name = cls.model_fields[field].annotation.__name__
             case "ObjectAssociationProxyInstance":
                 type_name = "AssociationList"
+            case "InstrumentedAttribute":
+                type_name = cls.model_fields[field].annotation.__name__
             case _:
                 logger.debug(f"Got type: {type_name} for field {field}.")
         return type_name
@@ -211,4 +215,4 @@ class PydConcrete(PydBaseClass):
 
 from .abstract import (PydEquipmentRole, PydProcess, PydReagent, PydReagentRole, PydTips, PydProcedureType, PydResultsType, PydSubmissionType)
 from .concrete import (PydEquipment, PydClientLab, PydClientSubmission, PydContact, PydProcedure, PydProcessVersion, PydResults, PydRun,
-                       PydReagentLot, PydSample)
+                       PydReagentLot, PydSample, PydTipsLot)

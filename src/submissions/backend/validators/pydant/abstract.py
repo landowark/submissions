@@ -58,8 +58,16 @@ class PydSubmissionType(PydAbstract):
     
     name: str = Field(default="NA", description="Name of this Submission Type.")
     defaults: dict = Field(default_factory=dict, repr=False)
+    file_name_template: str = Field(default="", description="Jinja2 template for naming files of this submission type.", repr=False, validate_default=True)
     clientsubmission: List[str] | List[dict] = Field(default_factory=list, repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
+
+    @field_validator("file_name_template")
+    @classmethod
+    def validate_template(cls, value: str, values) -> str | None:
+        if value == "":
+            value = "submission_{id}.dat"
+        return value
 
 
 class PydProcedureType(PydAbstract):

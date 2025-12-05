@@ -6,7 +6,7 @@ import logging, sys
 from typing import TYPE_CHECKING
 from pathlib import Path
 from openpyxl.workbook import Workbook
-from backend.validators import RSLNamer
+from backend.validators import ClientSubmissionNamer, RSLNamer
 from backend.managers import DefaultManager
 from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
 from backend.excel.writers.clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter
@@ -23,7 +23,8 @@ class DefaultClientSubmissionManager(DefaultManager):
         from backend.db.models import SubmissionType
         match input_object:
             case str() | Path():
-                submissiontype = RSLNamer.retrieve_submission_type(input_object)
+                self.namer = ClientSubmissionNamer(filepath=input_object)
+                submissiontype = self.namer.submissiontype
             case _:
                 logger.warning(f"Skipping submission type")
         match submissiontype:

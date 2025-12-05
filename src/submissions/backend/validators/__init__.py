@@ -35,7 +35,7 @@ class ClientSubmissionNamer(DefaultNamer):
         from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
         if not submissiontype:
-            self.submissiontype = self.retrieve_submissiontype(filepath=self.filepath)
+            self.submissiontype = self.retrieve_submissiontype()
         if isinstance(submissiontype, str):
             self.submissiontype = SubmissionType.query(name=submissiontype)
 
