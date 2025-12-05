@@ -194,7 +194,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             value = data[field]
             yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
             
-    
+    @classmethod
+    def manage(cls, app=None):
+        from frontend.widgets.omni_manager_pydant import OmniManager
+        widget = OmniManager(parent=app, object_type=cls)
+        widget.show()
+        return widget
 
 
 class PydAbstract(PydBaseClass):

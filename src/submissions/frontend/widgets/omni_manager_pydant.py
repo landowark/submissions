@@ -1,3 +1,22 @@
+
+from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+
+class OmniManager(QDialog):
+    """
+    Provides a screen for managing all attributes of a database object.
+    """
+    def __init__(self, parent: QWidget, object_type: type):
+        super().__init__(parent)
+        self.webview = QWebEngineView()
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+        sql_type = object_type.__name__.replace('Pyd', '')
+        self.setWindowTitle(f"Manage {sql_type}")
+        self.layout.addWidget(self.webview)
+        self.webview.setHtml(f"<h1>Manage {sql_type}</h1><p>Under construction...</p>")
+
+
 # """
 # Provides a screen for managing all attributes of a database object.
 # """

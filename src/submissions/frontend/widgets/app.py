@@ -146,11 +146,11 @@ class App(QMainWindow):
         for action in self.abstractActions:
             class_ = next((subcls for subcls in PydAbstract.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
             if class_:
-                action.triggered.connect(class_.manage)
+                action.triggered.connect(lambda self, class_ : class_.manage(parent=self, object_type=class_))
         for action in self.concreateActions:
             class_ = next((subcls for subcls in PydConcrete.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
             if class_:
-                action.triggered.connect(class_.manage)
+                action.triggered.connect(lambda self, class_ : class_.manage(parent=self, object_type=class_))
 
     def showAbout(self):
         """
