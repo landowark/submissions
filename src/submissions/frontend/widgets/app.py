@@ -14,6 +14,7 @@ from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
 # from backend.db.models import ReagentLot
+from backend.validators.pydant import PydAbstract, PydConcrete
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -73,7 +74,9 @@ class App(QMainWindow):
         editMenu = menuBar.addMenu("&Edit")
         # NOTE: Creating menus using a title
         methodsMenu = menuBar.addMenu("&Search")
-        maintenanceMenu = menuBar.addMenu("&Monthly")
+        manageabstractsMenu = menuBar.addMenu("&Manage Abstracts")
+        managedconcreteMenu = menuBar.addMenu("&Manage Concrete")
+        # maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
         helpMenu.addAction(self.docsAction)
@@ -81,15 +84,22 @@ class App(QMainWindow):
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.archiveSubmissionsAction)
         methodsMenu.addAction(self.searchSample)
-        maintenanceMenu.addAction(self.joinExtractionAction)
-        maintenanceMenu.addAction(self.joinPCRAction)
-        editMenu.addAction(self.editReagentAction)
-        editMenu.addAction(self.manageOrgsAction)
-        if getpass.getuser() == "lwark":
-            editMenu.addAction(self.manageKitsAction)
-        if not is_power_user():
-            editMenu.setEnabled(False)
-
+        # maintenanceMenu.addAction(self.joinExtractionAction)
+        # maintenanceMenu.addAction(self.joinPCRAction)
+        # editMenu.addAction(self.editReagentAction)
+        # editMenu.addAction(self.manageOrgsAction)
+        
+        # if getpass.getuser() == "lwark":
+        #     editMenu.addAction(self.manageKitsAction)
+        # if not is_power_user():
+        #     editMenu.setEnabled(False)
+        for action in self.abstractActions:
+            manageabstractsMenu.addAction(action)
+            if not is_power_user():
+                action.setEnabled(False)
+        for action in self.concreateActions:
+            managedconcreteMenu.addAction(action)
+            
     def _createToolBar(self):
         """
         adds items to toolbar
@@ -111,9 +121,10 @@ class App(QMainWindow):
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
         self.archiveSubmissionsAction = QAction("Submissions to Excel", self)
-        self.editReagentAction = QAction("Edit Reagent", self)
-        self.manageOrgsAction = QAction("Manage Clients", self)
-        self.manageKitsAction = QAction("Manage Kits", self)
+        # self.editReagentAction = QAction("Edit Reagent", self)
+        self.abstractActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydAbstract.get_managables()]
+        self.concreateActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydConcrete.get_managables()]
+                
 
     def _connectActions(self):
         """
@@ -129,9 +140,17 @@ class App(QMainWindow):
         self.githubAction.triggered.connect(self.openGithub)
         self.archiveSubmissionsAction.triggered.connect(self.submissions_to_excel)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
-        self.editReagentAction.triggered.connect(self.edit_reagent)
-        self.manageOrgsAction.triggered.connect(self.manage_orgs)
+        # self.editReagentAction.triggered.connect(self.edit_reagent)
+        # self.manageOrgsAction.triggered.connect(self.manage_orgs)
         # self.manageKitsAction.triggered.connect(self.manage_kits)
+        for action in self.abstractActions:
+            class_ = next((subcls for subcls in PydAbstract.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
+            if class_:
+                action.triggered.connect(class_.manage)
+        for action in self.concreateActions:
+            class_ = next((subcls for subcls in PydConcrete.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
+            if class_:
+                action.triggered.connect(class_.manage)
 
     def showAbout(self):
         """

@@ -194,6 +194,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             value = data[field]
             yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
             
+    
+
 
 class PydAbstract(PydBaseClass):
 
@@ -201,7 +203,7 @@ class PydAbstract(PydBaseClass):
     def get_managables(cls):
         for class_ in PydAbstract.__subclasses__():
             if len(class_.described_fields) > 0:
-                yield class_._sql_object
+                yield class_
 
 
 class PydConcrete(PydBaseClass):
@@ -210,7 +212,7 @@ class PydConcrete(PydBaseClass):
     def get_managables(cls):
         for class_ in PydConcrete.__subclasses__():
             if len(class_.described_fields) > 0:
-                yield class_._sql_object
+                yield class_
         
 
 from .abstract import (PydEquipmentRole, PydProcess, PydReagent, PydReagentRole, PydTips, PydProcedureType, PydResultsType, PydSubmissionType)

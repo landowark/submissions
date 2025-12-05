@@ -64,9 +64,9 @@ class PydSubmissionType(PydAbstract):
 
     @field_validator("file_name_template")
     @classmethod
-    def validate_template(cls, value: str, values) -> str | None:
+    def validate_template(cls, value: str) -> str | None:
         if value == "":
-            value = "submission_{id}.dat"
+            value = "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
         return value
 
 

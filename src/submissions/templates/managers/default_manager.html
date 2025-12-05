@@ -1,0 +1,7 @@
+{% extends "details.html" %}
+
+<select>
+    {% for item in obj.list_items %}
+        <option value="{{ item.name }}">{{ item.name }}</option>
+    {% endfor %}
+</select>

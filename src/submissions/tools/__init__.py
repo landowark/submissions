@@ -592,10 +592,11 @@ def setup_lookup(func):
         sanitized_kwargs = {}
         for k, v in locals()['kwargs'].items():
             if isinstance(v, dict):
+                if not v:
+                    continue
                 try:
                     sanitized_kwargs[k] = v['value']
                 except KeyError:
-
                     raise ValueError(f"Could not sanitize dictionary {v} in query. Make sure you parse it first.")
             elif v is not None:
                 sanitized_kwargs[k] = v
