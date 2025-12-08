@@ -11,7 +11,7 @@ class CustomWebEnginePage(QWebEnginePage):
     def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
         # You can customize the output format here
         # print(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
-        print(f"JS Console {lineNumber}) [{level}]: {message}")
+        print(f"JS Console ({lineNumber}) [{level}]: {message}")
 
 class pandasModel(QAbstractTableModel):
     """

@@ -154,6 +154,14 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     
     @classmethod
     def determine_field_type(cls, field: str) -> str:
+        """Determines which type of field to use in the form.
+
+        Args:
+            field (str): Field name
+
+        Returns:
+            str: Type name
+        """        
         type_ = getattr(cls._sql_object, field.lower().strip("_"))
         type_name = type_.__class__.__name__
         match type_name:
@@ -198,6 +206,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def html_form(self) -> str:
         env = jinja_template_loading()
         template = env.get_template("managers/manager_form.html")
+        logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
         html = template.render(object=self.form_dictionary)
         return html
             
