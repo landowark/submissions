@@ -1,0 +1,16 @@
+</br>
+{% for item in object %}
+<label for="{{ item['field'] }}">{{ item['field'] }}:</label>
+{% if item['type'] == "STR" %}
+<input type="text" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}">
+{% elif item['type'] == "INT" %}
+<input type="number" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}">
+{% elif item['type'] == "FLOAT" %}
+<input type="number" step="any" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}">
+{% elif item['type'] == "BOOL" %}
+<input type="checkbox" id="{{ item['field'] }}" name="{{ item['field'] }}" {% if item['value'] %}checked{% endif %}>
+{% endif %}
+</br>
+{% endfor %}
+</br>
+<button type="button" action="Submit">Submit</button>

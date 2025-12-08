@@ -1,7 +1,15 @@
 {% extends "details.html" %}
 
-<select>
-    {% for item in obj.list_items %}
-        <option value="{{ item.name }}">{{ item.name }}</option>
+{% block body %}
+<select id="inital_object" onchange="update_selection(this.value)">
+    {% for item in object_list %}
+        <option value="{{ item }}">{{ item }}</option>
     {% endfor %}
 </select>
+<form id="object_form">
+    <!-- Form fields will be dynamically generated here -->
+</form>
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

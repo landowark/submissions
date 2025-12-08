@@ -7,7 +7,7 @@ from pprint import pformat
 from pydantic import BaseModel, model_validator, ConfigDict
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Generator, List, Tuple
-from tools import classproperty, row_keys
+from tools import classproperty, jinja_template_loading, row_keys
 from backend.db import models
 # from backend.db.models import *
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -193,12 +193,19 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             tooltip = self.__class__.model_fields[field].description
             value = data[field]
             yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
+
+    @property
+    def html_form(self) -> str:
+        env = jinja_template_loading()
+        template = env.get_template("managers/manager_form.html")
+        html = template.render(object=self.form_dictionary)
+        return html
             
     @classmethod
-    def manage(cls, app=None):
+    def manage(cls, parent=None):
         from frontend.widgets.omni_manager_pydant import OmniManager
-        widget = OmniManager(parent=app, object_type=cls)
-        widget.show()
+        widget = OmniManager(parent=parent, object_type=cls)
+        widget.exec()
         return widget
 
 

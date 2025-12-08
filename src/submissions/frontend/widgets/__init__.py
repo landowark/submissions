@@ -2,7 +2,16 @@
 Contains all custom generated PyQT6 derivative widgets.
 """
 from PyQt6.QtCore import QAbstractTableModel, Qt
+# from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEnginePage
 
+
+class CustomWebEnginePage(QWebEnginePage):
+
+    def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
+        # You can customize the output format here
+        # print(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
+        print(f"JS Console {lineNumber}) [{level}]: {message}")
 
 class pandasModel(QAbstractTableModel):
     """

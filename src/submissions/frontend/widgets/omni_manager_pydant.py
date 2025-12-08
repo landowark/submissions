@@ -1,6 +1,15 @@
 
+import logging, sys
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebChannel import QWebChannel
+from . import CustomWebEnginePage
+from PyQt6.QtCore import Qt, pyqtSlot, QVariant
+from tools import jinja_template_loading, render_details_template
+
+logger = logging.getLogger(f"submissions.{__name__}")
+
+env = jinja_template_loading()
 
 class OmniManager(QDialog):
     """
@@ -8,13 +17,75 @@ class OmniManager(QDialog):
     """
     def __init__(self, parent: QWidget, object_type: type):
         super().__init__(parent)
+        self.object_type = object_type
+        self.pydant = None
+        logger.debug(f"Creating OmniManager for {object_type}")
         self.webview = QWebEngineView()
+        custom_page = CustomWebEnginePage(self.webview)
+        self.webview.setPage(custom_page)
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         sql_type = object_type.__name__.replace('Pyd', '')
         self.setWindowTitle(f"Manage {sql_type}")
         self.layout.addWidget(self.webview)
-        self.webview.setHtml(f"<h1>Manage {sql_type}</h1><p>Under construction...</p>")
+        object_list = ["", "--New--"] + [item.name for item in object_type._sql_object.query()]
+        html = render_details_template("managers/default_manager", js_in=['manager'], object_list=object_list)
+        self.webview.setHtml(html)
+        self.channel = QWebChannel()
+        self.channel.registerObject('backend', self)
+        self.webview.page().setWebChannel(self.channel)
+        self.write_html(html)
+        
+
+    @pyqtSlot(str, result=str)
+    def update_selection(self, selection: str) -> None:
+        """
+        Updates the current selection in the manager.
+
+        Args:
+            selection (str): The name of the selected object.
+
+        Returns:
+            None
+        """
+        logger.debug(f"Updating selection to: {selection}")
+        if selection == "--New--":
+            self.pydant = self.object_type()
+        else:
+            sql_instance = self.object_type._sql_object.query(name=selection, limit=1)
+            if not sql_instance:
+                logger.error(f"Could not find instance with name: {selection}")
+                return ""
+            self.pydant = sql_instance.to_pydant()
+        html = self.pydant.html_form
+        return html
+
+    @pyqtSlot()
+    def save_html(self) -> None:
+        """
+        Saves the current HTML to a file.
+
+        Args:
+            path (str): Path to save the HTML file.
+
+        Returns:
+            None
+        """
+        logger.debug("Saving HTML from webview.")
+        self.webview.page().toHtml(self.write_html)
+
+    def write_html(self, html: str) -> None:
+        """
+        Writes HTML to a file.
+
+        Args:
+            html (str): HTML content to write.
+
+        Returns:
+            None
+        """
+        with open("omni_manager.html", "w", encoding="utf-8") as f:
+            f.write(html)
 
 
 # """
