@@ -1,8 +1,11 @@
 
+from pprint import pformat
 import logging, sys
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
+
+from backend.db.models import BaseClass
 from . import CustomWebEnginePage
 from PyQt6.QtCore import Qt, pyqtSlot, QVariant
 from tools import jinja_template_loading, render_details_template
@@ -25,18 +28,27 @@ class OmniManager(QDialog):
         self.webview.setPage(custom_page)
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
-        sql_type = object_type.__name__.replace('Pyd', '')
-        self.setWindowTitle(f"Manage {sql_type}")
+        self.sql_type = BaseClass.find_subclasses(class_name=self.object_type.__name__.replace('Pyd', ''))
+        self.setWindowTitle(f"Manage {self.sql_type.__name__}")
         self.layout.addWidget(self.webview)
-        object_list = ["", "--New--"] + [item.name for item in object_type._sql_object.query()]
-        html = render_details_template("managers/default_manager", js_in=['manager'], object_list=object_list)
-        self.webview.setHtml(html)
+        self.reset_form()
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         self.webview.page().setWebChannel(self.channel)
-        self.write_html(html)
         
+    def reset_form(self) -> None:
+        """
+        Resets the form to initial state.
 
+        Returns:
+            None
+        """
+        logger.debug("Resetting form to initial state.")
+        object_list = ["", "--New--"] + [item.name for item in self.sql_type.query()]
+        logger.debug(f"Object list for {self.sql_type}: {object_list}")
+        html = render_details_template("managers/default_manager", js_in=['manager'], object_list=object_list)
+        self.webview.setHtml(html)
+        
     @pyqtSlot(str, result=str)
     def update_selection(self, selection: str) -> None:
         """
@@ -55,10 +67,72 @@ class OmniManager(QDialog):
             sql_instance = self.object_type._sql_object.query(name=selection, limit=1)
             if not sql_instance:
                 logger.error(f"Could not find instance with name: {selection}")
-                return ""
-            self.pydant = sql_instance.to_pydant()
+                return
+            self.pydant = sql_instance.to_pydantic()
         html = self.pydant.html_form
         return html
+    
+    @pyqtSlot(str, str)
+    def update_instrumentedattribute(self, field: str, value: str) -> None:
+        """
+        Updates an InstrumentedAttribute field in the pydantic object.
+
+        Args:
+            field (str): The field name to update.
+            value (str): The new value for the field.
+        """
+        self.pydant.__setattr__(field, value)
+        logger.debug(f"Updated : {pformat(self.pydant.__dict__)}")
+
+    @pyqtSlot(str, str)
+    def add_relationship(self, field: str, value: str) -> None:
+        """
+        Adds a relationship to the pydantic object.
+
+        Args:
+            field (str): The relationship field name.
+            value (str): The value to add to the relationship.
+        """
+        current = self.pydant.__getattribute__(field)
+        if not isinstance(current, list):
+            logger.error(f"Field {field} is not a list relationship.")
+            return
+        if value not in current:
+            current.append(value)
+            self.pydant.__setattr__(field, current)
+            logger.debug(f"Added relationship {value} to field {field}: {pformat(self.pydant.__dict__)}")
+
+    @pyqtSlot(str, str)
+    def remove_relationship(self, field: str, value: str) -> None:
+        """
+        Removes a relationship from the pydantic object.
+
+        Args:
+            field (str): The relationship field name.
+            value (str): The value to remove from the relationship.
+        """
+        current = self.pydant.__getattribute__(field)
+        if not isinstance(current, list):
+            logger.error(f"Field {field} is not a list relationship.")
+            return
+        if value in current:
+            current.remove(value)
+            self.pydant.__setattr__(field, current)
+            logger.debug(f"Removed relationship {value} from field {field}: {pformat(self.pydant.__dict__)}")
+
+    @pyqtSlot()
+    def submit(self) -> None:
+        """
+        Submits the current pydantic object to the database.
+
+        Returns:
+            None
+        """
+        logger.debug(f"Submitting pydantic object: {pformat(self.pydant.__dict__)}")
+        sql_instance = self.pydant.to_sql()
+        sql_instance.save()
+        logger.info(f"Saved instance to database: {sql_instance}")
+        self.reset_form()
 
     @pyqtSlot()
     def save_html(self) -> None:

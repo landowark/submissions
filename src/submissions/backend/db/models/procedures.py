@@ -209,8 +209,13 @@ class Reagent(BaseClass, LogMixin):
     @reagentlot.setter
     def reagentlot(self, value):
         from backend.validators.pydant import PydReagentLot
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._reagentlot = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._reagentlot"
             match item:
@@ -344,6 +349,9 @@ class ReagentLot(BaseClass):
         from backend.validators.pydant import PydReagent
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._reagent = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._reagent"
             match item:
@@ -363,7 +371,6 @@ class ReagentLot(BaseClass):
             else:
                 raise TypeError(error_msg)
         
-    
     @hybrid_property
     def active(self):
         return self._active
@@ -493,8 +500,13 @@ class Discount(BaseClass):
     @clientlab.setter
     def clientlab(self, value):
         from backend.validators.pydant import PydClientLab
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._clientlab = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._clientlab"
             match item:
@@ -521,8 +533,13 @@ class Discount(BaseClass):
     @proceduretype.setter
     def proceduretype(self, value):
         from backend.validators.pydant import PydProcedureType
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._proceduretype = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._proceduretype"
             match item:
@@ -632,8 +649,14 @@ class SubmissionType(BaseClass):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
+        from backend.db.models.submissions import ClientSubmission
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._clientsubmission = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
             match item:
@@ -643,13 +666,13 @@ class SubmissionType(BaseClass):
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
                     output = item.to_sql()
-                case SubmissionType():
+                case ClientSubmission():
                     output = item
                 case _:
                     raise TypeError(error_msg)
                     continue
-            if isinstance(output, SubmissionType):
-                self._submissiontype.append(output)
+            if isinstance(output, ClientSubmission):
+                self._clientsubmission.append(output)
             else:
                 raise TypeError(error_msg)
 
@@ -660,8 +683,13 @@ class SubmissionType(BaseClass):
     @proceduretype.setter
     def proceduretype(self, value):
         from backend.validators.pydant import PydProcedureType
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._proceduretype = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._proceduretype"
             match item:
@@ -850,8 +878,13 @@ class ProcedureType(BaseClass):
     @resultstype.setter
     def resultstype(self, value):
         from backend.validators.pydant import PydResultsType
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._resultstype = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._resultstype"
             match item:
@@ -878,8 +911,13 @@ class ProcedureType(BaseClass):
     @submissiontype.setter
     def submissiontype(self, value):
         from backend.validators.pydant import PydSubmissionType
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._submissiontype = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._submissiontype"
             match item:
@@ -893,12 +931,11 @@ class ProcedureType(BaseClass):
                     output = item
                 case _:
                     raise TypeError(error_msg)
-                    continue
             if isinstance(output, SubmissionType):
                 self._submissiontype.append(output)
             else:
                 raise TypeError(error_msg)
-    
+        
     @hybrid_property
     def procedure(self):
         return self._procedure
@@ -906,8 +943,13 @@ class ProcedureType(BaseClass):
     @procedure.setter
     def procedure(self, value):
         from backend.validators.pydant import PydProcedure
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._procedure = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._procedure"
             match item:
@@ -979,6 +1021,7 @@ class ProcedureType(BaseClass):
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
+        output['submissiontype'] = [item.name for item in output['submissiontype']]
         output['reagentrole'] = [item.details_dict() for item in output['reagentrole']]
         output['equipment'] = [item.details_dict(proceduretype=self) for item in output['equipmentrole']]
         return output
@@ -1166,8 +1209,13 @@ class Procedure(BaseClass):
     @results.setter
     def results(self, value):
         from backend.validators.pydant import PydResults
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._results = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._results"
             match item:
@@ -1194,8 +1242,13 @@ class Procedure(BaseClass):
     @repeat_of.setter
     def repeat_of(self, value):
         from backend.validators.pydant import PydProcedure
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._repeat_of = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._repeat_of"
             match item:
@@ -2301,8 +2354,13 @@ class Process(BaseClass):
 
     @equipmentroleeequipmentassociation.setter
     def equipmentroleeequipmentassociation(self, value):
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._equipmentroleequipmentassociation = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._processversion"
             # match item:
@@ -2323,8 +2381,13 @@ class Process(BaseClass):
     @processversion.setter
     def processversion(self, value):
         from backend.validators.pydant import PydProcessVersion
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._processversion = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._processversion"
             match item:
@@ -2351,8 +2414,13 @@ class Process(BaseClass):
     @tips.setter
     def tips(self, value):
         from backend.validators.pydant import PydTips
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._tips = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._tips"
             match item:
@@ -2601,8 +2669,13 @@ class Tips(BaseClass):
     @process.setter
     def process(self, value):
         from backend.validators.pydant import PydProcess
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._process = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._process"
             match item:
@@ -3348,9 +3421,14 @@ class ResultsType(BaseClass):
 
     @proceduretype.setter
     def proceduretype(self, value):
-        from backend.validators.pydant import PydProcdureType
+        from backend.validators.pydant import PydProcedureType
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._proceduretype = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._results"
             match item:
@@ -3377,8 +3455,13 @@ class ResultsType(BaseClass):
     @results.setter
     def results(self, value):
         from backend.validators.pydant import PydResults
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._results = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._results"
             match item:

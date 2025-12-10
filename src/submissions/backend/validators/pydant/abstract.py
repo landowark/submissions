@@ -81,5 +81,11 @@ class PydProcedureType(PydAbstract):
     resultstype: List[str] | List[dict] = Field(default_factory=list, description="Results Types used by this type.", repr=False)
     equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Equipment roles used by this type.", alias="proceduretypeequipmentroleassociation", repr=False)
     reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Reagent roles used by this type.", alias="proceduretypereagentroleassociation", repr=False)
-    testbool: bool = Field(default=False, description="A test boolean field.", repr=False)
-
+    
+    @field_validator("submissiontype", "resultstype", "equipmentrole", "reagentrole", mode="before")
+    @classmethod
+    def validate_lists(cls, value) -> List[str]:
+        if value is None:
+            return []
+        return value
+    

@@ -127,8 +127,13 @@ class ClientSubmission(BaseClass, LogMixin):
     @run.setter
     def run(self, value):
         from backend.validators.pydant import PydRun
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._run = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._run"
             match item:
@@ -506,8 +511,13 @@ class Run(BaseClass, LogMixin):
     @procedure.setter
     def procedure(self, value):
         from backend.validators.pydant import PydProcedure
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._procedure = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._procedure"
             match item:
@@ -2174,8 +2184,13 @@ class ProcedureSampleAssociation(BaseClass):
     def results(self, value):
         from backend.validators.pydant import PydResults
         from backend.db.models import Results
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._results = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._results"
             match item:

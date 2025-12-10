@@ -1,24 +1,69 @@
 </br>
 {% for item in object %}
-<label for="{{ item['field'] }}">{{ item['field'] }}:</label>
+<label for="{{ item['field'] }}" style="font-size: medium;">{{ item['field'] }}:</label></br>
 {% if item['type'] == "STR" %}
-<input type="text" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}">
+<input type="text" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "INT" %}
-<input type="number" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}">
+<input type="number" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "FLOAT" %}
-<input type="number" step="any" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}">
+<input type="number" step="any" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "BOOL" %}
-<input type="checkbox" id="{{ item['field'] }}" name="{{ item['field'] }}" {% if item['value'] %}checked{% endif %}>
+<input type="checkbox" id="{{ item['field'] }}" name="{{ item['field'] }}" {% if item['value'] %}checked{% endif %} onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "RELATIONSHIPSCALAR" %}
 <select id="{{ item['field'] }}" name="{{ item['field'] }}">
     <!-- Options will be populated dynamically -->
     <option value="{{ item['value'] }}" selected>{{ option }}</option>
-    {% for option in item['excluded'] %}
-        <option value="{{ option }}">{{ option }}</option>
-    {% endfor %}
 </select>/select
+{% elif item['type'] == "RELATIONSHIPLIST" %}
+<div id="{{ item['field'] }}" class="dual-listbox-container relationshiplist">
+    <div class="selected-list list-panel">
+        <h4>Selected Options</h4>
+        <select id="{{ item['field'] }}_selectedOptions" multiple size="10" class="relationship selected">
+            {% for option in item['value'] %}
+            <option value="{{ option }}" class="relationship">{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="controls">
+        <button type="button" id="{{ item['field'] }}_addSelected" name="{{ item['field'] }}" class="addSelectedBtn">&lt;</button>
+        <button type="button" id="{{ item['field'] }}_removeSelected" name="{{ item['field'] }}" class="removeSelectedBtn">&gt;</button>
+    </div>
+    <div class="available-list list-panel">
+        <h4>Available Options</h4>
+        <select id="{{ item['field'] }}_availableOptions" multiple size="10" class="relationship available">
+            {% for option in item['excluded'] %}
+            <option value="{{ option }}" class="relationship">{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% elif item['type'] == "ASSOCIATIONLIST" %}
+<div id="{{ item['field'] }}" class="dual-listbox-container">
+    <div class="selected-list list-panel">
+        <h4>Selected Options</h4>
+        <select id="{{ item['field'] }}_selectedOptions" multiple size="10">
+            {% for option in item['value'] %}
+            <option value="{{ option }}">{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="controls">
+        <button type="button" id="{{ item['field'] }}_addSelected" name="{{ item['field'] }}" class="addSelectedBtn">&lt;</button>
+        <button type="button" id="{{ item['field'] }}_removeSelected" name="{{ item['field'] }}" class="removeSelectedBtn">&gt;</button>
+    </div>
+    <div class="available-list list-panel">
+        <h4>Available Options</h4>
+        <select id="{{ item['field'] }}_availableOptions" multiple size="10">
+            {% for option in item['excluded'] %}
+            <option value="{{ option }}">{{ option }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <form id="{{ item['field'] }}_associationForm">
+        <!-- Additional fields for association attributes can be added here -->
+    </form>
+</div>
 {% endif %}
-</br>
+</br></br>
 {% endfor %}
-</br>
-<button type="button" action="Submit">Submit</button>
+<button type="button" onclick="backend.submit()">Submit</button>

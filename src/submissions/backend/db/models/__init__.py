@@ -454,9 +454,9 @@ class BaseClass(Base):
     def __setattr__(self, key, value):
         """
         Custom dunder method to handle potential list relationship issues.
+        __setattr__ is called before property.setter methods.
         """
         if key.startswith("_"):
-            print(f"Key {key} starts with _ using default method.")
             return super().__setattr__(key, value)
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
@@ -467,7 +467,6 @@ class BaseClass(Base):
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
             # NOTE: ensure value is json serializable.
-            print(f"To misc_info: {key}: {value}")
             try:
                 value = json.dumps(value)
             except TypeError as e:
@@ -479,10 +478,9 @@ class BaseClass(Base):
                 self._misc_info = {key: value}
             return
         else:
-            print(f"Default setting {key} to {value}")
             try:
                 super().__setattr__(key, value)
-                print(self.__dict__)
+                # print(self.__dict__)
             except AttributeError:
                 raise AttributeError(f"Can't set {key} to {value}")
 

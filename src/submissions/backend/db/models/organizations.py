@@ -53,8 +53,13 @@ class ClientLab(BaseClass):
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
         from backend.db.models import ClientSubmission
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._clientsubmission = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
             match item:
@@ -81,8 +86,13 @@ class ClientLab(BaseClass):
     @contact.setter
     def contact(self, value):
         from backend.validators.pydant import PydContact
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._contact = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._contact"
             match item:
@@ -171,8 +181,13 @@ class Contact(BaseClass):
     @clientlab.setter
     def clientlab(self, value):
         from backend.validators.pydant import PydClientLab
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._clientlab = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._clientlab"
             match item:
@@ -200,8 +215,13 @@ class Contact(BaseClass):
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
         from backend.db.models import ClientSubmission
+        if value is None:
+            value = []
         if not isinstance(value, list):
             value = [value]
+        if len(value) == 0:
+            self._clientsubmission = []
+            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
             match item:
