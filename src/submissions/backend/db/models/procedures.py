@@ -882,7 +882,6 @@ class ProcedureType(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
             self._resultstype = []
             return
         for item in value:
@@ -3218,8 +3217,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
     # uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
-    static = Column(INTEGER,
-                    default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+    static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypeequipmentroleassociation",
                                  foreign_keys=[proceduretype_id])  #: associated procedure

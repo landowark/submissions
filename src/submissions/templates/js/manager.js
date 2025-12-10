@@ -74,6 +74,13 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDualListDelegation();
 });
 
+async function createAssociationForm(field, selectedValue) {
+    console.log("Creating association form for field:", field, "and selected value:", selectedValue);
+    await backend.get_association_form(field, selectedValue).then((html) => {
+        document.getElementById(field + '_associationForm').innerHTML = html;
+    });
+}
+
 // Example usage for a button click
 // var addButtons = document.getElementsByClassName('addSelectedBtn');
 // var removeButtons = document.getElementsByClassName('removeSelectedBtn');

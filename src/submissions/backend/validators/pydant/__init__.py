@@ -202,12 +202,28 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             value = data[field]
             yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
 
+    @classmethod
+    def get_association_class(cls, field: str):
+        lookup_name = cls.__name__.replace("Pyd", "")
+        subclasses = [class_ for class_ in PydBaseClass.get_subclasses() if lookup_name in class_.__name__ and "association" in class_.__name__.lower()]
+        class_names = [class_.__name__.replace(cls.__name__, "") for class_ in subclasses]
+        class_names = [name.replace("Pyd", "") for name in class_names]
+        logger.debug(f"Looking for association class for field {field} in classes: {pformat(class_names)}")
+        class_ = next((subclass for subclass in subclasses if field.lower().strip("_") in subclass.__name__.lower()), None)
+        if class_ is None:
+            logger.error(f"Could not find association class for field {field} in {pformat(class_names)}")
+        return class_
+
     @property
     def html_form(self) -> str:
+        if "association" in self.__class__.__name__.lower():
+            association = True
+        else:
+            association = False
         env = jinja_template_loading()
         template = env.get_template("managers/manager_form.html")
         logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
-        html = template.render(object=self.form_dictionary)
+        html = template.render(object=self.form_dictionary, association=association, class_name=self.__class__.__name__)
         return html
             
     @classmethod
@@ -217,12 +233,20 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         widget.exec()
         return widget
 
+    @classmethod
+    def get_subclasses(cls):
+        for class_ in PydBaseClass.__subclasses__():
+            for subclass in class_.__subclasses__():
+                yield subclass
+
 
 class PydAbstract(PydBaseClass):
 
     @classmethod
     def get_managables(cls):
         for class_ in PydAbstract.__subclasses__():
+            if "association" in class_.__name__.lower():
+                continue
             if len(class_.described_fields) > 0:
                 yield class_
 
@@ -232,6 +256,8 @@ class PydConcrete(PydBaseClass):
     @classmethod
     def get_managables(cls):
         for class_ in PydConcrete.__subclasses__():
+            if "association" in class_.__name__.lower():
+                continue
             if len(class_.described_fields) > 0:
                 yield class_
         

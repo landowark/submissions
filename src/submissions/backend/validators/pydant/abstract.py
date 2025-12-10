@@ -88,4 +88,25 @@ class PydProcedureType(PydAbstract):
         if value is None:
             return []
         return value
+
+
+class PydProcedureTypeReagentRoleAssociation(PydAbstract):
+
+    proceduretype: str = Field(default="NA")
+    reagentrole: str = Field(default="NA")
+    last_used: str = Field(default="NA")
+
+
+class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
+
+    proceduretype: str = Field(default="NA")
+    equipmentrole: str = Field(default="NA")
+    static: bool = Field(default=True, description="If true, this equipment role is always required for the procedure type.")
+
+    @field_validator("static", mode="before")
+    @classmethod
+    def validate_static(cls, value) -> bool:
+        if value == 0:
+            return False
+        return True
     

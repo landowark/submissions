@@ -84,6 +84,20 @@ class OmniManager(QDialog):
         self.pydant.__setattr__(field, value)
         logger.debug(f"Updated : {pformat(self.pydant.__dict__)}")
 
+    @pyqtSlot(str, str, result=str)
+    def get_association_form(self, field: str, value: str) -> str:
+        """
+        Generates an HTML form for association attributes.
+
+        Args:
+            field (str): The relationship field name.
+            value (str): The selected value for the relationship.
+        """
+        logger.debug(f"Generating association form for field: {field}, value: {value}")
+        blank_class = self.pydant.get_association_class(field)
+        logger.debug(f"Found association class: {blank_class}")
+        return blank_class().html_form
+
     @pyqtSlot(str, str)
     def add_relationship(self, field: str, value: str) -> None:
         """

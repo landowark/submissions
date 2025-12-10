@@ -348,10 +348,13 @@ ul.no-bullets {
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="equipmentrole_availableOptions" multiple="" size="10">
+        <select id="equipmentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
             
         </select>
     </div>
+    
+        <!-- Additional fields for association attributes can be added here -->
+    
 </div>
 
 <br><br>
@@ -371,12 +374,15 @@ ul.no-bullets {
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="reagentrole_availableOptions" multiple="" size="10">
+        <select id="reagentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
             
             <option value="Test ReagentRole">Test ReagentRole</option>
             
         </select>
     </div>
+    <form id="reagentrole_associationForm">
+        <!-- Additional fields for association attributes can be added here -->
+    </form>
 </div>
 
 <br><br>
@@ -487,6 +493,13 @@ function setupDualListDelegation() {
 document.addEventListener('DOMContentLoaded', () => {
     setupDualListDelegation();
 });
+
+async function createAssociationForm(field, selectedValue) {
+    console.log("Creating association form for field:", field, "and selected value:", selectedValue);
+    await backend.get_association_form(field, selectedValue).then((html) => {
+        document.getElementById(field + '_associationForm').innerHTML = html;
+    });
+}
 
 // Example usage for a button click
 // var addButtons = document.getElementsByClassName('addSelectedBtn');
