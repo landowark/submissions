@@ -31,21 +31,40 @@ async function update_selection(value) {
 
 function instumentedattribute_change(field, value) {
     console.log("Field changed:", field, "New value:", value);
+    var editting = document.getElementById('name');
+    try {
+        if (editting.value === "Default SubmissionType") {
+            alert("Cannot modify Default SubmissionType.");
+            return; // Prevent changes to Default SubmissionType
+        }
+    } catch (error) {
+        console.error("Error occurred:", error.message);
+    }
     backend.update_instrumentedattribute(field, value);
 }
 
-function moveOptions(sourceListId, destinationListId) {
+function moveOptions(sourceListId, destinationListId, data) {
     field = sourceListId.split("_")[0];
     console.log("Moving", field, "options from", sourceListId, "to", destinationListId);
     var sourceList = document.getElementById(sourceListId);
     var destinationList = document.getElementById(destinationListId);
+    var manage_name = document.getElementById('ObjectName').innerText.replace('Manage ', '');
+    var editting = document.getElementById('name').value;
     Array.from(sourceList.selectedOptions).forEach(option => {
-        destinationList.appendChild(option);
         if (sourceListId.includes("available")) {
-            backend.add_relationship(field, option.value);
+            backend.add_relationship(field, option.value, data);
         } else if (sourceListId.includes("selected")) {
-            backend.remove_relationship(field, option.value);
+            if (option.value === "Default SubmissionType" && ["ProcedureType"].includes(manage_name)) {
+                alert("Cannot remove default submission type.");
+                return; // Skip moving the default option
+            } else if (editting === "Default SubmissionType" && field === "proceduretype" && destinationListId.includes("available")) {
+                alert("Can't remove procedure types from Default SubmissionType.");
+                return; // Skip moving the default option
+            } else {
+                backend.remove_relationship(field, option.value);
+            }
         }
+        destinationList.appendChild(option);
     });
 }
 
@@ -55,14 +74,20 @@ function setupDualListDelegation() {
     if (!container || container.dataset.dualListHandlerAttached) return;
     container.addEventListener('click', (e) => {
         const t = e.target;
+        var association_form = t.name + '_associationForm';
+        if (document.getElementById(association_form)) {
+            formdata = new FormData(document.getElementById(association_form));
+        } else {
+            formdata = null;
+        }
         if (t.classList && t.classList.contains('addSelectedBtn')) {
             e.preventDefault();
             console.log("Add button clicked (delegated):", t.name);
-            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`);
+            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`, formdata);
         } else if (t.classList && t.classList.contains('removeSelectedBtn')) {
             e.preventDefault();
             console.log("Remove button clicked (delegated):", t.name);
-            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`);
+            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`, formdata);
         }
     });
 

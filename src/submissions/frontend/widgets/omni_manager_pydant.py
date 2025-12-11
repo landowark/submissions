@@ -44,9 +44,10 @@ class OmniManager(QDialog):
             None
         """
         logger.debug("Resetting form to initial state.")
-        object_list = ["", "--New--"] + [item.name for item in self.sql_type.query()]
+        object_list = ["", "--New--"] + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
+        object_name = self.sql_type.__name__
         logger.debug(f"Object list for {self.sql_type}: {object_list}")
-        html = render_details_template("managers/default_manager", js_in=['manager'], object_list=object_list)
+        html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
         self.webview.setHtml(html)
         
     @pyqtSlot(str, result=str)
@@ -81,7 +82,8 @@ class OmniManager(QDialog):
             field (str): The field name to update.
             value (str): The new value for the field.
         """
-        self.pydant.__setattr__(field, value)
+        logger.debug(f"Updating field '{field}' to value '{value}'")
+        self.pydant.update_instrumentedattribute(field, value)
         logger.debug(f"Updated : {pformat(self.pydant.__dict__)}")
 
     @pyqtSlot(str, str, result=str)
@@ -98,8 +100,8 @@ class OmniManager(QDialog):
         logger.debug(f"Found association class: {blank_class}")
         return blank_class().html_form
 
-    @pyqtSlot(str, str)
-    def add_relationship(self, field: str, value: str) -> None:
+    @pyqtSlot(str, str, QVariant)
+    def add_relationship(self, field: str, value: str, data: dict | None) -> None:
         """
         Adds a relationship to the pydantic object.
 
@@ -107,14 +109,8 @@ class OmniManager(QDialog):
             field (str): The relationship field name.
             value (str): The value to add to the relationship.
         """
-        current = self.pydant.__getattribute__(field)
-        if not isinstance(current, list):
-            logger.error(f"Field {field} is not a list relationship.")
-            return
-        if value not in current:
-            current.append(value)
-            self.pydant.__setattr__(field, current)
-            logger.debug(f"Added relationship {value} to field {field}: {pformat(self.pydant.__dict__)}")
+        logger.debug(f"data received in add_relationship: {data}")
+        self.pydant.add_relationship(field, value, data)
 
     @pyqtSlot(str, str)
     def remove_relationship(self, field: str, value: str) -> None:
@@ -125,14 +121,7 @@ class OmniManager(QDialog):
             field (str): The relationship field name.
             value (str): The value to remove from the relationship.
         """
-        current = self.pydant.__getattribute__(field)
-        if not isinstance(current, list):
-            logger.error(f"Field {field} is not a list relationship.")
-            return
-        if value in current:
-            current.remove(value)
-            self.pydant.__setattr__(field, current)
-            logger.debug(f"Removed relationship {value} from field {field}: {pformat(self.pydant.__dict__)}")
+        self.pydant.remove_relationship(field, value)
 
     @pyqtSlot()
     def submit(self) -> None:

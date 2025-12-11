@@ -433,6 +433,8 @@ def jinja_template_loading() -> Environment:
     Returns:
         Environment: jinja2 environment object
     """
+    def get_type(obj):
+        return type(obj).__name__
     # NOTE: determine if pyinstaller launcher is being used
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
@@ -442,6 +444,7 @@ def jinja_template_loading() -> Environment:
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
+    env.filters['get_type'] = get_type
     return env
 
 

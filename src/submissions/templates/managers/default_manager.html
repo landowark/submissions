@@ -1,6 +1,9 @@
 {% extends "details.html" %}
 
 {% block body %}
+
+<h2 id="ObjectName">Manage {{ object_name }}</h2>
+
 <select id="inital_object" onchange="update_selection(this.value)">
     {% for item in object_list %}
         <option value="{{ item }}">{{ item }}</option>

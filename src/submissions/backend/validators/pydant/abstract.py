@@ -68,6 +68,38 @@ class PydSubmissionType(PydAbstract):
         if value == "":
             value = "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
         return value
+    
+    @field_validator("proceduretype")
+    @classmethod
+    def validate_proceduretype(cls, value) -> List[str]:
+        if not value and cls.name == "Default SubmissionType":
+            from backend.db.models import ProcedureType
+            value = [item.name for item in ProcedureType.query()]
+        return value
+    
+    def update_instrumentedattribute(self, key, value):
+        """
+        Updates all instrumented attributes to match the current state of the pydantic model.
+        """
+        if self.name == "Default SubmissionType":
+            logger.error("Cannot update Default SubmissionType directly.")
+            return
+        super().update_instrumentedattribute(key, value)
+    
+    def remove_relationship(self, field: str, value: str):
+        """
+        Removes a relationship from a list field. (Overrides PydBaseClass method)
+        The override is largely redundant as this is also handled in javascript,
+        but this double-checks that the "Default SubmissionType" is not removed.
+
+        Args:
+            field (str): Field name
+            value (str): The value to remove from the relationship.
+        """
+        if field == "proceduretype" and self.name == "Default SubmissionType":
+            logger.error("Cannot remove proceduretypes from Default SubmissionType.")
+            return
+        super().remove_relationship(field, value)
 
 
 class PydProcedureType(PydAbstract):
@@ -77,10 +109,10 @@ class PydProcedureType(PydAbstract):
     plate_rows: int = Field(default=0, description="If this uses a plate, this is the row count.")
     plate_cost: float = Field(default=0.00, description="Minimum cost of running a plate.")
     procedure: List[str] | List[dict] = Field(default_factory=list, repr=False)
-    submissiontype: List[str] | List[dict] = Field(default_factory=list, description="Submission Types using this type.", repr=False)
+    submissiontype: List[str] | List[dict] = Field(default_factory=list, description="Submission Types using this type.", repr=False, validate_default=True)
     resultstype: List[str] | List[dict] = Field(default_factory=list, description="Results Types used by this type.", repr=False)
-    equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Equipment roles used by this type.", alias="proceduretypeequipmentroleassociation", repr=False)
-    reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Reagent roles used by this type.", alias="proceduretypereagentroleassociation", repr=False)
+    equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Equipment roles used by this type.", repr=False)
+    reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Reagent roles used by this type.", repr=False)
     
     @field_validator("submissiontype", "resultstype", "equipmentrole", "reagentrole", mode="before")
     @classmethod
@@ -88,6 +120,39 @@ class PydProcedureType(PydAbstract):
         if value is None:
             return []
         return value
+
+    @field_validator("submissiontype")
+    @classmethod
+    def validate_submissiontype(cls, value) -> List[str]:
+        if not value:
+            value = ["Default SubmissionType"]
+        return value
+
+    def remove_relationship(self, field: str, value: str):
+        """
+        Removes a relationship from a list field. (Overrides PydBaseClass method)
+        The override is largely redundant as this is also handled in javascript,
+        but this double-checks that the "Default SubmissionType" is not removed.
+
+        Args:
+            field (str): Field name
+            value (str): The value to remove from the relationship.
+        """
+        if field == "submissiontype" and value == "Default SubmissionType":
+            logger.error("Cannot remove default submission type.")
+            return
+        current = self.__getattribute__(field)
+        if not isinstance(current, list):
+            logger.error(f"Field {field} is not a list relationship.")
+            return
+        new_list = []
+        for item in current:
+            if isinstance(item, str) and item == value:
+                continue  # Skip if it's the target string
+            elif isinstance(item, dict) and value in item.values():
+                continue  # Skip if dict contains the target value
+            new_list.append(item)
+        self.__setattr__(field, new_list)
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
@@ -110,3 +175,9 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
             return False
         return True
     
+
+class PydEquipmentRoleEquipmentAssociation(PydAbstract):
+
+    equipmentrole: str = Field(default="NA")
+    equipment: str = Field(default="NA")
+    process: List[str] = Field(default_factory=list, description="Processes using this equipment role-equipment association.", repr=False)

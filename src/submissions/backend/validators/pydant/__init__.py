@@ -4,7 +4,7 @@ Contains pydantic models and accompanying validators
 from __future__ import annotations
 import logging, sys, string, inspect
 from pprint import pformat
-from pydantic import BaseModel, model_validator, ConfigDict
+from pydantic import BaseModel, ValidationError, model_validator, ConfigDict
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Generator, List, Tuple
 from tools import classproperty, jinja_template_loading, row_keys
@@ -106,6 +106,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             dict: This instance as a dictionary
         """
+        self.revalidate()
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         if dictionaries:
             output = {k: getattr(self, k) for k in fields}
@@ -166,7 +167,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         type_name = type_.__class__.__name__
         match type_name:
             case "hybrid_propertyProxy":
-                type_ = getattr(cls._sql_object, type_.property.key)
+                try:
+                    type_ = getattr(cls._sql_object, type_.property.key)
+                except AttributeError:
+                    type_ = getattr(cls._sql_object, f"_{field}") # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
@@ -195,21 +199,31 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             type_name = self.determine_field_type(field)
             if field.lower().strip("_") in self.sql_classes:
                 model: models.BaseClass = models.BaseClass.find_subclasses(class_alias=field.lower().strip("_"))
-                excluded = [item.name for item in model.query() if self.name not in [i.name for i in getattr(item, self.__class__.__name__.lower().replace("pyd", ""))]]
+                try:
+                    excluded = [item.name for item in model.query() if self.name not in [i.name for i in getattr(item, self.__class__.__name__.lower().replace("pyd", ""))] and item.name not in data[field]]
+                except AttributeError as e:
+                    logger.warning(f"Could not get excluded items for field {field} due to {e}. Trying sql based.")
+                    this_sql = self.to_sql()
+                    excluded = [item.name for item in model.query() if this_sql not in getattr(item, self.__class__.__name__.lower().replace("pyd", "")) and item.name not in data[field]]
             else:
                 excluded = None
             tooltip = self.__class__.model_fields[field].description
             value = data[field]
+            if isinstance(value, list):
+                value = [value['name'] if isinstance(value, dict) and 'name' in value.keys() else value for value in value]
             yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
 
     @classmethod
     def get_association_class(cls, field: str):
         lookup_name = cls.__name__.replace("Pyd", "")
+        logger.debug(f"Looking for association class for field {lookup_name}")
         subclasses = [class_ for class_ in PydBaseClass.get_subclasses() if lookup_name in class_.__name__ and "association" in class_.__name__.lower()]
-        class_names = [class_.__name__.replace(cls.__name__, "") for class_ in subclasses]
-        class_names = [name.replace("Pyd", "") for name in class_names]
+        logger.debug(f"Found subclasses: {pformat([class_ for class_ in subclasses])}")
+        class_names = [(class_.__name__.replace(lookup_name, ""), class_) for class_ in subclasses]
+        class_names = [(class_[0].replace("Pyd", ""), class_[1]) for class_ in class_names]
         logger.debug(f"Looking for association class for field {field} in classes: {pformat(class_names)}")
-        class_ = next((subclass for subclass in subclasses if field.lower().strip("_") in subclass.__name__.lower()), None)
+        class_ = next((subclass_[1] for subclass_ in class_names if field.lower().strip("_") in subclass_[0].lower()), None)
+        logger.debug(f"Found association class: {class_} for field {field}")
         if class_ is None:
             logger.error(f"Could not find association class for field {field} in {pformat(class_names)}")
         return class_
@@ -238,6 +252,63 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         for class_ in PydBaseClass.__subclasses__():
             for subclass in class_.__subclasses__():
                 yield subclass
+
+    def add_relationship(self, field: str, value: str, data: dict | None = None):
+        """
+        Adds a relationship to a list field.
+
+        Args:
+            field (str): Field name
+            value (str): Value to add to the relationship.
+        """
+        current = self.__getattribute__(field)
+        if data is not None:
+            value = dict(name=value, **data)
+        if not isinstance(current, list):
+            logger.error(f"Field {field} is not a list relationship.")
+            return
+        if value in current:
+            logger.warning(f"Value {value} already in field {field}.")
+            return
+        current.append(value)
+        self.__setattr__(field, current)
+
+    def remove_relationship(self, field: str, value: str):
+        """
+        Removes a relationship from a list field.
+
+        Args:
+            field (str): Field name
+            value (str): The value to remove from the relationship.
+        """
+        current = self.__getattribute__(field)
+        if not isinstance(current, list):
+            logger.error(f"Field {field} is not a list relationship.")
+            return
+        new_list = []
+        for item in current:
+            if isinstance(item, str) and item == value:
+                continue  # Skip if it's the target string
+            elif isinstance(item, dict) and value in item.values():
+                continue  # Skip if dict contains the target value
+            new_list.append(item)
+        self.__setattr__(field, new_list)
+
+    def update_instrumentedattribute(self, key, value):
+        """
+        Updates all instrumented attributes to match the current state of the pydantic model.
+        """
+        self.__setattr__(key, value)
+
+    def revalidate(self):
+        """
+        Revalidates the model.
+        """
+        try:
+            new = self.model_validate(self.__dict__)
+            self.__dict__.update(new.__dict__)
+        except ValidationError as e:
+            raise e
 
 
 class PydAbstract(PydBaseClass):

@@ -4,11 +4,12 @@ All kittype and reagent related models
 from __future__ import annotations
 import zipfile, logging, re, numpy as np, sys
 from operator import itemgetter
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, func
+from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, extract, func, select, case
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query, declared_attr
+from sqlalchemy.orm import relationship, Query, declared_attr, aliased
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
+from dateutil.parser import parse as dateparse
 from tools import check_authorization, setup_lookup, check_regex_match, jinja_template_loading, flatten_list
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
@@ -849,8 +850,7 @@ class ProcedureType(BaseClass):
     )  #: Association of equipmentroles
 
     equipmentrole = association_proxy("proceduretypeequipmentroleassociation", "_equipmentrole",
-                                      creator=lambda eq: ProcedureTypeEquipmentRoleAssociation(
-                                          equipmentrole=eq))  #: Proxy of equipmentrole associations
+                                      creator=lambda equipmentrole: create_equipmentrole_association(equipmentrole))  #: Proxy of equipmentrole associations
 
     proceduretypereagentroleassociation = relationship(
         "ProcedureTypeReagentRoleAssociation",
@@ -867,10 +867,73 @@ class ProcedureType(BaseClass):
         if self._procedure is None:
             self._procedure = []
         if self._submissiontype is None:
-            self._submissiontype = []
+            # default = SubmissionType.query(name="Default SubmissionType", limit=1)
+            self.submissiontype = ["Default SubmissionType"]
+        if "Default SubmissionType" not in [st.name for st in self._submissiontype]:
+            self.submissiontype.append(SubmissionType.query(name="Default SubmissionType", limit=1))
         if self._resultstype is None:
             self._resultstype = []
     
+    def create_equipmentrole_association(self, equipmentrole: str | dict | EquipmentRole) -> ProcedureTypeEquipmentRoleAssociation:
+        """
+        Create an association between this ProcedureType and an EquipmentRole.
+
+        Args:
+            equipmentrole (EquipmentRole | str): EquipmentRole of interest.
+            uses (dict | None, optional): Map of uses for this equipmentrole in this proceduretype. Defaults to None.
+        Returns:
+            ProcedureTypeEquipmentRoleAssociation: Created association.
+        """        
+        # from backend.validators.pydant import PydEquipmentRole
+        match equipmentrole:
+            case str():
+                equipmentrole_instance = EquipmentRole.query(name=equipmentrole, limit=1)
+            case dict():
+                equipmentrole_instance = EquipmentRole.query(name=equipmentrole.get('name'), limit=1)
+                del equipmentrole['name']
+            case PydEquipmentRole():
+                equipmentrole_instance = equipmentrole.to_sql()
+            case EquipmentRole():
+                equipmentrole_instance = equipmentrole
+            case _:
+                raise TypeError(f"Can't create association with {equipmentrole}")
+        association = ProcedureTypeEquipmentRoleAssociation()
+        association.proceduretype = self
+        association.equipmentrole = equipmentrole_instance
+        association.__dict__.update(equipmentrole if isinstance(equipmentrole, dict) else {})
+        self.proceduretypeequipmentroleassociation.append(association)
+        return association
+
+    def create_reagentrole_association(self, reagentrole: str | dict | ReagentRole) -> ProcedureTypeReagentRoleAssociation:
+        """
+        Create an association between this ProcedureType and a ReagentRole.
+
+        Args:
+            reagentrole (ReagentRole | str): ReagentRole of interest.
+            uses (dict | None, optional): Map of uses for this reagentrole in this proceduretype. Defaults to None.
+        Returns:
+            ProcedureTypeReagentRoleAssociation: Created association.
+        """        
+        # from backend.validators.pydant import PydReagentRole
+        match reagentrole:
+            case str():
+                reagentrole_instance = ReagentRole.query(name=reagentrole, limit=1)
+            case dict():
+                reagentrole_instance = ReagentRole.query(name=reagentrole.get('name'), limit=1)
+                del reagentrole['name']
+            case PydReagentRole():
+                reagentrole_instance = reagentrole.to_sql()
+            case ReagentRole():
+                reagentrole_instance = reagentrole
+            case _:
+                raise TypeError(f"Can't create association with {reagentrole}")
+        association = ProcedureTypeReagentRoleAssociation(proceduretype=self, reagentrole=reagentrole_instance, **(reagentrole if isinstance(reagentrole, dict) else {}))
+        # association.proceduretype = self
+        # association.reagentrole = reagentrole_instance
+        # association.__dict__.update(reagentrole if isinstance(reagentrole, dict) else {})
+        self.proceduretypereagentroleassociation.append(association)
+        return association
+
     @hybrid_property
     def resultstype(self):
         return self._resultstype
@@ -1020,7 +1083,7 @@ class ProcedureType(BaseClass):
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
-        output['submissiontype'] = [item.name for item in output['submissiontype']]
+        # output['submissiontype'] = [item.name for item in output['submissiontype']]
         output['reagentrole'] = [item.details_dict() for item in output['reagentrole']]
         output['equipment'] = [item.details_dict(proceduretype=self) for item in output['equipmentrole']]
         return output
@@ -1513,6 +1576,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 output = ReagentRole.query(name=value, limit=1)
             case dict():
                 output = ReagentRole.query_or_create(**value)
+                if isinstance(output, tuple):
+                    output = output[0]
             case PydReagentRole():
                 output = value.to_sql()
             case ReagentRole():
@@ -1520,6 +1585,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             case _:
                 raise TypeError(error_msg)
                 return
+        logger.debug(f"Setting reagentrole with output: {output}")
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
@@ -1936,23 +2002,23 @@ class EquipmentRole(BaseClass):
     #     """
     #     return {key: value for key, value in self.__dict__.items() if key != "process" and key != "equipment"}
 
-    def to_pydantic(self, proceduretype: ProcedureType) -> PydEquipmentRole:
-        """
-        Creates a PydEquipmentRole of this EquipmentRole
+    # def to_pydantic(self, proceduretype: ProcedureType) -> PydEquipmentRole:
+    #     """
+    #     Creates a PydEquipmentRole of this EquipmentRole
 
-        Args:
-            proceduretype (SubmissionType): SubmissionType of interest
-            kittype (str | KitType | None, optional): KitType of interest. Defaults to None.
+    #     Args:
+    #         proceduretype (SubmissionType): SubmissionType of interest
+    #         kittype (str | KitType | None, optional): KitType of interest. Defaults to None.
 
-        Returns:
-            PydEquipmentRole: This EquipmentRole as PydEquipmentRole
-        """
-        from backend.validators.pydant import PydEquipmentRole
-        equipment = [item.to_pydantic(proceduretype=proceduretype, equipmentrole=self) for item in
-                     self.equipment]
-        pyd_dict = self.details_dict()
-        pyd_dict['process'] = self.get_processes(proceduretype=proceduretype)
-        return PydEquipmentRole(equipment=equipment, **pyd_dict)
+    #     Returns:
+    #         PydEquipmentRole: This EquipmentRole as PydEquipmentRole
+    #     """
+    #     from backend.validators.pydant import PydEquipmentRole
+    #     equipment = [item.to_pydantic(proceduretype=proceduretype, equipmentrole=self) for item in
+    #                  self.equipment]
+    #     pyd_dict = self.details_dict()
+    #     pyd_dict['process'] = self.get_processes(proceduretype=proceduretype)
+    #     return PydEquipmentRole(equipment=equipment, **pyd_dict)
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[EquipmentRole, bool]:
@@ -2282,7 +2348,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     @equipment.setter
     def equipment(self, value):
         from backend.validators.pydant import PydEquipment
-        error_msg = f"Can't add item {item} to {self.name}._equipment"
+        error_msg = f"Can't add item {value} to {self.name}._equipment"
         match value:
             case str():
                 output = Equipment.query(name=value, limit=1)
@@ -2550,13 +2616,26 @@ class ProcessVersion(BaseClass):
                                                  back_populates='_processversion')  #: relation to RunEquipmentAssociation
 
     @hybrid_property
+    def date_verified(self):
+        return self._date_verified
+    
+    @date_verified.setter
+    def date_verified(self, value):
+        if isinstance(value, str):
+            try:
+                value = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                value = dateparse(value)
+        self._date_verified = value
+
+    @hybrid_property
     def process(self):
         return self._process
 
     @process.setter
     def process(self, value):
         from backend.validators.pydant import PydProcess
-        error_msg = f"Can't add item {item} to {self.name}._process"
+        error_msg = f"Can't add item {value} to {self.name}._process"
         match value:
             case str():
                 output = Process.query(name=value, limit=1)
@@ -2572,19 +2651,35 @@ class ProcessVersion(BaseClass):
         if isinstance(output, Process):
             self._process = output
         else:
-            raise TypeError(error_msg)
+            # raise TypeError(error_msg)
+            self._process = None
     
     @hybrid_property
     def name(self) -> str:
+        if self.process is None:
+            return f"Unassigned-v{str(self.version)}"
         return f"{self.process.name}-v{str(self.version)}"
+
+    # @name.expression
+    # def name(cls):
+    #     return func.concat(cls._process.name, '-v', cast(cls.version, String))
+        # return select([func.concat(Process.name, '-v', cast(cls.version, String))]).where(Process.id == cls.process_id).scalar_subquery()
 
     @name.expression
     def name(cls):
-        return func.concat(cls.process.name, '-v', cls.version)
+        # We need the Process table available in the context of the main query
+        # We use a correlated approach or rely on an implicit join when filtering
+        # The key is to return a SQL expression directly:
+        # Use func.concat() with an explicit join to the Process table
+        return func.concat(
+            Process.name,
+            "-v",
+            cast(cls.version, String)
+        ).label("name")
 
     @hybrid_property
     def active(self):
-        return bool(self.active)
+        return bool(self._active)
 
     @active.setter
     def active(self, value):
@@ -2592,7 +2687,7 @@ class ProcessVersion(BaseClass):
             case int():
                 self._active = value
             case bool():
-                self.active = int(value)
+                self._active = int(value)
             case _:
                 raise TypeError(f"Unsupported type {type(value)} for {self.name}._active")
 
@@ -2632,11 +2727,12 @@ class ProcessVersion(BaseClass):
               version: str | float | None = None,
               name: str | None = None,
               limit: int = 0,
+              active: bool | int | None = None,
               **kwargs) -> ProcessVersion | List[ProcessVersion]:
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                query = query.join(Process).filter(Process.name == name)
+                query = query.filter(cls.name == name)
             case _:
                 pass
         match version:
@@ -2644,6 +2740,8 @@ class ProcessVersion(BaseClass):
                 query = query.filter(cls.version == float(version))
             case _:
                 pass
+        if active is not None:
+            query = query.filter(cls._active == int(active))
         return cls.execute_query(query=query, limit=limit)
 
     # def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):

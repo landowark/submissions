@@ -178,9 +178,9 @@ class PydEquipment(PydConcrete):
 
     asset_number: str = Field(default="NA", description="Asset number of this equipment.")
     name: str = Field(default="NA", description="Name of this equipment.")
-    nickname: str | None = Field(default=None, description="Nickname of this equipment.")
-    procedure: List[str] | List[dict] = Field(default_factory=list, description="Procedures using this equipment.", repr=False)
-    equipmentrole: List[str] | List[PydEquipmentRole] = Field(default_factory=list, description="Roles this equipment can fill.", alias="equipmentrolequipmentassociation", repr=False)
+    nickname: str = Field(default="NA", description="Nickname of this equipment.", validate_default=True)
+    procedure: List[str] = Field(default_factory=list, repr=False)
+    equipmentrole: List[str] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
 
     @field_validator('nickname')
     @classmethod
@@ -192,11 +192,11 @@ class PydEquipment(PydConcrete):
 
 class PydContact(PydConcrete):
 
-    name: str
-    phone: str | None
-    email: str | None
+    name: str = Field(default="NA", description="Name of this contact.")
+    tel: str = Field(default="000-000-0000", description="Phone number of this contact.")
+    email: str = Field(default="NA", description="Email address of this contact.")
 
-    @field_validator("phone")
+    @field_validator("tel")
     @classmethod
     def enforce_phone_number(cls, value):
         area_regex = re.compile(r"^\(?(\d{3})\)?(-| )?")
@@ -205,84 +205,84 @@ class PydContact(PydConcrete):
             value = area_regex.sub(f"({match.group(1).strip()}) ", value)
         return value
 
-    @report_result
-    def to_sql(self) -> Tuple[Contact, Report]:
-        """
-        Converts this instance into a backend.db.models.organization. Contact instance.
-        Does not query for existing contact.
+    # @report_result
+    # def to_sql(self) -> Tuple[Contact, Report]:
+    #     """
+    #     Converts this instance into a backend.db.models.organization. Contact instance.
+    #     Does not query for existing contact.
 
-        Returns:
-            Contact: Contact instance
-        """
-        report = Report()
-        instance = Contact.query(name=self.name, phone=self.phone, email=self.email)
-        if not instance or isinstance(instance, list):
-            instance = Contact()
-        try:
-            all_fields = self.model_fields + self.model_extra
-        except TypeError:
-            all_fields = self.model_fields
-        for field in all_fields:
-            value = getattr(self, field)
-            match field:
-                case "organization":
-                    value = [ClientLab.query(name=value)]
-                case _:
-                    pass
-            try:
-                instance.__setattr__(field, value)
-            except AttributeError as e:
-                logger.error(f"Could not set {instance} {field} to {value} due to {e}")
-        return instance, report
+    #     Returns:
+    #         Contact: Contact instance
+    #     """
+    #     report = Report()
+    #     instance = Contact.query(name=self.name, phone=self.phone, email=self.email)
+    #     if not instance or isinstance(instance, list):
+    #         instance = Contact()
+    #     try:
+    #         all_fields = self.model_fields + self.model_extra
+    #     except TypeError:
+    #         all_fields = self.model_fields
+    #     for field in all_fields:
+    #         value = getattr(self, field)
+    #         match field:
+    #             case "organization":
+    #                 value = [ClientLab.query(name=value)]
+    #             case _:
+    #                 pass
+    #         try:
+    #             instance.__setattr__(field, value)
+    #         except AttributeError as e:
+    #             logger.error(f"Could not set {instance} {field} to {value} due to {e}")
+    #     return instance, report
 
 
 class PydClientLab(PydConcrete):
 
-    name: str
-    cost_centre: str
-    contact: List[PydContact] | None
+    name: str = Field(default="NA", description="Name of this Client Lab.")
+    cost_centre: str = Field(default="NA", description="Default cost centre for this Client Lab.", repr=False)
+    contact: List[str] = Field(default_factory=list, description="Contacts for this Client Lab.", repr=False)
 
-    @field_validator("contact", mode="before")
-    @classmethod
-    def string_to_list(cls, value):
-        if isinstance(value, str):
-            value = Contact.query(name=value)
-            try:
-                value = [value.to_pydantic()]
-            except AttributeError:
-                return None
-        return value
+    # @field_validator("contact", mode="before")
+    # @classmethod
+    # def string_to_list(cls, value):
+    #     if isinstance(value, str):
+    #         value = Contact.query(name=value)
+    #         try:
+    #             value = [value.to_pydantic()]
+    #         except AttributeError:
+    #             return None
+    #     return value
 
-    @report_result
-    def to_sql(self) -> ClientLab:
-        """
-        Converts this instance into a backend.db.models.organization.Organization instance.
+    # @report_result
+    # def to_sql(self) -> ClientLab:
+        
+        # Converts this instance into a backend.db.models.organization.Organization instance.
 
-        Returns:
-           Organization: Organization instance
-        """
-        report = Report()
-        instance = ClientLab()
-        for field in self.model_fields:
-            match field:
-                case "contact":
-                    value = getattr(self, field)
-                    if value:
-                        value = [item.to_sql() for item in value if item]
-                case _:
-                    value = getattr(self, field)
-            if value:
-                setattr(instance, field, value)
-        return instance, report
+        # Returns:
+        #    Organization: Organization instance
+        # """
+        # report = Report()
+        # instance = ClientLab()
+        # for field in self.model_fields:
+        #     match field:
+        #         case "contact":
+        #             value = getattr(self, field)
+        #             if value:
+        #                 value = [item.to_sql() for item in value if item]
+        #         case _:
+        #             value = getattr(self, field)
+        #     if value:
+        #         setattr(instance, field, value)
+        # return instance, report
 
 
 class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True):
     
     version: float = Field(default=1.0, description="Version number of this process.")
-    date_verified: datetime | None = Field(default_factory=lambda: datetime.now(), description="Date this version was verified.", validate_default=True)
+    date_verified: datetime = Field(default_factory=datetime.now, description="Date this version was verified.", validate_default=True)
     project: str = Field(default="NA", description="Project this process version is for.")
     active: bool = Field(default=True, description="Is this the active version?")
-    process: str | PydProcess | None = Field(default=None, description="Process this is a version of.")
+    process: str = Field(default="NA", description="Process this is a version of.")
 
     field_validator("date_verified", mode="before")
     @classmethod
@@ -312,6 +312,18 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
     def int_to_bool(cls, value):
         if isinstance(value, int):
             value = bool(value)
+        return value
+    
+    @field_validator("active")
+    @classmethod
+    def enforce_active(cls, value):
+        if value is None:
+            value = True
+        if isinstance(value, str):
+            if value.lower() in ["false", "0", "no", "off"]:
+                value = False
+            else:
+                value = True
         return value
 
 

@@ -120,7 +120,7 @@ class ClientLab(BaseClass):
               id: int | None = None,
               name: str | None = None,
               limit: int = 0,
-              ) -> ClientLab | List[ClientLab]:
+              **kwargs) -> ClientLab | List[ClientLab]:
         """
         Lookup clientlabs in the database by a number of parameters.
 
@@ -160,7 +160,7 @@ class Contact(BaseClass):
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))  #: contact name
     email = Column(String(64))  #: contact email
-    phone = Column(String(16))  #: contact phone number
+    tel = Column(String(16))  #: contact phone number
     _clientlab = relationship("ClientLab", back_populates="_contact", uselist=True,
                              secondary=clientlab_contact)  #: relationship to joined clientlab
     _clientsubmission = relationship("ClientSubmission", back_populates="_contact")  #: procedure this contact has submitted
@@ -255,7 +255,7 @@ class Contact(BaseClass):
               id: int | None = None,
               name: str | None = None,
               email: str | None = None,
-              phone: str | None = None,
+              tel: str | None = None,
               limit: int = 0,
               ) -> Contact | List[Contact]:
         """
@@ -265,7 +265,7 @@ class Contact(BaseClass):
             id (int | None, optional): id integer of the contact. Defaults to None.
             name (str | None, optional): Name of the contact. Defaults to None.
             email (str | None, optional): Email of the contact. Defaults to None.
-            phone (str | None, optional): Phone number of the contact. Defaults to None.
+            tel (str | None, optional): Phone number of the contact. Defaults to None.
             limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
 
         Returns:
@@ -290,9 +290,9 @@ class Contact(BaseClass):
                 limit = 1
             case _:
                 pass
-        match phone:
+        match tel:
             case str():
-                query = query.filter(cls.phone == phone)
+                query = query.filter(cls.tel == tel)
                 limit = 1
             case _:
                 pass

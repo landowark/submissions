@@ -513,6 +513,31 @@ class BaseClass(Base):
         output_date = datetime.combine(output_date, addition_time).strftime("%Y-%m-%d %H:%M:%S")
         return output_date
 
+    @classmethod
+    def correct_details_fields(cls, value) -> Any:
+        """
+        Corrects fields in details_dict to proper types.
+
+        Args:
+            value: input value
+        Returns:
+            Any: corrected value
+        """
+        from backend.validators.pydant import PydBaseClass
+        match value:
+            case str():
+                return value.strip('\"')
+            case list():
+                return [cls.correct_details_fields(v) for v in value]
+            case dict():
+                return {k: cls.correct_details_fields(v) for k, v in value.items()}
+            case x if issubclass(value.__class__, BaseClass):
+                return value.name
+            case x if issubclass(value.__class__, PydBaseClass):
+                return value.name
+            case _:
+                return value
+    
     def details_dict(self, **kwargs) -> dict:
         """
         Primary method for getting BaseClass subclasses as dictionaries
@@ -541,17 +566,12 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
-            match value:
-                case str():
-                    value = value.strip('\"')
-                case _:
-                    pass
-            output[k.strip("_")] = value
+            output[k.strip("_")] = self.correct_details_fields(value)
         if self._misc_info:
             for key, value in self._misc_info.items():
                 if key in excluded:
                     continue
-                output[key] = value
+                output[key] = self.correct_details_fields(value)
         return output
 
     @classmethod
@@ -592,7 +612,8 @@ class BaseClass(Base):
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
-        return pyd(**self.details_dict(**kwargs))
+        details = self.details_dict(**kwargs)
+        return pyd(**details)
 
     def show_details(self, obj):
         from frontend.widgets.submission_details import SubmissionDetails

@@ -250,144 +250,19 @@ ul.no-bullets {
 <body>
 
 
+
+<h2 id="ObjectName">Manage ProcessVersion</h2>
+
 <select id="inital_object" onchange="update_selection(this.value)">
     
         <option value=""></option>
     
         <option value="--New--">--New--</option>
     
-        <option value="Test">Test</option>
+        <option value="OBT_M4029_KFF-v1.0">OBT_M4029_KFF-v1.0</option>
     
 </select>
-<form id="object_form" data-dual-list-handler-attached="true"><br>
-
-<label for="name" style="font-size: medium;">name:</label><br>
-
-<input type="text" id="name" name="name" value="Test" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="plate_columns" style="font-size: medium;">plate_columns:</label><br>
-
-<input type="number" id="plate_columns" name="plate_columns" value="0" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="plate_rows" style="font-size: medium;">plate_rows:</label><br>
-
-<input type="number" id="plate_rows" name="plate_rows" value="0" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="plate_cost" style="font-size: medium;">plate_cost:</label><br>
-
-<input type="number" step="any" id="plate_cost" name="plate_cost" value="0.0" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="submissiontype" style="font-size: medium;">submissiontype:</label><br>
-
-<div id="submissiontype" class="dual-listbox-container relationshiplist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="submissiontype_selectedOptions" multiple="" size="10" class="relationship selected">
-            
-            <option value="Default" class="relationship">Default</option>
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="submissiontype_addSelected" name="submissiontype" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="submissiontype_removeSelected" name="submissiontype" class="removeSelectedBtn">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="submissiontype_availableOptions" multiple="" size="10" class="relationship available">
-            
-        </select>
-    </div>
-</div>
-
-<br><br>
-
-<label for="resultstype" style="font-size: medium;">resultstype:</label><br>
-
-<div id="resultstype" class="dual-listbox-container relationshiplist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="resultstype_selectedOptions" multiple="" size="10" class="relationship selected">
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="resultstype_addSelected" name="resultstype" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="resultstype_removeSelected" name="resultstype" class="removeSelectedBtn">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="resultstype_availableOptions" multiple="" size="10" class="relationship available">
-            
-        </select>
-    </div>
-</div>
-
-<br><br>
-
-<label for="equipmentrole" style="font-size: medium;">equipmentrole:</label><br>
-
-<div id="equipmentrole" class="dual-listbox-container">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="equipmentrole_selectedOptions" multiple="" size="10">
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="equipmentrole_addSelected" name="equipmentrole" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="equipmentrole_removeSelected" name="equipmentrole" class="removeSelectedBtn">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="equipmentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
-            
-        </select>
-    </div>
-    
-        <!-- Additional fields for association attributes can be added here -->
-    
-</div>
-
-<br><br>
-
-<label for="reagentrole" style="font-size: medium;">reagentrole:</label><br>
-
-<div id="reagentrole" class="dual-listbox-container">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="reagentrole_selectedOptions" multiple="" size="10">
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="reagentrole_addSelected" name="reagentrole" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="reagentrole_removeSelected" name="reagentrole" class="removeSelectedBtn">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="reagentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
-            
-            <option value="Test ReagentRole">Test ReagentRole</option>
-            
-        </select>
-    </div>
-    <form id="reagentrole_associationForm">
-        <!-- Additional fields for association attributes can be added here -->
-    </form>
-</div>
-
-<br><br>
-
-<button type="button" onclick="backend.submit()">Submit</button></form>
+<form id="object_form" data-dual-list-handler-attached="true"></form>
 
 
 
@@ -451,21 +326,40 @@ async function update_selection(value) {
 
 function instumentedattribute_change(field, value) {
     console.log("Field changed:", field, "New value:", value);
+    var editting = document.getElementById('name');
+    try {
+        if (editting.value === "Default SubmissionType") {
+            alert("Cannot modify Default SubmissionType.");
+            return; // Prevent changes to Default SubmissionType
+        }
+    } catch (error) {
+        console.error("Error occurred:", error.message);
+    }
     backend.update_instrumentedattribute(field, value);
 }
 
-function moveOptions(sourceListId, destinationListId) {
+function moveOptions(sourceListId, destinationListId, data) {
     field = sourceListId.split("_")[0];
     console.log("Moving", field, "options from", sourceListId, "to", destinationListId);
     var sourceList = document.getElementById(sourceListId);
     var destinationList = document.getElementById(destinationListId);
+    var manage_name = document.getElementById('ObjectName').innerText.replace('Manage ', '');
+    var editting = document.getElementById('name').value;
     Array.from(sourceList.selectedOptions).forEach(option => {
-        destinationList.appendChild(option);
         if (sourceListId.includes("available")) {
-            backend.add_relationship(field, option.value);
+            backend.add_relationship(field, option.value, data);
         } else if (sourceListId.includes("selected")) {
-            backend.remove_relationship(field, option.value);
+            if (option.value === "Default SubmissionType" && ["ProcedureType"].includes(manage_name)) {
+                alert("Cannot remove default submission type.");
+                return; // Skip moving the default option
+            } else if (editting === "Default SubmissionType" && field === "proceduretype" && destinationListId.includes("available")) {
+                alert("Can't remove procedure types from Default SubmissionType.");
+                return; // Skip moving the default option
+            } else {
+                backend.remove_relationship(field, option.value);
+            }
         }
+        destinationList.appendChild(option);
     });
 }
 
@@ -475,14 +369,20 @@ function setupDualListDelegation() {
     if (!container || container.dataset.dualListHandlerAttached) return;
     container.addEventListener('click', (e) => {
         const t = e.target;
+        var association_form = t.name + '_associationForm';
+        if (document.getElementById(association_form)) {
+            formdata = new FormData(document.getElementById(association_form));
+        } else {
+            formdata = null;
+        }
         if (t.classList && t.classList.contains('addSelectedBtn')) {
             e.preventDefault();
             console.log("Add button clicked (delegated):", t.name);
-            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`);
+            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`, formdata);
         } else if (t.classList && t.classList.contains('removeSelectedBtn')) {
             e.preventDefault();
             console.log("Remove button clicked (delegated):", t.name);
-            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`);
+            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`, formdata);
         }
     });
 
