@@ -374,7 +374,7 @@ class ReagentLot(BaseClass):
         
     @hybrid_property
     def active(self):
-        return self._active
+        return bool(self._active)
 
     @active.setter
     def active(self, value):
@@ -383,6 +383,13 @@ class ReagentLot(BaseClass):
                 output = value
             case bool():
                 output = int(value)
+            case str():
+                if value.lower() in ["false", "0", "no", "off"]:
+                    output = 0
+                elif value.lower() in ["true", "1", "yes", "on"]:
+                    output = 1
+                else:
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
             case _:
                 raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
         self._active = output
@@ -874,7 +881,7 @@ class ProcedureType(BaseClass):
         if self._resultstype is None:
             self._resultstype = []
     
-    def create_equipmentrole_association(self, equipmentrole: str | dict | EquipmentRole) -> ProcedureTypeEquipmentRoleAssociation:
+    def create_equipmentrole_association(self, equipmentrole) -> ProcedureTypeEquipmentRoleAssociation:
         """
         Create an association between this ProcedureType and an EquipmentRole.
 
@@ -884,25 +891,28 @@ class ProcedureType(BaseClass):
         Returns:
             ProcedureTypeEquipmentRoleAssociation: Created association.
         """        
-        # from backend.validators.pydant import PydEquipmentRole
-        match equipmentrole:
-            case str():
-                equipmentrole_instance = EquipmentRole.query(name=equipmentrole, limit=1)
-            case dict():
-                equipmentrole_instance = EquipmentRole.query(name=equipmentrole.get('name'), limit=1)
-                del equipmentrole['name']
-            case PydEquipmentRole():
-                equipmentrole_instance = equipmentrole.to_sql()
-            case EquipmentRole():
-                equipmentrole_instance = equipmentrole
-            case _:
-                raise TypeError(f"Can't create association with {equipmentrole}")
-        association = ProcedureTypeEquipmentRoleAssociation()
-        association.proceduretype = self
-        association.equipmentrole = equipmentrole_instance
-        association.__dict__.update(equipmentrole if isinstance(equipmentrole, dict) else {})
-        self.proceduretypeequipmentroleassociation.append(association)
-        return association
+        from backend.validators.pydant import PydEquipmentRole
+        if not isinstance(equipmentrole, list):
+            equipmentrole = [equipmentrole]
+        for er in equipmentrole:
+            match er:
+                case str():
+                    equipmentrole_instance = EquipmentRole.query(name=er, limit=1)
+                case dict():
+                    equipmentrole_instance = EquipmentRole.query(name=er.get('name'), limit=1)
+                    del er['name']
+                case PydEquipmentRole():
+                    equipmentrole_instance = er.to_sql()
+                case EquipmentRole():
+                    equipmentrole_instance = er
+                case _:
+                    raise TypeError(f"Can't create association with {er}")
+            association = ProcedureTypeEquipmentRoleAssociation(proceduretype=self, equipmentrole=equipmentrole_instance, **(equipmentrole if isinstance(equipmentrole, dict) else {}))
+            # association.proceduretype = self
+            # association.equipmentrole = equipmentrole_instance
+            # association.__dict__.update(equipmentrole if isinstance(equipmentrole, dict) else {})
+            self.proceduretypeequipmentroleassociation.append(association)
+        # return association
 
     def create_reagentrole_association(self, reagentrole: str | dict | ReagentRole) -> ProcedureTypeReagentRoleAssociation:
         """
@@ -914,25 +924,28 @@ class ProcedureType(BaseClass):
         Returns:
             ProcedureTypeReagentRoleAssociation: Created association.
         """        
-        # from backend.validators.pydant import PydReagentRole
-        match reagentrole:
-            case str():
-                reagentrole_instance = ReagentRole.query(name=reagentrole, limit=1)
-            case dict():
-                reagentrole_instance = ReagentRole.query(name=reagentrole.get('name'), limit=1)
-                del reagentrole['name']
-            case PydReagentRole():
-                reagentrole_instance = reagentrole.to_sql()
-            case ReagentRole():
-                reagentrole_instance = reagentrole
-            case _:
-                raise TypeError(f"Can't create association with {reagentrole}")
-        association = ProcedureTypeReagentRoleAssociation(proceduretype=self, reagentrole=reagentrole_instance, **(reagentrole if isinstance(reagentrole, dict) else {}))
-        # association.proceduretype = self
-        # association.reagentrole = reagentrole_instance
-        # association.__dict__.update(reagentrole if isinstance(reagentrole, dict) else {})
-        self.proceduretypereagentroleassociation.append(association)
-        return association
+        from backend.validators.pydant import PydReagentRole
+        if not isinstance(reagentrole, list):
+            reagentrole = [reagentrole]
+        for rr in reagentrole:
+            match rr:
+                case str():
+                    reagentrole_instance = ReagentRole.query(name=rr, limit=1)
+                case dict():
+                    reagentrole_instance = ReagentRole.query(name=rr.get('name'), limit=1)
+                    del rr['name']
+                case PydReagentRole():
+                    reagentrole_instance = rr.to_sql()
+                case ReagentRole():
+                    reagentrole_instance = rr
+                case _:
+                    raise TypeError(f"Can't create association with {rr}")
+            association = ProcedureTypeReagentRoleAssociation(proceduretype=self, reagentrole=reagentrole_instance, **(reagentrole if isinstance(reagentrole, dict) else {}))
+            # association.proceduretype = self
+            # association.reagentrole = reagentrole_instance
+            # association.__dict__.update(reagentrole if isinstance(reagentrole, dict) else {})
+            self.proceduretypereagentroleassociation.append(association)
+            return association
 
     @hybrid_property
     def resultstype(self):
@@ -1085,7 +1098,7 @@ class ProcedureType(BaseClass):
         output = super().details_dict(**kwargs)
         # output['submissiontype'] = [item.name for item in output['submissiontype']]
         output['reagentrole'] = [item.details_dict() for item in output['reagentrole']]
-        output['equipment'] = [item.details_dict(proceduretype=self) for item in output['equipmentrole']]
+        output['equipmentrole'] = [item.details_dict() for item in output['equipmentrole']]
         return output
 
     def construct_dummy_procedure(self, run: Run | None = None):
@@ -1980,8 +1993,42 @@ class EquipmentRole(BaseClass):
         cascade="all, delete-orphan",
     )  #: relation to SubmissionTypes
 
-    proceduretype = association_proxy("equipmentroleproceduretypeassociation",
-                                      "_proceduretype")  #: proxy to equipmentroleproceduretypeassociation.proceduretype
+    # def create_proceduretypeassociation(self, proceduretype) -> ProcedureTypeEquipmentRoleAssociation:
+    #     """
+    #     Creates ProcedureTypeEquipmentRoleAssociation for this EquipmentRole and given ProcedureType
+
+    #     Args:
+    #         proceduretype (ProcedureType): ProcedureType to associate
+    #     Returns:
+    #         ProcedureTypeEquipmentRoleAssociation: Created association
+    #     """
+    #     from backend.validators.pydant import PydProcedureType
+    #     if not isinstance(proceduretype, list):
+    #         proceduretype = [proceduretype]
+    #     for pt in proceduretype:
+    #         match pt:
+    #             case str():
+    #                 proceduretype_instance = ProcedureType.query(name=pt, limit=1)
+    #             case dict():
+    #                 proceduretype_instance = ProcedureType.query(name=pt.get('name'), limit=1)
+    #                 del pt['name']
+    #             case PydProcedureType():
+    #                 proceduretype_instance = pt.to_sql()
+    #             case ProcedureType():
+    #                 proceduretype_instance = pt
+    #             case _:
+    #                 raise TypeError(f"Can't create association with {proceduretype}")
+    #         association = ProcedureTypeEquipmentRoleAssociation(equipmentrole=self, proceduretype=proceduretype_instance, **(pt if isinstance(pt, dict) else {}))
+    #         # association.equipmentrole = self
+    #         # association.proceduretype = proceduretype_instance
+    #         # association.__dict__.update(proceduretype if isinstance(proceduretype, dict) else {})
+    #         if association not in self.equipmentroleproceduretypeassociation:
+    #             self.equipmentroleproceduretypeassociation.append(association)
+    #     # return association
+
+    _proceduretype = association_proxy("equipmentroleproceduretypeassociation", "_proceduretype")
+                                    #    , creator=lambda proceduretype: ProcedureTypeEquipmentRoleAssociation(
+            # **proceduretype))  #: proxy to equipmentroleproceduretypeassociation.proceduretype
 
     equipmentroleequipmentassociation = relationship(
         "EquipmentRoleEquipmentAssociation",
@@ -1989,9 +2036,88 @@ class EquipmentRole(BaseClass):
         cascade="all, delete-orphan",
     )
 
-    equipment = association_proxy("equipmentroleequipmentassociation",
-                                  "_equipmentrole", creator=lambda equipment: EquipmentRoleEquipmentAssociation(
-            equipment=equipment))
+    # def create_equipmentassociation(self, equipment) -> EquipmentRoleEquipmentAssociation:
+    #     """
+    #     Creates EquipmentRoleEquipmentAssociation for this EquipmentRole and given Equipment
+
+    #     Args:
+    #         equipment (Equipment): Equipment to associate
+    #     Returns:
+    #         EquipmentRoleEquipmentAssociation: Created association
+    #     """
+    #     if not isinstance(equipment, list):
+    #         equipment = [equipment]
+    #     for eq in equipment:
+    #         match eq:
+    #             case str():
+    #                 equipment_instance = Equipment.query(name=eq, limit=1)
+    #             case dict():
+    #                 equipment_instance = Equipment.query(name=eq.get('name'), limit=1)
+    #                 del eq['name']
+    #             case PydEquipment():
+    #                 equipment_instance = eq.to_sql()
+    #             case EquipmentRole():
+    #                 equipment_instance = eq
+    #             case _:
+    #                 raise TypeError(f"Can't create association with {equipment}")
+    #         association = EquipmentRoleEquipmentAssociation(equipmentrole=self, equipment=equipment_instance, **(eq if isinstance(eq, dict) else {}))
+    #         # association.equipmentrole = self
+    #         # association.equipment = equipment_instance
+    #         # association.__dict__.update(equipment if isinstance(equipment, dict) else {})
+    #         if association not in self.equipmentroleequipmentassociation:
+    #             self.equipmentroleequipmentassociation.append(association)
+    #     # return association
+
+    _equipment = association_proxy("equipmentroleequipmentassociation", "_equipmentrole")#, creator=lambda equipment: EquipmentRoleEquipmentAssociation(
+            # **equipment))
+    
+    @hybrid_property
+    def equipment(self) -> List[Equipment]:
+        return self._equipment
+    
+    @equipment.setter
+    def equipment(self, value: List[Equipment | str | dict]):
+        from backend.validators.pydant import PydEquipment
+        error_msg = f"Can't add item {value} to {self.name}._equipment"
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = EquipmentRoleEquipmentAssociation(equipment=item['name'], equipmentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                case _:
+                    raise TypeError(error_msg)
+                    return
+            logger.debug(f"Setting equipment with output: {output}")
+            if isinstance(output, EquipmentRoleEquipmentAssociation):
+                if output not in self.equipmentroleequipmentassociation:
+                    self.equipmentroleequipmentassociation.append(output)
+            else:
+                raise TypeError(error_msg)
+
+    @hybrid_property
+    def proceduretype(self) -> List[ProcedureType]:
+        return self._proceduretype  
+
+    @proceduretype.setter
+    def proceduretype(self, value: List[ProcedureType | str | dict]):
+        from backend.validators.pydant import PydProcedureType
+        error_msg = f"Can't add item {value} to {self.name}._proceduretype"
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = ProcedureTypeEquipmentRoleAssociation(proceduretype=item['name'], equipmentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                case _:
+                    raise TypeError(error_msg)
+                    return
+            logger.debug(f"Setting proceduretype with output: {output}")
+            if isinstance(output, ProcedureTypeEquipmentRoleAssociation):
+                if output not in self.equipmentroleproceduretypeassociation:
+                    self.equipmentroleproceduretypeassociation.append(output)
+            else:
+                raise TypeError(error_msg)
 
     # def to_dict(self) -> dict:
     #     """
@@ -2306,15 +2432,21 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                              back_populates="equipmentequipmentroleassociation")  #: associated procedure
 
     _process = relationship("Process",
-                           back_populates="_equipmentroleeequipmentassociation")  #: associated procedure
+                           back_populates="_equipmentroleequipmentassociation")  #: associated procedure
 
     @hybrid_property
-    def name(self):
-        return f"{self._equipmentrole.name}->{self.equipment.name}"
+    def name(self) -> str:
+        er = self._equipmentrole or "UnassignedRole"
+        eq = self._equipment or "UnknownEquipment"
+        return f"{er}->{eq}"
 
     @name.expression
     def name(self):
-        return func.concat(self._equipmentrole.name, "->", self.equipment.name)
+        return func.concat(
+            EquipmentRole.name,
+            "->",
+            Equipment.name
+        ).label("name")
     
     @hybrid_property
     def process(self):
@@ -2323,7 +2455,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     @process.setter
     def process(self, value):
         from backend.validators.pydant import PydProcess
-        error_msg = f"Can't add item {item} to {self.name}._process"
+        error_msg = f"Can't add item {value} to {self.name}._process"
         match value:
             case str():
                 output = Process.query(name=value, limit=1)
@@ -2339,7 +2471,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         if isinstance(output, Process):
             self._process = output
         else:
-            raise TypeError(error_msg)
+            self._process = None
     
     @hybrid_property
     def equipment(self):
@@ -2364,7 +2496,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         if isinstance(output, Equipment):
             self._equipment = output
         else:
-            raise TypeError(error_msg)
+            self._equipment = None
     
     @hybrid_property
     def equipmentrole(self):
@@ -2373,7 +2505,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     @equipmentrole.setter
     def equipmentrole(self, value):
         from backend.validators.pydant import PydEquipmentRole
-        error_msg = f"Can't add item {item} to {self.name}._equipmentrole"
+        error_msg = f"Can't add item {value} to {self.name}._equipmentrole"
         match value:
             case str():
                 output = EquipmentRole.query(name=value, limit=1)
@@ -2389,7 +2521,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         if isinstance(output, EquipmentRole):
             self._equipmentrole = output
         else:
-            raise TypeError(error_msg)
+            self._equipmentrole = None
     
     def details_dict(self, **kwargs) -> dict:
         output = super().details_dict(**kwargs)
@@ -2397,7 +2529,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         output['equipment']['process'] = [item.details_dict() for item in self.process.processversion if
                                           bool(item.active)]
         return output
-
+        
 
 class Process(BaseClass):
     """
@@ -2411,14 +2543,14 @@ class Process(BaseClass):
 
     _processversion = relationship("ProcessVersion", back_populates="_process")
 
-    _equipmentroleeequipmentassociation = relationship("EquipmentRoleEquipmentAssociation", back_populates="_process")
+    _equipmentroleequipmentassociation = relationship("EquipmentRoleEquipmentAssociation", back_populates="_process")
 
     @hybrid_property
-    def equipmentroleeequipmentassociation(self):
-        return self._equipmentroleeequipmentassociation
+    def equipmentroleequipmentassociation(self):
+        return self._equipmentroleequipmentassociation
 
-    @equipmentroleeequipmentassociation.setter
-    def equipmentroleeequipmentassociation(self, value):
+    @equipmentroleequipmentassociation.setter
+    def equipmentroleequipmentassociation(self, value):
         if value is None:
             value = []
         if not isinstance(value, list):
@@ -2685,11 +2817,19 @@ class ProcessVersion(BaseClass):
     def active(self, value):
         match value:
             case int():
-                self._active = value
+                output = value
             case bool():
-                self._active = int(value)
+                output = int(value)
+            case str():
+                if value.lower() in ["false", "0", "no", "off"]:
+                    output = 0
+                elif value.lower() in ["true", "1", "yes", "on"]:
+                    output = 1
+                else:
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
             case _:
-                raise TypeError(f"Unsupported type {type(value)} for {self.name}._active")
+                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
+        self._active = output
 
     # @validates('active')
     # def validate_active(self, key, value):
@@ -2942,7 +3082,21 @@ class TipsLot(BaseClass, LogMixin):
 
     @active.setter
     def active(self, value):
-        self._active = int(value)   
+        match value:
+            case int():
+                output = value
+            case bool():
+                output = int(value)
+            case str():
+                if value.lower() in ["false", "0", "no", "off"]:
+                    output = 0
+                elif value.lower() in ["true", "1", "yes", "on"]:
+                    output = 1
+                else:
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
+            case _:
+                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
+        self._active = output
 
     @classmethod
     def query(cls,
@@ -3315,13 +3469,34 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
     # uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
-    static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
+    _static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypeequipmentroleassociation",
                                  foreign_keys=[proceduretype_id])  #: associated procedure
     _equipmentrole = relationship(EquipmentRole,
                                  back_populates="equipmentroleproceduretypeassociation",
                                  foreign_keys=[equipmentrole_id])  #: associated equipment
+
+    @hybrid_property
+    def static(self):
+        return bool(self._static)
+    
+    @static.setter
+    def static(self, value):
+        match value:
+            case int():
+                self._static = value
+            case bool():
+                self._static = int(value)
+            case str():
+                if value.lower() in ['true', '1', 'yes', 'on']:
+                    self._static = 1
+                elif value.lower() in ['false', '0', 'no', 'off']:
+                    self._static = 0
+                else:
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.name}._static")
+            case _:
+                raise TypeError(f"Unsupported type {type(value)} for {self.name}._static")
 
     @hybrid_property
     def name(self):

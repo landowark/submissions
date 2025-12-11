@@ -74,20 +74,26 @@ function setupDualListDelegation() {
     if (!container || container.dataset.dualListHandlerAttached) return;
     container.addEventListener('click', (e) => {
         const t = e.target;
-        var association_form = t.name + '_associationForm';
-        if (document.getElementById(association_form)) {
-            formdata = new FormData(document.getElementById(association_form));
+        var association_form = document.getElementById(t.name + '_associationForm');
+        if (association_form) {
+            var formdata = new FormData(association_form);
         } else {
-            formdata = null;
+            var formdata = null;
+        }
+        if (formdata) {
+            var formObject = Object.fromEntries(formdata.entries());
+            console.log('Form as Object:', formObject);
+        } else {
+            var formObject = null;
         }
         if (t.classList && t.classList.contains('addSelectedBtn')) {
             e.preventDefault();
             console.log("Add button clicked (delegated):", t.name);
-            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`, formdata);
+            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`, formObject);
         } else if (t.classList && t.classList.contains('removeSelectedBtn')) {
             e.preventDefault();
             console.log("Remove button clicked (delegated):", t.name);
-            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`, formdata);
+            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`, formObject);
         }
     });
 

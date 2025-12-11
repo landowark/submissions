@@ -36,8 +36,8 @@ class PydReagentRole(PydAbstract):
 class PydEquipmentRole(PydAbstract):
 
     name: str = Field(default="NA", description="Name of this equipment role.")
-    equipment: List[str] | List[dict] = Field(default_factory=list, description="Equipment this role can use.", alias="equipmentroleequipmentassociation", repr=False)
-    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", alias="proceduretypequipmentroleassociation", repr=False)
+    equipment: List[str] | List[dict] = Field(default_factory=list, description="Equipment this role can use.", repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", repr=False)
 
 
 class PydProcess(PydAbstract):
@@ -170,14 +170,26 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
 
     @field_validator("static", mode="before")
     @classmethod
-    def validate_static(cls, value) -> bool:
-        if value == 0:
-            return False
-        return True
+    def int_to_bool(cls, value):
+        if isinstance(value, int):
+            value = bool(value)
+        return value
+    
+    @field_validator("static")
+    @classmethod
+    def enforce_active(cls, value):
+        if value is None:
+            value = True
+        if isinstance(value, str):
+            if value.lower() in ["false", "0", "no", "off"]:
+                value = False
+            else:
+                value = True
+        return value
     
 
 class PydEquipmentRoleEquipmentAssociation(PydAbstract):
 
     equipmentrole: str = Field(default="NA")
     equipment: str = Field(default="NA")
-    process: List[str] = Field(default_factory=list, description="Processes using this equipment role-equipment association.", repr=False)
+    process: str = Field(default="NA", description="Processes using this equipment role-equipment association.")

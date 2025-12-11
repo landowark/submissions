@@ -50,7 +50,7 @@
         </select>
     </div>
 </div>
-{% elif item['type'] == "ASSOCIATIONLIST" %}
+{% elif item['type'] == "ASSOCIATIONLIST" or item['type'] == "OBJECTASSOCIATIONPROXYINSTANCE" %}
 <div id="{{ item['field'] }}" class="dual-listbox-container associationlist">
     <div class="selected-list list-panel">
         <h4>Selected Options</h4>
@@ -72,9 +72,9 @@
             {% endfor %}
         </select>
     </div>
-    <div id="{{ item['field'] }}_associationForm" class="associationForm">
+    <form id="{{ item['field'] }}_associationForm" class="associationForm">
         <!-- Additional fields for association attributes can be added here -->
-    </div>
+    </form>
 </div>
 {% endif %}
 </br></br>
