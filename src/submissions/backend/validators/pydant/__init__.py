@@ -168,7 +168,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
     
     @classmethod
-    def determine_field_type(cls, field: str) -> str:
+    def determine_field_type(cls, field: str, is_new: bool = False) -> str:
         """Determines which type of field to use in the form.
 
         Args:
@@ -179,6 +179,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """        
         type_ = getattr(cls._sql_object, field.lower().strip("_"))
         type_name = type_.__class__.__name__
+        logger.debug(f"Type name for {field}: {type_name}")
         match type_name:
             case "hybrid_propertyProxy":
                 try:
@@ -186,9 +187,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 except AttributeError:
                     type_ = getattr(cls._sql_object, f"_{field}") # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
+                logger.debug(f"New type_name for hybrid_propertyProxy: {type_name}")
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
                     type_name = type_.__class__.__name__
+                    logger.debug(f"New type_name for hybrid_propertyProxy, InstrumentedAttribute: {type_name}")
                     if type_name == "_RelationshipDeclared":
                         if type_.uselist:
                             type_name = "RelationshipList"
@@ -196,8 +199,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             type_name = "RelationshipScalar"
                     else:
                         type_name = cls.model_fields[field].annotation.__name__
+                if type_name == "ObjectAssociationProxyInstance":
+                    if is_new:
+                        type_name = "Skipped"
             case "ObjectAssociationProxyInstance":
-                type_name = "AssociationList"
+                if is_new:
+                    type_name = "Skipped"
             case "InstrumentedAttribute":
                 type_name = cls.model_fields[field].annotation.__name__
             case _:
@@ -248,7 +255,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             raise NotImplementedError("Must be used in subclass only")
         data = self.model_dump()
         for field in self.described_fields:
-            type_name = self.determine_field_type(field)
+            is_new = getattr(self, "new", False)
+            type_name = self.determine_field_type(field, is_new=is_new)
             if field.lower().strip("_") in self.sql_classes:
                 excluded = self._compute_excluded_items(field=field)
             else:

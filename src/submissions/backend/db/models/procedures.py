@@ -9,9 +9,9 @@ from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Int
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query, declared_attr, aliased
 from sqlalchemy.ext.associationproxy import association_proxy
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from dateutil.parser import parse as dateparse
-from tools import check_authorization, setup_lookup, check_regex_match, jinja_template_loading, flatten_list
+from tools import check_authorization, setup_lookup, check_regex_match, jinja_template_loading, flatten_list, timezone
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
@@ -70,7 +70,7 @@ class ReagentRole(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to KitTypeReagentTypeAssociation
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    _proceduretype = association_proxy("reagentroleproceduretypeassociation", "proceduretype")
+    _proceduretype = association_proxy("reagentroleproceduretypeassociation", "_proceduretype")
 
     reagentrolereagentassociation = relationship(
         "ReagentRoleReagentAssociation",
@@ -78,10 +78,10 @@ class ReagentRole(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to KitTypeReagentTypeAssociation
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    _reagent = association_proxy("reagentrolereagentassociation", "reagent")
+    _reagent = association_proxy("reagentrolereagentassociation", "_reagent")
 
     @hybrid_property
-    def proceduretype(self):
+    def proceduretype(self) -> List[ProcedureType]:
         return self._proceduretype
     
     @proceduretype.setter
@@ -105,7 +105,7 @@ class ReagentRole(BaseClass):
                 raise TypeError(error_msg)
 
     @hybrid_property
-    def reagent(self):
+    def reagent(self) -> List[Reagent]:
         return self._reagent
     
     @reagent.setter
@@ -154,25 +154,31 @@ class ReagentRole(BaseClass):
             ReagentRole|List[ReagentRole]: ReagentRole or list of ReagentRoles matching filter.
         """
         query: Query = cls.__database_session__.query(cls)
-        if (proceduretype is not None and reagent is None) or (reagent is not None and proceduretype is None):
-            raise ValueError("Cannot filter without both reagent and kittype type.")
-        elif proceduretype is None and reagent is None:
-            pass
-        else:
-            match proceduretype:
-                case str():
-                    proceduretype = ProcedureType.query(name=proceduretype)
-                case _:
-                    pass
-            match reagent:
-                case str():
-                    reagent = Reagent.query(lot=reagent)
-                case _:
-                    pass
-            assert reagent.role
-            # NOTE: Get all roles common to the reagent and the kittype.
-            result = set(proceduretype.reagentrole).intersection(reagent.role)
-            return next((item for item in result), None)
+        # if (proceduretype is not None and reagent is None) or (reagent is not None and proceduretype is None):
+        #     raise ValueError("Cannot filter without both reagent and kittype type.")
+        # elif proceduretype is None and reagent is None:
+        #     pass
+        # else:
+        match proceduretype:
+            case str():
+                proceduretype = ProcedureType.query(name=proceduretype)
+                query = query.filter(cls._proceduretype==proceduretype)
+            case ProcedureType():
+                query = query.filter(cls._proceduretype==proceduretype)
+            case _:
+                pass
+        match reagent:
+            case str():
+                reagent = Reagent.query(lot=reagent)
+                query = query.filter(cls._reagent==reagent)
+            case Reagent():
+                query = query.filter(cls._reagent==reagent)
+            case _:
+                pass
+            # assert reagent.role
+            # # NOTE: Get all roles common to the reagent and the kittype.
+            # result = set(proceduretype.reagentrole).intersection(reagent.role)
+            # return next((item for item in result), None)
         match name:
             case str():
                 query = query.filter(cls.name == name)
@@ -1742,6 +1748,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     @proceduretype.setter
     def proceduretype(self, value):
         from backend.validators.pydant import PydProcedureType
+        logger.debug(f"Setting {self.__class__}._proceduretype using {value}")
         error_msg = f"Can't add item {value} to {self.name}._proceduretype"
         match value:
             case str():
@@ -3677,6 +3684,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
+
 class Results(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -3693,6 +3701,23 @@ class Results(BaseClass):
     resultstype_id = Column(INTEGER, ForeignKey("_resultstype.id", ondelete='SET NULL',
                                               name="fk_RES_resultstype_id"))
     _resultstype = relationship("ResultsType", back_populates="_results")
+
+    @hybrid_property
+    def date_analyzed(self):
+        return self._date_analyzed
+    
+    @date_analyzed.setter
+    def date_analyzed(self, value):
+        match value:
+            case date():
+                value = datetime.combine(value, time=datetime.now(tz=timezone).time())
+            case str():
+                value = dateparse(value)
+            case datetime():
+                pass
+            case _:
+                raise TypeError(f"Unknown type {value} for Results._data_analyzed.")
+        self._date_analyzed = value
 
     @hybrid_property
     def resultstype(self):
@@ -3769,7 +3794,7 @@ class Results(BaseClass):
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         if bool(self.sample_id):
-            output.sample_id = self.sample_id
+            output.sample = self._sampleprocedureassociation.name
         return output
 
 

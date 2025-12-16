@@ -1,10 +1,12 @@
 </br>
 {% for item in object %}
+{% if not item['type'] == "SKIPPED" %}
 <label for="{{ item['field'] }}" style="font-size: medium;">{{ item['field'] }} 
     <div class="tooltip"><u style="color: blue;">?</u>
         <span class="tooltiptext">{{ item['tooltip'] }}</span>
     </div>:
 </label></br>
+{% endif %}
 {% if item['type'] == "STR" %}
 <input {% if item['field'] in ['phone', 'email'] %}type={{ item['field'] }}{%else%}type="text"{% endif %} id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "INT" %}

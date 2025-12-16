@@ -10,7 +10,7 @@ from jinja2 import TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty, RelationshipProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
@@ -259,6 +259,7 @@ class BaseClass(Base):
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
+            logger.debug(f"Setting {cls.__qualname__} {k} to {v}")
             setattr(instance, k, v)
         return instance, new
 
@@ -304,18 +305,65 @@ class BaseClass(Base):
                 check = attr.property.uselist
             except AttributeError:
                 check = False
-            if check:
-                try:
-                    query = query.filter(attr.contains(v))
-                except ArgumentError:
-                    continue
+            # Handle when the value provided is an instance of a BaseClass
+            # If the instance hasn't been persisted (no id), comparing the
+            # relationship directly will raise StatementError because SQLAlchemy
+            # can't resolve the primary key value. In that case try to match
+            # on a sensible alternative (usually 'name') using .has / .any.
+            if isinstance(v, BaseClass):
+                obj_pk = getattr(v, "id", None)
+                is_rel = isinstance(getattr(attr, "property", None), RelationshipProperty)
+
+                # If it's a relationship property, prefer .has / .any when no pk
+                if is_rel:
+                    related_cls = attr.property.mapper.class_
+                    # If object has a primary key, we can compare directly
+                    if obj_pk is not None:
+                        try:
+                            if check:
+                                query = query.filter(attr.contains(v))
+                            else:
+                                query = query.filter(attr == v)
+                        except ArgumentError:
+                            pass
+                    else:
+                        # Try to match by name if available to avoid StatementError
+                        obj_name = getattr(v, "name", None)
+                        if obj_name is not None:
+                            try:
+                                if check:
+                                    query = query.filter(attr.any(related_cls.name == obj_name))
+                                else:
+                                    query = query.filter(attr.has(name=obj_name))
+                            except ArgumentError:
+                                pass
+                        else:
+                            # Can't resolve the unsaved object; skip this filter
+                            continue
+                else:
+                    # Not a relationship property (unlikely to be a BaseClass),
+                    # fall back to attempting direct comparison if pk present.
+                    if obj_pk is None:
+                        # can't compare unresolved object, skip
+                        continue
+                    try:
+                        query = query.filter(attr == v)
+                    except ArgumentError:
+                        continue
             else:
-                if isinstance(v, list):
-                    continue
-                try:
-                    query = query.filter(attr == v)
-                except ArgumentError:
-                    continue
+                # Non-instance values
+                if check:
+                    try:
+                        query = query.filter(attr.contains(v))
+                    except ArgumentError:
+                        continue
+                else:
+                    if isinstance(v, list):
+                        continue
+                    try:
+                        query = query.filter(attr == v)
+                    except ArgumentError:
+                        continue
             if k in singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1

@@ -4,8 +4,8 @@ import logging, sys
 from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
-
 from backend.db.models import BaseClass
+from backend.validators.pydant import PydConcrete
 from . import CustomWebEnginePage
 from PyQt6.QtCore import Qt, pyqtSlot, QVariant
 from tools import jinja_template_loading, render_details_template
@@ -45,7 +45,11 @@ class OmniManager(QDialog):
             None
         """
         logger.debug("Resetting form to initial state.")
-        object_list = ["", "--New--"] + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
+        if issubclass(self.pydant.__class__, PydConcrete):
+            addendum = [""]
+        else:
+            addendum = ["", "--New--"]
+        object_list = addendum + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
         object_name = self.sql_type.__name__
         # logger.debug(f"Object list for {self.sql_type}: {object_list}")
         html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
@@ -65,12 +69,14 @@ class OmniManager(QDialog):
         # logger.debug(f"Updating selection to: {selection}")
         if selection == "--New--":
             self.pydant = self.object_type()
+            self.pydant.new = True
         else:
             sql_instance = self.object_type._sql_object.query(name=selection, limit=1)
             if not sql_instance:
                 logger.error(f"Could not find instance with name: {selection}")
                 return
             self.pydant = sql_instance.to_pydantic()
+            self.pydant.new = False
         logger.debug(f"Form data:\n{pformat([item for item in self.pydant.form_dictionary])}")
         html = self.pydant.html_form
         return html

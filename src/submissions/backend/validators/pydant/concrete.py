@@ -27,8 +27,8 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     result: dict = Field(default={}, repr=False)
     result_type: str | PydResultsType = Field(default="NA")
     image: None | bytes = Field(default=None, repr=False)
-    procedure: str | PydProcedure | None = Field(default=None, description="Parent procedure this result is associated with.")
-    sample: str | PydSample | None = Field(default=None, description="Parent sample this result is associated with.")
+    procedure: str | PydProcedure | None = Field(default=None)#, description="Parent procedure this result is associated with.")
+    sample: str | PydSample | None = Field(default=None)#, description="Parent sample this result is associated with.")
     date_analyzed: datetime | None = Field(default=None, repr=False, description="Date this result was analyzed.", validate_default=True)
 
     @field_validator("date_analyzed")

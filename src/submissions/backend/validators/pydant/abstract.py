@@ -163,7 +163,7 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 
     @classproperty
     def aliases(cls) -> str:
-        return super().aliases + ["reagentroleproceduretypassociation"]
+        return super().aliases + ["reagentroleproceduretypeassociation"]
 
 
 class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
@@ -194,6 +194,7 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
     @classproperty
     def aliases(cls) -> str:
         return super().aliases + ["equipmentroleproceduretypassociation"]
+
 
 class PydEquipmentRoleEquipmentAssociation(PydAbstract):
 
