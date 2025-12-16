@@ -86,7 +86,7 @@ class EquipmentUsage(QDialog):
         tips = next((tps for tps in equipment.tips if tps.name == tips))
         eoi.tips = tips.to_pydantic()
         self.procedure.equipment.append(eoi)
-        logger.debug(f"Updated equipment: {self.procedure.equipment}")
+        # logger.debug(f"Updated equipment: {self.procedure.equipment}")
 
     def save_procedure(self):
         sql, _ = self.procedure.to_sql()

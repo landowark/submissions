@@ -77,7 +77,7 @@ class EditProperty(QWidget):
 
     def __init__(self, parent: AddEdit, key: str, column_type: Any, value, disable: bool):
         super().__init__(parent)
-        logger.debug(f"Widget column type for {key}: {column_type}")
+        # logger.debug(f"Widget column type for {key}: {column_type}")
         self.name = key
         self.label = QLabel(key.title().replace("_", " "))
         self.layout = QGridLayout()
@@ -86,7 +86,7 @@ class EditProperty(QWidget):
             self.property_class = column_type['class_attr'].property.entity.class_
         except AttributeError:
             self.property_class = None
-        logger.debug(f"Property class: {self.property_class}")
+        # logger.debug(f"Property class: {self.property_class}")
         try:
             self.is_list = column_type['class_attr'].property.uselist
         except AttributeError:

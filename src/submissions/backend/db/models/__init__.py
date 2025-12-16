@@ -9,7 +9,7 @@ from dateutil.parser import parse
 from jinja2 import TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT
-from sqlalchemy.ext.associationproxy import AssociationProxy
+from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -124,7 +124,7 @@ class BaseClass(Base):
         return ctx.backup_path
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__()
         self._misc_info = dict()
 
     @declared_attr
@@ -254,6 +254,7 @@ class BaseClass(Base):
         if not instance or isinstance(instance, list):
             instance = cls()
             new = True
+        print(f"{cls.__name__}.query_or_create came up with {instance}, is it a new one? {new}")
         for k, v in kwargs.items():
             if k == "id":
                 continue
@@ -292,6 +293,7 @@ class BaseClass(Base):
             query: Query = cls.__database_session__.query(cls)
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
+            print(f"Querying for {k}: {v}")
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
@@ -308,6 +310,8 @@ class BaseClass(Base):
                 except ArgumentError:
                     continue
             else:
+                if isinstance(v, list):
+                    continue
                 try:
                     query = query.filter(attr == v)
                 except ArgumentError:
@@ -315,6 +319,7 @@ class BaseClass(Base):
             if k in singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
+            print(query.all())
         if offset:
             query.offset(offset)
         with query.session.no_autoflush:
@@ -399,7 +404,7 @@ class BaseClass(Base):
             template = env.get_template("details.html")
         return template
 
-    def check_all_attributes(self, attributes: dict) -> bool:
+    def check_all_attributes(self, **kwargs) -> bool:
         """
         Checks this instance against a dictionary of attributes to determine if they are a match.
 
@@ -409,46 +414,95 @@ class BaseClass(Base):
         Returns:
             bool: If a single unequivocal value is found will be false, else true.
         """
-        for key, value in attributes.items():
-            if value.lower() == "none":
-                value = None
-            self_value = getattr(self, key)
-            class_attr = getattr(self.__class__, key)
-            if isinstance(class_attr, property):
-                filter = "property"
-            else:
-                filter = class_attr.property
-            match filter:
-                case ColumnProperty():
-                    match class_attr.type:
-                        case INTEGER():
-                            if value.lower() == "true":
-                                value = 1
-                            elif value.lower() == "false":
-                                value = 0
-                            else:
-                                value = int(value)
-                        case FLOAT():
-                            value = float(value)
-                case "property":
-                    pass
-                case _RelationshipDeclared():
-                    try:
-                        self_value = self_value.name
-                    except AttributeError:
-                        pass
-                    if class_attr.property.uselist:
-                        self_value = self_value.__str__()
+        """
+        Compare instance attributes to provided expected values.
+
+        Behavior / assumptions:
+        - For attributes that are other BaseClass instances, compares using their
+          `name` (or `id` if `name` missing).
+        - For list-like relationship attributes, compares sets of stringified
+          item identifiers (name/id) to be order-insensitive.
+        - Accepts string inputs for expected values and attempts to coerce them
+          to the type of the actual attribute when reasonable (int, float,
+          bool, datetime).
+        - Treats the string "none" (case-insensitive) as None.
+
+        Returns True only if all provided attribute expectations match the
+        instance values; returns False on the first mismatch.
+        """
+        def _as_identifier(val):
+            """Return name or id for BaseClass-like objects, else the value itself."""
             try:
-                check = issubclass(self_value.__class__, self.__class__)
-            except TypeError as e:
-                logger.error(f"Couldn't check if {self_value.__class__} is subclass of {self.__class__} due to {e}")
-                check = False
-            if check:
-                self_value = self_value.name
-            if self_value != value:
-                # output = False
+                if isinstance(val, BaseClass):
+                    return getattr(val, "name", None) or getattr(val, "id", None)
+            except Exception:
+                pass
+            return val
+
+        def _normalize_expected(expected, actual):
+            # Normalize simple string markers
+            if isinstance(expected, str):
+                s = expected.strip()
+                if s.lower() == "none":
+                    return None
+                if s.lower() in ("true", "false") and isinstance(actual, bool):
+                    return s.lower() == "true"
+                # numeric coercion when actual type suggests it
+                try:
+                    if isinstance(actual, int) and "." not in s:
+                        return int(s)
+                    if isinstance(actual, float):
+                        return float(s)
+                    if isinstance(actual, (datetime, date)):
+                        return parse(s)
+                except Exception:
+                    # leave as string if coercion fails
+                    pass
+            return expected
+
+        for key, expected in kwargs.items():
+            # pull actual value from attribute or misc_info if attribute not present
+            try:
+                self_value = getattr(self, key)
+            except AttributeError:
+                try:
+                    self_value = self._misc_info.get(key)
+                except Exception:
+                    return False
+
+            # Handle relationship lists / association proxies
+            if isinstance(self_value, (_AssociationList, list, tuple)):
+                # normalize collection to identifiers (name/id) and compare sets
+                actual_set = {str(_as_identifier(v)) for v in self_value}
+                if isinstance(expected, (list, tuple, set)):
+                    expected_set = {str(_as_identifier(v)) for v in expected}
+                else:
+                    expected_set = {str(_as_identifier(expected))}
+                if actual_set != expected_set:
+                    return False
+                else:
+                    continue
+
+            # If self_value is another BaseClass-like object, compare by identifier
+            if isinstance(self_value, BaseClass):
+                actual_id = _as_identifier(self_value)
+                if isinstance(expected, BaseClass):
+                    expected_id = _as_identifier(expected)
+                else:
+                    expected_id = expected
+                expected_id = _normalize_expected(expected_id, actual_id)
+                if actual_id != expected_id:
+                    return False
+                else:
+                    continue
+
+            # Normalize expected when possible based on actual type
+            expected_norm = _normalize_expected(expected, self_value)
+
+            # Final direct comparison (allowing for None)
+            if self_value != expected_norm:
                 return False
+
         return True
 
     def __setattr__(self, key, value):
@@ -456,7 +510,7 @@ class BaseClass(Base):
         Custom dunder method to handle potential list relationship issues.
         __setattr__ is called before property.setter methods.
         """
-        if key.startswith("_"):
+        if key == "_sa_instance_state":
             return super().__setattr__(key, value)
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
@@ -481,8 +535,11 @@ class BaseClass(Base):
             try:
                 super().__setattr__(key, value)
                 # print(self.__dict__)
-            except AttributeError:
-                raise AttributeError(f"Can't set {key} to {value}")
+            except AttributeError as e:
+                if "association" in key:
+                    logger.warning(f"Disallowing setting of association {key} automatically")
+                else:
+                    raise AttributeError(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
 
     def delete(self, **kwargs):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
@@ -524,19 +581,25 @@ class BaseClass(Base):
             Any: corrected value
         """
         from backend.validators.pydant import PydBaseClass
+        
         match value:
             case str():
-                return value.strip('\"')
+                output = value.strip('\"')
             case list():
-                return [cls.correct_details_fields(v) for v in value]
+                output = [cls.correct_details_fields(v) for v in value]
             case dict():
-                return {k: cls.correct_details_fields(v) for k, v in value.items()}
+                output = {k: cls.correct_details_fields(v) for k, v in value.items()}
             case x if issubclass(value.__class__, BaseClass):
-                return value.name
+                output = value.name
             case x if issubclass(value.__class__, PydBaseClass):
-                return value.name
+                output = value.name
+            case _AssociationList():
+                output = [cls.correct_details_fields(v) for v in value]
             case _:
-                return value
+                print(f"Unmatched value type: {type(value)} for value: {value}")
+                output = value
+        print(f"Corrected value: {value} to {output}")
+        return output
     
     def details_dict(self, **kwargs) -> dict:
         """

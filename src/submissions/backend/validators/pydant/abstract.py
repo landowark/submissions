@@ -29,8 +29,8 @@ class PydTips(PydAbstract):
 class PydReagentRole(PydAbstract):
 
     name: str = Field(default="NA", description="Name of this reagent role.")
-    reagent: List[str] | List[dict] = Field(default_factory=list, description="Reagents filling this role.", alias="reagentrolereagentassociation", repr=False)
-    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", alias="proceduretypreagentroleassociation", repr=False)
+    reagent: List[str] | List[dict] = Field(default_factory=list, description="Reagents filling this role.", repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", repr=False)
 
 
 class PydEquipmentRole(PydAbstract):
@@ -161,6 +161,10 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
     reagentrole: str = Field(default="NA")
     last_used: str = Field(default="NA")
 
+    @classproperty
+    def aliases(cls) -> str:
+        return super().aliases + ["reagentroleproceduretypassociation"]
+
 
 class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
 
@@ -187,9 +191,17 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
                 value = True
         return value
     
+    @classproperty
+    def aliases(cls) -> str:
+        return super().aliases + ["equipmentroleproceduretypassociation"]
 
 class PydEquipmentRoleEquipmentAssociation(PydAbstract):
 
     equipmentrole: str = Field(default="NA")
     equipment: str = Field(default="NA")
     process: str = Field(default="NA", description="Processes using this equipment role-equipment association.")
+
+    @classproperty
+    def aliases(cls) -> str:
+        return super().aliases + ["equipmentequipmentroleassociation"]
+    

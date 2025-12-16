@@ -251,177 +251,91 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage ProcedureType</h2>
+<h2 id="ObjectName">Manage EquipmentRole</h2>
 
-<select id="inital_object" onchange="update_selection(this.value)">
+<select id="initial_object" onchange="update_selection(this.value)">
     
         <option value=""></option>
     
         <option value="--New--">--New--</option>
     
-        <option value="Test">Test</option>
-    
-        <option value="Bacterial Culture Extraction">Bacterial Culture Extraction</option>
+        <option value="Extractor">Extractor</option>
     
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 <label for="name" style="font-size: medium;">name 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Name of this Procedure Type.</span>
+        <span class="tooltiptext">Name of this equipment role.</span>
     </div>:
 </label><br>
 
-<input type="text" id="name" name="name" value="Bacterial Culture Extraction" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="text" id="name" name="name" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
-<label for="plate_columns" style="font-size: medium;">plate_columns 
+<label for="equipment" style="font-size: medium;">equipment 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">If this uses a plate, this is the column count.</span>
+        <span class="tooltiptext">Equipment this role can use.</span>
     </div>:
 </label><br>
 
-<input type="number" id="plate_columns" name="plate_columns" value="12" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="plate_rows" style="font-size: medium;">plate_rows 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">If this uses a plate, this is the row count.</span>
-    </div>:
-</label><br>
-
-<input type="number" id="plate_rows" name="plate_rows" value="8" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="plate_cost" style="font-size: medium;">plate_cost 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Minimum cost of running a plate.</span>
-    </div>:
-</label><br>
-
-<input type="number" step="any" id="plate_cost" name="plate_cost" value="1.0" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-<label for="submissiontype" style="font-size: medium;">submissiontype 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Submission Types using this type.</span>
-    </div>:
-</label><br>
-
-<div id="submissiontype" class="dual-listbox-container relationshiplist">
+<div id="equipment" class="dual-listbox-container associationlist">
     <div class="selected-list list-panel">
         <h4>Selected Options</h4>
-        <select id="submissiontype_selectedOptions" multiple="" size="10" class="relationship selected">
-            
-            <option value="Default SubmissionType" class="relationship">Default SubmissionType</option>
-            
-            <option value="Bacterial Culture" class="relationship">Bacterial Culture</option>
+        <select id="equipment_selectedOptions" size="10">
             
         </select>
     </div>
     <div class="controls">
-        <button type="button" id="submissiontype_addSelected" name="submissiontype" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="submissiontype_removeSelected" name="submissiontype" class="removeSelectedBtn">&gt;</button>
+        <button type="button" id="equipment_addSelected" name="equipment" class="addSelectedBtn association">&lt;</button>
+        <button type="button" id="equipment_removeSelected" name="equipment" class="removeSelectedBtn association">&gt;</button>
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="submissiontype_availableOptions" multiple="" size="10" class="relationship available">
+        <select id="equipment_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
+            
+            <option value="Kingfisher 1">Kingfisher 1</option>
+            
+            <option value="Kingfisher 2">Kingfisher 2</option>
             
         </select>
     </div>
-</div>
-
-<br><br>
-
-<label for="resultstype" style="font-size: medium;">resultstype 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Results Types used by this type.</span>
-    </div>:
-</label><br>
-
-<div id="resultstype" class="dual-listbox-container relationshiplist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="resultstype_selectedOptions" multiple="" size="10" class="relationship selected">
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="resultstype_addSelected" name="resultstype" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="resultstype_removeSelected" name="resultstype" class="removeSelectedBtn">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="resultstype_availableOptions" multiple="" size="10" class="relationship available">
-            
-        </select>
-    </div>
-</div>
-
-<br><br>
-
-<label for="equipmentrole" style="font-size: medium;">equipmentrole 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Equipment roles used by this type.</span>
-    </div>:
-</label><br>
-
-<div id="equipmentrole" class="dual-listbox-container associationlist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="equipmentrole_selectedOptions" multiple="" size="10">
-            
-            <option value="NA">NA</option>
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="equipmentrole_addSelected" name="equipmentrole" class="addSelectedBtn association">&lt;</button>
-        <button type="button" id="equipmentrole_removeSelected" name="equipmentrole" class="removeSelectedBtn association">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="equipmentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
-            
-        </select>
-    </div>
-    <form id="equipmentrole_associationForm" class="associationForm">
+    <form id="equipment_associationForm" class="associationForm">
         <!-- Additional fields for association attributes can be added here -->
     </form>
 </div>
 
 <br><br>
 
-<label for="reagentrole" style="font-size: medium;">reagentrole 
+<label for="proceduretype" style="font-size: medium;">proceduretype 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Reagent roles used by this type.</span>
+        <span class="tooltiptext">ProcedureTypes using this role</span>
     </div>:
 </label><br>
 
-<div id="reagentrole" class="dual-listbox-container associationlist">
+<div id="proceduretype" class="dual-listbox-container associationlist">
     <div class="selected-list list-panel">
         <h4>Selected Options</h4>
-        <select id="reagentrole_selectedOptions" multiple="" size="10">
+        <select id="proceduretype_selectedOptions" size="10">
             
         </select>
     </div>
     <div class="controls">
-        <button type="button" id="reagentrole_addSelected" name="reagentrole" class="addSelectedBtn association">&lt;</button>
-        <button type="button" id="reagentrole_removeSelected" name="reagentrole" class="removeSelectedBtn association">&gt;</button>
+        <button type="button" id="proceduretype_addSelected" name="proceduretype" class="addSelectedBtn association">&lt;</button>
+        <button type="button" id="proceduretype_removeSelected" name="proceduretype" class="removeSelectedBtn association">&gt;</button>
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="reagentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
+        <select id="proceduretype_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
             
-            <option value="Test ReagentRole">Test ReagentRole</option>
+            <option value="Test">Test</option>
+            
+            <option value="Bacterial Culture Extraction">Bacterial Culture Extraction</option>
             
         </select>
     </div>
-    <form id="reagentrole_associationForm" class="associationForm">
+    <form id="proceduretype_associationForm" class="associationForm">
         <!-- Additional fields for association attributes can be added here -->
     </form>
 </div>
@@ -461,25 +375,7 @@ if (typeof QWebChannel !== 'undefined') {
 
 
 <script>
-    // function update_selection(value) {
-//     // Handle the selection change
-//     console.log("Selected value:", value);
-//     backend.update_selection(value);
-//     // You can add more logic here to update the UI based on the selected value
-// }
-
-// const initSelectionDropdown = document.getElementById('inital_object');
-
-// initSelectionDropdown.addEventListener('change', (event) => {
-//     var selectedValue = event.target.value;
-//     console.log("Dropdown changed, selected value:", selectedValue);
-//     if (backend) {
-//         backend.update_selection(selectedValue);
-//     } else {
-//         console.warn('Backend is not available yet.');
-//     }
-// });
-
+    
 async function update_selection(value) {
     console.log("Selected value:", value);  
     if (backend) {
@@ -544,8 +440,17 @@ function setupDualListDelegation() {
             var formdata = null;
         }
         if (formdata) {
+            // var eds = document.getElementById(t.name + '_availableOptions');
+            // if (eds) {
+            //     formdata.append(t.name, eds.selectedOptions[0].text);
+            // }
+            // var manage_name = document.getElementById('ObjectName').innerText.replace('Manage ', '').toLowerCase();
+            // var editting = document.getElementById('initial_object').value;
+            // formdata.append(manage_name, editting);
+            formdata.forEach((value, key) => {
+                console.log('Form data:', key, value);
+            });
             var formObject = Object.fromEntries(formdata.entries());
-            console.log('Form as Object:', formObject);
         } else {
             var formObject = null;
         }
@@ -559,7 +464,6 @@ function setupDualListDelegation() {
             moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`, formObject);
         }
     });
-
     container.dataset.dualListHandlerAttached = 'true';
 }
 

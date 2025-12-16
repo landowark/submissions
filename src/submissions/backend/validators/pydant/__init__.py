@@ -28,6 +28,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     key_value_order: ClassVar[List] = []
 
     @classproperty
+    def aliases(cls) -> str:
+        return [cls.__name__.replace("Pyd", "").lower()]
+
+    @classproperty
     def _sql_name(cls) -> str:
         return cls.__name__.replace("Pyd", "")
 
@@ -106,7 +110,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             dict: This instance as a dictionary
         """
-        self.revalidate()
+        # self.revalidate()
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         if dictionaries:
             output = {k: getattr(self, k) for k in fields}
@@ -121,7 +125,17 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 
     def to_sql(self):
         dicto = self.improved_dict(dictionaries=False)
-        sql, new = self._sql_object.query_or_create(**dicto)
+        # Prevent accidental clearing of existing SQL relationship lists:
+        # Many SQLAlchemy relationship setters in this codebase treat an
+        # assignment of an empty list as an instruction to clear that
+        # relationship (often resulting in cascade delete-orphan).
+        # When converting a Pydantic model to SQL, an empty list usually
+        # means "no change" rather than "clear all associations". To be
+        # conservative, don't pass empty lists through to query_or_create
+        # so we don't unintentionally wipe related association rows.
+        sanitized_dicto = {k: v for k, v in dicto.items() if not (isinstance(v, list) and len(v) == 0)}
+        logger.debug(f"Converting to SQL with sanitized dict: {pformat(sanitized_dicto)}")
+        sql, new = self._sql_object.query_or_create(**sanitized_dicto)
         if new:
             logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
         return sql
@@ -187,8 +201,46 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             case "InstrumentedAttribute":
                 type_name = cls.model_fields[field].annotation.__name__
             case _:
-                logger.debug(f"Got type: {type_name} for field {field}.")
+                logger.warning(f"Got unmatched type: {type_name} for field {field}.")
         return type_name
+    
+    # Add this new helper method to PydBaseClass (place it before the form_dictionary property)
+    def _compute_excluded_items(self, field: str) -> list:
+        model: models.BaseClass = models.BaseClass.find_subclasses(class_alias=field.lower().strip("_"))
+        data = self.model_dump()
+        excluded = []
+        try:
+            rel_attr = self.__class__.__name__.lower().replace("pyd", "")
+            raw_field_values = data.get(field, [])
+            if isinstance(raw_field_values, list):
+                data_names = {v.get("name") if isinstance(v, dict) and "name" in v else v for v in raw_field_values}
+            else:
+                data_names = {raw_field_values}
+            for item in model.query():
+                try:
+                    related = getattr(item, rel_attr)
+                except AttributeError:
+                    logger.debug(f"Item {item} has no attribute {rel_attr}; skipping")
+                    continue
+                related_iter = related if isinstance(related, list) else [related]
+                related_names = set()
+                for r in related_iter:
+                    if hasattr(r, "name"):
+                        related_names.add(r.name)
+                    elif isinstance(r, dict) and "name" in r:
+                        related_names.add(r["name"])
+                # Some PydBaseClass instances may not have a 'name' attribute
+                # Use getattr to safely retrieve self's name, and only consider
+                # the relationship check if a name exists on self. If self has
+                # no name, rely solely on whether the item is present in the
+                # provided data_names when deciding exclusion.
+                self_name = getattr(self, "name", None)
+                already_related_to_self = (self_name is not None and self_name in related_names)
+                if (not already_related_to_self) and (item.name not in data_names):
+                    excluded.append(item.name)
+        except AttributeError as e:
+            logger.warning(f"Could not get excluded items for field {field} due to {e}. Trying sql based.")
+        return excluded
 
     @property
     def form_dictionary(self) -> Generator[dict, None, None]:
@@ -198,13 +250,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         for field in self.described_fields:
             type_name = self.determine_field_type(field)
             if field.lower().strip("_") in self.sql_classes:
-                model: models.BaseClass = models.BaseClass.find_subclasses(class_alias=field.lower().strip("_"))
-                try:
-                    excluded = [item.name for item in model.query() if self.name not in [i.name for i in getattr(item, self.__class__.__name__.lower().replace("pyd", ""))] and item.name not in data[field]]
-                except AttributeError as e:
-                    logger.warning(f"Could not get excluded items for field {field} due to {e}. Trying sql based.")
-                    this_sql = self.to_sql()
-                    excluded = [item.name for item in model.query() if this_sql not in getattr(item, self.__class__.__name__.lower().replace("pyd", "")) and item.name not in data[field]]
+                excluded = self._compute_excluded_items(field=field)
             else:
                 excluded = None
             tooltip = self.__class__.model_fields[field].description
@@ -215,18 +261,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 
     @classmethod
     def get_association_class(cls, field: str):
-        lookup_name = cls.__name__.replace("Pyd", "")
-        logger.debug(f"Looking for association class for field {lookup_name}")
-        subclasses = [class_ for class_ in PydBaseClass.get_subclasses() if lookup_name in class_.__name__ and "association" in class_.__name__.lower()]
-        logger.debug(f"Found subclasses: {pformat([class_ for class_ in subclasses])}")
-        class_names = [(class_.__name__.replace(lookup_name, ""), class_) for class_ in subclasses]
-        class_names = [(class_[0].replace("Pyd", ""), class_[1]) for class_ in class_names]
-        logger.debug(f"Looking for association class for field {field} in classes: {pformat(class_names)}")
-        class_ = next((subclass_[1] for subclass_ in class_names if field.lower().strip("_") in subclass_[0].lower()), None)
-        logger.debug(f"Found association class: {class_} for field {field}")
-        if class_ is None:
-            logger.error(f"Could not find association class for field {field} in {pformat(class_names)}")
-        return class_
+        lookup_name = cls.__name__.replace("Pyd", "").lower()
+        merged = f"{lookup_name}{field.lower().strip('_')}association"
+        # logger.debug(f"Looking for association class with merged alias: {merged}")
+        subclass = next((class_ for class_ in PydBaseClass.get_subclasses() if merged in class_.aliases), None)
+        if subclass is None:
+            logger.error(f"Could not find association class for merged alias: {merged}")
+        return subclass
 
     @property
     def html_form(self) -> str:
@@ -236,7 +277,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             association = False
         env = jinja_template_loading()
         template = env.get_template("managers/manager_form.html")
-        logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
+        # logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
         html = template.render(object=self.form_dictionary, association=association, class_name=self.__class__.__name__)
         return html
             

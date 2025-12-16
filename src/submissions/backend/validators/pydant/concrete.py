@@ -180,7 +180,7 @@ class PydEquipment(PydConcrete):
     name: str = Field(default="NA", description="Name of this equipment.")
     nickname: str = Field(default="NA", description="Nickname of this equipment.", validate_default=True)
     procedure: List[str] = Field(default_factory=list, repr=False)
-    equipmentrole: List[str] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
+    equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
 
     @field_validator('nickname')
     @classmethod

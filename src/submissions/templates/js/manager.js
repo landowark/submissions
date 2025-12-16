@@ -1,21 +1,3 @@
-// function update_selection(value) {
-//     // Handle the selection change
-//     console.log("Selected value:", value);
-//     backend.update_selection(value);
-//     // You can add more logic here to update the UI based on the selected value
-// }
-
-// const initSelectionDropdown = document.getElementById('inital_object');
-
-// initSelectionDropdown.addEventListener('change', (event) => {
-//     var selectedValue = event.target.value;
-//     console.log("Dropdown changed, selected value:", selectedValue);
-//     if (backend) {
-//         backend.update_selection(selectedValue);
-//     } else {
-//         console.warn('Backend is not available yet.');
-//     }
-// });
 
 async function update_selection(value) {
     console.log("Selected value:", value);  
@@ -81,8 +63,17 @@ function setupDualListDelegation() {
             var formdata = null;
         }
         if (formdata) {
+            // var eds = document.getElementById(t.name + '_availableOptions');
+            // if (eds) {
+            //     formdata.append(t.name, eds.selectedOptions[0].text);
+            // }
+            // var manage_name = document.getElementById('ObjectName').innerText.replace('Manage ', '').toLowerCase();
+            // var editting = document.getElementById('initial_object').value;
+            // formdata.append(manage_name, editting);
+            formdata.forEach((value, key) => {
+                console.log('Form data:', key, value);
+            });
             var formObject = Object.fromEntries(formdata.entries());
-            console.log('Form as Object:', formObject);
         } else {
             var formObject = null;
         }
@@ -96,7 +87,6 @@ function setupDualListDelegation() {
             moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`, formObject);
         }
     });
-
     container.dataset.dualListHandlerAttached = 'true';
 }
 
