@@ -1640,20 +1640,37 @@ class ClientSubmissionSampleAssociation(BaseClass):
     # NOTE: reference to the Sample object
     _sample = relationship("Sample", back_populates="sampleclientsubmissionassociation")  #: associated sample
 
-    def __init__(self, submission: ClientSubmission = None, sample: Sample = None, row: int = 0, column: int = 0,
-                 submission_rank: int = 0, **kwargs):
-        super().__init__()
-        self.clientsubmission = submission
-        self.sample = sample
-        self.row = row
-        self.column = column
-        self.submission_rank = submission_rank
-        for k, v in kwargs.items():
+    def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        clsub = kwargs.pop('clientsubmission', None)
+        samp = kwargs.pop('sample', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
+        super().__init__(*args, **kwargs)
+        # Resolve proceduretype
+        if clsub is not None:
             try:
-                self.__setattr__(k, v)
-            except AttributeError:
-                logger.error(f"Couldn't set {k} to {v}")
-
+                self.clientsubmission = clsub
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'clientsubmission': clsub})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if samp is not None:
+            try:
+                self.sample = samp
+            except Exception:
+                try:
+                    self._misc_info.update({'sample': samp})
+                except Exception:
+                    pass
+    
     def __repr__(self) -> str:
         try:
             return f"<{self.__class__.__name__}({self.clientsubmission.submitter_plate_id} & {self.sample.sample_id})"
@@ -1668,7 +1685,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
-        error_msg = f"Can't add item {item} to {self.name}._sample"
+        error_msg = f"Can't add item {value} to {self.name}._sample"
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -1908,17 +1925,37 @@ class RunSampleAssociation(BaseClass):
     # NOTE: reference to the Sample object
     _sample = relationship(Sample, back_populates="samplerunassociation")  #: associated sample
 
-    def __init__(self, run: Run = None, sample: Sample = None, row: int = 1, column: int = 1, **kwargs):
-        self.run = run
-        self.sample = sample
-        self.row = row
-        self.column = column
-        for k, v in kwargs.items():
+    def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        run = kwargs.pop('run', None)
+        samp = kwargs.pop('sample', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
+        super().__init__(*args, **kwargs)
+        # Resolve proceduretype
+        if run is not None:
             try:
-                self.__setattr__(k, v)
-            except AttributeError:
-                logger.error(f"Couldn't set {k} to {v}")
-
+                self.run = run
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'run': run})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if samp is not None:
+            try:
+                self.sample = samp
+            except Exception:
+                try:
+                    self._misc_info.update({'sample': samp})
+                except Exception:
+                    pass
+    
     def __repr__(self) -> str:
         try:
             return f"<{self.__class__.__name__}({self.run.rsl_plate_number} & {self.sample.sample_id})"
@@ -2171,10 +2208,41 @@ class ProcedureSampleAssociation(BaseClass):
     _sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
     _results = relationship("Results", back_populates="_sampleprocedureassociation")  #: associated results
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, new_id: int | None = None,  *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        if new_id:
+            self.id = new_id
+        else:
+            self.id = self.__class__.autoincrement_id()
+        procedure = kwargs.pop('procedure', None)
+        sample = kwargs.pop('sample', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        if self._results is None:
-            self._results = []
+        # Resolve proceduretype
+        if procedure is not None:
+            try:
+                self.procedure = procedure
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'procedure': procedure})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if sample is not None:
+            try:
+                self.sample = sample
+            except Exception:
+                try:
+                    self._misc_info.update({'sample': sample})
+                except Exception:
+                    pass
+            
 
     @hybrid_property
     def results(self):
@@ -2291,13 +2359,6 @@ class ProcedureSampleAssociation(BaseClass):
         if sample and procedure:
             limit = 1
         return cls.execute_query(query=query, limit=limit, **kwargs)
-
-    def __init__(self, new_id: int | None = None, **kwarg):
-        if new_id:
-            self.id = new_id
-        else:
-            self.id = self.__class__.autoincrement_id()
-        super().__init__(**kwarg)
 
     @classmethod
     def autoincrement_id(cls) -> int:

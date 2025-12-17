@@ -560,11 +560,14 @@ class BaseClass(Base):
         """
         if key == "_sa_instance_state":
             return super().__setattr__(key, value)
+        elif key == "new":
+            return
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
-            inspect.getattr_static(self.__class__, key)
+            attr = inspect.getattr_static(self.__class__, key)
             class_has_attr = True
         except AttributeError:
+            attr = None
             class_has_attr = False
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
@@ -580,8 +583,24 @@ class BaseClass(Base):
                 self._misc_info = {key: value}
             return
         else:
+            logger.debug(f"setting {key}: {value} of type {type(attr)}")
+            # If the class attribute is a descriptor for a property (including
+            # SQLAlchemy hybrid_property), calling super().__setattr__ may not
+            # always trigger the descriptor's fset. Detect hybrid_property or
+            # builtin property descriptors and call their fset directly so
+            # property setters run when users call setattr(instance, name, val).
             try:
-                super().__setattr__(key, value)
+                # hybrid_property is imported in module scope above
+                if isinstance(attr, (property, hybrid_property)):
+                    setter = getattr(attr, 'fset', None)
+                    logger.debug(f"{key} setter method: {setter}")
+                    if setter:
+                        return setter(self, value)
+            except Exception:
+                # fall back to default behavior if detection fails
+                logger.error(f"Unable to call setter for {self.__str__()}.{attr}")
+            try:
+                return super().__setattr__(key, value)
                 # print(self.__dict__)
             except AttributeError as e:
                 if "association" in key:
