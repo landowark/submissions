@@ -20,8 +20,9 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
-                   check_dictionary_inclusion_equality, is_power_user, row_map)
+                   check_dictionary_inclusion_equality, is_power_user, row_map, timezone)
 from datetime import datetime, date
+from dateutil.parser import parse as dateparse, ParserError
 from typing import List, Literal, Generator, TYPE_CHECKING
 from pathlib import Path
 if TYPE_CHECKING:
@@ -61,14 +62,80 @@ class ClientSubmission(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
-    sample = association_proxy("clientsubmissionsampleassociation",
+    _sample = association_proxy("clientsubmissionsampleassociation",
                                "_sample", creator=lambda sample: ClientSubmissionSampleAssociation(
                                 sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
 
     def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        submitted_date = kwargs.pop('submitted_date', None)
+        clientlab = kwargs.pop('clientlab', None)
+        run = kwargs.pop('run', None)
+        contact = kwargs.pop('contact', None)
+        submissiontype = kwargs.pop('submissiontype', None)
+        sample = kwargs.pop('sample', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        if self._run is None:
-            self._run = []
+        # Resolve proceduretype
+        if submitted_date is not None:
+            try:
+                self.submitted_date = submitted_date
+            except Exception:
+                try:
+                    self._misc_info.update({'submitted_date': submitted_date})
+                except Exception:
+                    pass
+        if clientlab is not None:
+            try:
+                self.clientlab = clientlab
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'clientlab': clientlab})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if run is not None:
+            try:
+                self.run = run
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'run': run})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if contact is not None:
+            try:
+                self.contact = contact
+            except Exception:
+                try:
+                    self._misc_info.update({'contact': contact})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if submissiontype is not None:
+            try:
+                self.submissiontype = submissiontype
+            except Exception:
+                try:
+                    self._misc_info.update({'submissiontype': submissiontype})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if sample is not None:
+            try:
+                self.sample = sample
+            except Exception:
+                try:
+                    self._misc_info.update({'sample': sample})
+                except Exception:
+                    pass
       
     @hybrid_property
     def submissiontype(self):
@@ -77,7 +144,6 @@ class ClientSubmission(BaseClass, LogMixin):
     @submissiontype.setter
     def submissiontype(self, value):
         from backend.validators.pydant import PydSubmissionType
-        error_msg = f"Can't add item {value} to {self.name}._submissiontype"
         match value:
             case str():
                 output = SubmissionType.query(name=value, limit=1)
@@ -88,12 +154,12 @@ class ClientSubmission(BaseClass, LogMixin):
             case SubmissionType():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for submissiontype")
                 return
         if isinstance(output, SubmissionType):
             self._submissiontype = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _submissiontype to {output}")
 
     @hybrid_property
     def contact(self):
@@ -102,7 +168,6 @@ class ClientSubmission(BaseClass, LogMixin):
     @contact.setter
     def contact(self, value):
         from backend.validators.pydant import PydContact
-        error_msg = f"Can't add item {value} to {self.name}._contact"
         match value:
             case str():
                 output = Contact.query(name=value, limit=1)
@@ -113,12 +178,12 @@ class ClientSubmission(BaseClass, LogMixin):
             case Contact():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for contact")
                 return
         if isinstance(output, Contact):
             self._contact = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _contact to {output}")
 
     @hybrid_property
     def run(self):
@@ -131,9 +196,6 @@ class ClientSubmission(BaseClass, LogMixin):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._run = []
-            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._run"
             match item:
@@ -146,21 +208,20 @@ class ClientSubmission(BaseClass, LogMixin):
                 case Run():
                     output = item
                 case _:
-                    raise TypeError(error_msg)
+                    logger.error(f"Unmatched value {item} for run")
                     continue
             if isinstance(output, ReagentLot):
                 self._run.append(output)
             else:
-                raise TypeError(error_msg)
+                logger.error(f"Could not add {output} to _run")
 
     @hybrid_property
-    def client_lab(self):
+    def clientlab(self):
         return self._clientlab
 
-    @client_lab.setter
-    def client_lab(self, value):
+    @clientlab.setter
+    def clientlab(self, value):
         from backend.validators.pydant import PydClientLab
-        error_msg = f"Can't add item {value} to {self.name}._client_lab"
         match value:
             case str():
                 output = ClientLab.query(name=value, limit=1)
@@ -171,12 +232,36 @@ class ClientSubmission(BaseClass, LogMixin):
             case ClientLab():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for clientlab")
                 return
         if isinstance(output, ClientLab):
-            self._client_lab = output
+            self._clientlab = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _clientlab to {value}")
+
+    @hybrid_property
+    def sample(self):
+        return self._sample
+    
+    @sample.setter
+    def sample(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = ClientSubmissionSampleAssociation(sample=item['name'], clientsubmission=self, **{k: v for k, v in item.items() if k != 'name'})
+                case ClientSubmissionSampleAssociation():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for sample")
+                    return
+            # logger.debug(f"Setting equipment with output: {output}")
+            if isinstance(output, ClientSubmissionSampleAssociation):
+                if output not in self.clientsubmissionsampleassociation:
+                    self.clientsubmissionsampleassociation.append(output)
+            else:
+                logger.error(f"Could not add {item} to ._sample")
 
     @hybrid_property
     def submitted_date(self):
@@ -184,7 +269,30 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @submitted_date.setter
     def submitted_date(self, value):
-      self._submitted_date = value
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        match value:
+            case datetime():
+                output = value
+            case date():
+                output = datetime.combine(value, datetime.min.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
+        value = output.replace(tzinfo=timezone)
+        self._submitted_date = value
 
     @hybrid_property
     def name(self):
@@ -376,7 +484,7 @@ class ClientSubmission(BaseClass, LogMixin):
             contact_phone = self.contact.phone
         except AttributeError:
             contact_phone = "NA"
-        output["abbreviation"] = self.submissiontype.defaults['abbreviation']
+        output["abbreviation"] = self.submissiontype.abbreviation
         output["submission_category"] = self.submission_category
         output["sample"] = samples
         output["comment"] = comments
@@ -447,12 +555,12 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def details_dict(self, **kwargs):
         output = super().details_dict(**kwargs)
-        output['clientlab'] = output['clientlab'].details_dict()
+        # output['clientlab'] = output['clientlab'].details_dict()
         if "contact" in output and issubclass(output['contact'].__class__, BaseClass):
             output['contact'] = output['contact'].details_dict()
             output['contact_email'] = output['contact']['email']
-        output['submissiontype'] = output['submissiontype'].details_dict()
-        output['run'] = [run.details_dict() for run in output['run']]
+        # output['submissiontype'] = output['submissiontype'].details_dict()
+        # output['run'] = [run.details_dict() for run in output['run']]
         output['sample'] = [sample.details_dict() for sample in output['clientsubmissionsampleassociation']]
         output['name'] = self.name
         output['client_lab'] = output['clientlab']
@@ -492,17 +600,71 @@ class Run(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
-    sample = association_proxy("runsampleassociation",
-                               "_sample", creator=lambda sample: RunSampleAssociation(
-            sample=sample))  #: Association proxy to ClientSubmissionSampleAssociation.sample
+    _sample = association_proxy("runsampleassociation", "_sample")
 
     def __repr__(self) -> str:
         return f"<Submission({self.name})>"
 
     def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        started_date = kwargs.pop('started_date', None)
+        clientsubmission = kwargs.pop('clientsubmission', None)
+        completed_date = kwargs.pop('completed_date', None)
+        procedure = kwargs.pop('procedure', None)
+        sample = kwargs.pop('sample', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        if self._procedure is None:
-            self._procedure = []
+        # Resolve proceduretype
+        if started_date is not None:
+            try:
+                self.started_date = started_date
+            except Exception:
+                try:
+                    self._misc_info.update({'started_date': started_date})
+                except Exception:
+                    pass
+        if clientsubmission is not None:
+            try:
+                self.clientsubmission = clientsubmission
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'clientsubmission': clientsubmission})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if completed_date is not None:
+            try:
+                self.completed_date = completed_date
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'completed_date': completed_date})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if procedure is not None:
+            try:
+                self.procedure = procedure
+            except Exception:
+                try:
+                    self._misc_info.update({'procedure': procedure})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if sample is not None:
+            try:
+                self.sample = sample
+            except Exception:
+                try:
+                    self._misc_info.update({'sample': sample})
+                except Exception:
+                    pass
 
     @hybrid_property
     def procedure(self):
@@ -515,11 +677,7 @@ class Run(BaseClass, LogMixin):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._procedure = []
-            return
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._procedure"
             match item:
                 case str():
                     output = Procedure.query(name=item, limit=1)
@@ -530,12 +688,12 @@ class Run(BaseClass, LogMixin):
                 case Procedure():
                     output = item
                 case _:
-                    raise TypeError(error_msg)
+                    logger.error(f"Unmatched value {item} for procedure")
                     continue
             if isinstance(output, Procedure):
                 self._procedure.append(output)
             else:
-                logger.error(error_msg)
+                logger.error(f"Could not add {output} to _procedure")
 
     @hybrid_property
     def clientsubmission(self):
@@ -544,7 +702,6 @@ class Run(BaseClass, LogMixin):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
-        error_msg = f"Can't add item {value} to {self.name}._clientsubmission"
         match value:
             case str():
                 output = ClientSubmission.query(name=value, limit=1)
@@ -555,12 +712,36 @@ class Run(BaseClass, LogMixin):
             case ClientSubmission():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for clientsubmission")
                 return
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _clientsubmission to {output}")
+
+    @hybrid_property
+    def sample(self):
+        return self._sample
+    
+    @sample.setter
+    def sample(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = RunSampleAssociation(sample=item['name'], run=self, **{k: v for k, v in item.items() if k != 'name'})
+                case RunSampleAssociation():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for sample")
+                    return
+            # logger.debug(f"Setting equipment with output: {output}")
+            if isinstance(output, RunSampleAssociation):
+                if output not in self.runsampleassociation:
+                    self.runsampleassociation.append(output)
+            else:
+                logger.error(f"Could not add {item} to ._sample")
 
     @hybrid_property
     def name(self):
@@ -1461,7 +1642,7 @@ class Sample(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )  #: associated procedure
 
-    clientsubmission = association_proxy("sampleclientsubmissionassociation",
+    _clientsubmission = association_proxy("sampleclientsubmissionassociation",
                                          "_clientsubmission")  #: proxy of associated procedure
 
     samplerunassociation = relationship(
@@ -1470,7 +1651,7 @@ class Sample(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )  #: associated procedure
 
-    run = association_proxy("samplerunassociation", "_run")  #: proxy of associated procedure
+    _run = association_proxy("samplerunassociation", "_run")  #: proxy of associated procedure
 
     sampleprocedureassociation = relationship(
         "ProcedureSampleAssociation",
@@ -1478,7 +1659,130 @@ class Sample(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )
 
-    procedure = association_proxy("sampleprocedureassociation", "_procedure")
+    _procedure = association_proxy("sampleprocedureassociation", "_procedure")
+
+    def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        is_control = kwargs.pop('is_control', None)
+        clientsubmission = kwargs.pop('clientsubmission', None)
+        run = kwargs.pop('run', None)
+        procedure = kwargs.pop('procedure', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
+        super().__init__(*args, **kwargs)
+        # Resolve proceduretype
+        if is_control is not None:
+            try:
+                self.is_control = is_control
+            except Exception:
+                try:
+                    self._misc_info.update({'is_control': is_control})
+                except Exception:
+                    pass
+        if clientsubmission is not None:
+            try:
+                self.clientsubmission = clientsubmission
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'clientsubmission': clientsubmission})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if run is not None:
+            try:
+                self.run = run
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'run': run})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if procedure is not None:
+            try:
+                self.procedure = procedure
+            except Exception:
+                try:
+                    self._misc_info.update({'procedure': procedure})
+                except Exception:
+                    pass
+    
+    @hybrid_property
+    def clientsubmission(self):
+        return self._clientsubmission
+    
+    @clientsubmission.setter
+    def clientsubmission(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = ClientSubmissionSampleAssociation(clientsubmission=item['name'], sample=self, **{k: v for k, v in item.items() if k != 'name'})
+                case ClientSubmissionSampleAssociation():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for sample")
+                    return
+            # logger.debug(f"Setting equipment with output: {output}")
+            if isinstance(output, ClientSubmissionSampleAssociation):
+                if output not in self.sampleclientsubmissionassociation:
+                    self.sampleclientsubmissionassociation.append(output)
+            else:
+                logger.error(f"Could not add {item} to ._clientsubmission")
+
+    @hybrid_property
+    def run(self):
+        return self._run
+    
+    @run.setter
+    def run(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = RunSampleAssociation(run=item['name'], sample=self, **{k: v for k, v in item.items() if k != 'name'})
+                case RunSampleAssociation():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for sample")
+                    return
+            # logger.debug(f"Setting equipment with output: {output}")
+            if isinstance(output, RunSampleAssociation):
+                if output not in self.samplerunassociation:
+                    self.samplerunassociation.append(output)
+            else:
+                logger.error(f"Could not add {item} to ._sample")
+
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+    
+    @procedure.setter
+    def procedure(self, value):
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case dict():
+                    output = ProcedureSampleAssociation(procedure=item['name'], sample=self, **{k: v for k, v in item.items() if k != 'name'})
+                case ProcedureSampleAssociation():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for sample")
+                    return
+            # logger.debug(f"Setting equipment with output: {output}")
+            if isinstance(output, ProcedureSampleAssociation):
+                if output not in self.sampleprocedureassociation:
+                    self.sampleprocedureassociation.append(output)
+            else:
+                logger.error(f"Could not add {item} to ._sample")
 
     @hybrid_property
     def is_control(self):
@@ -1498,9 +1802,13 @@ class Sample(BaseClass, LogMixin):
     @hybrid_property
     def name(self):
         return self.sample_id
+    
+    @name.setter
+    def name(self, value):
+        self.sample_id = value
 
-    def __repr__(self) -> str:
-        return f"<Sample({self.sample_id})>"
+    # def __repr__(self) -> str:
+    #     return f"<Sample({self.sample_id})>"
 
     @classmethod
     @declared_attr
@@ -1528,19 +1836,6 @@ class Sample(BaseClass, LogMixin):
     def to_pydantic(self):
         from backend.validators import PydSample
         return PydSample(**self.to_sub_dict())
-
-    # def set_attribute(self, name: str, value):
-    #     """
-    #     Custom attribute setter (depreciated over built-in __setattr__)
-
-    #     Args:
-    #         name (str): name of attribute
-    #         value (_type_): value to be set to attribute
-    #     """
-    #     try:
-    #         setattr(self, name, value)
-    #     except AttributeError:
-    #         logger.error(f"Attribute {name} not found")
 
     @classmethod
     @setup_lookup
@@ -1647,27 +1942,27 @@ class ClientSubmissionSampleAssociation(BaseClass):
         to pass names like 'Omega Bacterial Extraction' and have the association
         properly wired.
         """
-        clsub = kwargs.pop('clientsubmission', None)
-        samp = kwargs.pop('sample', None)
+        clientsubmission = kwargs.pop('clientsubmission', None)
+        sample = kwargs.pop('sample', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
-        if clsub is not None:
+        if clientsubmission is not None:
             try:
-                self.clientsubmission = clsub
+                self.clientsubmission = clientsubmission
             except Exception:
                 # fallback: store in misc_info if setter fails
                 try:
-                    self._misc_info.update({'clientsubmission': clsub})
+                    self._misc_info.update({'clientsubmission': clientsubmission})
                 except Exception:
                     pass
         # Resolve reagentrole
-        if samp is not None:
+        if sample is not None:
             try:
-                self.sample = samp
+                self.sample = sample
             except Exception:
                 try:
-                    self._misc_info.update({'sample': samp})
+                    self._misc_info.update({'sample': sample})
                 except Exception:
                     pass
     
@@ -1679,13 +1974,32 @@ class ClientSubmissionSampleAssociation(BaseClass):
             return super().__repr__()
 
     @hybrid_property
+    def name(self):
+        try:
+            clientsubmission = self.clientsubmission.name
+        except AttributeError:
+            clientsubmission = "Unassigned ClientSubmission"
+        try:
+            sample = self.sample.name
+        except AttributeError:
+            sample = "Unassigned Sample"
+        return f"{clientsubmission}->{sample}"
+    
+    @name.expression
+    def name(cls):
+        return func.concat(
+            ClientSubmission.name,
+            "->",
+            Sample.name
+        ).label("name")
+
+    @hybrid_property
     def sample(self):
         return self._sample
 
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
-        error_msg = f"Can't add item {value} to {self.name}._sample"
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -1696,12 +2010,12 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case Sample():
                 output = item
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for sample")
                 return
         if isinstance(output, Sample):
             self._sample = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _sample to {output}")
   
     @hybrid_property
     def clientsubmission(self):
@@ -1710,7 +2024,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
     @clientsubmission.setter
     def clientsubmission(self, value):
         from backend.validators.pydant import PydClientSubmission
-        error_msg = f"Can't add item {value} to {self.name}._clientsubmission"
         match value:
             case str():
                 output = ClientSubmission.query(name=value, limit=1)
@@ -1721,28 +2034,12 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case ClientSubmission():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for clientsubmission")
                 return
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            raise TypeError(error_msg)
-
-    def to_sub_dict(self) -> dict:
-        """
-        Returns a sample dictionary updated with instance information
-
-        Returns:
-            dict: Updated dictionary with row, column and well updated
-        """
-        # NOTE: Get associated sample info
-        sample = self.sample.to_sub_dict()
-        sample['sample_id'] = self.sample.sample_id
-        sample['plate_name'] = self.clientsubmission.submitter_plate_id
-        sample['positive'] = False
-        sample['submitted_date'] = self.clientsubmission.submitted_date
-        sample['submission_rank'] = self.submission_rank
-        return sample
+            logger.error(f"Could not set _clientsubmission to {value}")
 
     def details_dict(self, **kwargs):
         output = super().details_dict()
@@ -1933,7 +2230,7 @@ class RunSampleAssociation(BaseClass):
         properly wired.
         """
         run = kwargs.pop('run', None)
-        samp = kwargs.pop('sample', None)
+        sample = kwargs.pop('sample', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -1947,21 +2244,34 @@ class RunSampleAssociation(BaseClass):
                 except Exception:
                     pass
         # Resolve reagentrole
-        if samp is not None:
+        if sample is not None:
             try:
-                self.sample = samp
+                self.sample = sample
             except Exception:
                 try:
-                    self._misc_info.update({'sample': samp})
+                    self._misc_info.update({'sample': sample})
                 except Exception:
                     pass
     
-    def __repr__(self) -> str:
+    @hybrid_property
+    def name(self):
         try:
-            return f"<{self.__class__.__name__}({self.run.rsl_plate_number} & {self.sample.sample_id})"
-        except AttributeError as e:
-            logger.error(f"Unable to construct __repr__ due to: {e}")
-            return super().__repr__()
+            run = self.run.name
+        except AttributeError:
+            run = "Unassigned Run"
+        try:
+            sample = self.sample.name
+        except AttributeError:
+            sample = "Unassigned Sample"
+        return f"{run}-{sample}"
+    
+    @name.expression
+    def name(cls):
+        return func.concat(
+            Run.name,
+            "-",
+            Sample.name
+        ).label("name")
 
     @hybrid_property
     def sample(self):
@@ -1970,7 +2280,6 @@ class RunSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
-        error_msg = f"Can't add item {item} to {self.name}._sample"
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -1981,12 +2290,12 @@ class RunSampleAssociation(BaseClass):
             case Sample():
                 output = item
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for sample")
                 return
         if isinstance(output, Sample):
             self._sample = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _sample to {value}")
   
     @hybrid_property
     def run(self):
@@ -1995,7 +2304,6 @@ class RunSampleAssociation(BaseClass):
     @run.setter
     def run(self, value):
         from backend.validators.pydant import PydRun
-        error_msg = f"Can't add item {value} to {self.name}._run"
         match value:
             case str():
                 output = Run.query(name=value, limit=1)
@@ -2006,26 +2314,12 @@ class RunSampleAssociation(BaseClass):
             case Run():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for run")
                 return
         if isinstance(output, Run):
             self._run = output
         else:
-            raise TypeError(error_msg)
-
-    def to_sub_dict(self) -> dict:
-        """
-        Returns a sample dictionary updated with instance information
-
-        Returns:
-            dict: Updated dictionary with row, column and well updated
-        """
-        # NOTE: Get associated sample info
-        sample = self.sample.to_sub_dict()
-        sample['name'] = self.sample.sample_id
-        sample['plate_name'] = self.run.rsl_plate_number
-        sample['positive'] = False
-        return sample
+            logger.error(f"Could not set _run to {output}")
 
     def to_pydantic(self) -> "PydSample":
         """
@@ -2221,6 +2515,7 @@ class ProcedureSampleAssociation(BaseClass):
             self.id = self.__class__.autoincrement_id()
         procedure = kwargs.pop('procedure', None)
         sample = kwargs.pop('sample', None)
+        results = kwargs.pop('results', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -2242,8 +2537,36 @@ class ProcedureSampleAssociation(BaseClass):
                     self._misc_info.update({'sample': sample})
                 except Exception:
                     pass
+        # Resolve reagentrole
+        if results is not None:
+            try:
+                self.results = results
+            except Exception:
+                try:
+                    self._misc_info.update({'results': results})
+                except Exception:
+                    pass
             
-
+    @hybrid_property
+    def name(self):
+        try:
+            assoc = self.procedure.name
+        except AttributeError:
+            assoc = "Unassigned Results Association"
+        try:
+            resultstype = self.resultstype.name
+        except AttributeError:
+            resultstype = "Unassigned ResultsType"
+        return f"{assoc}-{resultstype}"
+    
+    @name.expression
+    def name(cls):
+        return func.concat(
+            Procedure.name,
+            "-",
+            ResultsType.name
+        ).label("name")
+    
     @hybrid_property
     def results(self):
         return self._results
@@ -2256,9 +2579,6 @@ class ProcedureSampleAssociation(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._results = []
-            return
         for item in value:
             error_msg = f"Can't add item {item} to {self.name}._results"
             match item:
@@ -2271,12 +2591,12 @@ class ProcedureSampleAssociation(BaseClass):
                 case Procedure():
                     output = item
                 case _:
-                    raise TypeError(error_msg)
+                    logger.error(f"Unmatched value {item} for results")
                     continue
             if isinstance(output, Results):
                 self._results.append(output)
             else:
-                raise TypeError(error_msg)
+                logger.error(f"Could not add {output} to _results")
   
     @hybrid_property
     def sample(self):
@@ -2285,7 +2605,6 @@ class ProcedureSampleAssociation(BaseClass):
     @sample.setter
     def sample(self, value):
         from backend.validators.pydant import PydSample
-        error_msg = f"Can't add item {item} to {self.name}._sample"
         match value:
             case str():
                 output = Sample.query(name=value, limit=1)
@@ -2296,12 +2615,12 @@ class ProcedureSampleAssociation(BaseClass):
             case Sample():
                 output = item
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for sample")
                 return
         if isinstance(output, Sample):
             self._sample = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _sample to {output}")
   
     @hybrid_property
     def procedure(self):
@@ -2310,7 +2629,6 @@ class ProcedureSampleAssociation(BaseClass):
     @procedure.setter
     def procedure(self, value):
         from backend.validators.pydant import PydProcedure
-        error_msg = f"Can't add item {value} to {self.name}._procedure"
         match value:
             case str():
                 output = Procedure.query(name=value, limit=1)
@@ -2321,12 +2639,12 @@ class ProcedureSampleAssociation(BaseClass):
             case Procedure():
                 output = value
             case _:
-                raise TypeError(error_msg)
+                logger.error(f"Unmatched value {value} for procedure")
                 return
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            raise TypeError(error_msg)
+            logger.error(f"Could not set _procedure to {output}")
 
     @property
     def well(self):

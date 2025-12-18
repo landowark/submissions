@@ -180,7 +180,7 @@ class SubmissionFormWidget(QWidget):
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
         self.layout = QVBoxLayout()
-        for k in list(self.pyd.model_fields.keys()):# + list(self.pyd.model_extra.keys()):
+        for k in list(self.pyd.__class__.model_fields.keys()):# + list(self.pyd.model_extra.keys()):
             if k in self.ignore:
                 logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue

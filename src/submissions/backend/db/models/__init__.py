@@ -3,7 +3,7 @@ Contains all models for sqlalchemy
 """
 from __future__ import annotations
 import sys, logging, json, inspect
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pprint import pformat
 from dateutil.parser import parse
 from jinja2 import TemplateNotFound
@@ -250,6 +250,8 @@ class BaseClass(Base):
         # NOTE: outside kwargs will be reintroduced into misc_info
         outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
         print(f"Outside kwargs: {outside_kwargs}")
+        if "name" in query_kwargs.keys():
+            query_kwargs = dict(name=query_kwargs.get("name"))
         instance = cls.query(limit=1, **query_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
@@ -428,7 +430,7 @@ class BaseClass(Base):
             # try:
             #     model = getattr(pydant, f"Pyd{cls.pyd_model_name}")
             # except AttributeError:
-            logger.error(f"Could get model {pyd_model_name}, returning None")
+            logger.error(f"Couldn't get model {pyd_model_name}, returning None")
             return None
         return model
 
@@ -638,73 +640,6 @@ class BaseClass(Base):
         return output_date
 
     @classmethod
-    def correct_details_fields(cls, value) -> Any:
-        """
-        Corrects fields in details_dict to proper types.
-
-        Args:
-            value: input value
-        Returns:
-            Any: corrected value
-        """
-        from backend.validators.pydant import PydBaseClass
-        
-        match value:
-            case str():
-                output = value.strip('\"')
-            case list():
-                output = [cls.correct_details_fields(v) for v in value]
-            case dict():
-                output = {k: cls.correct_details_fields(v) for k, v in value.items()}
-            case x if issubclass(value.__class__, BaseClass):
-                output = value.name
-            case x if issubclass(value.__class__, PydBaseClass):
-                output = value.name
-            case _AssociationList():
-                output = [cls.correct_details_fields(v) for v in value]
-            case _:
-                print(f"Unmatched value type: {type(value)} for value: {value}")
-                output = value
-        print(f"Corrected value: {value} to {output}")
-        return output
-    
-    def details_dict(self, **kwargs) -> dict:
-        """
-        Primary method for getting BaseClass subclasses as dictionaries
-
-        Args:
-            **kwargs:
-
-        Returns:
-            dict():
-        """
-        relevant = {k: v for k, v in self.__class__.__dict__.items() if
-                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        excluded=["excluded", "misc_info", "_misc_info", "id"]
-        output = dict()
-        for k, v in relevant.items():
-            if k in excluded:
-                continue
-            # NOTE: foreign keys handled in child overrides.
-            try:
-                check = v.foreign_keys
-            except AttributeError:
-                check = False
-            if check:
-                continue
-            try:
-                value = getattr(self, k)
-            except AttributeError:
-                continue
-            output[k.strip("_")] = self.correct_details_fields(value)
-        if self._misc_info:
-            for key, value in self._misc_info.items():
-                if key in excluded:
-                    continue
-                output[key] = self.correct_details_fields(value)
-        return output
-
-    @classmethod
     def clean_details_for_render(cls, dictionary) -> dict:
         """
         Cleans dictionary for rendering.
@@ -740,9 +675,96 @@ class BaseClass(Base):
             output[k] = value
         return output
 
+    @classmethod
+    def correct_details_fields(cls, value) -> Any:
+        """
+        Corrects fields in details_dict to proper types.
+
+        Args:
+            value: input value
+        Returns:
+            Any: corrected value
+        """
+        from backend.validators.pydant import PydBaseClass
+        logger.debug(f"Correcting details: {value} of type {type(value)}")
+        match value:
+            case str():
+                output = value.strip('\"')
+            case list():
+                output = [cls.correct_details_fields(v) for v in value]
+            case dict():
+                output = {k: cls.correct_details_fields(v) for k, v in value.items()}
+            case x if issubclass(value.__class__, BaseClass):
+                output = value.name
+            case x if issubclass(value.__class__, PydBaseClass):
+                output = value.name
+            case _AssociationList():
+                output = [cls.correct_details_fields(v) for v in value]
+            # NOTE: datetime is a subclass of date, so the datetime() case
+            # must come before date() to avoid matching datetimes as dates
+            # (which would force end-of-day time).
+            case datetime():
+                output = datetime.strftime(value, "%Y-%m-%d %H:%M:%S")
+            case date():
+                output = datetime.combine(value, datetime.max.time())
+                output = datetime.strftime(output, "%Y-%m-%d %H:%M:%S")
+            case timedelta():
+                output = value.days
+            case _:
+                logger.debug(f"Unmatched value type: {type(value)} for value: {value}")
+                output = value
+        logger.debug(f"Corrected value: {value} to {output}")
+        return output
+    
+    def details_dict(self, **kwargs) -> dict:
+        """
+        Primary method for getting BaseClass subclasses as dictionaries
+
+        Args:
+            **kwargs:
+
+        Returns:
+            dict():
+        """
+        relevant = {k: v for k, v in self.__class__.__dict__.items() if
+                    isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
+        excluded=["excluded", "misc_info", "_misc_info", "id"]
+        output = dict()
+        for k, v in relevant.items():
+            if k in excluded:
+                continue
+            # NOTE: foreign keys handled in child overrides.
+            try:
+                check = v.foreign_keys
+            except AttributeError:
+                check = False
+            if check:
+                continue
+            try:
+                value = getattr(self, k)
+            except AttributeError:
+                continue
+            corrected_value = self.correct_details_fields(value)
+            logger.debug(f"Setting {k} corrected value to {corrected_value} ")
+            output[k.strip("_")] = corrected_value
+        logger.debug(f"Details dict output:\n{pformat(output)}")
+        if self._misc_info:
+            for key, value in self._misc_info.items():
+                logger.debug(f"Misc value: {key}: {value}")
+                if key in output.keys():
+                    continue
+                if key.startswith("_"):
+                    continue
+                if key in excluded:
+                    continue
+                output[key] = self.correct_details_fields(value)
+        logger.debug(f"Details dict output:\n{pformat(output)}")
+        return output
+
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
         details = self.details_dict(**kwargs)
+        logger.debug(f"Details dict output:\n{pformat(details)}")
         return pyd(**details)
 
     def show_details(self, obj):

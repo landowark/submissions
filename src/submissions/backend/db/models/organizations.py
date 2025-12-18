@@ -23,7 +23,6 @@ clientlab_contact = Table(
     extend_existing=True
 )
 
-
 class ClientLab(BaseClass):
     """
     Base of clientlab
@@ -35,13 +34,38 @@ class ClientLab(BaseClass):
     cost_centre = Column(String(32))  #: cost centre used by org for payment
     _contact = relationship("Contact", back_populates="_clientlab",
                            secondary=clientlab_contact)  #: contact involved with this org
+    discount = relationship("Discount", back_populates="_clientlab")
 
     def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        clientsubmission = kwargs.pop('clientsubmission', None)
+        contact = kwargs.pop('contact', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        if self._clientsubmission is None:
-            self._clientsubmission = []
-        if self._contact is None:
-            self._contact = []
+        # Resolve proceduretype
+        if clientsubmission is not None:
+            try:
+                self.clientsubmission = clientsubmission
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'clientsubmission': clientsubmission})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if contact is not None:
+            try:
+                self.contact = contact
+            except Exception:
+                try:
+                    self._misc_info.update({'contact': contact})
+                except Exception:
+                    pass
 
     ##### Properties #####
     
@@ -57,27 +81,23 @@ class ClientLab(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._clientsubmission = []
-            return
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
             match item:
                 case str():
                     output = ClientSubmission.query(name=item, limit=1)
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
                 case ClientSubmission():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    logger.error(f"Unmatched value {item} for clientsubmission")
                     continue
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:
-                logger.error(error_msg)
+                logger.error(f"Could not add {output} to _clientsubmission")
 
     @hybrid_property
     def contact(self):
@@ -90,27 +110,23 @@ class ClientLab(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._contact = []
-            return
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._contact"
             match item:
                 case str():
                     output = Contact.query(name=item, limit=1)
                 case dict():
                     output = Contact.query_or_create(**item)
                 case PydContact():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
                 case Contact():
                     output = item
                 case _:
-                    logger.error(f"Can't add item {item} to {self.name}._contact")
+                    logger.error(f"Unmatched value {item} for contact")
                     continue
             if isinstance(output, Contact):
                 self._contact.append(output)
             else:
-                logger.error(f"Can't add item {item} to {self.name}._contact")
+                logger.error(f"Can't add {output} to _contact")
 
     ##### Query Function #####
     
@@ -166,11 +182,36 @@ class Contact(BaseClass):
     _clientsubmission = relationship("ClientSubmission", back_populates="_contact")  #: procedure this contact has submitted
 
     def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        clientsubmission = kwargs.pop('clientsubmission', None)
+        clientlab = kwargs.pop('clientlab', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        if self._clientsubmission is None:
-            self._clientsubmission = []
-        if self._clientlab is None:
-            self._clientlab = []
+        # Resolve proceduretype
+        if clientsubmission is not None:
+            try:
+                self.clientsubmission = clientsubmission
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'clientsubmission': clientsubmission})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        if clientlab is not None:
+            try:
+                self.clientlab = clientlab
+            except Exception:
+                try:
+                    self._misc_info.update({'clientlab': clientlab})
+                except Exception:
+                    pass
+
 
     ##### Properties #####
     
@@ -185,27 +226,24 @@ class Contact(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._clientlab = []
-            return
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._clientlab"
             match item:
                 case str():
                     output = ClientLab.query(name=item, limit=1)
                 case dict():
                     output = ClientLab.query_or_create(**item)
                 case PydClientLab():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
                 case ClientLab():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    logger.error(f"Unmatched value {item} for clientlab")
                     continue
             if isinstance(output, ClientLab):
-                self._contact.append(output)
+                if output not in self._clientlab:
+                    self._contact.append(output)
             else:
-                logger.error(error_msg)
+                logger.error(f"Could not add {output} to _clientlab")
 
     @hybrid_property
     def clientsubmission(self):
@@ -219,27 +257,23 @@ class Contact(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
-        if len(value) == 0:
-            self._clientsubmission = []
-            return
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._clientsubmission"
             match item:
                 case str():
                     output = ClientSubmission.query(name=item, limit=1)
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
                 case ClientSubmission():
                     output = item
                 case _:
-                    logger.error(error_msg)
+                    logger.error(f"Unmatched value {item} for clientsubmission")
                     continue
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:
-                logger.error(error_msg)
+                logger.error(f"Could not add {output} to _clientsubmission")
 
     # @classproperty
     @classmethod

@@ -40,14 +40,12 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
                     value = parse(value)
                 except ParserError:
                     value = None
-            case date():
-                pass
             case datetime():
-                value = value.date()
+                pass
+            case date():
+                 value = datetime.combine(value, datetime.min.time())
             case _:
                 value = None
-        if isinstance(value, date):
-            value = datetime.combine(value, datetime.max.time())
         return value
 
     def to_sql(self):
@@ -89,10 +87,8 @@ class PydReagentLot(PydConcrete):
                     value = parse(value)
                 except ParserError:
                     value = None
-            case date():
+            case date() | datetime():
                 value = datetime.combine(value, datetime.max.time())
-            case datetime():
-                pass
             case _:
                 raise ValueError(f"Could not parse expiry date: {value}")
         return value
@@ -101,9 +97,9 @@ class PydReagentLot(PydConcrete):
 class PydDiscount(PydConcrete):
 
     description: str = Field(default="NA", description="Brief description of this discount.")
-    proceduretype: str | None = Field(default=None, description="ProcedureType this discount applies to.", repr=False)
-    clientlab: str | None = Field(default=None, description="ClientLab this discount applies to.", repr=False)
-    amount: float = Field(default=0.0, description="Amount of discount to apply.")
+    proceduretype: str | None = Field(default="NA", description="ProcedureType this discount applies to.", repr=False)
+    clientlab: str | None = Field(default="NA", description="ClientLab this discount applies to.", repr=False)
+    amount: float = Field(default=0.0, description="Amount (dollars) of discount to apply.")
 
 
 class PydSample(PydConcrete):
@@ -295,16 +291,10 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
                     value = parse(value)
                 except ParserError:
                     value = None
-            case date():
-                pass
-            case datetime():
-                value = value.date()
+            case date() | datetime():
+                value = datetime.combine(value, datetime.min.time())    
             case _:
                 value = None
-        if isinstance(value, date):
-            value = datetime.combine(value, datetime.min.time())
-        else:
-            raise ValueError(f"Could not parse date_verified: {value}")
         return value
     
     @field_validator("active", mode="before")
@@ -624,11 +614,11 @@ class PydClientSubmission(PydConcrete):
 
     key_value_order: ClassVar = ["submitter_plate_id",
                        "submitted_date",
-                       "client_lab",
+                       "clientlab",
                        "contact",
                        "contact_email",
                        "cost_centre",
-                       "submission_type",
+                       "submissiontype",
                        "sample_count",
                        "submission_category"]
 
@@ -658,10 +648,10 @@ class PydClientSubmission(PydConcrete):
         match value:
             case str():
                 value = dict(value=datetime.strptime(value, "%Y-%m-%d %H:%M:%S").date(), missing=False)
-            case date():
-                value = dict(value=value, missing=False)
             case datetime():
-                value = dict(value=value.date(), missing=False)
+                value = dict(value=value, missing=False)
+            case date():
+                value = dict(value=datetime.combine(value, datetime.min.time()), missing=False)
             case _:
                 pass
         return value
@@ -810,7 +800,7 @@ class PydClientSubmission(PydConcrete):
     def improved_dict(self, dictionaries: bool = True) -> dict:
         output = super().improved_dict(dictionaries=dictionaries)
         output['sample'] = self.sample
-        output['client_lab'] = output['clientlab']
+        output['clientlab'] = output['clientlab']
         try:
             output['contact_email'] = output['contact']['email']
         except TypeError:
@@ -880,10 +870,10 @@ class PydRun(PydConcrete):  #, extra='allow'):
     @classmethod
     def strip_started_datetime_string(cls, value):
         match value['value']:
+            case datetime():
+                output = value['value']
             case date():
                 output = datetime.combine(value['value'], datetime.min.time())
-            case datetime():
-                pass
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2)
             case str():
@@ -898,7 +888,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Could not get datetime from {value['value']}")
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
         value['value'] = output.replace(tzinfo=timezone)
         return value
 
@@ -906,10 +896,10 @@ class PydRun(PydConcrete):  #, extra='allow'):
     @classmethod
     def strip_completed_datetime_string(cls, value):
         match value['value']:
+            case datetime():
+                output = value['value']
             case date():
                 output = datetime.combine(value['value'], datetime.min.time())
-            case datetime():
-                pass
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value['value'] - 2)
             case str():
@@ -1269,16 +1259,10 @@ class PydTipsLot(PydConcrete):
                     value = parse(value)
                 except ParserError:
                     value = None
-            case date():
-                pass
-            case datetime():
-                value = value.date()
+            case date() | datetime():
+                value = datetime.combine(value, datetime.max.time())
             case _:
                 value = None
-        if isinstance(value, date):
-            value = datetime.combine(value, datetime.max.time())
-        else:
-            raise ValueError(f"Could not parse date_verified: {value}")
         return value
     
     @field_validator("active", mode="before")

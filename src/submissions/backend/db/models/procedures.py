@@ -362,13 +362,6 @@ class Reagent(BaseClass, LogMixin):
             else:
                 logger.error(f"Could not add {item} to _reagentlot")
 
-    def __repr__(self):
-        if self.name:
-            name = f"<Reagent({self.name})>"
-        else:
-            name = f"<Reagent({self.reagentrole.name})>"
-        return name
-
     @classmethod
     @declared_attr
     def searchables(cls):
@@ -426,13 +419,13 @@ class Reagent(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    def details_dict(self, reagentrole: str | None = None, **kwargs):
-        output = super().details_dict()
-        if reagentrole:
-            output['reagentrole'] = reagentrole
-        else:
-            output['reagentrole'] = self.reagentrole[0].name
-        return output
+    # def details_dict(self, reagentrole: str | None = None, **kwargs):
+    #     output = super().details_dict()
+    #     if reagentrole:
+    #         output['reagentrole'] = reagentrole
+    #     else:
+    #         output['reagentrole'] = self.reagentrole
+    #     return output
 
     @property
     def lot_dicts(self):
@@ -596,11 +589,27 @@ class ReagentLot(BaseClass):
     
     @hybrid_property
     def name(self):
-        return self.lot
+        try:
+            reagent = self.reagent.name
+        except AttributeError:
+            reagent = "Unassigned Reagent"
+        return f"{reagent}-{self.lot}"
 
-    @name.setter
-    def name(self, value):
-        self.lot = value
+    @name.expression
+    def name(cls):
+        # We need the Process table available in the context of the main query
+        # We use a correlated approach or rely on an implicit join when filtering
+        # The key is to return a SQL expression directly:
+        # Use func.concat() with an explicit join to the Process table
+        return func.concat(
+            Reagent.name,
+            "-",
+            cls._lot
+        ).label("name")
+
+    # @name.setter
+    # def name(self, value):
+    #     self.lot = value
 
     @classmethod
     def query(cls,
@@ -713,7 +722,33 @@ class Discount(BaseClass):
                     pass
 
     @hybrid_property
-    def clientlab(self) -> List[ClientLab]:
+    def name(self):
+        try:
+            clientlab = self.clientlab.name
+        except AttributeError:
+            clientlab = "Unassigned ClientLab"
+        try:
+            proceduretype = self.proceduretype.name
+        except AttributeError:
+            proceduretype = "Unassigned ProcedureType"
+        return f"{clientlab}-{proceduretype}-{str(self.amount)}"
+    
+    @name.expression
+    def name(cls):
+        # We need the Process table available in the context of the main query
+        # We use a correlated approach or rely on an implicit join when filtering
+        # The key is to return a SQL expression directly:
+        # Use func.concat() with an explicit join to the Process table
+        return func.concat(
+            ClientLab.name,
+            "-",
+            ProcedureType.name,
+            "-",
+            cast(cls.amount, String)
+        ).label("name")
+
+    @hybrid_property
+    def clientlab(self) -> ClientLab:
         return self._clientlab
 
     @clientlab.setter
@@ -745,7 +780,7 @@ class Discount(BaseClass):
             logger.error(f"Couldn't add {value} to ._clientlab")
     
     @hybrid_property
-    def proceduretype(self) -> List[ProcedureType]:
+    def proceduretype(self) -> ProcedureType:
         return self._proceduretype
 
     @proceduretype.setter
@@ -768,17 +803,6 @@ class Discount(BaseClass):
             self._proceduretype = output
         else:
             logger.error(f"Couldn't add {value} to ._clientlab")
-
-    @name.setter
-    def name(self, value):
-        self.description = value
-    
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this object
-        """
-        return f"<Discount({self.name})>"
 
     @classmethod
     @setup_lookup
@@ -831,6 +855,7 @@ class SubmissionType(BaseClass):
     name = Column(String(128), unique=True)  #: name of procedure type
     defaults = Column(JSON)  #: Basic information about this procedure type
     file_name_template = Column(String(256))  #: Jinja2 template for naming files of this submission type
+    abbreviation = Column(String(4))
     _clientsubmission = relationship("ClientSubmission",
                                     back_populates="_submissiontype", cascade="all, delete-orphan")  #: Instances of this submission type
     _proceduretype = relationship("ProcedureType", back_populates="_submissiontype",
@@ -1069,6 +1094,8 @@ class ProcedureType(BaseClass):
     _resultstype = relationship("ResultsType", back_populates="_proceduretype",
                                   secondary=proceduretype_resulttype)  #: run this kittype was used for
     
+    discount = relationship("Discount", back_populates="_proceduretype")
+
     proceduretypeequipmentroleassociation = relationship(
         "ProcedureTypeEquipmentRoleAssociation",
         back_populates="_proceduretype",
@@ -1980,7 +2007,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
-        if proc is not None:
+        if proceduretype is not None:
             try:
                 self.proceduretype = proceduretype
             except Exception:
@@ -1999,8 +2026,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 except Exception:
                     pass
 
-    def __repr__(self) -> str:
-        return f"<ProcedureTypeReagentRoleAssociation({self.proceduretype} & {self.reagentrole})>"
+    
 
     @hybrid_property
     def proceduretype(self):
@@ -2056,13 +2082,22 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     @hybrid_property
     def name(self):
         try:
-            return f"{self.proceduretype.name} -> {self.reagentrole.name}"
+            proceduretype = self.proceduretype.name
         except AttributeError:
-            return "Blank ProcedureTypeReagentRole"
-
+            proceduretype = "Unassigned ProcedureType"
+        try:
+            reagentrole = self.reagentrole.name
+        except AttributeError:
+            reagentrole = "Unassigned ReagentRole"
+        return f"{proceduretype}->{reagentrole}"
+        
     @name.expression
-    def name(cls):
-        return func.concat(cls.proceduretype.name, ' -> ', cls.reagentrole.name)
+    def name(self):
+        return func.concat(
+            ProcedureType.name,
+            "->",
+            ReagentRole.name
+        ).label("name")
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[ProcedureTypeReagentRoleAssociation, bool]:
@@ -2219,19 +2254,25 @@ class ProcedureReagentLotAssociation(BaseClass):
                 except Exception:
                     pass
     
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this RunReagentAssociation
-        """
+    @hybrid_property
+    def name(self):
         try:
-            return f"<ProcedureReagentLotAssociation({self._procedure.name} & {self._reagentlot.lot})>"
+            procedure = self.procedure.name
         except AttributeError:
-            try:
-                logger.error(f"Reagent {self._reagentlot.lot} procedure association {self.reagentlot_id} has no procedure!")
-            except AttributeError:
-                return "<ProcedureReagentAssociation(Unknown Submission & Unknown Reagent)>"
-            return f"<ProcedureReagentAssociation(Unknown Submission & {self._reagentlot.lot})>"
+            procedure = "Unassigned Procedure"
+        try:
+            reagentlot = self.reagentlot.name
+        except AttributeError:
+            reagentlot = "Unassigned ReagentLot"
+        return f"{procedure}->{reagentlot}"
+
+    @name.expression
+    def name(cls):
+        return func.concat(
+            Procedure.name,
+            "->",
+            ReagentLot.name
+        ).label("name")
 
     @hybrid_property
     def reagentlot(self):
@@ -2390,13 +2431,22 @@ class ReagentRoleReagentAssociation(BaseClass):
     @hybrid_property
     def name(self):
         try:
-            return f"{self.reagentrole.name} -> {self.reagent.name}"
+            reagent = self.reagent.name
         except AttributeError:
-            return "Blank ReagentRoleReagent"
+            reagent = "Unassigned Reagent"
+        try:
+            reagentrole = self.reagentrole.name
+        except AttributeError:
+            reagentrole = "Unassigned ReagentRole"
+        return f"{reagentrole}->{reagent}"
 
     @name.expression
-    def name(cls):
-        return func.concat(cls.reagentrole.name, ' -> ', cls.reagent.name)
+    def name(self):
+        return func.concat(
+            ReagentRole.name,
+            "->",
+            Reagent.name
+        ).label("name")
 
     @hybrid_property
     def reagent(self):
@@ -2422,7 +2472,6 @@ class ReagentRoleReagentAssociation(BaseClass):
             self._reagent = output
         else:
             logger.error(f"Could not set _reagent to {output}")
-
     
     @hybrid_property
     def reagentrole(self):
@@ -2750,8 +2799,6 @@ class Equipment(BaseClass, LogMixin):
         else:
             self._nickname = value
 
-    
-
     @classmethod
     @setup_lookup
     def query(cls,
@@ -2927,10 +2974,16 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                     pass
 
     @hybrid_property
-    def name(self) -> str:
-        er = self._equipmentrole or "UnassignedRole"
-        eq = self._equipment or "UnknownEquipment"
-        return f"{er}->{eq}"
+    def name(self):
+        try:
+            equipment = self.equipment.name
+        except AttributeError:
+            equipment = "Unassigned Equipment"
+        try:
+            equipmentrole = self.equipmentrole.name
+        except AttributeError:
+            equipmentrole = "Unassigned EquipmentRole"
+        return f"{equipmentrole}->{equipment}"
 
     @name.expression
     def name(self):
@@ -3538,11 +3591,12 @@ class Tips(BaseClass):
 
     @hybrid_property
     def name(self):
-        return f"{self.manufacturer}-{self.ref}"
+        return f"{self.manufacturer}-{self.ref} ({self.capacity})"
 
     @name.expression
     def name(cls):
-        return func.concat(cls.manufacturer, '-', cls.ref)
+        return func.concat(cls.manufacturer, '-', cls.ref, "(", cast(cls.capacity, String), ")"
+        ).label("name")
 
     @classmethod
     @setup_lookup
@@ -3673,11 +3727,29 @@ class TipsLot(BaseClass, LogMixin):
 
     @hybrid_property
     def name(self) -> str:
-        return f"{self.tips.manufacturer}-{self.tips.ref}-{self.lot}"
+        try:
+            manufacturer = self.tips.manufacturer
+        except AttributeError:
+            manufacturer = "Unassigned manufacturer"
+        try:
+            ref = self.tips.ref
+        except AttributeError:
+            ref = "Unassigned manufacturer"
+        return f"{manufacturer}-{ref}-{self.lot}"
 
     @name.expression
     def name(cls):
-        return func.concat(cls.tips.manufacturer, '-', cls.tips.lot, '-', self.lot)
+        # We need the Process table available in the context of the main query
+        # We use a correlated approach or rely on an implicit join when filtering
+        # The key is to return a SQL expression directly:
+        # Use func.concat() with an explicit join to the Process table
+        return func.concat(
+            Tips.manufacturer,
+            "-",
+            Tips.ref,
+            "-",
+            cast(cls.lot, String)
+        ).label("name")
 
     @hybrid_property
     def active(self):
@@ -3843,11 +3915,11 @@ class ProcedureEquipmentAssociation(BaseClass):
                 except Exception:
                     pass
 
-    def __repr__(self) -> str:
-        try:
-            return f"<ProcedureEquipmentAssociation({self.name})>"
-        except AttributeError:
-            return "<ProcedureEquipmentAssociation(Unknown)>"
+    # def __repr__(self) -> str:
+    #     try:
+    #         return f"<ProcedureEquipmentAssociation({self.name})>"
+    #     except AttributeError:
+    #         return "<ProcedureEquipmentAssociation(Unknown)>"
 
     @hybrid_property
     def tipslot(self):
@@ -3972,9 +4044,25 @@ class ProcedureEquipmentAssociation(BaseClass):
         else:
             self._processversion = None
     
-    @property
+    @hybrid_property
     def name(self):
-        return f"{self.procedure.name} & {self.equipment.name}"
+        try:
+            equipment = self.equipment.name
+        except AttributeError:
+            equipment = "Unassigned Equipment"
+        try:
+            procedure = self.procedure.name
+        except AttributeError:
+            procedure = "Unassigned Procedure"
+        return f"{procedure}->{equipment}"
+
+    @name.expression
+    def name(cls):
+        return func.concat(
+            Procedure.name,
+            "->",
+            Equipment.name
+        ).label("name")
 
     @property
     def process(self):
@@ -4144,14 +4232,14 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     @hybrid_property
     def name(self):
         try:
-            er = self._equipmentrole.name
+            equipmentrole = self.equipmentrole.name
         except AttributeError:
-            er= "UnassignedEquipmentRole"
+            equipmentrole= "Unassigned EquipmentRole"
         try:
-            pt = self._proceduretype.name
+            proceduretype = self.proceduretype.name
         except AttributeError:
-            pt = "UnknownProcedureType"
-        return f"{pt}->{er}"
+            proceduretype = "Unassigned ProcedureType"
+        return f"{proceduretype}->{equipmentrole}"
 
     @name.expression
     def name(cls):
@@ -4330,6 +4418,28 @@ class Results(BaseClass):
                 except Exception:
                     pass
 
+    # TODO: Enable query from sample_association in addition to procedure
+
+    @hybrid_property
+    def name(self):
+        try:
+            assoc = self.procedure.name
+        except AttributeError:
+            assoc = "Unassigned Results Association"
+        try:
+            resultstype = self.resultstype.name
+        except AttributeError:
+            resultstype = "Unassigned ResultsType"
+        return f"{assoc}-{resultstype}"
+    
+    @name.expression
+    def name(cls):
+        return func.concat(
+            Procedure.name,
+            "-",
+            ResultsType.name
+        ).label("name")
+
     @hybrid_property
     def date_analyzed(self):
         return self._date_analyzed
@@ -4337,12 +4447,12 @@ class Results(BaseClass):
     @date_analyzed.setter
     def date_analyzed(self, value):
         match value:
+            case datetime():
+                pass
             case date():
                 value = datetime.combine(value, time=datetime.now(tz=timezone).time())
             case str():
                 value = dateparse(value)
-            case datetime():
-                pass
             case _:
                 logger.error(f"Unmatched value {value} for date_analyzed.")
                 value = datetime.combine(date.today(), datetime.max.time())

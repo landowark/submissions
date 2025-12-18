@@ -251,7 +251,7 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage ReagentRole</h2>
+<h2 id="ObjectName">Manage Discount</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
@@ -259,88 +259,72 @@ ul.no-bullets {
     
         <option value="--New--">--New--</option>
     
-        <option value="Omega Wash 1">Omega Wash 1</option>
-    
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 
-<label for="name" style="font-size: medium;">name 
+<label for="description" style="font-size: medium;">description 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Name of this reagent role.</span>
+        <span class="tooltiptext">Brief description of this discount.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="name" name="name" value="Omega Wash 1" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="reagent" style="font-size: medium;">reagent 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Reagents filling this role.</span>
-    </div>:
-</label><br>
-
-
-<div id="reagent" class="dual-listbox-container associationlist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="reagent_selectedOptions" size="10">
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="reagent_addSelected" name="reagent" class="addSelectedBtn association">&lt;</button>
-        <button type="button" id="reagent_removeSelected" name="reagent" class="removeSelectedBtn association">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="reagent_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
-            
-        </select>
-    </div>
-    <form id="reagent_associationForm" class="associationForm">
-        <!-- Additional fields for association attributes can be added here -->
-    </form>
-</div>
+<input type="text" id="description" name="description" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
 <label for="proceduretype" style="font-size: medium;">proceduretype 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">ProcedureTypes using this role</span>
+        <span class="tooltiptext">ProcedureType this discount applies to.</span>
     </div>:
 </label><br>
 
 
-<div id="proceduretype" class="dual-listbox-container associationlist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="proceduretype_selectedOptions" size="10">
-            
-            <option value="Omega Bacterial Extraction">Omega Bacterial Extraction</option>
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="proceduretype_addSelected" name="proceduretype" class="addSelectedBtn association">&lt;</button>
-        <button type="button" id="proceduretype_removeSelected" name="proceduretype" class="removeSelectedBtn association">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="proceduretype_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
-            
-            <option value="Test">Test</option>
-            
-        </select>
-    </div>
-    <form id="proceduretype_associationForm" class="associationForm">
-        <!-- Additional fields for association attributes can be added here -->
-    </form>
-</div>
+<select id="proceduretype" name="proceduretype" onchange="instumentedattribute_change(this.id, this.value)">
+    <!-- Options will be populated dynamically -->
+    
+    <option value="NA" selected=""></option>
+    
+    
+        <option value="Test">Test</option>
+    
+        <option value="Omega Bacterial Extraction">Omega Bacterial Extraction</option>
+    
+</select>
+
+<br><br>
+
+
+<label for="clientlab" style="font-size: medium;">clientlab 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">ClientLab this discount applies to.</span>
+    </div>:
+</label><br>
+
+
+<select id="clientlab" name="clientlab" onchange="instumentedattribute_change(this.id, this.value)">
+    <!-- Options will be populated dynamically -->
+    
+    <option value="NA" selected=""></option>
+    
+    
+        <option value="Strep/STI">Strep/STI</option>
+    
+</select>
+
+<br><br>
+
+
+<label for="amount" style="font-size: medium;">amount 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Amount of discount to apply.</span>
+    </div>:
+</label><br>
+
+
+<input type="number" step="0.1" id="amount" name="amount" value="0.0" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 

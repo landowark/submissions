@@ -12,7 +12,7 @@
 {% elif item['type'] == "INT" %}
 <input type="number" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "FLOAT" %}
-<input type="number" step="any" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="number" step="0.1" id="{{ item['field'] }}" name="{{ item['field'] }}" value="{{ item['value'] }}" onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "BOOL" %}
 <input type="checkbox" id="{{ item['field'] }}" name="{{ item['field'] }}" {% if item['value'] %}checked{% endif %} onchange="instumentedattribute_change(this.id, this.value)">
 {% elif item['type'] == "DATETIME" %}

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import logging, sys
+from datetime import timedelta
 from typing import List
 from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract
@@ -15,6 +16,13 @@ class PydReagent(PydAbstract):
     comment: str = Field(default="", validate_default=True)
     cost_per_ml: float = Field(default=0.00, description="Cost of a millilitre of this reagent.")
     reagentlot: List[str] | List[dict] = Field(default_factory=list, description="Lot numbers of this reagent.", repr=False)
+
+    @field_validator("eol_ext", mode="before")
+    @classmethod
+    def timedelta_to_int(cls, value):
+        if isinstance(value, timedelta):
+            return value.days
+        return value
     
     
 class PydTips(PydAbstract):
@@ -205,4 +213,14 @@ class PydEquipmentRoleEquipmentAssociation(PydAbstract):
     @classproperty
     def aliases(cls) -> str:
         return super().aliases + ["equipmentequipmentroleassociation"]
-    
+
+
+class PydReagentRoleReagentAssociation(PydAbstract):
+
+    reagentrole: str = Field(default="NA") 
+    reagent: str = Field(default="NA")
+    ml_used_per_sample: float = Field(default=0.100, description="Amount of this reagent used per sample")
+
+    @classproperty
+    def aliases(cls) -> str:
+        return super().aliases + ["reagentreagentroleassociation"]

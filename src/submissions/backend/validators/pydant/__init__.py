@@ -223,11 +223,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 data_names = {v.get("name") if isinstance(v, dict) and "name" in v else v for v in raw_field_values}
             else:
                 data_names = {raw_field_values}
+            logger.debug(f"Querying with model {model}")
             for item in model.query():
                 try:
                     related = getattr(item, rel_attr)
                 except AttributeError:
-                    logger.debug(f"Item {item} has no attribute {rel_attr}; skipping")
+                    logger.error(f"Item {item} has no attribute {rel_attr}; skipping")
                     continue
                 related_iter = related if isinstance(related, list) else [related]
                 related_names = set()
@@ -382,6 +383,31 @@ class PydConcrete(PydBaseClass):
                 yield class_
         
 
-from .abstract import (PydEquipmentRole, PydProcess, PydReagent, PydReagentRole, PydTips, PydProcedureType, PydResultsType, PydSubmissionType)
-from .concrete import (PydEquipment, PydClientLab, PydClientSubmission, PydContact, PydProcedure, PydProcessVersion, PydResults, PydRun,
-                       PydReagentLot, PydSample, PydTipsLot)
+from .abstract import (
+    PydEquipmentRole, 
+    PydProcess, 
+    PydReagent, 
+    PydReagentRole, 
+    PydTips, 
+    PydProcedureType, 
+    PydResultsType, 
+    PydSubmissionType,
+    PydEquipmentRoleEquipmentAssociation,
+    PydProcedureTypeEquipmentRoleAssociation,
+    PydProcedureTypeReagentRoleAssociation,
+    PydReagentRoleReagentAssociation
+    )
+from .concrete import (
+    PydEquipment, 
+    PydClientLab, 
+    PydClientSubmission, 
+    PydContact, 
+    PydProcedure, 
+    PydProcessVersion, 
+    PydResults, 
+    PydRun,
+    PydReagentLot,
+    PydSample,
+    PydTipsLot,
+    PydDiscount
+    )
