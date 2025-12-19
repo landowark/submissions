@@ -348,6 +348,7 @@ class CustomLogger(Logger):
     def __init__(self, name: str = "procedure", level=logging.DEBUG):
         super().__init__(name, level)
         self.extra_info = None
+        self.propagate = False
         ch = logging.StreamHandler(stream=sys.stdout)
         ch.name = "Stream"
         ch.setLevel(self.level)

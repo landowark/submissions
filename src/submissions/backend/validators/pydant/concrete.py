@@ -106,11 +106,11 @@ class PydSample(PydConcrete):
 
     sample_id: str
     submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
-    enabled: bool = Field(default=True)
-    row: int = Field(default=0)
-    column: int = Field(default=0)
-    results: List[PydResults] | PydResults = Field(default=[])
-    is_control: int = Field(default=0)
+    enabled: bool = Field(default=True, repr=False)
+    row: int = Field(default=0, repr=False)
+    column: int = Field(default=0, repr=False)
+    results: List[PydResults] | PydResults = Field(default=[], repr=False)
+    is_control: int = Field(default=0, repr=False)
 
     @field_validator('is_control', mode='before')
     @classmethod
@@ -768,25 +768,27 @@ class PydClientSubmission(PydConcrete):
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
     def to_sql(self):
+        # sql = super().to_sql()
+        # from backend.db.models import SubmissionType
+        # assert not any([isinstance(item, PydSample) for item in sql.sample])
+        # sql.sample = []
+        # if not sql.submissiontype:
+        #     sql.submissiontype = SubmissionType.query(name=self.submissiontype['value'])
+        # match sql.submissiontype:
+        #     case SubmissionType():
+        #         pass
+        #     case _:
+        #         sql.submissiontype = SubmissionType.query(name="Default Submission Type")
+        # for k in list(self.__class__.model_fields.keys()) + list(self.model_extra.keys()):
+        #     attribute = getattr(self, k)
+        #     match k:
+        #         case "filepath":
+        #             sql._misc_info[k] = attribute.__str__()
+        #             continue
+        #         case _:
+        #             pass
+        logger.debug(f"Dicto coming into {self.__class__.__name__} object:\n{pformat(self.improved_dict(dictionaries=False))}")
         sql = super().to_sql()
-        from backend.db.models import SubmissionType
-        assert not any([isinstance(item, PydSample) for item in sql.sample])
-        sql.sample = []
-        if not sql.submissiontype:
-            sql.submissiontype = SubmissionType.query(name=self.submissiontype['value'])
-        match sql.submissiontype:
-            case SubmissionType():
-                pass
-            case _:
-                sql.submissiontype = SubmissionType.query(name="Default")
-        for k in list(self.model_fields.keys()) + list(self.model_extra.keys()):
-            attribute = getattr(self, k)
-            match k:
-                case "filepath":
-                    sql._misc_info[k] = attribute.__str__()
-                    continue
-                case _:
-                    pass
         return sql
 
     @property

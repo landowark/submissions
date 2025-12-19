@@ -11,7 +11,7 @@ from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
 from .functions import select_open_file, select_save_file
 from pathlib import Path
 from tools import Report, Alert, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.validators import PydReagent, PydClientSubmission, PydSample
+from backend.validators import PydReagent, PydClientSubmission
 from backend.db.models import (
     ClientLab, SubmissionType, Reagent, ReagentLot,
     ReagentRole, ProcedureTypeReagentRoleAssociation
@@ -760,6 +760,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         except AttributeError:
             pass
         self.sample = samples
+        logger.debug(f"Form samples:\n{pformat(self.sample)}")
+        # Note: At this point, samples are pydsamples
         start_run_btn = QPushButton("Save")
         self.layout.addWidget(start_run_btn)
         start_run_btn.clicked.connect(self.create_new_submission)
@@ -791,9 +793,12 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                         info[field] = value
         for item in self.recover:
             if hasattr(self, item):
+                logger.debug(f"Setting pyd {item} to {value}")
                 value = getattr(self, item)
                 info[item] = value
         for k, v in info.items():
+            if k == "sample":
+                continue
             logger.debug(f"Setting pyd {k} to {v}")
             self.pyd.__setattr__(k, v)
         report.add_result(report)
@@ -802,24 +807,30 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
     # @report_result
     def to_pydantic(self, *args):
         self.parse_form()
-        return self.pyd
+        output = self.pyd
+        return output
 
     @report_result
     def create_new_submission(self, *args) -> Report:
+        from backend.validators.pydant import PydSample
+        from backend.db.models import Sample
         pyd = self.to_pydantic()
-        sql = pyd.to_sql()
+        # samples = [sample. for sample in pyd.sample if sample.sample_id.lower() not in ["", "blank"]]
+        logger.debug(f"PYD:\n{pformat(pyd.__dict__)}")
         for sample in pyd.sample:
             if isinstance(sample, PydSample):
                 sample = sample.to_sql()
             assert not isinstance(sample, PydSample)
-            if sample.sample_id.lower() in ["", "blank"]:
-                continue
+            assert isinstance(sample, Sample)
             sample.save()
-            sql.add_sample(sample=sample)
+        #     sql.add_sample(sample=sample)
+        sql = pyd.to_sql()
+        # sql.sample += samples
         try:
             del sql._misc_info['sample']
         except KeyError:
             pass
+        logger.debug(f"SQL:\n{pformat(sql.__dict__)}")
         sql.save()
         self.app.table_widget.sub_wid.set_data()
         self.setParent(None)

@@ -245,23 +245,20 @@ class BaseClass(Base):
         new = False
         allowed = [k for k, v in cls.__dict__.items() if
                    isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
-        query_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
-        print(f"Sanitized Kwargs: {query_kwargs}")
+        query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
         # NOTE: outside kwargs will be reintroduced into misc_info
-        outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
-        print(f"Outside kwargs: {outside_kwargs}")
+        # outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
         if "name" in query_kwargs.keys():
             query_kwargs = dict(name=query_kwargs.get("name"))
         instance = cls.query(limit=1, **query_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
             new = True
-        print(f"{cls.__name__}.query_or_create came up with {instance}, is it a new one? {new}")
         for k, v in kwargs.items():
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
-            logger.debug(f"Setting {cls.__qualname__} {k} to {v}")
+            # logger.debug(f"Setting {cls.__qualname__} {k} to {v}")
             setattr(instance, k, v)
         return instance, new
 
@@ -296,7 +293,6 @@ class BaseClass(Base):
             query: Query = cls.__database_session__.query(cls)
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
-            print(f"Querying for {k}: {v}")
             try:
                 attr = getattr(cls, k)
             except (ArgumentError, AttributeError) as e:
@@ -369,7 +365,6 @@ class BaseClass(Base):
             if k in singles:
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
-            print(query.all())
         if offset:
             query.offset(offset)
         with query.session.no_autoflush:
@@ -405,6 +400,7 @@ class BaseClass(Base):
             self.__database_session__.commit()
         except Exception as e:
             logger.critical(f"Problem saving {self} due to: {e}")
+            logger.critical(f"Problem originated with {pformat(self.__dict__)}")
             self.__database_session__.rollback()
             report.add_result(Alert(msg=e, status="Critical"))
             return report
@@ -577,7 +573,7 @@ class BaseClass(Base):
             try:
                 value = json.dumps(value)
             except TypeError as e:
-                logger.error(f"Error json dumping value {key}: {value}: {e}")
+                # logger.error(f"Error json dumping value {key}: {value}: {e}")
                 value = str(value)
             try:
                 self._misc_info.update({key: value})
@@ -585,7 +581,7 @@ class BaseClass(Base):
                 self._misc_info = {key: value}
             return
         else:
-            logger.debug(f"setting {key}: {value} of type {type(attr)}")
+            # logger.debug(f"setting {self.__class__.__name__}.{key}: {value} of type {type(attr)}")
             # If the class attribute is a descriptor for a property (including
             # SQLAlchemy hybrid_property), calling super().__setattr__ may not
             # always trigger the descriptor's fset. Detect hybrid_property or
@@ -595,12 +591,12 @@ class BaseClass(Base):
                 # hybrid_property is imported in module scope above
                 if isinstance(attr, (property, hybrid_property)):
                     setter = getattr(attr, 'fset', None)
-                    logger.debug(f"{key} setter method: {setter}")
+                    # logger.debug(f"{key} setter method: {setter}")
                     if setter:
                         return setter(self, value)
-            except Exception:
+            except Exception as e:
                 # fall back to default behavior if detection fails
-                logger.error(f"Unable to call setter for {self.__str__()}.{attr}")
+                logger.error(f"Unable to call setter for {self.__str__()}.{attr} due to {e}")
             try:
                 return super().__setattr__(key, value)
                 # print(self.__dict__)
@@ -764,7 +760,7 @@ class BaseClass(Base):
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
         details = self.details_dict(**kwargs)
-        logger.debug(f"Details dict output:\n{pformat(details)}")
+        # logger.debug(f"Details dict output:\n{pformat(details)}")
         return pyd(**details)
 
     def show_details(self, obj):

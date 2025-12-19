@@ -36,8 +36,23 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return cls.__name__.replace("Pyd", "")
 
     @classproperty
-    def _sql_object(cls):
-        return getattr(models, cls._sql_name)
+    def _sql_object(cls) -> models.BaseClass:
+        # Lazy import here to reduce the chance of circular-import issues
+        # (models may import pydant elsewhere during package import).
+        try:
+            from backend.db import models as _models
+        except Exception:
+            # If import fails, re-raise with context so caller can see
+            raise
+        try:
+            return getattr(_models, cls._sql_name)
+        except AttributeError as e:
+            # Provide a clearer error message listing available top-level
+            # model names to help debugging name mismatches / import order.
+            available = [n for n in dir(_models) if not n.startswith("_")]
+            raise AttributeError(
+                f"SQL model '{cls._sql_name}' not found on backend.db.models. "
+                f"Available top-level attributes: {available}") from e
 
     @model_validator(mode="before")
     @classmethod
@@ -134,10 +149,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # conservative, don't pass empty lists through to query_or_create
         # so we don't unintentionally wipe related association rows.
         sanitized_dicto = {k: v for k, v in dicto.items() if not (isinstance(v, list) and len(v) == 0)}
-        logger.debug(f"Converting to SQL with sanitized dict: {pformat(sanitized_dicto)}")
+        # logger.debug(f"Converting to SQL with sanitized dict: {pformat(sanitized_dicto)}")
         sql, new = self._sql_object.query_or_create(**sanitized_dicto)
-        if new:
-            logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
+        # if new:
+        #     logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
         return sql
 
     @property

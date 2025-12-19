@@ -25,7 +25,7 @@ class SampleChecker(QDialog):
         if clientsubmission:
             self.rsl_plate_number = RSLNamer.construct_new_plate_name(clientsubmission.to_dict())
         else:
-            self.rsl_plate_number = clientsubmission
+            self.rsl_plate_number = clientsubmissionf
         self.samples = samples
         self.setWindowTitle(title)
         self.app = get_application_from_parent(parent)

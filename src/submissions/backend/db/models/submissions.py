@@ -13,10 +13,10 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from backend.db.models.procedures import ReagentLot
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, func
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, cast, func
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
@@ -245,17 +245,23 @@ class ClientSubmission(BaseClass, LogMixin):
     
     @sample.setter
     def sample(self, value):
-        if not isinstance(value, list):
+        from backend.validators.pydant.concrete import PydSample
+        if not isinstance(value, list) and not isinstance(value, _AssociationList):
             value = [value]
         for item in value:
+            logger.debug(f"Incoming sample: {type(item)}: {item}")
             match item:
                 case dict():
                     output = ClientSubmissionSampleAssociation(sample=item['name'], clientsubmission=self, **{k: v for k, v in item.items() if k != 'name'})
+                case PydSample():
+                    output = ClientSubmissionSampleAssociation(sample=item, clientsubmission=self, **{k: v for k, v in item.__dict__.items() if k != 'name'})
+                case Sample():
+                    output = ClientSubmissionSampleAssociation(sample=item, clientsubmission=self, **{k: v for k, v in item._misc_info.items() if k != 'name'})
                 case ClientSubmissionSampleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for sample")
-                    return
+                    logger.error(f"Unmatched value {item} of type {type(item)} for sample")
+                    continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ClientSubmissionSampleAssociation):
                 if output not in self.clientsubmissionsampleassociation:
@@ -501,16 +507,17 @@ class ClientSubmission(BaseClass, LogMixin):
             logger.warning(f"Converting {sample} to sql.")
             sample = sample.to_sql()
         try:
-            row = sample._misc_info['row']
-        except (KeyError, AttributeError):
+            row = sample._misc_info.get('row', 0)
+        except AttributeError:
             row = 0
         try:
-            column = sample._misc_info['column']
-        except KeyError:
+            column = sample._misc_info.get('column', 0)
+        except AttributeError:
             column = 0
-        submission_rank = sample._misc_info['submission_rank']
+        submission_rank = sample._misc_info.get('submission_rank', None)
         if sample in self.sample:
             return
+        logger.debug(f"Attempting association for {sample}")
         assoc = ClientSubmissionSampleAssociation(
             sample=sample,
             submission=self,
@@ -518,7 +525,8 @@ class ClientSubmission(BaseClass, LogMixin):
             row=row,
             column=column
         )
-        return assoc
+        assert hasattr(assoc, "sample_id")
+        self.sample += [assoc]
 
     @property
     def custom_context_events(self) -> dict:
@@ -537,11 +545,14 @@ class ClientSubmission(BaseClass, LogMixin):
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
         if checker.exec():
             run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
+            logger.debug(f"Created run: {pformat(run.__dict__)}")
             active_samples = [sample for sample in samples if sample.enabled]
-            for sample in active_samples:
-                sample = sample.to_sql()
-                if sample not in run.sample:
-                    assoc = run.add_sample(sample)
+            # for sample in active_samples:
+            #     logger.debug(f"Enabled sample: {sample}")
+            #     sample = sample.to_sql()
+            #     if sample not in run.sample:
+            #         assoc = run.add_sample(sample)
+            run.sample = active_samples
             run.save()
         else:
             logger.warning("Run cancelled.")
@@ -565,7 +576,11 @@ class ClientSubmission(BaseClass, LogMixin):
         output['name'] = self.name
         output['client_lab'] = output['clientlab']
         output['submission_type'] = output['submissiontype']
-        output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
+        try:
+            output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
+                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name"]
+        except KeyError:
+            output['excluded'] = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
                                "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name"]
         output['expanded'] = ["clientlab", "contact", "submissiontype"]
         return output
@@ -617,6 +632,7 @@ class Run(BaseClass, LogMixin):
         completed_date = kwargs.pop('completed_date', None)
         procedure = kwargs.pop('procedure', None)
         sample = kwargs.pop('sample', None)
+        logger.debug(f"Remaining kwargs: {kwargs}")
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -725,17 +741,21 @@ class Run(BaseClass, LogMixin):
     
     @sample.setter
     def sample(self, value):
+        from backend.validators.pydant import PydSample
         if not isinstance(value, list):
             value = [value]
         for item in value:
+            logger.debug(f"Incoming sample: {type(item)} - {item}")
             match item:
                 case dict():
                     output = RunSampleAssociation(sample=item['name'], run=self, **{k: v for k, v in item.items() if k != 'name'})
+                case PydSample():
+                    output = RunSampleAssociation(sample=item, run=self, **{k: v for k, v in item.__dict__.items() if k != 'name'})
                 case RunSampleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for sample")
-                    return
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}.sample")
+                    continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, RunSampleAssociation):
                 if output not in self.runsampleassociation:
@@ -1727,8 +1747,8 @@ class Sample(BaseClass, LogMixin):
                 case ClientSubmissionSampleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for sample")
-                    return
+                    logger.error(f"Unmatched value {item} for clientsubmission")
+                    continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ClientSubmissionSampleAssociation):
                 if output not in self.sampleclientsubmissionassociation:
@@ -1944,8 +1964,10 @@ class ClientSubmissionSampleAssociation(BaseClass):
         """
         clientsubmission = kwargs.pop('clientsubmission', None)
         sample = kwargs.pop('sample', None)
+        submission_rank = kwargs.pop("submission_rank", 0)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
+        self.submission_rank = submission_rank
         # Resolve proceduretype
         if clientsubmission is not None:
             try:
@@ -1966,12 +1988,12 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 except Exception:
                     pass
     
-    def __repr__(self) -> str:
-        try:
-            return f"<{self.__class__.__name__}({self.clientsubmission.submitter_plate_id} & {self.sample.sample_id})"
-        except AttributeError as e:
-            logger.error(f"Unable to construct __repr__ due to: {e}")
-            return super().__repr__()
+    # def __repr__(self) -> str:
+    #     try:
+    #         return f"<{self.__class__.__name__}({self.clientsubmission.submitter_plate_id} & {self.sample.sample_id})"
+    #     except AttributeError as e:
+    #         logger.error(f"Unable to construct __repr__ due to: {e}")
+    #         return super().__repr__()
 
     @hybrid_property
     def name(self):
@@ -1983,14 +2005,21 @@ class ClientSubmissionSampleAssociation(BaseClass):
             sample = self.sample.name
         except AttributeError:
             sample = "Unassigned Sample"
-        return f"{clientsubmission}->{sample}"
+        try:
+            submission_rank = self.submission_rank
+        except AttributeError:
+            submission_rank = "No Submission Rank"
+        return f"{clientsubmission}->{sample} (rank={submission_rank})"
     
     @name.expression
     def name(cls):
         return func.concat(
             ClientSubmission.name,
             "->",
-            Sample.name
+            Sample.name,
+            " (rank=",
+            cast(cls.submission_rank, String),
+            ")"
         ).label("name")
 
     @hybrid_property
@@ -2006,13 +2035,15 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case dict():
                 output = Sample.query_or_create(**value)
             case PydSample():
-                output = item.to_sql()
+                output = value.to_sql()
             case Sample():
-                output = item
+                output = value
             case _:
                 logger.error(f"Unmatched value {value} for sample")
                 return
         if isinstance(output, Sample):
+            if not hasattr(output, "id"):
+                output.save()
             self._sample = output
         else:
             logger.error(f"Could not set _sample to {output}")
@@ -2045,8 +2076,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        output = output['sample'].details_dict()
-        misc = output['misc_info']
+        output = self.sample.details_dict()
+        misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc
         return output
@@ -2286,9 +2317,9 @@ class RunSampleAssociation(BaseClass):
             case dict():
                 output = Sample.query_or_create(**value)
             case PydSample():
-                output = item.to_sql()
+                output = value.to_sql()
             case Sample():
-                output = item
+                output = value
             case _:
                 logger.error(f"Unmatched value {value} for sample")
                 return
