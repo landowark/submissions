@@ -79,7 +79,7 @@ class SampleChecker(QDialog):
     def formatted_list(self) -> List[dict]:
         output = []
         for sample in self.samples:
-            s = sample.improved_dict(dictionaries=False)
+            s = sample.improved_dict
             if s['sample_id'] in [item['sample_id'] for item in output]:
                 s['color'] = "red"
             else:

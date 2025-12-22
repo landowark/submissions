@@ -251,7 +251,7 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage Discount</h2>
+<h2 id="ObjectName">Manage ReagentLot</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
@@ -259,72 +259,52 @@ ul.no-bullets {
     
         <option value="--New--">--New--</option>
     
+        <option value="Omega VHB Buffer-64145GG259">Omega VHB Buffer-64145GG259</option>
+    
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 
-<label for="description" style="font-size: medium;">description 
+<label for="lot" style="font-size: medium;">lot 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Brief description of this discount.</span>
+        <span class="tooltiptext">Lot number of this reagent.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="description" name="description" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="text" id="lot" name="lot" value="64145GG259" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
-<label for="proceduretype" style="font-size: medium;">proceduretype 
+<label for="reagent" style="font-size: medium;">reagent 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">ProcedureType this discount applies to.</span>
+        <span class="tooltiptext">Type of reagent this lot is.</span>
     </div>:
 </label><br>
 
 
-<select id="proceduretype" name="proceduretype" onchange="instumentedattribute_change(this.id, this.value)">
+<select id="reagent" name="reagent" onchange="instumentedattribute_change(this.id, this.value)">
     <!-- Options will be populated dynamically -->
     
-    <option value="NA" selected=""></option>
+    <option value="Omega VHB Buffer" selected="">Omega VHB Buffer</option>
     
     
-        <option value="Test">Test</option>
-    
-        <option value="Omega Bacterial Extraction">Omega Bacterial Extraction</option>
+        <option value="Omega SPM Buffer">Omega SPM Buffer</option>
     
 </select>
 
 <br><br>
 
 
-<label for="clientlab" style="font-size: medium;">clientlab 
+<label for="expiry" style="font-size: medium;">expiry 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">ClientLab this discount applies to.</span>
+        <span class="tooltiptext">Expiry date of this reagent lot.</span>
     </div>:
 </label><br>
 
 
-<select id="clientlab" name="clientlab" onchange="instumentedattribute_change(this.id, this.value)">
-    <!-- Options will be populated dynamically -->
-    
-    <option value="NA" selected=""></option>
-    
-    
-        <option value="Strep/STI">Strep/STI</option>
-    
-</select>
-
-<br><br>
-
-
-<label for="amount" style="font-size: medium;">amount 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Amount of discount to apply.</span>
-    </div>:
-</label><br>
-
-
-<input type="number" step="0.1" id="amount" name="amount" value="0.0" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="date" id="expiry" name="expiry" value="2026-12-22" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 

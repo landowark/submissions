@@ -75,6 +75,12 @@ class PydReagentLot(PydConcrete):
     reagent: str | PydReagent | None = Field(default=None, description="Type of reagent this lot is.")
     expiry: datetime = Field(default = None, description="Expiry date of this reagent lot.", validate_default=True)
     missing: bool = Field(default=True, repr=False)
+    active: bool = Field(default=True)
+
+    @field_validator("active", mode="before")
+    @classmethod
+    def active_bool(cls, value):
+        return bool(value)
 
     @field_validator("expiry", mode="before")
     @classmethod
@@ -93,6 +99,17 @@ class PydReagentLot(PydConcrete):
                 raise ValueError(f"Could not parse expiry date: {value}")
         return value
 
+    @property
+    def name(self) -> str:
+        match self.reagent:
+            case PydReagent():
+                reagent = self.reagent.name
+            case _:
+                reagent = self.reagent
+        try:
+            return f"{reagent}-{self.lot}"
+        except AttributeError:
+            return f"{reagent}-{self.lot}"
 
 class PydDiscount(PydConcrete):
 
@@ -159,8 +176,9 @@ class PydSample(PydConcrete):
             value = 0
         return value
 
-    def improved_dict(self, dictionaries: bool = True) -> dict:
-        output = super().improved_dict(dictionaries=dictionaries)
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
         output['name'] = self.sample_id
         return output
 
@@ -338,14 +356,14 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     proceduretype: str | PydProcedureType | None = Field(default=None)
     run: str | PydRun | None = Field(default=None)
     name: dict = Field(default=dict(value="NA", missing=True), validate_default=True)
-    technician: dict = Field(default=dict(value="NA", missing=True))
-    repeat: bool = Field(default=False)
-    repeat_of: str | PydProcedure | None = Field(default=None)
-    plate_map: str | None = Field(default=None)
-    reagentlot: List[str] | List[PydReagentLot] = Field(default_factory=list)
-    sample: List[str] | List[PydSample] = Field(default_factory=list)
-    equipment: List[str] | List[PydEquipment] = Field(default_factory=list)
-    results: List[dict] | List[PydResults] = Field(default=[])
+    technician: dict = Field(default=dict(value="NA", missing=True), repr=False)
+    repeat: bool = Field(default=False, repr=False)
+    repeat_of: str | PydProcedure | None = Field(default=None, repr=False)
+    plate_map: str | None = Field(default=None, repr=False)
+    reagentlot: List[str] | List[PydReagentLot] = Field(default_factory=list, repr=False)
+    sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
+    equipment: List[str] | List[PydEquipment] = Field(default_factory=list, repr=False)
+    results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
 
     @field_validator("name", "technician", mode="before")#"kittype", mode="before")
     @classmethod
@@ -377,11 +395,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @classmethod
     def rescue_name(cls, value, values):
         if value['value'] == cls.model_fields['name'].default['value']:
-            if values.data['proceduretype']:
+            if values.data.get('proceduretype', None):
                 procedure_type = values.data['proceduretype'].name
             else:
                 procedure_type = None
-            if values.data['run']:
+            if values.data.get('run', None):
                 run = values.data['run'].rsl_plate_number
             else:
                 run = None
@@ -787,7 +805,7 @@ class PydClientSubmission(PydConcrete):
         #             continue
         #         case _:
         #             pass
-        logger.debug(f"Dicto coming into {self.__class__.__name__} object:\n{pformat(self.improved_dict(dictionaries=False))}")
+        logger.debug(f"Dicto coming into {self.__class__.__name__} object:\n{pformat(self.improved_dict)}")
         sql = super().to_sql()
         return sql
 
@@ -799,8 +817,9 @@ class PydClientSubmission(PydConcrete):
         else:
             return max([item.submission_rank for item in self.sample])
 
-    def improved_dict(self, dictionaries: bool = True) -> dict:
-        output = super().improved_dict(dictionaries=dictionaries)
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
         output['sample'] = self.sample
         output['clientlab'] = output['clientlab']
         try:
@@ -996,29 +1015,6 @@ class PydRun(PydConcrete):  #, extra='allow'):
                 output.append(dummy)
         self.samples = output
 
-    def improved_dict(self, dictionaries: bool = True) -> dict:
-        """
-        Adds model_extra to fields.
-
-        Args:
-            dictionaries (bool, optional): Are dictionaries expected as input? i.e. Should key['value'] be retrieved. Defaults to True.
-
-        Returns:
-            dict: This instance as a dictionary
-        """
-        fields = list(self.model_fields.keys()) + list(self.model_extra.keys())
-        if dictionaries:
-            output = {k: getattr(self, k) for k in fields}
-            # output['reagents'] = [item.improved_dict() for item in self.reagents]
-            output['sample'] = [item.improved_dict() for item in self.sample]
-            # try:
-            #     output['equipment'] = [item.improved_dict() for item in self.equipment]
-            # except TypeError:
-            #     pass
-        else:
-            output = {k: self.filter_field(k) for k in fields}
-        return output
-
     def filter_field(self, key: str) -> Any:
         """
         Attempts to get value from field dictionary
@@ -1047,7 +1043,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
         Returns:
             Tuple[dict, dict]: Dict for missing info, dict for missing reagents.
         """
-        info = {k: v for k, v in self.improved_dict().items() if isinstance(v, dict)}
+        info = {k: v for k, v in self.improved_dict.items() if isinstance(v, dict)}
         missing_info = {k: v for k, v in info.items() if v['missing']}
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
@@ -1062,7 +1058,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
         """
         from backend.db.models import Run
         report = Report()
-        dicto = self.improved_dict()
+        # dicto = self.improved_dict()
         instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
                                                rsl_plate_number=self.rsl_plate_number['value'])
         if instance is None:
@@ -1070,7 +1066,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
             return None, report
         report.add_result(result)
         self.handle_duplicate_samples()
-        for key, value in dicto.items():
+        for key, value in self.improved_dict.items():
             if isinstance(value, dict):
                 try:
                     value = value['value']
@@ -1235,7 +1231,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
     def sample_list(self) -> List[dict]:
         samples = []
         for sample in self.samples:
-            sample = sample.improved_dict()
+            sample = sample.improved_dict
             sample['row'] = sample['row'][0]
             sample['column'] = sample['column'][0]
             sample['submission_rank'] = sample['submission_rank'][0]

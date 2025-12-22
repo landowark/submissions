@@ -259,7 +259,10 @@ class BaseClass(Base):
                 continue
             # NOTE: Setattr used to make use of overridden method.
             # logger.debug(f"Setting {cls.__qualname__} {k} to {v}")
-            setattr(instance, k, v)
+            try:
+                setattr(instance, k, v)
+            except AttributeError:
+                continue
         return instance, new
 
     @classmethod
@@ -682,7 +685,7 @@ class BaseClass(Base):
             Any: corrected value
         """
         from backend.validators.pydant import PydBaseClass
-        logger.debug(f"Correcting details: {value} of type {type(value)}")
+        # logger.debug(f"Correcting details: {value} of type {type(value)}")
         match value:
             case str():
                 output = value.strip('\"')
@@ -709,7 +712,7 @@ class BaseClass(Base):
             case _:
                 logger.debug(f"Unmatched value type: {type(value)} for value: {value}")
                 output = value
-        logger.debug(f"Corrected value: {value} to {output}")
+        # logger.debug(f"Corrected value: {value} to {output}")
         return output
     
     def details_dict(self, **kwargs) -> dict:
@@ -724,10 +727,10 @@ class BaseClass(Base):
         """
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        excluded=["excluded", "misc_info", "_misc_info", "id"]
-        output = dict()
+        # excluded=["excluded", "misc_info", "_misc_info", "id"]
+        output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
-            if k in excluded:
+            if k in output['excluded']:
                 continue
             # NOTE: foreign keys handled in child overrides.
             try:
@@ -741,20 +744,20 @@ class BaseClass(Base):
             except AttributeError:
                 continue
             corrected_value = self.correct_details_fields(value)
-            logger.debug(f"Setting {k} corrected value to {corrected_value} ")
+            # logger.debug(f"Setting {k} corrected value to {corrected_value} ")
             output[k.strip("_")] = corrected_value
-        logger.debug(f"Details dict output:\n{pformat(output)}")
+        # logger.debug(f"Details dict output:\n{pformat(output)}")
         if self._misc_info:
             for key, value in self._misc_info.items():
-                logger.debug(f"Misc value: {key}: {value}")
+                # logger.debug(f"Misc value: {key}: {value}")
                 if key in output.keys():
                     continue
                 if key.startswith("_"):
                     continue
-                if key in excluded:
+                if key in output['excluded']:
                     continue
                 output[key] = self.correct_details_fields(value)
-        logger.debug(f"Details dict output:\n{pformat(output)}")
+        # logger.debug(f"Details dict output:\n{pformat(output)}")
         return output
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:

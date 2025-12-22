@@ -1,9 +1,13 @@
 from __future__ import annotations
 import logging, sys
 from datetime import timedelta
-from typing import List
+from typing import List, TYPE_CHECKING
+import numpy as np
 from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract
+from tools import jinja_template_loading
+if TYPE_CHECKING:
+    from .concrete import PydSample
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -161,6 +165,46 @@ class PydProcedureType(PydAbstract):
                 continue  # Skip if dict contains the target value
             new_list.append(item)
         self.__setattr__(field, new_list)
+
+    def construct_plate_map(self, sample_dicts: List[PydSample], creation:bool=True, vw_modifier:float=1.0) -> str:
+        """
+        Constructs an html based plate map for procedure details.
+
+        Args:
+            sample_list (list): List of procedure sample
+            plate_rows (int, optional): Number of rows in the plate. Defaults to 8.
+            plate_columns (int, optional): Number of columns in the plate. Defaults to 12.
+
+        Returns:
+            str: html output string.
+        """
+        if self.plate_rows == 0 or self.plate_columns == 0:
+            return "<br/>"
+        sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
+        vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
+        # NOTE: An overly complicated list comprehension create a list of sample locations
+        # NOTE: next will return a blank cell if no value found for row/column
+        env = jinja_template_loading()
+        template = env.get_template("support/plate_map.html")
+        html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts,
+                               vw=vw, creation=creation)
+        return html + "<br/>"
+    
+    def pad_sample_dicts(self, sample_dicts: List[PydSample]):
+        from backend.validators.pydant import PydSample
+        output = []
+        for row, column in self.ranked_plate.values():
+            sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
+                          PydSample(**dict(sample_id="", row=row, column=column, enabled=False, background_color="white")))
+            # if not hasattr(sample, "background_color"):
+            #     sample.background_color = "white"
+            output.append(sample)
+        return output
+    
+    @property
+    def ranked_plate(self):
+        matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
+        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):

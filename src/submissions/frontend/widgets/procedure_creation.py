@@ -24,6 +24,7 @@ class ProcedureCreation(QDialog):
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
+        logger.debug(f"Procedure: {self.procedure}, ProcedureType: {self.proceduretype.improved_dict}")
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
 
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
@@ -53,36 +54,35 @@ class ProcedureCreation(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
 
-
-
     def set_html(self):
-        proceduretype_dict = self.proceduretype.details_dict()
+        proceduretype_dict = self.proceduretype.improved_dict_expand_fields([{"reagentrole":[{"reagent":["reagentlot"]}]}, "equipmentrole"])
         # NOTE: Add --New-- as an option for reagents.
-        for key, value in self.procedure.reagentrole.items():
+        for reagentrole in proceduretype_dict.get("reagentrole", []):
             try:
-                check = "--New--" in [v['name'] for v in value]
+                check = "--New--" in [v['name'] for v in reagentrole]
             except TypeError:
                 try:
-                    check = "--New--" in [v.name for v in value]
+                    check = "--New--" in [v.name for v in reagentrole]
                 except (TypeError, AttributeError):
                     check = True
             if not check:
-                value.append(dict(name="--New--"))
-        if self.procedure.equipment:
-            for equipmentrole in proceduretype_dict['equipment']:
-                # NOTE: Check if procedure equipment is present and move to head of the list if so.
-                try:
-                    relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
-                                                    equipment.equipmentrole == equipmentrole['name']))
-                except StopIteration:
-                    continue
-                item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if
-                                        equipment['name'] == relevant_procedure_item.name))
-                equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
-                    equipmentrole['equipment'].index(item_in_er_list)))
-        proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
+                reagentrole.append(dict(name="--New--"))
+        # if self.procedure.equipment:
+        for equipmentrole in proceduretype_dict.get('equipmentrole', []):
+            # NOTE: Check if procedure equipment is present and move to head of the list if so.
+            try:
+                relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
+                                                equipment.equipmentrole == equipmentrole['name']))
+            except StopIteration:
+                continue
+            item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if
+                                    equipment['name'] == relevant_procedure_item.name))
+            equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
+                equipmentrole['equipment'].index(item_in_er_list)))
+        # proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
+        logger.debug(f"Proceduretype dictionary:\n{pformat(proceduretype_dict)}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

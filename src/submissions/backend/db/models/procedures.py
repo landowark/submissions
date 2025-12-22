@@ -10,7 +10,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query, declared_attr, aliased
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, time, timedelta
-from dateutil.parser import parse as dateparse
+from dateutil.parser import parse as dateparse, ParserError
 from tools import check_authorization, setup_lookup, check_regex_match, jinja_template_loading, flatten_list, timezone
 from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
@@ -463,7 +463,7 @@ class ReagentLot(BaseClass):
         active = kwargs.pop('active', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve reagent
         if reagent is not None:
             try:
                 self.reagent = reagent
@@ -473,7 +473,7 @@ class ReagentLot(BaseClass):
                     self._misc_info.update({'reagent': reagent})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
@@ -482,6 +482,8 @@ class ReagentLot(BaseClass):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
+        else:
+            self._procedure = []
         if expiry is not None:
             try:
                 self.expiry = expiry
@@ -532,6 +534,30 @@ class ReagentLot(BaseClass):
 
     @expiry.setter
     def expiry(self, value):
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        match value:
+            case datetime() | date():
+                output = value
+            # case date():
+            #     output = datetime.combine(value, datetime.max.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
+        output = datetime.combine(output, datetime.max.time())
+        value = output.replace(tzinfo=timezone)
         self._expiry = value
     
     @hybrid_property
@@ -541,28 +567,21 @@ class ReagentLot(BaseClass):
     @reagent.setter
     def reagent(self, value):
         from backend.validators.pydant import PydReagent
-        if not isinstance(value, list):
-            value = [value]
-        if len(value) == 0:
-            self._reagent = []
-            return
-        for item in value:
-            match item:
-                case str():
-                    output = Reagent.query(name=item, limit=1)
-                case dict():
-                    output = Reagent.query_or_create(**item)
-                case PydReagent():
-                    output = item.to_sql()
-                case Reagent():
-                    output = item
-                case _:
-                    logger.error(f"Unmatched value {item} for .reagent")
-                    continue
-            if isinstance(output, Reagent):
-                if output not in self._reagent:
-                    self._reagent.append(output)
-            else:
+        match value:
+            case str():
+                output = Reagent.query(name=value, limit=1)
+            case dict():
+                output = Reagent.query_or_create(**value)
+            case PydReagent():
+                output = value.to_sql()
+            case Reagent():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for .reagent")
+                return
+        if isinstance(output, Reagent):
+            self._reagent = output
+        else:
                 logger.error(f"Could not add {item} to ._reagent.")
         
     @hybrid_property
@@ -601,11 +620,18 @@ class ReagentLot(BaseClass):
         # We use a correlated approach or rely on an implicit join when filtering
         # The key is to return a SQL expression directly:
         # Use func.concat() with an explicit join to the Process table
-        return func.concat(
-            Reagent.name,
-            "-",
-            cls._lot
-        ).label("name")
+        # return func.concat(
+        #     Reagent.name,
+        #     "-",
+        #     cls.lot
+        # ).label("name")
+        regeant_subquery = (
+            select(Reagent.name)
+            .where(Reagent.id==cls.reagent_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        return regeant_subquery + "-" + cls.lot
 
     # @name.setter
     # def name(self, value):
@@ -615,6 +641,7 @@ class ReagentLot(BaseClass):
     def query(cls,
               lot: str | None = None,
               name: str | None = None,
+              reagent: str | Reagent | None = None,
               limit: int = 0,
               **kwargs) -> ReagentLot | List[ReagentLot]:
         """
@@ -636,15 +663,20 @@ class ReagentLot(BaseClass):
                 limit = 1
             case _:
                 pass
+        match reagent:
+            case str():
+                query = query.join(Reagent).filter(Reagent.name==reagent)
+            case Reagent():
+                query = query.filter(cls._reagent==reagent)
+            case _:
+                pass
         match name:
             case str():
-                query = query.join(Reagent).filter(Reagent.name == name)
+                query = query.filter(cls.name == name)
+                limit = 1
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-
-    def __repr__(self):
-        return f"<Lot({self.lot}-{self.expiry}>"
 
     @check_authorization
     def edit_from_search(self, obj, **kwargs):
@@ -668,7 +700,7 @@ class ReagentLot(BaseClass):
     def details_dict(self, **kwargs) -> dict:
         output = super().details_dict(**kwargs)
         output['excluded'] += ["reagentlotprocedureassociation", "procedures"]
-        output['reagent'] = output['reagent'].name
+        output['reagent'] = output['reagent']
         return output
 
 
@@ -1406,6 +1438,7 @@ class ProcedureType(BaseClass):
         from backend.validators.pydant import PydProcedure
         if run:
             samples = run.constuct_sample_dicts_for_proceduretype(proceduretype=self)
+            run = run.name
         else:
             samples = []
         output = dict(

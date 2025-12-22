@@ -71,7 +71,10 @@ class OmniManager(QDialog):
             self.pydant = self.object_type()
             self.pydant.new = True
         else:
-            sql_instance = self.object_type._sql_object.query(name=selection, limit=1)
+            try:
+                sql_instance = self.object_type._sql_class.query(name=selection, limit=1)
+            except AttributeError as e:
+                logger.error(f"Couldn't get _sql_object for type {self.object_type}")
             if not sql_instance:
                 logger.error(f"Could not find instance with name: {selection}")
                 return

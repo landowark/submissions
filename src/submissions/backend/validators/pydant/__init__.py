@@ -2,6 +2,7 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
+from copy import deepcopy
 import logging, sys, string, inspect
 from pprint import pformat
 from pydantic import BaseModel, ValidationError, model_validator, ConfigDict
@@ -11,7 +12,9 @@ from tools import classproperty, jinja_template_loading, row_keys
 from backend.db import models
 # from backend.db.models import *
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.orm import DeclarativeMeta
+from sqlalchemy.ext.associationproxy import _AssociationList
 
 
 logger = logging.getLogger(f"submission.{__name__}")
@@ -26,6 +29,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 
     # _sql_object: ClassVar = None
     key_value_order: ClassVar[List] = []
+    non_expandables: ClassVar[List] = ["procedure"]
 
     @classproperty
     def aliases(cls) -> str:
@@ -36,7 +40,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return cls.__name__.replace("Pyd", "")
 
     @classproperty
-    def _sql_object(cls) -> models.BaseClass:
+    def _sql_class(cls) -> models.BaseClass:
         # Lazy import here to reduce the chance of circular-import issues
         # (models may import pydant elsewhere during package import).
         try:
@@ -53,11 +57,19 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             raise AttributeError(
                 f"SQL model '{cls._sql_name}' not found on backend.db.models. "
                 f"Available top-level attributes: {available}") from e
-
+        
+    @property
+    def _sql_instance(self) -> models.BaseClass:
+        assert hasattr(self, "_sql_class")
+        instance = self._sql_class.query_or_create(name=self.name)
+        if isinstance(instance, tuple):
+            instance = instance[0]
+        return instance
+    
     @model_validator(mode="before")
     @classmethod
     def prevalidate(cls, data):
-        sql_fields = [k for k, v in cls._sql_object.__dict__.items() if isinstance(v, InstrumentedAttribute)]
+        sql_fields = [k for k, v in cls._sql_class.__dict__.items() if isinstance(v, InstrumentedAttribute)]
         output = {}
         match data:
             case dict():
@@ -81,7 +93,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def validate_model(cls, data):
         for key, value in data.model_extra.items():
             # NOTE: make sure all date variables are date objects.
-            if key in cls._sql_object.timestamps:
+            if key in cls._sql_class.timestamps:
                 if isinstance(value, str):
                     data.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
             # NOTE: translate row letter to an integer
@@ -115,7 +127,46 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 pass
         return item
 
-    def improved_dict(self, dictionaries: bool = True) -> dict:
+    def improved_dict_expand_fields(self, fields: List[str] | List[dict]):
+        if len(fields) == 0:
+            fields = self.improved_dict.keys()
+        print(f"Fields:\n{pformat(fields)}")
+        instance = self._sql_instance
+        dicto = self.improved_dict
+        for field in fields:
+            match field:
+                case str():
+                    key = field
+                    try:
+                        value = getattr(instance, key)
+                    except AttributeError:
+                        logger.error(f"Skipping {key}")
+                        continue
+                    match value:
+                        case _AssociationList() | InstrumentedList():
+                            output = [item.to_pydantic().improved_dict for item in value]
+                        case _:
+                            print(f"Unmatched type {type(value)}")
+                            continue
+                case dict():
+                    key = list(field.keys())[0]
+                    new_fields = list(field.values())[0]
+                    try:
+                        value = getattr(instance, key)
+                    except AttributeError:
+                        logger.error(f"Skipping {key}")
+                        continue
+                    match value:
+                        case _AssociationList() | InstrumentedList():
+                            output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
+                        case _:
+                            print(f"Unmatched type {type(value)}")
+                            continue
+            dicto[key] = output
+        return dicto
+    
+    @property
+    def improved_dict(self) -> dict:
         """
         Adds model_extra to fields.
 
@@ -127,19 +178,17 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         # self.revalidate()
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
-        if dictionaries:
-            output = {k: getattr(self, k) for k in fields}
-        else:
-            output = {k: self.filter_field(k) for k in fields}
+        output = {k: self.filter_field(k) for k in fields}
         if "misc_info" in output.keys():
             for k, v in output['misc_info'].items():
                 if k not in output.keys():
                     output[k] = v
             del output['misc_info']
+        if "name" not in output.keys():
+            output['name'] = self._sql_instance.name
         return output
 
     def to_sql(self):
-        dicto = self.improved_dict(dictionaries=False)
         # Prevent accidental clearing of existing SQL relationship lists:
         # Many SQLAlchemy relationship setters in this codebase treat an
         # assignment of an empty list as an instruction to clear that
@@ -148,11 +197,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # means "no change" rather than "clear all associations". To be
         # conservative, don't pass empty lists through to query_or_create
         # so we don't unintentionally wipe related association rows.
-        sanitized_dicto = {k: v for k, v in dicto.items() if not (isinstance(v, list) and len(v) == 0)}
-        # logger.debug(f"Converting to SQL with sanitized dict: {pformat(sanitized_dicto)}")
-        sql, new = self._sql_object.query_or_create(**sanitized_dicto)
-        # if new:
-        #     logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
+        sanitized_dicto = {k: v for k, v in self.improved_dict.items() if not (isinstance(v, list) and len(v) == 0)}
+        sql, _ = self._sql_class.query_or_create(**sanitized_dicto)
         return sql
 
     @property
@@ -164,7 +210,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             list: List of field names.
         """
         output = []
-        for k, v in self.improved_dict().items():
+        for k, v in self.improved_dict.items():
             match v:
                 case str() | int() | float() | datetime() | date():
                     output.append(k)
@@ -192,15 +238,15 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             str: Type name
         """        
-        type_ = getattr(cls._sql_object, field.lower().strip("_"))
+        type_ = getattr(cls._sql_class, field.lower().strip("_"))
         type_name = type_.__class__.__name__
         logger.debug(f"Type name for {field}: {type_name}")
         match type_name:
             case "hybrid_propertyProxy":
                 try:
-                    type_ = getattr(cls._sql_object, type_.property.key)
+                    type_ = getattr(cls._sql_class, type_.property.key)
                 except AttributeError:
-                    type_ = getattr(cls._sql_object, f"_{field}") # Dicey workaround for hybrid_property with underscore
+                    type_ = getattr(cls._sql_class, f"_{field}") # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
                 logger.debug(f"New type_name for hybrid_propertyProxy: {type_name}")
                 if type_name == "InstrumentedAttribute":

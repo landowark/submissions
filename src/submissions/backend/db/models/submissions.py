@@ -617,9 +617,6 @@ class Run(BaseClass, LogMixin):
 
     _sample = association_proxy("runsampleassociation", "_sample")
 
-    def __repr__(self) -> str:
-        return f"<Submission({self.name})>"
-
     def __init__(self, *args, **kwargs):
         """
         Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
@@ -1016,14 +1013,10 @@ class Run(BaseClass, LogMixin):
         output = super().details_dict()
         output['plate_number'] = self.plate_number
         submission_samples = [sample for sample in self.clientsubmission.sample]
-        active_samples = [sample.details_dict() for sample in output['runsampleassociation']
-                          if sample.sample.sample_id in [s.sample_id for s in submission_samples]]
-        for sample in active_samples:
-            sample['active'] = True
-        inactive_samples = [sample.details_dict() for sample in submission_samples if
+        active_samples = [dict(sample_id=sample, active=True) for sample in output['runsampleassociation']
+                          if sample in [s.sample_id for s in submission_samples]]
+        inactive_samples = [dict(sample_id=sample, active=False) for sample in submission_samples if
                             sample.name not in [s['sample_id'] for s in active_samples]]
-        for sample in inactive_samples:
-            sample['active'] = False
         output['sample'] = active_samples + inactive_samples
         output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
@@ -2244,6 +2237,7 @@ class RunSampleAssociation(BaseClass):
 
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
+    run_rank = Column(INTEGER, primary_key=True)
 
     # NOTE: reference to the Submission object
 
@@ -2294,14 +2288,21 @@ class RunSampleAssociation(BaseClass):
             sample = self.sample.name
         except AttributeError:
             sample = "Unassigned Sample"
-        return f"{run}-{sample}"
+        try:
+            run_rank = self.run_rank
+        except AttributeError:
+            run_rank = "No Submission Rank"
+        return f"{run}->{sample} (rank={run_rank})"
     
     @name.expression
     def name(cls):
         return func.concat(
             Run.name,
-            "-",
-            Sample.name
+            "->",
+            Sample.name,
+            " (rank=",
+            cast(cls.run_rank, String),
+            ")"
         ).label("name")
 
     @hybrid_property
