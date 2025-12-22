@@ -124,8 +124,38 @@ class BaseClass(Base):
         return ctx.backup_path
 
     def __init__(self, *args, **kwargs):
-        super().__init__()
-        self._misc_info = dict()
+        # Filter kwargs into those that map to SQLAlchemy-mapped attributes
+        # (InstrumentedAttribute) or hybrid properties and those that don't.
+        # Unknown kwargs will be stored in self._misc_info so callers can
+        # pass arbitrary data without raising TypeError from the Declarative
+        # base __init__.
+        allowed = set()
+        for name in dir(self.__class__):
+            try:
+                attr = getattr(self.__class__, name)
+            except Exception:
+                continue
+            # InstrumentedAttribute covers mapped columns/relationships
+            if isinstance(attr, InstrumentedAttribute) or isinstance(attr, hybrid_property):
+                allowed.add(name)
+        # Keep internal allowed names
+        allowed.update({'_misc_info'})
+
+        valid_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
+        misc_kwargs = {k: v for k, v in kwargs.items() if k not in valid_kwargs}
+
+        # Call SQLAlchemy / Declarative __init__ only with valid kwargs
+        super().__init__(*args, **valid_kwargs)
+
+        # Ensure _misc_info exists and merge misc kwargs into it
+        try:
+            if self._misc_info is None:
+                self._misc_info = {}
+        except AttributeError:
+            self._misc_info = {}
+        if misc_kwargs:
+            # merge misc kwargs (overwrites existing misc keys if present)
+            self._misc_info.update(misc_kwargs)
 
     @declared_attr
     @classmethod
@@ -403,7 +433,7 @@ class BaseClass(Base):
             self.__database_session__.commit()
         except Exception as e:
             logger.critical(f"Problem saving {self} due to: {e}")
-            logger.critical(f"Problem originated with {pformat(self.__dict__)}")
+            logger.critical(f"Problem objects: with {pformat([item for item in self.__database_session__.dirty])}")
             self.__database_session__.rollback()
             report.add_result(Alert(msg=e, status="Critical"))
             return report
@@ -787,6 +817,10 @@ class BaseClass(Base):
         else:
             return BaseClass.__subclasses__()
 
+    @classmethod
+    def rank_sample(cls, sample, iii):
+        sample.rank = iii
+        return sample
 
 class LogMixin(Base):
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',

@@ -122,7 +122,7 @@ class PydDiscount(PydConcrete):
 class PydSample(PydConcrete):
 
     sample_id: str
-    submission_rank: int | List[int] | None = Field(default=0, validate_default=True)
+    rank: int | List[int] | None = Field(default=0, validate_default=True)
     enabled: bool = Field(default=True, repr=False)
     row: int = Field(default=0, repr=False)
     column: int = Field(default=0, repr=False)
@@ -183,8 +183,9 @@ class PydSample(PydConcrete):
         return output
 
     def to_sql(self):
+        # logger.debug(f"Dict to sample sql: {pformat(self.improved_dict())}")
         sql = super().to_sql()
-        sql._misc_info["submission_rank"] = self.submission_rank
+        sql._misc_info["rank"] = self.rank
         return sql
 
 

@@ -122,7 +122,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 try:
                     item = item['value']
                 except KeyError:
-                    logger.error(f"Couldn't get dict value: {item}")
+                    # logger.error(f"Couldn't get dict value: {item}")
+                    pass
             case _:
                 pass
         return item

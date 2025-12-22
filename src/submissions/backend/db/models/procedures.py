@@ -1465,7 +1465,7 @@ class ProcedureType(BaseClass):
             return "<br/>"
         sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
-        # NOTE: An overly complicated list comprehension create a list of sample locations
+        # NOTE: An overly complicated list comprehension create a lisst of sample locations
         # NOTE: next will return a blank cell if no value found for row/column
         env = jinja_template_loading()
         template = env.get_template("support/plate_map.html")
