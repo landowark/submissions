@@ -740,7 +740,8 @@ class BaseClass(Base):
             case timedelta():
                 output = value.days
             case _:
-                logger.debug(f"Unmatched value type: {type(value)} for value: {value}")
+                if value is not None:
+                    logger.debug(f"Unmatched {cls.__qualname__} value type: {type(value)} for value: {value}")
                 output = value
         # logger.debug(f"Corrected value: {value} to {output}")
         return output

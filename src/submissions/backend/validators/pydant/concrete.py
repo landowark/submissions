@@ -505,7 +505,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             self.reagent.remove(removable)
         else:
             idx = 0
-        insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
+        insertable = PydReagent(reagentrole=reagentrole, name=name, lot=lot)
         if checked:
             self.reagent.insert(idx, insertable)
 

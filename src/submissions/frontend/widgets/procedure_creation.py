@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from backend.validators import PydProcedure, PydEquipment
-from tools import get_application_from_parent, render_details_template, sanitize_object_for_json
+from tools import get_application_from_parent, render_details_template, sanitize_object_for_json, get_index_of_value_in_dict_list
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -24,6 +24,7 @@ class ProcedureCreation(QDialog):
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
+        self.proceduretype_dict = self.proceduretype.improved_dict_expand_fields([{"reagentrole":[{"reagent":["reagentlot"]}]}, "equipmentrole"])
         logger.debug(f"Procedure: {self.procedure}, ProcedureType: {self.proceduretype.improved_dict}")
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
 
@@ -55,20 +56,24 @@ class ProcedureCreation(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
 
     def set_html(self):
-        proceduretype_dict = self.proceduretype.improved_dict_expand_fields([{"reagentrole":[{"reagent":["reagentlot"]}]}, "equipmentrole"])
         # NOTE: Add --New-- as an option for reagents.
-        for reagentrole in proceduretype_dict.get("reagentrole", []):
-            try:
-                check = "--New--" in [v['name'] for v in reagentrole]
-            except TypeError:
+        for reagentrole in self.proceduretype_dict.get("reagentrole", []):
+            for reagent in reagentrole['reagent']:
+                if len(reagent['reagentlot']) < 1:
+                    reagent['reagentlot'].append(dict(name="", active=True))
+                else:
+                    try:
+                        reagent['reagentlot'].remove(dict(name="", active=True))
+                    except Exception:
+                        pass
                 try:
-                    check = "--New--" in [v.name for v in reagentrole]
-                except (TypeError, AttributeError):
+                    check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
+                except TypeError:
                     check = True
-            if not check:
-                reagentrole.append(dict(name="--New--"))
+                if not check:
+                    reagent['reagentlot'].append(dict(name="--New--", active=True))
         # if self.procedure.equipment:
-        for equipmentrole in proceduretype_dict.get('equipmentrole', []):
+        for equipmentrole in self.proceduretype_dict.get('equipmentrole', []):
             # NOTE: Check if procedure equipment is present and move to head of the list if so.
             try:
                 relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
@@ -81,19 +86,19 @@ class ProcedureCreation(QDialog):
                 equipmentrole['equipment'].index(item_in_er_list)))
         # proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
-        proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
-        logger.debug(f"Proceduretype dictionary:\n{pformat(proceduretype_dict)}")
+        self.proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
+        logger.debug(f"Proceduretype dictionary:\n{pformat(self.proceduretype_dict)}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
-            proceduretype=proceduretype_dict,
+            proceduretype=self.proceduretype_dict,
             run=self.run.details_dict(),
             procedure=self.procedure,
             plate_map=self.plate_map,
             edit=self.edit
         )
-        # with open("platemap.html", "w") as f:
-        #     f.write(html)
+        with open("platemap.html", "w") as f:
+            f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, str)
@@ -138,12 +143,16 @@ class ProcedureCreation(QDialog):
         logger.debug(logtext)
 
     @pyqtSlot(str, str, str, str)
-    def add_new_reagent(self, reagentrole: str, name: str, lot: str, expiry: str):
+    def add_new_reagent(self, reagentrole: str, reagent: str, lot: str, expiry: str):
         from backend.validators.pydant import PydReagentLot
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
-        logger.debug(f"{reagentrole}, {name}, {lot}, {expiry}")
-        pyd = PydReagentLot(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry)
-        self.procedure.reagentrole[reagentrole].insert(0, pyd)
+        expiry = datetime.datetime.combine(expiry, datetime.datetime.max.time())
+        logger.debug(f"{reagentrole}, {reagent}, {lot}, {expiry}")
+        pyd = PydReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
+        reagentrole_idx, rr_dummy = get_index_of_value_in_dict_list(key="name", value=reagentrole, list_=self.proceduretype_dict['reagentrole'])
+        reagent_idx, _ = get_index_of_value_in_dict_list(key="name", value=reagent, list_=rr_dummy['reagent'])
+        self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
+        logger.debug(f"Procedure:\n{pformat(self.proceduretype.__dict__)}")
         self.set_html()
 
     @pyqtSlot(str, str)
@@ -151,10 +160,10 @@ class ProcedureCreation(QDialog):
     def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
         logger.debug(f"Updating reagent {reagentrole}, {name_lot_expiry}, {checked}")
         try:
-            name, lot, expiry = name_lot_expiry.split(" - ")
+            name, lot = name_lot_expiry.split(" - ")
         except ValueError as e:
             return
-        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, expiry=expiry, checked=checked)
+        self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked)
 
     @pyqtSlot(str, result=list)
     def get_reagent_names(self, reagentrole_name: str):

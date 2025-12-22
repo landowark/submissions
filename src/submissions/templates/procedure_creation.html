@@ -34,7 +34,7 @@
                     <br>
                     <h1><u>Reagents</u></h1>
                     <hr>
-                    {% for reagentrole in procedure['reagentrole'] %}
+                    {% for reagentrole in proceduretype['reagentrole'] %}
                     <p>{{reagentrole['name']}}</p>
                     <input type="checkbox" class="procedure_checkbox" checked id="{{ reagentrole['name'] }}_check" name="{{ reagentrole['name'] }}"><label for="{{ reagentrole['name'] }}">{{ reagentrole['name'] }}:</label><br>
                     <select class="reagentrole dropdown" id="{{ reagentrole['name'] }}" name="{{ reagentrole['name'] }}"><br>
@@ -46,7 +46,7 @@
                         {% endfor %}
                         {% endfor %}
                     </select>
-                    <div class="new_reagent" id="new_{{ key }}"></div>
+                    <div class="new_reagent" id="new_{{ reagentrole['name'] }}"></div>
                     <br>
                     {% endfor %}
                   {% endif %}

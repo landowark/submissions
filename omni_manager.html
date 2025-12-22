@@ -251,7 +251,7 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage ReagentLot</h2>
+<h2 id="ObjectName">Manage Reagent</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
@@ -259,52 +259,119 @@ ul.no-bullets {
     
         <option value="--New--">--New--</option>
     
-        <option value="Omega VHB Buffer-64145GG259">Omega VHB Buffer-64145GG259</option>
+        <option value="Omega VHB Buffer">Omega VHB Buffer</option>
+    
+        <option value="Omega SPM Buffer">Omega SPM Buffer</option>
+    
+        <option value="Omega Elution Buffer">Omega Elution Buffer</option>
     
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 
-<label for="lot" style="font-size: medium;">lot 
+<label for="reagentrole" style="font-size: medium;">reagentrole 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Lot number of this reagent.</span>
+        <span class="tooltiptext">Roles this reagent can fill.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="lot" name="lot" value="64145GG259" onchange="instumentedattribute_change(this.id, this.value)">
+<div id="reagentrole" class="dual-listbox-container associationlist">
+    <div class="selected-list list-panel">
+        <h4>Selected Options</h4>
+        <select id="reagentrole_selectedOptions" size="10">
+            
+            <option value="Omega Elution Buffer">Omega Elution Buffer</option>
+            
+        </select>
+    </div>
+    <div class="controls">
+        <button type="button" id="reagentrole_addSelected" name="reagentrole" class="addSelectedBtn association">&lt;</button>
+        <button type="button" id="reagentrole_removeSelected" name="reagentrole" class="removeSelectedBtn association">&gt;</button>
+    </div>
+    <div class="available-list list-panel">
+        <h4>Available Options</h4>
+        <select id="reagentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
+            
+            <option value="Omega Wash 1">Omega Wash 1</option>
+            
+            <option value="Omega Wash 2">Omega Wash 2</option>
+            
+        </select>
+    </div>
+    <form id="reagentrole_associationForm" class="associationForm">
+        <!-- Additional fields for association attributes can be added here -->
+    </form>
+</div>
 
 <br><br>
 
 
-<label for="reagent" style="font-size: medium;">reagent 
+<label for="eol_ext" style="font-size: medium;">eol_ext 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Type of reagent this lot is.</span>
+        <span class="tooltiptext">Extension of Life (days)</span>
     </div>:
 </label><br>
 
 
-<select id="reagent" name="reagent" onchange="instumentedattribute_change(this.id, this.value)">
-    <!-- Options will be populated dynamically -->
-    
-    <option value="Omega VHB Buffer" selected="">Omega VHB Buffer</option>
-    
-    
-        <option value="Omega SPM Buffer">Omega SPM Buffer</option>
-    
-</select>
+<input type="number" id="eol_ext" name="eol_ext" value="0" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
-<label for="expiry" style="font-size: medium;">expiry 
+<label for="name" style="font-size: medium;">name 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Expiry date of this reagent lot.</span>
+        <span class="tooltiptext">Name of this reagent.</span>
     </div>:
 </label><br>
 
 
-<input type="date" id="expiry" name="expiry" value="2026-12-22" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="text" id="name" name="name" value="Omega Elution Buffer" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="cost_per_ml" style="font-size: medium;">cost_per_ml 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Cost of a millilitre of this reagent.</span>
+    </div>:
+</label><br>
+
+
+<input type="number" step="0.1" id="cost_per_ml" name="cost_per_ml" value="0.0" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="reagentlot" style="font-size: medium;">reagentlot 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Lot numbers of this reagent.</span>
+    </div>:
+</label><br>
+
+
+<div id="reagentlot" class="dual-listbox-container relationshiplist">
+    <div class="selected-list list-panel">
+        <h4>Selected Options</h4>
+        <select id="reagentlot_selectedOptions" multiple="" size="10" class="relationship selected">
+            
+        </select>
+    </div>
+    <div class="controls">
+        <button type="button" id="reagentlot_addSelected" name="reagentlot" class="addSelectedBtn">&lt;</button>
+        <button type="button" id="reagentlot_removeSelected" name="reagentlot" class="removeSelectedBtn">&gt;</button>
+    </div>
+    <div class="available-list list-panel">
+        <h4>Available Options</h4>
+        <select id="reagentlot_availableOptions" multiple="" size="10" class="relationship available">
+            
+            <option value="Omega VHB Buffer-64145GG259" class="relationship">Omega VHB Buffer-64145GG259</option>
+            
+            <option value="Omega SPM Buffer-61219FV114" class="relationship">Omega SPM Buffer-61219FV114</option>
+            
+        </select>
+    </div>
+</div>
 
 <br><br>
 

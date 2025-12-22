@@ -44,7 +44,7 @@ var reagentRoles = document.getElementsByClassName("reagentrole");
 for(let i = 0; i < reagentRoles.length; i++) {
   reagentRoles[i].addEventListener("change", async function() {
     if (reagentRoles[i].value.includes("--New--")) {
-//        alert("Create new reagent.")
+        // alert("Create new reagent.")
         var br = document.createElement("br");
         var new_reg = document.getElementById("new_" + reagentRoles[i].id);
         var new_form = document.createElement("form");
