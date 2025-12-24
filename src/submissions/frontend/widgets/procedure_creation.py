@@ -24,8 +24,11 @@ class ProcedureCreation(QDialog):
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
-        self.proceduretype_dict = self.proceduretype.improved_dict_expand_fields([{"reagentrole":[{"reagent":["reagentlot"]}]}, "equipmentrole"])
-        logger.debug(f"Procedure: {self.procedure}, ProcedureType: {self.proceduretype.improved_dict}")
+        self.proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
+            {"reagentrole":[{"reagent":["reagentlot"]}]}, 
+            {"equipmentrole":[{"equipment":["process"]}]}]
+            )
+        # logger.debug(f"Procedure: {self.procedure}, ProcedureType: {self.proceduretype.improved_dict}")
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
 
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
@@ -87,7 +90,7 @@ class ProcedureCreation(QDialog):
         # proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
         self.proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
-        logger.debug(f"Proceduretype dictionary:\n{pformat(self.proceduretype_dict)}")
+        logger.debug(f"Proceduretype equipmentrole dictionary:\n{pformat(self.proceduretype_dict['equipmentrole'])}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

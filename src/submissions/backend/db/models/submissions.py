@@ -13,7 +13,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from backend.db.models.procedures import ReagentLot
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, cast, func
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, cast, func, select
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
@@ -2002,14 +2002,28 @@ class ClientSubmissionSampleAssociation(BaseClass):
     
     @name.expression
     def name(cls):
-        return func.concat(
-            ClientSubmission.name,
-            "->",
-            Sample.name,
-            " (rank=",
-            cast(cls.submission_rank, String),
-            ")"
-        ).label("name")
+        # return func.concat(
+        #     ClientSubmission.name,
+        #     "->",
+        #     Sample.name,
+        #     " (rank=",
+        #     cast(cls.submission_rank, String),
+        #     ")"
+        # ).label("name")
+        clientsubmission_subquery = (
+            select(ClientSubmission.name)
+            .where(ClientSubmission.id==cls.clientsubmission)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        sample_subquery = (
+            select(Sample.name)
+            .where(Sample.id==cls.sample_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return clientsubmission_subquery + "->" + sample_subquery + " (rank=" + cast(cls.submission_rank, String) + ")"
 
     @hybrid_property
     def sample(self):
@@ -2287,21 +2301,36 @@ class RunSampleAssociation(BaseClass):
         except AttributeError:
             sample = "Unassigned Sample"
         try:
-            submission_rank = self.submission_rank
+            run_rank = self.run_rank
         except AttributeError:
-            submission_rank = "No Submission Rank"
-        return f"{run}->{sample} (rank={self.run_rank})"
+            run_rank = "No Rank"
+        return f"{run}->{sample} (rank={run_rank})"
     
     @name.expression
     def name(cls):
-        return func.concat(
-            Run.name,
-            "-",
-            Sample.name,
-            " (rank=",
-            cast(cls.run_rank, String),
-            ")"
-        ).label("name")
+        # return func.concat(
+        #     Run.name,
+        #     "-",
+        #     Sample.name,
+        #     " (rank=",
+        #     cast(cls.run_rank, String),
+        #     ")"
+        # ).label("name")
+        run_subquery = (
+            select(Run.name)
+            .where(Run.id==cls.run_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        sample_subquery = (
+            select(Sample.name)
+            .where(Sample.id==cls.sample_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return run_subquery + "->" + sample_subquery + " (rank=" + cast(cls.run_rank, String) + ")"
+        
 
     @hybrid_property
     def sample(self):
@@ -2582,22 +2611,36 @@ class ProcedureSampleAssociation(BaseClass):
     @hybrid_property
     def name(self):
         try:
-            assoc = self.procedure.name
+            procedure = self.procedure.name
         except AttributeError:
-            assoc = "Unassigned Results Association"
+            procedure = "Unassigned Procedure"
         try:
-            resultstype = self.resultstype.name
+            sample = self.sample.name
         except AttributeError:
-            resultstype = "Unassigned ResultsType"
-        return f"{assoc}-{resultstype}"
+            sample = "Unassigned Sample"
+        return f"{procedure}->{sample} (rank={self.procedure_rank})"
     
     @name.expression
     def name(cls):
-        return func.concat(
-            Procedure.name,
-            "-",
-            ResultsType.name
-        ).label("name")
+        # return func.concat(
+        #     Procedure.name,
+        #     "-",
+        #     ResultsType.name
+        # ).label("name")
+        procedure_subquery = (
+            select(Procedure.name)
+            .where(Procedure.id==cls.procedure_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        sample_subquery = (
+            select(Sample.name)
+            .where(Sample.id==cls.sample_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return procedure_subquery + "->" + sample_subquery + " (rank=" + cast(cls.procedure_rank, String) + ")"
     
     @hybrid_property
     def results(self):
@@ -2612,7 +2655,6 @@ class ProcedureSampleAssociation(BaseClass):
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._results"
             match item:
                 case str():
                     output = Results.query(name=item, limit=1)
@@ -2643,9 +2685,9 @@ class ProcedureSampleAssociation(BaseClass):
             case dict():
                 output = Sample.query_or_create(**value)
             case PydSample():
-                output = item.to_sql()
+                output = value.to_sql()
             case Sample():
-                output = item
+                output = value
             case _:
                 logger.error(f"Unmatched value {value} for sample")
                 return

@@ -251,7 +251,7 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage Reagent</h2>
+<h2 id="ObjectName">Manage EquipmentRole</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
@@ -259,47 +259,57 @@ ul.no-bullets {
     
         <option value="--New--">--New--</option>
     
-        <option value="Omega VHB Buffer">Omega VHB Buffer</option>
-    
-        <option value="Omega SPM Buffer">Omega SPM Buffer</option>
-    
-        <option value="Omega Elution Buffer">Omega Elution Buffer</option>
+        <option value="Omega Bacteria Extractor">Omega Bacteria Extractor</option>
     
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 
-<label for="reagentrole" style="font-size: medium;">reagentrole 
+<label for="name" style="font-size: medium;">name 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Roles this reagent can fill.</span>
+        <span class="tooltiptext">Name of this equipment role.</span>
     </div>:
 </label><br>
 
 
-<div id="reagentrole" class="dual-listbox-container associationlist">
+<input type="text" id="name" name="name" value="Omega Bacteria Extractor" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="equipment" style="font-size: medium;">equipment 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Equipment this role can use.</span>
+    </div>:
+</label><br>
+
+
+<div id="equipment" class="dual-listbox-container associationlist">
     <div class="selected-list list-panel">
         <h4>Selected Options</h4>
-        <select id="reagentrole_selectedOptions" size="10">
+        <select id="equipment_selectedOptions" size="10">
             
-            <option value="Omega Elution Buffer">Omega Elution Buffer</option>
+            <option value="Kingfisher 1">Kingfisher 1</option>
+            
+            <option value="Kingfisher 2">Kingfisher 2</option>
+            
+            <option value="Kingfisher 3">Kingfisher 3</option>
+            
+            <option value="Kingfisher 4">Kingfisher 4</option>
             
         </select>
     </div>
     <div class="controls">
-        <button type="button" id="reagentrole_addSelected" name="reagentrole" class="addSelectedBtn association">&lt;</button>
-        <button type="button" id="reagentrole_removeSelected" name="reagentrole" class="removeSelectedBtn association">&gt;</button>
+        <button type="button" id="equipment_addSelected" name="equipment" class="addSelectedBtn association">&lt;</button>
+        <button type="button" id="equipment_removeSelected" name="equipment" class="removeSelectedBtn association">&gt;</button>
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="reagentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
-            
-            <option value="Omega Wash 1">Omega Wash 1</option>
-            
-            <option value="Omega Wash 2">Omega Wash 2</option>
+        <select id="equipment_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
             
         </select>
     </div>
-    <form id="reagentrole_associationForm" class="associationForm">
+    <form id="equipment_associationForm" class="associationForm">
         <!-- Additional fields for association attributes can be added here -->
     </form>
 </div>
@@ -307,70 +317,37 @@ ul.no-bullets {
 <br><br>
 
 
-<label for="eol_ext" style="font-size: medium;">eol_ext 
+<label for="proceduretype" style="font-size: medium;">proceduretype 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Extension of Life (days)</span>
+        <span class="tooltiptext">ProcedureTypes using this role</span>
     </div>:
 </label><br>
 
 
-<input type="number" id="eol_ext" name="eol_ext" value="0" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="name" style="font-size: medium;">name 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Name of this reagent.</span>
-    </div>:
-</label><br>
-
-
-<input type="text" id="name" name="name" value="Omega Elution Buffer" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="cost_per_ml" style="font-size: medium;">cost_per_ml 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Cost of a millilitre of this reagent.</span>
-    </div>:
-</label><br>
-
-
-<input type="number" step="0.1" id="cost_per_ml" name="cost_per_ml" value="0.0" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="reagentlot" style="font-size: medium;">reagentlot 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Lot numbers of this reagent.</span>
-    </div>:
-</label><br>
-
-
-<div id="reagentlot" class="dual-listbox-container relationshiplist">
+<div id="proceduretype" class="dual-listbox-container associationlist">
     <div class="selected-list list-panel">
         <h4>Selected Options</h4>
-        <select id="reagentlot_selectedOptions" multiple="" size="10" class="relationship selected">
+        <select id="proceduretype_selectedOptions" size="10">
+            
+            <option value="Omega Bacterial Extraction">Omega Bacterial Extraction</option>
             
         </select>
     </div>
     <div class="controls">
-        <button type="button" id="reagentlot_addSelected" name="reagentlot" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="reagentlot_removeSelected" name="reagentlot" class="removeSelectedBtn">&gt;</button>
+        <button type="button" id="proceduretype_addSelected" name="proceduretype" class="addSelectedBtn association">&lt;</button>
+        <button type="button" id="proceduretype_removeSelected" name="proceduretype" class="removeSelectedBtn association">&gt;</button>
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="reagentlot_availableOptions" multiple="" size="10" class="relationship available">
+        <select id="proceduretype_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
             
-            <option value="Omega VHB Buffer-64145GG259" class="relationship">Omega VHB Buffer-64145GG259</option>
-            
-            <option value="Omega SPM Buffer-61219FV114" class="relationship">Omega SPM Buffer-61219FV114</option>
+            <option value="Test">Test</option>
             
         </select>
     </div>
+    <form id="proceduretype_associationForm" class="associationForm">
+        <!-- Additional fields for association attributes can be added here -->
+    </form>
 </div>
 
 <br><br>

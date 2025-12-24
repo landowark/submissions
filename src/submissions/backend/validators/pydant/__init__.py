@@ -144,8 +144,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         logger.error(f"Skipping {key}")
                         continue
                     match value:
-                        case _AssociationList() | InstrumentedList():
+                        case InstrumentedList():
+                            print(f"Instrumented: {key}: {value}")
                             output = [item.to_pydantic().improved_dict for item in value]
+                        case _AssociationList():
+                            print(f"Association: {key}: {value}")
+                            output = [item.to_pydantic().improved_dict for item in value.col]
                         case _:
                             print(f"Unmatched type {type(value)}")
                             continue
@@ -186,7 +190,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     output[k] = v
             del output['misc_info']
         if "name" not in output.keys():
-            output['name'] = self._sql_instance.name
+            try:
+                output['name'] = self._sql_instance.name
+            except AttributeError:
+                logger.error(f"Cannot set name for {self.__class__.__name__}")
         return output
 
     def to_sql(self):

@@ -83,8 +83,8 @@
         dropdown_oi.json = equipmentrole;
         for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
             var opt = document.createElement('option');
-            opt.value = equipmentrole.equipment[iii].name;
-            opt.innerHTML = equipmentrole.equipment[iii].name;
+            opt.value = equipmentrole.equipment[iii].equipment;
+            opt.innerHTML = equipmentrole.equipment[iii].equipment;
             dropdown_oi.appendChild(opt);
         }
         updateProcessChoices(equipmentrole);
@@ -98,11 +98,11 @@
         }
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
-        var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
+        var equipment = equipmentrole.equipment.filter(function(x){ return x.equipment == equipment_name })[0];
         for (let iii = 0; iii < equipment.process.length; iii++) {
             var opt = document.createElement('option');
-            opt.value = equipment.process[iii].name;
-            opt.innerHTML = equipment.process[iii].name;
+            opt.value = equipment.process[iii];
+            opt.innerHTML = equipment.process[iii];
             dropdown_oi.appendChild(opt);
         }
         updateTipChoices(equipmentrole);

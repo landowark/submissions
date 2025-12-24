@@ -5,7 +5,7 @@ from __future__ import annotations
 from pprint import pformat
 import zipfile, logging, re, numpy as np, sys
 from operator import itemgetter
-from sqlalchemy import Column, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, cast, extract, func, select, case
+from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, extract, func, select, case
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query, declared_attr, aliased
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -47,6 +47,16 @@ process_tips = Table(
     Column("tips_id", INTEGER, ForeignKey("_tips.id")),
     extend_existing=True
 )
+
+# procedure_equipment_tipslot = Table(
+#     "_procedure_equipment_tipslot",
+#     BaseClass.__base__.metadata,
+#     Column("procedure_id", INTEGER, ForeignKey("_procedureequipmentassociation.procedure_id")),
+#     Column("equipment_id", INTEGER, ForeignKey("_procedureequipmentassociation.equipment_id")),
+#     Column("equipmentrole_id", INTEGER, ForeignKey("_procedureequipmentassociation.equipmentrole_id")),
+#     Column("tipslot_id", INTEGER, ForeignKey("_tipslot.id")),
+#     extend_existing=True
+# )
 
 submissiontype_proceduretype = Table(
     "_submissiontype_proceduretype",
@@ -631,11 +641,8 @@ class ReagentLot(BaseClass):
             .correlate(cls)
             .scalar_subquery()
         )
+        # Note: Can't use f strings for this for some reason.
         return regeant_subquery + "-" + cls.lot
-
-    # @name.setter
-    # def name(self, value):
-    #     self.lot = value
 
     @classmethod
     def query(cls,
@@ -771,13 +778,27 @@ class Discount(BaseClass):
         # We use a correlated approach or rely on an implicit join when filtering
         # The key is to return a SQL expression directly:
         # Use func.concat() with an explicit join to the Process table
-        return func.concat(
-            ClientLab.name,
-            "-",
-            ProcedureType.name,
-            "-",
-            cast(cls.amount, String)
-        ).label("name")
+        # return func.concat(
+        #     ClientLab.name,
+        #     "-",
+        #     ProcedureType.name,
+        #     "-",
+        #     cast(cls.amount, String)
+        # ).label("name")
+        clientlab_subquery = (
+            select(ClientLab.name)
+            .where(ClientLab.id==cls.clientlab_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        proceduretype_subquery = (
+            select(ProcedureType.name)
+            .where(ProcedureType.id==cls.proceduretype_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return clientlab_subquery + "-" + proceduretype_subquery + "-" + cast(cls.amount, String)
 
     @hybrid_property
     def clientlab(self) -> ClientLab:
@@ -2125,12 +2146,26 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         return f"{proceduretype}->{reagentrole}"
         
     @name.expression
-    def name(self):
-        return func.concat(
-            ProcedureType.name,
-            "->",
-            ReagentRole.name
-        ).label("name")
+    def name(cls):
+        # return func.concat(
+        #     ProcedureType.name,
+        #     "->",
+        #     ReagentRole.name
+        # ).label("name")
+        proceduretype_subquery = (
+            select(ProcedureType.name)
+            .where(ProcedureType.id==cls.proceduretype_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        reagentrole_subquery = (
+            select(ReagentRole.name)
+            .where(ReagentRole.id==cls.reagentrole_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return proceduretype_subquery + "->" + reagentrole_subquery
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[ProcedureTypeReagentRoleAssociation, bool]:
@@ -2301,11 +2336,25 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        return func.concat(
-            Procedure.name,
-            "->",
-            ReagentLot.name
-        ).label("name")
+        # return func.concat(
+        #     Procedure.name,
+        #     "->",
+        #     ReagentLot.name
+        # ).label("name")
+        procedure_subquery = (
+            select(Procedure.name)
+            .where(Procedure.id==cls.procedure_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        reagentlot_subquery = (
+            select(ReagentLot.name)
+            .where(ReagentLot.id==cls.reagentlot_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return procedure_subquery + "->" + reagentlot_subquery
 
     @hybrid_property
     def reagentlot(self):
@@ -2423,7 +2472,6 @@ class ReagentRoleReagentAssociation(BaseClass):
 
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)  #: id of associated reagent
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated procedure
-    # reagentrole = Column(String(64))  #: Name of associated reagentrole (for some reason can't be relationship).
     ml_used_per_sample = Column(FLOAT(3))  #: amount of reagent used for this role.
     
     _reagent = relationship(Reagent, back_populates="reagentreagentroleassociation")  #: associated procedure
@@ -2474,12 +2522,26 @@ class ReagentRoleReagentAssociation(BaseClass):
         return f"{reagentrole}->{reagent}"
 
     @name.expression
-    def name(self):
-        return func.concat(
-            ReagentRole.name,
-            "->",
-            Reagent.name
-        ).label("name")
+    def name(cls):
+        # return func.concat(
+        #     ReagentRole.name,
+        #     "->",
+        #     Reagent.name
+        # ).label("name")
+        reagentrole_subquery = (
+            select(ReagentRole.name)
+            .where(ReagentRole.id==cls.reagentrole_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        reagent_subquery = (
+            select(Reagent.name)
+            .where(Reagent.id==cls.reagent_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return reagentrole_subquery + "->" + reagent_subquery
 
     @hybrid_property
     def reagent(self):
@@ -3019,12 +3081,26 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         return f"{equipmentrole}->{equipment}"
 
     @name.expression
-    def name(self):
-        return func.concat(
-            EquipmentRole.name,
-            "->",
-            Equipment.name
-        ).label("name")
+    def name(cls):
+        # return func.concat(
+        #     EquipmentRole.name,
+        #     "->",
+        #     Equipment.name
+        # ).label("name")
+        equipmentrole_subquery = (
+            select(EquipmentRole.name)
+            .where(EquipmentRole.id==cls.equipmentrole_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        equipment_subquery = (
+            select(Equipment.name)
+            .where(Equipment.id==cls.equipment_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return equipmentrole_subquery + "->" + equipment_subquery
     
     @hybrid_property
     def process(self):
@@ -3106,12 +3182,12 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         else:
             logger.error(f"Could not set _equipmentrole to {value}")
     
-    def details_dict(self, **kwargs) -> dict:
-        output = super().details_dict(**kwargs)
-        output['equipment'] = self.equipment.details_dict()
-        output['equipment']['process'] = [item.details_dict() for item in self.process.processversion if
-                                          bool(item.active)]
-        return output
+    # def details_dict(self, **kwargs) -> dict:
+    #     output = super().details_dict(**kwargs)
+    #     output['equipment'] = self.equipment.details_dict()
+    #     output['equipment']['process'] = [item.details_dict() for item in self.process.processversion if
+    #                                       bool(item.active)]
+    #     return output
         
     @classmethod
     @setup_lookup
@@ -3464,11 +3540,19 @@ class ProcessVersion(BaseClass):
         # We use a correlated approach or rely on an implicit join when filtering
         # The key is to return a SQL expression directly:
         # Use func.concat() with an explicit join to the Process table
-        return func.concat(
-            Process.name,
-            "-v",
-            cast(cls.version, String)
-        ).label("name")
+        # return func.concat(
+        #     Process.name,
+        #     "-v",
+        #     cast(cls.version, String)
+        # ).label("name")
+        process_subquery = (
+            select(Process.name)
+            .where(Process.id==cls.process_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return process_subquery + "-v" + cast(cls.version, String)
 
     @hybrid_property
     def active(self):
@@ -3681,6 +3765,10 @@ class TipsLot(BaseClass, LogMixin):
     lot = Column(String(64), unique=True)  #: lot number
     _expiry = Column(TIMESTAMP)  #: date of expiry
     _active = Column(INTEGER, default=1)  #: whether or not these tips are currently in use.
+    procedureequipmenttipslotassociation = relationship("ProcedureEquipmentTipslotAssociation", 
+                                                 back_populates="_tipslot", 
+                                                 cascade="all, delete-orphan"
+                                                 )
 
     def __init__(self, *args, **kwargs):
         """
@@ -3697,7 +3785,7 @@ class TipsLot(BaseClass, LogMixin):
         # Resolve proceduretype
         if tips is not None:
             try:
-                self.tips = procetipsdure
+                self.tips = tips
             except Exception:
                 try:
                     self._misc_info.update({'tips': tips})
@@ -3776,13 +3864,27 @@ class TipsLot(BaseClass, LogMixin):
         # We use a correlated approach or rely on an implicit join when filtering
         # The key is to return a SQL expression directly:
         # Use func.concat() with an explicit join to the Process table
-        return func.concat(
-            Tips.manufacturer,
-            "-",
-            Tips.ref,
-            "-",
-            cast(cls.lot, String)
-        ).label("name")
+        # return func.concat(
+        #     Tips.manufacturer,
+        #     "-",
+        #     Tips.ref,
+        #     "-",
+        #     cast(cls.lot, String)
+        # ).label("name")
+        tipsman_subquery = (
+            select(Tips.manufacturer)
+            .where(Tips.id==cls.tips_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        tipsref_subquery = (
+            select(Tips.ref)
+            .where(Tips.id==cls.tips_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return tipsman_subquery + "-" + tipsref_subquery + "-" + cast(cls.lot, String)
 
     @hybrid_property
     def active(self):
@@ -3857,6 +3959,64 @@ class TipsLot(BaseClass, LogMixin):
         return output
 
 
+class ProcedureEquipmentTipslotAssociation(BaseClass):
+
+    procedure_id = Column(
+        INTEGER,
+        ForeignKey("_procedureequipmentassociation.procedure_id"),
+        primary_key=True
+    )
+    equipment_id = Column(
+        INTEGER,
+        ForeignKey("_procedureequipmentassociation.equipment_id"),
+        primary_key=True
+    )
+    equipmentrole_id = Column(
+        INTEGER,
+        ForeignKey("_procedureequipmentassociation.equipmentrole_id"),
+        primary_key=True
+    )
+    tipslot_id = Column(
+        INTEGER,
+        ForeignKey("_tipslot.id"),
+        primary_key=True
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["procedure_id", "equipment_id", "equipmentrole_id"],
+            [
+                "_procedureequipmentassociation.procedure_id",
+                "_procedureequipmentassociation.equipment_id",
+                "_procedureequipmentassociation.equipmentrole_id",
+            ],
+        ),
+    )
+
+
+    # Relationships
+    _procedureequipmentassociation = relationship(
+        "ProcedureEquipmentAssociation",
+        back_populates="_procedureequipmenttipslotassociation",
+        primaryjoin=lambda: and_(
+            ProcedureEquipmentTipslotAssociation.procedure_id == ProcedureEquipmentAssociation.procedure_id,
+            ProcedureEquipmentTipslotAssociation.equipment_id == ProcedureEquipmentAssociation.equipment_id,
+            ProcedureEquipmentTipslotAssociation.equipmentrole_id == ProcedureEquipmentAssociation.equipmentrole_id,
+        ),
+        foreign_keys=[
+            procedure_id,
+            equipment_id,
+            equipmentrole_id
+        ]
+    )
+
+    _tipslot = relationship(
+        "TipsLot",
+        back_populates="procedureequipmenttipslotassociation",
+        foreign_keys=[tipslot_id]
+    )
+
+
 class ProcedureEquipmentAssociation(BaseClass):
     """
     Abstract association between BasicRun and Equipment
@@ -3864,7 +4024,6 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    # equipmentrole = Column(String(64), primary_key=True)  #: name of the role the equipment fills
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)
     processversion_id = Column(INTEGER, ForeignKey("_processversion.id", ondelete="SET NULL",
                                                    name="SEA_Process_id"))  #: Foreign key of process id
@@ -3879,13 +4038,24 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     _equipmentrole = relationship(EquipmentRole)
 
-    _processversion = relationship(ProcessVersion,
-                                  back_populates="procedureequipmentassociation")  #: Associated process version
+    _processversion = relationship(ProcessVersion, back_populates="procedureequipmentassociation")  #: Associated process version
 
-    tipslot_id = Column(INTEGER, ForeignKey("_tipslot.id", ondelete="SET NULL",
-                                            name="SEA_Tipslot_id"))
-
-    _tipslot = relationship(TipsLot)
+    _procedureequipmenttipslotassociation = relationship(
+        ProcedureEquipmentTipslotAssociation, 
+        back_populates="_procedureequipmentassociation", 
+        primaryjoin=lambda: and_(
+            ProcedureEquipmentAssociation.procedure_id == ProcedureEquipmentTipslotAssociation.procedure_id,
+            ProcedureEquipmentAssociation.equipment_id == ProcedureEquipmentTipslotAssociation.equipment_id,
+            ProcedureEquipmentAssociation.equipmentrole_id == ProcedureEquipmentTipslotAssociation.equipmentrole_id,
+        ),
+        foreign_keys=[
+            ProcedureEquipmentTipslotAssociation.procedure_id,
+            ProcedureEquipmentTipslotAssociation.equipment_id,
+            ProcedureEquipmentTipslotAssociation.equipmentrole_id,
+        ],
+        cascade="all, delete-orphan")
+    
+    _tipslot = association_proxy("_procedureequipmenttipslotassociation", "_tipslot")
 
     def __init__(self, *args, **kwargs):
         """
@@ -4091,11 +4261,25 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        return func.concat(
-            Procedure.name,
-            "->",
-            Equipment.name
-        ).label("name")
+        # return func.concat(
+        #     Procedure.name,
+        #     "->",
+        #     Equipment.name
+        # ).label("name")
+        procedure_subquery = (
+            select(Procedure.name)
+            .where(Procedure.id==cls.procedure_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        equipment_subquery = (
+            select(Equipment.name)
+            .where(Equipment.id==cls.equipment_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return procedure_subquery + "->" + equipment_subquery
 
     @property
     def process(self):
@@ -4201,7 +4385,6 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
-    # uses = Column(JSON)  #: locations of equipment on the procedure type excel sheet.
     _static = Column(INTEGER, default=1)  #: if 1 this piece of equipment will always be used, otherwise it will need to be selected from list?
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypeequipmentroleassociation",
@@ -4276,11 +4459,25 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        return func.concat(
-            ProcedureType.name,
-            "->",
-            EquipmentRole.name
-        ).label("name")
+        # return func.concat(
+        #     ProcedureType.name,
+        #     "->",
+        #     EquipmentRole.name
+        # ).label("name")
+        proceduretype_subquery = (
+            select(ProcedureType.name)
+            .where(ProcedureType.id==cls.proceduretype_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        equipmentrole_subquery = (
+            select(EquipmentRole.name)
+            .where(EquipmentRole.id==cls.equipmentrole_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return proceduretype_subquery + "->" + equipmentrole_subquery
 
     @hybrid_property
     def proceduretype(self):
@@ -4467,11 +4664,25 @@ class Results(BaseClass):
     
     @name.expression
     def name(cls):
-        return func.concat(
-            Procedure.name,
-            "-",
-            ResultsType.name
-        ).label("name")
+        # return func.concat(
+        #     Procedure.name,
+        #     "-",
+        #     ResultsType.name
+        # ).label("name")
+        procedure_subquery = (
+            select(Procedure.name)
+            .where(Procedure.id==cls.procedure_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        resultstype_subquery = (
+            select(ResultsType.name)
+            .where(ResultsType.id==cls.resultstype_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this for some reason.
+        return procedure_subquery + "->" + resultstype_subquery
 
     @hybrid_property
     def date_analyzed(self):
