@@ -124,8 +124,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 except KeyError:
                     # logger.error(f"Couldn't get dict value: {item}")
                     pass
-                    # logger.error(f"Couldn't get dict value: {item}")
-                    pass
             case _:
                 pass
         return item
@@ -207,8 +205,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # means "no change" rather than "clear all associations". To be
         # conservative, don't pass empty lists through to query_or_create
         # so we don't unintentionally wipe related association rows.
-        sanitized_dicto = {k: v for k, v in self.improved_dict.items() if not (isinstance(v, list) and len(v) == 0)}
-        sql, _ = self._sql_class.query_or_create(**sanitized_dicto)
+        sanitized_dicto = {k: v for k, v in dicto.items() if not (isinstance(v, list) and len(v) == 0)}
+        # logger.debug(f"Converting to SQL with sanitized dict: {pformat(sanitized_dicto)}")
+        sql, new = self._sql_object.query_or_create(**sanitized_dicto)
+        if new:
+            logger.warning(f"Creating new {self._sql_object} with values:\n{pformat(dicto)}")
         return sql
 
     @property

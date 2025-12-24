@@ -250,7 +250,6 @@ class ClientSubmission(BaseClass, LogMixin):
             value = [value]
         for item in value:
             # logger.debug(f"Incoming sample: {type(item)}: {item}")
-            # logger.debug(f"Incoming sample: {type(item)}: {item}")
             match item:
                 case dict():
                     output = ClientSubmissionSampleAssociation(sample=item['name'], clientsubmission=self, **{k: v for k, v in item.items() if k != 'name'})
@@ -528,33 +527,6 @@ class ClientSubmission(BaseClass, LogMixin):
     #     )
     #     assert hasattr(assoc, "sample_id")
     #     self.sample += [assoc]
-    # def add_sample(self, sample: Sample):
-    #     try:
-    #         assert isinstance(sample, Sample)
-    #     except AssertionError:
-    #         logger.warning(f"Converting {sample} to sql.")
-    #         sample = sample.to_sql()
-    #     try:
-    #         row = sample._misc_info.get('row', 0)
-    #     except AttributeError:
-    #         row = 0
-    #     try:
-    #         column = sample._misc_info.get('column', 0)
-    #     except AttributeError:
-    #         column = 0
-    #     submission_rank = sample._misc_info.get('submission_rank', None)
-    #     if sample in self.sample:
-    #         return
-    #     logger.debug(f"Attempting association for {sample}")
-    #     assoc = ClientSubmissionSampleAssociation(
-    #         sample=sample,
-    #         submission=self,
-    #         submission_rank=submission_rank,
-    #         row=row,
-    #         column=column
-    #     )
-    #     assert hasattr(assoc, "sample_id")
-    #     self.sample += [assoc]
 
     @property
     def custom_context_events(self) -> dict:
@@ -574,18 +546,6 @@ class ClientSubmission(BaseClass, LogMixin):
         if checker.exec():
             run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
             logger.debug(f"Created run: {pformat(run.__dict__)}")
-            # Rank the selected pydantic samples, then convert them back to SQL Sample
-            pyd_selected = [self.rank_sample(sample, iii) for iii, sample in enumerate(samples, start=1) if sample.enabled]
-            logger.debug(f"Selected pydantic samples:\n{pformat(pyd_selected)}")
-            # sql_selected = [p.to_sql() for p in pyd_selected]
-            # Create RunSampleAssociation objects via Run.add_sample and append if not present.
-            # for sample_sql in sql_selected:
-                # assoc = run.add_sample(sample_sql)
-                # if assoc not in run.runsampleassociation:
-                    # run.runsampleassociation.append(assoc)
-            run.sample = pyd_selected
-            # sys.exit(f"Selected SQL samples:\n{pformat(run.runsampleassociation)}")
-            
             # Rank the selected pydantic samples, then convert them back to SQL Sample
             pyd_selected = [self.rank_sample(sample, iii) for iii, sample in enumerate(samples, start=1) if sample.enabled]
             logger.debug(f"Selected pydantic samples:\n{pformat(pyd_selected)}")
@@ -786,7 +746,6 @@ class Run(BaseClass, LogMixin):
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            # logger.debug(f"Incoming sample: {type(item)} - {item}")
             # logger.debug(f"Incoming sample: {type(item)} - {item}")
             match item:
                 case dict():
@@ -1727,7 +1686,6 @@ class Sample(BaseClass, LogMixin):
         properly wired.
         """
         # is_control = kwargs.pop('is_control', None)
-        # is_control = kwargs.pop('is_control', None)
         clientsubmission = kwargs.pop('clientsubmission', None)
         run = kwargs.pop('run', None)
         procedure = kwargs.pop('procedure', None)
@@ -1995,7 +1953,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         """
         clientsubmission = kwargs.pop('clientsubmission', None)
         sample = kwargs.pop('sample', None)
-        submission_rank = kwargs.pop("rank", 0)
         submission_rank = kwargs.pop("rank", 0)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
@@ -2291,7 +2248,6 @@ class RunSampleAssociation(BaseClass):
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
     run_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
-    run_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
 
     # NOTE: reference to the Submission object
 
@@ -2345,36 +2301,21 @@ class RunSampleAssociation(BaseClass):
         except AttributeError:
             sample = "Unassigned Sample"
         try:
-            run_rank = self.run_rank
+            submission_rank = self.submission_rank
         except AttributeError:
-            run_rank = "No Rank"
-        return f"{run}->{sample} (rank={run_rank})"
+            submission_rank = "No Submission Rank"
+        return f"{run}->{sample} (rank={self.run_rank})"
     
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     Run.name,
-        #     "-",
-        #     Sample.name,
-        #     " (rank=",
-        #     cast(cls.run_rank, String),
-        #     ")"
-        # ).label("name")
-        run_subquery = (
-            select(Run.name)
-            .where(Run.id==cls.run_id)
-            .correlate(cls)
-            .scalar_subquery()
-        )
-        sample_subquery = (
-            select(Sample.name)
-            .where(Sample.id==cls.sample_id)
-            .correlate(cls)
-            .scalar_subquery()
-        )
-        # Note: Can't use f strings for this for some reason.
-        return run_subquery + "->" + sample_subquery + " (rank=" + cast(cls.run_rank, String) + ")"
-        
+        return func.concat(
+            Run.name,
+            "-",
+            Sample.name,
+            " (rank=",
+            cast(cls.run_rank, String),
+            ")"
+        ).label("name")
 
     @hybrid_property
     def sample(self):
@@ -2593,12 +2534,10 @@ class ProcedureSampleAssociation(BaseClass):
     pyd_model_name = "PydSample"
 
     id = Column(INTEGER, unique=True, nullable=False) #: Exists to connect with results
-    id = Column(INTEGER, unique=True, nullable=False) #: Exists to connect with results
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
     row = Column(INTEGER)
     column = Column(INTEGER)
-    procedure_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
     procedure_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
 
     _procedure = relationship(Procedure,
@@ -2622,10 +2561,8 @@ class ProcedureSampleAssociation(BaseClass):
         sample = kwargs.pop('sample', None)
         results = kwargs.pop('results', None)
         procedure_rank = kwargs.pop("rank", 0)
-        procedure_rank = kwargs.pop("rank", 0)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        self.procedure_rank = procedure_rank
         self.procedure_rank = procedure_rank
         # Resolve proceduretype
         if procedure is not None:
