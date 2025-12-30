@@ -33,7 +33,7 @@
         </div>
         <div>
             <label for="{{ equipmentrole['name'] }}_tips">Tips:</label><br>
-            <select class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
+            <select multiple class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
             </select>
         </div>
 
@@ -83,8 +83,8 @@
         dropdown_oi.json = equipmentrole;
         for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
             var opt = document.createElement('option');
-            opt.value = equipmentrole.equipment[iii].equipment;
-            opt.innerHTML = equipmentrole.equipment[iii].equipment;
+            opt.value = equipmentrole.equipment[iii];
+            opt.innerHTML = equipmentrole.equipment[iii];
             dropdown_oi.appendChild(opt);
         }
         updateProcessChoices(equipmentrole);
@@ -98,12 +98,19 @@
         }
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
-        var equipment = equipmentrole.equipment.filter(function(x){ return x.equipment == equipment_name })[0];
-        for (let iii = 0; iii < equipment.process.length; iii++) {
-            var opt = document.createElement('option');
-            opt.value = equipment.process[iii];
-            opt.innerHTML = equipment.process[iii];
-            dropdown_oi.appendChild(opt);
+        var assoc_name = equipmentrole.name + "->" + equipment_name;
+        var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        for (let iii = 0; iii < processes.length; iii++) {
+            for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
+                var output = processes[iii].processversion[jjj];
+                if (Boolean(output.active)) {
+                    var opt = document.createElement('option');
+                    opt.value = output.name;
+                    opt.innerHTML = output.name;
+                    dropdown_oi.appendChild(opt);
+                }
+            }
         }
         updateTipChoices(equipmentrole);
     }
@@ -111,20 +118,24 @@
     function updateTipChoices(equipmentrole) {
         console.log("Updating tip choices.");
         var dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-        dropdown_oi.innerHTML = "";
+        while (dropdown_oi.options.length > 0) {
+            dropdown_oi.remove(0);
+        }
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
-        var process_name = document.getElementById(equipmentrole.name + "_process").value;
-        console.log(process_name);
-        var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
-        console.log(equipment);
-        var process = equipment.process.filter(function(x){ return x.name == process_name })[0];
-        console.log(process);
-        for (let iii = 0; iii < process.tips.length; iii++) {
-            var opt = document.createElement('option');
-            opt.value = process.tips[iii];
-            opt.innerHTML = process.tips[iii];
-            dropdown_oi.appendChild(opt);
+        var assoc_name = equipmentrole.name + "->" + equipment_name;
+        var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        for (let iii = 0; iii < processes.length; iii++) {
+            for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
+                var output = processes[iii].tips[jjj];
+                if (Boolean(output.active)) {
+                    var opt = document.createElement('option');
+                    opt.value = output.name;
+                    opt.innerHTML = output.name;
+                    dropdown_oi.appendChild(opt);
+                }
+            }
         }
     }
 

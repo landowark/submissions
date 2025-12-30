@@ -213,9 +213,18 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
     reagentrole: str = Field(default="NA")
     last_used: str = Field(default="NA")
 
+    @field_validator("last_used", mode="before")
+    @classmethod
+    def create_last_used(cls, value):
+        if value is None:
+            return "NA"
+        return value
+    
     @classproperty
     def aliases(cls) -> str:
         return super().aliases + ["reagentroleproceduretypeassociation"]
+    
+
 
 
 class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
@@ -252,7 +261,7 @@ class PydEquipmentRoleEquipmentAssociation(PydAbstract):
 
     equipmentrole: str = Field(default="NA")
     equipment: str = Field(default="NA")
-    process: str = Field(default="NA", description="Processes using this equipment role-equipment association.")
+    process: List[str] | List[dict] = Field(default_factory=list, description="Processes using this equipment role-equipment association.")
 
     @classproperty
     def aliases(cls) -> str:
@@ -263,7 +272,14 @@ class PydReagentRoleReagentAssociation(PydAbstract):
 
     reagentrole: str = Field(default="NA") 
     reagent: str = Field(default="NA")
-    ml_used_per_sample: float = Field(default=0.100, description="Amount of this reagent used per sample")
+    ml_used_per_sample: float = Field(default=0.000, description="Amount of this reagent used per sample")
+
+    @field_validator("ml_used_per_sample", mode="before")
+    @classmethod
+    def set_ml(cls, value):
+        if value is None:
+            value = 0.000
+        return value
 
     @classproperty
     def aliases(cls) -> str:

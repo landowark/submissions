@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from backend.validators import PydProcedure, PydEquipment
+from frontend.widgets import CustomWebEnginePage
 from tools import get_application_from_parent, render_details_template, sanitize_object_for_json, get_index_of_value_in_dict_list
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -19,16 +20,29 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class ProcedureCreation(QDialog):
 
     def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
+        from backend.validators.pydant import PydProcedureType
         super().__init__(parent)
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
+        try:
+            assert isinstance(self.proceduretype, PydProcedureType)
+        except AssertionError:
+            sys.exit(str(self.proceduretype))
         self.proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
-            {"reagentrole":[{"reagent":["reagentlot"]}]}, 
-            {"equipmentrole":[{"equipment":["process"]}]}]
-            )
-        # logger.debug(f"Procedure: {self.procedure}, ProcedureType: {self.proceduretype.improved_dict}")
+            {
+                "reagentrole":[
+                        {"reagent":["reagentlot"]}]
+                        
+            }, 
+            {
+                "equipmentrole": [
+                        {"equipmentroleequipmentassociation":["equipment", "process"]}]
+            }
+            
+            ])
+        logger.debug(f"ProcedureType: {pformat(self.proceduretype_dict)}")
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
 
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
@@ -38,6 +52,8 @@ class ProcedureCreation(QDialog):
         self.webview = QWebEngineView(parent=self)
         self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.webview.setMinimumSize(1200, 800)
+        custom_page = CustomWebEnginePage(self.webview)
+        self.webview.setPage(custom_page)
         # self.webview.setMaximumWidth(1200)
         # NOTE: Decide if exporting should be allowed.
         self.layout = QGridLayout()
@@ -90,7 +106,7 @@ class ProcedureCreation(QDialog):
         # proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
         self.proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
-        logger.debug(f"Proceduretype equipmentrole dictionary:\n{pformat(self.proceduretype_dict['equipmentrole'])}")
+        # logger.debug(f"Proceduretype equipmentrole dictionary:\n{pformat(self.proceduretype_dict['equipmentrole'])}")
         html = render_details_template(
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],

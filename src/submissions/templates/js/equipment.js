@@ -29,10 +29,10 @@ function updateEquipmentChoices(equipmentrole) {
         dropdown_oi.remove(0);
     }
     dropdown_oi.json = equipmentrole;
-    for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
+    for (let iii = 0; iii < equipmentrole.equipmentroleequipmentassociation.equipment.length; iii++) {
         var opt = document.createElement('option');
-        opt.value = equipmentrole.equipment[iii].name;
-        opt.innerHTML = equipmentrole.equipment[iii].name;
+        opt.value = equipmentrole.equipmentroleequipmentassociation.equipment[iii].name;
+        opt.innerHTML = equipmentrole.equipmentroleequipmentassociation.equipment[iii].name;
         dropdown_oi.appendChild(opt);
     }
     updateProcessChoices(equipmentrole);
@@ -46,12 +46,19 @@ function updateProcessChoices(equipmentrole) {
     }
     dropdown_oi.json = equipmentrole;
     var equipment_name = document.getElementById(equipmentrole.name).value;
-    var equipment = equipmentrole.equipment.filter(function(x){ return x.name == equipment_name })[0];
-    for (let iii = 0; iii < equipment.processes.length; iii++) {
-        var opt = document.createElement('option');
-        opt.value = equipment.processes[iii].name;
-        opt.innerHTML = equipment.processes[iii].name;
-        dropdown_oi.appendChild(opt);
+    var assoc_name = equipmentrole.name + "->" + equipment_name
+    console.log("Equipment for process: " + assoc_name)
+    var processes = equipmentrole.equipmentroleequipmentassociation.process.filter(function(x){ return assoc_name in x.equipmentroleequipmentassociation })[0];
+    for (let iii = 0; iii < processes.length; iii++) {
+        for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
+            var output = processes[iii].processversion[jjj]
+            if (Boolean(output.active)) {
+                var opt = document.createElement('option');
+                opt.value = output.name;
+                opt.innerHTML = output.name;
+                dropdown_oi.appendChild(opt);
+            }
+        }
     }
     updateTipChoices(equipmentrole);
 }

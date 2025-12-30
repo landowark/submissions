@@ -1022,7 +1022,7 @@ class Run(BaseClass, LogMixin):
         inactive_samples = [dict(sample_id=sample, active=False) for sample in submission_samples if
                             sample.name not in [s['sample_id'] for s in active_samples]]
         output['sample'] = active_samples + inactive_samples
-        output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
+        # output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
         output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
                                'permission', "clientsubmission"]
@@ -1438,7 +1438,9 @@ class Run(BaseClass, LogMixin):
         from frontend.widgets.procedure_creation import ProcedureCreation
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
-        dlg = ProcedureCreation(parent=obj, procedure=procedure_type.construct_dummy_procedure(run=self))
+        procedure = procedure_type.construct_dummy_procedure(run=self)
+        logger.debug(f"Dummy procedure: {pformat(procedure.improved_dict)}")
+        dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql, _ = dlg.return_sql(new=True)
             # NOTE: save commit disabled currently

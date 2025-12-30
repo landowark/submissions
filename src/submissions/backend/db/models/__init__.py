@@ -740,8 +740,8 @@ class BaseClass(Base):
             case timedelta():
                 output = value.days
             case _:
-                if value is not None:
-                    logger.debug(f"Unmatched {cls.__qualname__} value type: {type(value)} for value: {value}")
+                # if value is not None:
+                #     logger.debug(f"Unmatched {cls.__qualname__} value type: {type(value)} for value: {value}")
                 output = value
         # logger.debug(f"Corrected value: {value} to {output}")
         return output
@@ -789,13 +789,15 @@ class BaseClass(Base):
                     continue
                 output[key] = self.correct_details_fields(value)
         # logger.debug(f"Details dict output:\n{pformat(output)}")
+        if 'name' not in output.keys():
+            output['name'] = self.name
         return output
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
         details = self.details_dict(**kwargs)
         # logger.debug(f"Details dict output:\n{pformat(details)}")
-        return pyd(**details)
+        return pyd(sql_instance=self, **details)
 
     def show_details(self, obj):
         from frontend.widgets.submission_details import SubmissionDetails
@@ -822,6 +824,7 @@ class BaseClass(Base):
     def rank_sample(cls, sample, iii):
         sample.rank = iii
         return sample
+
 
 class LogMixin(Base):
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',

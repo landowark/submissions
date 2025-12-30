@@ -20,7 +20,7 @@ from inspect import getattr_static
 
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
-    from backend.validators.pydant import PydSample, PydEquipment
+    from backend.validators.pydant import PydSample, PydEquipment, PydProcedure
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -32,12 +32,28 @@ proceduretype_resulttype = Table(
     extend_existing=True
 )
 
-equipment_process = Table(
-    "_equipment_process",
-    BaseClass.__base__.metadata,
+# Define the association table instance first
+equipmentroleequipmentassociation_process = Table(
+    "_equipmentrolequipmentassociation_process",
+    BaseClass.metadata,
+    # Define the columns that will link the two parent tables
+    Column("equipmentrole_id", INTEGER),
+    Column("equipment_id", INTEGER),
     Column("process_id", INTEGER, ForeignKey("_process.id")),
-    Column("equipment_id", INTEGER, ForeignKey("_equipment.id")),
-    extend_existing=True
+    
+    # Define the composite Primary Key for the association table itself
+    # This prevents duplicate associations
+    # Use the column names defined just above
+    
+    # Define the composite foreign key constraint referring to the parent table
+    ForeignKeyConstraint(
+        ["equipmentrole_id", "equipment_id"],
+        ["_equipmentroleequipmentassociation.equipmentrole_id", 
+         "_equipmentroleequipmentassociation.equipment_id"]
+    ),
+    # Combine all columns into the association table's PRIMARY KEY
+    # This ensures a given role+equipment+process combination is unique
+    Column("pk_constraint", INTEGER, primary_key=True) # SQLite often needs an implicit PK 
 )
 
 process_tips = Table(
@@ -1455,7 +1471,7 @@ class ProcedureType(BaseClass):
     #     output['equipmentrole'] = [item.details_dict() for item in output['equipmentrole']]
     #     return output
 
-    def construct_dummy_procedure(self, run: Run | None = None):
+    def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
         from backend.validators.pydant import PydProcedure
         if run:
             samples = run.constuct_sample_dicts_for_proceduretype(proceduretype=self)
@@ -1468,8 +1484,9 @@ class ProcedureType(BaseClass):
             run=run,
             sample=samples
         )
+        print(f"Output dict: {pformat(output)}")
         return PydProcedure(**output)
-
+        
     def construct_plate_map(self, sample_dicts: List["PydSample"], creation:bool=True, vw_modifier:float=1.0) -> str:
         """
         Constructs an html based plate map for procedure details.
@@ -1711,6 +1728,7 @@ class Procedure(BaseClass):
     
     @sample.setter
     def sample(self, value):
+        from .submissions import ProcedureSampleAssociation
         if not isinstance(value, list):
             value = [value]
         for item in value:
@@ -1720,7 +1738,7 @@ class Procedure(BaseClass):
                 case ProcedureSampleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for sample")
+                    logger.error(f"Unmatched value {item.__class__.__qualname__} for sample")
                     continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureSampleAssociation):
@@ -1776,6 +1794,7 @@ class Procedure(BaseClass):
     @run.setter
     def run(self, value):
         from backend.validators.pydant import PydRun
+        from .submissions import Run
         match value:
             case str():
                 output = Run.query(name=value, limit=1)
@@ -1946,7 +1965,10 @@ class Procedure(BaseClass):
 
     def details_dict(self, **kwargs) -> dict:
         output = super().details_dict()
-        output['proceduretype'] = output['proceduretype'].details_dict()['name']
+        try:
+            output['proceduretype'] = output['proceduretype'].details_dict()['name']
+        except AttributeError:
+            pass
         output['results'] = [result.details_dict() for result in output['results']]
         run_samples = [sample for sample in self.run.sample]
         active_samples = [sample.details_dict() for sample in output['proceduresampleassociation']
@@ -2080,8 +2102,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 except Exception:
                     pass
 
-    
-
     @hybrid_property
     def proceduretype(self):
         return self._proceduretype
@@ -2167,39 +2187,40 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         # Note: Can't use f strings for this for some reason.
         return proceduretype_subquery + "->" + reagentrole_subquery
 
-    @classmethod
-    def query_or_create(cls, **kwargs) -> Tuple[ProcedureTypeReagentRoleAssociation, bool]:
-        new = False
-        disallowed = ['expiry']
-        sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-        instance = cls.query(**sanitized_kwargs)
-        if not instance or isinstance(instance, list):
-            instance = cls()
-            new = True
-        for k, v in sanitized_kwargs.items():
-            # logger.debug(f"Key: {k} has value: {v}")
-            match k:
-                case "proceduretype":
-                    if isinstance(v, str):
-                        v = SubmissionType.query(name=v)
-                    else:
-                        v = v.instance_object
-                case "reagentrole":
-                    if isinstance(v, str):
-                        v = ReagentRole.query(name=v)
-                    else:
-                        v = v.instance_object
-                case _:
-                    pass
-            setattr(instance, k, v)
-        # logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
-        return instance, new
+    # @classmethod
+    # def query_or_create(cls, **kwargs) -> Tuple[ProcedureTypeReagentRoleAssociation, bool]:
+    #     new = False
+    #     disallowed = ['expiry']
+    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
+    #     instance = cls.query(**sanitized_kwargs)
+    #     if not instance or isinstance(instance, list):
+    #         instance = cls()
+    #         new = True
+    #     for k, v in sanitized_kwargs.items():
+    #         # logger.debug(f"Key: {k} has value: {v}")
+    #         match k:
+    #             case "proceduretype":
+    #                 if isinstance(v, str):
+    #                     v = SubmissionType.query(name=v)
+    #                 else:
+    #                     v = v.instance_object
+    #             case "reagentrole":
+    #                 if isinstance(v, str):
+    #                     v = ReagentRole.query(name=v)
+    #                 else:
+    #                     v = v.instance_object
+    #             case _:
+    #                 pass
+    #         setattr(instance, k, v)
+    #     # logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
+    #     return instance, new
 
     @classmethod
     @setup_lookup
     def query(cls,
               reagentrole: ReagentRole | str | None = None,
               proceduretype: ProcedureType | str | None = None,
+              name: str | None = None,
               limit: int = 0,
               **kwargs
               ) -> ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]:
@@ -2229,7 +2250,12 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 query = query.join(ProcedureType).filter(ProcedureType.name == proceduretype)
             case _:
                 pass
-        pass
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
         return cls.execute_query(query=query, limit=limit)
 
     def get_all_relevant_reagents(self) -> Generator[Reagent, None, None]:
@@ -2943,23 +2969,23 @@ class Equipment(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def to_pydantic(self, equipmentrole: str = None) -> PydEquipment:
-        """
-        Creates PydEquipment of this Equipment
+    # def to_pydantic(self, equipmentrole: str = None) -> PydEquipment:
+    #     """
+    #     Creates PydEquipment of this Equipment
 
-        Args:
-            proceduretype (ProcedureType): Relevant SubmissionType
-            kittype (str | KitType | None, optional): Relevant KitType. Defaults to None.
+    #     Args:
+    #         proceduretype (ProcedureType): Relevant SubmissionType
+    #         kittype (str | KitType | None, optional): Relevant KitType. Defaults to None.
 
-        Returns:
-            PydEquipment: pydantic equipment object
-        """
-        from backend.validators.pydant import PydEquipment
-        creation_dict = self.details_dict()
-        processes = self.get_processes(equipmentrole=equipmentrole)
-        creation_dict['processes'] = processes
-        creation_dict['equipmentrole'] = equipmentrole or creation_dict['equipmentrole']
-        return PydEquipment(**creation_dict)
+    #     Returns:
+    #         PydEquipment: pydantic equipment object
+    #     """
+    #     from backend.validators.pydant import PydEquipment
+    #     creation_dict = self.details_dict()
+    #     processes = self.get_processes(equipmentrole=equipmentrole)
+    #     creation_dict['processes'] = processes
+    #     creation_dict['equipmentrole'] = equipmentrole or creation_dict['equipmentrole']
+    #     return PydEquipment(**creation_dict)
 
     @classmethod
     @declared_attr
@@ -3016,7 +3042,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated reagent
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated procedure
-    process_id = Column(INTEGER, ForeignKey("_process.id"))
+    # process_id = Column(INTEGER, ForeignKey("_process.id"))
 
     _equipmentrole = relationship("EquipmentRole",
                                  back_populates="equipmentroleequipmentassociation")  #: associated procedure
@@ -3024,7 +3050,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     _equipment = relationship("Equipment",
                              back_populates="equipmentequipmentroleassociation")  #: associated procedure
 
-    _process = relationship("Process",
+    _process = relationship("Process", secondary=equipmentroleequipmentassociation_process,
                            back_populates="_equipmentroleequipmentassociation")  #: associated procedure
 
     def __init__(self, *args, **kwargs):
@@ -3248,7 +3274,11 @@ class Process(BaseClass):
 
     _processversion = relationship("ProcessVersion", back_populates="_process")  #: relation to KitType
 
-    _equipmentroleequipmentassociation = relationship("EquipmentRoleEquipmentAssociation", back_populates="_process", cascade="all, delete-orphan")  #: relation to EquipmentRoleEquipmentAssociation
+    _equipmentroleequipmentassociation = relationship(
+        "EquipmentRoleEquipmentAssociation", 
+        secondary=equipmentroleequipmentassociation_process, 
+        back_populates="_process")
+        # cascade="all, delete-orphan")  #: relation to EquipmentRoleEquipmentAssociation
 
     def __init__(self, *args, **kwargs):
         """

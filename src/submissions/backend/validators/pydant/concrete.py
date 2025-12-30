@@ -177,6 +177,10 @@ class PydSample(PydConcrete):
         return value
 
     @property
+    def constructed_name(self):
+        return self.sample_id
+    
+    @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
         output['name'] = self.sample_id
@@ -525,7 +529,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         eoi.asset_number = equipment.asset_number
         eoi.nickname = equipment.nickname
         process_name, version = processversion.split("-v")
-        processversion = ProcessVersion.query(name=process_name, version=version, limit=1)
+        processversion = ProcessVersion.query(name=processversion, limit=1)
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
         # NOTE Correct pydprocessverion
