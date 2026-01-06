@@ -461,35 +461,43 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         return options
 
     def update_samples(self, sample_list: List[dict]):
+        # Build a new ordered list of samples matching the sample_list order.
+        new_samples: List[PydSample] = []
         for iii, sample_dict in enumerate(sample_list, start=1):
-            if sample_dict['sample_id'].startswith("blank_"):
-                sample_dict['sample_id'] = ""
+            # normalize blank markers
+            sample_id = sample_dict.get('sample_id', '')
+            if isinstance(sample_id, str) and sample_id.startswith("blank_"):
+                sample_id = ""
+
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
-            try:
-                sample = next(
-                    (item for item in self.sample if item.sample_id.upper() == sample_dict['sample_id'].upper()))
-            except StopIteration:
-                # NOTE Code to check for added controls.
-                logger.warning(
-                    f"Sample not found by name: {sample_dict['sample_id']}, checking row {row} column {column}")
-                try:
-                    sample = next(
-                        (item for item in self.sample if item.row == row and item.column == column))
-                except StopIteration:
-                    logger.error(f"Couldn't find sample: {pformat(sample_dict)}")
-                    if sample_dict['sample_id'] == "":
-                        continue
-                    else:
-                        sample = PydSample(sample_id=sample_dict['sample_id'], row=row, column=column)
-                        self.sample.append(sample)
-            sample.sample_id = sample_dict['sample_id']
-            sample.well_id = sample_dict['sample_id']
+
+            # try to find existing sample by id (case-insensitive)
+            sample = None
+            if sample_id:
+                sample = next((item for item in self.sample if (item.sample_id or "").upper() == sample_id.upper()), None)
+
+            # fallback: match by row/column
+            if not sample:
+                sample = next((item for item in self.sample if item.row == row and item.column == column), None)
+
+            # If still not found, and sample_id is empty, skip (was blank)
+            if not sample and sample_id == "":
+                continue
+
+            # If still not found, create a new sample
+            if not sample:
+                sample = PydSample(sample_id=sample_id, row=row, column=column)
+                # also add to original collection so future lookups can find it
+                self.sample.append(sample)
+
+            # Do NOT change the sample_id (we want to preserve the existing sample's identity).
+            # Update position/rank/control/classification metadata.
             sample.row = row
             sample.column = column
-            sample.procedure_rank = sample_dict['index']
+            sample.procedure_rank = sample_dict.get('index', 0)
             try:
-                well_class = sample_dict['class'].split(" ")[-1]
-            except KeyError:
+                well_class = sample_dict.get('class', '').split(" ")[-1]
+            except IndexError:
                 well_class = ""
             match well_class:
                 case "negativecontrol":
@@ -498,6 +506,13 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     sample.is_control = 1
                 case _:
                     sample.is_control = 0
+
+            new_samples.append(sample)
+
+        # Replace the sample list with the reordered list. Preserve any samples not present in
+        # sample_list by appending them after the ordered ones (so they are not lost).
+        remaining = [s for s in self.sample if s not in new_samples]
+        self.sample = new_samples + remaining
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str, checked:bool=True):
         try:
