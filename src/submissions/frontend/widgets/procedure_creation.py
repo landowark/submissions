@@ -2,7 +2,7 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
-import sys, logging, re, datetime
+import json, sys, logging, re, datetime
 from pprint import pformat
 from PyQt6.QtCore import pyqtSlot, Qt
 from PyQt6.QtWebChannel import QWebChannel
@@ -42,10 +42,13 @@ class ProcedureCreation(QDialog):
             }
             
             ])
-        logger.debug(f"ProcedureType: {pformat(self.proceduretype_dict)}")
+        # logger.debug(f"ProcedureType: {pformat(self.proceduretype_dict)}")
+        with open("proceduretype.json", "w") as f:
+            json.dump(sanitize_object_for_json(self.proceduretype_dict), f, indent=4)
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
 
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
+        logger.debug("Updating samples")
         self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
                                                    enumerate(self.procedure.sample, start=1)])
         self.app = get_application_from_parent(parent)
@@ -190,13 +193,13 @@ class ProcedureCreation(QDialog):
         reagentrole = ReagentRole.query(name=reagentrole_name)
         return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
 
-
     @pyqtSlot(str)
     def remove_element(self, element: str):
         logger.debug(f"Removing element: {element}")
         logger.debug(f"Removing element: {pformat(self)}")
 
-
     def return_sql(self, new: bool = False):
-        output = self.procedure.to_sql(new=new)
+        output = self.procedure.to_sql()
+        if isinstance(output, tuple):
+            output = output[0]
         return output

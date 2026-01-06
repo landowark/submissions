@@ -103,6 +103,8 @@ class SubmissionsTree(QTreeView):
         from backend.db.models import Run, ClientSubmission, Procedure
         self.clear()
         self.data = sorted(
+            # [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
+            # key=itemgetter('submitted_date'), reverse=True
             [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
             key=itemgetter('submitted_date'), reverse=True
         )

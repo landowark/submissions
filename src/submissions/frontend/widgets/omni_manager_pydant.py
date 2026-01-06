@@ -121,8 +121,9 @@ class OmniManager(QDialog):
             value (str): The value to add to the relationship.
         """
         logger.debug(f"data received in add_relationship: {data}")
+
         self.pydant.add_relationship(field, value, data)
-        logger.debug(f"Updated : {pformat(self.pydant.__dict__)}")
+        logger.debug(f"Updated {self.pydant.__class__.__name__}: {pformat(self.pydant.__dict__)}")
 
     @pyqtSlot(str, str)
     def remove_relationship(self, field: str, value: str) -> None:
@@ -162,7 +163,7 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        # logger.debug("Saving HTML from webview.")
+        logger.debug("Saving HTML from webview.")
         self.webview.page().toHtml(self.write_html)
 
     def write_html(self, html: str) -> None:

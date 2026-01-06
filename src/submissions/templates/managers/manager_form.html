@@ -58,7 +58,7 @@
         <h4>Selected Options</h4>
         <select id="{{ item['field'] }}_selectedOptions" size="10">
             {% for option in item['value'] %}
-            <option value="{{ option }}">{{ option }}</option>
+            <option value="{{ option }}" name="{{ field }}">{{ option }}</option>
             {% endfor %}
         </select>
     </div>
@@ -74,7 +74,7 @@
             {% endfor %}
         </select>
     </div>
-    <form id="{{ item['field'] }}_associationForm" class="associationForm">
+    <form id="{{ item['field'] }}association_Form" class="associationForm">
         <!-- Additional fields for association attributes can be added here -->
     </form>
 </div>

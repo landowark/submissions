@@ -52,8 +52,23 @@
     const equipment_json = {{ equipmentroles }};
 
     window.addEventListener('load', function () {
-        equipment_json.forEach(startup);
-    })
+        if (typeof QWebChannel !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                // This callback runs *after* the connection is established
+                backend = channel.objects.backend;
+
+                if (backend) {
+                    console.log("Backend channel established successfully.");
+                    // NOW it is safe to run your startup logic
+                    equipment_json.forEach(startup);
+                } else {
+                    console.error("Backend object not found in channel objects.");
+                }
+            });
+        } else {
+            console.error("qwebchannel.js is not loaded.");
+        }
+    });
 
     function startup(equipmentrole) {
         updateEquipmentChoices(equipmentrole);
@@ -99,8 +114,11 @@
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
-        var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-        var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+        if (!assoc) { return }
+        var processes = assoc.process;
         for (let iii = 0; iii < processes.length; iii++) {
             for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
                 var output = processes[iii].processversion[jjj];
@@ -124,8 +142,11 @@
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
-        var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-        var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+        if (!assoc) { return }
+        var processes = assoc.process;
         for (let iii = 0; iii < processes.length; iii++) {
             for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
                 var output = processes[iii].tips[jjj];

@@ -1098,14 +1098,49 @@ ul.no-bullets {
     </div>
     <br>
 
+    <div class="grid-container">
+        <div>
+            <input type="checkbox" class="procedure_checkbox" checked id="Omega gDNA Mover_check" name="Omega gDNA Mover"><label for="Omega gDNA Mover">Omega gDNA Mover:</label><br>
+            <select class="equipmentrole dropdown" id="Omega gDNA Mover" name="Omega gDNA Mover">
+            </select>
+        </div>
+        <div>
+            <label for="Omega gDNA Mover_process">Process:</label><br>
+            <select class="process dropdown" id="Omega gDNA Mover_process" name="Omega gDNA Mover_process">
+            </select>
+        </div>
+        <div>
+            <label for="Omega gDNA Mover_tips">Tips:</label><br>
+            <select multiple class="tips dropdown" id="Omega gDNA Mover_tips" name="Omega gDNA Mover_tips">
+            </select>
+        </div>
+
+    </div>
+    <br>
+
 
 
 <script>
-    const equipment_json = [{'name': 'Omega Bacteria Extractor', 'equipment': ['Kingfisher 1', 'Kingfisher 2', 'Kingfisher 3', 'Kingfisher 4'], 'proceduretype': ['Omega Bacterial Extraction'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleproceduretypeassociation': ['Omega Bacterial Extraction->Omega Bacteria Extractor'], 'equipmentroleequipmentassociation': [{'name': 'Omega Bacteria Extractor->Kingfisher 1', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 1', 'asset_number': '5023808', 'nickname': 'Kingfisher 1', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 1']}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 1', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 4']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}, {'name': 'Omega Bacteria Extractor->Kingfisher 2', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 2', 'asset_number': '5023809', 'nickname': 'Kingfisher 2', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 2'], 'process': 'OBT_M4029_KFF'}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 1', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 4']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}, {'name': 'Omega Bacteria Extractor->Kingfisher 3', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 3', 'asset_number': '5026044', 'nickname': 'Kingfisher 3', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 3'], 'process': 'OBT_M4029_KFF'}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 1', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 4']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}, {'name': 'Omega Bacteria Extractor->Kingfisher 4', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 4', 'asset_number': '5026045', 'nickname': 'Kingfisher 4', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 4']}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 1', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 4']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}], 'process': 'OBT_M4029_KFF'}];
+    const equipment_json = [{'name': 'Omega Bacteria Extractor', 'equipment': ['Kingfisher 1', 'Kingfisher 2', 'Kingfisher 3', 'Kingfisher 4'], 'proceduretype': ['Omega Bacterial Extraction'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleproceduretypeassociation': ['Omega Bacterial Extraction->Omega Bacteria Extractor'], 'equipmentroleequipmentassociation': [{'name': 'Omega Bacteria Extractor->Kingfisher 1', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 1', 'asset_number': '5023808', 'nickname': 'Kingfisher 1', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 1']}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 4', 'Omega Bacteria Extractor->Kingfisher 1']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}, {'name': 'Omega Bacteria Extractor->Kingfisher 2', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 2', 'asset_number': '5023809', 'nickname': 'Kingfisher 2', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 2'], 'process': 'OBT_M4029_KFF'}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 4', 'Omega Bacteria Extractor->Kingfisher 1']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}, {'name': 'Omega Bacteria Extractor->Kingfisher 3', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 3', 'asset_number': '5026044', 'nickname': 'Kingfisher 3', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 3'], 'process': 'OBT_M4029_KFF'}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 4', 'Omega Bacteria Extractor->Kingfisher 1']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}, {'name': 'Omega Bacteria Extractor->Kingfisher 4', 'equipmentrole': 'Omega Bacteria Extractor', 'equipment': {'name': 'Kingfisher 4', 'asset_number': '5026045', 'nickname': 'Kingfisher 4', 'procedure': [], 'equipmentrole': ['Omega Bacteria Extractor'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega Bacteria Extractor->Kingfisher 4']}, 'process': [{'name': 'OBT_M4029_KFF', 'tips': [], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 1.0, 'date_verified': '2025-12-11 13:20:26', 'project': 'NA', 'active': 1, 'process': 'OBT_M4029_KFF', 'procedureequipmentassociation': [], 'name': 'OBT_M4029_KFF-v1.0', 'tips': []}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega Bacteria Extractor->Kingfisher 3', 'Omega Bacteria Extractor->Kingfisher 2', 'Omega Bacteria Extractor->Kingfisher 4', 'Omega Bacteria Extractor->Kingfisher 1']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}], 'process': 'OBT_M4029_KFF'}, {'name': 'Omega gDNA Mover', 'equipment': ['Biomek'], 'proceduretype': ['Omega Bacterial Extraction'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleproceduretypeassociation': ['Omega Bacterial Extraction->Omega gDNA Mover'], 'equipmentroleequipmentassociation': [{'name': 'Omega gDNA Mover->Biomek', 'equipmentrole': 'Omega gDNA Mover', 'equipment': {'name': 'Biomek', 'asset_number': '5015330', 'nickname': 'Biomek', 'procedure': [], 'equipmentrole': ['Omega gDNA Mover'], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentprocedureassociation': [], 'equipmentequipmentroleassociation': ['Omega gDNA Mover->Biomek']}, 'process': [{'name': 'Bacteria_Core_Submission', 'tips': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'tips': 'Beckman Coulter-B85911(190)', 'lot': 'P46428', 'expiry': '2026-12-31 23:59:59', 'active': 1, 'procedureequipmenttipslotassociation': [], 'name': 'Beckman Coulter-B85911-P46428'}], 'processversion': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'version': 2.0, 'date_verified': '2025-01-21 00:00:00', 'project': 'NA', 'active': 1, 'process': 'Bacteria_Core_Submission', 'procedureequipmentassociation': [], 'name': 'Bacteria_Core_Submission-v2.0', 'tips': [{'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'tips': 'Beckman Coulter-B85911(190)', 'lot': 'P46428', 'expiry': '2026-12-31 23:59:59', 'active': 1, 'procedureequipmenttipslotassociation': [], 'name': 'Beckman Coulter-B85911-P46428'}]}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id'], 'equipmentroleequipmentassociation': ['Omega gDNA Mover->Biomek']}], 'excluded': ['excluded', 'misc_info', '_misc_info', 'id']}]}];
 
     window.addEventListener('load', function () {
-        equipment_json.forEach(startup);
-    })
+        if (typeof QWebChannel !== 'undefined') {
+            new QWebChannel(qt.webChannelTransport, function (channel) {
+                // This callback runs *after* the connection is established
+                backend = channel.objects.backend;
+
+                if (backend) {
+                    console.log("Backend channel established successfully.");
+                    // NOW it is safe to run your startup logic
+                    equipment_json.forEach(startup);
+                } else {
+                    console.error("Backend object not found in channel objects.");
+                }
+            });
+        } else {
+            console.error("qwebchannel.js is not loaded.");
+        }
+    });
 
     function startup(equipmentrole) {
         updateEquipmentChoices(equipmentrole);
@@ -1151,8 +1186,11 @@ ul.no-bullets {
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
-        var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-        var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+        if (!assoc) { return }
+        var processes = assoc.process;
         for (let iii = 0; iii < processes.length; iii++) {
             for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
                 var output = processes[iii].processversion[jjj];
@@ -1176,8 +1214,11 @@ ul.no-bullets {
         dropdown_oi.json = equipmentrole;
         var equipment_name = document.getElementById(equipmentrole.name).value;
         var assoc_name = equipmentrole.name + "->" + equipment_name;
-        var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
-        var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+        // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+        var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+        if (!assoc) { return }
+        var processes = assoc.process;
         for (let iii = 0; iii < processes.length; iii++) {
             for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
                 var output = processes[iii].tips[jjj];

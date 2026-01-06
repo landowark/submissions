@@ -3,6 +3,7 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from getpass import getuser
+import json
 import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
 from inspect import isclass
 from zipfile import BadZipfile
@@ -20,7 +21,7 @@ from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
-                   check_dictionary_inclusion_equality, is_power_user, row_map, timezone)
+                   check_dictionary_inclusion_equality, is_power_user, row_map, timezone, sanitize_object_for_json)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
 from typing import List, Literal, Generator, TYPE_CHECKING
@@ -1439,12 +1440,15 @@ class Run(BaseClass, LogMixin):
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
-        logger.debug(f"Dummy procedure: {pformat(procedure.improved_dict)}")
+        # logger.debug(f"Dummy procedure: {pformat(procedure.improved_dict)}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
-            sql, _ = dlg.return_sql(new=True)
+            sql = dlg.return_sql(new=True)
             # NOTE: save commit disabled currently
             sql.save()
+            logger.debug(pformat(sql.__dict__))
+            with open("procedure.json", "w") as f:
+                json.dump(sanitize_object_for_json(sql.__dict__), f, indent=4, default=str)
         obj.set_data()
 
     def delete(self, obj=None):
@@ -2555,10 +2559,7 @@ class ProcedureSampleAssociation(BaseClass):
         to pass names like 'Omega Bacterial Extraction' and have the association
         properly wired.
         """
-        if new_id:
-            self.id = new_id
-        else:
-            self.id = self.__class__.autoincrement_id()
+        
         procedure = kwargs.pop('procedure', None)
         sample = kwargs.pop('sample', None)
         results = kwargs.pop('results', None)
@@ -2594,6 +2595,10 @@ class ProcedureSampleAssociation(BaseClass):
                     self._misc_info.update({'results': results})
                 except Exception:
                     pass
+        if new_id:
+            self.id = new_id
+        else:
+            self.id = self.__class__.autoincrement_id(self.procedure_rank)
             
     @hybrid_property
     def name(self):
@@ -2740,7 +2745,7 @@ class ProcedureSampleAssociation(BaseClass):
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
     @classmethod
-    def autoincrement_id(cls) -> int:
+    def autoincrement_id(cls, procedure_rank: int = 1) -> int:
         """
         Increments the association id automatically
 
@@ -2748,10 +2753,10 @@ class ProcedureSampleAssociation(BaseClass):
             int: incremented id
         """
         try:
-            return max([item.id for item in cls.query()]) + 1
+            output = max([item.id for item in cls.query()])
         except ValueError as e:
-            logger.error(f"Problem incrementing id: {e}")
-            return 1
+            output = 0
+        return output + procedure_rank
 
     def details_dict(self, **kwargs):
         output = super().details_dict()

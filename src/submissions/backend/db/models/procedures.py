@@ -1311,6 +1311,9 @@ class ProcedureType(BaseClass):
             value = [value]
         for item in value:
             match item:
+                case str():
+                    rr = ReagentRole.query(name=item)
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=rr, proceduretype=self)
                 case dict():
                     output = ProcedureTypeReagentRoleAssociation(reagentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureTypeReagentRoleAssociation():
@@ -1478,13 +1481,13 @@ class ProcedureType(BaseClass):
             run = run.name
         else:
             samples = []
+        logger.debug(f"Constructed samples: {pformat(samples)}")
         output = dict(
             proceduretype=self,
             repeat=False,
             run=run,
             sample=samples
         )
-        print(f"Output dict: {pformat(output)}")
         return PydProcedure(**output)
         
     def construct_plate_map(self, sample_dicts: List["PydSample"], creation:bool=True, vw_modifier:float=1.0) -> str:
@@ -1673,17 +1676,36 @@ class Procedure(BaseClass):
                     self._misc_info.update({'equipment': equipment})
                 except Exception:
                     pass
-    
+        try:
+            run = self.run.name
+        except AttributeError:
+            run = "Unknown Run"
+        try:
+            proceduretype = self.proceduretype.name
+        except AttributeError:
+            proceduretype = "Unknown ProcedureType"
+        if self.repeat_of:
+            repeatof = f" ({self.repeat_of})"
+        else:
+            repeatof = ""
+        self.name = f"{run}-{proceduretype}{repeatof}"
+        
+
     @hybrid_property
     def reagentlot(self):
         return self._reagentlot
     
     @reagentlot.setter
     def reagentlot(self, value):
+        from backend.validators.pydant import PydReagentLot
         if not isinstance(value, list):
             value = [value]
         for item in value:
             match item:
+                case ReagentLot():
+                    output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self)
+                case PydReagentLot():
+                    output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k != 'name'})
                 case dict():
                     output = ProcedureReagentLotAssociation(reagentlot=item['name'], procedure=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureTypeReagentRoleAssociation():
@@ -1704,12 +1726,17 @@ class Procedure(BaseClass):
     
     @equipment.setter
     def equipment(self, value):
+        from backend.validators.pydant import PydEquipment
         if not isinstance(value, list):
             value = [value]
         for item in value:
             match item:
+                case Equipment():
+                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self)
+                case PydEquipment():
+                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'procedure']})
                 case dict():
-                    output = ProcedureEquipmentAssociation(equipment=item['name'], procedure=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureEquipmentAssociation(equipment=item['name'], procedure=self, **{k: v for k, v in item.items() if k not in ['name', 'procedure']})
                 case ProcedureEquipmentAssociation():
                     output = item
                 case _:
@@ -1728,11 +1755,16 @@ class Procedure(BaseClass):
     
     @sample.setter
     def sample(self, value):
-        from .submissions import ProcedureSampleAssociation
+        from .submissions import ProcedureSampleAssociation, Sample
+        from backend.validators.pydant import PydSample
         if not isinstance(value, list):
             value = [value]
         for item in value:
             match item:
+                case Sample():
+                    output = ProcedureSampleAssociation(sample=item, procedure=self)
+                case PydSample():
+                    output = ProcedureSampleAssociation(sample=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k != 'name'})
                 case dict():
                     output = ProcedureSampleAssociation(sample=item['name'], procedure=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureSampleAssociation():
@@ -1753,6 +1785,29 @@ class Procedure(BaseClass):
 
     @started_date.setter
     def started_date(self, value):
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        match value:
+            case datetime():
+                output = value
+            case date():
+                output = datetime.combine(value, datetime.min.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
+        value = output.replace(tzinfo=timezone)
         self._started_date = value
 
     @hybrid_property
@@ -1761,6 +1816,29 @@ class Procedure(BaseClass):
 
     @completed_date.setter
     def completed_date(self, value):
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        match value:
+            case datetime():
+                output = value
+            case date():
+                output = datetime.combine(value, datetime.min.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
+        value = output.replace(tzinfo=timezone)
         self._completed_date = value
 
     @hybrid_property
@@ -3135,25 +3213,30 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     @process.setter
     def process(self, value):
         from backend.validators.pydant import PydProcess
-        match value:
-            case str():
-                output = Process.query(name=value, limit=1)
-            case dict():
-                output = Process.query_or_create(**value)
-                # query_or_create returns (instance, new) — unwrap to instance if needed
-                if isinstance(output, tuple):
-                    output = output[0]
-            case PydProcess():
-                output = value.to_sql()
-            case Process():
-                output = value
-            case _:
-                logger.error(f"Unmatched value {value} for process")
-                return
-        if isinstance(output, Process):
-            self._process = output
-        else:
-            self._process = None
+        if not isinstance(value, list):
+            value = [value]
+        for item in value:
+            match item:
+                case str():
+                    output = Process.query(name=item, limit=1)
+                case dict():
+                    output = Process.query_or_create(**item)
+                    # query_or_create returns (instance, new) — unwrap to instance if needed
+                    if isinstance(output, tuple):
+                        output = output[0]
+                case PydProcess():
+                    output = item.to_sql()
+                case Process():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for process")
+                    return
+            if isinstance(output, Process):
+                if output not in self._process:
+                    self._process.append(output)
+            else:
+                logger.error(f"Can't add item {item} to {self.name}._equipment")
+                continue
     
     @hybrid_property
     def equipment(self):
@@ -3738,12 +3821,11 @@ class Tips(BaseClass):
 
     @hybrid_property
     def name(self):
-        return f"{self.manufacturer}-{self.ref} ({self.capacity})"
+        return f"{self.manufacturer}-{self.ref}({self.capacity})"
 
     @name.expression
     def name(cls):
-        return func.concat(cls.manufacturer, '-', cls.ref, "(", cast(cls.capacity, String), ")"
-        ).label("name")
+        return func.concat(cls.manufacturer, '-', cls.ref, "(", cast(cls.capacity, String), ")")#.label("name")
 
     @classmethod
     @setup_lookup
@@ -3845,7 +3927,7 @@ class TipsLot(BaseClass, LogMixin):
         return self._expiry
 
     @expiry.setter
-    def expiry(value):
+    def expiry(self, value):
         self._expiry = value
     
     @hybrid_property

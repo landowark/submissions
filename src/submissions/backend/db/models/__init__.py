@@ -143,9 +143,8 @@ class BaseClass(Base):
 
         valid_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         misc_kwargs = {k: v for k, v in kwargs.items() if k not in valid_kwargs}
-
         # Call SQLAlchemy / Declarative __init__ only with valid kwargs
-        super().__init__(*args, **valid_kwargs)
+        super().__init__(**valid_kwargs)
 
         # Ensure _misc_info exists and merge misc kwargs into it
         try:
@@ -637,7 +636,7 @@ class BaseClass(Base):
                 if "association" in key:
                     logger.warning(f"Disallowing setting of association {key} automatically")
                 else:
-                    raise AttributeError(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                    logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
 
     def delete(self, **kwargs):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")

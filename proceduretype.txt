@@ -1,0 +1,1136 @@
+{
+    "name": "Omega Bacterial Extraction",
+    "plate_columns": "12",
+    "plate_rows": "8",
+    "plate_cost": "1.0",
+    "procedure": [],
+    "submissiontype": [
+        "Default SubmissionType",
+        "Bacterial Culture"
+    ],
+    "resultstype": [],
+    "equipmentrole": [
+        {
+            "name": "Omega Bacteria Extractor",
+            "equipment": [
+                "Kingfisher 1",
+                "Kingfisher 2",
+                "Kingfisher 3",
+                "Kingfisher 4"
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "equipmentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Bacteria Extractor"
+            ],
+            "equipmentroleequipmentassociation": [
+                {
+                    "name": "Omega Bacteria Extractor->Kingfisher 1",
+                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipment": {
+                        "name": "Kingfisher 1",
+                        "asset_number": "5023808",
+                        "nickname": "Kingfisher 1",
+                        "procedure": [],
+                        "equipmentrole": [
+                            "Omega Bacteria Extractor"
+                        ],
+                        "excluded": [
+                            "excluded",
+                            "misc_info",
+                            "_misc_info",
+                            "id"
+                        ],
+                        "equipmentprocedureassociation": [],
+                        "equipmentequipmentroleassociation": [
+                            "Omega Bacteria Extractor->Kingfisher 1"
+                        ]
+                    },
+                    "process": [
+                        {
+                            "name": "OBT_M4029_KFF",
+                            "tips": [],
+                            "processversion": [
+                                {
+                                    "excluded": [
+                                        "excluded",
+                                        "misc_info",
+                                        "_misc_info",
+                                        "id"
+                                    ],
+                                    "version": "1.0",
+                                    "date_verified": "2025-12-11 13:20:26",
+                                    "project": "NA",
+                                    "active": "1",
+                                    "process": "OBT_M4029_KFF",
+                                    "procedureequipmentassociation": [],
+                                    "name": "OBT_M4029_KFF-v1.0",
+                                    "tips": []
+                                }
+                            ],
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id"
+                            ],
+                            "equipmentroleequipmentassociation": [
+                                "Omega Bacteria Extractor->Kingfisher 3",
+                                "Omega Bacteria Extractor->Kingfisher 2",
+                                "Omega Bacteria Extractor->Kingfisher 4",
+                                "Omega Bacteria Extractor->Kingfisher 1"
+                            ]
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ]
+                },
+                {
+                    "name": "Omega Bacteria Extractor->Kingfisher 2",
+                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipment": {
+                        "name": "Kingfisher 2",
+                        "asset_number": "5023809",
+                        "nickname": "Kingfisher 2",
+                        "procedure": [],
+                        "equipmentrole": [
+                            "Omega Bacteria Extractor"
+                        ],
+                        "excluded": [
+                            "excluded",
+                            "misc_info",
+                            "_misc_info",
+                            "id"
+                        ],
+                        "equipmentprocedureassociation": [],
+                        "equipmentequipmentroleassociation": [
+                            "Omega Bacteria Extractor->Kingfisher 2"
+                        ],
+                        "process": "OBT_M4029_KFF"
+                    },
+                    "process": [
+                        {
+                            "name": "OBT_M4029_KFF",
+                            "tips": [],
+                            "processversion": [
+                                {
+                                    "excluded": [
+                                        "excluded",
+                                        "misc_info",
+                                        "_misc_info",
+                                        "id"
+                                    ],
+                                    "version": "1.0",
+                                    "date_verified": "2025-12-11 13:20:26",
+                                    "project": "NA",
+                                    "active": "1",
+                                    "process": "OBT_M4029_KFF",
+                                    "procedureequipmentassociation": [],
+                                    "name": "OBT_M4029_KFF-v1.0",
+                                    "tips": []
+                                }
+                            ],
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id"
+                            ],
+                            "equipmentroleequipmentassociation": [
+                                "Omega Bacteria Extractor->Kingfisher 3",
+                                "Omega Bacteria Extractor->Kingfisher 2",
+                                "Omega Bacteria Extractor->Kingfisher 4",
+                                "Omega Bacteria Extractor->Kingfisher 1"
+                            ]
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ]
+                },
+                {
+                    "name": "Omega Bacteria Extractor->Kingfisher 3",
+                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipment": {
+                        "name": "Kingfisher 3",
+                        "asset_number": "5026044",
+                        "nickname": "Kingfisher 3",
+                        "procedure": [],
+                        "equipmentrole": [
+                            "Omega Bacteria Extractor"
+                        ],
+                        "excluded": [
+                            "excluded",
+                            "misc_info",
+                            "_misc_info",
+                            "id"
+                        ],
+                        "equipmentprocedureassociation": [],
+                        "equipmentequipmentroleassociation": [
+                            "Omega Bacteria Extractor->Kingfisher 3"
+                        ],
+                        "process": "OBT_M4029_KFF"
+                    },
+                    "process": [
+                        {
+                            "name": "OBT_M4029_KFF",
+                            "tips": [],
+                            "processversion": [
+                                {
+                                    "excluded": [
+                                        "excluded",
+                                        "misc_info",
+                                        "_misc_info",
+                                        "id"
+                                    ],
+                                    "version": "1.0",
+                                    "date_verified": "2025-12-11 13:20:26",
+                                    "project": "NA",
+                                    "active": "1",
+                                    "process": "OBT_M4029_KFF",
+                                    "procedureequipmentassociation": [],
+                                    "name": "OBT_M4029_KFF-v1.0",
+                                    "tips": []
+                                }
+                            ],
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id"
+                            ],
+                            "equipmentroleequipmentassociation": [
+                                "Omega Bacteria Extractor->Kingfisher 3",
+                                "Omega Bacteria Extractor->Kingfisher 2",
+                                "Omega Bacteria Extractor->Kingfisher 4",
+                                "Omega Bacteria Extractor->Kingfisher 1"
+                            ]
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ]
+                },
+                {
+                    "name": "Omega Bacteria Extractor->Kingfisher 4",
+                    "equipmentrole": "Omega Bacteria Extractor",
+                    "equipment": {
+                        "name": "Kingfisher 4",
+                        "asset_number": "5026045",
+                        "nickname": "Kingfisher 4",
+                        "procedure": [],
+                        "equipmentrole": [
+                            "Omega Bacteria Extractor"
+                        ],
+                        "excluded": [
+                            "excluded",
+                            "misc_info",
+                            "_misc_info",
+                            "id"
+                        ],
+                        "equipmentprocedureassociation": [],
+                        "equipmentequipmentroleassociation": [
+                            "Omega Bacteria Extractor->Kingfisher 4"
+                        ]
+                    },
+                    "process": [
+                        {
+                            "name": "OBT_M4029_KFF",
+                            "tips": [],
+                            "processversion": [
+                                {
+                                    "excluded": [
+                                        "excluded",
+                                        "misc_info",
+                                        "_misc_info",
+                                        "id"
+                                    ],
+                                    "version": "1.0",
+                                    "date_verified": "2025-12-11 13:20:26",
+                                    "project": "NA",
+                                    "active": "1",
+                                    "process": "OBT_M4029_KFF",
+                                    "procedureequipmentassociation": [],
+                                    "name": "OBT_M4029_KFF-v1.0",
+                                    "tips": []
+                                }
+                            ],
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id"
+                            ],
+                            "equipmentroleequipmentassociation": [
+                                "Omega Bacteria Extractor->Kingfisher 3",
+                                "Omega Bacteria Extractor->Kingfisher 2",
+                                "Omega Bacteria Extractor->Kingfisher 4",
+                                "Omega Bacteria Extractor->Kingfisher 1"
+                            ]
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ]
+                }
+            ],
+            "process": "OBT_M4029_KFF"
+        },
+        {
+            "name": "Omega gDNA Mover",
+            "equipment": [
+                "Biomek"
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "equipmentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega gDNA Mover"
+            ],
+            "equipmentroleequipmentassociation": [
+                {
+                    "name": "Omega gDNA Mover->Biomek",
+                    "equipmentrole": "Omega gDNA Mover",
+                    "equipment": {
+                        "name": "Biomek",
+                        "asset_number": "5015330",
+                        "nickname": "Biomek",
+                        "procedure": [],
+                        "equipmentrole": [
+                            "Omega gDNA Mover"
+                        ],
+                        "excluded": [
+                            "excluded",
+                            "misc_info",
+                            "_misc_info",
+                            "id"
+                        ],
+                        "equipmentprocedureassociation": [],
+                        "equipmentequipmentroleassociation": [
+                            "Omega gDNA Mover->Biomek"
+                        ]
+                    },
+                    "process": [
+                        {
+                            "name": "Bacteria_Core_Submission",
+                            "tips": [
+                                {
+                                    "excluded": [
+                                        "excluded",
+                                        "misc_info",
+                                        "_misc_info",
+                                        "id"
+                                    ],
+                                    "tips": "Beckman Coulter-B85911(190)",
+                                    "lot": "P46428",
+                                    "expiry": "2026-12-31 23:59:59",
+                                    "active": "1",
+                                    "procedureequipmenttipslotassociation": [],
+                                    "name": "Beckman Coulter-B85911-P46428"
+                                }
+                            ],
+                            "processversion": [
+                                {
+                                    "excluded": [
+                                        "excluded",
+                                        "misc_info",
+                                        "_misc_info",
+                                        "id"
+                                    ],
+                                    "version": "2.0",
+                                    "date_verified": "2025-01-21 00:00:00",
+                                    "project": "NA",
+                                    "active": "1",
+                                    "process": "Bacteria_Core_Submission",
+                                    "procedureequipmentassociation": [],
+                                    "name": "Bacteria_Core_Submission-v2.0",
+                                    "tips": [
+                                        {
+                                            "excluded": [
+                                                "excluded",
+                                                "misc_info",
+                                                "_misc_info",
+                                                "id"
+                                            ],
+                                            "tips": "Beckman Coulter-B85911(190)",
+                                            "lot": "P46428",
+                                            "expiry": "2026-12-31 23:59:59",
+                                            "active": "1",
+                                            "procedureequipmenttipslotassociation": [],
+                                            "name": "Beckman Coulter-B85911-P46428"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id"
+                            ],
+                            "equipmentroleequipmentassociation": [
+                                "Omega gDNA Mover->Biomek"
+                            ]
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ]
+                }
+            ]
+        }
+    ],
+    "reagentrole": [
+        {
+            "name": "Omega Wash 1",
+            "reagent": [
+                {
+                    "name": "Omega VHB Buffer",
+                    "reagentrole": [
+                        "Omega Wash 1"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega VHB Buffer-64145GG259",
+                            "lot": "64145GG259",
+                            "reagent": "Omega VHB Buffer",
+                            "expiry": "2028-08-22 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Wash 1->Omega VHB Buffer"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Wash 1"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Wash 1->Omega VHB Buffer"
+            ]
+        },
+        {
+            "name": "Omega Wash 2",
+            "reagent": [
+                {
+                    "name": "Omega SPM Buffer",
+                    "reagentrole": [
+                        "Omega Wash 2"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega SPM Buffer-61219FV114",
+                            "lot": "61219FV114",
+                            "reagent": "Omega SPM Buffer",
+                            "expiry": "2029-06-12 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Wash 2->Omega SPM Buffer"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Wash 2"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Wash 2->Omega SPM Buffer"
+            ]
+        },
+        {
+            "name": "Omega Elution Buffer",
+            "reagent": [
+                {
+                    "name": "Omega Elution Buffer",
+                    "reagentrole": [
+                        "Omega Elution Buffer"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega Elution Buffer-50642BD476",
+                            "lot": "50642BD476",
+                            "reagent": "Omega Elution Buffer",
+                            "expiry": "2026-08-26 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Elution Buffer->Omega Elution Buffer"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Elution Buffer"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Elution Buffer->Omega Elution Buffer"
+            ]
+        },
+        {
+            "name": "Omega Binding Buffer",
+            "reagent": [
+                {
+                    "name": "Omega XP2 Buffer",
+                    "reagentrole": [
+                        "Omega Binding Buffer"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega XP2 Buffer-63854GL159",
+                            "lot": "63854GL159",
+                            "reagent": "Omega XP2 Buffer",
+                            "expiry": "2028-02-28 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Binding Buffer->Omega XP2 Buffer"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Binding Buffer"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Binding Buffer->Omega XP2 Buffer"
+            ]
+        },
+        {
+            "name": "Omega Magnetic Beads",
+            "reagent": [
+                {
+                    "name": "Omega Mag Bind RQ",
+                    "reagentrole": [
+                        "Omega Magnetic Beads"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega Mag Bind RQ-72595DB227",
+                            "lot": "72595DB227",
+                            "reagent": "Omega Mag Bind RQ",
+                            "expiry": "2027-08-14 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Magnetic Beads->Omega Mag Bind RQ"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Magnetic Beads"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Magnetic Beads->Omega Mag Bind RQ"
+            ]
+        },
+        {
+            "name": "Omega Enhancer Buffer",
+            "reagent": [
+                {
+                    "name": "Omega RBB Buffer",
+                    "reagentrole": [
+                        "Omega Enhancer Buffer"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega RBB Buffer-72220ER86",
+                            "lot": "72220ER86",
+                            "reagent": "Omega RBB Buffer",
+                            "expiry": "2027-12-01 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Enhancer Buffer->Omega RBB Buffer"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Enhancer Buffer"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Enhancer Buffer->Omega RBB Buffer"
+            ]
+        },
+        {
+            "name": "Omega Resuspension Buffer",
+            "reagent": [
+                {
+                    "name": "100 mM Tris-HCl",
+                    "reagentrole": [
+                        "Omega Resuspension Buffer"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "100 mM Tris-HCl-81744",
+                            "lot": "81744",
+                            "reagent": "100 mM Tris-HCl",
+                            "expiry": "2026-12-23 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Resuspension Buffer->100 mM Tris-HCl"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Resuspension Buffer"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Resuspension Buffer->100 mM Tris-HCl"
+            ]
+        },
+        {
+            "name": "Omega Proteinase K",
+            "reagent": [
+                {
+                    "name": "Omega Proteinase K",
+                    "reagentrole": [
+                        "Omega Proteinase K"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega Proteinase K-74598EM649",
+                            "lot": "74598EM649",
+                            "reagent": "Omega Proteinase K",
+                            "expiry": "2027-07-27 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Proteinase K->Omega Proteinase K"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Proteinase K"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Proteinase K->Omega Proteinase K"
+            ]
+        },
+        {
+            "name": "Omega Prote K Buffer",
+            "reagent": [
+                {
+                    "name": "Omega DS Buffer",
+                    "reagentrole": [
+                        "Omega Prote K Buffer"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "Omega DS Buffer-46571AQ114",
+                            "lot": "46571AQ114",
+                            "reagent": "Omega DS Buffer",
+                            "expiry": "2025-03-12 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Prote K Buffer->Omega DS Buffer"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Prote K Buffer"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Prote K Buffer->Omega DS Buffer"
+            ]
+        },
+        {
+            "name": "Omega Ethanol",
+            "reagent": [
+                {
+                    "name": "CA 100% Ethanol",
+                    "reagentrole": [
+                        "Omega Ethanol"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "CA 100% Ethanol-041167",
+                            "lot": "041167",
+                            "reagent": "CA 100% Ethanol",
+                            "expiry": "2026-07-31 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Ethanol->CA 100% Ethanol"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Ethanol"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Ethanol->CA 100% Ethanol"
+            ]
+        },
+        {
+            "name": "Omega Bead Plate",
+            "reagent": [
+                {
+                    "name": "MN96 Type B Bead Plate",
+                    "reagentrole": [
+                        "Omega Bead Plate"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "MN96 Type B Bead Plate-BEP23128",
+                            "lot": "BEP23128",
+                            "reagent": "MN96 Type B Bead Plate",
+                            "expiry": "2030-02-28 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Bead Plate->MN96 Type B Bead Plate"
+                    ],
+                    "ml_used_per_sample": "0.0"
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Bead Plate"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Bead Plate->MN96 Type B Bead Plate"
+            ]
+        },
+        {
+            "name": "Omega Positive Control",
+            "reagent": [
+                {
+                    "name": "ZymoBiomics MCS",
+                    "reagentrole": [
+                        "Omega Positive Control"
+                    ],
+                    "eol_ext": "0",
+                    "comment": "",
+                    "cost_per_ml": "0.0",
+                    "reagentlot": [
+                        {
+                            "name": "ZymoBiomics MCS-238716",
+                            "lot": "238716",
+                            "reagent": "ZymoBiomics MCS",
+                            "expiry": "2026-06-30 23:59:59",
+                            "missing": "true",
+                            "active": "true",
+                            "excluded": [
+                                "excluded",
+                                "misc_info",
+                                "_misc_info",
+                                "id",
+                                "reagentlotprocedureassociation",
+                                "procedures"
+                            ],
+                            "reagentlotprocedureassociation": [],
+                            "procedure": []
+                        }
+                    ],
+                    "excluded": [
+                        "excluded",
+                        "misc_info",
+                        "_misc_info",
+                        "id"
+                    ],
+                    "reagentreagentroleassociation": [
+                        "Omega Positive Control->ZymoBiomics MCS"
+                    ]
+                }
+            ],
+            "proceduretype": [
+                "Omega Bacterial Extraction"
+            ],
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "reagentroleproceduretypeassociation": [
+                "Omega Bacterial Extraction->Omega Positive Control"
+            ],
+            "reagentrolereagentassociation": [
+                "Omega Positive Control->ZymoBiomics MCS"
+            ]
+        }
+    ],
+    "excluded": [
+        "excluded",
+        "misc_info",
+        "_misc_info",
+        "id"
+    ],
+    "discount": [],
+    "proceduretypeequipmentroleassociation": [
+        "Omega Bacterial Extraction->Omega Bacteria Extractor",
+        "Omega Bacterial Extraction->Omega gDNA Mover"
+    ],
+    "proceduretypereagentroleassociation": [
+        "Omega Bacterial Extraction->Omega Wash 1",
+        "Omega Bacterial Extraction->Omega Wash 2",
+        "Omega Bacterial Extraction->Omega Elution Buffer",
+        "Omega Bacterial Extraction->Omega Binding Buffer",
+        "Omega Bacterial Extraction->Omega Magnetic Beads",
+        "Omega Bacterial Extraction->Omega Enhancer Buffer",
+        "Omega Bacterial Extraction->Omega Resuspension Buffer",
+        "Omega Bacterial Extraction->Omega Proteinase K",
+        "Omega Bacterial Extraction->Omega Prote K Buffer",
+        "Omega Bacterial Extraction->Omega Ethanol",
+        "Omega Bacterial Extraction->Omega Bead Plate",
+        "Omega Bacterial Extraction->Omega Positive Control"
+    ]
+}

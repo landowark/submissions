@@ -111,6 +111,7 @@ class PydReagentLot(PydConcrete):
         except AttributeError:
             return f"{reagent}-{self.lot}"
 
+
 class PydDiscount(PydConcrete):
 
     description: str = Field(default="NA", description="Brief description of this discount.")
@@ -547,6 +548,95 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         reg = reagent.to_sql()
         reg.save()
 
+    def to_sql(self):
+        self.sql_instance = super().to_sql()
+        logger.debug(f"PydProcedure.proceduretype = {self.proceduretype}")
+        match self.proceduretype:
+            case PydProcedureType():
+                self.sql_instance.proceduretype = self.proceduretype.to_sql()
+            case str():
+                from backend.db.models import ProcedureType
+                proc_type = ProcedureType.query(name=self.proceduretype, limit=1)
+                self.sql_instance.proceduretype = proc_type
+            case _:
+                self.sql_instance.proceduretype = None
+        match self.run:
+            case PydRun():
+                self.sql_instance.run = self.run.to_sql()
+            case str():
+                from backend.db.models import Run
+                run = Run.query(name=self.run, limit=1)
+                self.sql_instance.run = run
+            case _:
+                self.sql_instance.run = None
+        match self.repeat_of:
+            case PydProcedure():
+                self.sql_instance.repeat_of = self.repeat_of.to_sql()
+            case str():
+                from backend.db.models import Procedure
+                repeat_of = Procedure.query(name=self.repeat_of, limit=1)
+                self.sql_instance.repeat_of = repeat_of
+            case _:
+                self.sql_instance.repeat_of = None
+        reagentlot_out = []
+        for reagentlot in self.reagentlot:
+            match reagentlot:
+                case PydReagentLot():
+                    rl_sql = reagentlot.to_sql()
+                case str():
+                    from backend.db.models import ReagentLot
+                    rl_sql = ReagentLot.query(lot=reagentlot, limit=1)
+                case _:
+                    rl_sql = None
+            if rl_sql and rl_sql not in self.sql_instance.reagentlot:
+                # self.sql_instance.reagentlot.append(rl_sql)
+                reagentlot_out.append(rl_sql)
+        self.sql_instance.reagentlot = reagentlot_out
+        sample_out = []
+        for sample in self.sample:
+            match sample:
+                case PydSample():
+                    sample_sql = sample.to_sql()
+                case str():
+                    from backend.db.models import Sample
+                    sample_sql = Sample.query(name=sample, limit=1)
+                case _:
+                    sample_sql = None
+            if sample_sql and sample_sql not in self.sql_instance.sample:
+                # self.sql_instance.sample.append(sample_sql)
+                sample_out.append(sample_sql)
+        self.sql_instance.sample = sample_out
+        equipment_out = []
+        for equipment in self.equipment:
+            match equipment:
+                case PydEquipment():
+                    equip_sql = equipment.to_sql()
+                case str():
+                    from backend.db.models import Equipment
+                    equip_sql = Equipment.query(name=equipment, limit=1)
+                case _:
+                    equip_sql = None
+            if equip_sql and equip_sql not in self.sql_instance.equipment:
+                # self.sql_instance.equipment.append(equip_sql)
+                equipment_out.append(equip_sql)
+        self.sql_instance.equipment = equipment_out
+        results_out = []
+        for result in self.results:
+            match result:
+                case PydResults():
+                    result_sql = result.to_sql()
+                case dict():
+                    from backend.db.models import Results
+                    result_sql = Results.query(result_type=result.get('result_type', 'NA'),
+                                              result=result.get('result', {}), limit=1)
+                case _:
+                    result_sql = None
+            if result_sql and result_sql not in self.sql_instance.results:
+                # self.sql_instance.results.append(result_sql)
+                results_out.append(result_sql)
+        self.sql_instance.results = results_out
+        return self.sql_instance, None
+
     # def to_sql(self, new: bool = False):
     #     from backend.db.models import (
     #         RunSampleAssociation, ProcedureSampleAssociation, Procedure, ProcedureReagentLotAssociation,
@@ -790,29 +880,9 @@ class PydClientSubmission(PydConcrete):
             samples = self.sample
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
-    def to_sql(self):
-        # sql = super().to_sql()
-        # from backend.db.models import SubmissionType
-        # assert not any([isinstance(item, PydSample) for item in sql.sample])
-        # sql.sample = []
-        # if not sql.submissiontype:
-        #     sql.submissiontype = SubmissionType.query(name=self.submissiontype['value'])
-        # match sql.submissiontype:
-        #     case SubmissionType():
-        #         pass
-        #     case _:
-        #         sql.submissiontype = SubmissionType.query(name="Default Submission Type")
-        # for k in list(self.__class__.model_fields.keys()) + list(self.model_extra.keys()):
-        #     attribute = getattr(self, k)
-        #     match k:
-        #         case "filepath":
-        #             sql._misc_info[k] = attribute.__str__()
-        #             continue
-        #         case _:
-        #             pass
-        logger.debug(f"Dicto coming into {self.__class__.__name__} object:\n{pformat(self.improved_dict)}")
-        sql = super().to_sql()
-        return sql
+    # def to_sql(self):
+        
+    #     return sql, None
 
     @property
     def max_sample_rank(self) -> int:
@@ -1250,6 +1320,14 @@ class PydTipsLot(PydConcrete):
     lot: str = Field(default="NA", description="Lot number of the tips")
     expiry: datetime = Field(default_factory=lambda: datetime.now() + timedelta(365), description="Expiry date of the tips", validate_default=True)
     active: bool = Field(default=True, description="Is this tips lot active?", validate_default=True)
+    tips: str = Field(default="NA", description="The Tips this lot belongs to.", repr=True)
+
+    @field_validator("tips", mode="before")
+    @classmethod
+    def make_default_tips(cls, value):
+        if value is None:
+            value = ""
+        return value
 
     @field_validator("expiry")
     @classmethod

@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 import logging, sys, string, inspect
 from pprint import pformat
-from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict
+from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Generator, List, Tuple
 from tools import classproperty, jinja_template_loading, row_keys
@@ -28,18 +28,15 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     )
 
     name: str = Field(default="NA", validate_default=True)
-    sql_instance: models.BaseClass | None = Field(default=None, repr=False)
+    sql_instance: models.BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
 
     # _sql_object: ClassVar = None
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
 
+    
     def model_post_init(self, __context__=None) -> None:
-        # if self.sql_instance is None:
-        #     self.sql_instance, self.new = self._sql_class.query_or_create(**self.improved_dict)
-        # else:
-        #     self.new = False
         if self.name == "NA":
             try:
                 self.name = self.constructed_name
@@ -80,6 +77,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     #     if isinstance(instance, tuple):
     #         instance = instance[0]
     #     return instance
+    
+    @field_validator("sql_instance", mode="before")
+    @classmethod
+    def generate_blank_sql_instance(cls, value):
+        if value is None:
+            value = cls._sql_class()
+        return value
     
     @model_validator(mode="before")
     @classmethod
@@ -153,19 +157,20 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             match field:
                 case str():
                     key = field
-                    print(f"{self.sql_instance.__class__.__qualname__} Key: {key}")
+                    # print(f"{self.sql_instance.__class__.__qualname__} Key: {key}")
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
                         print(f"Skipping {key} in {self.sql_instance} due to {e}")
                         continue
-                    print(f"{self.sql_instance.__class__.__qualname__} Value: {value}")
+                    # print(f"{self.sql_instance.__class__.__qualname__} Value: {value}")
                     match value:
                         case InstrumentedAttribute():
-                            print(f"Instrumented Attribute: {type(value)}, {key}: {value}")
+                            # print(f"Instrumented Attribute: {type(value)}, {key}: {value}")
+                            pass
                         case _AssociationList():
                             output = []
-                            print(f"Association list: {key}: {value}")
+                            # print(f"Association list: {key}: {value}")
                             # output = [item.to_pydantic().improved_dict for item in value]
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict
@@ -177,18 +182,18 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                                 if target['name'] not in [thing['name'] for thing in output]:
                                     output.append(target)
                         case InstrumentedList():
-                            print(f"Instrumented: {key}: {value}")
+                            # print(f"Instrumented: {key}: {value}")
                             output = [item.to_pydantic().improved_dict for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
-                            print(f"BaseClass: {value.__class__.__qualname__}")
+                            # print(f"BaseClass: {value.__class__.__qualname__}")
                             output = value.to_pydantic().improved_dict
                         case _:
-                            print(f"Unmatched type {type(value)}")
+                            # print(f"Unmatched type {type(value)}")
                             continue
                 case dict():
                     key = list(field.keys())[0]
                     new_fields = list(field.values())[0]
-                    print(f"New fields for {key}: {new_fields}")
+                    # print(f"New fields for {key}: {new_fields}")
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
@@ -197,7 +202,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     match value:
                         case _AssociationList():
                             output = []
-                            print(f"Association list: {key}: {value}")
+                            # print(f"Association list: {key}: {value}")
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
@@ -209,13 +214,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                                 if target['name'] not in [thing['name'] for thing in output]:
                                     output.append(target)
                         case InstrumentedList():
-                            print(f"Instrumented: {key}: {value}")
+                            # print(f"Instrumented: {key}: {value}")
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
-                            print(f"BaseClass: {value.__class__.__qualname__}")
+                            # print(f"BaseClass: {value.__class__.__qualname__}")
                             output = value.to_pydantic().improved_dict
                         case _:
-                            print(f"Unmatched type {type(value)}")
+                            # print(f"Unmatched type {type(value)}")
                             continue
                 case _:
                     continue
@@ -259,13 +264,118 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # conservative, don't pass empty lists through to query_or_create
         # so we don't unintentionally wipe related association rows.
         sanitized_dicto = {k: v for k, v in self.improved_dict.items() if not (isinstance(v, list) and len(v) == 0)}
-        # logger.debug(f"Converting to SQL with sanitized dict: {pformat(sanitized_dicto)}")
-        # sql, new = self._sql_class.query_or_create(**sanitized_dicto)
-        # if new:
-        #     logger.warning(f"Creating new {self._sql_class} with values:\n{pformat(sanitized_dicto)}")
-        # return sql
+        try:
+            assert self.sql_instance is not None
+        except AssertionError:
+            raise AttributeError(f"Sql Instance for {self.__class__.__name__} is None, cannot save")
+
+        # sql = self.sql_instance
+        # local imports to avoid circulars
+        # from backend.db import models as _models
+
         for k, v in sanitized_dicto.items():
-            setattr(self.sql_instance, k, v)
+            match getattr(self._sql_class, k, None):
+                case InstrumentedAttribute():
+                    if getattr(self.sql_instance, k) == v:
+                        continue
+                    else:
+                        logger.debug(f"New value for {k} on {self.sql_instance}: {v}")
+                        try:
+                            setattr(self.sql_instance, k, v)
+                        except AttributeError as e:
+                            logger.error(f"Could not set attribute {k} on {self.sql_instance} due to {e}")
+                            continue
+                case _:
+                    # logger.debug(f"Skipping unknown attribute {k} on {self.sql_instance}")
+                    pass
+            # If the SQL instance doesn't have this attribute, fall back to setattr
+            # if not hasattr(sql, k):
+            #     try:
+            #         setattr(sql, k, v)
+            #     except Exception:
+            #         logger.debug(f"Skipping unknown attribute {k} on {sql}")
+            #     continue
+
+            # current = getattr(sql, k)
+
+            # # Relationship/list-ish fields: append/merge items instead of overwriting
+            # if isinstance(current, (list, InstrumentedList, _AssociationList)):
+            #     # incoming values are expected to be iterable (we filtered out empty lists earlier)
+            #     try:
+            #         iterable = list(v)
+            #     except TypeError:
+            #         logger.debug(f"Expected list for relationship field {k}, got {type(v)}")
+            #         continue
+
+            #     for item in iterable:
+            #         sql_item = None
+            #         # If the incoming item is a Pyd model, use its to_sql()
+            #         match item:
+            #             case PydBaseClass():
+            #                 sql_item = item.to_sql()
+            #         # If it's already an SQL model instance, use it
+            #             case _models.BaseClass():
+            #                 sql_item = item
+            #         # If it's a dict with a 'name' try to query/create a sensible SQL object
+            #             case dict() if 'name' in item:
+            #             # elif isinstance(item, dict) and 'name' in item:
+            #                 # Heuristic: try to find a model matching the relationship name
+            #                 # e.g. 'sample' -> Sample, 'equipment' -> Equipment
+            #                 model_name = k.rstrip('s').capitalize()
+            #                 candidate = getattr(_models, model_name, None)
+            #                 if candidate is not None and issubclass(candidate, _models.BaseClass):
+            #                     try:
+            #                         sql_item, _ = candidate.query_or_create(**item)
+            #                     except Exception:
+            #                         try:
+            #                             sql_item = candidate.query(name=item.get('name'), limit=1)
+            #                         except Exception:
+            #                             sql_item = None
+            #             case str():
+            #                 model_name = k.rstrip('s').capitalize()
+            #                 candidate = getattr(_models, model_name, None)
+            #                 if candidate is not None and issubclass(candidate, _models.BaseClass):
+            #                     sql_item = candidate.query(name=item, limit=1)
+            #             case _:
+            #                 logger.debug(f"Unmatched item type {type(item)} for field {k} in {self.__class__.__name__}")
+            #                 continue
+            #         if sql_item is None:
+            #             # Could not resolve incoming item; skip it
+            #             logger.debug(f"Could not resolve item for field {k}: {item}")
+            #             continue
+
+            #         # Append only if not already associated
+            #         try:
+            #             if sql_item not in current:
+            #                 current.append(sql_item)
+            #         except Exception as e:
+            #             logger.debug(f"Failed to append {sql_item} to {sql}.{k}: {e}")
+
+            # else:
+            #     # Scalar relationships or simple columns
+            #     # If incoming value is a Pyd model, convert it
+            #     if isinstance(v, PydBaseClass):
+            #         try:
+            #             setattr(sql, k, v.to_sql())
+            #             continue
+            #         except Exception:
+            #             pass
+
+            #     # If current is an SQL object (relationship scalar) and incoming is dict, try query_or_create
+            #     if isinstance(current, _models.BaseClass) and isinstance(v, dict):
+            #         try:
+            #             new_obj, _ = current.__class__.query_or_create(**v)
+            #             setattr(sql, k, new_obj)
+            #             continue
+            #         except Exception:
+            #             pass
+
+            #     # Fallback: set attribute directly
+            #     try:
+            #         setattr(sql, k, v)
+            #     except Exception as e:
+            #         logger.debug(f"Could not set {sql}.{k} to {v}: {e}")
+
         return self.sql_instance
 
     @property
@@ -394,7 +504,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             value = data[field]
             if isinstance(value, list):
                 value = [value['name'] if isinstance(value, dict) and 'name' in value.keys() else value for value in value]
-            yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded)
+            # if "association" in self.__class__.__name__.lower():
+            #     field = f"{self._sql_name.lower()}-{field}"
+            yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded, object_type=self._sql_name.lower())
 
     @classmethod
     def get_association_class(cls, field: str):
@@ -414,7 +526,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             association = False
         env = jinja_template_loading()
         template = env.get_template("managers/manager_form.html")
-        # logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
+        logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
         html = template.render(object=self.form_dictionary, association=association, class_name=self.__class__.__name__)
         return html
             
@@ -439,6 +551,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             field (str): Field name
             value (str): Value to add to the relationship.
         """
+        logger.debug(f"Adding relationship: field: {field}, value: {value}, data: {data}")
         current = self.__getattribute__(field)
         if data is not None:
             value = dict(name=value, **data)
@@ -450,6 +563,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             return
         current.append(value)
         self.__setattr__(field, current)
+        logger.debug(f"Current {self.__class__.__name__}: {self.__dict__}")
 
     def remove_relationship(self, field: str, value: str):
         """
@@ -525,6 +639,7 @@ from .abstract import (
     PydProcedureTypeReagentRoleAssociation,
     PydReagentRoleReagentAssociation
     )
+
 from .concrete import (
     PydEquipment, 
     PydClientLab, 
