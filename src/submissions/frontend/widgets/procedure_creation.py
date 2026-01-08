@@ -4,7 +4,7 @@ Main module to construct the procedure form
 from __future__ import annotations
 import json, sys, logging, re, datetime
 from pprint import pformat
-from PyQt6.QtCore import pyqtSlot, Qt
+from PyQt6.QtCore import pyqtSlot, Qt, QVariant
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
@@ -114,7 +114,8 @@ class ProcedureCreation(QDialog):
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
             proceduretype=self.proceduretype_dict,
-            run=self.run.details_dict(),
+            # run=self.run.details_dict(),
+            run=self.run.improved_dict,
             procedure=self.procedure,
             plate_map=self.plate_map,
             edit=self.edit
@@ -123,10 +124,10 @@ class ProcedureCreation(QDialog):
             f.write(html)
         self.webview.setHtml(html)
 
-    @pyqtSlot(str, str, str, str)
-    @pyqtSlot(str, str, str, str, bool)
+    @pyqtSlot(str, str, str, QVariant)
+    @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
-        logger.debug(f"update_equipment: {equipmentrole}, {equipment}, {checked}")
+        logger.debug(f"update_equipment: {equipmentrole}, {equipment}, {processversion}, {tips}, {checked}")
         self.procedure.update_equipment(equipmentrole=equipmentrole, equipment=equipment, processversion=processversion, tips=tips, checked=checked)
 
     @pyqtSlot(str, str)
@@ -182,8 +183,9 @@ class ProcedureCreation(QDialog):
     def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
         logger.debug(f"Updating reagent {reagentrole}, {name_lot_expiry}, {checked}")
         try:
-            name, lot = name_lot_expiry.split(" - ")
+            name, lot = name_lot_expiry.rsplit("-", 1)
         except ValueError as e:
+            logger.error(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
             return
         self.procedure.update_reagents(reagentrole=reagentrole, name=name, lot=lot, checked=checked)
 

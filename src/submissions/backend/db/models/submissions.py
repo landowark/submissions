@@ -14,7 +14,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from backend.db.models.procedures import ReagentLot
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, cast, func, select
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, cast, func, inspect, select
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
@@ -1255,7 +1255,7 @@ class Run(BaseClass, LogMixin):
                 pass
         return assoc
 
-    def to_pydantic(self, backup: bool = False) -> "PydSubmission":
+    def to_pydantic(self, backup: bool = False) -> PydRun:
         """
         Converts this instance into a PydSubmission
 
@@ -1292,6 +1292,8 @@ class Run(BaseClass, LogMixin):
                         field_value = dict(value="NA", missing=True)
             new_dict[key] = field_value
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
+        new_dict['name'] = self.rsl_plate_number
+        new_dict['sql_instance'] = self
         dicto.update(new_dict)
         return PydRun(**dicto)
 
@@ -1330,8 +1332,7 @@ class Run(BaseClass, LogMixin):
 
     # NOTE: Polymorphic functions
 
-    @classmethod
-    @declared_attr
+    @classproperty
     def regex(cls) -> re.Pattern:
         """
         Constructs catchall regex.
@@ -1440,15 +1441,16 @@ class Run(BaseClass, LogMixin):
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
-        # logger.debug(f"Dummy procedure: {pformat(procedure.improved_dict)}")
+        logger.debug(f"Dummy procedure: {pformat(procedure.improved_dict)}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
-            # NOTE: save commit disabled currently
-            sql.save()
-            logger.debug(pformat(sql.__dict__))
+            # data = {c.key: getattr(sql, c.key) for c in inspect(sql).mapper.column_attrs}
+            data = sql.details_dict()
             with open("procedure.json", "w") as f:
-                json.dump(sanitize_object_for_json(sql.__dict__), f, indent=4, default=str)
+                json.dump(sanitize_object_for_json(data), f, indent=4)
+            # sql.save()
+            logger.debug(pformat(sql.__dict__))
         obj.set_data()
 
     def delete(self, obj=None):
@@ -1622,11 +1624,11 @@ class Run(BaseClass, LogMixin):
                     logger.error(pformat(plate_dict))
                     raise e
                 ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                                           submission_rank=submission_rank, background_color="#6ffe1d"))
+                                           procedure_rank=submission_rank, background_color="#6ffe1d"))
             else:
                 unranked_samples.append(sample)
         possible_ranks = (item for item in list(plate_dict.keys()) if
-                          item not in [sample['submission_rank'] for sample in ranked_samples])
+                          item not in [sample['procedure_rank'] for sample in ranked_samples])
         for sample in unranked_samples:
             try:
                 submission_rank = next(possible_ranks)
@@ -1635,17 +1637,17 @@ class Run(BaseClass, LogMixin):
             row, column = plate_dict[submission_rank]
             ranked_samples.append(
                 dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                     submission_rank=submission_rank,
+                     procedure_rank=submission_rank,
                      background_color="#6ffe1d", enabled=True))
         padded_list = []
         for iii in range(1, proceduretype.total_wells + 1):
             row, column = proceduretype.ranked_plate[iii]
-            sample = next((item for item in ranked_samples if item['submission_rank'] == iii),
-                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, submission_rank=iii,
+            sample = next((item for item in ranked_samples if item['procedure_rank'] == iii),
+                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, procedure_rank=iii,
                                background_color="#ffffff", enabled=False)
                           )
             padded_list.append(sample)
-        return list(sorted(padded_list, key=itemgetter('submission_rank')))
+        return list(sorted(padded_list, key=itemgetter('procedure_rank')))
 
 
 # NOTE: Sample Classes
@@ -2528,8 +2530,8 @@ class RunSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        output = output['sample'].details_dict()
-        misc = output['misc_info']
+        output = self.sample.details_dict()
+        misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc
         return output
@@ -2598,7 +2600,8 @@ class ProcedureSampleAssociation(BaseClass):
         if new_id:
             self.id = new_id
         else:
-            self.id = self.__class__.autoincrement_id(self.procedure_rank)
+            # logger.debug(f"Autoincrementing id for ProcedureSampleAssociation with procedure_rank={self.procedure_rank}")
+            self.id = self.__class__.autoincrement_id(procedure_rank=self.procedure_rank)
             
     @hybrid_property
     def name(self):
@@ -2755,6 +2758,7 @@ class ProcedureSampleAssociation(BaseClass):
         try:
             output = max([item.id for item in cls.query()])
         except ValueError as e:
+            # logger.error(f"Unable to autoincrement id due to: {e}, setting to {0 + procedure_rank}")
             output = 0
         return output + procedure_rank
 
@@ -2762,9 +2766,9 @@ class ProcedureSampleAssociation(BaseClass):
         output = super().details_dict()
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        output = output['sample'].details_dict()
+        output = self.sample.details_dict()
         # logger.debug(output)
-        misc = output['misc_info']
+        misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc
         output['row'] = self.row

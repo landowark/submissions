@@ -1,112 +1,4051 @@
 {
-    "_sa_instance_state": "<sqlalchemy.orm.state.InstanceState object at 0x000001FFD64AD190>",
-    "_misc_info": {
-        "_AssociationProxy_proceduresampleassociation_2197951542096": "(2198321618224, 2198318398688, [])",
-        "_AssociationProxy_procedureequipmentassociation_2197952146768": "(2198321618224, 2198321993424, [])"
-    },
-    "name": "None-None",
+    "excluded": [
+        "excluded",
+        "misc_info",
+        "_misc_info",
+        "id",
+        "excluded",
+        "reagents",
+        "sample",
+        "extraction_info",
+        "comment",
+        "barcode",
+        "platemap",
+        "export_map",
+        "equipment",
+        "tips",
+        "custom",
+        "reagentlot",
+        "reagent_lot",
+        "results",
+        "proceduresampleassociation",
+        "sample",
+        "procedurereagentlotassociation",
+        "procedureequipmentassociation",
+        "proceduretipsassociation",
+        "reagent",
+        "equipment",
+        "tips",
+        "control"
+    ],
+    "name": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+    "repeat_of": "null",
+    "started_date": "null",
+    "completed_date": "null",
     "technician": "NA",
-    "_proceduretype": "<ProcedureType(Omega Bacterial Extraction)>",
+    "results": [],
+    "proceduretype": "Omega Bacterial Extraction",
+    "run": "RSL-BC-20250723-1",
     "proceduresampleassociation": [
-        "<ProcedureSampleAssociation(None-None->EN1-670-20250723 (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4786-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4798-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4810-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4864-B (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4876-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4888-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4908-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4754-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4787-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4799-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4811-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4865-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4877-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4889-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4909-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4760-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4788-B (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4800-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4812-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4866-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4878-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4890-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4910-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4778-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4789-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4801-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4852-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4867-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4879-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->BLANK (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4911-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4779-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4790-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4802-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4853-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4868-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4880-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4892-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4912-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4780-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4791-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4803-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4854-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4869-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4881-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4893-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4913-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4781-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4792-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4804-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4855-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4870-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4882-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4894-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4914-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4782-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4793-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4805-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4856-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4871-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4883-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4904-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4915-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4783-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4794-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4806-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4857-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4872-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4884-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4905-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4916-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4784-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4795-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4807-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4861-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4873-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4885-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->EN2-670-20250723 (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4917-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4785-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4796-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4808-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4862-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4874-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4886-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4906-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->BLANK (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->ATCC49619-670-20250723 (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4797-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4809-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4863-A (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4875-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4887-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4907-P (rank=0))>",
-        "<ProcedureSampleAssociation(None-None->SC25-4919-P (rank=0))>"
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->EN1-670-20250723 (rank=1)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4786-A (rank=2)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4798-P (rank=3)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4810-P (rank=4)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4864-B (rank=5)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4876-A (rank=6)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4888-P (rank=7)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4908-P (rank=8)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4754-P (rank=9)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4787-A (rank=10)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4799-P (rank=11)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4811-P (rank=12)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4865-A (rank=13)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4877-A (rank=14)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4889-P (rank=15)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4909-P (rank=16)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4760-P (rank=17)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4788-B (rank=18)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4800-P (rank=19)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4812-P (rank=20)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4866-A (rank=21)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4878-A (rank=22)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4890-P (rank=23)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4910-P (rank=24)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4778-A (rank=25)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4789-P (rank=26)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4801-P (rank=27)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4852-A (rank=28)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4867-A (rank=29)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4879-A (rank=30)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=31)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4911-P (rank=32)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4779-A (rank=33)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4790-P (rank=34)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4802-P (rank=35)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4853-A (rank=36)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4868-A (rank=37)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4880-A (rank=38)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4892-P (rank=39)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4912-P (rank=40)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4780-A (rank=41)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4791-P (rank=42)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4803-P (rank=43)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4854-P (rank=44)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4869-A (rank=45)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4881-A (rank=46)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4893-A (rank=47)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4913-P (rank=48)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4781-A (rank=49)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4792-P (rank=50)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4804-P (rank=51)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4855-P (rank=52)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4870-A (rank=53)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4882-A (rank=54)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4894-P (rank=55)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4914-P (rank=56)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4782-A (rank=57)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4793-P (rank=58)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4805-P (rank=59)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4856-P (rank=60)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4871-A (rank=61)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4883-A (rank=62)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4904-P (rank=63)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4915-P (rank=64)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4783-A (rank=65)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4794-P (rank=66)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4806-P (rank=67)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4857-P (rank=68)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4872-A (rank=69)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4884-A (rank=70)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4905-P (rank=71)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4916-P (rank=72)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4784-A (rank=73)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4795-P (rank=74)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4807-P (rank=75)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4861-A (rank=76)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4873-A (rank=77)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4885-A (rank=78)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->EN2-670-20250723 (rank=79)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4917-P (rank=80)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4785-A (rank=81)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4796-P (rank=82)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4808-P (rank=83)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4862-A (rank=84)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4874-P (rank=85)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4886-P (rank=86)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4906-P (rank=87)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=88)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->ATCC49619-670-20250723 (rank=89)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4797-P (rank=90)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4809-P (rank=91)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4863-A (rank=92)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4875-P (rank=93)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4887-P (rank=94)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4907-P (rank=95)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4919-P (rank=96)",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=97)"
+    ],
+    "sample": [
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "EN1-670-20250723",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->EN1-670-20250723 (rank=1)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->EN1-670-20250723 (rank=1)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "1",
+            "enabled": "true",
+            "row": "1",
+            "column": "1",
+            "well": "A01",
+            "organism": "ExtractionNegative",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->EN1-670-20250723 (rank=1)",
+            "procedure_rank": "1",
+            "results": [],
+            "well_id": "EN1-670-20250723",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4786-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4786-A (rank=2)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4786-A (rank=2)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "2",
+            "enabled": "true",
+            "row": "2",
+            "column": "1",
+            "well": "B01",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4786-A (rank=2)",
+            "procedure_rank": "2",
+            "results": [],
+            "well_id": "SC25-4786-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4798-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4798-P (rank=3)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4798-P (rank=3)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "3",
+            "enabled": "true",
+            "row": "3",
+            "column": "1",
+            "well": "C01",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4798-P (rank=3)",
+            "procedure_rank": "3",
+            "results": [],
+            "well_id": "SC25-4798-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4810-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4810-P (rank=4)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4810-P (rank=4)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "4",
+            "enabled": "true",
+            "row": "4",
+            "column": "1",
+            "well": "D01",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4810-P (rank=4)",
+            "procedure_rank": "4",
+            "results": [],
+            "well_id": "SC25-4810-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4864-B",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4864-B (rank=5)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4864-B (rank=5)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "5",
+            "enabled": "true",
+            "row": "5",
+            "column": "1",
+            "well": "E01",
+            "organism": "Streptococcusagalactiae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4864-B (rank=5)",
+            "procedure_rank": "5",
+            "results": [],
+            "well_id": "SC25-4864-B",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4876-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4876-A (rank=6)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4876-A (rank=6)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "6",
+            "enabled": "true",
+            "row": "6",
+            "column": "1",
+            "well": "F01",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4876-A (rank=6)",
+            "procedure_rank": "6",
+            "results": [],
+            "well_id": "SC25-4876-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4888-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4888-P (rank=7)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4888-P (rank=7)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "7",
+            "enabled": "true",
+            "row": "7",
+            "column": "1",
+            "well": "G01",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4888-P (rank=7)",
+            "procedure_rank": "7",
+            "results": [],
+            "well_id": "SC25-4888-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4908-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4908-P (rank=8)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4908-P (rank=8)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "8",
+            "enabled": "true",
+            "row": "8",
+            "column": "1",
+            "well": "H01",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4908-P (rank=8)",
+            "procedure_rank": "8",
+            "results": [],
+            "well_id": "SC25-4908-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4754-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4754-P (rank=9)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4754-P (rank=9)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "9",
+            "enabled": "true",
+            "row": "1",
+            "column": "2",
+            "well": "A02",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4754-P (rank=9)",
+            "procedure_rank": "9",
+            "results": [],
+            "well_id": "SC25-4754-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4787-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4787-A (rank=10)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4787-A (rank=10)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "10",
+            "enabled": "true",
+            "row": "2",
+            "column": "2",
+            "well": "B02",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4787-A (rank=10)",
+            "procedure_rank": "10",
+            "results": [],
+            "well_id": "SC25-4787-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4799-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4799-P (rank=11)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4799-P (rank=11)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "11",
+            "enabled": "true",
+            "row": "3",
+            "column": "2",
+            "well": "C02",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4799-P (rank=11)",
+            "procedure_rank": "11",
+            "results": [],
+            "well_id": "SC25-4799-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4811-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4811-P (rank=12)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4811-P (rank=12)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "12",
+            "enabled": "true",
+            "row": "4",
+            "column": "2",
+            "well": "D02",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4811-P (rank=12)",
+            "procedure_rank": "12",
+            "results": [],
+            "well_id": "SC25-4811-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4865-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4865-A (rank=13)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4865-A (rank=13)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "13",
+            "enabled": "true",
+            "row": "5",
+            "column": "2",
+            "well": "E02",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4865-A (rank=13)",
+            "procedure_rank": "13",
+            "results": [],
+            "well_id": "SC25-4865-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4877-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4877-A (rank=14)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4877-A (rank=14)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "14",
+            "enabled": "true",
+            "row": "6",
+            "column": "2",
+            "well": "F02",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4877-A (rank=14)",
+            "procedure_rank": "14",
+            "results": [],
+            "well_id": "SC25-4877-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4889-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4889-P (rank=15)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4889-P (rank=15)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "15",
+            "enabled": "true",
+            "row": "7",
+            "column": "2",
+            "well": "G02",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4889-P (rank=15)",
+            "procedure_rank": "15",
+            "results": [],
+            "well_id": "SC25-4889-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4909-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4909-P (rank=16)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4909-P (rank=16)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "16",
+            "enabled": "true",
+            "row": "8",
+            "column": "2",
+            "well": "H02",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4909-P (rank=16)",
+            "procedure_rank": "16",
+            "results": [],
+            "well_id": "SC25-4909-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4760-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4760-P (rank=17)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4760-P (rank=17)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "17",
+            "enabled": "true",
+            "row": "1",
+            "column": "3",
+            "well": "A03",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4760-P (rank=17)",
+            "procedure_rank": "17",
+            "results": [],
+            "well_id": "SC25-4760-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4788-B",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4788-B (rank=18)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4788-B (rank=18)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "18",
+            "enabled": "true",
+            "row": "2",
+            "column": "3",
+            "well": "B03",
+            "organism": "Streptococcusagalactiae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4788-B (rank=18)",
+            "procedure_rank": "18",
+            "results": [],
+            "well_id": "SC25-4788-B",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4800-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4800-P (rank=19)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4800-P (rank=19)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "19",
+            "enabled": "true",
+            "row": "3",
+            "column": "3",
+            "well": "C03",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4800-P (rank=19)",
+            "procedure_rank": "19",
+            "results": [],
+            "well_id": "SC25-4800-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4812-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4812-P (rank=20)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4812-P (rank=20)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "20",
+            "enabled": "true",
+            "row": "4",
+            "column": "3",
+            "well": "D03",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4812-P (rank=20)",
+            "procedure_rank": "20",
+            "results": [],
+            "well_id": "SC25-4812-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4866-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4866-A (rank=21)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4866-A (rank=21)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "21",
+            "enabled": "true",
+            "row": "5",
+            "column": "3",
+            "well": "E03",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4866-A (rank=21)",
+            "procedure_rank": "21",
+            "results": [],
+            "well_id": "SC25-4866-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4878-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4878-A (rank=22)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4878-A (rank=22)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "22",
+            "enabled": "true",
+            "row": "6",
+            "column": "3",
+            "well": "F03",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4878-A (rank=22)",
+            "procedure_rank": "22",
+            "results": [],
+            "well_id": "SC25-4878-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4890-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4890-P (rank=23)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4890-P (rank=23)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "23",
+            "enabled": "true",
+            "row": "7",
+            "column": "3",
+            "well": "G03",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4890-P (rank=23)",
+            "procedure_rank": "23",
+            "results": [],
+            "well_id": "SC25-4890-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4910-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4910-P (rank=24)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4910-P (rank=24)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "24",
+            "enabled": "true",
+            "row": "8",
+            "column": "3",
+            "well": "H03",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4910-P (rank=24)",
+            "procedure_rank": "24",
+            "results": [],
+            "well_id": "SC25-4910-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4778-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4778-A (rank=25)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4778-A (rank=25)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "25",
+            "enabled": "true",
+            "row": "1",
+            "column": "4",
+            "well": "A04",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4778-A (rank=25)",
+            "procedure_rank": "25",
+            "results": [],
+            "well_id": "SC25-4778-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4789-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4789-P (rank=26)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4789-P (rank=26)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "26",
+            "enabled": "true",
+            "row": "2",
+            "column": "4",
+            "well": "B04",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4789-P (rank=26)",
+            "procedure_rank": "26",
+            "results": [],
+            "well_id": "SC25-4789-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4801-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4801-P (rank=27)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4801-P (rank=27)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "27",
+            "enabled": "true",
+            "row": "3",
+            "column": "4",
+            "well": "C04",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4801-P (rank=27)",
+            "procedure_rank": "27",
+            "results": [],
+            "well_id": "SC25-4801-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4852-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4852-A (rank=28)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4852-A (rank=28)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "28",
+            "enabled": "true",
+            "row": "4",
+            "column": "4",
+            "well": "D04",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4852-A (rank=28)",
+            "procedure_rank": "28",
+            "results": [],
+            "well_id": "SC25-4852-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4867-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4867-A (rank=29)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4867-A (rank=29)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "29",
+            "enabled": "true",
+            "row": "5",
+            "column": "4",
+            "well": "E04",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4867-A (rank=29)",
+            "procedure_rank": "29",
+            "results": [],
+            "well_id": "SC25-4867-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4879-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4879-A (rank=30)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4879-A (rank=30)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "30",
+            "enabled": "true",
+            "row": "6",
+            "column": "4",
+            "well": "F04",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4879-A (rank=30)",
+            "procedure_rank": "30",
+            "results": [],
+            "well_id": "SC25-4879-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "BLANK",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->BLANK (rank=31)",
+                "RSL-BC-20250723-1->BLANK (rank=88)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1",
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=31)",
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=88)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "31",
+            "enabled": "true",
+            "row": "8",
+            "column": "11",
+            "well": "G04",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=31)",
+            "procedure_rank": "31",
+            "results": [],
+            "well_id": "BLANK",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4911-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4911-P (rank=32)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4911-P (rank=32)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "32",
+            "enabled": "true",
+            "row": "8",
+            "column": "4",
+            "well": "H04",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4911-P (rank=32)",
+            "procedure_rank": "32",
+            "results": [],
+            "well_id": "SC25-4911-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4779-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4779-A (rank=33)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4779-A (rank=33)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "33",
+            "enabled": "true",
+            "row": "1",
+            "column": "5",
+            "well": "A05",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4779-A (rank=33)",
+            "procedure_rank": "33",
+            "results": [],
+            "well_id": "SC25-4779-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4790-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4790-P (rank=34)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4790-P (rank=34)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "34",
+            "enabled": "true",
+            "row": "2",
+            "column": "5",
+            "well": "B05",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4790-P (rank=34)",
+            "procedure_rank": "34",
+            "results": [],
+            "well_id": "SC25-4790-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4802-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4802-P (rank=35)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4802-P (rank=35)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "35",
+            "enabled": "true",
+            "row": "3",
+            "column": "5",
+            "well": "C05",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4802-P (rank=35)",
+            "procedure_rank": "35",
+            "results": [],
+            "well_id": "SC25-4802-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4853-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4853-A (rank=36)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4853-A (rank=36)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "36",
+            "enabled": "true",
+            "row": "4",
+            "column": "5",
+            "well": "D05",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4853-A (rank=36)",
+            "procedure_rank": "36",
+            "results": [],
+            "well_id": "SC25-4853-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4868-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4868-A (rank=37)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4868-A (rank=37)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "37",
+            "enabled": "true",
+            "row": "5",
+            "column": "5",
+            "well": "E05",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4868-A (rank=37)",
+            "procedure_rank": "37",
+            "results": [],
+            "well_id": "SC25-4868-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4880-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4880-A (rank=38)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4880-A (rank=38)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "38",
+            "enabled": "true",
+            "row": "6",
+            "column": "5",
+            "well": "F05",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4880-A (rank=38)",
+            "procedure_rank": "38",
+            "results": [],
+            "well_id": "SC25-4880-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4892-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4892-P (rank=39)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4892-P (rank=39)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "39",
+            "enabled": "true",
+            "row": "7",
+            "column": "5",
+            "well": "G05",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4892-P (rank=39)",
+            "procedure_rank": "39",
+            "results": [],
+            "well_id": "SC25-4892-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4912-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4912-P (rank=40)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4912-P (rank=40)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "40",
+            "enabled": "true",
+            "row": "8",
+            "column": "5",
+            "well": "H05",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4912-P (rank=40)",
+            "procedure_rank": "40",
+            "results": [],
+            "well_id": "SC25-4912-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4780-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4780-A (rank=41)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4780-A (rank=41)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "41",
+            "enabled": "true",
+            "row": "1",
+            "column": "6",
+            "well": "A06",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4780-A (rank=41)",
+            "procedure_rank": "41",
+            "results": [],
+            "well_id": "SC25-4780-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4791-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4791-P (rank=42)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4791-P (rank=42)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "42",
+            "enabled": "true",
+            "row": "2",
+            "column": "6",
+            "well": "B06",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4791-P (rank=42)",
+            "procedure_rank": "42",
+            "results": [],
+            "well_id": "SC25-4791-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4803-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4803-P (rank=43)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4803-P (rank=43)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "43",
+            "enabled": "true",
+            "row": "3",
+            "column": "6",
+            "well": "C06",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4803-P (rank=43)",
+            "procedure_rank": "43",
+            "results": [],
+            "well_id": "SC25-4803-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4854-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4854-P (rank=44)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4854-P (rank=44)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "44",
+            "enabled": "true",
+            "row": "4",
+            "column": "6",
+            "well": "D06",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4854-P (rank=44)",
+            "procedure_rank": "44",
+            "results": [],
+            "well_id": "SC25-4854-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4869-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4869-A (rank=45)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4869-A (rank=45)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "45",
+            "enabled": "true",
+            "row": "5",
+            "column": "6",
+            "well": "E06",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4869-A (rank=45)",
+            "procedure_rank": "45",
+            "results": [],
+            "well_id": "SC25-4869-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4881-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4881-A (rank=46)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4881-A (rank=46)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "46",
+            "enabled": "true",
+            "row": "6",
+            "column": "6",
+            "well": "F06",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4881-A (rank=46)",
+            "procedure_rank": "46",
+            "results": [],
+            "well_id": "SC25-4881-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4893-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4893-A (rank=47)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4893-A (rank=47)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "47",
+            "enabled": "true",
+            "row": "7",
+            "column": "6",
+            "well": "G06",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4893-A (rank=47)",
+            "procedure_rank": "47",
+            "results": [],
+            "well_id": "SC25-4893-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4913-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4913-P (rank=48)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4913-P (rank=48)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "48",
+            "enabled": "true",
+            "row": "8",
+            "column": "6",
+            "well": "H06",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4913-P (rank=48)",
+            "procedure_rank": "48",
+            "results": [],
+            "well_id": "SC25-4913-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4781-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4781-A (rank=49)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4781-A (rank=49)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "49",
+            "enabled": "true",
+            "row": "1",
+            "column": "7",
+            "well": "A07",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4781-A (rank=49)",
+            "procedure_rank": "49",
+            "results": [],
+            "well_id": "SC25-4781-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4792-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4792-P (rank=50)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4792-P (rank=50)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "50",
+            "enabled": "true",
+            "row": "2",
+            "column": "7",
+            "well": "B07",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4792-P (rank=50)",
+            "procedure_rank": "50",
+            "results": [],
+            "well_id": "SC25-4792-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4804-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4804-P (rank=51)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4804-P (rank=51)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "51",
+            "enabled": "true",
+            "row": "3",
+            "column": "7",
+            "well": "C07",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4804-P (rank=51)",
+            "procedure_rank": "51",
+            "results": [],
+            "well_id": "SC25-4804-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4855-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4855-P (rank=52)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4855-P (rank=52)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "52",
+            "enabled": "true",
+            "row": "4",
+            "column": "7",
+            "well": "D07",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4855-P (rank=52)",
+            "procedure_rank": "52",
+            "results": [],
+            "well_id": "SC25-4855-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4870-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4870-A (rank=53)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4870-A (rank=53)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "53",
+            "enabled": "true",
+            "row": "5",
+            "column": "7",
+            "well": "E07",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4870-A (rank=53)",
+            "procedure_rank": "53",
+            "results": [],
+            "well_id": "SC25-4870-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4882-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4882-A (rank=54)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4882-A (rank=54)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "54",
+            "enabled": "true",
+            "row": "6",
+            "column": "7",
+            "well": "F07",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4882-A (rank=54)",
+            "procedure_rank": "54",
+            "results": [],
+            "well_id": "SC25-4882-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4894-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4894-P (rank=55)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4894-P (rank=55)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "55",
+            "enabled": "true",
+            "row": "7",
+            "column": "7",
+            "well": "G07",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4894-P (rank=55)",
+            "procedure_rank": "55",
+            "results": [],
+            "well_id": "SC25-4894-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4914-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4914-P (rank=56)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4914-P (rank=56)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "56",
+            "enabled": "true",
+            "row": "8",
+            "column": "7",
+            "well": "H07",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4914-P (rank=56)",
+            "procedure_rank": "56",
+            "results": [],
+            "well_id": "SC25-4914-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4782-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4782-A (rank=57)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4782-A (rank=57)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "57",
+            "enabled": "true",
+            "row": "1",
+            "column": "8",
+            "well": "A08",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4782-A (rank=57)",
+            "procedure_rank": "57",
+            "results": [],
+            "well_id": "SC25-4782-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4793-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4793-P (rank=58)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4793-P (rank=58)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "58",
+            "enabled": "true",
+            "row": "2",
+            "column": "8",
+            "well": "B08",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4793-P (rank=58)",
+            "procedure_rank": "58",
+            "results": [],
+            "well_id": "SC25-4793-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4805-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4805-P (rank=59)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4805-P (rank=59)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "59",
+            "enabled": "true",
+            "row": "3",
+            "column": "8",
+            "well": "C08",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4805-P (rank=59)",
+            "procedure_rank": "59",
+            "results": [],
+            "well_id": "SC25-4805-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4856-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4856-P (rank=60)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4856-P (rank=60)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "60",
+            "enabled": "true",
+            "row": "4",
+            "column": "8",
+            "well": "D08",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4856-P (rank=60)",
+            "procedure_rank": "60",
+            "results": [],
+            "well_id": "SC25-4856-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4871-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4871-A (rank=61)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4871-A (rank=61)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "61",
+            "enabled": "true",
+            "row": "5",
+            "column": "8",
+            "well": "E08",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4871-A (rank=61)",
+            "procedure_rank": "61",
+            "results": [],
+            "well_id": "SC25-4871-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4883-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4883-A (rank=62)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4883-A (rank=62)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "62",
+            "enabled": "true",
+            "row": "6",
+            "column": "8",
+            "well": "F08",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4883-A (rank=62)",
+            "procedure_rank": "62",
+            "results": [],
+            "well_id": "SC25-4883-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4904-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4904-P (rank=63)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4904-P (rank=63)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "63",
+            "enabled": "true",
+            "row": "7",
+            "column": "8",
+            "well": "G08",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4904-P (rank=63)",
+            "procedure_rank": "63",
+            "results": [],
+            "well_id": "SC25-4904-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4915-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4915-P (rank=64)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4915-P (rank=64)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "64",
+            "enabled": "true",
+            "row": "8",
+            "column": "8",
+            "well": "H08",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4915-P (rank=64)",
+            "procedure_rank": "64",
+            "results": [],
+            "well_id": "SC25-4915-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4783-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4783-A (rank=65)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4783-A (rank=65)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "65",
+            "enabled": "true",
+            "row": "1",
+            "column": "9",
+            "well": "A09",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4783-A (rank=65)",
+            "procedure_rank": "65",
+            "results": [],
+            "well_id": "SC25-4783-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4794-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4794-P (rank=66)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4794-P (rank=66)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "66",
+            "enabled": "true",
+            "row": "2",
+            "column": "9",
+            "well": "B09",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4794-P (rank=66)",
+            "procedure_rank": "66",
+            "results": [],
+            "well_id": "SC25-4794-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4806-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4806-P (rank=67)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4806-P (rank=67)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "67",
+            "enabled": "true",
+            "row": "3",
+            "column": "9",
+            "well": "C09",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4806-P (rank=67)",
+            "procedure_rank": "67",
+            "results": [],
+            "well_id": "SC25-4806-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4857-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4857-P (rank=68)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4857-P (rank=68)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "68",
+            "enabled": "true",
+            "row": "4",
+            "column": "9",
+            "well": "D09",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4857-P (rank=68)",
+            "procedure_rank": "68",
+            "results": [],
+            "well_id": "SC25-4857-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4872-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4872-A (rank=69)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4872-A (rank=69)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "69",
+            "enabled": "true",
+            "row": "5",
+            "column": "9",
+            "well": "E09",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4872-A (rank=69)",
+            "procedure_rank": "69",
+            "results": [],
+            "well_id": "SC25-4872-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4884-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4884-A (rank=70)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4884-A (rank=70)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "70",
+            "enabled": "true",
+            "row": "6",
+            "column": "9",
+            "well": "F09",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4884-A (rank=70)",
+            "procedure_rank": "70",
+            "results": [],
+            "well_id": "SC25-4884-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4905-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4905-P (rank=71)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4905-P (rank=71)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "71",
+            "enabled": "true",
+            "row": "7",
+            "column": "9",
+            "well": "G09",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4905-P (rank=71)",
+            "procedure_rank": "71",
+            "results": [],
+            "well_id": "SC25-4905-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4916-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4916-P (rank=72)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4916-P (rank=72)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "72",
+            "enabled": "true",
+            "row": "8",
+            "column": "9",
+            "well": "H09",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4916-P (rank=72)",
+            "procedure_rank": "72",
+            "results": [],
+            "well_id": "SC25-4916-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4784-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4784-A (rank=73)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4784-A (rank=73)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "73",
+            "enabled": "true",
+            "row": "1",
+            "column": "10",
+            "well": "A10",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4784-A (rank=73)",
+            "procedure_rank": "73",
+            "results": [],
+            "well_id": "SC25-4784-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4795-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4795-P (rank=74)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4795-P (rank=74)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "74",
+            "enabled": "true",
+            "row": "2",
+            "column": "10",
+            "well": "B10",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4795-P (rank=74)",
+            "procedure_rank": "74",
+            "results": [],
+            "well_id": "SC25-4795-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4807-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4807-P (rank=75)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4807-P (rank=75)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "75",
+            "enabled": "true",
+            "row": "3",
+            "column": "10",
+            "well": "C10",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4807-P (rank=75)",
+            "procedure_rank": "75",
+            "results": [],
+            "well_id": "SC25-4807-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4861-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4861-A (rank=76)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4861-A (rank=76)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "76",
+            "enabled": "true",
+            "row": "4",
+            "column": "10",
+            "well": "D10",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4861-A (rank=76)",
+            "procedure_rank": "76",
+            "results": [],
+            "well_id": "SC25-4861-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4873-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4873-A (rank=77)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4873-A (rank=77)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "77",
+            "enabled": "true",
+            "row": "5",
+            "column": "10",
+            "well": "E10",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4873-A (rank=77)",
+            "procedure_rank": "77",
+            "results": [],
+            "well_id": "SC25-4873-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4885-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4885-A (rank=78)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4885-A (rank=78)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "78",
+            "enabled": "true",
+            "row": "6",
+            "column": "10",
+            "well": "F10",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4885-A (rank=78)",
+            "procedure_rank": "78",
+            "results": [],
+            "well_id": "SC25-4885-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "EN2-670-20250723",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->EN2-670-20250723 (rank=79)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->EN2-670-20250723 (rank=79)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "79",
+            "enabled": "true",
+            "row": "7",
+            "column": "10",
+            "well": "G10",
+            "organism": "ExtractionNegative",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->EN2-670-20250723 (rank=79)",
+            "procedure_rank": "79",
+            "results": [],
+            "well_id": "EN2-670-20250723",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4917-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4917-P (rank=80)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4917-P (rank=80)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "80",
+            "enabled": "true",
+            "row": "8",
+            "column": "10",
+            "well": "H10",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4917-P (rank=80)",
+            "procedure_rank": "80",
+            "results": [],
+            "well_id": "SC25-4917-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4785-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4785-A (rank=81)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4785-A (rank=81)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "81",
+            "enabled": "true",
+            "row": "1",
+            "column": "11",
+            "well": "A11",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4785-A (rank=81)",
+            "procedure_rank": "81",
+            "results": [],
+            "well_id": "SC25-4785-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4796-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4796-P (rank=82)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4796-P (rank=82)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "82",
+            "enabled": "true",
+            "row": "2",
+            "column": "11",
+            "well": "B11",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4796-P (rank=82)",
+            "procedure_rank": "82",
+            "results": [],
+            "well_id": "SC25-4796-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4808-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4808-P (rank=83)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4808-P (rank=83)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "83",
+            "enabled": "true",
+            "row": "3",
+            "column": "11",
+            "well": "C11",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4808-P (rank=83)",
+            "procedure_rank": "83",
+            "results": [],
+            "well_id": "SC25-4808-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4862-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4862-A (rank=84)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4862-A (rank=84)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "84",
+            "enabled": "true",
+            "row": "4",
+            "column": "11",
+            "well": "D11",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4862-A (rank=84)",
+            "procedure_rank": "84",
+            "results": [],
+            "well_id": "SC25-4862-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4874-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4874-P (rank=85)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4874-P (rank=85)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "85",
+            "enabled": "true",
+            "row": "5",
+            "column": "11",
+            "well": "E11",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4874-P (rank=85)",
+            "procedure_rank": "85",
+            "results": [],
+            "well_id": "SC25-4874-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4886-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4886-P (rank=86)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4886-P (rank=86)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "86",
+            "enabled": "true",
+            "row": "6",
+            "column": "11",
+            "well": "F11",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4886-P (rank=86)",
+            "procedure_rank": "86",
+            "results": [],
+            "well_id": "SC25-4886-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4906-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4906-P (rank=87)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4906-P (rank=87)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "87",
+            "enabled": "true",
+            "row": "7",
+            "column": "11",
+            "well": "G11",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4906-P (rank=87)",
+            "procedure_rank": "87",
+            "results": [],
+            "well_id": "SC25-4906-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "BLANK",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->BLANK (rank=31)",
+                "RSL-BC-20250723-1->BLANK (rank=88)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1",
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=31)",
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=88)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "31",
+            "enabled": "true",
+            "row": "8",
+            "column": "11",
+            "well": "G04",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=88)",
+            "procedure_rank": "88",
+            "results": [],
+            "well_id": "BLANK",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "ATCC49619-670-20250723",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->ATCC49619-670-20250723 (rank=89)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->ATCC49619-670-20250723 (rank=89)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "89",
+            "enabled": "true",
+            "row": "1",
+            "column": "12",
+            "well": "A12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->ATCC49619-670-20250723 (rank=89)",
+            "procedure_rank": "89",
+            "results": [],
+            "well_id": "ATCC49619-670-20250723",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4797-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4797-P (rank=90)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4797-P (rank=90)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "90",
+            "enabled": "true",
+            "row": "2",
+            "column": "12",
+            "well": "B12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4797-P (rank=90)",
+            "procedure_rank": "90",
+            "results": [],
+            "well_id": "SC25-4797-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4809-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4809-P (rank=91)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4809-P (rank=91)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "91",
+            "enabled": "true",
+            "row": "3",
+            "column": "12",
+            "well": "C12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4809-P (rank=91)",
+            "procedure_rank": "91",
+            "results": [],
+            "well_id": "SC25-4809-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4863-A",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4863-A (rank=92)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4863-A (rank=92)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "92",
+            "enabled": "true",
+            "row": "4",
+            "column": "12",
+            "well": "D12",
+            "organism": "Streptococcuspyogenes",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4863-A (rank=92)",
+            "procedure_rank": "92",
+            "results": [],
+            "well_id": "SC25-4863-A",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4875-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4875-P (rank=93)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4875-P (rank=93)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "93",
+            "enabled": "true",
+            "row": "5",
+            "column": "12",
+            "well": "E12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4875-P (rank=93)",
+            "procedure_rank": "93",
+            "results": [],
+            "well_id": "SC25-4875-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4887-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4887-P (rank=94)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4887-P (rank=94)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "94",
+            "enabled": "true",
+            "row": "6",
+            "column": "12",
+            "well": "F12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4887-P (rank=94)",
+            "procedure_rank": "94",
+            "results": [],
+            "well_id": "SC25-4887-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4907-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4907-P (rank=95)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4907-P (rank=95)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "95",
+            "enabled": "true",
+            "row": "7",
+            "column": "12",
+            "well": "G12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4907-P (rank=95)",
+            "procedure_rank": "95",
+            "results": [],
+            "well_id": "SC25-4907-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4919-P",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4919-P (rank=96)"
+            ],
+            "run": [
+                "RSL-BC-20250723-1"
+            ],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4919-P (rank=96)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "submission_rank": "96",
+            "enabled": "true",
+            "row": "8",
+            "column": "12",
+            "well": "H12",
+            "organism": "Streptococcuspneumoniae",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->SC25-4919-P (rank=96)",
+            "procedure_rank": "96",
+            "results": [],
+            "well_id": "SC25-4919-P",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "BLANK",
+            "is_control": "0",
+            "sampleclientsubmissionassociation": [],
+            "clientsubmission": [],
+            "samplerunassociation": [],
+            "run": [],
+            "sampleprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=97)"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "rank": "0",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->BLANK (rank=97)",
+            "row": "8",
+            "column": "11",
+            "procedure_rank": "97",
+            "results": [],
+            "enabled": "true",
+            "well_id": "BLANK",
+            "background_color": "#6ffe1d",
+            "misc_info": {},
+            "active": "true"
+        }
+    ],
+    "procedurereagentlotassociation": [
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->ZymoBiomics MCS-238716",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->MN96 Type B Bead Plate-BEP23128",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->CA 100% Ethanol-041167",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega DS Buffer-46571AQ114",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Proteinase K-74598EM649",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->100 mM Tris-HCl-81744",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega RBB Buffer-72220ER86",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Mag Bind RQ-72595DB227",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega XP2 Buffer-63854GL159",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Elution Buffer-50642BD476",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega SPM Buffer-61219FV114",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega VHB Buffer-64145GG259"
+    ],
+    "reagentlot": [
+        "ZymoBiomics MCS-238716",
+        "MN96 Type B Bead Plate-BEP23128",
+        "CA 100% Ethanol-041167",
+        "Omega DS Buffer-46571AQ114",
+        "Omega Proteinase K-74598EM649",
+        "100 mM Tris-HCl-81744",
+        "Omega RBB Buffer-72220ER86",
+        "Omega Mag Bind RQ-72595DB227",
+        "Omega XP2 Buffer-63854GL159",
+        "Omega Elution Buffer-50642BD476",
+        "Omega SPM Buffer-61219FV114",
+        "Omega VHB Buffer-64145GG259"
     ],
     "procedureequipmentassociation": [
-        "<ProcedureEquipmentAssociation(None-None->Kingfisher 1)>",
-        "<ProcedureEquipmentAssociation(None-None->Biomek)>"
-    ]
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Kingfisher 1",
+        "RSL-BC-20250723-1-Omega Bacterial Extraction->Biomek"
+    ],
+    "equipment": [
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Kingfisher 1",
+            "nickname": "Kingfisher 1",
+            "asset_number": "5023808",
+            "equipmentprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Kingfisher 1"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "equipmentequipmentroleassociation": [
+                "Omega Bacteria Extractor->Kingfisher 1"
+            ],
+            "equipmentrole": "Omega Bacteria Extractor",
+            "start_time": "null",
+            "end_time": "null",
+            "comments": "null",
+            "processversion": {
+                "excluded": [
+                    "excluded",
+                    "misc_info",
+                    "_misc_info",
+                    "id"
+                ],
+                "version": "1.0",
+                "date_verified": "2025-12-11 13:20:26",
+                "project": "NA",
+                "active": "1",
+                "process": "OBT_M4029_KFF",
+                "procedureequipmentassociation": [
+                    "RSL-BC-20250723-1-Omega Bacterial Extraction->Kingfisher 1"
+                ],
+                "name": "OBT_M4029_KFF-v1.0",
+                "tips": []
+            },
+            "procedureequipmenttipslotassociation": [],
+            "tipslot": [],
+            "misc_info": {},
+            "tips": "null"
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Biomek",
+            "nickname": "Biomek",
+            "asset_number": "5015330",
+            "equipmentprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Biomek"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "equipmentequipmentroleassociation": [
+                "Omega gDNA Mover->Biomek"
+            ],
+            "equipmentrole": "Omega gDNA Mover",
+            "start_time": "null",
+            "end_time": "null",
+            "comments": "null",
+            "processversion": {
+                "excluded": [
+                    "excluded",
+                    "misc_info",
+                    "_misc_info",
+                    "id"
+                ],
+                "version": "2.0",
+                "date_verified": "2025-01-21 00:00:00",
+                "project": "NA",
+                "active": "1",
+                "process": "Bacteria_Core_Submission",
+                "procedureequipmentassociation": [
+                    "RSL-BC-20250723-1-Omega Bacterial Extraction->Biomek"
+                ],
+                "name": "Bacteria_Core_Submission-v2.0",
+                "tips": [
+                    {
+                        "excluded": [
+                            "excluded",
+                            "misc_info",
+                            "_misc_info",
+                            "id"
+                        ],
+                        "tips": "Beckman Coulter-B85911(190)",
+                        "lot": "P46428",
+                        "expiry": "2026-12-31 23:59:59",
+                        "active": "1",
+                        "procedureequipmenttipslotassociation": [],
+                        "name": "Beckman Coulter-B85911-P46428"
+                    }
+                ]
+            },
+            "procedureequipmenttipslotassociation": [],
+            "tipslot": [],
+            "misc_info": {},
+            "tips": "null"
+        }
+    ],
+    "reagent": [
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "238716",
+            "expiry": "2026-06-30 23:59:59",
+            "active": "1",
+            "reagent": "ZymoBiomics MCS",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->ZymoBiomics MCS-238716"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->ZymoBiomics MCS-238716",
+            "reagent_name": "ZymoBiomics MCS",
+            "comments": "null",
+            "reagentlot": "ZymoBiomics MCS-238716",
+            "reagentrole": "Omega Positive Control",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "BEP23128",
+            "expiry": "2030-02-28 23:59:59",
+            "active": "1",
+            "reagent": "MN96 Type B Bead Plate",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->MN96 Type B Bead Plate-BEP23128"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->MN96 Type B Bead Plate-BEP23128",
+            "reagent_name": "MN96 Type B Bead Plate",
+            "comments": "null",
+            "reagentlot": "MN96 Type B Bead Plate-BEP23128",
+            "reagentrole": "Omega Bead Plate",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "041167",
+            "expiry": "2026-07-31 23:59:59",
+            "active": "1",
+            "reagent": "CA 100% Ethanol",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->CA 100% Ethanol-041167"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->CA 100% Ethanol-041167",
+            "reagent_name": "CA 100% Ethanol",
+            "comments": "null",
+            "reagentlot": "CA 100% Ethanol-041167",
+            "reagentrole": "Omega Ethanol",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "46571AQ114",
+            "expiry": "2025-03-12 23:59:59",
+            "active": "1",
+            "reagent": "Omega DS Buffer",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega DS Buffer-46571AQ114"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega DS Buffer-46571AQ114",
+            "reagent_name": "Omega DS Buffer",
+            "comments": "null",
+            "reagentlot": "Omega DS Buffer-46571AQ114",
+            "reagentrole": "Omega Prote K Buffer",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "74598EM649",
+            "expiry": "2027-07-27 23:59:59",
+            "active": "1",
+            "reagent": "Omega Proteinase K",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Proteinase K-74598EM649"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Proteinase K-74598EM649",
+            "reagent_name": "Omega Proteinase K",
+            "comments": "null",
+            "reagentlot": "Omega Proteinase K-74598EM649",
+            "reagentrole": "Omega Proteinase K",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "81744",
+            "expiry": "2026-12-23 23:59:59",
+            "active": "1",
+            "reagent": "100 mM Tris-HCl",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->100 mM Tris-HCl-81744"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->100 mM Tris-HCl-81744",
+            "reagent_name": "100 mM Tris-HCl",
+            "comments": "null",
+            "reagentlot": "100 mM Tris-HCl-81744",
+            "reagentrole": "Omega Resuspension Buffer",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "72220ER86",
+            "expiry": "2027-12-01 23:59:59",
+            "active": "1",
+            "reagent": "Omega RBB Buffer",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega RBB Buffer-72220ER86"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega RBB Buffer-72220ER86",
+            "reagent_name": "Omega RBB Buffer",
+            "comments": "null",
+            "reagentlot": "Omega RBB Buffer-72220ER86",
+            "reagentrole": "Omega Enhancer Buffer",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "72595DB227",
+            "expiry": "2027-08-14 23:59:59",
+            "active": "1",
+            "reagent": "Omega Mag Bind RQ",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Mag Bind RQ-72595DB227"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Mag Bind RQ-72595DB227",
+            "reagent_name": "Omega Mag Bind RQ",
+            "comments": "null",
+            "reagentlot": "Omega Mag Bind RQ-72595DB227",
+            "reagentrole": "Omega Magnetic Beads",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "63854GL159",
+            "expiry": "2028-02-28 23:59:59",
+            "active": "1",
+            "reagent": "Omega XP2 Buffer",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega XP2 Buffer-63854GL159"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega XP2 Buffer-63854GL159",
+            "reagent_name": "Omega XP2 Buffer",
+            "comments": "null",
+            "reagentlot": "Omega XP2 Buffer-63854GL159",
+            "reagentrole": "Omega Binding Buffer",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "50642BD476",
+            "expiry": "2026-08-26 23:59:59",
+            "active": "1",
+            "reagent": "Omega Elution Buffer",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Elution Buffer-50642BD476"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega Elution Buffer-50642BD476",
+            "reagent_name": "Omega Elution Buffer",
+            "comments": "null",
+            "reagentlot": "Omega Elution Buffer-50642BD476",
+            "reagentrole": "Omega Elution Buffer",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "61219FV114",
+            "expiry": "2029-06-12 23:59:59",
+            "active": "1",
+            "reagent": "Omega SPM Buffer",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega SPM Buffer-61219FV114"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega SPM Buffer-61219FV114",
+            "reagent_name": "Omega SPM Buffer",
+            "comments": "null",
+            "reagentlot": "Omega SPM Buffer-61219FV114",
+            "reagentrole": "Omega Wash 2",
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "lot": "64145GG259",
+            "expiry": "2028-08-22 23:59:59",
+            "active": "1",
+            "reagent": "Omega VHB Buffer",
+            "reagentlotprocedureassociation": [
+                "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega VHB Buffer-64145GG259"
+            ],
+            "procedure": "RSL-BC-20250723-1-Omega Bacterial Extraction",
+            "missing": "true",
+            "name": "RSL-BC-20250723-1-Omega Bacterial Extraction->Omega VHB Buffer-64145GG259",
+            "reagent_name": "Omega VHB Buffer",
+            "comments": "null",
+            "reagentlot": "Omega VHB Buffer-64145GG259",
+            "reagentrole": "Omega Wash 1",
+            "misc_info": {}
+        }
+    ],
+    "repeat": "false",
+    "sample_count": "97",
+    "clientlab": "Strep/STI",
+    "cost": "0.0",
+    "platemap": "\\n        <div class=\\\"plate\\\" id=\\\"plate-container\\\" style=\\\"grid-template-columns: repeat(12, 7.3vw);grid-template-rows: repeat(8, 7.3vw);\\\">\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"EN1-670-20250723\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"EN1-670-20250723\\\">EN1-670-20250723</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4786-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4786-A\\\">SC25-4786-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4798-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4798-P\\\">SC25-4798-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4810-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4810-P\\\">SC25-4810-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4864-B\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4864-B\\\">SC25-4864-B</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4876-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4876-A\\\">SC25-4876-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4888-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4888-P\\\">SC25-4888-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4908-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4908-P\\\">SC25-4908-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4754-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4754-P\\\">SC25-4754-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4787-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4787-A\\\">SC25-4787-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4799-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4799-P\\\">SC25-4799-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4811-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4811-P\\\">SC25-4811-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4865-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4865-A\\\">SC25-4865-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4877-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4877-A\\\">SC25-4877-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4889-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4889-P\\\">SC25-4889-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4909-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4909-P\\\">SC25-4909-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4760-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4760-P\\\">SC25-4760-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4788-B\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4788-B\\\">SC25-4788-B</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4800-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4800-P\\\">SC25-4800-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4812-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4812-P\\\">SC25-4812-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4866-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4866-A\\\">SC25-4866-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4878-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4878-A\\\">SC25-4878-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4890-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4890-P\\\">SC25-4890-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4910-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4910-P\\\">SC25-4910-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4778-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4778-A\\\">SC25-4778-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4789-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4789-P\\\">SC25-4789-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4801-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4801-P\\\">SC25-4801-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4852-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4852-A\\\">SC25-4852-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4867-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4867-A\\\">SC25-4867-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4879-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4879-A\\\">SC25-4879-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well \\\" draggable=\\\"true\\\" id=\\\"\\\" style=\\\"background-color: white;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"\\\"></a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4911-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4911-P\\\">SC25-4911-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4779-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4779-A\\\">SC25-4779-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4790-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4790-P\\\">SC25-4790-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4802-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4802-P\\\">SC25-4802-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4853-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4853-A\\\">SC25-4853-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4868-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4868-A\\\">SC25-4868-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4880-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4880-A\\\">SC25-4880-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4892-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4892-P\\\">SC25-4892-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4912-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4912-P\\\">SC25-4912-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4780-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4780-A\\\">SC25-4780-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4791-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4791-P\\\">SC25-4791-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4803-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4803-P\\\">SC25-4803-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4854-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4854-P\\\">SC25-4854-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4869-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4869-A\\\">SC25-4869-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4881-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4881-A\\\">SC25-4881-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4893-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4893-A\\\">SC25-4893-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4913-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4913-P\\\">SC25-4913-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4781-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4781-A\\\">SC25-4781-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4792-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4792-P\\\">SC25-4792-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4804-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4804-P\\\">SC25-4804-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4855-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4855-P\\\">SC25-4855-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4870-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4870-A\\\">SC25-4870-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4882-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4882-A\\\">SC25-4882-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4894-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4894-P\\\">SC25-4894-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4914-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4914-P\\\">SC25-4914-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4782-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4782-A\\\">SC25-4782-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4793-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4793-P\\\">SC25-4793-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4805-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4805-P\\\">SC25-4805-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4856-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4856-P\\\">SC25-4856-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4871-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4871-A\\\">SC25-4871-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4883-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4883-A\\\">SC25-4883-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4904-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4904-P\\\">SC25-4904-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4915-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4915-P\\\">SC25-4915-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4783-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4783-A\\\">SC25-4783-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4794-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4794-P\\\">SC25-4794-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4806-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4806-P\\\">SC25-4806-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4857-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4857-P\\\">SC25-4857-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4872-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4872-A\\\">SC25-4872-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4884-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4884-A\\\">SC25-4884-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4905-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4905-P\\\">SC25-4905-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4916-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4916-P\\\">SC25-4916-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4784-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4784-A\\\">SC25-4784-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4795-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4795-P\\\">SC25-4795-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4807-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4807-P\\\">SC25-4807-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4861-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4861-A\\\">SC25-4861-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4873-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4873-A\\\">SC25-4873-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4885-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4885-A\\\">SC25-4885-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"EN2-670-20250723\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"EN2-670-20250723\\\">EN2-670-20250723</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4917-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4917-P\\\">SC25-4917-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4785-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4785-A\\\">SC25-4785-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4796-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4796-P\\\">SC25-4796-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4808-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4808-P\\\">SC25-4808-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4862-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4862-A\\\">SC25-4862-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4874-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4874-P\\\">SC25-4874-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4886-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4886-P\\\">SC25-4886-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4906-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4906-P\\\">SC25-4906-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"BLANK\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"BLANK\\\">BLANK</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"ATCC49619-670-20250723\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"ATCC49619-670-20250723\\\">ATCC49619-670-20250723</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4797-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4797-P\\\">SC25-4797-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4809-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4809-P\\\">SC25-4809-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4863-A\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4863-A\\\">SC25-4863-A</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4875-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4875-P\\\">SC25-4875-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4887-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4887-P\\\">SC25-4887-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4907-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4907-P\\\">SC25-4907-P</a><br>\\n                  \\n                </div>\\n            \\n                <div class=\\\"well regular\\\" draggable=\\\"true\\\" id=\\\"SC25-4919-P\\\" style=\\\"background-color: #66ff66;\\\">\\n                  \\n                    <a class=\\\"data-link sample\\\" id=\\\"SC25-4919-P\\\">SC25-4919-P</a><br>\\n                  \\n                </div>\\n            \\n        </div><br/>"
 }

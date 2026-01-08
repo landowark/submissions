@@ -102,7 +102,10 @@ class RSLNamer(object):
         if not self.submission_type:
             self.submission_type = self.retrieve_submission_type(filename=filename)
         if self.submission_type:
-            self.sub_object = SubmissionType.query(name=self.submission_type['name'], limit=1)
+            try:
+                self.sub_object = SubmissionType.query(name=self.submission_type['value'], limit=1)
+            except KeyError:
+                raise KeyError(f"Choose from keys in {self.submission_type.keys()}")
             self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
                 submission_type=self.submission_type))
             logger.info(f"Parsed name: {self.parsed_name}")

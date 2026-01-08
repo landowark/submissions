@@ -160,6 +160,21 @@
         }
     }
 
+    function getSelectValues(select) {
+        var result = [];
+        var options = select && select.options;
+        var opt;
+
+        for (var i=0, iLen=options.length; i<iLen; i++) {
+            opt = options[i];
+
+            if (opt.selected) {
+            result.push(opt.value || opt.text);
+            }
+        }
+        return result;
+    }
+
     function updateBackend(equipmentrole) {
         var equipmentrole_name = equipmentrole.name
         var dropdown_oi = document.getElementById(equipmentrole.name);
@@ -167,8 +182,10 @@
         dropdown_oi = document.getElementById(equipmentrole.name + "_process");
         var process_name = dropdown_oi.value;
         dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
-        var tips_name = dropdown_oi.value;
-        backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_name)
+        var tips_names = getSelectValues(dropdown_oi);;
+
+        console.log("Updating backend with:", equipmentrole_name, equipment_name, process_name, tips_names);
+        backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
     }
 
 </script>

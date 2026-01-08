@@ -58,9 +58,32 @@
                 {% endif %}
             </div>
         </div>
-        {% with equipmentroles=proceduretype['equipmentrole'], child=True %}
+        <!-- {% with equipmentroles=proceduretype['equipmentrole'], child=True %}
             {% include 'support/equipment_usage.html' %}
-        {% endwith %}
+        {% endwith %} -->
+        <h1><u>Equipment</u></h1>
+        <br><hr><br>
+        {% for equipmentrole in proceduretype['equipmentrole'] %}
+            <div class="grid-container">
+                <div>
+                    <input type="checkbox" class="procedure_checkbox" checked id="{{ equipmentrole['name'] }}_check" name="{{ equipmentrole['name'] }}"><label for="{{ equipmentrole['name'] }}">{{ equipmentrole['name'] }}:</label><br>
+                    <select class="equipmentrole dropdown" id="{{ equipmentrole['name'] }}" name="{{ equipmentrole['name'] }}">
+                    </select>
+                </div>
+                <div>
+                    <label for="{{ equipmentrole['name'] }}_process">Process:</label><br>
+                    <select class="process dropdown" id="{{ equipmentrole['name'] }}_process" name="{{ equipmentrole['name'] }}_process">
+                    </select>
+                </div>
+                <div>
+                    <label for="{{ equipmentrole['name'] }}_tips">Tips:</label><br>
+                    <select multiple class="tips dropdown" id="{{ equipmentrole['name'] }}_tips" name="{{ equipmentrole['name'] }}_tips">
+                    </select>
+                </div>
+
+            </div>
+            <br>
+        {% endfor %}
 
         {% include 'support/context_menu.html' %}
         {% endblock %}
@@ -68,6 +91,8 @@
     </body>
 
     {% block script %}
+    <script>const equipment_json = {{ proceduretype['equipmentrole'] }};</script>
+    
     <script>
         var rsl_plate_num = "{{ run['plate_number'] }}";
         function rearrange_plate() {

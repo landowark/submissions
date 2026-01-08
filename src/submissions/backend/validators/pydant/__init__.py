@@ -6,14 +6,17 @@ from copy import deepcopy
 import logging, sys, string, inspect
 from pprint import pformat
 from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
+from pydantic_core import core_schema
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, ClassVar, Generator, List, Tuple
 from tools import classproperty, jinja_template_loading, row_keys
 from backend.db import models
 # from backend.db.models import *
 from sqlalchemy.orm.attributes import InstrumentedAttribute
+
 from sqlalchemy.orm.collections import InstrumentedList
-from sqlalchemy.orm import DeclarativeMeta
+from sqlalchemy.orm import DeclarativeMeta, ColumnProperty
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import _AssociationList
 
 
@@ -27,7 +30,17 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         arbitrary_types_allowed=True,
     )
 
-    name: str = Field(default="NA", validate_default=True)
+    def __repr_args__(self) -> core_schema.ReprArgs:
+        # Get the default repr arguments first
+        # This iterates over defined fields and computed fields
+        args = super().__repr_args__()
+        
+        # Filter out any arguments that correspond to extra fields
+        # The 'name' attribute of ReprArgsElement is the field name
+        extra_fields = getattr(self, '__pydantic_extra__', {})
+        return [arg for arg in args if arg[0] not in extra_fields]
+
+    name: str | dict = Field(default="NA", validate_default=True)
     sql_instance: models.BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
 
@@ -110,6 +123,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     @model_validator(mode='after')
     @classmethod
     def validate_model(cls, data):
+        # print(data)
         for key, value in data.model_extra.items():
             # NOTE: make sure all date variables are date objects.
             if key in cls._sql_class.timestamps:
@@ -161,7 +175,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
-                        print(f"Skipping {key} in {self.sql_instance} due to {e}")
+                        logger.error(f"Skipping {key} in {self.sql_instance} due to {e}")
                         continue
                     # print(f"{self.sql_instance.__class__.__qualname__} Value: {value}")
                     match value:
@@ -254,7 +268,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 logger.error(f"Cannot set name for {self.__class__.__name__}")
         return output
 
-    def to_sql(self):
+    def to_sql(self, update: bool = True):
         # Prevent accidental clearing of existing SQL relationship lists:
         # Many SQLAlchemy relationship setters in this codebase treat an
         # assignment of an empty list as an instruction to clear that
@@ -263,6 +277,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # means "no change" rather than "clear all associations". To be
         # conservative, don't pass empty lists through to query_or_create
         # so we don't unintentionally wipe related association rows.
+        if not update:
+            return self.sql_instance
         sanitized_dicto = {k: v for k, v in self.improved_dict.items() if not (isinstance(v, list) and len(v) == 0)}
         try:
             assert self.sql_instance is not None
@@ -274,8 +290,15 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # from backend.db import models as _models
 
         for k, v in sanitized_dicto.items():
-            match getattr(self._sql_class, k, None):
-                case InstrumentedAttribute():
+            # logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
+            try:
+                class_attr = getattr(self._sql_class, k, None).property
+            except AttributeError as e:
+                continue
+            match class_attr:
+                case hybrid_property():
+                    continue
+                case ColumnProperty():
                     if getattr(self.sql_instance, k) == v:
                         continue
                     else:
@@ -652,5 +675,7 @@ from .concrete import (
     PydReagentLot,
     PydSample,
     PydTipsLot,
-    PydDiscount
+    PydDiscount,
+    PydProcedureEquipmentAssociation,
+    PydProcedureReagentLotAssociation
     )

@@ -225,8 +225,6 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
         return super().aliases + ["reagentroleproceduretypeassociation"]
     
 
-
-
 class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
 
     proceduretype: str = Field(default="NA")

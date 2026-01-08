@@ -39,7 +39,7 @@ repeat_of.addEventListener("change", function() {
 
 var changed_it = new Event('change');
 
-var reagentRoles = document.getElementsByClassName("reagentrole");
+const reagentRoles = document.getElementsByClassName("reagentrole");
 
 for(let i = 0; i < reagentRoles.length; i++) {
   reagentRoles[i].addEventListener("change", async function() {
@@ -133,10 +133,158 @@ for(let i = 0; i < checkboxes.length; i++) {
 
 var equipmentroles = document.getElementsByClassName("equipmentrole");
 
-window.onload = function() {
-    for(let i = 0; i < reagentRoles.length; i++) {
-        backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
-    }
 
+
+window.addEventListener('load', function () {
+    if (typeof QWebChannel !== 'undefined') {
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+            // This callback runs *after* the connection is established
+            backend = channel.objects.backend;
+
+            if (backend) {
+                console.log("Backend channel established successfully.");
+                // NOW it is safe to run your startup logic
+                equipment_json.forEach(equipment_startup);
+                Array.prototype.forEach.call(reagentRoles, reagentrole_startup)
+                // reagentRoles.forEach(reagentrole_startup);
+            } else {
+                console.error("Backend object not found in channel objects.");
+            }
+        });
+    } else {
+        console.error("qwebchannel.js is not loaded.");
+    }
+});
+
+function reagentrole_startup(reagentrole) {
+    backend.update_reagent(reagentrole.id, reagentrole.value);
 }
+
+function equipment_startup(equipmentrole) {
+    updateEquipmentChoices(equipmentrole);
+    var eq_dropdown = document.getElementById(equipmentrole.name);
+    eq_dropdown.addEventListener("change", function(event){
+        updateProcessChoices(equipmentrole);
+        updateBackend(equipmentrole);
+    });
+    var process_dropdown = document.getElementById(equipmentrole.name + "_process");
+    process_dropdown.addEventListener("change", function(event){
+        updateTipChoices(equipmentrole);
+        updateBackend(equipmentrole);
+    });
+    var tips_dropdown = document.getElementById(equipmentrole.name + "_tips");
+    tips_dropdown.addEventListener("change", function(event){
+        updateBackend(equipmentrole);
+    });
+    updateBackend(equipmentrole);
+}
+
+function updateEquipmentChoices(equipmentrole) {
+    console.log("Updating equipment choices.");
+    var dropdown_oi = document.getElementById(equipmentrole.name);
+    while (dropdown_oi.options.length > 0) {
+        dropdown_oi.remove(0);
+    }
+    dropdown_oi.json = equipmentrole;
+    for (let iii = 0; iii < equipmentrole.equipment.length; iii++) {
+        var opt = document.createElement('option');
+        opt.value = equipmentrole.equipment[iii];
+        opt.innerHTML = equipmentrole.equipment[iii];
+        dropdown_oi.appendChild(opt);
+    }
+    updateProcessChoices(equipmentrole);
+}
+
+function updateProcessChoices(equipmentrole) {
+    console.log("Updating process choices.");
+    var dropdown_oi = document.getElementById(equipmentrole.name + "_process");
+    while (dropdown_oi.options.length > 0) {
+        dropdown_oi.remove(0);
+    }
+    dropdown_oi.json = equipmentrole;
+    var equipment_name = document.getElementById(equipmentrole.name).value;
+    var assoc_name = equipmentrole.name + "->" + equipment_name;
+    // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+    // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+    var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+    if (!assoc) { return }
+    var processes = assoc.process;
+    for (let iii = 0; iii < processes.length; iii++) {
+        for (let jjj = 0; jjj < processes[iii].processversion.length; jjj++) {
+            var output = processes[iii].processversion[jjj];
+            if (Boolean(output.active)) {
+                var opt = document.createElement('option');
+                opt.value = output.name;
+                opt.innerHTML = output.name;
+                dropdown_oi.appendChild(opt);
+            }
+        }
+    }
+    updateTipChoices(equipmentrole);
+}
+
+function updateTipChoices(equipmentrole) {
+    console.log("Updating tip choices.");
+    var dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
+    while (dropdown_oi.options.length > 0) {
+        dropdown_oi.remove(0);
+    }
+    dropdown_oi.json = equipmentrole;
+    var equipment_name = document.getElementById(equipmentrole.name).value;
+    var assoc_name = equipmentrole.name + "->" + equipment_name;
+    // var assoc = equipmentrole.equipmentroleequipmentassociation.filter(function(x){return x.name==assoc_name})[0];
+    // var processes = assoc.process.filter(function(x){ return x.equipmentroleequipmentassociation.includes(assoc_name) });
+    var assoc = equipmentrole.equipmentroleequipmentassociation.find(function(x){return x.name==assoc_name});
+    if (!assoc) { return }
+    var processes = assoc.process;
+    for (let iii = 0; iii < processes.length; iii++) {
+        for (let jjj = 0; jjj < processes[iii].tips.length; jjj++) {
+            var output = processes[iii].tips[jjj];
+            if (Boolean(output.active)) {
+                var opt = document.createElement('option');
+                opt.value = output.name;
+                opt.innerHTML = output.name;
+                dropdown_oi.appendChild(opt);
+            }
+        }
+    }
+}
+
+function getSelectValues(select) {
+    var result = [];
+    var options = select && select.options;
+    var opt;
+
+    for (var i=0, iLen=options.length; i<iLen; i++) {
+        opt = options[i];
+
+        if (opt.selected) {
+        result.push(opt.value || opt.text);
+        }
+    }
+    return result;
+}
+
+function updateBackend(equipmentrole) {
+    var equipmentrole_name = equipmentrole.name
+    var dropdown_oi = document.getElementById(equipmentrole.name);
+    var equipment_name = dropdown_oi.value;
+    dropdown_oi = document.getElementById(equipmentrole.name + "_process");
+    var process_name = dropdown_oi.value;
+    dropdown_oi = document.getElementById(equipmentrole.name + "_tips");
+    var tips_names = getSelectValues(dropdown_oi);;
+
+    console.log("Updating backend with:", equipmentrole_name, equipment_name, process_name, tips_names);
+    backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
+}
+
+
+
+// window.onload = function() {
+//     for(let i = 0; i < reagentRoles.length; i++) {
+//         console.log("Updating reagent:", reagentRoles[i].id, reagentRoles[i].value)
+//         backend.update_reagent(reagentRoles[i].id, reagentRoles[i].value);
+//     }
+
+// }
 
