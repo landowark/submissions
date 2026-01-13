@@ -4,7 +4,7 @@ Contains all procedure related frontend functions
 from __future__ import annotations
 import sys, logging
 from PyQt6.QtWidgets import (
-    QWidget, QPushButton, QVBoxLayout,
+    QWidget, QPushButton, QVBoxLayout, QSpinBox, QDoubleSpinBox,
     QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
 )
 from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
@@ -61,6 +61,34 @@ class MyQDateEdit(QDateEdit):
         else:
             return self.scrollWidget.wheelEvent(*args, **kwargs)
 
+
+class MyQSpinBox(QSpinBox):
+
+    def __init__(self, scrollWidget=None, *args, **kwargs):
+        super(MyQSpinBox, self).__init__(*args, **kwargs)
+        self.scrollWidget = scrollWidget
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def wheelEvent(self, *args, **kwargs):
+        if self.hasFocus():
+            return QDateEdit.wheelEvent(self, *args, **kwargs)
+        else:
+            return self.scrollWidget.wheelEvent(*args, **kwargs)
+        
+
+class MyQDoubleSpinBox(QDoubleSpinBox):
+
+    def __init__(self, scrollWidget=None, *args, **kwargs):
+        super(MyQSpinBox, self).__init__(*args, **kwargs)
+        self.scrollWidget = scrollWidget
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+    def wheelEvent(self, *args, **kwargs):
+        if self.hasFocus():
+            return QDateEdit.wheelEvent(self, *args, **kwargs)
+        else:
+            return self.scrollWidget.wheelEvent(*args, **kwargs)
+        
 
 class SubmissionFormContainer(QWidget):
     # NOTE: A signal carrying a path
@@ -331,12 +359,12 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         result = self.parse_form()
         report.add_result(result)
-        exempt = [item.reagent.role for item in self.findChildren(self.ReagentFormWidget) if not item.lot.isEnabled()]
-        if self.disabler.checkbox.isChecked():
-            _, result, _ = self.pyd.check_kit_integrity(exempt=exempt)
-            report.add_result(result)
-        if len(result.results) > 0:
-            return report
+        # exempt = [item.reagent.role for item in self.findChildren(self.ReagentFormWidget) if not item.lot.isEnabled()]
+        # if self.disabler.checkbox.isChecked():
+        #     _, result, _ = self.pyd.check_kit_integrity(exempt=exempt)
+        #     report.add_result(result)
+        # if len(result.results) > 0:
+        #     return report
         base_submission = self.pyd.to_sql()
         # NOTE: check output message for issues
         if base_submission is None:
@@ -477,11 +505,11 @@ class SubmissionFormWidget(QWidget):
                 submission_type = SubmissionType.query(name=submission_type)
             if sub_obj is None:
                 sub_obj = submission_type.submission_class
-            try:
-                value = value['value']
-            except (TypeError, KeyError):
-                pass
+            if isinstance(value, dict):
+                value = value.get('value', value)
             obj = parent.parent().parent()
+            # class_field = getattr(ClientSubmission, key)
+            
             match key:
                 case 'clientlab':
                     add_widget = MyQComboBox(scrollWidget=parent)
@@ -504,29 +532,6 @@ class SubmissionFormWidget(QWidget):
                     # NOTE: set combobox values to lookedup values
                     add_widget.addItems(labs)
                     add_widget.setToolTip("Select submitting lab.")
-                # case 'kittype':
-                #     # NOTE: if extraction kittype not available, all other values fail
-                #     if not check_not_nan(value):
-                #         msg = AlertPop(message="Make sure to check your extraction kittype in the excel sheet!",
-                #                        status="warning")
-                #         msg.exec()
-                #     # NOTE: create combobox to hold looked up kits
-                #     add_widget = MyQComboBox(scrollWidget=parent)
-                #     # NOTE: lookup existing kits by 'proceduretype' decided on by sheetparser
-                #     uses = [item.name for item in submission_type.kit_types]
-                #     obj.uses = uses
-                #     if check_not_nan(value):
-                #         try:
-                #             uses.insert(0, uses.pop(uses.index(value)))
-                #         except ValueError:
-                #             logger.warning(f"Couldn't find kittype in list, skipping move to top of list.")
-                #         obj.ext_kit = value
-                #     else:
-                #         logger.error(f"Couldn't find {obj.prsr.sub['kittype']}")
-                #         obj.ext_kit = uses[0]
-                #     add_widget.addItems(uses)
-                #     add_widget.setToolTip("Select extraction kittype.")
-                #     parent.extraction_kit = add_widget.currentText()
                 case 'submission_category':
                     add_widget = MyQComboBox(scrollWidget=parent)
                     categories = ['Diagnostic', "Surveillance", "Research"]
@@ -538,20 +543,67 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(categories)
                     add_widget.setToolTip("Enter procedure category or select from list.")
                 case _:
-                    if key in ClientSubmission.timestamps:
-                        add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
-                        # NOTE: sets submitted date based on date found in excel sheet
-                        try:
-                            add_widget.setDate(value)
-                        # NOTE: if not found, use today
-                        except:
-                            add_widget.setDate(date.today())
-                        add_widget.setToolTip(f"Select date for {key}")
-                    else:
-                        # NOTE: anything else gets added in as a line edit
-                        add_widget = QLineEdit()
-                        add_widget.setText(str(value).replace("_", " "))
-                        add_widget.setToolTip(f"Enter value for {key}")
+                    # if key in ClientSubmission.timestamps:
+                    #     add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
+                    #     # NOTE: sets submitted date based on date found in excel sheet
+                    #     try:
+                    #         add_widget.setDate(value)
+                    #     # NOTE: if not found, use today
+                    #     except:
+                    #         add_widget.setDate(date.today())
+                    #     add_widget.setToolTip(f"Select date for {key}")
+                    # else:
+                    #     # NOTE: anything else gets added in as a line edit
+                    #     add_widget = QLineEdit()
+                    #     add_widget.setText(str(value).replace("_", " "))
+                    #     add_widget.setToolTip(f"Enter value for {key}")
+                    field_type = ClientSubmission.determine_field_type(key)
+                    match field_type:
+                        case "TIMESTAMP":
+                            add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
+                            # NOTE: sets submitted date based on date found in excel sheet
+                            try:
+                                add_widget.setDate(value)
+                            # NOTE: if not found, use today
+                            except:
+                                add_widget.setDate(date.today())
+                            add_widget.setToolTip(f"Select date for {key}")
+                        case "INTEGER":
+                            add_widget = MyQSpinBox(scrollWidget=parent)
+                            try:
+                                add_widget.setValue(value)
+                            except:
+                                add_widget.setValue(0)
+                            add_widget.setToolTip(f"Set value for {key}")
+                        case "RELATIONSHIPSCALAR":
+                            add_widget = MyQComboBox(scrollWidget=parent)
+                            # NOTE: lookup organizations suitable for clientlab (ctx: self.InfoItem.SubmissionFormWidget.SubmissionFormContainer.AddSubForm )
+                            class_ = ClientSubmission.get_relationship_sqlclass(key)
+                            labs = [item.name for item in class_.query()]
+                            if isinstance(value, dict):
+                                value = value['value']
+                            if isinstance(value, class_):
+                                value = value.name
+                            try:
+                                looked_up_value = class_.query(name=value, limit=1)
+                            except AttributeError:
+                                looked_up_value = None
+                            if looked_up_value:
+                                try:
+                                    labs.remove(str(looked_up_value.name))
+                                except ValueError as e:
+                                    logger.error(f"Error reordering labs: {e}")
+                                labs.insert(0, str(looked_up_value.name))
+                            # NOTE: set combobox values to lookedup values
+                            add_widget.addItems(labs)
+                            add_widget.setToolTip(f"Select {key}.")
+                        case _:
+                            add_widget = QLineEdit()
+                            try:
+                                add_widget.setText(value)
+                            except:
+                                add_widget.setText("NA")
+                            add_widget.setToolTip(f"Set value for {key}")
             if add_widget is not None:
                 add_widget.setObjectName(key)
                 add_widget.setParent(parent)
@@ -765,6 +817,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         start_run_btn = QPushButton("Save")
         self.layout.addWidget(start_run_btn)
         start_run_btn.clicked.connect(self.create_new_submission)
+        
+        logger.debug(f"PYD:\n{pformat(self.pyd.__dict__)}")
 
     @report_result
     def parse_form(self) -> Report:
@@ -799,6 +853,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         for k, v in info.items():
             if k == "sample":
                 continue
+            if isinstance(v, dict):
+                v = v.get("value", None)
             logger.debug(f"Setting pyd {k} to {v}")
             self.pyd.__setattr__(k, v)
         report.add_result(report)
@@ -815,21 +871,68 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         from backend.validators.pydant import PydSample
         from backend.db.models import Sample
         pyd = self.to_pydantic()
-        # samples = [sample. for sample in pyd.sample if sample.sample_id.lower() not in ["", "blank"]]
-        logger.debug(f"PYD:\n{pformat(pyd.__dict__)}")
+        
+        # Save samples individually and collect the saved SQL Sample objects.
+        # Later, attach these saved Sample objects to the submission SQL object so
+        # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
+        saved_samples = []
         for sample in pyd.sample:
+            # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
             if isinstance(sample, PydSample):
-                sample = sample.to_sql()
-            assert not isinstance(sample, PydSample)
-            assert isinstance(sample, Sample)
-            sample.save()
-        #     sql.add_sample(sample=sample)
+                sample_sql = sample.to_sql()
+                if isinstance(sample_sql, tuple):
+                    sample_sql = sample_sql[0]
+            else:
+                sample_sql = sample
+
+            # Defensive checks
+            if isinstance(sample_sql, PydSample):
+                logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
+                continue
+            if not isinstance(sample_sql, Sample):
+                logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
+                continue
+
+            sid = getattr(sample_sql, 'sample_id', None)
+            # If a sample already exists in DB, query it and reuse that instance.
+            existing = Sample.query(sample_id=sid)
+            if existing:
+                # logger.debug(f"Got existing: {sid}")
+                # Sample.query may return a single object or a list; normalize to object
+                sample_sql = existing[0] if isinstance(existing, list) else existing
+            else:
+                # logger.debug(f"Saving sample {sid}")
+                
+                # Skip samples with missing/blank placeholder IDs
+                try:
+                    sid_str = str(sid).strip()
+                except Exception:
+                    sid_str = ""
+                if not sid_str or sid_str.lower() in ("", "blank", "na", "n/a"):
+                    sample_sql.save()
+                # At this point the rank is correct
+            saved_samples.append(sample_sql)
         sql = pyd.to_sql()
-        # sql.sample += samples
+        if isinstance(sql, tuple):
+            sql = sql[0]
+        # Remove any sample info accidentally left in misc_info by pyd.to_sql
         try:
             del sql._misc_info['sample']
         except KeyError:
             pass
+        # Clear any pre-built association objects created by pyd.to_sql() so we can
+        # re-create clean associations from the saved Sample SQL objects. This avoids
+        # carrying over non-serializable _misc_info from pyd objects into the DB.
+        try:
+            if hasattr(sql, 'clientsubmissionsampleassociation'):
+                sql.clientsubmissionsampleassociation = []
+                logger.debug("Cleared pre-built clientsubmissionsampleassociation on SQL submission.")
+        except Exception as e:
+            logger.warning(f"Could not clear existing sample associations: {e}")
+        try:
+            sql.sample = saved_samples
+        except Exception as e:
+            logger.error(f"Couldn't set samples to {pyd.sample}\ndue to {e}")
         logger.debug(f"SQL:\n{pformat(sql.__dict__)}")
         sql.save()
         self.app.table_widget.sub_wid.set_data()

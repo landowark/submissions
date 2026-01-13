@@ -28,6 +28,7 @@ from typing import List, Literal, Generator, TYPE_CHECKING
 from pathlib import Path
 if TYPE_CHECKING:
     from backend.db.models.procedures import ProcedureType, Procedure
+    from backend.validators.pydant import PydSample
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -145,22 +146,26 @@ class ClientSubmission(BaseClass, LogMixin):
     @submissiontype.setter
     def submissiontype(self, value):
         from backend.validators.pydant import PydSubmissionType
+        logger.debug(f"Incoming submissiontype: {value}")
         match value:
             case str():
                 output = SubmissionType.query(name=value, limit=1)
             case dict():
                 output = SubmissionType.query_or_create(**value)
             case PydSubmissionType():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
             case SubmissionType():
                 output = value
             case _:
                 logger.error(f"Unmatched value {value} for submissiontype")
                 return
+        if isinstance(output, tuple):
+                    output = output[0]
         if isinstance(output, SubmissionType):
+            logger.debug(f"Saving submissiontype: {output}")
             self._submissiontype = output
         else:
-            logger.error(f"Could not set _submissiontype to {output}")
+            logger.error(f"Could not set _submissiontype to {type(output)}")
 
     @hybrid_property
     def contact(self):
@@ -175,7 +180,9 @@ class ClientSubmission(BaseClass, LogMixin):
             case dict():
                 output = Contact.query_or_create(**value)
             case PydContact():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case Contact():
                 output = value
             case _:
@@ -184,7 +191,7 @@ class ClientSubmission(BaseClass, LogMixin):
         if isinstance(output, Contact):
             self._contact = output
         else:
-            logger.error(f"Could not set _contact to {output}")
+            logger.error(f"Could not set _contact to {type(output)}")
 
     @hybrid_property
     def run(self):
@@ -198,14 +205,15 @@ class ClientSubmission(BaseClass, LogMixin):
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._run"
             match item:
                 case str():
                     output = Run.query(name=item, limit=1)
                 case dict():
                     output = Run.query_or_create(**item)
                 case PydRun():
-                    output = item.to_sql()
+                    output = item.to_sql(update=False)
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case Run():
                     output = item
                 case _:
@@ -214,7 +222,7 @@ class ClientSubmission(BaseClass, LogMixin):
             if isinstance(output, ReagentLot):
                 self._run.append(output)
             else:
-                logger.error(f"Could not add {output} to _run")
+                logger.error(f"Could not add {type(output)} to _run")
 
     @hybrid_property
     def clientlab(self):
@@ -229,7 +237,9 @@ class ClientSubmission(BaseClass, LogMixin):
             case dict():
                 output = ClientLab.query_or_create(**value)
             case PydClientLab():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case ClientLab():
                 output = value
             case _:
@@ -238,7 +248,7 @@ class ClientSubmission(BaseClass, LogMixin):
         if isinstance(output, ClientLab):
             self._clientlab = output
         else:
-            logger.error(f"Could not set _clientlab to {value}")
+            logger.error(f"Could not set _clientlab to {type(output)}")
 
     @hybrid_property
     def sample(self):
@@ -251,6 +261,8 @@ class ClientSubmission(BaseClass, LogMixin):
             value = [value]
         for item in value:
             # logger.debug(f"Incoming sample: {type(item)}: {item}")
+            if item.sample_id.lower() in ["blank", "na", "none", ""]:
+                continue
             match item:
                 case dict():
                     output = ClientSubmissionSampleAssociation(sample=item['name'], clientsubmission=self, **{k: v for k, v in item.items() if k != 'name'})
@@ -265,7 +277,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ClientSubmissionSampleAssociation):
-                if output not in self.clientsubmissionsampleassociation:
+                if output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
                     self.clientsubmissionsampleassociation.append(output)
             else:
                 logger.error(f"Could not add {item} to ._sample")
@@ -307,7 +319,10 @@ class ClientSubmission(BaseClass, LogMixin):
 
     @property
     def max_sample_rank(self) -> int:
-        return max([item.submission_rank for item in self.clientsubmissionsampleassociation])
+        try:
+            return max([item.submission_rank for item in self.clientsubmissionsampleassociation])
+        except ValueError:
+            return 0
 
     @classmethod
     @setup_lookup
@@ -501,34 +516,6 @@ class ClientSubmission(BaseClass, LogMixin):
         output['name'] = self.name
         return output
 
-    # def add_sample(self, sample: Sample):
-    #     try:
-    #         assert isinstance(sample, Sample)
-    #     except AssertionError:
-    #         logger.warning(f"Converting {sample} to sql.")
-    #         sample = sample.to_sql()
-    #     try:
-    #         row = sample._misc_info.get('row', 0)
-    #     except AttributeError:
-    #         row = 0
-    #     try:
-    #         column = sample._misc_info.get('column', 0)
-    #     except AttributeError:
-    #         column = 0
-    #     submission_rank = sample._misc_info.get('submission_rank', None)
-    #     if sample in self.sample:
-    #         return
-    #     logger.debug(f"Attempting association for {sample}")
-    #     assoc = ClientSubmissionSampleAssociation(
-    #         sample=sample,
-    #         submission=self,
-    #         submission_rank=submission_rank,
-    #         row=row,
-    #         column=column
-    #     )
-    #     assert hasattr(assoc, "sample_id")
-    #     self.sample += [assoc]
-
     @property
     def custom_context_events(self) -> dict:
         """
@@ -550,15 +537,7 @@ class ClientSubmission(BaseClass, LogMixin):
             # Rank the selected pydantic samples, then convert them back to SQL Sample
             pyd_selected = [self.rank_sample(sample, iii) for iii, sample in enumerate(samples, start=1) if sample.enabled]
             logger.debug(f"Selected pydantic samples:\n{pformat(pyd_selected)}")
-            # sql_selected = [p.to_sql() for p in pyd_selected]
-            # Create RunSampleAssociation objects via Run.add_sample and append if not present.
-            # for sample_sql in sql_selected:
-                # assoc = run.add_sample(sample_sql)
-                # if assoc not in run.runsampleassociation:
-                    # run.runsampleassociation.append(assoc)
             run.sample = pyd_selected
-            # sys.exit(f"Selected SQL samples:\n{pformat(run.runsampleassociation)}")
-            
             run.save()
         else:
             logger.warning("Run cancelled.")
@@ -570,15 +549,13 @@ class ClientSubmission(BaseClass, LogMixin):
     def add_comment(self, obj):
         logger.debug("Add Comment")
 
-    def details_dict(self, **kwargs):
-        output = super().details_dict(**kwargs)
-        # output['clientlab'] = output['clientlab'].details_dict()
+    @property
+    def details_dict(self) -> dict:
+        output = super().details_dict
         if "contact" in output and issubclass(output['contact'].__class__, BaseClass):
-            output['contact'] = output['contact'].details_dict()
+            output['contact'] = output['contact'].details_dict
             output['contact_email'] = output['contact']['email']
-        # output['submissiontype'] = output['submissiontype'].details_dict()
-        # output['run'] = [run.details_dict() for run in output['run']]
-        output['sample'] = [sample.details_dict() for sample in output['clientsubmissionsampleassociation']]
+        output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
         output['name'] = self.name
         output['client_lab'] = output['clientlab']
         output['submission_type'] = output['submissiontype']
@@ -610,8 +587,7 @@ class Run(BaseClass, LogMixin):
     run_cost = Column(
         FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
     signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
-    comment = Column(JSON)  #: user notes
-    custom = Column(JSON)  #: unknown
+    _comment = Column(JSON)  #: user notes
     _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
     _procedure = relationship("Procedure", back_populates="_run", uselist=True)  #: children procedures
 
@@ -638,14 +614,16 @@ class Run(BaseClass, LogMixin):
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
-        if started_date is not None:
+        if started_date is None:
+            started_date = datetime.now()
+        try:
+            self.started_date = started_date
+        except Exception:
             try:
-                self.started_date = started_date
+                self._misc_info.update({'started_date': started_date})
             except Exception:
-                try:
-                    self._misc_info.update({'started_date': started_date})
-                except Exception:
-                    pass
+                pass
+        
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
@@ -702,7 +680,9 @@ class Run(BaseClass, LogMixin):
                 case dict():
                     output = Procedure.query_or_create(**item)
                 case PydProcedure():
-                    output = item.to_sql()
+                    output = item.to_sql(update=False)
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case Procedure():
                     output = item
                 case _:
@@ -711,7 +691,7 @@ class Run(BaseClass, LogMixin):
             if isinstance(output, Procedure):
                 self._procedure.append(output)
             else:
-                logger.error(f"Could not add {output} to _procedure")
+                logger.error(f"Could not add {type(output)} to _procedure")
 
     @hybrid_property
     def clientsubmission(self):
@@ -726,7 +706,9 @@ class Run(BaseClass, LogMixin):
             case dict():
                 output = ClientSubmission.query_or_create(**value)
             case PydClientSubmission():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case ClientSubmission():
                 output = value
             case _:
@@ -735,7 +717,7 @@ class Run(BaseClass, LogMixin):
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            logger.error(f"Could not set _clientsubmission to {output}")
+            logger.error(f"Could not set _clientsubmission to {type(output)}")
 
     @hybrid_property
     def sample(self):
@@ -747,7 +729,7 @@ class Run(BaseClass, LogMixin):
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            # logger.debug(f"Incoming sample: {type(item)} - {item}")
+            logger.debug(f"Incoming sample: {type(item)} - {item}")
             match item:
                 case dict():
                     output = RunSampleAssociation(sample=item['name'], run=self, **{k: v for k, v in item.items() if k != 'name'})
@@ -786,10 +768,34 @@ class Run(BaseClass, LogMixin):
 
     @started_date.setter
     def started_date(self, value):
-        if value:
-            self._started_date = value
-        else:
-            self._started_date = min([proc.started_date for proc in self.procedure])
+        # if value:
+        #     self._started_date = value
+        # else:
+        #     self._started_date = min([proc.started_date for proc in self.procedure])
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        match value:
+            case datetime():
+                output = value
+            case date():
+                output = datetime.combine(value, datetime.min.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value} for datetime")
+        value = output.replace(tzinfo=timezone)
+        self._started_date = value
 
     @hybrid_property
     def completed_date(self):
@@ -803,10 +809,38 @@ class Run(BaseClass, LogMixin):
 
     @completed_date.setter
     def completed_date(self, value):
-        if value:
-            self._completed_date = value
-        else:
-            self._completed_date = min([proc.started_date for proc in self.procedure])
+        # if value:
+        #     self._completed_date = value
+        # else:
+        #     self._completed_date = min([proc.started_date for proc in self.procedure])
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        match value:
+            case datetime():
+                output = value
+            case date():
+                output = datetime.combine(value, datetime.min.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
+        value = output.replace(tzinfo=timezone)
+        self._completed_date = value
+
+    @hybrid_property
+    def comment(self):
+        return self._comment
 
     @classmethod
     def get_default_info(cls, *args, submissiontype: SubmissionType | None = None) -> dict:
@@ -832,7 +866,7 @@ class Run(BaseClass, LogMixin):
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
                          'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-                         'control', "origin_plate"] + recover,
+                         'control', "origin_plate", "new", "sql_instance", "name"] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         ))
@@ -969,8 +1003,8 @@ class Run(BaseClass, LogMixin):
             samples = self.generate_associations(name="clientsubmissionsampleassociation")
             equipment = self.generate_associations(name="submission_equipment_associations")
             tips = self.generate_associations(name="submission_tips_associations")
-            procedures = [item.details_dict() for item in self.procedure]
-            custom = self.custom
+            procedures = [item.details_dict for item in self.procedure]
+            # custom = self.custom
         else:
             samples = None
             equipment = None
@@ -978,10 +1012,10 @@ class Run(BaseClass, LogMixin):
             custom = None
             procedures = None
         try:
-            comments = self.comment
+            comment = self.comment
         except Exception as e:
             logger.error(f"Error setting comment: {self.comment}, {e}")
-            comments = None
+            comment = None
         try:
             contact = self.clientsubmission.contact.name
         except AttributeError as e:
@@ -995,13 +1029,13 @@ class Run(BaseClass, LogMixin):
             contact_phone = "NA"
         output["submission_category"] = self.clientsubmission.submission_category
         output["sample"] = samples
-        output["comment"] = comments
+        output["comment"] = comment
         output["equipment"] = equipment
         output["tips"] = tips
         output["signed_by"] = self.signed_by
         output["contact"] = contact
         output["contact_phone"] = contact_phone
-        output["custom"] = custom
+        # output["custom"] = custom
         output['procedures'] = procedures
         output['name'] = self.name
         try:
@@ -1014,16 +1048,16 @@ class Run(BaseClass, LogMixin):
     def sample_count(self):
         return len(self.sample)
 
-    def details_dict(self, **kwargs):
-        output = super().details_dict()
+    @property
+    def details_dict(self) -> dict:
+        output = super().details_dict
         output['plate_number'] = self.plate_number
         submission_samples = [sample for sample in self.clientsubmission.sample]
-        active_samples = [dict(sample_id=sample, active=True) for sample in output['runsampleassociation']
-                          if sample in [s.sample_id for s in submission_samples]]
-        inactive_samples = [dict(sample_id=sample, active=False) for sample in submission_samples if
-                            sample.name not in [s['sample_id'] for s in active_samples]]
+        active_samples = [dict(sample_id=assoc.sample.sample_id, active=True) for assoc in self.runsampleassociation
+                          if assoc.sample.sample_id in [s.sample_id for s in submission_samples]]
+        inactive_samples = [dict(sample_id=sample.sample_id, active=False) for sample in submission_samples if
+                            sample.sample_id not in [s['sample_id'] for s in active_samples]]
         output['sample'] = active_samples + inactive_samples
-        # output['procedure'] = [procedure.details_dict() for procedure in output['procedure']]
         output['permission'] = is_power_user()
         output['excluded'] += ['procedure', "runsampleassociation", 'excluded', 'expanded', 'sample', 'id', 'custom',
                                'permission', "clientsubmission"]
@@ -1031,6 +1065,21 @@ class Run(BaseClass, LogMixin):
         output['clientsubmission'] = self.clientsubmission.name
         output['started_date'] = self.started_date
         output['completed_date'] = self.completed_date
+        return output
+    
+    def details_dict_expand_fields(self, fields: List[str] | List[dict]):
+        output = super().details_dict_expand_fields(fields)
+        submission_samples = [sample.details_dict for sample in self.clientsubmission.sample]
+        for sample in output['sample']:
+            if not isinstance(sample, dict):
+                continue
+            sample['active'] = True if sample['sample_id'] in (item['sample_id'] for item in submission_samples) else False
+        for sample in submission_samples:
+            if sample['sample_id'] in (item['sample_id'] for item in output['sample']):
+                continue
+            else:
+                sample['active'] = False
+                output['sample'].append(sample)
         return output
 
     @classmethod
@@ -1049,7 +1098,7 @@ class Run(BaseClass, LogMixin):
             query_out = cls.query(page_size=0, start_date=start_date, end_date=end_date)
         records = []
         for sub in query_out:
-            output = sub.details_dict()
+            output = sub.details_dict
             for k, v in output.items():
                 if isinstance(v, types.GeneratorType):
                     output[k] = [item for item in v]
@@ -1146,7 +1195,7 @@ class Run(BaseClass, LogMixin):
             pd.DataFrame: Pandas Dataframe of all relevant procedure
         """
         # NOTE: use lookup function to create list of dicts
-        subs = [item.details_dict() for item in
+        subs = [item.details_dict for item in
                 cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
         df = pd.DataFrame.from_records(subs)
@@ -1166,73 +1215,6 @@ class Run(BaseClass, LogMixin):
         # NOTE: Human friendly column labels
         df.columns = [item.replace("_", " ").title() for item in df.columns]
         return df
-
-    def set_attribute(self, key: str, value):
-        """
-        Performs custom attribute setting based on values.
-
-        Args:
-            key (str): name of attribute
-            value (_type_): value of attribute
-        """
-        match key:
-            case "clientlab":
-                field_value = ClientLab.query(name=value)
-            case "contact":
-                field_value = Contact.query(name=value)
-            case "sample":
-                for sample in value:
-                    sample, _ = sample.to_sql()
-                return
-            case "reagents":
-                field_value = [reagent['value'].to_sql()[0] if isinstance(reagent, dict) else reagent.to_sql()[0] for
-                               reagent in value]
-            case "proceduretype":
-                field_value = SubmissionType.query(name=value)
-            case "sample_count":
-                if value is None:
-                    field_value = len(self.sample)
-                else:
-                    field_value = value
-            case "ctx" | "csv" | "filepath" | "equipment" | "control":
-                return
-            case item if item in self.jsons:
-                match key:
-                    case "custom" | "source_plates":
-                        existing = value
-                    case _:
-                        existing = self.__getattribute__(key)
-                        if value in ['', 'null', None]:
-                            logger.error(f"No value given, not setting.")
-                            return
-                        if existing is None:
-                            existing = []
-                        if check_dictionary_inclusion_equality(existing, value):
-                            logger.warning("Value already exists. Preventing duplicate addition.")
-                            return
-                        else:
-                            if isinstance(value, list):
-                                existing += value
-                            else:
-                                if value:
-                                    existing.append(value)
-
-                self.__setattr__(key, existing)
-                # NOTE: Make sure this gets updated by telling SQLAlchemy it's been modified.
-                flag_modified(self, key)
-                return
-            case _:
-                try:
-                    field_value = value.strip()
-                except AttributeError:
-                    field_value = value
-        # NOTE: insert into field
-        current = self.__getattribute__(key)
-        if field_value and current != field_value:
-            try:
-                self.__setattr__(key, field_value)
-            except AttributeError as e:
-                logger.error(f"Could not set {self} attribute {key} to {value} due to \n{e}")
 
     def update_subsampassoc(self, assoc: ClientSubmissionSampleAssociation,
                             input_dict: dict) -> ClientSubmissionSampleAssociation:
@@ -1263,7 +1245,7 @@ class Run(BaseClass, LogMixin):
             PydSubmission: converted object.
         """
         from backend.validators import PydClientSubmission, PydRun
-        dicto = self.details_dict(full_data=True, backup=backup)
+        dicto = self.details_dict#(full_data=True, backup=backup)
         new_dict = {}
         for key, value in dicto.items():
             missing = value in ['', 'None', None]
@@ -1446,9 +1428,9 @@ class Run(BaseClass, LogMixin):
         if dlg.exec():
             sql = dlg.return_sql(new=True)
             # data = {c.key: getattr(sql, c.key) for c in inspect(sql).mapper.column_attrs}
-            data = sql.details_dict()
-            with open("procedure.json", "w") as f:
-                json.dump(sanitize_object_for_json(data), f, indent=4)
+            data = sql.details_dict
+            # with open("procedure.json", "w") as f:
+            #     json.dump(sanitize_object_for_json(data), f, indent=4)
             # sql.save()
             logger.debug(pformat(sql.__dict__))
         obj.set_data()
@@ -1510,7 +1492,8 @@ class Run(BaseClass, LogMixin):
             comment = dlg.parse_form()
             if comment in ["", None]:
                 return
-            self.set_attribute(key='comment', value=comment)
+            # self.set_attribute(key='comment', value=comment)
+            self.comment = comment
             self.save(original=False)
 
     def export(self, obj, output_filepath: str | Path | None = None):
@@ -1574,28 +1557,6 @@ class Run(BaseClass, LogMixin):
         except ValueError:
             return None
         return delta
-
-    def add_sample(self, sample: Sample):
-        try:
-            assert isinstance(sample, Sample)
-        except AssertionError:
-            logger.warning(f"Sample {sample} is not an sql object.")
-            sample = sample.to_sql()
-        try:
-            row = sample._misc_info['row']
-        except (KeyError, AttributeError):
-            row = 0
-        try:
-            column = sample._misc_info['column']
-        except KeyError:
-            column = 0
-        assoc = RunSampleAssociation(
-            row=row,
-            column=column,
-            run=self,
-            sample=sample
-        )
-        return assoc
 
     @property
     def allowed_procedures(self):
@@ -1914,7 +1875,7 @@ class Sample(BaseClass, LogMixin):
             obj (_type_): parent widget
         """
         from frontend.widgets.submission_details import SubmissionDetails
-        dlg = SubmissionDetails(parent=obj, sub=self)
+        dlg = SubmissionDetails(parent=obj, object_=self)
         if dlg.exec():
             pass
 
@@ -1964,7 +1925,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         submission_rank = kwargs.pop("rank", 0)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        self.submission_rank = submission_rank
         # Resolve proceduretype
         if clientsubmission is not None:
             try:
@@ -1984,14 +1944,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
                     self._misc_info.update({'sample': sample})
                 except Exception:
                     pass
+        self.submission_rank = submission_rank
     
-    # def __repr__(self) -> str:
-    #     try:
-    #         return f"<{self.__class__.__name__}({self.clientsubmission.submitter_plate_id} & {self.sample.sample_id})"
-    #     except AttributeError as e:
-    #         logger.error(f"Unable to construct __repr__ due to: {e}")
-    #         return super().__repr__()
-
     @hybrid_property
     def name(self):
         try:
@@ -2046,7 +2000,9 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case dict():
                 output = Sample.query_or_create(**value)
             case PydSample():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case Sample():
                 output = value
             case _:
@@ -2057,7 +2013,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 output.save()
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {output}")
+            logger.error(f"Could not set _sample to {type(output)}")
   
     @hybrid_property
     def clientsubmission(self):
@@ -2072,7 +2028,9 @@ class ClientSubmissionSampleAssociation(BaseClass):
             case dict():
                 output = ClientSubmission.query_or_create(**value)
             case PydClientSubmission():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case ClientSubmission():
                 output = value
             case _:
@@ -2081,19 +2039,21 @@ class ClientSubmissionSampleAssociation(BaseClass):
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            logger.error(f"Could not set _clientsubmission to {value}")
+            logger.error(f"Could not set _clientsubmission to {type(output)}")
 
-    def details_dict(self, **kwargs):
-        output = super().details_dict()
+    @property
+    def details_dict(self) -> dict:
+        output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        output = self.sample.details_dict()
+        output = self.sample.details_dict
         misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc
+        output['rank'] = self.submission_rank
         return output
 
-    def to_pydantic(self) -> "PydSample":
+    def to_pydantic(self) -> PydSample:
         """
         Creates a pydantic model for this sample.
 
@@ -2101,7 +2061,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
             PydSample: Pydantic Model
         """
         from backend.validators import PydSample
-        return PydSample(**self.details_dict())
+        return PydSample(**self.details_dict)
 
     @property
     def hitpicked(self) -> dict | None:
@@ -2272,6 +2232,7 @@ class RunSampleAssociation(BaseClass):
         to pass names like 'Omega Bacterial Extraction' and have the association
         properly wired.
         """
+        logger.debug(f"Kwargs: {kwargs}")
         run = kwargs.pop('run', None)
         sample = kwargs.pop('sample', None)
         run_rank = kwargs.pop("rank", 0)
@@ -2338,7 +2299,9 @@ class RunSampleAssociation(BaseClass):
             case dict():
                 output = Sample.query_or_create(**value)
             case PydSample():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case Sample():
                 output = value
             case _:
@@ -2347,7 +2310,7 @@ class RunSampleAssociation(BaseClass):
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {value}")
+            logger.error(f"Could not set _sample to {type(output)}")
   
     @hybrid_property
     def run(self):
@@ -2362,7 +2325,9 @@ class RunSampleAssociation(BaseClass):
             case dict():
                 output = Run.query_or_create(**value)
             case PydRun():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case Run():
                 output = value
             case _:
@@ -2371,9 +2336,9 @@ class RunSampleAssociation(BaseClass):
         if isinstance(output, Run):
             self._run = output
         else:
-            logger.error(f"Could not set _run to {output}")
+            logger.error(f"Could not set _run to {type(output)}")
 
-    def to_pydantic(self) -> "PydSample":
+    def to_pydantic(self) -> PydSample:
         """
         Creates a pydantic model for this sample.
 
@@ -2381,7 +2346,7 @@ class RunSampleAssociation(BaseClass):
             PydSample: Pydantic Model
         """
         from backend.validators import PydSample
-        return PydSample(**self.details_dict())
+        return PydSample(**self.details_dict)
 
     @property
     def hitpicked(self) -> dict | None:
@@ -2526,20 +2491,22 @@ class RunSampleAssociation(BaseClass):
     def delete(self):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
-    def details_dict(self, **kwargs):
-        output = super().details_dict()
+    @property
+    def details_dict(self) -> dict:
+        output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        output = self.sample.details_dict()
+        output = self.sample.details_dict
         misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc
+        output['sql_instance'] = self.sample
         return output
 
 
 class ProcedureSampleAssociation(BaseClass):
 
-    pyd_model_name = "PydSample"
+    # pyd_model_name = "ProcedureSampleAssociation"
 
     id = Column(INTEGER, unique=True, nullable=False) #: Exists to connect with results
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
@@ -2657,6 +2624,8 @@ class ProcedureSampleAssociation(BaseClass):
                     output = Results.query_or_create(**item)
                 case PydResults():
                     output = item.to_sql()
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case Procedure():
                     output = item
                 case _:
@@ -2665,7 +2634,7 @@ class ProcedureSampleAssociation(BaseClass):
             if isinstance(output, Results):
                 self._results.append(output)
             else:
-                logger.error(f"Could not add {output} to _results")
+                logger.error(f"Could not add {type(output)} to _results")
   
     @hybrid_property
     def sample(self):
@@ -2680,7 +2649,7 @@ class ProcedureSampleAssociation(BaseClass):
             case dict():
                 output = Sample.query_or_create(**value)
             case PydSample():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
             case Sample():
                 output = value
             case _:
@@ -2689,7 +2658,7 @@ class ProcedureSampleAssociation(BaseClass):
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {output}")
+            logger.error(f"Could not set _sample to {type(output)}")
   
     @hybrid_property
     def procedure(self):
@@ -2704,7 +2673,9 @@ class ProcedureSampleAssociation(BaseClass):
             case dict():
                 output = Procedure.query_or_create(**value)
             case PydProcedure():
-                output = value.to_sql()
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case Procedure():
                 output = value
             case _:
@@ -2713,7 +2684,7 @@ class ProcedureSampleAssociation(BaseClass):
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            logger.error(f"Could not set _procedure to {output}")
+            logger.error(f"Could not set _procedure to {type(output)}")
 
     @property
     def well(self):
@@ -2762,25 +2733,28 @@ class ProcedureSampleAssociation(BaseClass):
             output = 0
         return output + procedure_rank
 
-    def details_dict(self, **kwargs):
-        output = super().details_dict()
+    @property
+    def details_dict(self) -> dict:
+        output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
-        output = self.sample.details_dict()
+        output = self.sample.details_dict
         # logger.debug(output)
         misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc
         output['row'] = self.row
         output['column'] = self.column
-        output['results'] = [item.details_dict() for item in self.results]
+        output['results'] = [item.details_dict for item in self.results]
         # output['excluded'] += ["is_control", "well_id", "sample_location", "sample_type"]
         return output
 
     def to_pydantic(self, **kwargs):
-        output = super().to_pydantic(pyd_model_name="PydSample")
+        # output = super().to_pydantic(pyd_model_name="PydSample")
+        output = super().to_pydantic()
         # from backend.validators.pydant import PydSample
         # output = PydSample(**self.details_dict(**kwargs))
+        logger.debug(output.__dict__)
         try:
             output.submission_rank = output.misc_info['submission_rank']
         except KeyError:

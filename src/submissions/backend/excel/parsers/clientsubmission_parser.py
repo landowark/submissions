@@ -165,7 +165,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
                     sample["row"] = row_keys[sample["row"]]
             except KeyError:
                 pass
-            sample['submission_rank'] = ii
+            sample['rank'] = ii
             yield sample
 
     def to_pydantic(self):

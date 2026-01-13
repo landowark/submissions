@@ -43,8 +43,8 @@ class ProcedureCreation(QDialog):
             
             ])
         # logger.debug(f"ProcedureType: {pformat(self.proceduretype_dict)}")
-        with open("proceduretype.json", "w") as f:
-            json.dump(sanitize_object_for_json(self.proceduretype_dict), f, indent=4)
+        # with open("proceduretype.json", "w") as f:
+        #     json.dump(sanitize_object_for_json(self.proceduretype_dict), f, indent=4)
         self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
 
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
@@ -114,14 +114,13 @@ class ProcedureCreation(QDialog):
             template_name="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
             proceduretype=self.proceduretype_dict,
-            # run=self.run.details_dict(),
             run=self.run.improved_dict,
             procedure=self.procedure,
             plate_map=self.plate_map,
             edit=self.edit
         )
-        with open("platemap.html", "w") as f:
-            f.write(html)
+        # with open("platemap.html", "w") as f:
+        #     f.write(html)
         self.webview.setHtml(html)
 
     @pyqtSlot(str, str, str, QVariant)

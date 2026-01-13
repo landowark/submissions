@@ -53,14 +53,14 @@ class EquipmentUsage(QDialog):
     @classmethod
     def construct_html(cls, procedure: PydProcedure, child: bool = False):
         proceduretype = procedure.proceduretype
-        proceduretype_dict = proceduretype.details_dict()
+        proceduretype_dict = proceduretype.details_dict
         run = procedure.run
         html = render_details_template(
             template_name="support/equipment_usage",
             css_in=[],
             js_in=[],
             proceduretype=proceduretype_dict,
-            run=run.details_dict(),
+            run=run.details_dict,
             procedure=procedure.__dict__,
             child=child
         )

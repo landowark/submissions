@@ -790,12 +790,14 @@ def yaml_regex_creator(loader, node):
     # return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)"
 
+
 def get_index_of_value_in_dict_list(key: str, value, list_):
     entries = [item for item in list_ if item.get(key, None) == value]
     indices = [list_.index(entry) for entry in entries]
     if len(indices) == 1:
         return indices[0], entries[0]
     return list(zip(indices, entries))
+
 
 def super_splitter(ins_str: str, substring: str, idx: int) -> str:
     """

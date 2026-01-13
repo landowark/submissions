@@ -45,7 +45,9 @@ class DefaultClientSubmissionManager(DefaultManager):
                                                           submissiontype=self.submissiontype,
                                                           start_row=self.info_parser.end_row)
         self.clientsubmission = self.info_parser.to_pydantic()
-        self.clientsubmission.full_batch_size = self.sample_parser.end_row - self.sample_parser.start_row
+        
+        self.clientsubmission.full_batch_size = (self.sample_parser.end_row - 1) - self.sample_parser.start_row
+        logger.debug(f"Set full_batch_size: {self.sample_parser.end_row} - {self.sample_parser.start_row} = {self.clientsubmission.full_batch_size}")
         self.clientsubmission.sample = self.sample_parser.to_pydantic()
         return self.clientsubmission
 

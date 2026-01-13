@@ -88,7 +88,9 @@ class ClientLab(BaseClass):
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
-                    output = item.to_sql()
+                    output = item.to_sql(update=False)
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case ClientSubmission():
                     output = item
                 case _:
@@ -97,7 +99,7 @@ class ClientLab(BaseClass):
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:
-                logger.error(f"Could not add {output} to _clientsubmission")
+                logger.error(f"Could not add {type(output)} to _clientsubmission")
 
     @hybrid_property
     def contact(self):
@@ -117,7 +119,9 @@ class ClientLab(BaseClass):
                 case dict():
                     output = Contact.query_or_create(**item)
                 case PydContact():
-                    output = item.to_sql()
+                    output = item.to_sql(update=False)
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case Contact():
                     output = item
                 case _:
@@ -126,7 +130,7 @@ class ClientLab(BaseClass):
             if isinstance(output, Contact):
                 self._contact.append(output)
             else:
-                logger.error(f"Can't add {output} to _contact")
+                logger.error(f"Can't add {type(output)} to _contact")
 
     ##### Query Function #####
     
@@ -233,7 +237,9 @@ class Contact(BaseClass):
                 case dict():
                     output = ClientLab.query_or_create(**item)
                 case PydClientLab():
-                    output = item.to_sql()
+                    output = item.to_sql(update=False)
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case ClientLab():
                     output = item
                 case _:
@@ -243,7 +249,7 @@ class Contact(BaseClass):
                 if output not in self._clientlab:
                     self._contact.append(output)
             else:
-                logger.error(f"Could not add {output} to _clientlab")
+                logger.error(f"Could not add {type(output)} to _clientlab")
 
     @hybrid_property
     def clientsubmission(self):
@@ -264,7 +270,9 @@ class Contact(BaseClass):
                 case dict():
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
-                    output = item.to_sql()
+                    output = item.to_sql(update=False)
+                    if isinstance(output, tuple):
+                        output = output[0]
                 case ClientSubmission():
                     output = item
                 case _:
@@ -273,7 +281,7 @@ class Contact(BaseClass):
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:
-                logger.error(f"Could not add {output} to _clientsubmission")
+                logger.error(f"Could not add {type(output)} to _clientsubmission")
 
     # @classproperty
     @classmethod

@@ -2,6 +2,7 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
+import re
 import sys, logging, json, inspect
 from datetime import datetime, date, timedelta
 from pprint import pformat
@@ -10,7 +11,9 @@ from jinja2 import TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, InstrumentedAttribute, ColumnProperty, RelationshipProperty
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
@@ -154,7 +157,17 @@ class BaseClass(Base):
             self._misc_info = {}
         if misc_kwargs:
             # merge misc kwargs (overwrites existing misc keys if present)
-            self._misc_info.update(misc_kwargs)
+            # ensure values placed into _misc_info are json serializable
+            for k, v in misc_kwargs.items():
+                try:
+                    safe_v = self._serialize_misc_value(v)
+                except TypeError:
+                    # skip values that cannot be made serializable
+                    continue
+                try:
+                    self._misc_info.update({k: safe_v})
+                except AttributeError:
+                    self._misc_info = {k: safe_v}
 
     @declared_attr
     @classmethod
@@ -170,8 +183,48 @@ class BaseClass(Base):
         except AttributeError:
             return []
 
-    @declared_attr
-    @classmethod
+    def _serialize_misc_value(self, value):
+        """
+        Attempt to coerce a value into a JSON-serializable form.
+
+        Returns the original value when already serializable, or a
+        converted representation (str, isoformat, integer) for common
+        non-serializable types. Raises TypeError if it cannot be
+        coerced.
+        """
+        # First, quick test for serializability
+        try:
+            json.dumps(value)
+            return value
+        except TypeError:
+            pass
+
+        # Handle some common non-serializable types
+        try:
+            if isinstance(value, datetime):
+                return value.strftime("%Y-%m-%dT%H:%M:%S")
+            if isinstance(value, date):
+                return value.strftime("%Y-%m-%d")
+            if isinstance(value, timedelta):
+                return value.days
+        except Exception:
+            # fall through to other heuristics
+            pass
+
+        # If it's a BaseClass-like instance, prefer name/id when available
+        try:
+            if isinstance(value, BaseClass):
+                return getattr(value, "name", None) or getattr(value, "id", None) or str(value)
+        except Exception:
+            pass
+
+        # As a last resort, try to convert to string. If that fails, raise.
+        try:
+            return str(value)
+        except Exception:
+            raise TypeError(f"Value of type {type(value)} is not JSON serializable")
+
+    @classproperty
     def timestamps(cls):
         """
         Get list of TIMESTAMP columns
@@ -180,9 +233,55 @@ class BaseClass(Base):
             List[str]: List of column names
         """
         try:
-            return [item.name for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
-        except AttributeError:
+            return [item.name.strip("_") for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        except AttributeError as e:
+            logger.error(f"Could not get timestamps due to {e}")
             return []
+        
+    @classmethod
+    def determine_field_type(cls, field: str, is_new: bool = False) -> str:
+        """Determines which type of field to use in the form.
+
+        Args:
+            field (str): Field name
+
+        Returns:
+            str: Type name
+        """        
+        type_ = getattr(cls, field.lower().strip("_"))
+        type_name = type_.__class__.__name__
+        logger.debug(f"Type name for {field}: {type_name}")
+        match type_name:
+            case "hybrid_propertyProxy":
+                try:
+                    type_ = getattr(cls, type_.property.key)
+                except AttributeError:
+                    type_ = getattr(cls, f"_{field}") # Dicey workaround for hybrid_property with underscore
+                type_name = type_.__class__.__name__
+                logger.debug(f"New type_name for hybrid_propertyProxy: {type_name}")
+                if type_name == "InstrumentedAttribute":
+                    type_ = type_.property
+                    type_name = type_.__class__.__name__
+                    print(f"New type_name for hybrid_propertyProxy, InstrumentedAttribute: {type_name}")
+                    if type_name == "_RelationshipDeclared":
+                        if type_.uselist:
+                            type_name = "RelationshipList"
+                        else:
+                            type_name = "RelationshipScalar"
+                    else:
+                        type_name = type_.expression.type.__str__()
+                if type_name == "ObjectAssociationProxyInstance":
+                    if is_new:
+                        type_name = "SKIPPED"
+            case "ObjectAssociationProxyInstance":
+                if is_new:
+                    type_name = "SKIPPED"
+            case "InstrumentedAttribute":
+                type_name = type_.type.__str__()
+            case _:
+                logger.warning(f"Got unmatched type: {type_name} for field {field}.")
+        type_name = re.sub(r"\(.*\)", "", type_name)
+        return type_name.upper()
 
     @classmethod
     def get_searchables(cls):
@@ -273,12 +372,16 @@ class BaseClass(Base):
         """
         new = False
         allowed = [k for k, v in cls.__dict__.items() if
-                   isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)]
+                   isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)] + ['value']
+        logger.debug(f"Allowed for {cls.__qualname__}: {allowed}")
         query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
+        if "value" in query_kwargs.keys() and "name" not in query_kwargs.keys():
+            query_kwargs["name"] = query_kwargs.get("value")
         # NOTE: outside kwargs will be reintroduced into misc_info
         # outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
         if "name" in query_kwargs.keys():
             query_kwargs = dict(name=query_kwargs.get("name"))
+        logger.debug(f"Querying with {query_kwargs}")
         instance = cls.query(limit=1, **query_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
@@ -416,23 +519,32 @@ class BaseClass(Base):
         report = Report()
         del_keys = []
         try:
-            items = self._misc_info.items()
+            items = list(self._misc_info.items())
         except AttributeError:
             items = []
-        # NOTE: Ensure values in misc_info are json serializable.
+        # Ensure values in misc_info are json serializable. Try to coerce
+        # values where possible; drop keys that cannot be coerced.
         for key, value in items:
             try:
                 json.dumps(value)
-            except TypeError as e:
-                del_keys.append(key)
+            except TypeError:
+                try:
+                    safe_value = self._serialize_misc_value(value)
+                    # update in place
+                    self._misc_info[key] = safe_value
+                except TypeError:
+                    del_keys.append(key)
         for dk in del_keys:
-            del self._misc_info[dk]
+            try:
+                del self._misc_info[dk]
+            except Exception:
+                pass
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
         except Exception as e:
             logger.critical(f"Problem saving {self} due to: {e}")
-            logger.critical(f"Problem objects: with {pformat([item for item in self.__database_session__.dirty])}")
+            # logger.critical(f"Problem objects: with {pformat([item for item in self.__database_session__.dirty])}")
             self.__database_session__.rollback()
             report.add_result(Alert(msg=e, status="Critical"))
             return report
@@ -601,16 +713,22 @@ class BaseClass(Base):
             class_has_attr = False
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
-            # NOTE: ensure value is json serializable.
+            # ensure value is json serializable (or coerce it)
             try:
-                value = json.dumps(value)
-            except TypeError as e:
-                # logger.error(f"Error json dumping value {key}: {value}: {e}")
-                value = str(value)
-            try:
-                self._misc_info.update({key: value})
-            except AttributeError:
-                self._misc_info = {key: value}
+                safe_value = self._serialize_misc_value(value)
+            except TypeError:
+                # Could not coerce to a JSON serializable form; skip storing
+                return
+            if not "sql_instance" in key:
+                try:
+                    try:
+                        if self._misc_info is None:
+                            self._misc_info = {}
+                    except AttributeError:
+                        self._misc_info = {}
+                    self._misc_info.update({key: safe_value})
+                except AttributeError:
+                    self._misc_info = {key: safe_value}
             return
         else:
             # logger.debug(f"setting {self.__class__.__name__}.{key}: {value} of type {type(attr)}")
@@ -637,7 +755,14 @@ class BaseClass(Base):
                     logger.warning(f"Disallowing setting of association {key} automatically")
                 else:
                     logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
-
+    
+    @classmethod
+    def get_relationship_sqlclass(cls, key):
+        field_type = cls.determine_field_type(key)
+        if "RELATIONSHIP" in field_type:
+            return BaseClass.find_subclasses(class_name=key.strip("_"))
+        return None
+   
     def delete(self, **kwargs):
         logger.error(f"Delete has not been implemented for {self.__class__.__name__}")
 
@@ -704,7 +829,7 @@ class BaseClass(Base):
         return output
 
     @classmethod
-    def correct_details_fields(cls, value) -> Any:
+    def correct_details_fields(cls, value, expand: bool=False) -> Any:
         """
         Corrects fields in details_dict to proper types.
 
@@ -715,19 +840,27 @@ class BaseClass(Base):
         """
         from backend.validators.pydant import PydBaseClass
         # logger.debug(f"Correcting details: {value} of type {type(value)}")
+        if expand:
+            logger.debug(f"Will expand {value}")
         match value:
             case str():
                 output = value.strip('\"')
             case list():
-                output = [cls.correct_details_fields(v) for v in value]
+                output = [cls.correct_details_fields(v, expand=expand) for v in value]
             case dict():
-                output = {k: cls.correct_details_fields(v) for k, v in value.items()}
+                output = {k: cls.correct_details_fields(v, expand=expand) for k, v in value.items()}
             case x if issubclass(value.__class__, BaseClass):
-                output = value.name
+                if not expand:
+                    output = value.name
+                else:
+                    output = value.details_dict
             case x if issubclass(value.__class__, PydBaseClass):
-                output = value.name
+                if not expand:
+                    output = value.name
+                else:
+                    output = value.sql_instance.details_dict
             case _AssociationList():
-                output = [cls.correct_details_fields(v) for v in value]
+                output = [cls.correct_details_fields(v, expand=expand) for v in value]
             # NOTE: datetime is a subclass of date, so the datetime() case
             # must come before date() to avoid matching datetimes as dates
             # (which would force end-of-day time).
@@ -745,7 +878,90 @@ class BaseClass(Base):
         # logger.debug(f"Corrected value: {value} to {output}")
         return output
     
-    def details_dict(self, **kwargs) -> dict:
+    def details_dict_expand_fields(self, fields: List[str] | List[dict]):
+        # print(f"Fields:\n{pformat(fields)}")
+        dict_ = self.details_dict
+        if len(fields) == 0:
+            return dict_
+        for field in fields:
+            # print(f"Field type: {type(field)}")
+            match field:
+                case str():
+                    # NOTE: This is necessary... mostly because I'm too lazy to figure out how to simplify it.
+                    key = field
+                    # print(f"{self.sql_instance.__class__.__qualname__} Key: {key}")
+                    try:
+                        value = getattr(self, key)
+                    except AttributeError as e:
+                        logger.error(f"Skipping {key} in {self} due to {e}")
+                        continue
+                    # print(f"{self.sql_instance.__class__.__qualname__} Value: {value}")
+                    match value:
+                        case InstrumentedAttribute():
+                            # print(f"Instrumented Attribute: {type(value)}, {key}: {value}")
+                            pass
+                        case _AssociationList():
+                            output = []
+                            # print(f"Association list: {key}: {value}")
+                            # output = [item.to_pydantic().improved_dict for item in value]
+                            for item in value.col:
+                                dicto: dict = item.details_dict
+                                target = getattr(item, key)
+                                target = target.details_dict
+                                # print(f"target dict: {pformat(target)}")
+                                target.update({k:v for k, v in dicto.items() if k !="name"})
+                                # dicto.update(target)
+                                if target['name'] not in [thing['name'] for thing in output]:
+                                    output.append(target)
+                        case InstrumentedList():
+                            # print(f"Instrumented: {key}: {value}")
+                            output = [item.to_pydantic().improved_dict for item in value]
+                        case x if issubclass(value.__class__, BaseClass):
+                            # print(f"BaseClass: {value.__class__.__qualname__}")
+                            output = value.details_dict
+                        case _:
+                            # print(f"Unmatched type {type(value)}")
+                            continue
+                case dict():
+                    key = list(field.keys())[0]
+                    new_fields = list(field.values())[0]
+                    # print(f"New fields for {key}: {new_fields}")
+                    try:
+                        value = getattr(self, key)
+                    except AttributeError as e:
+                        logger.error(f"Skipping {key} in {self} due to {e}")
+                        continue
+                    match value:
+                        case _AssociationList():
+                            output = []
+                            # print(f"Association list: {key}: {value}")
+                            output = [item.details_dict_expand_fields(new_fields) for item in value]
+                            for item in value.col:
+                                dicto: dict = item.details_dict_expand_fields(new_fields)
+                                target = getattr(item, key)
+                                target = target.details_dict_expand_fields(new_fields)
+                                # print(f"target dict: {pformat(target)}")
+                                target.update({k:v for k, v in dicto.items() if k !="name"})
+                                # dicto.update(target)
+                                if target['name'] not in [thing['name'] for thing in output]:
+                                    output.append(target)
+                        case InstrumentedList():
+                            # print(f"Instrumented: {key}: {value}")
+                            output = [item.details_dict_expand_fields(new_fields) for item in value]
+                        case x if issubclass(value.__class__, BaseClass):
+                            # print(f"BaseClass: {value.__class__.__qualname__}")
+                            output = value.details_dict
+                        case _:
+                            # print(f"Unmatched type {type(value)}")
+                            continue
+                case _:
+                    continue
+            dict_[key] = output
+        # logger.debug(f"Outgoing dicto: {pformat(dict_)}")
+        return dict_
+    
+    @property
+    def details_dict(self) -> dict:
         """
         Primary method for getting BaseClass subclasses as dictionaries
 
@@ -794,13 +1010,12 @@ class BaseClass(Base):
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
-        details = self.details_dict(**kwargs)
-        # logger.debug(f"Details dict output:\n{pformat(details)}")
+        details = self.details_dict
         return pyd(sql_instance=self, **details)
 
     def show_details(self, obj):
         from frontend.widgets.submission_details import SubmissionDetails
-        dlg = SubmissionDetails(parent=obj, sub=self)
+        dlg = SubmissionDetails(parent=obj, object_=self)
         dlg.exec()
 
     def export(self, obj, output_filepath: str | Path | None = None):

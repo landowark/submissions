@@ -187,11 +187,33 @@ class PydSample(PydConcrete):
         output['name'] = self.sample_id
         return output
 
-    def to_sql(self):
+    def to_sql(self, update: bool=True):
         # logger.debug(f"Dict to sample sql: {pformat(self.improved_dict())}")
-        sql = super().to_sql()
+        # Ensure we return a SQL Sample instance that has a valid sample_id
+        # When update=False callers expect a resolved SQL instance but we
+        # shouldn't blindly return a blank sql_instance (which has no
+        # sample_id set). Try to resolve an existing Sample by sample_id
+        # first. If none exists, populate the sql_instance.sample_id so
+        # that downstream association objects don't try to insert NULL.
+        sql = super().to_sql(update=update)
+        if not update:
+            # Try to use an existing SQL Sample if present in DB
+            try:
+                from backend.db.models import Sample
+                existing = Sample.query(sample_id=self.sample_id, limit=1) if self.sample_id else None
+            except Exception:
+                existing = None
+            if existing:
+                return existing, None
+            # If no existing object, ensure the blank sql_instance has sample_id set
+            try:
+                sql.sample_id = self.sample_id
+            except Exception:
+                # Fallback: nothing we can do, return sql as-is
+                pass
+            return sql, None
         sql._misc_info["rank"] = self.rank
-        return sql
+        return sql, None
 
     @classmethod
     def is_sample_id_valid(cls, sample: str | PydSample | dict) -> bool:
@@ -837,11 +859,49 @@ class PydClientSubmission(PydConcrete):
         from frontend.widgets.submission_widget import ClientSubmissionFormWidget
         if not samples:
             samples = self.sample
+        # If not coming in from ClientSubmission sql -> make ranks.
+        else:
+            for iii, sample in enumerate(samples):
+                sample.rank = iii
+        logger.debug(f"Samples: {pformat(samples)}")
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
-    # def to_sql(self):
+    def to_sql(self, update: bool = True):
+        output = super().to_sql(update)
+
+        # Ensure clientlab and contact relationships are applied to the SQL
+        # instance. SQL model setters (ClientSubmission.clientlab/contact)
+        # accept strings, dicts or pyd models. Incoming pyd fields may be of
+        # the shape {'value': 'Name', 'missing': False} - convert those to
+        # {'name': 'Name'} so the SQL setters can resolve them correctly.
+        try:
+            cl = self.clientlab
+            if isinstance(cl, dict) and 'value' in cl:
+                cl = {'name': cl['value']}
+            output.clientlab = cl
+        except Exception:
+            logger.debug(f"No clientlab to set for {self}")
+
+        try:
+            ct = self.contact
+            if isinstance(ct, dict) and 'value' in ct:
+                ct = {'name': ct['value']}
+            output.contact = ct
+        except Exception:
+            logger.debug(f"No contact to set for {self}")
         
-    #     return sql, None
+        try:
+            st = self.submissiontype
+            if isinstance(st, dict) and 'value' in st:
+                st = {'name': st['value']}
+            output.submissiontype = st
+        except Exception:
+            logger.debug(f"No contact to set for {self}")
+        
+        logger.debug(f"Adding samples: {pformat(self.sample)}")
+        output.sample = self.sample
+        return output, None
+    
 
     @property
     def max_sample_rank(self) -> int:
@@ -1315,6 +1375,25 @@ class PydTipsLot(PydConcrete):
         if isinstance(value, int):
             value = bool(value)
         return value
+
+
+class PydProcedureSampleAssociation(PydConcrete):
+
+    row: int = Field(default=0)
+    column: int = Field(default=0)
+    procedure_rank: int = Field(default=0)  #: Location in sample list
+    procedure: str | PydProcedure = Field(default="NA")
+    sample: str | PydSample = Field(default="NA")
+    results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
+
+    def to_sql(self, update: bool = True):
+        self.sql_instance = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.procedure = self.procedure
+        self.sql_instance.sample = self.sample
+        self.sql_instance.results = self.results
+        return self.sql_instance, None
 
 
 class PydProcedureEquipmentAssociation(PydConcrete):

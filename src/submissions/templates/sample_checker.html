@@ -20,9 +20,9 @@
         <form>
             &emsp;&emsp;Submitter ID<br/><!--&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;Row&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; Column<br/>-->
             {% for sample in samples %}
-                {% if rsl_plate_number %}<input type="checkbox" id="{{ sample['submission_rank'] }}_enabled" name="vehicle1" value="Bike" {% if sample['enabled'] %}checked{% endif %}>{% endif %}
-                {{ '%02d' % sample['submission_rank'] }}
-                <input type="text" id="{{ sample['submission_rank'] }}_id" name="sample_id" value="{{ sample['sample_id'] }}" size="40" style="color:{{ sample['color'] }};" {% if rsl_plate_number %}disabled{% endif %}>
+                {% if rsl_plate_number %}<input type="checkbox" id="{{ sample['rank'] }}_enabled" name="sample" value="blah" {% if sample['enabled'] %}checked{% endif %}>{% endif %}
+                {{ '%02d' % sample['rank'] }}
+                <input type="text" id="{{ sample['rank'] }}_id" name="sample_id" value="{{ sample['sample_id'] }}" size="40" style="color:{{ sample['color'] }};" {% if rsl_plate_number %}disabled{% endif %}>
                 <br/>
             {% endfor %}
         </form>

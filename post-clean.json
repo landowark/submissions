@@ -1,0 +1,3136 @@
+{
+    "excluded": [
+        "excluded",
+        "misc_info",
+        "_misc_info",
+        "id",
+        "procedure",
+        "runsampleassociation",
+        "excluded",
+        "expanded",
+        "sample",
+        "id",
+        "custom",
+        "permission",
+        "clientsubmission"
+    ],
+    "rsl_plate_number": "RSL-BC-20250723-1",
+    "clientsubmission": "Batch 670",
+    "started_date": "2026-01-13",
+    "run_cost": null,
+    "signed_by": null,
+    "comment": null,
+    "completed_date": null,
+    "procedure": [],
+    "runsampleassociation": [
+        "RSL-BC-20250723-1->EN1-670-20250723 (rank=1)",
+        "RSL-BC-20250723-1->SC25-4786-A (rank=2)",
+        "RSL-BC-20250723-1->SC25-4798-P (rank=3)",
+        "RSL-BC-20250723-1->SC25-4810-P (rank=4)",
+        "RSL-BC-20250723-1->SC25-4864-B (rank=5)",
+        "RSL-BC-20250723-1->SC25-4876-A (rank=6)",
+        "RSL-BC-20250723-1->SC25-4888-P (rank=7)",
+        "RSL-BC-20250723-1->SC25-4908-P (rank=8)",
+        "RSL-BC-20250723-1->SC25-4754-P (rank=9)",
+        "RSL-BC-20250723-1->SC25-4787-A (rank=10)",
+        "RSL-BC-20250723-1->SC25-4799-P (rank=11)",
+        "RSL-BC-20250723-1->SC25-4811-P (rank=12)",
+        "RSL-BC-20250723-1->SC25-4865-A (rank=13)",
+        "RSL-BC-20250723-1->SC25-4877-A (rank=14)",
+        "RSL-BC-20250723-1->SC25-4889-P (rank=15)",
+        "RSL-BC-20250723-1->SC25-4909-P (rank=16)",
+        "RSL-BC-20250723-1->SC25-4760-P (rank=17)",
+        "RSL-BC-20250723-1->SC25-4788-B (rank=18)",
+        "RSL-BC-20250723-1->SC25-4800-P (rank=19)",
+        "RSL-BC-20250723-1->SC25-4812-P (rank=20)",
+        "RSL-BC-20250723-1->SC25-4866-A (rank=21)",
+        "RSL-BC-20250723-1->SC25-4878-A (rank=22)",
+        "RSL-BC-20250723-1->SC25-4890-P (rank=23)",
+        "RSL-BC-20250723-1->SC25-4910-P (rank=24)",
+        "RSL-BC-20250723-1->SC25-4778-A (rank=25)",
+        "RSL-BC-20250723-1->SC25-4789-P (rank=26)",
+        "RSL-BC-20250723-1->SC25-4801-P (rank=27)",
+        "RSL-BC-20250723-1->SC25-4852-A (rank=28)",
+        "RSL-BC-20250723-1->SC25-4867-A (rank=29)",
+        "RSL-BC-20250723-1->SC25-4879-A (rank=30)",
+        "RSL-BC-20250723-1->SC25-4911-P (rank=31)",
+        "RSL-BC-20250723-1->SC25-4779-A (rank=32)",
+        "RSL-BC-20250723-1->SC25-4790-P (rank=33)",
+        "RSL-BC-20250723-1->SC25-4802-P (rank=34)",
+        "RSL-BC-20250723-1->SC25-4853-A (rank=35)",
+        "RSL-BC-20250723-1->SC25-4868-A (rank=36)",
+        "RSL-BC-20250723-1->SC25-4880-A (rank=37)",
+        "RSL-BC-20250723-1->SC25-4892-P (rank=38)",
+        "RSL-BC-20250723-1->SC25-4912-P (rank=39)",
+        "RSL-BC-20250723-1->SC25-4780-A (rank=40)",
+        "RSL-BC-20250723-1->SC25-4791-P (rank=41)",
+        "RSL-BC-20250723-1->SC25-4803-P (rank=42)",
+        "RSL-BC-20250723-1->SC25-4854-P (rank=43)",
+        "RSL-BC-20250723-1->SC25-4869-A (rank=44)",
+        "RSL-BC-20250723-1->SC25-4881-A (rank=45)",
+        "RSL-BC-20250723-1->SC25-4893-A (rank=46)",
+        "RSL-BC-20250723-1->SC25-4913-P (rank=47)",
+        "RSL-BC-20250723-1->SC25-4781-A (rank=48)",
+        "RSL-BC-20250723-1->SC25-4792-P (rank=49)",
+        "RSL-BC-20250723-1->SC25-4804-P (rank=50)",
+        "RSL-BC-20250723-1->SC25-4855-P (rank=51)",
+        "RSL-BC-20250723-1->SC25-4870-A (rank=52)",
+        "RSL-BC-20250723-1->SC25-4882-A (rank=53)",
+        "RSL-BC-20250723-1->SC25-4894-P (rank=54)",
+        "RSL-BC-20250723-1->SC25-4914-P (rank=55)",
+        "RSL-BC-20250723-1->SC25-4782-A (rank=56)",
+        "RSL-BC-20250723-1->SC25-4793-P (rank=57)",
+        "RSL-BC-20250723-1->SC25-4805-P (rank=58)",
+        "RSL-BC-20250723-1->SC25-4856-P (rank=59)",
+        "RSL-BC-20250723-1->SC25-4871-A (rank=60)",
+        "RSL-BC-20250723-1->SC25-4883-A (rank=61)",
+        "RSL-BC-20250723-1->SC25-4904-P (rank=62)",
+        "RSL-BC-20250723-1->SC25-4915-P (rank=63)",
+        "RSL-BC-20250723-1->SC25-4783-A (rank=64)",
+        "RSL-BC-20250723-1->SC25-4794-P (rank=65)",
+        "RSL-BC-20250723-1->SC25-4806-P (rank=66)",
+        "RSL-BC-20250723-1->SC25-4857-P (rank=67)",
+        "RSL-BC-20250723-1->SC25-4872-A (rank=68)",
+        "RSL-BC-20250723-1->SC25-4884-A (rank=69)",
+        "RSL-BC-20250723-1->SC25-4905-P (rank=70)",
+        "RSL-BC-20250723-1->SC25-4916-P (rank=71)",
+        "RSL-BC-20250723-1->SC25-4784-A (rank=72)",
+        "RSL-BC-20250723-1->SC25-4795-P (rank=73)",
+        "RSL-BC-20250723-1->SC25-4807-P (rank=74)",
+        "RSL-BC-20250723-1->SC25-4861-A (rank=75)",
+        "RSL-BC-20250723-1->SC25-4873-A (rank=76)",
+        "RSL-BC-20250723-1->SC25-4885-A (rank=77)",
+        "RSL-BC-20250723-1->EN2-670-20250723 (rank=78)",
+        "RSL-BC-20250723-1->SC25-4917-P (rank=79)",
+        "RSL-BC-20250723-1->SC25-4785-A (rank=80)",
+        "RSL-BC-20250723-1->SC25-4796-P (rank=81)",
+        "RSL-BC-20250723-1->SC25-4808-P (rank=82)",
+        "RSL-BC-20250723-1->SC25-4862-A (rank=83)",
+        "RSL-BC-20250723-1->SC25-4874-P (rank=84)",
+        "RSL-BC-20250723-1->SC25-4886-P (rank=85)",
+        "RSL-BC-20250723-1->SC25-4906-P (rank=86)",
+        "RSL-BC-20250723-1->ATCC49619-670-20250723 (rank=87)",
+        "RSL-BC-20250723-1->SC25-4797-P (rank=88)",
+        "RSL-BC-20250723-1->SC25-4809-P (rank=89)",
+        "RSL-BC-20250723-1->SC25-4863-A (rank=90)",
+        "RSL-BC-20250723-1->SC25-4875-P (rank=91)",
+        "RSL-BC-20250723-1->SC25-4887-P (rank=92)",
+        "RSL-BC-20250723-1->SC25-4907-P (rank=93)",
+        "RSL-BC-20250723-1->SC25-4919-P (rank=94)"
+    ],
+    "sample": [
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "EN1-670-20250723",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->EN1-670-20250723 (rank=1)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->EN1-670-20250723 (rank=1)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 1,
+            "name": "EN1-670-20250723",
+            "run_rank": 1,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4786-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4786-A (rank=2)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4786-A (rank=2)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 2,
+            "name": "SC25-4786-A",
+            "run_rank": 2,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4798-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4798-P (rank=3)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4798-P (rank=3)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 3,
+            "name": "SC25-4798-P",
+            "run_rank": 3,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4810-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4810-P (rank=4)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4810-P (rank=4)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 4,
+            "name": "SC25-4810-P",
+            "run_rank": 4,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4864-B",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4864-B (rank=5)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4864-B (rank=5)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 5,
+            "name": "SC25-4864-B",
+            "run_rank": 5,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4876-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4876-A (rank=6)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4876-A (rank=6)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 6,
+            "name": "SC25-4876-A",
+            "run_rank": 6,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4888-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4888-P (rank=7)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4888-P (rank=7)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 7,
+            "name": "SC25-4888-P",
+            "run_rank": 7,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4908-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4908-P (rank=8)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4908-P (rank=8)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 8,
+            "name": "SC25-4908-P",
+            "run_rank": 8,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4754-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4754-P (rank=9)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4754-P (rank=9)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 9,
+            "name": "SC25-4754-P",
+            "run_rank": 9,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4787-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4787-A (rank=10)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4787-A (rank=10)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 10,
+            "name": "SC25-4787-A",
+            "run_rank": 10,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4799-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4799-P (rank=11)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4799-P (rank=11)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 11,
+            "name": "SC25-4799-P",
+            "run_rank": 11,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4811-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4811-P (rank=12)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4811-P (rank=12)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 12,
+            "name": "SC25-4811-P",
+            "run_rank": 12,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4865-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4865-A (rank=13)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4865-A (rank=13)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 13,
+            "name": "SC25-4865-A",
+            "run_rank": 13,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4877-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4877-A (rank=14)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4877-A (rank=14)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 14,
+            "name": "SC25-4877-A",
+            "run_rank": 14,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4889-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4889-P (rank=15)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4889-P (rank=15)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 15,
+            "name": "SC25-4889-P",
+            "run_rank": 15,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4909-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4909-P (rank=16)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4909-P (rank=16)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 16,
+            "name": "SC25-4909-P",
+            "run_rank": 16,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4760-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4760-P (rank=17)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4760-P (rank=17)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 17,
+            "name": "SC25-4760-P",
+            "run_rank": 17,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4788-B",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4788-B (rank=18)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4788-B (rank=18)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 18,
+            "name": "SC25-4788-B",
+            "run_rank": 18,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4800-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4800-P (rank=19)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4800-P (rank=19)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 19,
+            "name": "SC25-4800-P",
+            "run_rank": 19,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4812-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4812-P (rank=20)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4812-P (rank=20)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 20,
+            "name": "SC25-4812-P",
+            "run_rank": 20,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4866-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4866-A (rank=21)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4866-A (rank=21)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 21,
+            "name": "SC25-4866-A",
+            "run_rank": 21,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4878-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4878-A (rank=22)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4878-A (rank=22)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 22,
+            "name": "SC25-4878-A",
+            "run_rank": 22,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4890-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4890-P (rank=23)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4890-P (rank=23)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 23,
+            "name": "SC25-4890-P",
+            "run_rank": 23,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4910-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4910-P (rank=24)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4910-P (rank=24)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 24,
+            "name": "SC25-4910-P",
+            "run_rank": 24,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4778-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4778-A (rank=25)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4778-A (rank=25)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 25,
+            "name": "SC25-4778-A",
+            "run_rank": 25,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4789-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4789-P (rank=26)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4789-P (rank=26)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 26,
+            "name": "SC25-4789-P",
+            "run_rank": 26,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4801-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4801-P (rank=27)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4801-P (rank=27)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 27,
+            "name": "SC25-4801-P",
+            "run_rank": 27,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4852-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4852-A (rank=28)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4852-A (rank=28)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 28,
+            "name": "SC25-4852-A",
+            "run_rank": 28,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4867-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4867-A (rank=29)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4867-A (rank=29)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 29,
+            "name": "SC25-4867-A",
+            "run_rank": 29,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4879-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4879-A (rank=30)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4879-A (rank=30)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 30,
+            "name": "SC25-4879-A",
+            "run_rank": 30,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4911-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4911-P (rank=32)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4911-P (rank=31)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 32,
+            "name": "SC25-4911-P",
+            "run_rank": 31,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4779-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4779-A (rank=33)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4779-A (rank=32)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 33,
+            "name": "SC25-4779-A",
+            "run_rank": 32,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4790-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4790-P (rank=34)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4790-P (rank=33)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 34,
+            "name": "SC25-4790-P",
+            "run_rank": 33,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4802-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4802-P (rank=35)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4802-P (rank=34)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 35,
+            "name": "SC25-4802-P",
+            "run_rank": 34,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4853-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4853-A (rank=36)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4853-A (rank=35)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 36,
+            "name": "SC25-4853-A",
+            "run_rank": 35,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4868-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4868-A (rank=37)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4868-A (rank=36)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 37,
+            "name": "SC25-4868-A",
+            "run_rank": 36,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4880-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4880-A (rank=38)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4880-A (rank=37)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 38,
+            "name": "SC25-4880-A",
+            "run_rank": 37,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4892-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4892-P (rank=39)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4892-P (rank=38)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 39,
+            "name": "SC25-4892-P",
+            "run_rank": 38,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4912-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4912-P (rank=40)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4912-P (rank=39)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 40,
+            "name": "SC25-4912-P",
+            "run_rank": 39,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4780-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4780-A (rank=41)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4780-A (rank=40)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 41,
+            "name": "SC25-4780-A",
+            "run_rank": 40,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4791-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4791-P (rank=42)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4791-P (rank=41)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 42,
+            "name": "SC25-4791-P",
+            "run_rank": 41,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4803-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4803-P (rank=43)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4803-P (rank=42)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 43,
+            "name": "SC25-4803-P",
+            "run_rank": 42,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4854-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4854-P (rank=44)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4854-P (rank=43)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 44,
+            "name": "SC25-4854-P",
+            "run_rank": 43,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4869-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4869-A (rank=45)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4869-A (rank=44)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 45,
+            "name": "SC25-4869-A",
+            "run_rank": 44,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4881-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4881-A (rank=46)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4881-A (rank=45)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 46,
+            "name": "SC25-4881-A",
+            "run_rank": 45,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4893-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4893-A (rank=47)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4893-A (rank=46)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 47,
+            "name": "SC25-4893-A",
+            "run_rank": 46,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4913-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4913-P (rank=48)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4913-P (rank=47)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 48,
+            "name": "SC25-4913-P",
+            "run_rank": 47,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4781-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4781-A (rank=49)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4781-A (rank=48)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 49,
+            "name": "SC25-4781-A",
+            "run_rank": 48,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4792-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4792-P (rank=50)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4792-P (rank=49)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 50,
+            "name": "SC25-4792-P",
+            "run_rank": 49,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4804-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4804-P (rank=51)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4804-P (rank=50)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 51,
+            "name": "SC25-4804-P",
+            "run_rank": 50,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4855-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4855-P (rank=52)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4855-P (rank=51)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 52,
+            "name": "SC25-4855-P",
+            "run_rank": 51,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4870-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4870-A (rank=53)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4870-A (rank=52)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 53,
+            "name": "SC25-4870-A",
+            "run_rank": 52,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4882-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4882-A (rank=54)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4882-A (rank=53)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 54,
+            "name": "SC25-4882-A",
+            "run_rank": 53,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4894-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4894-P (rank=55)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4894-P (rank=54)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 55,
+            "name": "SC25-4894-P",
+            "run_rank": 54,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4914-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4914-P (rank=56)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4914-P (rank=55)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 56,
+            "name": "SC25-4914-P",
+            "run_rank": 55,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4782-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4782-A (rank=57)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4782-A (rank=56)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 57,
+            "name": "SC25-4782-A",
+            "run_rank": 56,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4793-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4793-P (rank=58)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4793-P (rank=57)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 58,
+            "name": "SC25-4793-P",
+            "run_rank": 57,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4805-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4805-P (rank=59)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4805-P (rank=58)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 59,
+            "name": "SC25-4805-P",
+            "run_rank": 58,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4856-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4856-P (rank=60)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4856-P (rank=59)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 60,
+            "name": "SC25-4856-P",
+            "run_rank": 59,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4871-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4871-A (rank=61)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4871-A (rank=60)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 61,
+            "name": "SC25-4871-A",
+            "run_rank": 60,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4883-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4883-A (rank=62)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4883-A (rank=61)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 62,
+            "name": "SC25-4883-A",
+            "run_rank": 61,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4904-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4904-P (rank=63)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4904-P (rank=62)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 63,
+            "name": "SC25-4904-P",
+            "run_rank": 62,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4915-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4915-P (rank=64)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4915-P (rank=63)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 64,
+            "name": "SC25-4915-P",
+            "run_rank": 63,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4783-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4783-A (rank=65)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4783-A (rank=64)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 65,
+            "name": "SC25-4783-A",
+            "run_rank": 64,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4794-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4794-P (rank=66)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4794-P (rank=65)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 66,
+            "name": "SC25-4794-P",
+            "run_rank": 65,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4806-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4806-P (rank=67)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4806-P (rank=66)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 67,
+            "name": "SC25-4806-P",
+            "run_rank": 66,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4857-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4857-P (rank=68)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4857-P (rank=67)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 68,
+            "name": "SC25-4857-P",
+            "run_rank": 67,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4872-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4872-A (rank=69)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4872-A (rank=68)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 69,
+            "name": "SC25-4872-A",
+            "run_rank": 68,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4884-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4884-A (rank=70)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4884-A (rank=69)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 70,
+            "name": "SC25-4884-A",
+            "run_rank": 69,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4905-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4905-P (rank=71)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4905-P (rank=70)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 71,
+            "name": "SC25-4905-P",
+            "run_rank": 70,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4916-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4916-P (rank=72)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4916-P (rank=71)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 72,
+            "name": "SC25-4916-P",
+            "run_rank": 71,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4784-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4784-A (rank=73)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4784-A (rank=72)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 73,
+            "name": "SC25-4784-A",
+            "run_rank": 72,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4795-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4795-P (rank=74)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4795-P (rank=73)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 74,
+            "name": "SC25-4795-P",
+            "run_rank": 73,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4807-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4807-P (rank=75)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4807-P (rank=74)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 75,
+            "name": "SC25-4807-P",
+            "run_rank": 74,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4861-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4861-A (rank=76)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4861-A (rank=75)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 76,
+            "name": "SC25-4861-A",
+            "run_rank": 75,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4873-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4873-A (rank=77)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4873-A (rank=76)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 77,
+            "name": "SC25-4873-A",
+            "run_rank": 76,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4885-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4885-A (rank=78)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4885-A (rank=77)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 78,
+            "name": "SC25-4885-A",
+            "run_rank": 77,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "EN2-670-20250723",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->EN2-670-20250723 (rank=79)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->EN2-670-20250723 (rank=78)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 79,
+            "name": "EN2-670-20250723",
+            "run_rank": 78,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4917-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4917-P (rank=80)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4917-P (rank=79)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 80,
+            "name": "SC25-4917-P",
+            "run_rank": 79,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4785-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4785-A (rank=81)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4785-A (rank=80)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 81,
+            "name": "SC25-4785-A",
+            "run_rank": 80,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4796-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4796-P (rank=82)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4796-P (rank=81)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 82,
+            "name": "SC25-4796-P",
+            "run_rank": 81,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4808-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4808-P (rank=83)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4808-P (rank=82)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 83,
+            "name": "SC25-4808-P",
+            "run_rank": 82,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4862-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4862-A (rank=84)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4862-A (rank=83)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 84,
+            "name": "SC25-4862-A",
+            "run_rank": 83,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4874-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4874-P (rank=85)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4874-P (rank=84)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 85,
+            "name": "SC25-4874-P",
+            "run_rank": 84,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4886-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4886-P (rank=86)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4886-P (rank=85)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 86,
+            "name": "SC25-4886-P",
+            "run_rank": 85,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4906-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4906-P (rank=87)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4906-P (rank=86)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 87,
+            "name": "SC25-4906-P",
+            "run_rank": 86,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "ATCC49619-670-20250723",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->ATCC49619-670-20250723 (rank=89)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->ATCC49619-670-20250723 (rank=87)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 89,
+            "name": "ATCC49619-670-20250723",
+            "run_rank": 87,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4797-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4797-P (rank=90)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4797-P (rank=88)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 90,
+            "name": "SC25-4797-P",
+            "run_rank": 88,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4809-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4809-P (rank=91)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4809-P (rank=89)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 91,
+            "name": "SC25-4809-P",
+            "run_rank": 89,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4863-A",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4863-A (rank=92)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4863-A (rank=90)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 92,
+            "name": "SC25-4863-A",
+            "run_rank": 90,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4875-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4875-P (rank=93)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4875-P (rank=91)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 93,
+            "name": "SC25-4875-P",
+            "run_rank": 91,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4887-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4887-P (rank=94)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4887-P (rank=92)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 94,
+            "name": "SC25-4887-P",
+            "run_rank": 92,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4907-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4907-P (rank=95)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4907-P (rank=93)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 95,
+            "name": "SC25-4907-P",
+            "run_rank": 93,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        },
+        {
+            "excluded": [
+                "excluded",
+                "misc_info",
+                "_misc_info",
+                "id"
+            ],
+            "sample_id": "SC25-4919-P",
+            "is_control": 0,
+            "sampleclientsubmissionassociation": [
+                "Batch 670->SC25-4919-P (rank=96)"
+            ],
+            "clientsubmission": [
+                "Batch 670"
+            ],
+            "samplerunassociation": [
+                "RSL-BC-20250723-1->SC25-4919-P (rank=94)"
+            ],
+            "run": "RSL-BC-20250723-1",
+            "sampleprocedureassociation": [],
+            "procedure": [],
+            "rank": 96,
+            "name": "SC25-4919-P",
+            "run_rank": 94,
+            "sql_instance": "<Sample(None)>",
+            "new": true,
+            "enabled": true,
+            "row": 0,
+            "column": 0,
+            "results": [],
+            "misc_info": {}
+        }
+    ],
+    "uploaded_by": "lwark",
+    "name": "RSL-BC-20250723-1",
+    "plate_number": "RSL-BC-20250723-1",
+    "permission": true,
+    "sample_count": 94
+}

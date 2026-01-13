@@ -63,7 +63,7 @@ class ReportMaker(object):
         """
         if not self.procedures:
             return DataFrame(), DataFrame()
-        df = DataFrame.from_records([item.details_dict() for item in self.procedures])
+        df = DataFrame.from_records([item.details_dict for item in self.procedures])
         # NOTE: put procedure with the same lab together
         df = df.sort_values("clientlab")
         # NOTE: aggregate cost and sample count columns

@@ -258,6 +258,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         output = {k: self.filter_field(k) for k in fields if k not in ["sql_instance", "new"]}
         if "misc_info" in output.keys():
             for k, v in output['misc_info'].items():
+                if "sql_instance" in k:
+                    continue
                 if k not in output.keys():
                     output[k] = v
             del output['misc_info']
@@ -290,7 +292,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # from backend.db import models as _models
 
         for k, v in sanitized_dicto.items():
-            # logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
+            logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
             try:
                 class_attr = getattr(self._sql_class, k, None).property
             except AttributeError as e:
@@ -677,5 +679,6 @@ from .concrete import (
     PydTipsLot,
     PydDiscount,
     PydProcedureEquipmentAssociation,
-    PydProcedureReagentLotAssociation
+    PydProcedureReagentLotAssociation,
+    PydProcedureSampleAssociation
     )

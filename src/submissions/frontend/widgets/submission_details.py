@@ -3,6 +3,7 @@ Webview to show procedure and sample details.
 """
 from __future__ import annotations
 
+import json
 import sys
 
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
@@ -21,7 +22,7 @@ from datetime import datetime
 from pprint import pformat
 from typing import List, TYPE_CHECKING
 if TYPE_CHECKING:
-    from backend.db.models import Run, Sample
+    from backend.db.models import Run, Sample, ClientSubmission, Procedure
 
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -32,7 +33,7 @@ class SubmissionDetails(QDialog):
     a window showing text details of procedure
     """
 
-    def __init__(self, parent, sub: Run | Sample | Reagent, **kwargs) -> None:
+    def __init__(self, parent, object_: ClientSubmission | Run | Procedure | Sample | Reagent, **kwargs) -> None:
 
         super().__init__(parent, **kwargs)
         self.app = get_application_from_parent(parent)
@@ -57,21 +58,34 @@ class SubmissionDetails(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
-        self.object_details(object=sub)
+        self.object_details(object_=object_)
         self.webview.page().setWebChannel(self.channel)
 
-    def object_details(self, object):
-        details = object.clean_details_for_render(object.details_dict())
-        template = object.details_template
+    def object_details(self, object_):
+        from backend.db.models import ClientSubmission, Run
+        logger.debug(f"Incoming object: {object_}")
+        match object_:
+            case ClientSubmission():
+                expand = [{"run":['procedure']}, "sample"]
+            case Run():
+                expand = ['procedure', 'sample']
+            case _:
+                expand = []
+        details = object_.details_dict_expand_fields(fields=expand)
+        
+        details = object_.clean_details_for_render(details)
+        logger.debug(pformat(details['sample']))
+        template = object_.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
             css = f.read()
-        key = object.__class__.__name__.lower()
+        key = object_.__class__.__name__.lower()
         d = {key: details}
-        # sys.exit(pformat(d))
         html = template.render(**d, css=[css])
         self.webview.setHtml(html)
-        self.setWindowTitle(f"{object.__class__.__name__} Details - {object.name}")
+        self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
+        # with open(f"{object_.__class__.__qualname__}.html", "w") as f:
+        #     f.write(html)
 
     def activate_export(self) -> None:
         """
@@ -101,7 +115,7 @@ class SubmissionDetails(QDialog):
         if isinstance(equipment, str):
             equipment = Equipment.query(name=equipment)
         # base_dict = equipment.to_sub_dict(full_data=True)
-        base_dict = equipment.details_dict()
+        base_dict = equipment.details_dict
         template = equipment.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
@@ -115,7 +129,7 @@ class SubmissionDetails(QDialog):
         if isinstance(process, str):
             process = Process.query(name=process)
         # base_dict = process.to_sub_dict(full_data=True)
-        base_dict = process.details_dict()
+        base_dict = process.details_dict
         template = process.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
@@ -129,7 +143,7 @@ class SubmissionDetails(QDialog):
         if isinstance(tips, str):
             tips = Tips.query(lot=tips)
         # base_dict = tips.to_sub_dict(full_data=True)
-        base_dict = tips.details_dict()
+        base_dict = tips.details_dict
         template = tips.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:
@@ -150,7 +164,7 @@ class SubmissionDetails(QDialog):
         if isinstance(sample, str):
             sample = Sample.query(sample_id=sample)
         # base_dict = sample.to_sub_dict(full_data=True)
-        base_dict = sample.details_dict()
+        base_dict = sample.details_dict
         exclude = ['procedure', 'excluded', 'colour', 'tooltip']
         base_dict['excluded'] = exclude
         template = sample.details_template
@@ -176,7 +190,7 @@ class SubmissionDetails(QDialog):
             self.proceduretype = ProcedureType.query(name=proceduretype)
         # base_dict = reagent.to_sub_dict(proceduretype=self.proceduretype, full_data=True)
         # base_dict = reagent.details_dict(proceduretype=self.proceduretype, full_data=True)
-        base_dict = reagent.details_dict()
+        base_dict = reagent.details_dict
         env = jinja_template_loading()
         temp_name = "reagent_details.html"
         try:
@@ -227,7 +241,7 @@ class SubmissionDetails(QDialog):
             run = Run.query(name=run)
         self.rsl_plate_number = run.rsl_plate_number
         # self.base_dict = run.to_dict(full_data=True)
-        self.base_dict = run.details_dict()
+        self.base_dict = run.details_dict
         # NOTE: don't want id
         self.base_dict['platemap'] = run.make_plate_map(sample_list=run.hitpicked)
         self.base_dict['excluded'] = run.get_default_info("details_ignore")
