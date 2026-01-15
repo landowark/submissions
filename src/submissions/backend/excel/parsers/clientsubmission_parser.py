@@ -54,7 +54,7 @@ class SubmissionTyperMixin(object):
             SubmissionType: The determined submissiontype
         """
         from backend.db.models import SubmissionType
-        regex = SubmissionType.regex
+        regex = SubmissionType.regexes
         m = regex.search(filepath.__str__())
         try:
             sub_type = m.lastgroup

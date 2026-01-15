@@ -4,7 +4,7 @@ All client organization related models.
 from __future__ import annotations
 import logging
 from sqlalchemy import Column, String, INTEGER, ForeignKey, Table
-from sqlalchemy.orm import relationship, Query, declared_attr
+from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass
 from tools import check_authorization, setup_lookup
@@ -283,12 +283,6 @@ class Contact(BaseClass):
             else:
                 logger.error(f"Could not add {type(output)} to _clientsubmission")
 
-    # @classproperty
-    @classmethod
-    @declared_attr
-    def searchables(cls):
-        return []
-
     ##### Query Function #####
 
     @classmethod
@@ -339,7 +333,3 @@ class Contact(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-
-    # def to_pydantic(self) -> PydContact:
-    #     from backend.validators import PydContact
-    #     return PydContact(name=self.name, email=self.email, phone=self.phone)

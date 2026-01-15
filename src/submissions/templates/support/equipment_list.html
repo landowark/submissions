@@ -1,9 +1,9 @@
 <tr>
-    <td style="border: 1px solid black;">{{ equipment['equipment_role'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['equipmentrole'] }}</td>
     <td style="border: 1px solid black;">{{ equipment['name'] }}</td>
     <td style="border: 1px solid black;">{{ equipment['processversion']['name'] }}</td>
-    {% if equipment['tips'] %}
-        <td style="border: 1px solid black;">{{ equipment['tips']['name'] }}</td>
+    {% if equipment['tipslot'] %}
+        <td style="border: 1px solid black;">{% for tipslot in equipment['tipslot'] %}{{ tipslot }}{% endfor %}</td>
     {% else %}
         <td style="border: 1px solid black;"></td>
     {% endif %}

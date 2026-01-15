@@ -125,10 +125,12 @@ class SubmissionsTree(QTreeView):
                     query_str=run['plate_number'],
                     item_type=Run
                 ))
-                for procedure in run['procedures']:
+                for procedure in run['procedure']:
                     procedure_item = self.model.add_child(parent=run_item, child=dict(
-                        name=procedure['name'],
-                        query_str=procedure['name'],
+                        # name=procedure['name'],
+                        # query_str=procedure['name'],
+                        name=procedure,
+                        query_str=procedure,
                         item_type=Procedure
                     ))
 

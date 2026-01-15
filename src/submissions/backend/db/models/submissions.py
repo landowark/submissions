@@ -3,8 +3,7 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from getpass import getuser
-import json
-import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
+import json, logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
 from inspect import isclass
 from zipfile import BadZipfile
 from operator import itemgetter
@@ -14,14 +13,13 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from backend.db.models.procedures import ReagentLot
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, case, cast, func, inspect, select
+from sqlalchemy import Column, Interval, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select
 from sqlalchemy.orm import relationship, Query, declared_attr
-from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
-                   check_dictionary_inclusion_equality, is_power_user, row_map, timezone, sanitize_object_for_json)
+                   is_power_user, row_map, timezone)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
 from typing import List, Literal, Generator, TYPE_CHECKING
@@ -260,7 +258,6 @@ class ClientSubmission(BaseClass, LogMixin):
         if not isinstance(value, list) and not isinstance(value, _AssociationList):
             value = [value]
         for item in value:
-            # logger.debug(f"Incoming sample: {type(item)}: {item}")
             if item.sample_id.lower() in ["blank", "na", "none", ""]:
                 continue
             match item:
@@ -275,7 +272,6 @@ class ClientSubmission(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {item} of type {type(item)} for sample")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ClientSubmissionSampleAssociation):
                 if output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
                     self.clientsubmissionsampleassociation.append(output)
@@ -324,6 +320,7 @@ class ClientSubmission(BaseClass, LogMixin):
         except ValueError:
             return 0
 
+    # TODO: get chronologic working
     @classmethod
     @setup_lookup
     def query(cls,
@@ -403,13 +400,13 @@ class ClientSubmission(BaseClass, LogMixin):
             offset = None
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
-    @property
-    def template_file(self):
-        return self.submissiontype.template_file
+    # @property
+    # def template_file(self):
+    #     return self.submissiontype.template_file
 
-    @property
-    def range_dict(self):
-        return self.submissiontype.info_map
+    # @property
+    # def range_dict(self):
+    #     return self.submissiontype.info_map
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
@@ -485,7 +482,8 @@ class ClientSubmission(BaseClass, LogMixin):
             return output
         if full_data:
             samples = None
-            runs = [item.to_dict(full_data=True) for item in self.run]
+            # runs = [item.to_dict(full_data=True) for item in self.run]
+            runs = [item.details_dict for item in self.run]
         else:
             samples = None
             custom = None
@@ -768,10 +766,6 @@ class Run(BaseClass, LogMixin):
 
     @started_date.setter
     def started_date(self, value):
-        # if value:
-        #     self._started_date = value
-        # else:
-        #     self._started_date = min([proc.started_date for proc in self.procedure])
         if isinstance(value, dict):
             value = value.get("value", datetime.now())
         match value:
@@ -809,10 +803,6 @@ class Run(BaseClass, LogMixin):
 
     @completed_date.setter
     def completed_date(self, value):
-        # if value:
-        #     self._completed_date = value
-        # else:
-        #     self._completed_date = min([proc.started_date for proc in self.procedure])
         if isinstance(value, dict):
             value = value.get("value", datetime.now())
         match value:
@@ -929,120 +919,114 @@ class Run(BaseClass, LogMixin):
             case _:
                 return None
 
-    @classmethod
-    def construct_info_map(cls, submissiontype: SubmissionType | None = None,
-                           mode: Literal["read", "write"] = "read") -> dict:
-        """
-        Method to call procedure type's construct info map.
+    # @classmethod
+    # def construct_info_map(cls, submissiontype: SubmissionType | None = None,
+    #                        mode: Literal["read", "write"] = "read") -> dict:
+    #     """
+    #     Method to call procedure type's construct info map.
 
-        Args:
-            mode (Literal["read", "write"]): Which map to construct.
+    #     Args:
+    #         mode (Literal["read", "write"]): Which map to construct.
 
-        Returns:
-            dict: Map of info locations.
-        """
-        return cls.get_submission_type(submissiontype).construct_info_map(mode=mode)
+    #     Returns:
+    #         dict: Map of info locations.
+    #     """
+    #     return cls.get_submission_type(submissiontype).construct_info_map(mode=mode)
 
-    @classmethod
-    def construct_sample_map(cls, submissiontype: SubmissionType | None = None) -> dict:
-        """
-        Method to call procedure type's construct_sample_map
+    # @classmethod
+    # def construct_sample_map(cls, submissiontype: SubmissionType | None = None) -> dict:
+    #     """
+    #     Method to call procedure type's construct_sample_map
 
-        Returns:
-            dict: sample location map
-        """
-        return cls.get_submission_type(submissiontype).sample_map
+    #     Returns:
+    #         dict: sample location map
+    #     """
+    #     return cls.get_submission_type(submissiontype).sample_map
 
-    def generate_associations(self, name: str, extra: str | None = None):
+    def generate_associations(self, name: str, fields: List[str] | List[dict]):
         try:
             field = self.__getattribute__(name)
         except AttributeError:
             return None
-        for item in field:
-            if extra:
-                yield item.to_sub_dict(extra)
-            else:
-                yield item.to_sub_dict()
+        yield item.details_dict_expand_fields(fields=fields)
+        
+    # def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
+    #     """
+    #     Constructs dictionary used in procedure summary
 
-    def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
-        """
-        Constructs dictionary used in procedure summary
+    #     Args:
+    #         expand (bool, optional): indicates if generators to be expanded. Defaults to False.
+    #         report (bool, optional): indicates if to be used for a report. Defaults to False.
+    #         full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
+    #         backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
 
-        Args:
-            expand (bool, optional): indicates if generators to be expanded. Defaults to False.
-            report (bool, optional): indicates if to be used for a report. Defaults to False.
-            full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
-            backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
-
-        Returns:
-            dict: dictionary used in procedure summary and details
-        """
-        # NOTE: get lab from nested organization object
-        try:
-            sub_lab = self.clientsubmission.clientlab.name
-        except AttributeError:
-            sub_lab = None
-        try:
-            sub_lab = sub_lab.replace("_", " ").title()
-        except AttributeError:
-            pass
-        output = {
-            "id": self.id,
-            "plate_number": self.name,
-            "submissiontype": self.clientsubmission.submissiontype_name,
-            "submitter_plate_id": self.clientsubmission.submitter_plate_id,
-            "started_date": self.clientsubmission.submitted_date.strftime("%Y-%m-%d"),
-            "clientlab": sub_lab,
-            "sample_count": self.clientsubmission.sample_count,
-            "kittype": "Change procedure.py line 388",
-            "cost": self.run_cost
-        }
-        if report:
-            return output
-        if full_data:
-            samples = self.generate_associations(name="clientsubmissionsampleassociation")
-            equipment = self.generate_associations(name="submission_equipment_associations")
-            tips = self.generate_associations(name="submission_tips_associations")
-            procedures = [item.details_dict for item in self.procedure]
-            # custom = self.custom
-        else:
-            samples = None
-            equipment = None
-            tips = None
-            custom = None
-            procedures = None
-        try:
-            comment = self.comment
-        except Exception as e:
-            logger.error(f"Error setting comment: {self.comment}, {e}")
-            comment = None
-        try:
-            contact = self.clientsubmission.contact.name
-        except AttributeError as e:
-            try:
-                contact = f"Defaulted to: {self.clientsubmission.clientlab.contact[0].name}"
-            except (AttributeError, IndexError):
-                contact = "NA"
-        try:
-            contact_phone = self.clientsubmission.contact.phone
-        except AttributeError:
-            contact_phone = "NA"
-        output["submission_category"] = self.clientsubmission.submission_category
-        output["sample"] = samples
-        output["comment"] = comment
-        output["equipment"] = equipment
-        output["tips"] = tips
-        output["signed_by"] = self.signed_by
-        output["contact"] = contact
-        output["contact_phone"] = contact_phone
-        # output["custom"] = custom
-        output['procedures'] = procedures
-        output['name'] = self.name
-        try:
-            output["completed_date"] = self.completed_date.strftime("%Y-%m-%d")
-        except AttributeError:
-            output["completed_date"] = self.completed_date
-        return output
+    #     Returns:
+    #         dict: dictionary used in procedure summary and details
+    #     """
+    #     # NOTE: get lab from nested organization object
+    #     try:
+    #         sub_lab = self.clientsubmission.clientlab.name
+    #     except AttributeError:
+    #         sub_lab = None
+    #     try:
+    #         sub_lab = sub_lab.replace("_", " ").title()
+    #     except AttributeError:
+    #         pass
+    #     output = {
+    #         "id": self.id,
+    #         "plate_number": self.name,
+    #         "submissiontype": self.clientsubmission.submissiontype_name,
+    #         "submitter_plate_id": self.clientsubmission.submitter_plate_id,
+    #         "started_date": self.clientsubmission.submitted_date.strftime("%Y-%m-%d"),
+    #         "clientlab": sub_lab,
+    #         "sample_count": self.clientsubmission.sample_count,
+    #         "kittype": "Change procedure.py line 388",
+    #         "cost": self.run_cost
+    #     }
+    #     if report:
+    #         return output
+    #     if full_data:
+    #         samples = self.generate_associations(name="clientsubmissionsampleassociation")
+    #         equipment = self.generate_associations(name="submission_equipment_associations")
+    #         tips = self.generate_associations(name="submission_tips_associations")
+    #         procedures = [item.details_dict for item in self.procedure]
+    #         # custom = self.custom
+    #     else:
+    #         samples = None
+    #         equipment = None
+    #         tips = None
+    #         procedures = None
+    #     try:
+    #         comment = self.comment
+    #     except Exception as e:
+    #         logger.error(f"Error setting comment: {self.comment}, {e}")
+    #         comment = None
+    #     try:
+    #         contact = self.clientsubmission.contact.name
+    #     except AttributeError as e:
+    #         try:
+    #             contact = f"Defaulted to: {self.clientsubmission.clientlab.contact[0].name}"
+    #         except (AttributeError, IndexError):
+    #             contact = "NA"
+    #     try:
+    #         contact_phone = self.clientsubmission.contact.phone
+    #     except AttributeError:
+    #         contact_phone = "NA"
+    #     output["submission_category"] = self.clientsubmission.submission_category
+    #     output["sample"] = samples
+    #     output["comment"] = comment
+    #     output["equipment"] = equipment
+    #     output["tips"] = tips
+    #     output["signed_by"] = self.signed_by
+    #     output["contact"] = contact
+    #     output["contact_phone"] = contact_phone
+    #     output['procedures'] = procedures
+    #     output['name'] = self.name
+    #     try:
+    #         output["completed_date"] = self.completed_date.strftime("%Y-%m-%d")
+    #     except AttributeError:
+    #         output["completed_date"] = self.completed_date
+    #     return output
 
     @property
     def sample_count(self):
@@ -1137,10 +1121,10 @@ class Run(BaseClass, LogMixin):
         output_list = [assoc.hitpicked for assoc in self.runsampleassociation]
         return output_list
 
-    @property
-    def sample_dicts(self) -> List[dict]:
-        return [dict(sample_id=assoc.sample.sample_id, row=assoc.row, column=assoc.column, background_color="#6ffe1d")
-                for assoc in self.runsampleassociation]
+    # @property
+    # def sample_dicts(self) -> List[dict]:
+    #     return [dict(sample_id=assoc.sample.sample_id, row=assoc.row, column=assoc.column, background_color="#6ffe1d")
+    #             for assoc in self.runsampleassociation]
 
     @classmethod
     def make_plate_map(cls, sample_list: list, plate_rows: int = 8, plate_columns=12) -> str:
@@ -1168,74 +1152,74 @@ class Run(BaseClass, LogMixin):
         html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
         return html + "<br/>"
 
-    @property
-    def used_equipment(self) -> Generator[str, None, None]:
-        """
-        Gets EquipmentRole names associated with this Run
+    # @property
+    # def used_equipment(self) -> Generator[str, None, None]:
+    #     """
+    #     Gets EquipmentRole names associated with this Run
 
-        Returns:
-            List[str]: List of names
-        """
-        return (item.equipmentrole for item in self.submission_equipment_associations)
+    #     Returns:
+    #         List[str]: List of names
+    #     """
+    #     return (item.equipmentrole for item in self.submission_equipment_associations)
 
-    @classmethod
-    def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0,
-                          chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
-        """
-        Convert all procedure to dataframe
+    # @classmethod
+    # def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0,
+    #                       chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
+    #     """
+    #     Convert all procedure to dataframe
 
-        Args:
-            page_size (int, optional): Number of items to include in query result. Defaults to 250.
-            page (int, optional): Limits the number of procedure to a page size. Defaults to 1.
-            chronologic (bool, optional): Sort procedure in chronologic order. Defaults to True.
-            submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
-            limit (int, optional): Maximum number of results to return. Defaults to 0.
+    #     Args:
+    #         page_size (int, optional): Number of items to include in query result. Defaults to 250.
+    #         page (int, optional): Limits the number of procedure to a page size. Defaults to 1.
+    #         chronologic (bool, optional): Sort procedure in chronologic order. Defaults to True.
+    #         submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
+    #         limit (int, optional): Maximum number of results to return. Defaults to 0.
 
-        Returns:
-            pd.DataFrame: Pandas Dataframe of all relevant procedure
-        """
-        # NOTE: use lookup function to create list of dicts
-        subs = [item.details_dict for item in
-                cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
-                          page_size=page_size)]
-        df = pd.DataFrame.from_records(subs)
-        # NOTE: Exclude sub information
-        exclude = ['control', 'extraction_info', 'pcr_info', 'comment', 'comments', 'sample', 'reagents',
-                   'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
-                   'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
-                   'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
-                   'tips', 'gel_image_path', 'custom']
-        # NOTE: dataframe equals dataframe of all columns not in exclude
-        df = df.loc[:, ~df.columns.isin(exclude)]
-        if chronologic:
-            try:
-                df.sort_values(by="id", axis=0, inplace=True, ascending=False)
-            except KeyError:
-                logger.error("No column named 'id'")
-        # NOTE: Human friendly column labels
-        df.columns = [item.replace("_", " ").title() for item in df.columns]
-        return df
+    #     Returns:
+    #         pd.DataFrame: Pandas Dataframe of all relevant procedure
+    #     """
+    #     # NOTE: use lookup function to create list of dicts
+    #     subs = [item.details_dict for item in
+    #             cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
+    #                       page_size=page_size)]
+    #     df = pd.DataFrame.from_records(subs)
+    #     # NOTE: Exclude sub information
+    #     exclude = ['control', 'extraction_info', 'pcr_info', 'comment', 'comments', 'sample', 'reagents',
+    #                'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
+    #                'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
+    #                'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
+    #                'tips', 'gel_image_path', 'custom']
+    #     # NOTE: dataframe equals dataframe of all columns not in exclude
+    #     df = df.loc[:, ~df.columns.isin(exclude)]
+    #     if chronologic:
+    #         try:
+    #             df.sort_values(by="id", axis=0, inplace=True, ascending=False)
+    #         except KeyError:
+    #             logger.error("No column named 'id'")
+    #     # NOTE: Human friendly column labels
+    #     df.columns = [item.replace("_", " ").title() for item in df.columns]
+    #     return df
 
-    def update_subsampassoc(self, assoc: ClientSubmissionSampleAssociation,
-                            input_dict: dict) -> ClientSubmissionSampleAssociation:
-        """
-        Update a joined procedure sample association.
+    # def update_subsampassoc(self, assoc: ClientSubmissionSampleAssociation,
+    #                         input_dict: dict) -> ClientSubmissionSampleAssociation:
+    #     """
+    #     Update a joined procedure sample association.
 
-        Args:
-            assoc (ClientSubmissionSampleAssociation): Sample association to be updated.
-            input_dict (dict): updated values to insert.
+    #     Args:
+    #         assoc (ClientSubmissionSampleAssociation): Sample association to be updated.
+    #         input_dict (dict): updated values to insert.
 
-        Returns:
-            ClientSubmissionSampleAssociation: Updated association
-        """
-        # NOTE: No longer searches for association here, done in caller function
-        for k, v in input_dict.items():
-            try:
-                setattr(assoc, k, v)
-                # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
-            except AttributeError:
-                pass
-        return assoc
+    #     Returns:
+    #         ClientSubmissionSampleAssociation: Updated association
+    #     """
+    #     # NOTE: No longer searches for association here, done in caller function
+    #     for k, v in input_dict.items():
+    #         try:
+    #             setattr(assoc, k, v)
+    #             # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
+    #         except AttributeError:
+    #             pass
+    #     return assoc
 
     def to_pydantic(self, backup: bool = False) -> PydRun:
         """
@@ -1250,16 +1234,13 @@ class Run(BaseClass, LogMixin):
         for key, value in dicto.items():
             missing = value in ['', 'None', None]
             match key:
-                case "sample":
-                    field_value = [item.to_pydantic() for item in self.runsampleassociation]
-                case "plate_number":
-                    key = 'rsl_plate_number'
+                case "rsl_plate_number":
                     field_value = dict(value=self.rsl_plate_number, missing=missing)
                     new_dict['name'] = field_value
                 case "id":
                     continue
                 case "clientsubmission" | "client_submission":
-                    field_value = self.clientsubmission.to_pydantic()
+                    field_value = self.clientsubmission.name
                 case "procedure":
                     field_value = [item.to_pydantic() for item in self.procedure]
                 case _:
@@ -1290,42 +1271,39 @@ class Run(BaseClass, LogMixin):
             self.uploaded_by = getuser()
         return super().save()
 
-    @classmethod
-    def get_regex(cls, submission_type: SubmissionType | str | None = None) -> re.Pattern:
-        """
-        Gets the regex string for identifying a certain class of procedure.
+    # @classmethod
+    # def get_regex(cls, submission_type: SubmissionType | str | None = None) -> re.Pattern:
+    #     """
+    #     Gets the regex string for identifying a certain class of procedure.
 
-        Args:
-            submission_type (SubmissionType | str | None, optional): procedure type of interest. Defaults to None.
+    #     Args:
+    #         submission_type (SubmissionType | str | None, optional): procedure type of interest. Defaults to None.
 
-        Returns:
-            str: String from which regex will be compiled.
-        """
-        try:
-            regex = cls.get_submission_type(submission_type).defaults['regex']
-        except AttributeError as e:
-            logger.error(f"Couldn't get procedure type for {cls.__mapper_args__['polymorphic_identity']}")
-            regex = None
-        try:
-            regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
-        except re.error as e:
-            regex = cls.construct_regex()
-        return regex
+    #     Returns:
+    #         str: String from which regex will be compiled.
+    #     """
+    #     try:
+    #         regex = cls.get_submission_type(submission_type).regex
+    #     except AttributeError as e:
+    #         logger.error(f"Couldn't get procedure type for {cls.__mapper_args__['polymorphic_identity']}")
+    #         regex = None
+    #     try:
+    #         regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
+    #     except re.error as e:
+    #         regex = cls.construct_regex()
+    #     return regex
 
     # NOTE: Polymorphic functions
 
-    @classproperty
-    def regex(cls) -> re.Pattern:
-        """
-        Constructs catchall regex.
+    # @classproperty
+    # def regex(cls) -> re.Pattern:
+    #     """
+    #     Constructs catchall regex.
 
-        Returns:
-            re.Pattern: Regular expression pattern to discriminate between procedure types.
-        """
-        res = [st.defaults['regex'] for st in SubmissionType.query() if st.defaults]
-        rstring = rf'{"|".join(res)}'
-        regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
-        return regex
+    #     Returns:
+    #         re.Pattern: Regular expression pattern to discriminate between procedure types.
+    #     """
+    #     return SubmissionType.regexes
 
     # NOTE: Query functions
 
@@ -1427,12 +1405,8 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
-            # data = {c.key: getattr(sql, c.key) for c in inspect(sql).mapper.column_attrs}
-            data = sql.details_dict
-            # with open("procedure.json", "w") as f:
-            #     json.dump(sanitize_object_for_json(data), f, indent=4)
             # sql.save()
-            logger.debug(pformat(sql.__dict__))
+            logger.debug(pformat(sql.procedureequipmentassociation))
         obj.set_data()
 
     def delete(self, obj=None):
@@ -1475,7 +1449,7 @@ class Run(BaseClass, LogMixin):
         from frontend.widgets.submission_widget import SubmissionFormWidget
         for widget in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
             widget.setParent(None)
-        pyd = self.to_pydantic(backup=True)
+        pyd = self.to_pydantic()
         form = pyd.to_form(parent=obj, disable=['name'])
         obj.app.table_widget.formwidget.layout().addWidget(form)
 
@@ -1509,8 +1483,11 @@ class Run(BaseClass, LogMixin):
             pass
         workbook.save(filename=output_filepath)
 
-    def construct_filename(self):
-        return f"{self.rsl_plate_number}-{self.clientsubmission.clientlab.name}-{self.clientsubmission.submitter_plate_id}"
+    @property
+    def filename(self):
+        dict_ = self.details_dict_expand_fields([{'clientsubmission':['clientlab']}])
+        # return f"{self.rsl_plate_number}-{self.clientsubmission.clientlab.name}-{self.clientsubmission.submitter_plate_id}"
+        return self.clientsubmission.submissiontype.template.render(**dict_)
 
     def backup(self, obj=None, fname: Path | None = None, full_backup: bool = False):
         """
@@ -1521,7 +1498,7 @@ class Run(BaseClass, LogMixin):
             fname (Path | None, optional): Filename of xlsx file. Defaults to None.
             full_backup (bool, optional): Whether or not to make yaml file. Defaults to False.
         """
-        pyd = self.to_pydantic(backup=True)
+        pyd = self.to_pydantic()
         if fname is None:
             from frontend.widgets.functions import select_save_file
             fname = select_save_file(default_name=pyd.construct_filename(), extension="xlsx", obj=obj)
@@ -1557,6 +1534,10 @@ class Run(BaseClass, LogMixin):
         except ValueError:
             return None
         return delta
+
+    def met_turnaround(self):
+        tat = self.calculate_turnaround(start_date=self.started_date, end_date=self.completed_date)
+        return tat < self.clientsubmission.submissiontype.turnaround_time.days
 
     @property
     def allowed_procedures(self):
@@ -1731,7 +1712,6 @@ class Sample(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {item} for sample")
                     return
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, RunSampleAssociation):
                 if output not in self.samplerunassociation:
                     self.samplerunassociation.append(output)
@@ -1755,7 +1735,6 @@ class Sample(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {item} for sample")
                     return
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureSampleAssociation):
                 if output not in self.sampleprocedureassociation:
                     self.sampleprocedureassociation.append(output)
@@ -1785,9 +1764,6 @@ class Sample(BaseClass, LogMixin):
     def name(self, value):
         self.sample_id = value
 
-    # def __repr__(self) -> str:
-    #     return f"<Sample({self.sample_id})>"
-
     @classmethod
     @declared_attr
     def searchables(cls):
@@ -1813,7 +1789,8 @@ class Sample(BaseClass, LogMixin):
 
     def to_pydantic(self):
         from backend.validators import PydSample
-        return PydSample(**self.to_sub_dict())
+        # return PydSample(**self.to_sub_dict())
+        return PydSample(**self.details_dict)
 
     @classmethod
     @setup_lookup
@@ -1964,14 +1941,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
     
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     ClientSubmission.name,
-        #     "->",
-        #     Sample.name,
-        #     " (rank=",
-        #     cast(cls.submission_rank, String),
-        #     ")"
-        # ).label("name")
         clientsubmission_subquery = (
             select(ClientSubmission.name)
             .where(ClientSubmission.id==cls.clientsubmission)
@@ -2063,33 +2032,33 @@ class ClientSubmissionSampleAssociation(BaseClass):
         from backend.validators import PydSample
         return PydSample(**self.details_dict)
 
-    @property
-    def hitpicked(self) -> dict | None:
-        """
-        Outputs a dictionary usable for html plate maps.
+    # @property
+    # def hitpicked(self) -> dict | None:
+    #     """
+    #     Outputs a dictionary usable for html plate maps.
 
-        Returns:
-            dict: dictionary of sample id, row and column in elution plate
-        """
-        # NOTE: Since there is no PCR, negliable result is necessary.
-        sample = self.to_sub_dict()
-        env = jinja_template_loading()
-        template = env.get_template("support/tooltip.html")
-        tooltip_text = template.render(fields=sample)
-        try:
-            control = self.sample.control
-        except AttributeError:
-            control = None
-        if control is not None:
-            background = "rgb(128, 203, 196)"
-        else:
-            background = "rgb(105, 216, 79)"
-        try:
-            tooltip_text += sample['tooltip']
-        except KeyError:
-            pass
-        sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
-        return sample
+    #     Returns:
+    #         dict: dictionary of sample id, row and column in elution plate
+    #     """
+    #     # NOTE: Since there is no PCR, negliable result is necessary.
+    #     sample = self.to_sub_dict()
+    #     env = jinja_template_loading()
+    #     template = env.get_template("support/tooltip.html")
+    #     tooltip_text = template.render(fields=sample)
+    #     try:
+    #         control = self.sample.control
+    #     except AttributeError:
+    #         control = None
+    #     if control is not None:
+    #         background = "rgb(128, 203, 196)"
+    #     else:
+    #         background = "rgb(105, 216, 79)"
+    #     try:
+    #         tooltip_text += sample['tooltip']
+    #     except KeyError:
+    #         pass
+    #     sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
+    #     return sample
 
     @classmethod
     @setup_lookup
@@ -2232,7 +2201,6 @@ class RunSampleAssociation(BaseClass):
         to pass names like 'Omega Bacterial Extraction' and have the association
         properly wired.
         """
-        logger.debug(f"Kwargs: {kwargs}")
         run = kwargs.pop('run', None)
         sample = kwargs.pop('sample', None)
         run_rank = kwargs.pop("rank", 0)
@@ -2270,10 +2238,10 @@ class RunSampleAssociation(BaseClass):
         except AttributeError:
             sample = "Unassigned Sample"
         try:
-            submission_rank = self.submission_rank
+            run_rank = self.run_rank
         except AttributeError:
-            submission_rank = "No Submission Rank"
-        return f"{run}->{sample} (rank={self.run_rank})"
+            run_rank = "No Submission Rank"
+        return f"{run}->{sample} (rank={run_rank})"
     
     @name.expression
     def name(cls):
@@ -2441,7 +2409,7 @@ class RunSampleAssociation(BaseClass):
 
     @classmethod
     def query_or_create(cls,
-                        association_type: str = "Basic Association",
+                        # association_type: str = "Basic Association",
                         run: Run | str | None = None,
                         sample: Sample | str | None = None,
                         id: int | None = None,
@@ -2450,7 +2418,6 @@ class RunSampleAssociation(BaseClass):
         Queries for an association, if none exists creates a new one.
 
         Args:
-            association_type (str, optional): Subclass name. Defaults to "Basic Association".
             run (Run | str | None, optional): associated procedure. Defaults to None.
             sample (Sample | str | None, optional): associated sample. Defaults to None.
             id (int | None, optional): association id. Defaults to None.
@@ -2584,11 +2551,6 @@ class ProcedureSampleAssociation(BaseClass):
     
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     Procedure.name,
-        #     "-",
-        #     ResultsType.name
-        # ).label("name")
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -2650,11 +2612,15 @@ class ProcedureSampleAssociation(BaseClass):
                 output = Sample.query_or_create(**value)
             case PydSample():
                 output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
             case Sample():
                 output = value
             case _:
                 logger.error(f"Unmatched value {value} for sample")
                 return
+        if not PydSample.is_sample_id_valid(output.sample_id):
+            output = None
         if isinstance(output, Sample):
             self._sample = output
         else:
@@ -2750,13 +2716,9 @@ class ProcedureSampleAssociation(BaseClass):
         return output
 
     def to_pydantic(self, **kwargs):
-        # output = super().to_pydantic(pyd_model_name="PydSample")
         output = super().to_pydantic()
-        # from backend.validators.pydant import PydSample
-        # output = PydSample(**self.details_dict(**kwargs))
-        logger.debug(output.__dict__)
         try:
-            output.submission_rank = output.misc_info['submission_rank']
+            output.submission_rank = output.misc_info.get('submission_rank', None)
         except KeyError:
             logger.error(output)
         match self.sample.is_control:
@@ -2773,3 +2735,8 @@ class ProcedureSampleAssociation(BaseClass):
                 else:
                     output.background_color = "white"
         return output
+
+    def save(self):
+        if self.sample_id in [None, ""]:
+            return
+        super().save()        

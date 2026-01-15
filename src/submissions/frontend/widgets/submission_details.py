@@ -62,19 +62,20 @@ class SubmissionDetails(QDialog):
         self.webview.page().setWebChannel(self.channel)
 
     def object_details(self, object_):
-        from backend.db.models import ClientSubmission, Run
+        from backend.db.models import ClientSubmission, Run, Procedure
         logger.debug(f"Incoming object: {object_}")
         match object_:
             case ClientSubmission():
-                expand = [{"run":['procedure']}, "sample"]
+                # expand = [{"run":['procedure']}, "sample"]
+                expand = ["run", "sample"]
             case Run():
                 expand = ['procedure', 'sample']
+            
             case _:
                 expand = []
         details = object_.details_dict_expand_fields(fields=expand)
         
         details = object_.clean_details_for_render(details)
-        logger.debug(pformat(details['sample']))
         template = object_.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
         with open(template_path.joinpath("css", "styles.css"), "r") as f:

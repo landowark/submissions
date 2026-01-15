@@ -3,11 +3,11 @@ All kittype and reagent related models
 """
 from __future__ import annotations
 from pprint import pformat
-import zipfile, logging, re, numpy as np, sys
-from operator import itemgetter
-from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, extract, func, select, case
+from jinja2 import Template
+import zipfile, logging, re, numpy as np
+from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query, declared_attr, aliased
+from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, time, timedelta
 from dateutil.parser import parse as dateparse, ParserError
@@ -16,11 +16,10 @@ from typing import List, Literal, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from inspect import getattr_static
 
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run, ProcedureSampleAssociation
-    from backend.validators.pydant import PydSample, PydEquipment, PydProcedure, PydRun
+    from backend.validators.pydant import PydSample, PydEquipment, PydProcedure, PydRun, PydEquipmentRole
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -64,15 +63,6 @@ process_tips = Table(
     extend_existing=True
 )
 
-# procedure_equipment_tipslot = Table(
-#     "_procedure_equipment_tipslot",
-#     BaseClass.__base__.metadata,
-#     Column("procedure_id", INTEGER, ForeignKey("_procedureequipmentassociation.procedure_id")),
-#     Column("equipment_id", INTEGER, ForeignKey("_procedureequipmentassociation.equipment_id")),
-#     Column("equipmentrole_id", INTEGER, ForeignKey("_procedureequipmentassociation.equipmentrole_id")),
-#     Column("tipslot_id", INTEGER, ForeignKey("_tipslot.id")),
-#     extend_existing=True
-# )
 
 submissiontype_proceduretype = Table(
     "_submissiontype_proceduretype",
@@ -156,7 +146,6 @@ class ReagentRole(BaseClass):
                     continue
             if isinstance(output, ProcedureTypeReagentRoleAssociation):
                 if output not in self.reagentroleproceduretypeassociation:
-                    # self.__database_session__.add(output)
                     self.reagentroleproceduretypeassociation.append(output)
             else:
                 logger.error(f"Could not add {item} to _proceduretype")
@@ -178,7 +167,6 @@ class ReagentRole(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {value} for {self}._reagent")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ReagentRoleReagentAssociation):
                 if output not in self.reagentrolereagentassociation:
                     self.reagentrolereagentassociation.append(output)
@@ -212,11 +200,6 @@ class ReagentRole(BaseClass):
             ReagentRole|List[ReagentRole]: ReagentRole or list of ReagentRoles matching filter.
         """
         query: Query = cls.__database_session__.query(cls)
-        # if (proceduretype is not None and reagent is None) or (reagent is not None and proceduretype is None):
-        #     raise ValueError("Cannot filter without both reagent and kittype type.")
-        # elif proceduretype is None and reagent is None:
-        #     pass
-        # else:
         match proceduretype:
             case str():
                 proceduretype = ProcedureType.query(name=proceduretype)
@@ -233,10 +216,6 @@ class ReagentRole(BaseClass):
                 query = query.filter(cls._reagent==reagent)
             case _:
                 pass
-            # assert reagent.role
-            # # NOTE: Get all roles common to the reagent and the kittype.
-            # result = set(proceduretype.reagentrole).intersection(reagent.role)
-            # return next((item for item in result), None)
         match name:
             case str():
                 query = query.filter(cls.name == name)
@@ -340,7 +319,6 @@ class Reagent(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {value} for {self}._reagentrole")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ReagentRoleReagentAssociation):
                 if output not in self.reagentreagentroleassociation:
                     self.reagentreagentroleassociation.append(output)
@@ -390,10 +368,10 @@ class Reagent(BaseClass, LogMixin):
             else:
                 logger.error(f"Could not add {item} to _reagentlot")
 
-    @classmethod
-    @declared_attr
-    def searchables(cls):
-        return [dict(label="Lot", field="lot")]
+    # @classmethod
+    # @declared_attr
+    # def searchables(cls):
+    #     return [dict(label="Lot", field="lot")]
 
     @classmethod
     @setup_lookup
@@ -447,9 +425,14 @@ class Reagent(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    
     @property
-    def lot_dicts(self):
+    def lot_dicts(self) -> List[dict[str, Any]]:
+        """
+        Gets all lots available for this Reagent
+        
+        Returns: 
+            List[dict[str, Any]]: List of lot details. 
+        """
         return [dict(name=self.name, lot=lot.lot, expiry=lot.expiry + self.eol_ext) for lot in self.reagentlot]
 
 
@@ -530,11 +513,14 @@ class ReagentLot(BaseClass):
     
     @procedure.setter
     def procedure(self, value):
-        error_msg = f"Can't add item {value} to {self.name}._procedure"
         if not isinstance(value, list):
             value = [value]
         for item in value:
             match item:
+                case Procedure():
+                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.details_dict if k != 'name'})
+                case PydProcedure():
+                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.improved_dict if k != 'name'})
                 case dict():
                     output = ProcedureReagentLotAssociation(procedure=item['name'], reagentlot=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureReagentLotAssociation():
@@ -560,8 +546,6 @@ class ReagentLot(BaseClass):
         match value:
             case datetime() | date():
                 output = value
-            # case date():
-            #     output = datetime.combine(value, datetime.max.time())
             case int():
                 output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
@@ -605,7 +589,7 @@ class ReagentLot(BaseClass):
         if isinstance(output, Reagent):
             self._reagent = output
         else:
-                logger.error(f"Could not add {item} to ._reagent.")
+                logger.error(f"Could not add {value} to ._reagent.")
         
     @hybrid_property
     def active(self):
@@ -639,22 +623,13 @@ class ReagentLot(BaseClass):
 
     @name.expression
     def name(cls):
-        # We need the Process table available in the context of the main query
-        # We use a correlated approach or rely on an implicit join when filtering
-        # The key is to return a SQL expression directly:
-        # Use func.concat() with an explicit join to the Process table
-        # return func.concat(
-        #     Reagent.name,
-        #     "-",
-        #     cls.lot
-        # ).label("name")
         regeant_subquery = (
             select(Reagent.name)
             .where(Reagent.id==cls.reagent_id)
             .correlate(cls)
             .scalar_subquery()
         )
-        # Note: Can't use f strings for this for some reason.
+        # NOTE: Can't use f strings for this.
         return regeant_subquery + "-" + cls.lot
 
     @classmethod
@@ -701,19 +676,14 @@ class ReagentLot(BaseClass):
     @check_authorization
     def edit_from_search(self, obj, **kwargs):
         from frontend.widgets.omni_add_edit import AddEdit
-        from backend.validators.pydant import PydElastic
         dlg = AddEdit(parent=None, instance=self, disabled=['reagent'])
         if dlg.exec():
             pyd = dlg.parse_form()
-            # logger.debug(f"Pydantic returned: {type(pyd)} {pyd.model_fields}")
             fields = pyd.model_fields
-            if isinstance(pyd, PydElastic):
-                fields.update(pyd.model_extra)
             for field in fields:
                 if field in ['instance']:
                     continue
                 field_value = pyd.__getattribute__(field)
-                # logger.debug(f"Setting {field} in Reagent Lot to {field_value}")
                 self.set_attribute(field, field_value)
             self.save()
 
@@ -788,17 +758,6 @@ class Discount(BaseClass):
     
     @name.expression
     def name(cls):
-        # We need the Process table available in the context of the main query
-        # We use a correlated approach or rely on an implicit join when filtering
-        # The key is to return a SQL expression directly:
-        # Use func.concat() with an explicit join to the Process table
-        # return func.concat(
-        #     ClientLab.name,
-        #     "-",
-        #     ProcedureType.name,
-        #     "-",
-        #     cast(cls.amount, String)
-        # ).label("name")
         clientlab_subquery = (
             select(ClientLab.name)
             .where(ClientLab.id==cls.clientlab_id)
@@ -811,7 +770,7 @@ class Discount(BaseClass):
             .correlate(cls)
             .scalar_subquery()
         )
-        # Note: Can't use f strings for this for some reason.
+        # NOTE: Can't use f strings for this.
         return clientlab_subquery + "-" + proceduretype_subquery + "-" + cast(cls.amount, String)
 
     @hybrid_property
@@ -821,12 +780,6 @@ class Discount(BaseClass):
     @clientlab.setter
     def clientlab(self, value):
         from backend.validators.pydant import PydClientLab
-        # if value is None:
-        #     value = []
-        # if not isinstance(value, list):
-        #     value = [value]
-        # for item in value:
-            
         match value:
             case str():
                 output = ClientLab.query(name=value, limit=1)
@@ -843,7 +796,6 @@ class Discount(BaseClass):
                 # continue
                 return
         if isinstance(output, ClientLab):
-            # if output not in self._clientlab:
             self._clientlab = output
         else:
             logger.error(f"Couldn't set _clientlab to {type(output)}")
@@ -870,7 +822,6 @@ class Discount(BaseClass):
                 logger.error(f"Unmatched value {value} for .proceduretype")
                 return
         if isinstance(output, ProcedureType):
-            # if output not in self._clientlab:
             self._proceduretype = output
         else:
             logger.error(f"Couldn't set _proceduretype to {type(output)}")
@@ -926,6 +877,8 @@ class SubmissionType(BaseClass):
     name = Column(String(128), unique=True)  #: name of procedure type
     defaults = Column(JSON)  #: Basic information about this procedure type
     file_name_template = Column(String(256))  #: Jinja2 template for naming files of this submission type
+    regex = Column(String(1024)) #: Raw regex for finding filenames of this submission type
+    _turnaround_time = Column((Interval()))
     abbreviation = Column(String(4))
     _clientsubmission = relationship("ClientSubmission",
                                     back_populates="_submissiontype", cascade="all, delete-orphan")  #: Instances of this submission type
@@ -963,13 +916,6 @@ class SubmissionType(BaseClass):
                 except Exception:
                     pass
     
-    def __repr__(self) -> str:
-        """
-        Returns:
-            str: Representation of this object.
-        """
-        return f"<SubmissionType({self.name})>"
-
     @hybrid_property
     def clientsubmission(self):
         return self._clientsubmission
@@ -1015,14 +961,15 @@ class SubmissionType(BaseClass):
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            error_msg = f"Can't add item {item} to {self.name}._proceduretype"
             match item:
                 case str():
                     output = ProcedureType.query(name=item, limit=1)
                 case dict():
                     output = ProcedureType.query_or_create(**item)
                 case PydProcedureType():
-                    output = item.to_pydantic()
+                    output = item.to_sql()
+                    if isinstance(output, tuple):
+                        return output[0]
                 case ProcedureType():
                     output = item
                 case _:
@@ -1034,6 +981,28 @@ class SubmissionType(BaseClass):
             else:
                 logger.error(f"Could not add {item} to ._proceduretype")
     
+    @hybrid_property
+    def turnaround_time(self):
+        if self._turnaround_time:
+            return self._turnaround_time
+        else:
+            return timedelta(days=3)
+        
+    @turnaround_time.setter
+    def turnaround_time(self, value):
+        match value:
+            case int() | str():
+                output = timedelta(days=int(value))
+            case timedelta():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for turnaround_time")
+                output = timedelta(days=3)
+        if isinstance(output, timedelta):
+            self._turnaround_time = output
+        else:
+            logger.error(f"Could not set turnaround_time to {type(output)}")
+
     @classproperty
     def aliases(cls) -> List[str]:
         """
@@ -1043,20 +1012,6 @@ class SubmissionType(BaseClass):
             List[str]: List of names
         """
         return super().aliases + ["submissiontypes"]
-
-    # @classmethod
-    # def query_or_create(cls, **kwargs) -> Tuple[SubmissionType, bool]:
-    #     new = False
-    #     disallowed = ['expiry']
-    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-    #     instance = cls.query(**sanitized_kwargs)
-    #     if not instance or isinstance(instance, list):
-    #         instance = cls()
-    #         new = True
-    #     for k, v in sanitized_kwargs.items():
-    #         setattr(instance, k, v)
-    #     logger.info(f"Instance from submissiontype query or create: {instance}")
-    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -1080,7 +1035,6 @@ class SubmissionType(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
-                # logger.debug(f"querying with {name}")
                 query = query.filter(cls.name == name)
                 limit = 1
             case _:
@@ -1099,22 +1053,15 @@ class SubmissionType(BaseClass):
         """
         super().save()
 
-    @classmethod
-    @declared_attr
-    def info_map_json_edit_fields(cls):
-        dicto = dict()
-        return dicto
-
-    @classmethod
-    @declared_attr
-    def regex(cls) -> re.Pattern:
+    @classproperty
+    def regexes(cls) -> re.Pattern:
         """
         Constructs catchall regex.
 
         Returns:
             re.Pattern: Regular expression pattern to discriminate between procedure types.
         """
-        res = [st.defaults['regex'] for st in cls.query() if st.defaults]
+        res = [st.regex for st in cls.query() if st.regex]
         rstring = rf'{"|".join(res)}'
         regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
         return regex
@@ -1134,12 +1081,12 @@ class SubmissionType(BaseClass):
             submission_type = cls.query(name=submission_type['value'])
         if isinstance(submission_type, list):
             if len(submission_type) > 1:
-                regex = "|".join([item.defaults['regex'] for item in submission_type])
+                regex = "|".join([item.regex for item in submission_type])
             else:
-                regex = submission_type[0].defaults.get('regex', None)
+                regex = submission_type[0].regex
         else:
             try:
-                regex = submission_type.defaults.get('regex', None)
+                regex = submission_type.regex
             except AttributeError as e:
                 logger.error(f"Couldn't get submission type for {submission_type.name}")
                 regex = None
@@ -1149,6 +1096,10 @@ class SubmissionType(BaseClass):
             except re.error as e:
                 regex = None
         return regex
+    
+    @property
+    def template(self) -> Template:
+        return Template(str(self.file_name_template))
 
 
 class ProcedureType(BaseClass):
@@ -1249,49 +1200,21 @@ class ProcedureType(BaseClass):
                 except Exception:
                     pass
 
-    # def create_reagentrole_association(self, reagentrole: str | dict | ReagentRole) -> ProcedureTypeReagentRoleAssociation:
-    #     """
-    #     Create an association between this ProcedureType and a ReagentRole.
-
-    #     Args:
-    #         reagentrole (ReagentRole | str): ReagentRole of interest.
-    #         uses (dict | None, optional): Map of uses for this reagentrole in this proceduretype. Defaults to None.
-    #     Returns:
-    #         ProcedureTypeReagentRoleAssociation: Created association.
-    #     """        
-    #     from backend.validators.pydant import PydReagentRole
-    #     if not isinstance(reagentrole, list):
-    #         reagentrole = [reagentrole]
-    #     for rr in reagentrole:
-    #         match rr:
-    #             case str():
-    #                 reagentrole_instance = ReagentRole.query(name=rr, limit=1)
-    #             case dict():
-    #                 reagentrole_instance = ReagentRole.query(name=rr.get('name'), limit=1)
-    #                 del rr['name']
-    #             case PydReagentRole():
-    #                 reagentrole_instance = rr.to_sql()
-    #             case ReagentRole():
-    #                 reagentrole_instance = rr
-    #             case _:
-    #                 raise TypeError(f"Can't create association with {rr}")
-    #         association = ProcedureTypeReagentRoleAssociation(proceduretype=self, reagentrole=reagentrole_instance, **(reagentrole if isinstance(reagentrole, dict) else {}))
-    #         # association.proceduretype = self
-    #         # association.reagentrole = reagentrole_instance
-    #         # association.__dict__.update(reagentrole if isinstance(reagentrole, dict) else {})
-    #         self.proceduretypereagentroleassociation.append(association)
-    #         return association
-
     @hybrid_property
     def equipmentrole(self):
         return self._equipmentrole
     
     @equipmentrole.setter
     def equipmentrole(self, value):
+        from backend.validators.pydant import PydEquipmentRole
         if not isinstance(value, list):
             value = [value]
         for item in value:
             match item:
+                case EquipmentRole():
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict if k != 'name'})
+                case PydEquipmentRole():
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict if k != 'name'})
                 case dict():
                     output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureTypeEquipmentRoleAssociation():
@@ -1299,7 +1222,6 @@ class ProcedureType(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item} for equipmentrole")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureTypeEquipmentRoleAssociation):
                 if output not in self.proceduretypeequipmentroleassociation:
                     self.proceduretypeequipmentroleassociation.append(output)
@@ -1312,13 +1234,17 @@ class ProcedureType(BaseClass):
     
     @reagentrole.setter
     def reagentrole(self, value):
+        from backend.validators.pydant import PydReagentRole
         if not isinstance(value, list):
             value = [value]
         for item in value:
             match item:
+                case ReagentRole():
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict if k != 'name'})
+                case PydReagentRole():
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict if k != 'name'})
                 case str():
-                    rr = ReagentRole.query(name=item)
-                    output = ProcedureTypeReagentRoleAssociation(reagentrole=rr, proceduretype=self)
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self)
                 case dict():
                     output = ProcedureTypeReagentRoleAssociation(reagentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureTypeReagentRoleAssociation():
@@ -1326,7 +1252,6 @@ class ProcedureType(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item} for reagentrole")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureTypeReagentRoleAssociation):
                 if output not in self.proceduretypereagentroleassociation:
                     self.proceduretypereagentroleassociation.append(output)
@@ -1377,7 +1302,6 @@ class ProcedureType(BaseClass):
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            
             match item:
                 case str():
                     output = SubmissionType.query(name=item, limit=1)
@@ -1390,7 +1314,8 @@ class ProcedureType(BaseClass):
                 case SubmissionType():
                     output = item
                 case _:
-                    raise TypeError(error_msg)
+                    logger.error(f"Unmatched value {item} for proceduretype")
+                    continue
             if isinstance(output, SubmissionType):
                 self._submissiontype.append(output)
             else:
@@ -1429,58 +1354,6 @@ class ProcedureType(BaseClass):
             else:
                 logger.error(f"Could not add {type(output)} to procedure")
 
-    def construct_field_map(self, field: Literal['equipment', 'tip']) -> Generator[(str, dict), None, None]:
-        """
-        Make a map of all locations for tips or equipment.
-
-        Args:
-            field (Literal['equipment', 'tip']): the field to construct a map for
-
-        Returns:
-            Generator[(str, dict), None, None]: Generator composing key, locations for each item in the map
-        """
-        for item in self.__getattribute__(f"proceduretype{field}role_associations"):
-            fmap = item.uses
-            if fmap is None:
-                fmap = {}
-            yield getattr(item, f"{field}_role").name, fmap
-
-    def get_equipment(self) -> Generator['PydEquipmentRole', None, None]:
-        """
-        Returns PydEquipmentRole of all equipment associated with this SubmissionType
-
-        Returns:
-            Generator['PydEquipmentRole', None, None]: List of equipment roles
-        """
-        return (item.to_pydantic(proceduretype=self) for item in self.equipment)
-
-    def get_processes_for_role(self, equipmentrole: str | EquipmentRole) -> list:
-        """
-        Get process associated with this SubmissionType for an EquipmentRole
-
-        Args:
-            equipmentrole (str | EquipmentRole): EquipmentRole of interest
-            kittype (str | KitType | None, optional): Kit of interest. Defaults to None.
-
-        Raises:
-            TypeError: Raised if wrong type given for equipmentrole
-
-        Returns:
-            list: list of associated process
-        """
-        match equipmentrole:
-            case str():
-                relevant = [item.get_all_processes() for item in self.proceduretypeequipmentroleassociation if
-                            item.equipmentrole.name == equipmentrole]
-            case EquipmentRole():
-                relevant = [item.get_all_processes() for item in self.proceduretypeequipmentroleassociation if
-                            item.equipmentrole == equipmentrole]
-            case _:
-                raise TypeError(f"Type {type(equipmentrole)} is not allowed")
-        return list(set([item for items in relevant for item in items if item is not None]))
-
-    
-
     def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
         from backend.validators.pydant import PydProcedure
         if run:
@@ -1497,41 +1370,6 @@ class ProcedureType(BaseClass):
         )
         return PydProcedure(**output)
         
-    def construct_plate_map(self, sample_dicts: List[PydSample], creation:bool=True, vw_modifier:float=1.0) -> str:
-        """
-        Constructs an html based plate map for procedure details.
-
-        Args:
-            sample_list (list): List of procedure sample
-            plate_rows (int, optional): Number of rows in the plate. Defaults to 8.
-            plate_columns (int, optional): Number of columns in the plate. Defaults to 12.
-
-        Returns:
-            str: html output string.
-        """
-        if self.plate_rows == 0 or self.plate_columns == 0:
-            return "<br/>"
-        sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
-        vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
-        # NOTE: An overly complicated list comprehension create a lisst of sample locations
-        # NOTE: next will return a blank cell if no value found for row/column
-        env = jinja_template_loading()
-        template = env.get_template("support/plate_map.html")
-        html = template.render(plate_rows=self.plate_rows, plate_columns=self.plate_columns, samples=sample_dicts,
-                               vw=vw, creation=creation)
-        return html + "<br/>"
-
-    def pad_sample_dicts(self, sample_dicts: List[PydSample]):
-        from backend.validators.pydant import PydSample
-        output = []
-        for row, column in self.ranked_plate.values():
-            sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
-                          PydSample(**dict(sample_id="", row=row, column=column, enabled=False, background_color="white")))
-            # if not hasattr(sample, "background_color"):
-            #     sample.background_color = "white"
-            output.append(sample)
-        return output
-
     @property
     def ranked_plate(self):
         matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
@@ -1540,6 +1378,10 @@ class ProcedureType(BaseClass):
     @property
     def total_wells(self):
         return self.plate_rows * self.plate_columns
+
+    @property
+    def allowed_result_methods(self):
+        return [item.name for item in self.resultstype]
 
 
 class Procedure(BaseClass):
@@ -1719,7 +1561,6 @@ class Procedure(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item} for reagentlot")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureReagentLotAssociation):
                 if output not in self.procedurereagentlotassociation:
                     self.procedurereagentlotassociation.append(output)
@@ -1754,7 +1595,6 @@ class Procedure(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item} for equipment")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureEquipmentAssociation):
                 if output not in self.procedureequipmentassociation:
                     self.procedureequipmentassociation.append(output)
@@ -1772,7 +1612,6 @@ class Procedure(BaseClass):
         if not isinstance(value, list):
             value = [value]
         for iii, item in enumerate(value, start=1):
-            # logger.debug(f"Processing sample {item}")
             match item:
                 case PydProcedureSampleAssociation():
                     output = item.to_sql()
@@ -1790,7 +1629,6 @@ class Procedure(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item.__class__.__qualname__} for sample")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureSampleAssociation):
                 if output not in self.proceduresampleassociation:
                     self.proceduresampleassociation.append(output)
@@ -2021,7 +1859,7 @@ class Procedure(BaseClass):
         logger.info(f"Add Results! {resultstype_name}")
         from backend.managers import results
         results_manager = getattr(results, f"{resultstype_name}Manager")
-        rs = results_manager(procedure=self, parent=obj)#, fname=Path("C:\\Users\lwark\Documents\Submission_Forms\QubitData_18-09-2025_13-43-53.csv"))
+        rs = results_manager(procedure=self, parent=obj)
         procedure_results = rs.procedure_to_pydantic()
         samples_results = rs.samples_to_pydantic()
         if procedure_results:
@@ -2113,10 +1951,6 @@ class Procedure(BaseClass):
             [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
         return output
 
-    # def create_proceduresampleassociations(self, sample):
-    #     from backend.db.models import ProcedureSampleAssociation
-    #     return ProcedureSampleAssociation(procedure=self, sample=sample)
-
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
         dicto = super().get_default_info()
@@ -2146,7 +1980,8 @@ class Procedure(BaseClass):
 
     def make_procedure_platemap(self):
         dicto = [sample.to_pydantic() for sample in self.proceduresampleassociation]
-        html = self.proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
+        proceduretype = self.proceduretype.to_pydantic()
+        html = proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
         return html
 
     @property
@@ -2254,7 +2089,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             case _:
                 logger.error(f"Unmatched value {value} for reagentrole")
                 return
-        # logger.debug(f"Setting reagentrole with output: {output}")
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
@@ -2274,11 +2108,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     ProcedureType.name,
-        #     "->",
-        #     ReagentRole.name
-        # ).label("name")
         proceduretype_subquery = (
             select(ProcedureType.name)
             .where(ProcedureType.id==cls.proceduretype_id)
@@ -2291,36 +2120,8 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             .correlate(cls)
             .scalar_subquery()
         )
-        # Note: Can't use f strings for this for some reason.
+        # Note: Can't use f strings for this.
         return proceduretype_subquery + "->" + reagentrole_subquery
-
-    # @classmethod
-    # def query_or_create(cls, **kwargs) -> Tuple[ProcedureTypeReagentRoleAssociation, bool]:
-    #     new = False
-    #     disallowed = ['expiry']
-    #     sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
-    #     instance = cls.query(**sanitized_kwargs)
-    #     if not instance or isinstance(instance, list):
-    #         instance = cls()
-    #         new = True
-    #     for k, v in sanitized_kwargs.items():
-    #         # logger.debug(f"Key: {k} has value: {v}")
-    #         match k:
-    #             case "proceduretype":
-    #                 if isinstance(v, str):
-    #                     v = SubmissionType.query(name=v)
-    #                 else:
-    #                     v = v.instance_object
-    #             case "reagentrole":
-    #                 if isinstance(v, str):
-    #                     v = ReagentRole.query(name=v)
-    #                 else:
-    #                     v = v.instance_object
-    #             case _:
-    #                 pass
-    #         setattr(instance, k, v)
-    #     # logger.info(f"Instance from query or create: {instance.__dict__}\nis new: {new}")
-    #     return instance, new
 
     @classmethod
     @setup_lookup
@@ -2381,17 +2182,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                              not check_regex_match(pattern=regex, check=str(reagent.lot))]
         for rel_reagent in relevant_reagents:
             yield rel_reagent
-
-    @classmethod
-    @declared_attr
-    def json_edit_fields(cls) -> dict:
-        dicto = dict(
-            sheet="str",
-            expiry=dict(column="int", row="int"),
-            lot=dict(column="int", row="int"),
-            name=dict(column="int", row="int")
-        )
-        return dicto
 
 
 class ProcedureReagentLotAssociation(BaseClass):
@@ -2469,11 +2259,6 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     Procedure.name,
-        #     "->",
-        #     ReagentLot.name
-        # ).label("name")
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -2620,7 +2405,6 @@ class ProcedureReagentLotAssociation(BaseClass):
         output.update(relevant)
         output['reagentrole'] = self.reagentrole.name
         output['misc_info'] = misc
-        # logger.debug(f"Output: {pformat(output)}")
         return output
 
     def delete(self, **kwargs):
@@ -2687,11 +2471,6 @@ class ReagentRoleReagentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     ReagentRole.name,
-        #     "->",
-        #     Reagent.name
-        # ).label("name")
         reagentrole_subquery = (
             select(ReagentRole.name)
             .where(ReagentRole.id==cls.reagentrole_id)
@@ -2834,7 +2613,6 @@ class EquipmentRole(BaseClass):
                 case _:
                     logger.error(f"Can't add item {item} to {self.name}._equipment")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, EquipmentRoleEquipmentAssociation):
                 if output not in self.equipmentroleequipmentassociation:
                     self.equipmentroleequipmentassociation.append(output)
@@ -2863,7 +2641,6 @@ class EquipmentRole(BaseClass):
                 case _:
                     logger.error(f"Unmatched value type: {item} for EquipmentRole.proceduretype")
                     continue
-            # logger.debug(f"Setting proceduretype with output: {output}")
             if isinstance(output, ProcedureTypeEquipmentRoleAssociation):
                 if output not in self.equipmentroleproceduretypeassociation:
                     self.equipmentroleproceduretypeassociation.append(output)
@@ -2882,7 +2659,6 @@ class EquipmentRole(BaseClass):
             new = True
         for k, v in sanitized_kwargs.items():
             setattr(instance, k, v)
-        # logger.info(f"Instance from query or create: {instance}")
         return instance, new
 
     @classmethod
@@ -3007,7 +2783,6 @@ class Equipment(BaseClass, LogMixin):
     
     @equipmentrole.setter
     def equipmentrole(self, value: List[dict | str | EquipmentRole]):
-        # current = self.equipmentequipmentroleassociation
         if not isinstance(value, list):
             value = [value]
         for item in value:
@@ -3128,38 +2903,38 @@ class Equipment(BaseClass, LogMixin):
                           (?P<Labcon>\d{4}-\d{3}-\d{3}-\d$)""",
                           re.VERBOSE)
 
-    @classmethod
-    def assign_equipment(cls, equipmentrole: EquipmentRole | str) -> List[Equipment]:
-        """
-        Creates a list of equipment from user input to be used in Submission Type creation
+    # @classmethod
+    # def assign_equipment(cls, equipmentrole: EquipmentRole | str) -> List[Equipment]:
+    #     """
+    #     Creates a list of equipment from user input to be used in Submission Type creation
 
-        Args:
-            equipmentrole (EquipmentRole): Equipment reagentrole to be added to.
+    #     Args:
+    #         equipmentrole (EquipmentRole): Equipment reagentrole to be added to.
 
-        Returns:
-            List[Equipment]: User selected equipment.
-        """
-        if isinstance(equipmentrole, str):
-            equipmentrole = EquipmentRole.query(name=equipmentrole)
-        equipment = cls.query()
-        options = "\n".join([f"{ii}. {item.name}" for ii, item in enumerate(equipment)])
-        choices = input(f"Enter equipment numbers to add to {equipmentrole.name} (space separated):\n{options}\n\n")
-        output = []
-        for choice in choices.split(" "):
-            try:
-                choice = int(choice)
-            except (AttributeError, ValueError):
-                continue
-            output.append(equipment[choice])
-        return output
+    #     Returns:
+    #         List[Equipment]: User selected equipment.
+    #     """
+    #     if isinstance(equipmentrole, str):
+    #         equipmentrole = EquipmentRole.query(name=equipmentrole)
+    #     equipment = cls.query()
+    #     options = "\n".join([f"{ii}. {item.name}" for ii, item in enumerate(equipment)])
+    #     choices = input(f"Enter equipment numbers to add to {equipmentrole.name} (space separated):\n{options}\n\n")
+    #     output = []
+    #     for choice in choices.split(" "):
+    #         try:
+    #             choice = int(choice)
+    #         except (AttributeError, ValueError):
+    #             continue
+    #         output.append(equipment[choice])
+    #     return output
 
-    def get_processes(self, equipmentrole: str):
-        output = []
-        for assoc in self.equipmentequipmentroleassociation:
-            if assoc.equipmentrole.name != equipmentrole:
-                continue
-            output.append(assoc.process.to_pydantic())
-        return output
+    # def get_processes(self, equipmentrole: str):
+    #     output = []
+    #     for assoc in self.equipmentequipmentroleassociation:
+    #         if assoc.equipmentrole.name != equipmentrole:
+    #             continue
+    #         output.append(assoc.process.to_pydantic())
+    #     return output
 
 
 class EquipmentRoleEquipmentAssociation(BaseClass):
@@ -3232,11 +3007,6 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     EquipmentRole.name,
-        #     "->",
-        #     Equipment.name
-        # ).label("name")
         equipmentrole_subquery = (
             select(EquipmentRole.name)
             .where(EquipmentRole.id==cls.equipmentrole_id)
@@ -3267,7 +3037,6 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                     output = Process.query(name=item, limit=1)
                 case dict():
                     output = Process.query_or_create(**item)
-                    # query_or_create returns (instance, new) — unwrap to instance if needed
                     if isinstance(output, tuple):
                         output = output[0]
                 case PydProcess():
@@ -3298,7 +3067,6 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                 output = Equipment.query(name=value, limit=1)              
             case dict():
                 output = Equipment.query_or_create(**value)
-                # query_or_create returns (instance, new) — unwrap to instance if needed
                 if isinstance(output, tuple):
                     output = output[0]
             case PydEquipment():
@@ -3327,7 +3095,6 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                 output = EquipmentRole.query(name=value, limit=1)
             case dict():
                 output = EquipmentRole.query_or_create(**value)
-                # query_or_create returns (instance, new) — unwrap to instance if needed
                 if isinstance(output, tuple):
                     output = output[0]
             case PydEquipmentRole():
@@ -3542,7 +3309,6 @@ class Process(BaseClass):
               name: str | None = None,
               id: int | None = None,
               proceduretype: str | ProcedureType | None = None,
-              # kittype: str | KitType | None = None,
               equipmentrole: str | EquipmentRole | None = None,
               limit: int = 0,
               **kwargs) -> Process | List[Process]:
@@ -3602,8 +3368,6 @@ class Process(BaseClass):
 
 
 class ProcessVersion(BaseClass):
-
-    # pyd_model_name = "ProcessVersion"
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     version = Column(FLOAT(2), default=1.00)  #: Version number
@@ -3702,15 +3466,6 @@ class ProcessVersion(BaseClass):
 
     @name.expression
     def name(cls):
-        # We need the Process table available in the context of the main query
-        # We use a correlated approach or rely on an implicit join when filtering
-        # The key is to return a SQL expression directly:
-        # Use func.concat() with an explicit join to the Process table
-        # return func.concat(
-        #     Process.name,
-        #     "-v",
-        #     cast(cls.version, String)
-        # ).label("name")
         process_subquery = (
             select(Process.name)
             .where(Process.id==cls.process_id)
@@ -3986,6 +3741,27 @@ class TipsLot(BaseClass, LogMixin):
 
     @expiry.setter
     def expiry(self, value):
+        match value:
+            case datetime():
+                output = value
+            case date():
+                output = datetime.combine(value, datetime.max.time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for datetime")
+        value = output.replace(tzinfo=timezone)
         self._expiry = value
     
     @hybrid_property
@@ -4032,17 +3808,6 @@ class TipsLot(BaseClass, LogMixin):
 
     @name.expression
     def name(cls):
-        # We need the Process table available in the context of the main query
-        # We use a correlated approach or rely on an implicit join when filtering
-        # The key is to return a SQL expression directly:
-        # Use func.concat() with an explicit join to the Process table
-        # return func.concat(
-        #     Tips.manufacturer,
-        #     "-",
-        #     Tips.ref,
-        #     "-",
-        #     cast(cls.lot, String)
-        # ).label("name")
         tipsman_subquery = (
             select(Tips.manufacturer)
             .where(Tips.id==cls.tips_id)
@@ -4189,6 +3954,96 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
         foreign_keys=[tipslot_id]
     )
 
+    @hybrid_property
+    def procedureequipmentassociation(self):
+        return self._procedureequipmentassociation
+
+    @procedureequipmentassociation.setter
+    def procedureequipmentassociation(self, value):
+        match value:
+            case dict():
+                output = ProcedureEquipmentAssociation.query_or_create(**value)
+            case ProcedureEquipmentAssociation():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {type(value)} for tipslot")
+                return
+        if isinstance(output, ProcedureEquipmentTipslotAssociation):
+            self._procedureequipmenttipslotassociation = output
+        else:
+            logger.error(f"Could not add {type(output)} to _tipslot")
+
+    @hybrid_property
+    def tipslot(self):
+        return self._tipslot
+
+    @tipslot.setter
+    def tipslot(self, value):
+        from backend.validators.pydant.concrete import PydTipsLot
+        match value:
+            case str():
+                output = TipsLot.query(name=value, limit=1)
+            case dict():
+                output = TipsLot.query_or_create(**value)
+            case PydTipsLot():
+                output = value.to_sql(update=False)
+                if isinstance(output, tuple):
+                    output = output[0]
+            case TipsLot():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {type(value)} for tipslot")
+                return
+        if isinstance(output, TipsLot):
+            self._tipslot = output
+        else:
+            logger.error(f"Could not add {type(output)} to _tipslot")
+
+    @hybrid_property
+    def name(self) -> str:
+        try:
+            equipmentrole = self.procedureequipmentassociation.equipmentrole.name
+        except AttributeError as e:
+            equipmentrole = "Unknown EquipmentRole"
+        try:
+            tipslot = self.tipslot.name
+        except AttributeError as e:
+            tipslot = "Unknown TipsLot"
+        return f"{equipmentrole}->{tipslot}"
+
+    def __init__(self, *args, **kwargs):
+        """
+        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        into actual model instances before setting attributes. This allows callers
+        to pass names like 'Omega Bacterial Extraction' and have the association
+        properly wired.
+        """
+        from backend.validators.pydant import PydProcessVersion
+        procedureequipmentassociation = kwargs.pop('procedureequipmentassociation', None)
+        tipslot = kwargs.pop('tipslot', None)
+        # Call SQLAlchemy/dataclass init first to avoid missing internal setup
+        super().__init__(*args, **kwargs)
+        # Resolve proceduretype
+        if procedureequipmentassociation is not None:
+            try:
+                self.procedureequipmentassociation = procedureequipmentassociation
+            except Exception:
+                # fallback: store in misc_info if setter fails
+                try:
+                    self._misc_info.update({'procedureequipmentassociation': procedureequipmentassociation})
+                except Exception:
+                    pass
+        # Resolve reagentrole
+        
+        if tipslot is not None:
+            try:
+                self.tipslot = tipslot
+            except Exception:
+                try:
+                    self._misc_info.update({'tipslot': tipslot})
+                except Exception:
+                    pass
+
 
 class ProcedureEquipmentAssociation(BaseClass):
     """
@@ -4298,26 +4153,27 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @tipslot.setter
     def tipslot(self, value):
-        from backend.validators.pydant import PydTipsLot
+        from backend.validators.pydant.concrete import PydTipsLot
         if not isinstance(value, list):
             value = [value]
         for item in value:
-            match value:
+            match item:
                 case str():
                     output = TipsLot.query(name=item, limit=1)
                 case dict():
                     output = TipsLot.query_or_create(**item)
                 case PydTipsLot():
-                    output = value.to_sql(update=False)
+                    output = item.to_sql(update=False)
                     if isinstance(output, tuple):
                         output = output[0]
                 case TipsLot():
-                    output = value
+                    output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for tipslot")
+                    logger.error(f"Unmatched value {type(item)} for tipslot")
                     continue
-            if isinstance(output, TipsLot):
-                self._tipslot.append(output)
+            output = ProcedureEquipmentTipslotAssociation(procedureequipmentassociation=self, tipslot=output)
+            if isinstance(output, ProcedureEquipmentTipslotAssociation):
+                self._procedureequipmenttipslotassociation.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to _tipslot")
     
@@ -4438,11 +4294,6 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     Procedure.name,
-        #     "->",
-        #     Equipment.name
-        # ).label("name")
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -4641,11 +4492,6 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     ProcedureType.name,
-        #     "->",
-        #     EquipmentRole.name
-        # ).label("name")
         proceduretype_subquery = (
             select(ProcedureType.name)
             .where(ProcedureType.id==cls.proceduretype_id)
@@ -4850,11 +4696,6 @@ class Results(BaseClass):
     
     @name.expression
     def name(cls):
-        # return func.concat(
-        #     Procedure.name,
-        #     "-",
-        #     ResultsType.name
-        # ).label("name")
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -4876,17 +4717,41 @@ class Results(BaseClass):
     
     @date_analyzed.setter
     def date_analyzed(self, value):
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
         match value:
             case datetime():
-                pass
+                output = value
             case date():
-                value = datetime.combine(value, time=datetime.now(tz=timezone).time())
+                output = datetime.combine(value, datetime.now().time())
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
             case str():
-                value = dateparse(value)
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
             case _:
-                logger.error(f"Unmatched value {value} for date_analyzed.")
-                value = datetime.combine(date.today(), datetime.max.time())
-        self._date_analyzed = value
+                raise ValueError(f"Unmatched value {value} for datetime")
+        value = output.replace(tzinfo=timezone)
+        # self._submitted_date = value
+        # match value:
+        #     case datetime():
+        #         pass
+        #     case date():
+        #         value = datetime.combine(value, time=datetime.now(tz=timezone).time())
+        #     case str():
+        #         value = dateparse(value)
+        #     case _:
+        #         logger.error(f"Unmatched value {value} for date_analyzed.")
+        #         value = datetime.combine(date.today(), datetime.max.time())
+        self._date_analyzed = output
 
     @hybrid_property
     def resultstype(self):

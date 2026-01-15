@@ -2,12 +2,10 @@
 Contains all models for sqlalchemy
 """
 from __future__ import annotations
-import re
-import sys, logging, json, inspect
+import re, sys, logging, json, inspect
 from datetime import datetime, date, timedelta
-from pprint import pformat
 from dateutil.parser import parse
-from jinja2 import TemplateNotFound
+from jinja2 import Template, TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
@@ -19,8 +17,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
-from sqlalchemy.orm.relationships import _RelationshipDeclared
-from tools import report_result, list_sort_dict, jinja_template_loading, Report, Alert, ctx
+from tools import report_result, jinja_template_loading, Report, Alert, ctx
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
@@ -53,16 +50,16 @@ class BaseClass(Base):
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
     @hybrid_property
-    def misc_info(self):
+    def misc_info(self) -> dict:
         return self._misc_info
     
     @misc_info.setter
     def misc_info(self, value):
-        print(f"Setting misc_info to {value}")
+        logger.debug(f"Setting misc_info to {value}")
         self._misc_info = value
 
     @classproperty
-    def aliases(cls):
+    def aliases(cls) -> List[str]:
         """
         List of other names this class might be known by.
 
@@ -71,9 +68,8 @@ class BaseClass(Base):
         """
         return [cls.query_alias]
 
-    @declared_attr
-    @classmethod
-    def query_alias(cls):
+    @classproperty
+    def query_alias(cls) -> str:
         """
         What to query this class as.
 
@@ -169,8 +165,7 @@ class BaseClass(Base):
                 except AttributeError:
                     self._misc_info = {k: safe_v}
 
-    @declared_attr
-    @classmethod
+    @classproperty
     def jsons(cls):
         """
         Get list of JSON db columns
@@ -181,6 +176,20 @@ class BaseClass(Base):
         try:
             return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
         except AttributeError:
+            return []
+        
+    @classproperty
+    def timestamps(cls):
+        """
+        Get list of TIMESTAMP columns
+
+        Returns:
+            List[str]: List of column names
+        """
+        try:
+            return [item.name.strip("_") for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
+        except AttributeError as e:
+            logger.error(f"Could not get timestamps due to {e}")
             return []
 
     def _serialize_misc_value(self, value):
@@ -224,20 +233,6 @@ class BaseClass(Base):
         except Exception:
             raise TypeError(f"Value of type {type(value)} is not JSON serializable")
 
-    @classproperty
-    def timestamps(cls):
-        """
-        Get list of TIMESTAMP columns
-
-        Returns:
-            List[str]: List of column names
-        """
-        try:
-            return [item.name.strip("_") for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
-        except AttributeError as e:
-            logger.error(f"Could not get timestamps due to {e}")
-            return []
-        
     @classmethod
     def determine_field_type(cls, field: str, is_new: bool = False) -> str:
         """Determines which type of field to use in the form.
@@ -250,7 +245,6 @@ class BaseClass(Base):
         """        
         type_ = getattr(cls, field.lower().strip("_"))
         type_name = type_.__class__.__name__
-        logger.debug(f"Type name for {field}: {type_name}")
         match type_name:
             case "hybrid_propertyProxy":
                 try:
@@ -258,11 +252,9 @@ class BaseClass(Base):
                 except AttributeError:
                     type_ = getattr(cls, f"_{field}") # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
-                logger.debug(f"New type_name for hybrid_propertyProxy: {type_name}")
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
                     type_name = type_.__class__.__name__
-                    print(f"New type_name for hybrid_propertyProxy, InstrumentedAttribute: {type_name}")
                     if type_name == "_RelationshipDeclared":
                         if type_.uselist:
                             type_name = "RelationshipList"
@@ -284,12 +276,18 @@ class BaseClass(Base):
         return type_name.upper()
 
     @classmethod
-    def get_searchables(cls):
+    def get_searchables(cls) -> List[str]:
+        """
+        List fields this class is searchable by.
+        
+        Returns: 
+            List[str]: List of fields this class is searchable by.
+        """
         output = []
         for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a))):
             if item[0] in ["_misc_info"]:
                 continue
-            if not isinstance(item[1], InstrumentedAttribute):
+            if not isinstance(item[1], InstrumentedAttribute) and not isinstance(item[1], hybrid_property):
                 continue
             if not isinstance(item[1].property, ColumnProperty):
                 continue
@@ -335,7 +333,7 @@ class BaseClass(Base):
         return query.limit(50).all()
 
     @classmethod
-    def results_to_df(cls, objects: list | None = None, **kwargs) -> DataFrame:
+    def results_to_df(cls, objects: list | None = None) -> DataFrame:
         """
         Converts class details_dicts into a Dataframe for all control of the class.
 
@@ -355,7 +353,7 @@ class BaseClass(Base):
             q = objects
         records = []
         for obj in q:
-            dicto = obj.details_dict(**kwargs)
+            dicto = obj.details_dict
             records.append({key: value for key, value in dicto.items() if key not in dicto['excluded']})
         return DataFrame.from_records(records)
 
@@ -365,23 +363,21 @@ class BaseClass(Base):
         Gets existing object or creates new one.
 
         Args:
-            **kwargs:
+            **kwargs: field: value to query or add to crated instance.
 
         Returns:
             Tuple[Any, bool]: Object and whether or not it's new.
         """
         new = False
+        # NOTE: ensure only valid fields are being used.
         allowed = [k for k, v in cls.__dict__.items() if
                    isinstance(v, InstrumentedAttribute) or isinstance(v, hybrid_property)] + ['value']
-        logger.debug(f"Allowed for {cls.__qualname__}: {allowed}")
         query_kwargs = {k: v for k, v in kwargs.items() if k in allowed and not isinstance(v, list)}
         if "value" in query_kwargs.keys() and "name" not in query_kwargs.keys():
             query_kwargs["name"] = query_kwargs.get("value")
-        # NOTE: outside kwargs will be reintroduced into misc_info
-        # outside_kwargs = {k: v for k, v in kwargs.items() if k not in allowed}
+        # NOTE: if searching with 'name', only search with name.
         if "name" in query_kwargs.keys():
             query_kwargs = dict(name=query_kwargs.get("name"))
-        logger.debug(f"Querying with {query_kwargs}")
         instance = cls.query(limit=1, **query_kwargs)
         if not instance or isinstance(instance, list):
             instance = cls()
@@ -390,7 +386,6 @@ class BaseClass(Base):
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
-            # logger.debug(f"Setting {cls.__qualname__} {k} to {v}")
             try:
                 setattr(instance, k, v)
             except AttributeError:
@@ -426,6 +421,7 @@ class BaseClass(Base):
         """
         if query is None:
             query: Query = cls.__database_session__.query(cls)
+            # NOTE: determine which fields to limit to 1.
         singles = cls.get_default_info('singles')
         for k, v in kwargs.items():
             try:
@@ -444,14 +440,14 @@ class BaseClass(Base):
             # can't resolve the primary key value. In that case try to match
             # on a sensible alternative (usually 'name') using .has / .any.
             if isinstance(v, BaseClass):
-                obj_pk = getattr(v, "id", None)
-                is_rel = isinstance(getattr(attr, "property", None), RelationshipProperty)
+                obj_primarykey = getattr(v, "id", None)
+                is_relationship = isinstance(getattr(attr, "property", None), RelationshipProperty)
 
                 # If it's a relationship property, prefer .has / .any when no pk
-                if is_rel:
+                if is_relationship:
                     related_cls = attr.property.mapper.class_
                     # If object has a primary key, we can compare directly
-                    if obj_pk is not None:
+                    if obj_primarykey is not None:
                         try:
                             if check:
                                 query = query.filter(attr.contains(v))
@@ -476,7 +472,7 @@ class BaseClass(Base):
                 else:
                     # Not a relationship property (unlikely to be a BaseClass),
                     # fall back to attempting direct comparison if pk present.
-                    if obj_pk is None:
+                    if obj_primarykey is None:
                         # can't compare unresolved object, skip
                         continue
                     try:
@@ -485,6 +481,7 @@ class BaseClass(Base):
                         continue
             else:
                 # Non-instance values
+                # NOTE: Recall check is true if attr.uselist
                 if check:
                     try:
                         query = query.filter(attr.contains(v))
@@ -544,15 +541,17 @@ class BaseClass(Base):
             self.__database_session__.commit()
         except Exception as e:
             logger.critical(f"Problem saving {self} due to: {e}")
-            # logger.critical(f"Problem objects: with {pformat([item for item in self.__database_session__.dirty])}")
             self.__database_session__.rollback()
             report.add_result(Alert(msg=e, status="Critical"))
             return report
 
     @classmethod
-    def pydantic_model(cls, pyd_model_name: str | None = None, **kwargs) -> Any:
+    def pydantic_model(cls, pyd_model_name: str | None = None) -> Any:
         """
         Gets the pydantic model corresponding to this object.
+
+        Args:
+            pyd_model_name (str, optional): Name of the pydantic model to be used. Defaults to None
 
         Returns:
             Pydantic model with name "Pyd{cls.__name__}"
@@ -566,17 +565,12 @@ class BaseClass(Base):
         try:
             model = getattr(pydant, pyd_model_name)
         except AttributeError:
-            # logger.error(f"Couldn't get {pyd_model_name} pydantic model. Falling back to declared pyd_model_name")
-            # try:
-            #     model = getattr(pydant, f"Pyd{cls.pyd_model_name}")
-            # except AttributeError:
             logger.error(f"Couldn't get model {pyd_model_name}, returning None")
             return None
         return model
 
-    @declared_attr
-    @classmethod
-    def details_template(cls):
+    @classproperty
+    def details_template(cls) -> Template:
         """
         Get the details jinja template for the correct class
 
@@ -584,7 +578,7 @@ class BaseClass(Base):
             base_dict (dict): incoming dictionary of Submission fields
 
         Returns:
-            Tuple(dict, Template): (Updated dictionary, Template to be rendered)
+            Template: Template to be rendered
         """
         env = jinja_template_loading()
         temp_name = f"{cls.query_alias}_details.html"
@@ -599,7 +593,7 @@ class BaseClass(Base):
         Checks this instance against a dictionary of attributes to determine if they are a match.
 
         Args:
-            attributes (dict): A dictionary of attributes to be check for equivalence
+            kwargs: Attributes: values to be check for equivalence
 
         Returns:
             bool: If a single unequivocal value is found will be false, else true.
@@ -731,7 +725,6 @@ class BaseClass(Base):
                     self._misc_info = {key: safe_value}
             return
         else:
-            # logger.debug(f"setting {self.__class__.__name__}.{key}: {value} of type {type(attr)}")
             # If the class attribute is a descriptor for a property (including
             # SQLAlchemy hybrid_property), calling super().__setattr__ may not
             # always trigger the descriptor's fset. Detect hybrid_property or
@@ -741,7 +734,6 @@ class BaseClass(Base):
                 # hybrid_property is imported in module scope above
                 if isinstance(attr, (property, hybrid_property)):
                     setter = getattr(attr, 'fset', None)
-                    # logger.debug(f"{key} setter method: {setter}")
                     if setter:
                         return setter(self, value)
             except Exception as e:
@@ -749,7 +741,6 @@ class BaseClass(Base):
                 logger.error(f"Unable to call setter for {self.__str__()}.{attr} due to {e}")
             try:
                 return super().__setattr__(key, value)
-                # print(self.__dict__)
             except AttributeError as e:
                 if "association" in key:
                     logger.warning(f"Disallowing setting of association {key} automatically")
@@ -757,7 +748,16 @@ class BaseClass(Base):
                     logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
     
     @classmethod
-    def get_relationship_sqlclass(cls, key):
+    def get_relationship_sqlclass(cls, key) -> BaseClass | None:
+        """
+        Finds BaseClass subclass with name == relationship.
+        
+        Args:
+            key: relationship name to be searched for
+        
+        Returns: 
+            BaseClass: Class bound to this relationship.
+        """
         field_type = cls.determine_field_type(key)
         if "RELATIONSHIP" in field_type:
             return BaseClass.find_subclasses(class_name=key.strip("_"))
@@ -771,11 +771,11 @@ class BaseClass(Base):
         Converts input into a datetime string for querying purposes
 
         Args:
-            eod (bool, optional): Whether to use max time to indicate end of day. Defaults to False.
             input_date (datetime): Input date to convert.
+            eod (bool, optional): Whether to use max time to indicate end of day. Defaults to False.
 
         Returns:
-            datetime: properly formated datetime
+            str: properly formated datetime
         """
         match input_date:
             case datetime() | date():
@@ -793,12 +793,12 @@ class BaseClass(Base):
         return output_date
 
     @classmethod
-    def clean_details_for_render(cls, dictionary) -> dict:
+    def clean_details_for_render(cls, dictionary: dict) -> dict:
         """
-        Cleans dictionary for rendering.
+        Cleans dictionary for rendering on a template.
 
         Args:
-            dictionary: input dictionary
+            dictionary (dict): input dictionary
 
         Returns:
             dict: cleaned dictionary
@@ -829,19 +829,16 @@ class BaseClass(Base):
         return output
 
     @classmethod
-    def correct_details_fields(cls, value, expand: bool=False) -> Any:
+    def correct_details_fields(cls, value: Any, expand: bool=False) -> Any:
         """
         Corrects fields in details_dict to proper types.
 
         Args:
-            value: input value
+            value (Any): input value
         Returns:
             Any: corrected value
         """
         from backend.validators.pydant import PydBaseClass
-        # logger.debug(f"Correcting details: {value} of type {type(value)}")
-        if expand:
-            logger.debug(f"Will expand {value}")
         match value:
             case str():
                 output = value.strip('\"')
@@ -872,60 +869,78 @@ class BaseClass(Base):
             case timedelta():
                 output = value.days
             case _:
-                # if value is not None:
-                #     logger.debug(f"Unmatched {cls.__qualname__} value type: {type(value)} for value: {value}")
                 output = value
-        # logger.debug(f"Corrected value: {value} to {output}")
         return output
     
-    def details_dict_expand_fields(self, fields: List[str] | List[dict]):
-        # print(f"Fields:\n{pformat(fields)}")
+    def details_dict_expand_fields(self, fields: List[str] | List[dict], visited: set | None = None) -> dict:
+        """
+        details_dict with additional information from relationships.
+        
+        Args:
+            fields (List[str] | List[dict]): Fields (if ['a', 'b']) and subfields (if {'a': ['b']})
+        
+        Returns: 
+            dict[Any, Any]
+        """
+        # # Track visited objects to avoid recursion cycles when expanding relationships.
+        # if visited is None:
+        #     visited = set()
+        # # Identify this instance by class name and primary key (if available), else by id().
+        # try:
+        #     pk = getattr(self, 'id')
+        # except Exception:
+        #     pk = id(self)
+        # identifier = (self.__class__.__name__, pk)
+        # # If already visited, return a shallow dict (avoid further expansion).
+        # if identifier in visited:
+        #     shallow = self.details_dict
+        #     # Remove any heavy relationship fields to keep shallow.
+        #     for rel_field in ('run', 'procedure', 'sample', 'clientsubmission'):
+        #         if rel_field in shallow:
+        #             try:
+        #                 shallow[rel_field] = shallow[rel_field].name
+        #             except Exception:
+        #                 shallow[rel_field] = shallow[rel_field]
+        #     return shallow
+        # # Mark current object as visited for downstream recursion checks.
+        # visited.add(identifier)
+
         dict_ = self.details_dict
         if len(fields) == 0:
             return dict_
         for field in fields:
-            # print(f"Field type: {type(field)}")
             match field:
                 case str():
                     # NOTE: This is necessary... mostly because I'm too lazy to figure out how to simplify it.
                     key = field
-                    # print(f"{self.sql_instance.__class__.__qualname__} Key: {key}")
                     try:
                         value = getattr(self, key)
                     except AttributeError as e:
                         logger.error(f"Skipping {key} in {self} due to {e}")
                         continue
-                    # print(f"{self.sql_instance.__class__.__qualname__} Value: {value}")
+                    print(f"Value {key} if of type {type(value)}")
                     match value:
                         case InstrumentedAttribute():
-                            # print(f"Instrumented Attribute: {type(value)}, {key}: {value}")
                             pass
                         case _AssociationList():
                             output = []
-                            # print(f"Association list: {key}: {value}")
-                            # output = [item.to_pydantic().improved_dict for item in value]
                             for item in value.col:
                                 dicto: dict = item.details_dict
                                 target = getattr(item, key)
                                 target = target.details_dict
-                                # print(f"target dict: {pformat(target)}")
                                 target.update({k:v for k, v in dicto.items() if k !="name"})
-                                # dicto.update(target)
                                 if target['name'] not in [thing['name'] for thing in output]:
                                     output.append(target)
                         case InstrumentedList():
-                            # print(f"Instrumented: {key}: {value}")
-                            output = [item.to_pydantic().improved_dict for item in value]
+                            output = [item.details_dict for item in value]
                         case x if issubclass(value.__class__, BaseClass):
-                            # print(f"BaseClass: {value.__class__.__qualname__}")
                             output = value.details_dict
                         case _:
-                            # print(f"Unmatched type {type(value)}")
                             continue
                 case dict():
+                    # NOTE: this handles recursions if fields is a dict.
                     key = list(field.keys())[0]
                     new_fields = list(field.values())[0]
-                    # print(f"New fields for {key}: {new_fields}")
                     try:
                         value = getattr(self, key)
                     except AttributeError as e:
@@ -933,31 +948,23 @@ class BaseClass(Base):
                         continue
                     match value:
                         case _AssociationList():
-                            output = []
-                            # print(f"Association list: {key}: {value}")
                             output = [item.details_dict_expand_fields(new_fields) for item in value]
                             for item in value.col:
                                 dicto: dict = item.details_dict_expand_fields(new_fields)
                                 target = getattr(item, key)
                                 target = target.details_dict_expand_fields(new_fields)
-                                # print(f"target dict: {pformat(target)}")
                                 target.update({k:v for k, v in dicto.items() if k !="name"})
-                                # dicto.update(target)
                                 if target['name'] not in [thing['name'] for thing in output]:
                                     output.append(target)
                         case InstrumentedList():
-                            # print(f"Instrumented: {key}: {value}")
                             output = [item.details_dict_expand_fields(new_fields) for item in value]
                         case x if issubclass(value.__class__, BaseClass):
-                            # print(f"BaseClass: {value.__class__.__qualname__}")
                             output = value.details_dict
                         case _:
-                            # print(f"Unmatched type {type(value)}")
                             continue
                 case _:
                     continue
             dict_[key] = output
-        # logger.debug(f"Outgoing dicto: {pformat(dict_)}")
         return dict_
     
     @property
@@ -965,15 +972,11 @@ class BaseClass(Base):
         """
         Primary method for getting BaseClass subclasses as dictionaries
 
-        Args:
-            **kwargs:
-
         Returns:
-            dict():
+            dict: All pertenant information about this instance.
         """
         relevant = {k: v for k, v in self.__class__.__dict__.items() if
                     isinstance(v, InstrumentedAttribute) or isinstance(v, AssociationProxy)}
-        # excluded=["excluded", "misc_info", "_misc_info", "id"]
         output = dict(excluded=["excluded", "misc_info", "_misc_info", "id"])
         for k, v in relevant.items():
             if k in output['excluded']:
@@ -990,12 +993,10 @@ class BaseClass(Base):
             except AttributeError:
                 continue
             corrected_value = self.correct_details_fields(value)
-            # logger.debug(f"Setting {k} corrected value to {corrected_value} ")
             output[k.strip("_")] = corrected_value
-        # logger.debug(f"Details dict output:\n{pformat(output)}")
         if self._misc_info:
             for key, value in self._misc_info.items():
-                # logger.debug(f"Misc value: {key}: {value}")
+                # NOTE don't update from misc_info
                 if key in output.keys():
                     continue
                 if key.startswith("_"):
@@ -1003,21 +1004,36 @@ class BaseClass(Base):
                 if key in output['excluded']:
                     continue
                 output[key] = self.correct_details_fields(value)
-        # logger.debug(f"Details dict output:\n{pformat(output)}")
         if 'name' not in output.keys():
             output['name'] = self.name
         return output
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
+        """
+        Transforms this instance to the pydantic model.
+        
+        Args:
+            pyd_model_name (str, optional): Name for any model other than f'pyd{cls.__name__} to be used. Defaults to None.
+        
+        Returns: 
+            BaseModel: Pydantic representation of this object
+        """
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
         details = self.details_dict
         return pyd(sql_instance=self, **details)
 
     def show_details(self, obj):
+        """
+        Shows details as html for this instance.
+        
+        Args:
+            obj: Parent QWidget or QDialog
+        """
         from frontend.widgets.submission_details import SubmissionDetails
         dlg = SubmissionDetails(parent=obj, object_=self)
         dlg.exec()
 
+    # TODO: Figure this out
     def export(self, obj, output_filepath: str | Path | None = None):
         from backend import managers
         Manager = getattr(managers, f"Default{self.__class__.__name__}")
@@ -1025,6 +1041,16 @@ class BaseClass(Base):
 
     @classmethod
     def find_subclasses(cls, class_name: str|None=None, class_alias: str|None=None) -> BaseClass | List[BaseClass] | None:
+        """
+        Finds BaseClass subclasses by a name or alias
+        
+        Args:
+            class_name (str, optional): Name (i.e. cls.__name__.lower() of subclass of interest). Defaults to None.
+            class_alias (str, optional): Alias set in class.
+        
+        Returns:
+            BaseClass | List[BaseClass] | None
+        """
         if class_name:
             object_ = next((cl for cl in BaseClass.__subclasses__() if cl.__name__.lower() == class_name.lower().strip("_")), None)
             return object_
@@ -1035,12 +1061,22 @@ class BaseClass(Base):
             return BaseClass.__subclasses__()
 
     @classmethod
-    def rank_sample(cls, sample, iii):
+    def rank_sample(cls, sample: Sample, iii: int) -> Sample:
+        """
+        Adds a rank to a sample in this class
+        
+        Args:
+            sample (Sample): Sample to be amended.
+            iii (int): Rank to be added to Sample. 
+        """
         sample.rank = iii
         return sample
 
 
 class LogMixin(Base):
+    """
+    Mixin to add auditlog tracking to a BaseModel subclass
+    """
     tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',
                                     'submission_reagent_associations', 'submission_equipment_associations',
                                     'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
@@ -1103,7 +1139,7 @@ from .procedures import (
     ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
     ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,
     Tips, TipsLot, ProcedureEquipmentAssociation, ProcedureTypeEquipmentRoleAssociation, Results, ReagentRoleReagentAssociation,
-    ResultsType
+    ResultsType, ProcedureEquipmentTipslotAssociation
 )
 from .submissions import (
     ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation

@@ -196,6 +196,16 @@ class PydSample(PydConcrete):
         # first. If none exists, populate the sql_instance.sample_id so
         # that downstream association objects don't try to insert NULL.
         sql = super().to_sql(update=update)
+        try:
+            # Only set the SQL sample_id when the pydantic sample_id is valid.
+            # Blank/NA/placeholder IDs (e.g. "", "NA", "None") are not valid
+            # and would violate the UNIQUE constraint if multiple blank sample
+            # rows are created. Use the helper validator to decide.
+            if not self.is_sample_id_valid(self.sample_id):
+                return None, None
+        except Exception:
+            # Fallback: nothing we can do, return sql as-is
+            pass
         if not update:
             # Try to use an existing SQL Sample if present in DB
             try:
@@ -206,11 +216,7 @@ class PydSample(PydConcrete):
             if existing:
                 return existing, None
             # If no existing object, ensure the blank sql_instance has sample_id set
-            try:
-                sql.sample_id = self.sample_id
-            except Exception:
-                # Fallback: nothing we can do, return sql as-is
-                pass
+            
             return sql, None
         sql._misc_info["rank"] = self.rank
         return sql, None
@@ -651,6 +657,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
         logger.debug(f"Searching for equipment role: {equipmentrole} in {pformat([item.improved_dict for item in self.equipment])}")
+        logger.debug(f"Tips: {tips}")
         try:
             equipment_of_interest: PydProcedureEquipmentAssociation = next(
                 (item for item in self.equipment if item.equipmentrole == equipmentrole))
@@ -671,13 +678,17 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
         # NOTE Correct pydprocessverion
+        out_tips = []
         for tipslot in tips:
             try:
                 tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tipslot.split("-")]
+                logger.debug(f"Searching for tips: {tips_manufacturer}, {tipsref}, {lot}")
                 tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
-                eoi.tips = tips.to_pydantic()
+                logger.debug(f"Found {tips}")
+                out_tips.append(tips.to_pydantic())
             except ValueError:
                 logger.warning(f"No tips info to unpack")
+        eoi.tipslot = out_tips
         if checked:
             self.equipment.append(eoi)
 
@@ -697,7 +708,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.sql_instance.run = self.run
         self.sql_instance.repeat_of = self.repeat_of
         self.sql_instance.reagentlot = self.reagentlot
-        self.sql_instance.sample = self.sample
+        self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
         self.sql_instance.equipment = self.equipment
         # NOTE: At this point, results will likely be an empty list.
         self.sql_instance.results = self.results

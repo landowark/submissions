@@ -57,7 +57,7 @@ class ClientSubmissionNamer(DefaultNamer):
 
     def get_subtype_from_regex(self) -> SubmissionType:
         from backend.db.models import SubmissionType
-        regex = SubmissionType.regex
+        regex = SubmissionType.regexes
         m = regex.search(self.filepath.__str__())
         try:
             sub_type = m.lastgroup
@@ -156,7 +156,7 @@ class RSLNamer(object):
         def st_from_str(file_name: str) -> str:
             if file_name.startswith("tmp"):
                 return "Bacterial Culture"
-            regex = SubmissionType.regex
+            regex = SubmissionType.regexes
             m = regex.search(file_name)
             try:
                 sub_type = m.lastgroup
@@ -195,9 +195,9 @@ class RSLNamer(object):
             regex (str): string to construct pattern
             filename (str): string to be parsed
         """
-        from backend.db.models import Run
+        from backend.db.models import SubmissionType
         if regex is None:
-            regex = Run.regex
+            regex = SubmissionType.regexes
         match filename:
             case Path():
                 m = regex.search(filename.stem)
