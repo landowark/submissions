@@ -2,6 +2,7 @@
 
 """
 from __future__ import annotations
+from datetime import datetime
 import json
 import logging, sys
 from pprint import pformat
@@ -18,7 +19,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class ResultsSampleMatcher(QDialog):
 
     def __init__(self, parent, results_var_name: str, results: Generator[dict, None, None], samples:List[str],
-                 procedure:Procedure, results_type: str):
+                 procedure: Procedure, results_type: str):
         super().__init__(parent=parent)
         self.procedure = procedure
         self.results_type = results_type
@@ -42,7 +43,6 @@ class ResultsSampleMatcher(QDialog):
 
     @pyqtSlot(bool, str, str, str)
     def set_match(self, enabled: bool, sample: str, result_text:str, result: str):
-        from backend.db.models import ProcedureSampleAssociation
         logger.debug(f"Sample: {sample}")
         if ":" in sample:
             sample_id = sample.split(":")[0]
@@ -52,15 +52,21 @@ class ResultsSampleMatcher(QDialog):
         else:
             row = None
             column = None
-        result = "".join([r for r in result]).replace("\'", "\"")
-        try:
-            result = json.loads(result)
-        except json.decoder.JSONDecoder:
-            logger.error("Could not decode json.")
+        if isinstance(result, str):
+            result = result.replace("'", '"')
+            try:
+                result = json.loads(result)
+            except json.JSONDecodeError as e:
+                logger.error(f"Could not decode string: {result} due to\n{e}")
+                return
         logger.debug(f"Search: {self.procedure}, {sample_id}, {row}, {column}")
-        association = ProcedureSampleAssociation.query(procedure=self.procedure, sample=sample_id, row=row, column=column)
+        # association = ProcedureSampleAssociation.query(procedure=self.procedure, sample=sample_id, row=row, column=column)
+        association = next((assoc for assoc in self.procedure.proceduresampleassociation if assoc.sample.sample_id == sample_id and assoc.row==row and assoc.column==column), None)
+        logger.debug(f"Searched association: {association}")
+        logger.debug(f"Self.output: {self.output}")
+        date_analyzed = result.pop("date_analyzed", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
         if enabled:
-            result = Results(sampleprocedureassociation=association, result=result, result_type=self.results_type)
+            result = Results(sampleprocedureassociation=association, result=result, resultstype=self.results_type, date_analyzed=date_analyzed)
             self.output.append(result)
         else:
             try:
@@ -82,10 +88,13 @@ class ResultsSampleMatcher(QDialog):
             column = int(well[1:])
         else:
             row = None
-            column = None
+            column = None 
         logger.debug(f"Search: {self.procedure}, {sample_id}, {row}, {column}")
-        association = ProcedureSampleAssociation.query(procedure=self.procedure, sample=sample_id, row=row, column=column)
-        logger.debug(association)
+        # association = ProcedureSampleAssociation.query(procedure=self.procedure, sample=sample_id, row=row, column=column)
+        association = next((assoc for assoc in self.procedure.proceduresampleassociation if assoc.sample.sample_id == sample_id and assoc.row==row and assoc.column==column), None)
+
+        logger.debug(f"Searched association: {association}")        
+        logger.debug(f"Self.output: {self.output}")
         try:
             result = next(
                 (item for item in self.output if str(item.result[self.results_var_name]) == result_text)

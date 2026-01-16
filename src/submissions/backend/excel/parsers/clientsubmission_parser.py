@@ -166,7 +166,20 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
             except KeyError:
                 pass
             sample['rank'] = ii
+            sample['is_control'] = self.determine_control(sample.get("sample_id", None))
             yield sample
 
+    @classmethod
+    def determine_control(cls, sample_id: str | None) -> int:
+        if sample_id is None:
+            return 0
+        if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
+            return 0
+        if sample_id.lower().startswith(("atcc", "mcs")):
+            return 1
+        if sample_id.lower().startswith(("en")):
+            return -1
+        return 0
+        
     def to_pydantic(self):
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample['sample_id']]

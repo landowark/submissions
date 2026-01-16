@@ -31,7 +31,7 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     sample: str | PydSample | None = Field(default=None)#, description="Parent sample this result is associated with.")
     date_analyzed: datetime | None = Field(default=None, repr=False, description="Date this result was analyzed.", validate_default=True)
 
-    @field_validator("date_analyzed")
+    @field_validator("date_analyzed", mode="before")
     @classmethod
     def parse_analyzed(cls, value):
         match value:
@@ -450,10 +450,19 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @classmethod
     def lookup_run(cls, value):
         from backend.db.models import Run
+        # When converting a Run -> PydRun the procedure dicts include the run
+        # as a simple name string. Converting that string back into a full
+        # PydRun here would cause a recursive conversion: Run.to_pydantic ->
+        # PydProcedure -> lookup_run -> Run.to_pydantic -> ... leading to
+        # infinite recursion. Instead, keep the run as the simple string name
+        # (or the found SQL Run) and let higher-level code handle converting
+        # to a PydRun only when it's safe to do so.
         if isinstance(value, str):
-            value = Run.query(name=value)
-            if value:
-                value = value.to_pydantic()
+            # Do NOT call Run.query(...).to_pydantic() here to avoid recursion.
+            # Return the raw name so downstream consumers can access it safely.
+            return value
+        # If a Run SQL instance was supplied directly, leave it as-is (don't
+        # convert to pydantic here).
         return value
     
     @field_validator("repeat_of")
@@ -632,7 +641,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str|None=None, checked:bool=True):
         from backend.db.models import ReagentLot
-        logger.debug(self.reagentlot)
         try:
             removable = next((item for item in self.reagentlot if reagentrole in (rr.name for rr in item.reagentlot.sql_instance.reagent.reagentrole)), None)
         except AttributeError as e:
@@ -945,7 +953,7 @@ class PydClientSubmission(PydConcrete):
 
 class PydRun(PydConcrete):  #, extra='allow'):
 
-    clientsubmission: PydClientSubmission | None = Field(default=None, repr=False)
+    clientsubmission: PydClientSubmission | str | None = Field(default=None, repr=False)
     rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     started_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
     completed_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
@@ -1056,15 +1064,16 @@ class PydRun(PydConcrete):  #, extra='allow'):
     @field_validator("rsl_plate_number")
     @classmethod
     def rsl_from_file(cls, value, values):
-        sub_type = values.data['clientsubmission']
+        sub_type = values.data.get('clientsubmission', None)
+        try:
+            assert sub_type is not None
+        except AssertionError:
+            raise KeyError(f"'clientsubmission' not found in {pformat(values.data)}")
         if check_not_nan(value['value']):
             value['value'] = value['value'].strip()
             return value
         else:
-            if "pytest" in sys.modules and sub_type.replace(" ", "") == "BasicRun":
-                output = "RSL-BS-Test001"
-            else:
-                output = RSLNamer(filename=sub_type.filepath.__str__(), submission_type=sub_type.submissiontype,
+            output = RSLNamer(filename=sub_type.filepath.__str__(), submission_type=sub_type.submissiontype,
                                   data=values.data).parsed_name
             return dict(value=output, missing=True)
 
@@ -1085,7 +1094,10 @@ class PydRun(PydConcrete):  #, extra='allow'):
     def __init__(self, run_custom: bool = False, **data):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
-        submission_type = self.clientsubmission.submissiontype
+        from backend.db.models import ClientSubmission
+        clientsub = ClientSubmission.query(name=self.clientsubmission, limit=1)
+        if clientsub:
+            submission_type = clientsub.submissiontype
         self.namer = RSLNamer(self.rsl_plate_number['value'], submission_type=submission_type)
 
     def set_attribute(self, key: str, value):
@@ -1296,10 +1308,10 @@ class PydRun(PydConcrete):  #, extra='allow'):
             str: Output filename
         """
         try:
-            template = self.clientsubmission.filename_template
+            template = self.sql_instance.clientsubmission.submissiontype.file_name_template
         except KeyError as e:
             template = "{{ rsl_plate_number }} - {{ clientsubmission.clientlab.name }} - {{ clientsubmission.submitter_plate_id['value'] }}"
-        render = self.namer.construct_export_name(template=template, **self.improved_dict(dictionaries=False)).replace(
+        render = self.namer.construct_export_name(template=template, **self.improved_dict).replace(
             "/", "")
         return render
 

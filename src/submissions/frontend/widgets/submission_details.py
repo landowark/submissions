@@ -66,15 +66,14 @@ class SubmissionDetails(QDialog):
         logger.debug(f"Incoming object: {object_}")
         match object_:
             case ClientSubmission():
-                # expand = [{"run":['procedure']}, "sample"]
-                expand = ["run", "sample"]
+                expand = [{"run":['procedure']}, "sample"]
+                # expand = ["run", "sample"]
             case Run():
                 expand = ['procedure', 'sample']
             
             case _:
                 expand = []
         details = object_.details_dict_expand_fields(fields=expand)
-        
         details = object_.clean_details_for_render(details)
         template = object_.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])

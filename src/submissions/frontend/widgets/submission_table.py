@@ -84,11 +84,12 @@ class SubmissionsTree(QTreeView):
                     action = QMenu(self.menu)
                     action.setTitle("Add Results")
                     for results in query_obj.proceduretype.allowed_result_methods:
-                        res_name = results
-                        res = QAction(res_name, action)
-                        res.triggered.connect(lambda _, procedure_name=res_name: self.con_actions['Add Results'](obj=self, resultstype_name=procedure_name))
-                        action.addAction(res)
-                        self.menu.addMenu(action)
+                        res_name = results.get('name', None)
+                        if res_name:
+                            res = QAction(res_name, action)
+                            res.triggered.connect(lambda _, procedure_name=res_name: self.con_actions['Add Results'](obj=self, resultstype_name=procedure_name))
+                            action.addAction(res)
+                            self.menu.addMenu(action)
                 case _:
                     action = QAction(key, self)
                     action.triggered.connect(lambda _, action_name=key: self.con_actions[action_name](obj=self))

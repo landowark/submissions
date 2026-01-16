@@ -45,7 +45,11 @@ class ProcedureCreation(QDialog):
         # logger.debug(f"ProcedureType: {pformat(self.proceduretype_dict)}")
         # with open("proceduretype.json", "w") as f:
         #     json.dump(sanitize_object_for_json(self.proceduretype_dict), f, indent=4)
-        self.setWindowTitle(f"New {self.proceduretype.name} for {self.run.rsl_plate_number}")
+        if isinstance(self.run.rsl_plate_number, dict):
+            title = self.run.rsl_plate_number.get("value", "Unknown Run")
+        else:
+            title = self.run.rsl_plate_number
+        self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
 
         self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
         logger.debug("Updating samples")
@@ -79,6 +83,7 @@ class ProcedureCreation(QDialog):
 
     def set_html(self):
         # NOTE: Add --New-- as an option for reagents.
+        from backend.db.models import Run
         for reagentrole in self.proceduretype_dict.get("reagentrole", []):
             for reagent in reagentrole['reagent']:
                 if len(reagent['reagentlot']) < 1:
@@ -108,7 +113,9 @@ class ProcedureCreation(QDialog):
                 equipmentrole['equipment'].index(item_in_er_list)))
         # proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
-        self.proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype == self.proceduretype and not bool(regex.match(item.name))]
+        logger.debug(f"Run: {self.run}, {self.proceduretype}")
+        run = Run.query(name=self.run.rsl_plate_number, limit=1)
+        self.proceduretype_dict['previous'] = [""] + [item.name for item in run.procedure if item.proceduretype.name == self.proceduretype.name and not bool(regex.match(item.name))]
         # logger.debug(f"Proceduretype equipmentrole dictionary:\n{pformat(self.proceduretype_dict['equipmentrole'])}")
         html = render_details_template(
             template_name="procedure_creation",

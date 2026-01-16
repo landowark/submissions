@@ -65,6 +65,16 @@ class PydResultsType(PydAbstract):
     results: List[dict] = Field(default_factory=list, repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this type.", repr=False)
 
+    def to_sql(self, update: bool = True):
+        self.sql_instance = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.proceduretype = self.proceduretype
+        # NOTE: At this point, results will likely be an empty list.
+        self.sql_instance.results = self.results
+        return self.sql_instance, None
+
+
 
 class PydSubmissionType(PydAbstract):
     

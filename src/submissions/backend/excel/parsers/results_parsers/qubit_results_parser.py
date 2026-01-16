@@ -1,10 +1,9 @@
 """
-
+Results parser for Qubit csv file.
 """
 from __future__ import annotations
 import logging
 from typing import Generator, TYPE_CHECKING
-from dateutil.parser import parse
 from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
@@ -26,7 +25,7 @@ class QubitInfoParser(DefaultResultsInfoParser):
         Since there is no overview generated, return blank PydResults object.
 
         Returns:
-            PydResults
+            None
         """
         from backend.validators.pydant import PydResults
         return None
@@ -57,5 +56,5 @@ class QubitSampleParser(DefaultResultsSampleParser):
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
         for item in super().parsed_info:
-            item['date_analyzed'] = parse(item['test_date'])
+            item['date_analyzed'] = item['test_date']
             yield item

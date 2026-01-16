@@ -98,17 +98,24 @@ class RSLNamer(object):
         from backend.db.models import SubmissionType
         # NOTE: Preferred method is path retrieval, but might also need validation for just string.
         filename = Path(filename) if Path(filename).exists() else filename
-        self.submission_type = submission_type
-        if not self.submission_type:
-            self.submission_type = self.retrieve_submission_type(filename=filename)
-        if self.submission_type:
-            try:
-                self.sub_object = SubmissionType.query(name=self.submission_type['value'], limit=1)
-            except KeyError:
-                raise KeyError(f"Choose from keys in {self.submission_type.keys()}")
-            self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
-                submission_type=self.submission_type))
-            logger.info(f"Parsed name: {self.parsed_name}")
+        if not submission_type:
+            submission_type = self.retrieve_submission_type(filename=filename)
+        
+        match submission_type:
+            case str():
+                self.sub_object = SubmissionType.query(name=submission_type, limit=1)
+                self.submission_type = submission_type
+            case dict():
+                self.sub_object = SubmissionType.query(name=submission_type['value'], limit=1)
+                self.submission_type = submission_type['value']
+            case SubmissionType():
+                self.sub_object = submission_type
+                self.submission_type = submission_type.name
+            case _:
+                raise TypeError(f"Unmatched type {type(submission_type)} for submission_type")
+        self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
+            submission_type=self.submission_type))
+        logger.info(f"Parsed name: {self.parsed_name}")
 
     @classmethod
     def retrieve_submission_type(cls, filename: str | Path) -> str:

@@ -23,6 +23,9 @@ class DefaultParser(object):
         return f"{self.__class__.__name__}<{self.filepath.stem}>"
 
     def __new__(cls, *args, **kwargs):
+        """
+        Is called before __init__. Ensures filepath is present.
+        """
         filepath = kwargs['filepath']
         if isinstance(filepath, str):
             filepath = Path(filepath)
@@ -65,6 +68,7 @@ class DefaultParser(object):
         if self.filepath.suffix == ".xlsx":
             self.workbook = load_workbook(self.filepath, data_only=True)
             self.worksheet = self.workbook[self.sheet]
+        # NOTE: convert csv to xlsx for standardization purposes.
         elif self.filepath.suffix == ".csv":
             self.workbook, self.worksheet = self.csv2xlsx(self.filepath)
         self.start_row = self.delineate_start_row(start_row=start_row)
@@ -87,7 +91,16 @@ class DefaultParser(object):
         return self._pyd_object(**data)
 
     @classmethod
-    def correct_procedure_type(cls, proceduretype: str | "ProcedureType"):
+    def correct_procedure_type(cls, proceduretype: str | ProcedureType) -> ProcedureType:
+        """
+        Attempts to get the correct proceduretype through query.
+        
+        Args:
+            proceduretype (str): Name of the desired proceduretype
+        
+        Returns: 
+            ProcedureType: The instance of the desired proceduretype
+        """
         from backend.db.models import ProcedureType
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
@@ -120,14 +133,15 @@ class DefaultKEYVALUEParser(DefaultParser):
                 continue
             key = self.worksheet.cell(row, 1).value
             if key:
-                # Note: Remove anything in brackets.
+                # NOTE: If there are more than 3 spaces in the key, continue
                 if key.count(" ") > 3:
                     continue
+                # NOTE: Remove anything in brackets.
                 key = re.sub(r"\(.*\)", "", key)
                 key = key.lower().replace(":", "").strip().replace(" ", "_")
                 value = self.worksheet.cell(row, 2).value
                 missing = False if value else True
-                value = dict(value=value, missing=missing)#, location=location_map)
+                value = dict(value=value, missing=missing)
                 yield key, value
 
 

@@ -56,7 +56,6 @@ class PCRSampleParser(DefaultResultsSampleParser):
     def to_pydantic(self) -> Generator["PydSample", None, None]:
         from backend.db.models import ProcedureSampleAssociation
         for item in self.parsed_info:
-            # logger.debug(f"PCRSampleParser parsed info: {pformat(item.keys())}")
             # NOTE: Ensure that only samples associated with the procedure are used.
             try:
                 sample_obj = next(

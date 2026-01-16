@@ -146,6 +146,8 @@ class OmniManager(QDialog):
         """
         logger.debug(f"Submitting pydantic object: {pformat(self.pydant.__dict__)}")
         sql_instance = self.pydant.to_sql()
+        if isinstance(sql_instance, tuple):
+            sql_instance = sql_instance[0]
         logger.debug(f"Converted to SQL instance: {sql_instance.__dict__}")
         # sys.exit(f"Converted to SQL instance: {sql_instance.__dict__}")
         sql_instance.save()

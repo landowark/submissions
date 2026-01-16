@@ -19,10 +19,10 @@ from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
 from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
-                   is_power_user, row_map, timezone)
+                   is_power_user, row_map, timezone, Report)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
-from typing import List, Literal, Generator, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 from pathlib import Path
 if TYPE_CHECKING:
     from backend.db.models.procedures import ProcedureType, Procedure
@@ -582,8 +582,7 @@ class Run(BaseClass, LogMixin):
                                                      name="fk_BS_clientsub_id"))  #: id of parent clientsubmission
     _clientsubmission = relationship("ClientSubmission", back_populates="_run")  #: parent clientsubmission
     _started_date = Column(TIMESTAMP)  #: Date this procedure was started.
-    run_cost = Column(
-        FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
+    _run_cost = Column(FLOAT(2))  #: total cost of running the plate. Set from constant and mutable kittype costs at time of creation.
     signed_by = Column(String(32))  #: user name of person who submitted the procedure to the database.
     _comment = Column(JSON)  #: user notes
     _completed_date = Column(TIMESTAMP)  #: Date this procedure was finished.
@@ -832,6 +831,10 @@ class Run(BaseClass, LogMixin):
     def comment(self):
         return self._comment
 
+    @hybrid_property
+    def run_cost(self):
+        return self._run_cost
+
     @classmethod
     def get_default_info(cls, *args, submissiontype: SubmissionType | None = None) -> dict:
         """
@@ -856,7 +859,7 @@ class Run(BaseClass, LogMixin):
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
                          'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-                         'control', "origin_plate", "new", "sql_instance", "name"] + recover,
+                         'control', "origin_plate", "new", "sql_instance", "name", "full_batch_size"] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         ))
@@ -865,13 +868,11 @@ class Run(BaseClass, LogMixin):
             output = {k: v for k, v in dicto.items() if k in args}
         else:
             output = {k: v for k, v in dicto.items()}
-        # logger.debug(f"Submission type for get default info: {submissiontype}")
         if isinstance(submissiontype, SubmissionType):
             st = submissiontype
         else:
             st = cls.get_submission_type(submissiontype)
         if st is None:
-            # logger.error("No default info for Run.")
             pass
         else:
             output['submissiontype'] = st.name
@@ -888,10 +889,7 @@ class Run(BaseClass, LogMixin):
             try:
                 return output[args[0]]
             except KeyError as e:
-                if "pytest" in sys.modules and args[0] == "abbreviation":
-                    return "BS"
-                else:
-                    raise KeyError(f"{args[0]} not found in {output}")
+                raise KeyError(f"{args[0]} not found in {output}")
         return output
 
     @classmethod
@@ -919,114 +917,12 @@ class Run(BaseClass, LogMixin):
             case _:
                 return None
 
-    # @classmethod
-    # def construct_info_map(cls, submissiontype: SubmissionType | None = None,
-    #                        mode: Literal["read", "write"] = "read") -> dict:
-    #     """
-    #     Method to call procedure type's construct info map.
-
-    #     Args:
-    #         mode (Literal["read", "write"]): Which map to construct.
-
-    #     Returns:
-    #         dict: Map of info locations.
-    #     """
-    #     return cls.get_submission_type(submissiontype).construct_info_map(mode=mode)
-
-    # @classmethod
-    # def construct_sample_map(cls, submissiontype: SubmissionType | None = None) -> dict:
-    #     """
-    #     Method to call procedure type's construct_sample_map
-
-    #     Returns:
-    #         dict: sample location map
-    #     """
-    #     return cls.get_submission_type(submissiontype).sample_map
-
     def generate_associations(self, name: str, fields: List[str] | List[dict]):
         try:
             field = self.__getattribute__(name)
         except AttributeError:
             return None
         yield item.details_dict_expand_fields(fields=fields)
-        
-    # def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
-    #     """
-    #     Constructs dictionary used in procedure summary
-
-    #     Args:
-    #         expand (bool, optional): indicates if generators to be expanded. Defaults to False.
-    #         report (bool, optional): indicates if to be used for a report. Defaults to False.
-    #         full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
-    #         backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
-
-    #     Returns:
-    #         dict: dictionary used in procedure summary and details
-    #     """
-    #     # NOTE: get lab from nested organization object
-    #     try:
-    #         sub_lab = self.clientsubmission.clientlab.name
-    #     except AttributeError:
-    #         sub_lab = None
-    #     try:
-    #         sub_lab = sub_lab.replace("_", " ").title()
-    #     except AttributeError:
-    #         pass
-    #     output = {
-    #         "id": self.id,
-    #         "plate_number": self.name,
-    #         "submissiontype": self.clientsubmission.submissiontype_name,
-    #         "submitter_plate_id": self.clientsubmission.submitter_plate_id,
-    #         "started_date": self.clientsubmission.submitted_date.strftime("%Y-%m-%d"),
-    #         "clientlab": sub_lab,
-    #         "sample_count": self.clientsubmission.sample_count,
-    #         "kittype": "Change procedure.py line 388",
-    #         "cost": self.run_cost
-    #     }
-    #     if report:
-    #         return output
-    #     if full_data:
-    #         samples = self.generate_associations(name="clientsubmissionsampleassociation")
-    #         equipment = self.generate_associations(name="submission_equipment_associations")
-    #         tips = self.generate_associations(name="submission_tips_associations")
-    #         procedures = [item.details_dict for item in self.procedure]
-    #         # custom = self.custom
-    #     else:
-    #         samples = None
-    #         equipment = None
-    #         tips = None
-    #         procedures = None
-    #     try:
-    #         comment = self.comment
-    #     except Exception as e:
-    #         logger.error(f"Error setting comment: {self.comment}, {e}")
-    #         comment = None
-    #     try:
-    #         contact = self.clientsubmission.contact.name
-    #     except AttributeError as e:
-    #         try:
-    #             contact = f"Defaulted to: {self.clientsubmission.clientlab.contact[0].name}"
-    #         except (AttributeError, IndexError):
-    #             contact = "NA"
-    #     try:
-    #         contact_phone = self.clientsubmission.contact.phone
-    #     except AttributeError:
-    #         contact_phone = "NA"
-    #     output["submission_category"] = self.clientsubmission.submission_category
-    #     output["sample"] = samples
-    #     output["comment"] = comment
-    #     output["equipment"] = equipment
-    #     output["tips"] = tips
-    #     output["signed_by"] = self.signed_by
-    #     output["contact"] = contact
-    #     output["contact_phone"] = contact_phone
-    #     output['procedures'] = procedures
-    #     output['name'] = self.name
-    #     try:
-    #         output["completed_date"] = self.completed_date.strftime("%Y-%m-%d")
-    #     except AttributeError:
-    #         output["completed_date"] = self.completed_date
-    #     return output
 
     @property
     def sample_count(self):
@@ -1121,11 +1017,6 @@ class Run(BaseClass, LogMixin):
         output_list = [assoc.hitpicked for assoc in self.runsampleassociation]
         return output_list
 
-    # @property
-    # def sample_dicts(self) -> List[dict]:
-    #     return [dict(sample_id=assoc.sample.sample_id, row=assoc.row, column=assoc.column, background_color="#6ffe1d")
-    #             for assoc in self.runsampleassociation]
-
     @classmethod
     def make_plate_map(cls, sample_list: list, plate_rows: int = 8, plate_columns=12) -> str:
         """
@@ -1152,75 +1043,6 @@ class Run(BaseClass, LogMixin):
         html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
         return html + "<br/>"
 
-    # @property
-    # def used_equipment(self) -> Generator[str, None, None]:
-    #     """
-    #     Gets EquipmentRole names associated with this Run
-
-    #     Returns:
-    #         List[str]: List of names
-    #     """
-    #     return (item.equipmentrole for item in self.submission_equipment_associations)
-
-    # @classmethod
-    # def submissions_to_df(cls, submission_type: str | None = None, limit: int = 0,
-    #                       chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
-    #     """
-    #     Convert all procedure to dataframe
-
-    #     Args:
-    #         page_size (int, optional): Number of items to include in query result. Defaults to 250.
-    #         page (int, optional): Limits the number of procedure to a page size. Defaults to 1.
-    #         chronologic (bool, optional): Sort procedure in chronologic order. Defaults to True.
-    #         submission_type (str | None, optional): Filter by SubmissionType. Defaults to None.
-    #         limit (int, optional): Maximum number of results to return. Defaults to 0.
-
-    #     Returns:
-    #         pd.DataFrame: Pandas Dataframe of all relevant procedure
-    #     """
-    #     # NOTE: use lookup function to create list of dicts
-    #     subs = [item.details_dict for item in
-    #             cls.query(submissiontype=submission_type, limit=limit, chronologic=chronologic, page=page,
-    #                       page_size=page_size)]
-    #     df = pd.DataFrame.from_records(subs)
-    #     # NOTE: Exclude sub information
-    #     exclude = ['control', 'extraction_info', 'pcr_info', 'comment', 'comments', 'sample', 'reagents',
-    #                'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls',
-    #                'source_plates', 'pcr_technician', 'ext_technician', 'artic_technician', 'cost_centre',
-    #                'signed_by', 'artic_date', 'gel_barcode', 'gel_date', 'ngs_date', 'contact_phone', 'contact',
-    #                'tips', 'gel_image_path', 'custom']
-    #     # NOTE: dataframe equals dataframe of all columns not in exclude
-    #     df = df.loc[:, ~df.columns.isin(exclude)]
-    #     if chronologic:
-    #         try:
-    #             df.sort_values(by="id", axis=0, inplace=True, ascending=False)
-    #         except KeyError:
-    #             logger.error("No column named 'id'")
-    #     # NOTE: Human friendly column labels
-    #     df.columns = [item.replace("_", " ").title() for item in df.columns]
-    #     return df
-
-    # def update_subsampassoc(self, assoc: ClientSubmissionSampleAssociation,
-    #                         input_dict: dict) -> ClientSubmissionSampleAssociation:
-    #     """
-    #     Update a joined procedure sample association.
-
-    #     Args:
-    #         assoc (ClientSubmissionSampleAssociation): Sample association to be updated.
-    #         input_dict (dict): updated values to insert.
-
-    #     Returns:
-    #         ClientSubmissionSampleAssociation: Updated association
-    #     """
-    #     # NOTE: No longer searches for association here, done in caller function
-    #     for k, v in input_dict.items():
-    #         try:
-    #             setattr(assoc, k, v)
-    #             # NOTE: for some reason I don't think assoc.__setattr__(k, v) works here.
-    #         except AttributeError:
-    #             pass
-    #     return assoc
-
     def to_pydantic(self, backup: bool = False) -> PydRun:
         """
         Converts this instance into a PydSubmission
@@ -1228,10 +1050,10 @@ class Run(BaseClass, LogMixin):
         Returns:
             PydSubmission: converted object.
         """
-        from backend.validators import PydClientSubmission, PydRun
-        dicto = self.details_dict#(full_data=True, backup=backup)
+        from backend.validators import PydRun
+        dict_ = self.details_dict#(full_data=True, backup=backup)
         new_dict = {}
-        for key, value in dicto.items():
+        for key, value in dict_.items():
             missing = value in ['', 'None', None]
             match key:
                 case "rsl_plate_number":
@@ -1242,7 +1064,10 @@ class Run(BaseClass, LogMixin):
                 case "clientsubmission" | "client_submission":
                     field_value = self.clientsubmission.name
                 case "procedure":
-                    field_value = [item.to_pydantic() for item in self.procedure]
+                    # field_value = [item.to_pydantic() for item in self.procedure]
+                    field_value = [item.details_dict for item in self.procedure]
+                # case "run_cost":
+                #     field_value = self.run_cost
                 case _:
                     try:
                         key = key.lower().replace(" ", "_")
@@ -1257,8 +1082,16 @@ class Run(BaseClass, LogMixin):
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
         new_dict['name'] = self.rsl_plate_number
         new_dict['sql_instance'] = self
-        dicto.update(new_dict)
-        return PydRun(**dicto)
+        dict_.update(new_dict)
+        try:
+            assert dict_.get("clientsubmission", None) is not None
+        except AssertionError as e:
+            raise KeyError(f"Key 'clientsubmission' not found in {pformat(dict_)}")
+        return PydRun(**dict_)
+    
+    def set_cost(self):
+        # NOTE: Sum all non-repeat procedure costs.
+        self._run_cost = np.sum([procedure.cost if procedure.cost else 0.00 for procedure in self.procedure if not procedure.repeat])
 
     def save(self, original: bool = True):
         """
@@ -1269,48 +1102,12 @@ class Run(BaseClass, LogMixin):
         """
         if original:
             self.uploaded_by = getuser()
+        self.set_cost()
         return super().save()
-
-    # @classmethod
-    # def get_regex(cls, submission_type: SubmissionType | str | None = None) -> re.Pattern:
-    #     """
-    #     Gets the regex string for identifying a certain class of procedure.
-
-    #     Args:
-    #         submission_type (SubmissionType | str | None, optional): procedure type of interest. Defaults to None.
-
-    #     Returns:
-    #         str: String from which regex will be compiled.
-    #     """
-    #     try:
-    #         regex = cls.get_submission_type(submission_type).regex
-    #     except AttributeError as e:
-    #         logger.error(f"Couldn't get procedure type for {cls.__mapper_args__['polymorphic_identity']}")
-    #         regex = None
-    #     try:
-    #         regex = re.compile(rf"{regex}", flags=re.IGNORECASE | re.VERBOSE)
-    #     except re.error as e:
-    #         regex = cls.construct_regex()
-    #     return regex
-
-    # NOTE: Polymorphic functions
-
-    # @classproperty
-    # def regex(cls) -> re.Pattern:
-    #     """
-    #     Constructs catchall regex.
-
-    #     Returns:
-    #         re.Pattern: Regular expression pattern to discriminate between procedure types.
-    #     """
-    #     return SubmissionType.regexes
-
-    # NOTE: Query functions
 
     @classmethod
     @setup_lookup
     def query(cls,
-              submissiontype: str | SubmissionType | None = None,
               submissiontype_name: str | None = None,
               id: int | str | None = None,
               name: str | None = None,
@@ -1401,12 +1198,11 @@ class Run(BaseClass, LogMixin):
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
-        logger.debug(f"Dummy procedure: {pformat(procedure.improved_dict)}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
-            # sql.save()
-            logger.debug(pformat(sql.procedureequipmentassociation))
+            sql.save()
+            # logger.debug(pformat(sql.procedureequipmentassociation))
         obj.set_data()
 
     def delete(self, obj=None):
@@ -1466,15 +1262,14 @@ class Run(BaseClass, LogMixin):
             comment = dlg.parse_form()
             if comment in ["", None]:
                 return
-            # self.set_attribute(key='comment', value=comment)
             self.comment = comment
             self.save(original=False)
 
     def export(self, obj, output_filepath: str | Path | None = None):
         from backend import managers
-        if not output_filepath:
-            output_filepath = select_save_file(obj=obj, default_name=self.construct_filename(), extension="xlsx")
+        # input_object = self.to_pydantic()
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
+        # manager = Manager(parent=obj, input_object=input_object)
         manager = Manager(parent=obj, input_object=self.to_pydantic())
         workbook = manager.write()
         try:
@@ -1486,7 +1281,6 @@ class Run(BaseClass, LogMixin):
     @property
     def filename(self):
         dict_ = self.details_dict_expand_fields([{'clientsubmission':['clientlab']}])
-        # return f"{self.rsl_plate_number}-{self.clientsubmission.clientlab.name}-{self.clientsubmission.submitter_plate_id}"
         return self.clientsubmission.submissiontype.template.render(**dict_)
 
     def backup(self, obj=None, fname: Path | None = None, full_backup: bool = False):
@@ -1537,7 +1331,10 @@ class Run(BaseClass, LogMixin):
 
     def met_turnaround(self):
         tat = self.calculate_turnaround(start_date=self.started_date, end_date=self.completed_date)
-        return tat < self.clientsubmission.submissiontype.turnaround_time.days
+        if tat:
+            return tat < self.clientsubmission.submissiontype.turnaround_time.days
+        else:
+            return False
 
     @property
     def allowed_procedures(self):
@@ -1635,7 +1432,6 @@ class Sample(BaseClass, LogMixin):
         to pass names like 'Omega Bacterial Extraction' and have the association
         properly wired.
         """
-        # is_control = kwargs.pop('is_control', None)
         clientsubmission = kwargs.pop('clientsubmission', None)
         run = kwargs.pop('run', None)
         procedure = kwargs.pop('procedure', None)
@@ -1688,7 +1484,6 @@ class Sample(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {item} for clientsubmission")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ClientSubmissionSampleAssociation):
                 if output not in self.sampleclientsubmissionassociation:
                     self.sampleclientsubmissionassociation.append(output)
@@ -1753,7 +1548,7 @@ class Sample(BaseClass, LogMixin):
             case bool():
                 output = int(value)
             case _:
-                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}._is_control")
+                raise TypeError(f"Unsupported type: {type(value)} for {self.sample_id}._is_control")
         self._is_control = output
   
     @hybrid_property
@@ -1769,27 +1564,8 @@ class Sample(BaseClass, LogMixin):
     def searchables(cls):
         return [dict(label="Submitter ID", field="sample_id")]
 
-    def to_sub_dict(self, full_data: bool = False) -> dict:
-        """
-        gui friendly dictionary
-
-        Args:
-            full_data (bool): Whether to use full object or truncated. Defaults to False
-
-        Returns:
-            dict: submitter id and sample type and linked procedure if full data
-        """
-        sample = dict(
-            sample_id=self.sample_id
-        )
-        if full_data:
-            sample['clientsubmission'] = sorted([item.to_sub_dict() for item in self.sampleclientsubmissionassociation],
-                                                key=itemgetter('submitted_date'))
-        return sample
-
     def to_pydantic(self):
         from backend.validators import PydSample
-        # return PydSample(**self.to_sub_dict())
         return PydSample(**self.details_dict)
 
     @classmethod
@@ -1833,7 +1609,7 @@ class Sample(BaseClass, LogMixin):
             pd.DataFrame: Dataframe all sample
         """
         try:
-            samples = [sample.to_sub_dict() for sample in sample_list]
+            samples = [sample.details_dict for sample in sample_list]
         except TypeError as e:
             logger.error(f"Couldn't find any sample with data: {kwargs}\nDue to {e}")
             return None
@@ -1869,6 +1645,12 @@ class Sample(BaseClass, LogMixin):
         """
         self.show_details(obj)
 
+    def save(self) -> Report | types.NoneType:
+        if self.sample_id is None:
+            return
+        if self.sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
+            return
+        super().save()
 
 # NOTE: Submission to Sample Associations
 
@@ -1953,7 +1735,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
             .correlate(cls)
             .scalar_subquery()
         )
-        # Note: Can't use f strings for this for some reason.
+        # NOTE: Can't use f strings for this.
         return clientsubmission_subquery + "->" + sample_subquery + " (rank=" + cast(cls.submission_rank, String) + ")"
 
     @hybrid_property
@@ -2032,34 +1814,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         from backend.validators import PydSample
         return PydSample(**self.details_dict)
 
-    # @property
-    # def hitpicked(self) -> dict | None:
-    #     """
-    #     Outputs a dictionary usable for html plate maps.
-
-    #     Returns:
-    #         dict: dictionary of sample id, row and column in elution plate
-    #     """
-    #     # NOTE: Since there is no PCR, negliable result is necessary.
-    #     sample = self.to_sub_dict()
-    #     env = jinja_template_loading()
-    #     template = env.get_template("support/tooltip.html")
-    #     tooltip_text = template.render(fields=sample)
-    #     try:
-    #         control = self.sample.control
-    #     except AttributeError:
-    #         control = None
-    #     if control is not None:
-    #         background = "rgb(128, 203, 196)"
-    #     else:
-    #         background = "rgb(105, 216, 79)"
-    #     try:
-    #         tooltip_text += sample['tooltip']
-    #     except KeyError:
-    #         pass
-    #     sample.update(dict(Name=self.sample.sample_id[:10], tooltip=tooltip_text, background_color=background))
-    #     return sample
-
     @classmethod
     @setup_lookup
     def query(cls,
@@ -2125,7 +1879,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
 
     @classmethod
     def query_or_create(cls,
-                        association_type: str = "Basic Association",
                         clientsubmission: ClientSubmission | str | None = None,
                         sample: Sample | str | None = None,
                         id: int | None = None,
@@ -2409,7 +2162,6 @@ class RunSampleAssociation(BaseClass):
 
     @classmethod
     def query_or_create(cls,
-                        # association_type: str = "Basic Association",
                         run: Run | str | None = None,
                         sample: Sample | str | None = None,
                         id: int | None = None,
@@ -2473,8 +2225,6 @@ class RunSampleAssociation(BaseClass):
 
 class ProcedureSampleAssociation(BaseClass):
 
-    # pyd_model_name = "ProcedureSampleAssociation"
-
     id = Column(INTEGER, unique=True, nullable=False) #: Exists to connect with results
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
@@ -2534,7 +2284,6 @@ class ProcedureSampleAssociation(BaseClass):
         if new_id:
             self.id = new_id
         else:
-            # logger.debug(f"Autoincrementing id for ProcedureSampleAssociation with procedure_rank={self.procedure_rank}")
             self.id = self.__class__.autoincrement_id(procedure_rank=self.procedure_rank)
             
     @hybrid_property
@@ -2563,7 +2312,7 @@ class ProcedureSampleAssociation(BaseClass):
             .correlate(cls)
             .scalar_subquery()
         )
-        # Note: Can't use f strings for this for some reason.
+        # Note: Can't use f strings for this.
         return procedure_subquery + "->" + sample_subquery + " (rank=" + cast(cls.procedure_rank, String) + ")"
     
     @hybrid_property
@@ -2695,7 +2444,7 @@ class ProcedureSampleAssociation(BaseClass):
         try:
             output = max([item.id for item in cls.query()])
         except ValueError as e:
-            # logger.error(f"Unable to autoincrement id due to: {e}, setting to {0 + procedure_rank}")
+            logger.error(f"Unable to autoincrement id due to: {e}, setting to 0")
             output = 0
         return output + procedure_rank
 
@@ -2705,7 +2454,6 @@ class ProcedureSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = self.sample.details_dict
-        # logger.debug(output)
         misc = output.get('misc_info', {})
         output.update(relevant)
         output['misc_info'] = misc

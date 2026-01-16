@@ -251,7 +251,7 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage Equipment</h2>
+<h2 id="ObjectName">Manage ResultsType</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
@@ -259,15 +259,7 @@ ul.no-bullets {
     
         <option value="--New--">--New--</option>
     
-        <option value="Kingfisher 1">Kingfisher 1</option>
-    
-        <option value="Kingfisher 2">Kingfisher 2</option>
-    
-        <option value="Kingfisher 3">Kingfisher 3</option>
-    
-        <option value="Kingfisher 4">Kingfisher 4</option>
-    
-        <option value="Biomek">Biomek</option>
+        <option value="Qubit 1x dsDNA Broad Range">Qubit 1x dsDNA Broad Range</option>
     
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
@@ -275,71 +267,44 @@ ul.no-bullets {
 
 <label for="name" style="font-size: medium;">name 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Name of this equipment.</span>
+        <span class="tooltiptext">Brief description of this type.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="name" name="name" value="Biomek" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="text" id="name" name="name" value="Qubit 1x dsDNA Broad Range" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
-<label for="asset_number" style="font-size: medium;">asset_number 
+<label for="proceduretype" style="font-size: medium;">proceduretype 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Asset number of this equipment.</span>
+        <span class="tooltiptext">ProcedureTypes using this type.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="asset_number" name="asset_number" value="5015330" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="nickname" style="font-size: medium;">nickname 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Nickname of this equipment.</span>
-    </div>:
-</label><br>
-
-
-<input type="text" id="nickname" name="nickname" value="Biomek" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="equipmentrole" style="font-size: medium;">equipmentrole 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Roles this equipment can fill.</span>
-    </div>:
-</label><br>
-
-
-<div id="equipmentrole" class="dual-listbox-container associationlist">
+<div id="proceduretype" class="dual-listbox-container relationshiplist">
     <div class="selected-list list-panel">
         <h4>Selected Options</h4>
-        <select id="equipmentrole_selectedOptions" size="10">
+        <select id="proceduretype_selectedOptions" multiple="" size="10" class="relationship selected">
             
-            <option value="Omega gDNA Mover" name="">Omega gDNA Mover</option>
+            <option value="Omega Bacterial Extraction" class="relationship">Omega Bacterial Extraction</option>
             
         </select>
     </div>
     <div class="controls">
-        <button type="button" id="equipmentrole_addSelected" name="equipmentrole" class="addSelectedBtn association">&lt;</button>
-        <button type="button" id="equipmentrole_removeSelected" name="equipmentrole" class="removeSelectedBtn association">&gt;</button>
+        <button type="button" id="proceduretype_addSelected" name="proceduretype" class="addSelectedBtn">&lt;</button>
+        <button type="button" id="proceduretype_removeSelected" name="proceduretype" class="removeSelectedBtn">&gt;</button>
     </div>
     <div class="available-list list-panel">
         <h4>Available Options</h4>
-        <select id="equipmentrole_availableOptions" multiple="" size="10" onchange="createAssociationForm(this.id.replace('_availableOptions', ''), this.value)">
+        <select id="proceduretype_availableOptions" multiple="" size="10" class="relationship available">
             
-            <option value="Omega Bacteria Extractor">Omega Bacteria Extractor</option>
+            <option value="Test" class="relationship">Test</option>
             
         </select>
     </div>
-    <form id="equipmentroleassociation_Form" class="associationForm">
-        <!-- Additional fields for association attributes can be added here -->
-    </form>
 </div>
 
 <br><br>

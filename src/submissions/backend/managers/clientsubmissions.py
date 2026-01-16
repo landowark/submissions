@@ -21,6 +21,7 @@ class DefaultClientSubmissionManager(DefaultManager):
     def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
                  input_object: Path | str | None = None):
         from backend.db.models import SubmissionType
+        logger.debug(f"Input object: {input_object}")
         match input_object:
             case str() | Path():
                 self.namer = ClientSubmissionNamer(filepath=input_object)
@@ -47,7 +48,6 @@ class DefaultClientSubmissionManager(DefaultManager):
         self.clientsubmission = self.info_parser.to_pydantic()
         
         self.clientsubmission.full_batch_size = (self.sample_parser.end_row - 1) - self.sample_parser.start_row
-        logger.debug(f"Set full_batch_size: {self.sample_parser.end_row} - {self.sample_parser.start_row} = {self.clientsubmission.full_batch_size}")
         self.clientsubmission.sample = self.sample_parser.to_pydantic()
         return self.clientsubmission
 

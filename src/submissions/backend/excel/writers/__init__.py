@@ -125,7 +125,7 @@ class DefaultKEYVALUEWriter(DefaultWriter):
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
-        self.fill_dictionary = self.pydant_obj.improved_dict()
+        self.fill_dictionary = self.pydant_obj.improved_dict
 
     def delineate_end_row(self, start_row: int = 1):
         data_length = len(self.fill_dictionary)
@@ -177,9 +177,14 @@ class DefaultTABLEWriter(DefaultWriter):
             if isinstance(self.pydant_obj, list):
                 iterator = self.pydant_obj
             else:
-                iterator = self.pydant_obj.sample
+                if mode == "submission":
+                    iti = "clientsubmission"
+                else:
+                    iti = mode
+                iterator = getattr(self.pydant_obj.sql_instance, f"{iti}sampleassociation")
             try:
-                sample = next((item for item in iterator if getattr(item, f"{mode}_rank") == iii))
+                sample = next((item.to_pydantic() for item in iterator if getattr(item, f"{mode}_rank") == iii))
+
             except StopIteration:
                 sample = PydSample(sample_id="")
                 sample.submission_rank = iii
@@ -208,7 +213,7 @@ class DefaultTABLEWriter(DefaultWriter):
                     continue
                 column = column.column
                 try:
-                    value = object.improved_dict()[header.lower().replace(" ", "")]
+                    value = object.improved_dict[header.lower().replace(" ", "")]
                 except (AttributeError, KeyError) as e:
                     try:
                         value = object.improved_dict()[header.lower().replace(" ", "_")]
