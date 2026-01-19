@@ -216,7 +216,7 @@ class DefaultTABLEWriter(DefaultWriter):
                     value = object.improved_dict[header.lower().replace(" ", "")]
                 except (AttributeError, KeyError) as e:
                     try:
-                        value = object.improved_dict()[header.lower().replace(" ", "_")]
+                        value = object.improved_dict[header.lower().replace(" ", "_")]
                     except (AttributeError, KeyError):
                         value = ""
                 self.worksheet.cell(row=write_row, column=column, value=self.stringify_value(value))

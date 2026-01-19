@@ -1267,10 +1267,10 @@ class Run(BaseClass, LogMixin):
 
     def export(self, obj, output_filepath: str | Path | None = None):
         from backend import managers
-        # input_object = self.to_pydantic()
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
-        # manager = Manager(parent=obj, input_object=input_object)
         manager = Manager(parent=obj, input_object=self.to_pydantic())
+        default_name = manager.pyd.construct_filename()
+        output_filepath = select_save_file(obj=obj, default_name=default_name, extension="xlsx")
         workbook = manager.write()
         try:
             workbook.remove_sheet("Sheet")

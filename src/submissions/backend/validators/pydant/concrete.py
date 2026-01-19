@@ -472,6 +472,30 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             value = None
         return value
     
+    @field_validator("name", mode="before")
+    @classmethod
+    def name_to_dict(cls, value):
+        if isinstance(value, str):
+            missing = False
+            if value in [None, "", "NA"]:
+                missing = True
+            value = dict(value=value, missing=missing)
+        return value
+    
+    @field_validator("equipment", mode="before")
+    @classmethod
+    def validate_equipment(cls, value):
+        output = []
+        for item in value:
+            match item:
+                case dict():
+                    output.append(item['name'])
+                case str() | PydProcedureEquipmentAssociation():
+                    output.append(item)
+                case _:
+                    continue
+        return output
+
     # @field_validator("name", mode="after")
     # @classmethod
     # def validate_name_default(cls, value: Any, info: ValidationInfo) -> dict:

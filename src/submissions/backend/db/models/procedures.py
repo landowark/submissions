@@ -1942,18 +1942,18 @@ class Procedure(BaseClass):
     def to_pydantic(self, **kwargs):
         from backend.validators.pydant import PydReagent
         output = super().to_pydantic()
-        output.sample = [item.to_pydantic() for item in output.proceduresampleassociation]
-        reagents = []
-        for reagent in output.reagent:
-            match reagent:
-                case dict():
-                    reagents.append(PydReagent(**reagent))
-                case PydReagent():
-                    reagents.append(reagent)
-                case _:
-                    pass
-        output.reagent = reagents
+        output.sample = [item.to_pydantic() for item in self.proceduresampleassociation]
+        # for reagent in self.reagent:
+        #     match reagent:
+        #         case dict():
+        #             reagents.append(PydReagent(**reagent))
+        #         case PydReagent():
+        #             reagents.append(reagent)
+        #         case _:
+        #             pass
+        output.reagent = [item.to_pydantic() for item in self.reagentlot]
         output.result = [item.to_pydantic() for item in self.results]
+        output.equipment = [item.to_pydantic() for item in self.equipment]
         output.sample_results = flatten_list(
             [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
         return output

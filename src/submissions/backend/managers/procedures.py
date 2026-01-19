@@ -2,6 +2,7 @@
 Module for manager of Procedure object.
 """
 from __future__ import annotations
+from pprint import pformat
 import logging, sys
 from openpyxl.workbook import Workbook
 from backend.managers import DefaultManager
@@ -10,19 +11,27 @@ from pathlib import Path
 from backend.excel.parsers import procedure_parsers
 from backend.excel.writers import procedure_writers, results_writers
 if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
+    from backend.db.models import Procedure
+    from backend.validators.pydant import PydProcedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultProcedureManager(DefaultManager):
 
-    def __init__(self, proceduretype: ProcedureType | str, parent, input_object: Path | str | None = None):
-        from backend.db.models import ProcedureType
-        if isinstance(proceduretype, str):
-            proceduretype = ProcedureType.query(name=proceduretype)
-        self.proceduretype = proceduretype
+    def __init__(self, parent, input_object: Path | str | Procedure | PydProcedure | dict | None = None):
+        from backend.db.models import ProcedureType, Procedure
+        from backend.validators.pydant import PydProcedure
+        match input_object:
+            case Procedure():
+                self.proceduretype = input_object.proceduretype
+            case PydProcedure():
+                self.proceduretype = input_object.proceduretype.sql_instance
+            case dict():
+                self.proceduretype = ProcedureType.query(name=input_object.get("proceduretype", None), limit=1)
         self.procedure = input_object
+        logger.debug(f"Input object: {pformat(input_object)}")
+        # This is the sql object
         super().__init__(parent=parent, input_object=input_object)
 
     def parse(self):
