@@ -73,6 +73,7 @@ class DefaultParser(object):
             self.workbook, self.worksheet = self.csv2xlsx(self.filepath)
         self.start_row = self.delineate_start_row(start_row=start_row)
         self.end_row = self.delineate_end_row(start_row=self.start_row)
+        logger.debug(f"Parsing from {self.start_row} to {self.end_row}")
 
     @classmethod
     def csv2xlsx(cls, filepath):
@@ -106,13 +107,25 @@ class DefaultParser(object):
             proceduretype = ProcedureType.query(name=proceduretype)
         return proceduretype
 
-    def delineate_start_row(self, start_row: int = 1):
+    def delineate_start_row(self, start_row: int = 1) -> int:
+        """
+        Determines the start row by finding the first non-empty row.
+
+        Returns:
+            int: Start row number
+        """
         for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if not all([item.value is None for item in row]):
                 return iii
         return self.worksheet.min
 
     def delineate_end_row(self, start_row: int = 1):
+        """
+        Determines the end row by finding the first empty row.
+
+        Returns:
+            int: End row number
+        """
         for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
                 return iii
@@ -125,7 +138,13 @@ class DefaultKEYVALUEParser(DefaultParser):
     start_row = 1
 
     @property
-    def parsed_info(self):
+    def parsed_info(self) -> Generator[tuple, None, None]:
+        """
+        Generates key, value tuples for rows in an excel sheet.
+
+        Returns:
+            Generator[tuple, None, None]: (key, value) tuple.
+        """
         rows = range(self.start_row, self.end_row)
         for row in rows:
             check_row = [item for item in self.worksheet.rows][row-1]
@@ -152,6 +171,12 @@ class DefaultTABLEParser(DefaultParser):
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
+        """
+        Generates dictionaries of data from Excel rows.
+
+        Returns:
+            Generator[dict, None, None]: {column_header: row column value}
+        """
         df = DataFrame(
             [item for item in self.worksheet.values][self.start_row - 1:self.end_row - 1])
         df.columns = df.iloc[0]

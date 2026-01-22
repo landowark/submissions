@@ -73,7 +73,6 @@ class ProcedureEquipmentParser(DefaultTABLEParser):
             item['asset_number'] = eq.asset_number
             item['nickname'] = eq.nickname
             process = Process.query(name=item['process'])
-
             if item['tips']:
                 item['tips'] = [PydTips(name=item['tips'], tiprole=process.tiprole[0].name)]
             item['equipmentrole'] = item['equipment_role']

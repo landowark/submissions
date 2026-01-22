@@ -12,7 +12,7 @@ from pprint import pformat
 from threading import Thread
 from inspect import getmembers, isfunction, stack
 from dateutil.easter import easter
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, Template
 from logging import handlers, Logger
 from pathlib import Path
 from sqlalchemy.orm import Session, InstrumentedAttribute
@@ -449,7 +449,7 @@ def jinja_template_loading() -> Environment:
     return env
 
 
-def render_details_template(template_name: str, css_in: List[str] | str = [], js_in: List[str] | str = [],
+def render_details_template(template: str | Template, css_in: List[str] | str = [], js_in: List[str] | str = [],
                             **kwargs) -> str:
     if isinstance(css_in, str):
         css_in = [css_in]
@@ -461,7 +461,9 @@ def render_details_template(template_name: str, css_in: List[str] | str = [], js
         js_in = [js_in]
     js_in = ["details"] + js_in
     js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
-    template = env.get_template(f"{template_name}.html")
+    if isinstance(template, str):
+        template = f"{template}.html"
+    template = env.get_template(template)
     css_out = []
     for css in css_in:
         with open(css, "r") as f:
@@ -1067,16 +1069,20 @@ def sanitize_object_for_json(input_dict: dict) -> dict | str:
         match input_dict:
             case int() | float() | bool():
                 pass
+            case datetime():
+                input_dict = input_dict.strftime("%Y-%m-%d %H:%M:%S")
+            case date():
+                input_dict = input_dict.strftime("%Y-%m-%d")
             case _:
                 try:
                     input_dict = json.dumps(input_dict)
                 except TypeError:
                     match input_dict:
                         case str():
-                            pass
+                            input_dict = input_dict.strip('\"')
                         case _:
-                            input_dict = str(input_dict)
-        return input_dict.strip('\"')
+                            input_dict = str(input_dict).strip('\"')
+        return input_dict
     output = {}
     for key, value in input_dict.items():
         match value:
@@ -1084,6 +1090,10 @@ def sanitize_object_for_json(input_dict: dict) -> dict | str:
                 value = [sanitize_object_for_json(object) for object in value]
             case dict():
                 value = sanitize_object_for_json(value)
+            case datetime():
+                value = value.strftime("%Y-%m-%d %H:%M:%S")
+            case date():
+                value = value.strftime("%Y-%m-%d")
             case _:
                 try:
                     value = json.dumps(value)

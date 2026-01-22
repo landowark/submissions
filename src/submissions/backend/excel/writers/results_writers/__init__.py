@@ -4,18 +4,29 @@ Default results writers.
 from openpyxl import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from backend.db.models import ProcedureType
-from tools import flatten_list
+import logging
+
+logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
 
     pass
 
+
 class DefaultResultsSampleWriter(DefaultTABLEWriter):
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
-        self.pydant_obj = flatten_list([sample.results for sample in pydant_obj.sample])
+        
+        associations = getattr(pydant_obj, f"{pydant_obj.__class__.__name__.lower()}sampleassociation")
+        associations = [item for item in associations if item.results]
+        output = []
+        for assoc in associations:
+            for result in assoc.results:
+                result.result.update({"sample_id": assoc.sample.sample_id})
+            output.append(result.result)
+        self.pydant_obj = output
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:

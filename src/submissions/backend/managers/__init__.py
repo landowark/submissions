@@ -16,7 +16,6 @@ class DefaultManager(object):
     def __init__(self, parent, input_object: Path | str | None = None):
         self.parent = parent
         # NOTE: If input_object is a str or path, use parser to construct object
-        logger.debug(f"Input object: {type(input_object)}")
         match input_object:
             case str():
                 self.input_object = Path(input_object)
@@ -27,7 +26,6 @@ class DefaultManager(object):
             case x if issubclass(input_object.__class__, PydBaseClass):
                 self.pyd = input_object
             case x if issubclass(input_object.__class__, BaseClass):
-                logger.debug(f"Object to pydantic: {pformat(input_object.__dict__)}")
                 self.pyd = input_object.to_pydantic()
             case _:
                 logger.warning(f"Unmatched input object: {type(input_object)}. Looking for file.")

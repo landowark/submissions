@@ -70,7 +70,10 @@ class ReportMaker(object):
         df2 = df.groupby(["clientlab", "proceduretype"]).agg(
             {'proceduretype': 'count', 'cost': 'sum', 'sample_count': 'sum'})
         df2 = df2.rename(columns={"proceduretype": 'run_count'})
-        df = df.drop('id', axis=1)
+        try:
+            df = df.drop('id', axis=1)
+        except KeyError:
+            pass
         df = df.sort_values(['clientlab', "started_date"])
         return df, df2
 
@@ -177,22 +180,22 @@ class TurnaroundMaker(ReportArchetype):
         Returns:
 
         """
-        days = sub.turnaround_time
-        try:
-            tat = sub.get_default_info("turnaround_time")
-        except (AttributeError, KeyError):
-            tat = None
-        if not tat:
-            try:
-                tat = ctx.TaT_threshold
-            except AttributeError:
-                tat = 3
-        try:
-            tat_ok = days <= tat
-        except TypeError:
-            return {}
-        return dict(name=str(sub.rsl_plate_number), days=days, submitted_date=sub.submitted_date,
-                    completed_date=sub.completed_date, acceptable=tat_ok)
+        # days = sub.turnaround_time
+        # try:
+        #     tat = sub.get_default_info("turnaround_time")
+        # except (AttributeError, KeyError):
+        #     tat = None
+        # if not tat:
+        #     try:
+        #         tat = ctx.TaT_threshold
+        #     except AttributeError:
+        #         tat = 3
+        # try:
+        #     tat_ok = days <= tat
+        # except TypeError:
+        #     return {}
+        return dict(name=str(sub.rsl_plate_number), days=sub.turnaround_time, submitted_date=sub.started_date,
+                    completed_date=sub.completed_date, acceptable=sub.met_turnaround())
 
 
 class ConcentrationMaker(ReportArchetype):

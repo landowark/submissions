@@ -1,8 +1,10 @@
+"""
+All abstract pyd models and associations between abstracts.
+"""
 from __future__ import annotations
-import logging, sys
+import logging, sys, numpy as np
 from datetime import timedelta
 from typing import List, TYPE_CHECKING
-import numpy as np
 from pydantic import field_validator, Field
 from backend.validators.pydant import PydAbstract
 from tools import jinja_template_loading
@@ -28,7 +30,16 @@ class PydReagent(PydAbstract):
             return value.days
         return value
     
-    
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Reagent
+        self.sql_instance: Reagent = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.reagentrole = self.reagentrole
+        self.sql_instance.reagentlot = self.reagentlot
+        return self.sql_instance, None
+
+
 class PydTips(PydAbstract):
 
     tipslot: List[str] | List[dict] = Field(default_factory=list, description="Lots of this tip archetype", repr=False)
@@ -44,6 +55,15 @@ class PydReagentRole(PydAbstract):
     reagent: List[str] | List[dict] = Field(default_factory=list, description="Reagents filling this role.", repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", repr=False)
 
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ReagentRole
+        self.sql_instance: ReagentRole = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.proceduretype = self.proceduretype
+        self.sql_instance.reagent = self.reagent
+        return self.sql_instance
+
 
 class PydEquipmentRole(PydAbstract):
 
@@ -51,12 +71,30 @@ class PydEquipmentRole(PydAbstract):
     equipment: List[str] | List[dict] = Field(default_factory=list, description="Equipment this role can use.", repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this role", repr=False)
 
+    def to_sql(self, update: bool = True):
+        from backend.db.models import EquipmentRole
+        self.sql_instance: EquipmentRole = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.proceduretype = self.proceduretype
+        self.sql_instance.equipment = self.equipment
+        return self.sql_instance, None
+
 
 class PydProcess(PydAbstract):
     
     name: str = Field(default="NA", description="Name of this process.")
     tips: List[str] | List[dict] = Field(default_factory=list, description="Tips used by this process.", repr=False)
     processversion: List[str] | List[dict] = Field(default_factory=list, description="Versions of this process.", repr=False)
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Process
+        self.sql_instance: Process = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.tips = self.tips
+        self.sql_instance.processversion = self.processversion
+        return self.sql_instance, None
 
     
 class PydResultsType(PydAbstract):
@@ -75,12 +113,13 @@ class PydResultsType(PydAbstract):
         return self.sql_instance, None
 
 
-
 class PydSubmissionType(PydAbstract):
     
     name: str = Field(default="NA", description="Name of this Submission Type.")
     defaults: dict = Field(default_factory=dict, repr=False)
-    file_name_template: str = Field(default="", description="Jinja2 template for naming files of this submission type.", repr=False, validate_default=True)
+    file_name_template: str = Field(default="", repr=False, validate_default=True)
+    turnaround_time: int = Field(default=3, description="Days allowed for processing.", repr=False)
+    abbreviation: str = Field(default="XX", description="Shorthand to be used in naming convention (RSL-XX-YYYYMMMDD-1).")
     clientsubmission: List[str] | List[dict] = Field(default_factory=list, repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
 
@@ -93,12 +132,20 @@ class PydSubmissionType(PydAbstract):
     
     @field_validator("proceduretype")
     @classmethod
-    def validate_proceduretype(cls, value) -> List[str]:
-        if not value and cls.name == "Default SubmissionType":
+    def validate_proceduretype(cls, value, values) -> List[str]:
+        print(values)
+        if not value and values.data.get("name", "Default SubmissionType") == "Default SubmissionType":
             from backend.db.models import ProcedureType
             value = [item.name for item in ProcedureType.query()]
         return value
     
+    @field_validator("abbreviation", mode="before")
+    @classmethod
+    def validate_abbreviation(cls, value):
+        if not value:
+            value = "XX"
+        return value
+
     def update_instrumentedattribute(self, key, value):
         """
         Updates all instrumented attributes to match the current state of the pydantic model.
@@ -122,6 +169,17 @@ class PydSubmissionType(PydAbstract):
             logger.error("Cannot remove proceduretypes from Default SubmissionType.")
             return
         super().remove_relationship(field, value)
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import SubmissionType
+        self.sql_instance: SubmissionType = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.file_name_template = self.file_name_template
+        self.sql_instance.abbreviation = self.abbreviation
+        self.sql_instance.proceduretype = self.proceduretype
+        self.sql_instance.clientsubmission = self.clientsubmission
+        return self.sql_instance, None
 
 
 class PydProcedureType(PydAbstract):
@@ -163,18 +221,19 @@ class PydProcedureType(PydAbstract):
         if field == "submissiontype" and value == "Default SubmissionType":
             logger.error("Cannot remove default submission type.")
             return
-        current = self.__getattribute__(field)
-        if not isinstance(current, list):
-            logger.error(f"Field {field} is not a list relationship.")
-            return
-        new_list = []
-        for item in current:
-            if isinstance(item, str) and item == value:
-                continue  # Skip if it's the target string
-            elif isinstance(item, dict) and value in item.values():
-                continue  # Skip if dict contains the target value
-            new_list.append(item)
-        self.__setattr__(field, new_list)
+        # current = self.__getattribute__(field)
+        # if not isinstance(current, list):
+        #     logger.error(f"Field {field} is not a list relationship.")
+        #     return
+        # new_list = []
+        # for item in current:
+        #     if isinstance(item, str) and item == value:
+        #         continue  # Skip if it's the target string
+        #     elif isinstance(item, dict) and value in item.values():
+        #         continue  # Skip if dict contains the target value
+        #     new_list.append(item)
+        # self.__setattr__(field, new_list)
+        super().remove_relationship(field=field, value=value)
 
     def construct_plate_map(self, sample_dicts: List[PydSample], creation:bool=True, vw_modifier:float=1.0) -> str:
         """
@@ -200,21 +259,42 @@ class PydProcedureType(PydAbstract):
                                vw=vw, creation=creation)
         return html + "<br/>"
     
-    def pad_sample_dicts(self, sample_dicts: List[PydSample]):
+    def pad_sample_dicts(self, sample_dicts: List[PydSample]) -> List[PydSample]:
+        """
+        Pads out a list of sample dicts to the length of an associated plate.
+        
+        Returns:
+            List[PydSample]: Padded list.
+        """
         from backend.validators.pydant import PydSample
         output = []
         for row, column in self.ranked_plate.values():
             sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
-                          PydSample(**dict(sample_id="", row=row, column=column, enabled=False, background_color="white")))
-            # if not hasattr(sample, "background_color"):
-            #     sample.background_color = "white"
+                          PydSample(sample_id="", row=row, column=column, enabled=False, background_color="white"))
             output.append(sample)
         return output
     
     @property
-    def ranked_plate(self):
+    def ranked_plate(self) -> dict:
+        """
+        Creates a dictionary of rows and columns for an associated plate.
+
+        Returns:
+            dict: (rank: {row: value, column: value})
+        """
         matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
         return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ProcedureType
+        self.sql_instance: ProcedureType = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.submissiontype = self.submissiontype
+        self.sql_instance.equipmentrole = self.equipmentrole
+        self.sql_instance.reagentrole = self.reagentrole
+        self.sql_instance.resultstype = self.resultstype
+        return self.sql_instance
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
@@ -231,9 +311,18 @@ class PydProcedureTypeReagentRoleAssociation(PydAbstract):
         return value
     
     @classproperty
-    def aliases(cls) -> str:
+    def aliases(cls) -> List[str]:
         return super().aliases + ["reagentroleproceduretypeassociation"]
     
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ProcedureTypeReagentRoleAssociation
+        self.sql_instance: ProcedureTypeReagentRoleAssociation = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.proceduretype = self.proceduretype
+        self.sql_instance.reagentrole = self.reagentrole
+        return self.sql_instance, None
+
 
 class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
 
@@ -261,8 +350,17 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
         return value
     
     @classproperty
-    def aliases(cls) -> str:
+    def aliases(cls) -> List[str]:
         return super().aliases + ["equipmentroleproceduretypassociation"]
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ProcedureTypeEquipmentRoleAssociation
+        self.sql_instance: ProcedureTypeEquipmentRoleAssociation = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.proceduretype = self.proceduretype
+        self.sql_instance.equipmentrole = self.equipmentrole
+        return self.sql_instance, None
 
 
 class PydEquipmentRoleEquipmentAssociation(PydAbstract):
@@ -272,8 +370,18 @@ class PydEquipmentRoleEquipmentAssociation(PydAbstract):
     process: List[str] | List[dict] = Field(default_factory=list, description="Processes using this equipment role-equipment association.")
 
     @classproperty
-    def aliases(cls) -> str:
+    def aliases(cls) -> List[str]:
         return super().aliases + ["equipmentequipmentroleassociation"]
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import EquipmentRoleEquipmentAssociation
+        self.sql_instance: EquipmentRoleEquipmentAssociation = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.equipmentrole = self.equipmentrole
+        self.sql_instance.equipment = self.equipment
+        self.sql_instance.process = self.process
+        return self.sql_instance, None
 
 
 class PydReagentRoleReagentAssociation(PydAbstract):
@@ -290,5 +398,14 @@ class PydReagentRoleReagentAssociation(PydAbstract):
         return value
 
     @classproperty
-    def aliases(cls) -> str:
+    def aliases(cls) -> List[str]:
         return super().aliases + ["reagentreagentroleassociation"]
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ReagentRoleReagentAssociation
+        self.sql_instance: ReagentRoleReagentAssociation = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.reagentrole = self.reagentrole
+        self.sql_instance.reagent = self.reagent
+        return self.sql_instance, None

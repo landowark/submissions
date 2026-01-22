@@ -23,15 +23,13 @@
 {% endif %}
 
 {% block script %}
-
 {% for j in js %}
-
 <script>
     {{ j }}
 </script>
-
 {% endfor %}
 {% endblock %}
+
 {% if not child %}
 </html>
 {% endif %}

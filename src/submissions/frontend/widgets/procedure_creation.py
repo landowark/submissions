@@ -10,7 +10,7 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
-    from backend.validators import PydProcedure, PydEquipment
+    from backend.validators import PydProcedure
 from frontend.widgets import CustomWebEnginePage
 from tools import get_application_from_parent, render_details_template, sanitize_object_for_json, get_index_of_value_in_dict_list
 
@@ -29,7 +29,8 @@ class ProcedureCreation(QDialog):
         try:
             assert isinstance(self.proceduretype, PydProcedureType)
         except AssertionError:
-            sys.exit(str(self.proceduretype))
+            logger.error(str(self.proceduretype))
+            return
         self.proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
             {
                 "reagentrole":[
@@ -40,11 +41,17 @@ class ProcedureCreation(QDialog):
                 "equipmentrole": [
                         {"equipmentroleequipmentassociation":["equipment", "process"]}]
             }
-            
+            ])
+        self.procedure_dict = self.procedure.improved_dict_expand_fields([
+                "procedurereagentlotassociation",
+                "procedureequipmentassociation"
             ])
         # logger.debug(f"ProcedureType: {pformat(self.proceduretype_dict)}")
-        # with open("proceduretype.json", "w") as f:
-        #     json.dump(sanitize_object_for_json(self.proceduretype_dict), f, indent=4)
+        self.proceduretype_dict = self.reorder_proceduretype_by_procedure(self.proceduretype_dict, self.procedure_dict)
+        with open("proceduretype.json", "w") as f:
+            json.dump(sanitize_object_for_json(self.proceduretype_dict), f, indent=4)
+        with open("procedure.json", "w") as f:
+            json.dump(sanitize_object_for_json(self.procedure_dict), f, indent=4)
         if isinstance(self.run.rsl_plate_number, dict):
             title = self.run.rsl_plate_number.get("value", "Unknown Run")
         else:
@@ -81,6 +88,36 @@ class ProcedureCreation(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
 
+    @classmethod
+    def reorder_proceduretype_by_procedure(cls, proceduretype_dict: dict, procedure_dict: dict):
+        for assoc in procedure_dict["procedurereagentlotassociation"]:
+            reagentrole = assoc['reagentrole']
+            reagent = assoc['reagent']
+            reagentlot = assoc['reagentlot']
+            try:
+                pt_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
+            except StopIteration:
+                continue
+            logger.debug(f"PT Reagent: {pformat(pt_reagent)}")
+            try:
+                pt_reagentlots = next(item['reagentlot'] for item in pt_reagent if item['name'] == reagent)
+            except StopIteration:
+                continue
+            rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
+            pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
+        for assoc in procedure_dict["procedureequipmentassociation"]:
+            equipmentrole = assoc['equipmentrole']
+            equipment = assoc['equipment']
+            # reagentlot = assoc['reagentlot']
+            try:
+                pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
+            except StopIteration:
+                continue
+            logger.debug(f"PT equipment: {pformat(pt_equipment)}")
+            eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
+            pt_equipment.insert(0, pt_equipment.pop(eq_index))
+        return proceduretype_dict
+
     def set_html(self):
         # NOTE: Add --New-- as an option for reagents.
         from backend.db.models import Run
@@ -100,17 +137,17 @@ class ProcedureCreation(QDialog):
                 if not check:
                     reagent['reagentlot'].append(dict(name="--New--", active=True))
         # if self.procedure.equipment:
-        for equipmentrole in self.proceduretype_dict.get('equipmentrole', []):
-            # NOTE: Check if procedure equipment is present and move to head of the list if so.
-            try:
-                relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
-                                                equipment.equipmentrole == equipmentrole['name']))
-            except StopIteration:
-                continue
-            item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if
-                                    equipment['name'] == relevant_procedure_item.name))
-            equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(
-                equipmentrole['equipment'].index(item_in_er_list)))
+        # for equipmentrole in self.proceduretype_dict.get('equipmentrole', []):
+        #     # NOTE: Check if procedure equipment is present and move to head of the list if so.
+        #     try:
+        #         relevant_procedure_item = next((equipment for equipment in self.procedure.equipment if
+        #                                         equipment.equipmentrole == equipmentrole['name']))
+        #     except StopIteration:
+        #         continue
+        #     logger.debug(f"Looking for: {relevant_procedure_item.name} in\n{pformat(equipmentrole['equipment'])}")
+        #     item_in_er_list = next((equipment for equipment in equipmentrole['equipment'] if
+        #                             equipment['name'] == relevant_procedure_item.name))
+        #     equipmentrole['equipment'].insert(0, equipmentrole['equipment'].pop(equipmentrole['equipment'].index(item_in_er_list)))
         # proceduretype_dict['equipment'] = [sanitize_object_for_json(object) for object in proceduretype_dict['equipment']]
         regex = re.compile(r".*R\d$")
         logger.debug(f"Run: {self.run}, {self.proceduretype}")
@@ -118,13 +155,13 @@ class ProcedureCreation(QDialog):
         self.proceduretype_dict['previous'] = [""] + [item.name for item in run.procedure if item.proceduretype.name == self.proceduretype.name and not bool(regex.match(item.name))]
         # logger.debug(f"Proceduretype equipmentrole dictionary:\n{pformat(self.proceduretype_dict['equipmentrole'])}")
         html = render_details_template(
-            template_name="procedure_creation",
+            template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
             proceduretype=self.proceduretype_dict,
             run=self.run.improved_dict,
             procedure=self.procedure,
             plate_map=self.plate_map,
-            edit=self.edit
+            # edit=self.edit
         )
         # with open("platemap.html", "w") as f:
         #     f.write(html)

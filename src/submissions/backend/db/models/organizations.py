@@ -120,13 +120,13 @@ class ClientLab(BaseClass):
                     output = Contact.query_or_create(**item)
                 case PydContact():
                     output = item.to_sql(update=False)
-                    if isinstance(output, tuple):
-                        output = output[0]
                 case Contact():
                     output = item
                 case _:
                     logger.error(f"Unmatched value {item} for contact")
                     continue
+            if isinstance(output, tuple):
+                output = output[0]
             if isinstance(output, Contact):
                 self._contact.append(output)
             else:

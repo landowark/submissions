@@ -43,7 +43,7 @@ class SampleChecker(QDialog):
         except AttributeError as e:
             logger.error(f"Problem getting sample list: {e}")
             samples = []
-        html = render_details_template(template_name="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
+        html = render_details_template(template="sample_checker", samples=samples, rsl_plate_number=self.rsl_plate_number)
         self.webview.setHtml(html)
         self.webview.page().setWebChannel(self.channel)
         QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel

@@ -20,14 +20,19 @@ class QubitInfoWriter(DefaultResultsInfoWriter):
 
 class QubitSampleWriter(DefaultResultsSampleWriter):
 
+    header_order = ["sample_id"]
+
     def write_to_workbook(self, workbook: Workbook, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, *args, **kwargs)
-        header_row = self.proceduretype.allowed_result_methods['Qubit']['sample']['header_row']
-        for iii, header in enumerate(self.column_headers, start=1):
+        resultstype = next((item for item in self.proceduretype.allowed_result_methods if item['name'] == "Qubit"), dict(header_row=1))
+        header_row = resultstype.get('header_row', 1)
+        logger.debug(f"Column headers: {self.column_headers}")
+        headers = self.sort_header_row(self.column_headers)
+        for iii, header in enumerate(headers, start=1):
             self.worksheet.cell(row=header_row, column=iii, value=header.replace("_", " ").title())
         for iii, result in enumerate(self.pydant_obj, start = 1):
             row = header_row + iii
-            for k, v in result.result.items():
+            for k, v in result.items():
                 try:
                     column = next((col[0].column for col in self.worksheet.iter_cols() if col[0].value == k.replace("_", " ").title()))
                 except StopIteration:
@@ -43,6 +48,6 @@ class QubitSampleWriter(DefaultResultsSampleWriter):
     def column_headers(self):
         output = []
         for result in self.pydant_obj:
-            for k, value in result.result.items():
+            for k, value in result.items():
                 output.append(k)
         return sorted(list(set(output)))

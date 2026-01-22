@@ -2,6 +2,7 @@
 Module for default excel writers
 """
 from __future__ import annotations
+from operator import itemgetter
 import logging, sys
 from datetime import datetime, date
 from pprint import pformat
@@ -20,11 +21,15 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DefaultWriter(object):
 
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.filepath.stem}>"
+        try:
+            return f"{self.__class__.__name__}<{self.filepath.stem}>"
+        except AttributeError:
+            return f"{self.__class__.__name__}<Unknown Filepath>"
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         self.pydant_obj = pydant_obj
         self.proceduretype = proceduretype
+        logger.debug(f"{proceduretype} -> {self.proceduretype}")
 
     @classmethod
     def stringify_value(cls, value: Any) -> str:
@@ -44,7 +49,7 @@ class DefaultWriter(object):
             case bytes() | list():
                 value = None
             case datetime() | date():
-                value = value.strftime("%Y-%m-%d")
+                value = value.strftime("%Y-%m-%d %H:%M:%S")
             case _:
                 value = str(value)
         return value
@@ -78,6 +83,7 @@ class DefaultWriter(object):
             self.worksheet = workbook[self.sheet]
         self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
         self.start_row = self.delineate_start_row(start_row=start_row)
+        # NOTE: Declared in child classes
         self.end_row = self.delineate_end_row(start_row=start_row)
         return workbook
 
@@ -169,38 +175,42 @@ class DefaultTABLEWriter(DefaultWriter):
         end_row = start_row + len(self.pydant_obj) + 1
         return end_row
 
-    def pad_samples_to_length(self, row_count,
-                              mode: Literal["submission", "procedure"] = "submission"):  #, column_names):
-        from backend import PydSample
-        output_samples = []
-        for iii in range(1, row_count + 1):
-            if isinstance(self.pydant_obj, list):
-                iterator = self.pydant_obj
-            else:
-                if mode == "submission":
-                    iti = "clientsubmission"
-                else:
-                    iti = mode
-                iterator = getattr(self.pydant_obj.sql_instance, f"{iti}sampleassociation")
-            try:
-                sample = next((item.to_pydantic() for item in iterator if getattr(item, f"{mode}_rank") == iii))
+    # def pad_samples_to_length(self, row_count,
+    #                           mode: Literal["submission", "procedure"] = "submission"):  #, column_names):
+    #     from backend.validators.pydant import PydProcedureSampleAssociation
+    #     output_samples = []
+    #     for iii in range(1, row_count + 1):
+    #         if isinstance(self.pydant_obj, list):
+    #             iterator = self.pydant_obj
+    #         else:
+    #             if mode == "submission":
+    #                 iti = "clientsubmission"
+    #             else:
+    #                 iti = mode
+    #             iterator = getattr(self.pydant_obj.sql_instance, f"{iti}sampleassociation")
+    #         try:
+    #             sample = next((item.to_pydantic() for item in iterator if getattr(item, f"{mode}_rank") == iii))
+    #         except StopIteration:
+    #             sample = PydProcedureSampleAssociation(sample_id="")
+    #             setattr(sample, f"{mode}_rank", iii)
+    #             if mode == "procedure":
+    #                 if all([item.row for item in self.pydant_obj.sample]):
+    #                     rows, columns = self.pydant_obj.rows_columns_count
+    #                     grid = create_plate_grid(rows=rows, columns=columns)
+    #                     sample.row, sample.column = grid[sample.procedure_rank]
+    #         output_samples.append(sample)
+    #     logger.debug(f"Padded samples: {pformat(output_samples)}")
+    #     return sorted(output_samples, key=lambda x: getattr(x, f"{mode}_rank"))
 
-            except StopIteration:
-                sample = PydSample(sample_id="")
-                sample.submission_rank = iii
-                sample.procedure_rank = iii
-                if mode == "procedure":
-                    if all([item.row for item in self.pydant_obj.sample]):
-                        rows, columns = self.pydant_obj.rows_columns_count
-                        grid = create_plate_grid(rows=rows, columns=columns)
-                        sample.row, sample.column = grid[sample.procedure_rank]
-            output_samples.append(sample)
-        return sorted(output_samples, key=lambda x: getattr(x, f"{mode}_rank"))
+    
+            
+    
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.header_list = self.sort_header_row(list(set(flatten_list([item.fields for item in self.pydant_obj]))))
+        logger.debug(f"Header list: {self.header_list}")
         self.worksheet = self.write_header_row(worksheet=self.worksheet)
         for iii, object in enumerate(self.pydant_obj, start=1):
             write_row = self.start_row + iii
@@ -219,7 +229,10 @@ class DefaultTABLEWriter(DefaultWriter):
                         value = object.improved_dict[header.lower().replace(" ", "_")]
                     except (AttributeError, KeyError):
                         value = ""
-                self.worksheet.cell(row=write_row, column=column, value=self.stringify_value(value))
+                # logger.debug(f"Value for {header} = {value}")
+                value = self.stringify_value(value)
+                # logger.debug(f"Output value: {value}")
+                self.worksheet.cell(row=write_row, column=column, value=value)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 

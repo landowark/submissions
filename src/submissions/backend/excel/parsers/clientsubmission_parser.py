@@ -2,6 +2,7 @@
 Module for clientsubmission parsing
 """
 from __future__ import annotations
+from pprint import pformat
 import logging, sys
 from datetime import datetime
 from pathlib import Path
@@ -117,7 +118,6 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
     pyd_name = "PydClientSubmission"
 
     def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, *args, **kwargs):
-        # logger.debug(f"Set submission type: {submissiontype}")
         if not submissiontype:
             self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         else:
@@ -148,13 +148,15 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
 
     pyd_name = "PydSample"
 
-    def __init__(self, filepath: Path | str, submissiontype: "SubmissionType" | None = None, start_row: int = 1, *args,
+    def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, start_row: int = 1, *args,
                  **kwargs):
         if not submissiontype:
             self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         else:
             self.submissiontype = submissiontype
         super().__init__(filepath=filepath, sheet="Client Info", start_row=start_row, **kwargs)
+        logger.debug(f"Parser: {pformat(self.__dict__)}")
+        logger.debug([item for item in self.parsed_info])
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
@@ -177,9 +179,9 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
             return 0
         if sample_id.lower().startswith(("atcc", "mcs")):
             return 1
-        if sample_id.lower().startswith(("en")):
+        if sample_id.lower().startswith(("en", 'pbs')):
             return -1
         return 0
         
     def to_pydantic(self):
-        return [self._pyd_object(**sample) for sample in self.parsed_info if sample['sample_id']]
+        return [self._pyd_object(**sample) for sample in self.parsed_info if sample.get('sample_id', None)]

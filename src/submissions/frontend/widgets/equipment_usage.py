@@ -56,7 +56,7 @@ class EquipmentUsage(QDialog):
         proceduretype_dict = proceduretype.details_dict
         run = procedure.run
         html = render_details_template(
-            template_name="support/equipment_usage",
+            template="support/equipment_usage",
             css_in=[],
             js_in=[],
             proceduretype=proceduretype_dict,

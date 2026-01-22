@@ -29,6 +29,7 @@ class DefaultProcedureManager(DefaultManager):
                 self.proceduretype = input_object.proceduretype.sql_instance
             case dict():
                 self.proceduretype = ProcedureType.query(name=input_object.get("proceduretype", None), limit=1)
+        logger.debug(f"Procedure Type: {self.proceduretype}")
         self.procedure = input_object
         logger.debug(f"Input object: {pformat(input_object)}")
         # This is the sql object
@@ -86,7 +87,7 @@ class DefaultProcedureManager(DefaultManager):
             sample_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}SampleWriter")
         except AttributeError:
             sample_writer = procedure_writers.ProcedureSampleWriter
-        self.sample_writer = sample_writer(pydant_obj=self.pyd)
+        self.sample_writer = sample_writer(pydant_obj=self.pyd, proceduretype=self.proceduretype)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.
         for result in self.pyd.result:
@@ -94,7 +95,8 @@ class DefaultProcedureManager(DefaultManager):
             res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
             workbook = res_info_writer.write_to_workbook(workbook=workbook)
         for result in self.pyd.sample_results:
-            Writer = getattr(results_writers, f"{result.result_type}SampleWriter")
+            logger.debug(f"Sample result: {pformat(type(result))}")
+            Writer = getattr(results_writers, f"{result.resultstype}SampleWriter")
             res_sample_writer = Writer(pydant_obj=self.procedure, proceduretype=self.proceduretype)
             workbook = res_sample_writer.write_to_workbook(workbook=workbook)
         return workbook

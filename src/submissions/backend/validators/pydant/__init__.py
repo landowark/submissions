@@ -2,22 +2,20 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
-from copy import deepcopy
 import logging, sys, string, inspect
 from pprint import pformat
 from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, ClassVar, Generator, List, Tuple
-from tools import classproperty, jinja_template_loading, row_keys
+from typing import Any, ClassVar, Generator, List
+from tools import classproperty, jinja_template_loading, row_keys, sanitize_object_for_json
 from backend.db import models
-# from backend.db.models import *
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.orm import DeclarativeMeta, ColumnProperty
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import _AssociationList
+from PyQt6.QtWidgets import QDialog
 
 
 logger = logging.getLogger(f"submission.{__name__}")
@@ -47,7 +45,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     # _sql_object: ClassVar = None
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
-
     
     def model_post_init(self, __context__=None) -> None:
         if self.name == "NA":
@@ -57,7 +54,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 logger.error(f"{self.__class__.__qualname__} has no attribute 'constructed_name'")
     
     @classproperty
-    def aliases(cls) -> str:
+    def aliases(cls) -> List[str]:
         return [cls.__name__.replace("Pyd", "").lower()]
 
     @classproperty
@@ -83,14 +80,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 f"SQL model '{cls._sql_name}' not found on backend.db.models. "
                 f"Available top-level attributes: {available}") from e
         
-    # @property
-    # def _sql_instance(self) -> models.BaseClass:
-    #     assert hasattr(self, "_sql_class")
-    #     instance = self._sql_class.query_or_create(name=self.name)
-    #     if isinstance(instance, tuple):
-    #         instance = instance[0]
-    #     return instance
-    
     @field_validator("sql_instance", mode="before")
     @classmethod
     def generate_blank_sql_instance(cls, value):
@@ -155,7 +144,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 try:
                     item = item['value']
                 except KeyError:
-                    # logger.error(f"Couldn't get dict value: {item}")
+                    logger.error(f"Couldn't get {key} dict value: {item}")
                     pass
             case _:
                 pass
@@ -164,50 +153,37 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def improved_dict_expand_fields(self, fields: List[str] | List[dict]):
         if len(fields) == 0:
             fields = self.improved_dict.keys()
-        # print(f"Fields:\n{pformat(fields)}")
         dict_ = self.improved_dict
         for field in fields:
-            # print(f"Field type: {type(field)}")
             match field:
                 case str():
                     key = field
-                    # print(f"{self.sql_instance.__class__.__qualname__} Key: {key}")
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
                         logger.error(f"Skipping {key} in {self.sql_instance} due to {e}")
                         continue
-                    # print(f"{self.sql_instance.__class__.__qualname__} Value: {value}")
                     match value:
                         case InstrumentedAttribute():
-                            # print(f"Instrumented Attribute: {type(value)}, {key}: {value}")
                             pass
                         case _AssociationList():
                             output = []
-                            # print(f"Association list: {key}: {value}")
-                            # output = [item.to_pydantic().improved_dict for item in value]
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict
                                 target = getattr(item, key)
                                 target = target.to_pydantic().improved_dict
-                                # print(f"target dict: {pformat(target)}")
                                 target.update({k:v for k, v in dicto.items() if k !="name"})
-                                # dicto.update(target)
                                 if target['name'] not in [thing['name'] for thing in output]:
                                     output.append(target)
                         case InstrumentedList():
-                            # print(f"Instrumented: {key}: {value}")
                             output = [item.to_pydantic().improved_dict for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
-                            # print(f"BaseClass: {value.__class__.__qualname__}")
                             output = value.to_pydantic().improved_dict
                         case _:
-                            # print(f"Unmatched type {type(value)}")
                             continue
                 case dict():
                     key = list(field.keys())[0]
                     new_fields = list(field.values())[0]
-                    # print(f"New fields for {key}: {new_fields}")
                     try:
                         value = getattr(self.sql_instance, key)
                     except AttributeError as e:
@@ -216,30 +192,23 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     match value:
                         case _AssociationList():
                             output = []
-                            # print(f"Association list: {key}: {value}")
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
                                 target = getattr(item, key)
                                 target = target.to_pydantic().improved_dict_expand_fields(new_fields)
-                                # print(f"target dict: {pformat(target)}")
                                 target.update({k:v for k, v in dicto.items() if k !="name"})
-                                # dicto.update(target)
                                 if target['name'] not in [thing['name'] for thing in output]:
                                     output.append(target)
                         case InstrumentedList():
-                            # print(f"Instrumented: {key}: {value}")
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
-                            # print(f"BaseClass: {value.__class__.__qualname__}")
                             output = value.to_pydantic().improved_dict
                         case _:
-                            # print(f"Unmatched type {type(value)}")
                             continue
                 case _:
                     continue
             dict_[key] = output
-        # logger.debug(f"Outgoing dicto: {pformat(dict_)}")
         return dict_
     
     @property
@@ -253,7 +222,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             dict: This instance as a dictionary
         """
-        # self.revalidate()
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         output = {k: self.filter_field(k) for k in fields if k not in ["sql_instance", "new"]}
         if "misc_info" in output.keys():
@@ -286,16 +254,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             assert self.sql_instance is not None
         except AssertionError:
             raise AttributeError(f"Sql Instance for {self.__class__.__name__} is None, cannot save")
-
-        # sql = self.sql_instance
-        # local imports to avoid circulars
-        # from backend.db import models as _models
-
         for k, v in sanitized_dicto.items():
             logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
             try:
                 class_attr = getattr(self._sql_class, k, None).property
             except AttributeError as e:
+                logger.error(f"Couldn't get class_attr {k} for {self._sql_class} due to {e}")
                 continue
             match class_attr:
                 case hybrid_property():
@@ -311,96 +275,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             logger.error(f"Could not set attribute {k} on {self.sql_instance} due to {e}")
                             continue
                 case _:
-                    # logger.debug(f"Skipping unknown attribute {k} on {self.sql_instance}")
                     pass
-            # If the SQL instance doesn't have this attribute, fall back to setattr
-            # if not hasattr(sql, k):
-            #     try:
-            #         setattr(sql, k, v)
-            #     except Exception:
-            #         logger.debug(f"Skipping unknown attribute {k} on {sql}")
-            #     continue
-
-            # current = getattr(sql, k)
-
-            # # Relationship/list-ish fields: append/merge items instead of overwriting
-            # if isinstance(current, (list, InstrumentedList, _AssociationList)):
-            #     # incoming values are expected to be iterable (we filtered out empty lists earlier)
-            #     try:
-            #         iterable = list(v)
-            #     except TypeError:
-            #         logger.debug(f"Expected list for relationship field {k}, got {type(v)}")
-            #         continue
-
-            #     for item in iterable:
-            #         sql_item = None
-            #         # If the incoming item is a Pyd model, use its to_sql()
-            #         match item:
-            #             case PydBaseClass():
-            #                 sql_item = item.to_sql()
-            #         # If it's already an SQL model instance, use it
-            #             case _models.BaseClass():
-            #                 sql_item = item
-            #         # If it's a dict with a 'name' try to query/create a sensible SQL object
-            #             case dict() if 'name' in item:
-            #             # elif isinstance(item, dict) and 'name' in item:
-            #                 # Heuristic: try to find a model matching the relationship name
-            #                 # e.g. 'sample' -> Sample, 'equipment' -> Equipment
-            #                 model_name = k.rstrip('s').capitalize()
-            #                 candidate = getattr(_models, model_name, None)
-            #                 if candidate is not None and issubclass(candidate, _models.BaseClass):
-            #                     try:
-            #                         sql_item, _ = candidate.query_or_create(**item)
-            #                     except Exception:
-            #                         try:
-            #                             sql_item = candidate.query(name=item.get('name'), limit=1)
-            #                         except Exception:
-            #                             sql_item = None
-            #             case str():
-            #                 model_name = k.rstrip('s').capitalize()
-            #                 candidate = getattr(_models, model_name, None)
-            #                 if candidate is not None and issubclass(candidate, _models.BaseClass):
-            #                     sql_item = candidate.query(name=item, limit=1)
-            #             case _:
-            #                 logger.debug(f"Unmatched item type {type(item)} for field {k} in {self.__class__.__name__}")
-            #                 continue
-            #         if sql_item is None:
-            #             # Could not resolve incoming item; skip it
-            #             logger.debug(f"Could not resolve item for field {k}: {item}")
-            #             continue
-
-            #         # Append only if not already associated
-            #         try:
-            #             if sql_item not in current:
-            #                 current.append(sql_item)
-            #         except Exception as e:
-            #             logger.debug(f"Failed to append {sql_item} to {sql}.{k}: {e}")
-
-            # else:
-            #     # Scalar relationships or simple columns
-            #     # If incoming value is a Pyd model, convert it
-            #     if isinstance(v, PydBaseClass):
-            #         try:
-            #             setattr(sql, k, v.to_sql())
-            #             continue
-            #         except Exception:
-            #             pass
-
-            #     # If current is an SQL object (relationship scalar) and incoming is dict, try query_or_create
-            #     if isinstance(current, _models.BaseClass) and isinstance(v, dict):
-            #         try:
-            #             new_obj, _ = current.__class__.query_or_create(**v)
-            #             setattr(sql, k, new_obj)
-            #             continue
-            #         except Exception:
-            #             pass
-
-            #     # Fallback: set attribute directly
-            #     try:
-            #         setattr(sql, k, v)
-            #     except Exception as e:
-            #         logger.debug(f"Could not set {sql}.{k} to {v}: {e}")
-
+        for k, v in self.model_extra.items():
+            self.sql_instance._misc_info[k] = sanitize_object_for_json(v)
         return self.sql_instance
 
     @property
@@ -420,19 +297,34 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     output.append(k)
                 case _:
                     continue
+            if k == "tipslot":
+                output.append(k)
         return list(set(output))
     
     @classproperty
     def described_fields(cls) -> List[str]:
+        """
+        Gets all fields that have a description.
+
+        Returns:
+            List[str]: List of field names.
+        """
         return [k for k, v in cls.model_fields.items() if v.description]
     
     @classproperty
     def sql_classes(cls) -> List[str]:
+        """
+        Gets all fields associated with sqlalchemy objects.
+
+        Returns:
+            List[str]: List of lowercase object names.
+        """
         return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
     
     @classmethod
     def determine_field_type(cls, field: str, is_new: bool = False) -> str:
-        """Determines which type of field to use in the form.
+        """
+        Determines which type of field to use in the form.
 
         Args:
             field (str): Field name
@@ -450,11 +342,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 except AttributeError:
                     type_ = getattr(cls._sql_class, f"_{field}") # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
-                logger.debug(f"New type_name for hybrid_propertyProxy: {type_name}")
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
                     type_name = type_.__class__.__name__
-                    logger.debug(f"New type_name for hybrid_propertyProxy, InstrumentedAttribute: {type_name}")
                     if type_name == "_RelationshipDeclared":
                         if type_.uselist:
                             type_name = "RelationshipList"
@@ -475,7 +365,17 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return type_name
     
     # Add this new helper method to PydBaseClass (place it before the form_dictionary property)
-    def _compute_excluded_items(self, field: str) -> list:
+    def _compute_excluded_items(self, field: str) -> List[str]:
+        """
+        Determines which sub-items are to be excluded from a form dictionary.
+
+        Args:
+            field (str): Name of field to be considered.
+
+        Returns:
+            List[str]: List of sub-items. 
+
+        """
         model: models.BaseClass = models.BaseClass.find_subclasses(class_alias=field.lower().strip("_"))
         data = self.model_dump()
         excluded = []
@@ -486,7 +386,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 data_names = {v.get("name") if isinstance(v, dict) and "name" in v else v for v in raw_field_values}
             else:
                 data_names = {raw_field_values}
-            logger.debug(f"Querying with model {model}")
             for item in model.query():
                 try:
                     related = getattr(item, rel_attr)
@@ -515,6 +414,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 
     @property
     def form_dictionary(self) -> Generator[dict, None, None]:
+        """
+        Generates dictionaries to be used to fill jinja2 html form.
+
+        Returns:
+            Generator[dict, None, None]: Generator of Dict[field name, type name, value, tooltip text, excluded fields, sql object type name]
+        
+        """
         if self.__class__.__name__ == "PydBaseClass":
             raise NotImplementedError("Must be used in subclass only")
         data = self.model_dump()
@@ -526,47 +432,70 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             else:
                 excluded = None
             tooltip = self.__class__.model_fields[field].description
-            value = data[field]
+            value = data.get(field, None)
             if isinstance(value, list):
                 value = [value['name'] if isinstance(value, dict) and 'name' in value.keys() else value for value in value]
-            # if "association" in self.__class__.__name__.lower():
-            #     field = f"{self._sql_name.lower()}-{field}"
             yield dict(field=field, type=type_name.upper(), value=value, tooltip=tooltip, excluded=excluded, object_type=self._sql_name.lower())
 
     @classmethod
-    def get_association_class(cls, field: str):
+    def get_association_class(cls, field: str) -> PydBaseClass | None:
+        """
+        Gets Pydantic model class associated with a field..
+
+        Args:
+            field (str): Name of field to be considered.
+
+        Returns:
+            PydBaseClass: Class of interest.
+        """
         lookup_name = cls.__name__.replace("Pyd", "").lower()
         merged = f"{lookup_name}{field.lower().strip('_')}association"
-        # logger.debug(f"Looking for association class with merged alias: {merged}")
-        subclass = next((class_ for class_ in PydBaseClass.get_subclasses() if merged in class_.aliases), None)
+        subclass = next((class_ for class_ in PydBaseClass.subclasses if merged in class_.aliases), None)
         if subclass is None:
             logger.error(f"Could not find association class for merged alias: {merged}")
         return subclass
 
     @property
     def html_form(self) -> str:
+        """
+        Renders instance data through a jinja2 template to an html str.
+
+        Returns:
+            str: Rendered HTML string.
+        """
         if "association" in self.__class__.__name__.lower():
             association = True
         else:
             association = False
         env = jinja_template_loading()
         template = env.get_template("managers/manager_form.html")
-        logger.debug(f"Form dictionary: {pformat(list(self.form_dictionary))}")
         html = template.render(object=self.form_dictionary, association=association, class_name=self.__class__.__name__)
         return html
             
     @classmethod
-    def manage(cls, parent=None):
+    def manage(cls, parent=None) -> QDialog:
+        """
+        Creates a manager dialog for this class.
+
+        Args:
+            parent: The parent widget for this Dialog
+        """
         from frontend.widgets.omni_manager_pydant import OmniManager
         widget = OmniManager(parent=parent, object_type=cls)
         widget.exec()
         return widget
 
-    @classmethod
-    def get_subclasses(cls):
+    @classproperty
+    def subclasses(cls) -> Generator[PydBaseClass, None, None]:
+        """
+        Generates list of all PydBaseClass subclasses.
+
+        Returns:
+            Generator[PydBaseClass, None, None]: Generator of all subclasses.
+        """
         for class_ in PydBaseClass.__subclasses__():
             for subclass in class_.__subclasses__():
-                yield subclass
+                yield subclass       
 
     def add_relationship(self, field: str, value: str, data: dict | None = None):
         """
@@ -631,7 +560,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 class PydAbstract(PydBaseClass):
 
     @classmethod
-    def get_managables(cls):
+    def get_managables(cls) -> Generator[PydBaseClass, None, None]:
+        """
+        Generates list of all subclasses that can be managed.
+
+        Returns:
+            Generator[PydBaseClass, None, None]: all subclasses with described fields.
+        """
         for class_ in PydAbstract.__subclasses__():
             if "association" in class_.__name__.lower():
                 continue
@@ -643,6 +578,12 @@ class PydConcrete(PydBaseClass):
 
     @classmethod
     def get_managables(cls):
+        """
+        Generates list of all subclasses that can be managed.
+
+        Returns:
+            Generator[PydBaseClass, None, None]: all subclasses with described fields.
+        """
         for class_ in PydConcrete.__subclasses__():
             if "association" in class_.__name__.lower():
                 continue
@@ -680,5 +621,6 @@ from .concrete import (
     PydDiscount,
     PydProcedureEquipmentAssociation,
     PydProcedureReagentLotAssociation,
-    PydProcedureSampleAssociation
+    PydProcedureSampleAssociation,
+    PydClientSubmissionSampleAssociation
     )

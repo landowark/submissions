@@ -8,7 +8,6 @@ from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:
-    from backend.validators.pydant import PydSample
     from backend.db.models import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")

@@ -1,0 +1,475 @@
+
+<html lang="en">
+<head>
+    
+    
+    <meta charset="UTF-8">
+    
+    <style>
+        
+        /* Tooltip container */
+.tooltip {
+  position: relative;
+  display: inline-block;
+  border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+
+  /* Position the tooltip text - see examples below! */
+  position: absolute;
+  z-index: 1;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -60px;
+}
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  font-size: large;
+}
+
+.data-link {
+  color: blue;
+  text-decoration: underline;
+  text-decoration-color: blue;
+}
+
+.data-link:hover {
+  color: #ff33ff;
+  text-decoration-color: #ff33ff;
+  cursor: pointer;
+}
+
+div.procedure_creation_leftright {
+  width:100%;
+  overflow:auto;
+  border-style: solid;
+  border-width: 2px;
+  background-color: #FFFFFF;
+  display: flex;
+}
+
+div.procedure_creation_leftright div.left {
+  height: 100%;
+  width:15%;
+  float:left;
+  border-style: solid;
+  border-width: 1px;
+  background-color: #FFF4A3;
+  padding: 5px;
+  flex: 0.25;
+}
+
+div.procedure_creation_leftright div.right {
+  height: 100%;
+  width:84%;
+  float:left;
+  border-style: solid;
+  border-width: 1px;
+  background-color:#D9EEE1;
+  padding: 5px;
+  flex: 0.75;
+  object-fit: contain;
+}
+
+.dropdown {
+  width: 100%;
+}
+
+.form_text.full {
+  width: 97%;
+}
+
+div.gallery {
+  width: 100%;
+  object-fit: contain;
+}
+
+.context-menu {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 150px;
+  margin: 32px;
+  position: absolute;
+
+}
+
+
+.context-menu--active {
+  display: block;
+  z-index: 10;
+  background-color: white;
+  border: 2px solid black;
+  padding: 5px;
+}
+
+.plate {
+    display: inline-grid;
+    grid-auto-flow: column;
+    place-content: center center;
+    grid-gap: 2px;
+}
+
+.well {
+    border: 1px solid #000;
+    padding: 20px;
+    display: flex;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: move;
+}
+
+.well:hover {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
+}
+
+.grid-item p {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+ul.no-bullets {
+  list-style-type: none; /* Remove bullets */
+  padding: 0; /* Remove padding */
+  margin: 0; /* Remove margins */
+}
+
+.negativecontrol {
+  background-color: cyan;
+}
+
+.positivecontrol {
+  background-color: pink;
+}
+
+/*  */
+.nested {
+  margin-left: 50px;
+  padding: 0 18px;
+  overflow: hidden;
+  background-color: #f1f1f1;
+  .nested {
+        background-color: #ffffff;
+  }
+}
+
+.hidden_input {
+    display: none;
+}
+
+/* Style the button that is used to open and close the collapsible content */
+.collapsible {
+  background-color: #eee;
+  color: #444;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+/* Add a background color to the button if it is clicked on (add the .active class with JS), and when you move the mouse over it (hover) */
+.active, .collapsible:hover {
+  background-color: #ccc;
+}
+
+.unused {
+  color: red;
+  text-decoration-line: line-through;
+  text-decoration-color: red;
+}
+
+.grid-container {
+          display: grid;
+          grid-auto-flow: column;
+        }
+
+.disable_section {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* Dual List */
+
+.dual-listbox-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px; /* Space between panels */
+}
+
+.list-panel {
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.list-panel select {
+    width: 200px;
+    height: 250px;
+    border: none;
+    outline: none;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.controls button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.controls button:hover {
+    background-color: #0056b3;
+}
+
+
+        
+    </style>
+    
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    
+    <title>ClientSubmission Details for Wastewater Genomics-Wastewater-2026-01-12 13:33:18</title>
+    
+</head>
+<body>
+
+
+    <h2><u>Submission Details for Wastewater Genomics-Wastewater-2026-01-12 13:33:18</u></h2>
+    
+
+    <p>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Submitter Plate ID:</b> Wastewater Genomics-Wastewater-2026-01-12 13:33:18<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Submitted Date:</b> 2026-01-12 00:00:00<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Submission Category:</b> Wastewater<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Sample Count:</b> 20<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Full Batch Size:</b> 24<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Comments:</b> None<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Contact:</b> Veronica Carroll<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Cost Centre:</b> 231250<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Client Lab:</b> Wastewater Genomics<br/>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Submission Type:</b> Wastewater<br/>
+    
+    </p>
+    
+    <button type="button"><h3><u>Client Submitted Samples:</u></h3></button>
+    <p>
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600006-01">RSL-WW-901-2600006-01</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600017-02">RSL-WW-901-2600017-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600018-02">RSL-WW-901-2600018-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600032">RSL-WW-901-2600032</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600033">RSL-WW-901-2600033</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600035-02">RSL-WW-901-2600035-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600047-02">RSL-WW-901-2600047-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600048-02">RSL-WW-901-2600048-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600052">RSL-WW-901-2600052</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600053">RSL-WW-901-2600053</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600054">RSL-WW-901-2600054</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600055">RSL-WW-901-2600055</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600058-02">RSL-WW-901-2600058-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600059-02">RSL-WW-901-2600059-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600066-02">RSL-WW-901-2600066-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600067-02">RSL-WW-901-2600067-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600068-02">RSL-WW-901-2600068-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600069-03">RSL-WW-901-2600069-03</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600070-02">RSL-WW-901-2600070-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-PBS-20260112-1">RSL-WW-PBS-20260112-1</a><br>
+    </p>
+    
+    
+    <button type="button"><h3><u>Runs:</u></h3></button>
+    <div class="nested">
+    
+        
+            
+
+    <h2><u>Run Details for RSL-WW-20260112-1</u></h2>
+    
+
+    <p>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>RSL Plate Number:</b> RSL-WW-20260112-1<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Started Date:</b> 2026-01-12 00:00:00<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Run Cost:</b> 0.0<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Signed By:</b> None<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Comment:</b> None<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Completed Date:</b> None<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Uploaded By:</b> lwark<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Name:</b> RSL-WW-20260112-1<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Plate Number:</b> RSL-WW-20260112-1<br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>Sample Count:</b> 20<br>
+    </p>
+    
+    <button type="button"><h3><u>Run Samples:</u></h3></button>
+    <p>
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600006-01">RSL-WW-901-2600006-01</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600017-02">RSL-WW-901-2600017-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600018-02">RSL-WW-901-2600018-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600032">RSL-WW-901-2600032</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600033">RSL-WW-901-2600033</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600035-02">RSL-WW-901-2600035-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600047-02">RSL-WW-901-2600047-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600048-02">RSL-WW-901-2600048-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600052">RSL-WW-901-2600052</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600053">RSL-WW-901-2600053</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600054">RSL-WW-901-2600054</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600055">RSL-WW-901-2600055</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600058-02">RSL-WW-901-2600058-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600059-02">RSL-WW-901-2600059-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600066-02">RSL-WW-901-2600066-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600067-02">RSL-WW-901-2600067-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600068-02">RSL-WW-901-2600068-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600069-03">RSL-WW-901-2600069-03</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-901-2600070-02">RSL-WW-901-2600070-02</a><br>
+    
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="RSL-WW-PBS-20260112-1">RSL-WW-PBS-20260112-1</a><br>
+    </p>
+    
+    
+    
+
+    <button type="button" id="sign_btn">Sign Off</button>
+    
+
+
+
+
+<script>
+var sampleSelection = document.getElementsByClassName('sample');
+
+for(let i = 0; i < sampleSelection.length; i++) {
+    sampleSelection[i].addEventListener("click", function() {
+    console.log(sampleSelection[i].id);
+    backend.sample_details(sampleSelection[i].id);
+    })
+}
+
+document.getElementById("sign_btn").addEventListener("click", function(){
+    console.log("Signing off.");
+    backend.sign_off("RSL-WW-20260112-1");
+});
+</script>
+
+
+<script>
+    
+
+var backend;
+if (typeof QWebChannel !== 'undefined') {
+    new QWebChannel(qt.webChannelTransport, function(channel) {
+        backend = channel.objects.backend;
+        console.log('QWebChannel ready, backend:', backend);
+    });
+} else {
+    console.warn('QWebChannel or qt not available yet - make sure qwebchannel.js is included');
+}
+</script>
+
+
+
+
+
+        
+    
+    </div>
+    
+    
+
+
+</body>
+
+
+
+
+<script>
+    
+
+var backend;
+if (typeof QWebChannel !== 'undefined') {
+    new QWebChannel(qt.webChannelTransport, function(channel) {
+        backend = channel.objects.backend;
+        console.log('QWebChannel ready, backend:', backend);
+    });
+} else {
+    console.warn('QWebChannel or qt not available yet - make sure qwebchannel.js is included');
+}
+</script>
+
+
+
+
+</html>

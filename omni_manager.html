@@ -251,61 +251,120 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage ResultsType</h2>
+<h2 id="ObjectName">Manage ReagentLot</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
         <option value=""></option>
     
-        <option value="--New--">--New--</option>
+        <option value="Omega VHB Buffer-64145GG259">Omega VHB Buffer-64145GG259</option>
     
-        <option value="Qubit 1x dsDNA Broad Range">Qubit 1x dsDNA Broad Range</option>
+        <option value="Omega SPM Buffer-61219FV114">Omega SPM Buffer-61219FV114</option>
+    
+        <option value="Omega Elution Buffer-50642BD476">Omega Elution Buffer-50642BD476</option>
+    
+        <option value="Omega XP2 Buffer-63854GL159">Omega XP2 Buffer-63854GL159</option>
+    
+        <option value="Omega Mag Bind RQ-72595DB227">Omega Mag Bind RQ-72595DB227</option>
+    
+        <option value="Omega RBB Buffer-72220ER86">Omega RBB Buffer-72220ER86</option>
+    
+        <option value="100 mM Tris-HCl-81744">100 mM Tris-HCl-81744</option>
+    
+        <option value="Omega Proteinase K-74598EM649">Omega Proteinase K-74598EM649</option>
+    
+        <option value="Omega DS Buffer-46571AQ114">Omega DS Buffer-46571AQ114</option>
+    
+        <option value="CA 100% Ethanol-041167">CA 100% Ethanol-041167</option>
+    
+        <option value="MN96 Type B Bead Plate-BEP23128">MN96 Type B Bead Plate-BEP23128</option>
+    
+        <option value="ZymoBiomics MCS-238716">ZymoBiomics MCS-238716</option>
+    
+        <option value="Ceres Nanotrap ER1-NT06970">Ceres Nanotrap ER1-NT06970</option>
+    
+        <option value="Ceres Nanotrap Particles-NT04329">Ceres Nanotrap Particles-NT04329</option>
     
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 
-<label for="name" style="font-size: medium;">name 
+<label for="lot" style="font-size: medium;">lot 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Brief description of this type.</span>
+        <span class="tooltiptext">Lot number of this reagent.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="name" name="name" value="Qubit 1x dsDNA Broad Range" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="text" id="lot" name="lot" value="NT04329" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
-<label for="proceduretype" style="font-size: medium;">proceduretype 
+<label for="reagent" style="font-size: medium;">reagent 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">ProcedureTypes using this type.</span>
+        <span class="tooltiptext">Type of reagent this lot is.</span>
     </div>:
 </label><br>
 
 
-<div id="proceduretype" class="dual-listbox-container relationshiplist">
-    <div class="selected-list list-panel">
-        <h4>Selected Options</h4>
-        <select id="proceduretype_selectedOptions" multiple="" size="10" class="relationship selected">
-            
-            <option value="Omega Bacterial Extraction" class="relationship">Omega Bacterial Extraction</option>
-            
-        </select>
-    </div>
-    <div class="controls">
-        <button type="button" id="proceduretype_addSelected" name="proceduretype" class="addSelectedBtn">&lt;</button>
-        <button type="button" id="proceduretype_removeSelected" name="proceduretype" class="removeSelectedBtn">&gt;</button>
-    </div>
-    <div class="available-list list-panel">
-        <h4>Available Options</h4>
-        <select id="proceduretype_availableOptions" multiple="" size="10" class="relationship available">
-            
-            <option value="Test" class="relationship">Test</option>
-            
-        </select>
-    </div>
-</div>
+<select id="reagent" name="reagent" onchange="instumentedattribute_change(this.id, this.value)">
+    <!-- Options will be populated dynamically -->
+    
+    <option value="Ceres Nanotrap Particles" selected="">Ceres Nanotrap Particles</option>
+    
+    
+        <option value="Omega VHB Buffer">Omega VHB Buffer</option>
+    
+        <option value="Omega SPM Buffer">Omega SPM Buffer</option>
+    
+        <option value="Omega Elution Buffer">Omega Elution Buffer</option>
+    
+        <option value="Omega XP2 Buffer">Omega XP2 Buffer</option>
+    
+        <option value="Omega Mag Bind RQ">Omega Mag Bind RQ</option>
+    
+        <option value="Omega RBB Buffer">Omega RBB Buffer</option>
+    
+        <option value="100 mM Tris-HCl">100 mM Tris-HCl</option>
+    
+        <option value="Omega Proteinase K">Omega Proteinase K</option>
+    
+        <option value="Omega DS Buffer">Omega DS Buffer</option>
+    
+        <option value="CA 100% Ethanol">CA 100% Ethanol</option>
+    
+        <option value="MN96 Type B Bead Plate">MN96 Type B Bead Plate</option>
+    
+        <option value="ZymoBiomics MCS">ZymoBiomics MCS</option>
+    
+        <option value="Ceres Nanotrap ER1">Ceres Nanotrap ER1</option>
+    
+</select>
+
+<br><br>
+
+
+<label for="expiry" style="font-size: medium;">expiry 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Expiry date of this reagent lot.</span>
+    </div>:
+</label><br>
+
+
+<input type="date" id="expiry" name="expiry" value="2027-03-17" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="active" style="font-size: medium;">active 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Is this lot currently in use?</span>
+    </div>:
+</label><br>
+
+
+<input type="checkbox" id="active" name="active" checked="" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
@@ -320,13 +379,8 @@ ul.no-bullets {
 
 
 
-
-
 <script>
-    // var backend;
-// new QWebChannel(qt.webChannelTransport, function (channel) {
-//   backend = channel.objects.backend;
-// });
+    
 
 var backend;
 if (typeof QWebChannel !== 'undefined') {
@@ -338,8 +392,6 @@ if (typeof QWebChannel !== 'undefined') {
     console.warn('QWebChannel or qt not available yet - make sure qwebchannel.js is included');
 }
 </script>
-
-
 
 <script>
     

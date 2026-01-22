@@ -3,9 +3,7 @@ Webview to show procedure and sample details.
 """
 from __future__ import annotations
 
-import json
-import sys
-
+import json, sys, logging
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -13,14 +11,14 @@ from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtCore import Qt, pyqtSlot
 from jinja2 import TemplateNotFound
 from backend.db.models import Reagent, ProcedureType, Equipment, Process, Tips
-from tools import is_power_user, jinja_template_loading, timezone, get_application_from_parent, list_str_comparator
+from tools import is_power_user, jinja_template_loading, render_details_template, timezone, get_application_from_parent, list_str_comparator
 from .functions import select_save_file, save_pdf
+from . import CustomWebEnginePage
 from pathlib import Path
-import logging
 from getpass import getuser
 from datetime import datetime
 from pprint import pformat
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.db.models import Run, Sample, ClientSubmission, Procedure
 
@@ -36,8 +34,11 @@ class SubmissionDetails(QDialog):
     def __init__(self, parent, object_: ClientSubmission | Run | Procedure | Sample | Reagent, **kwargs) -> None:
 
         super().__init__(parent, **kwargs)
+        self.object_ = object_
         self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
+        custom_page = CustomWebEnginePage(self.webview)
+        self.webview.setPage(custom_page)
         self.webview.setMinimumSize(900, 500)
         self.webview.setMaximumWidth(900)
         # NOTE: Decide if exporting should be allowed.
@@ -58,7 +59,7 @@ class SubmissionDetails(QDialog):
         self.channel = QWebChannel()
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
-        self.object_details(object_=object_)
+        self.object_details(object_=self.object_)
         self.webview.page().setWebChannel(self.channel)
 
     def object_details(self, object_):
@@ -82,10 +83,11 @@ class SubmissionDetails(QDialog):
         key = object_.__class__.__name__.lower()
         d = {key: details}
         html = template.render(**d, css=[css])
+        html = render_details_template(template, **d)
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
-        # with open(f"{object_.__class__.__qualname__}.html", "w") as f:
-        #     f.write(html)
+        with open(f"{object_.__class__.__qualname__}.html", "w") as f:
+            f.write(html)
 
     def activate_export(self) -> None:
         """
@@ -245,11 +247,12 @@ class SubmissionDetails(QDialog):
         # NOTE: don't want id
         self.base_dict['platemap'] = run.make_plate_map(sample_list=run.hitpicked)
         self.base_dict['excluded'] = run.get_default_info("details_ignore")
-        self.template = run.details_template
-        template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
+        # self.template = run.details_template
+        # template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
+        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
+        #     css = f.read()
+        # self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
+        self.html = render_details_template("submission_details", run=self.base_dict)
         self.webview.setHtml(self.html)
 
 
@@ -272,7 +275,7 @@ class SubmissionDetails(QDialog):
         run.completed_date = datetime.now()
         run.completed_date.replace(tzinfo=timezone)
         run.save()
-        self.run_details(run=self.rsl_plate_number)
+        self.object_details(object_=run)
 
     def save_pdf(self):
         """

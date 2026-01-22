@@ -1,7 +1,6 @@
 """ 
 Default parsers for results 
 """
-
 from __future__ import annotations
 from pathlib import Path
 from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser

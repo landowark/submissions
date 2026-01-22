@@ -25,7 +25,6 @@ class DefaultResultsManager(DefaultManager):
             fname = Path(fname)
         self.fname = fname
 
-
     def procedure_to_pydantic(self) -> PydResults:
         info = self.info_parser.to_pydantic()
         if info:

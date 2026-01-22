@@ -41,20 +41,22 @@
 </body>
 {% endif %}
 
-    {% block script %}
-    {{ super() }}
-    <script>
-    var sampleSelection = document.getElementsByClassName('sample');
+{% block script %}
 
-    for(let i = 0; i < sampleSelection.length; i++) {
-      sampleSelection[i].addEventListener("click", function() {
-        console.log(sampleSelection[i].id);
-        backend.sample_details(sampleSelection[i].id);
-      })
-    }
+<script>
+var sampleSelection = document.getElementsByClassName('sample');
 
-    document.getElementById("sign_btn").addEventListener("click", function(){
-        backend.sign_off("{{ run['rsl_plate_num'] }}");
-    });
-    </script>
-    {% endblock %}
+for(let i = 0; i < sampleSelection.length; i++) {
+    sampleSelection[i].addEventListener("click", function() {
+    console.log(sampleSelection[i].id);
+    backend.sample_details(sampleSelection[i].id);
+    })
+}
+
+document.getElementById("sign_btn").addEventListener("click", function(){
+    console.log("Signing off.");
+    backend.sign_off("{{ run['rsl_plate_number'] }}");
+});
+</script>
+{{ super() }}
+{% endblock %}

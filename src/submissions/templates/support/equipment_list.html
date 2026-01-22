@@ -1,7 +1,7 @@
 <tr>
     <td style="border: 1px solid black;">{{ equipment['equipmentrole'] }}</td>
-    <td style="border: 1px solid black;">{{ equipment['name'] }}</td>
-    <td style="border: 1px solid black;">{{ equipment['processversion']['name'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['equipment'] }}</td>
+    <td style="border: 1px solid black;">{{ equipment['processversion'] }}</td>
     {% if equipment['tipslot'] %}
         <td style="border: 1px solid black;">{% for tipslot in equipment['tipslot'] %}{{ tipslot }}{% endfor %}</td>
     {% else %}

@@ -225,7 +225,8 @@ class SubmissionFormWidget(QWidget):
                 except KeyError:
                     value = dict(value=None, missing=True)
             add_widget = self.create_widget(key=k, value=value, submission_type=self.submissiontype,
-                                            run_object=Run(), disable=check)
+                                            # run_object=Run(), disable=check)
+                                            clientsubmission_object=pyd.sql_instance, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
             if k in self.__class__.update_reagent_fields:
@@ -245,7 +246,7 @@ class SubmissionFormWidget(QWidget):
             reagent.flip_check(self.disabler.checkbox.isChecked())
 
     def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
-                      extraction_kit: str | None = None, run_object: Run | None = None,
+                      extraction_kit: str | None = None, clientsubmission_object: ClientSubmission | None = None,
                       disable: bool = False) -> "self.InfoItem":
         """
         Make an InfoItem widget to hold a field
@@ -270,7 +271,7 @@ class SubmissionFormWidget(QWidget):
                         widget = None
                 case _:
                     widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
-                                           run_object=run_object)
+                                           clientsubmission_object=clientsubmission_object)
             if disable:
                 widget.input.setEnabled(False)
                 widget.input.setToolTip("Widget disabled to protect database integrity.")
@@ -437,14 +438,14 @@ class SubmissionFormWidget(QWidget):
     class InfoItem(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
-                     run_object: Run | None = None) -> None:
+                     clientsubmission_object: ClientSubmission | None = None) -> None:
             super().__init__(parent)
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             layout = QVBoxLayout()
             self.label = self.ParsedQLabel(key=key, value=value)
             self.input: QWidget = self.set_widget(parent=parent, key=key, value=value, submission_type=submission_type,
-                                                  sub_obj=run_object)
+                                                  sub_obj=clientsubmission_object)
             self.setObjectName(key)
             try:
                 self.missing: bool = value['missing']
@@ -503,8 +504,8 @@ class SubmissionFormWidget(QWidget):
             from backend.db.models import ClientSubmission
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
-            if sub_obj is None:
-                sub_obj = submission_type.submission_class
+            # if sub_obj is None:
+            #     sub_obj = submission_type.submission_class
             if isinstance(value, dict):
                 value = value.get('value', value)
             obj = parent.parent().parent()

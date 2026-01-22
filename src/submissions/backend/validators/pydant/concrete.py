@@ -5,17 +5,15 @@ import csv, logging, re, sys
 from datetime import date, datetime, timedelta, timezone
 from operator import itemgetter
 from pathlib import Path
-from types import GeneratorType
-from typing import Any, ClassVar, Generator, List, Literal, Tuple, TYPE_CHECKING
-from pydantic import Field, ValidationInfo, field_validator, model_validator
+from typing import Any, ClassVar, Generator, List, Tuple, TYPE_CHECKING
+from pydantic import Field, field_validator, model_validator
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
-from backend.db.models.organizations import (ClientLab, Contact)
 from backend.db.models.procedures import SubmissionType
 from backend.validators import RSLNamer
 from backend.validators.pydant import PydConcrete
-from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydProcess, PydTips, PydReagent, PydResultsType, PydSubmissionType, PydReagentRole
-from tools import Alert, Report, check_not_nan, convert_nans_to_nones, flatten_list, report_result, row_keys, sort_dict_by_list, timezone
+from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
+from tools import Alert, Report, check_not_nan, report_result, row_keys, sort_dict_by_list, timezone
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -25,7 +23,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
     result: dict = Field(default={}, repr=False)
-    result_type: str | PydResultsType = Field(default="NA")
+    resultstype: str | PydResultsType = Field(default="NA")
     image: None | bytes = Field(default=None, repr=False)
     procedure: str | PydProcedure | None = Field(default=None)#, description="Parent procedure this result is associated with.")
     sample: str | PydSample | None = Field(default=None)#, description="Parent sample this result is associated with.")
@@ -50,7 +48,7 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
     def to_sql(self):
         from backend.db.models import Results, ProcedureSampleAssociation, Procedure
-        sql, _ = Results.query_or_create(result_type=self.result_type, result=self.results)
+        sql, _ = Results.query_or_create(resultstype=self.resultstype, result=self.results)
         try:
             check = sql.image
         except FileNotFoundError:
@@ -73,9 +71,10 @@ class PydReagentLot(PydConcrete):
 
     lot: str = Field(default="NA", description="Lot number of this reagent.")
     reagent: str | PydReagent | None = Field(default=None, description="Type of reagent this lot is.")
+    reagentrole: str | None = Field(default=None, repr=False)
     expiry: datetime = Field(default = None, description="Expiry date of this reagent lot.", validate_default=True)
     missing: bool = Field(default=True, repr=False)
-    active: bool = Field(default=True)
+    active: bool = Field(default=True, description="Is this lot currently in use?", repr=False)
 
     @field_validator("active", mode="before")
     @classmethod
@@ -111,6 +110,14 @@ class PydReagentLot(PydConcrete):
         except AttributeError:
             return f"{reagent}-{self.lot}"
 
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ReagentLot
+        self.sql_instance: ReagentLot = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.reagent = self.reagent
+        return self.sql_instance, None
+
 
 class PydDiscount(PydConcrete):
 
@@ -118,6 +125,15 @@ class PydDiscount(PydConcrete):
     proceduretype: str | None = Field(default="NA", description="ProcedureType this discount applies to.", repr=False)
     clientlab: str | None = Field(default="NA", description="ClientLab this discount applies to.", repr=False)
     amount: float = Field(default=0.0, description="Amount (dollars) of discount to apply.")
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Discount
+        self.sql_instance: Discount = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.proceduretype = self.proceduretype
+        self.sql_instance.clientlab = self.clientlab
+        return self.sql_instance, None
 
 
 class PydSample(PydConcrete):
@@ -188,14 +204,13 @@ class PydSample(PydConcrete):
         return output
 
     def to_sql(self, update: bool=True):
-        # logger.debug(f"Dict to sample sql: {pformat(self.improved_dict())}")
         # Ensure we return a SQL Sample instance that has a valid sample_id
         # When update=False callers expect a resolved SQL instance but we
         # shouldn't blindly return a blank sql_instance (which has no
         # sample_id set). Try to resolve an existing Sample by sample_id
         # first. If none exists, populate the sql_instance.sample_id so
         # that downstream association objects don't try to insert NULL.
-        sql = super().to_sql(update=update)
+        self.sql_instance = super().to_sql(update=update)
         try:
             # Only set the SQL sample_id when the pydantic sample_id is valid.
             # Blank/NA/placeholder IDs (e.g. "", "NA", "None") are not valid
@@ -217,9 +232,9 @@ class PydSample(PydConcrete):
                 return existing, None
             # If no existing object, ensure the blank sql_instance has sample_id set
             
-            return sql, None
-        sql._misc_info["rank"] = self.rank
-        return sql, None
+            return self.sql_instance, None
+        self.sql_instance._misc_info["rank"] = self.rank
+        return self.sql_instance, None
 
     @classmethod
     def is_sample_id_valid(cls, sample: str | PydSample | dict) -> bool:
@@ -258,12 +273,22 @@ class PydEquipment(PydConcrete):
             value = values.data['name']
         return value
 
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Equipment
+        self.sql_instance: Equipment = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.procedure = self.procedure
+        self.sql_instance.equipmentrole = self.equipmentrole
+        return self.sql_instance, None
+
 
 class PydContact(PydConcrete):
 
     name: str = Field(default="NA", description="Name of this contact.")
     tel: str = Field(default="000-000-0000", description="Phone number of this contact.")
     email: str = Field(default="NA", description="Email address of this contact.")
+    clientlab: List[str] = Field(default_factory=list)
 
     @field_validator("tel")
     @classmethod
@@ -274,35 +299,13 @@ class PydContact(PydConcrete):
             value = area_regex.sub(f"({match.group(1).strip()}) ", value)
         return value
 
-    # @report_result
-    # def to_sql(self) -> Tuple[Contact, Report]:
-    #     """
-    #     Converts this instance into a backend.db.models.organization. Contact instance.
-    #     Does not query for existing contact.
-
-    #     Returns:
-    #         Contact: Contact instance
-    #     """
-    #     report = Report()
-    #     instance = Contact.query(name=self.name, phone=self.phone, email=self.email)
-    #     if not instance or isinstance(instance, list):
-    #         instance = Contact()
-    #     try:
-    #         all_fields = self.model_fields + self.model_extra
-    #     except TypeError:
-    #         all_fields = self.model_fields
-    #     for field in all_fields:
-    #         value = getattr(self, field)
-    #         match field:
-    #             case "organization":
-    #                 value = [ClientLab.query(name=value)]
-    #             case _:
-    #                 pass
-    #         try:
-    #             instance.__setattr__(field, value)
-    #         except AttributeError as e:
-    #             logger.error(f"Could not set {instance} {field} to {value} due to {e}")
-    #     return instance, report
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Contact
+        self.sql_instance: Contact = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.clientlab = self.clientlab
+        return self.sql_instance, None
 
 
 class PydClientLab(PydConcrete):
@@ -311,38 +314,13 @@ class PydClientLab(PydConcrete):
     cost_centre: str = Field(default="NA", description="Default cost centre for this Client Lab.", repr=False)
     contact: List[str] = Field(default_factory=list, description="Contacts for this Client Lab.", repr=False)
 
-    # @field_validator("contact", mode="before")
-    # @classmethod
-    # def string_to_list(cls, value):
-    #     if isinstance(value, str):
-    #         value = Contact.query(name=value)
-    #         try:
-    #             value = [value.to_pydantic()]
-    #         except AttributeError:
-    #             return None
-    #     return value
-
-    # @report_result
-    # def to_sql(self) -> ClientLab:
-        
-        # Converts this instance into a backend.db.models.organization.Organization instance.
-
-        # Returns:
-        #    Organization: Organization instance
-        # """
-        # report = Report()
-        # instance = ClientLab()
-        # for field in self.model_fields:
-        #     match field:
-        #         case "contact":
-        #             value = getattr(self, field)
-        #             if value:
-        #                 value = [item.to_sql() for item in value if item]
-        #         case _:
-        #             value = getattr(self, field)
-        #     if value:
-        #         setattr(instance, field, value)
-        # return instance, report
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ClientLab
+        self.sql_instance: ClientLab = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.contact = self.contact
+        return self.sql_instance, None
 
 
 class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True):
@@ -389,23 +367,15 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
                 value = True
         return value
 
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ProcessVersion
+        self.sql_instance: ProcessVersion = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.process = self.process
+        return self.sql_instance, None
 
-    # @field_validator("name")
-    # @classmethod
-    # def split_name(cls, value):
-    #     if "-" in value:
-    #         value = value.split("-")[0]
-    #     return value
-
-    # def to_sql(self):
-    #     from backend.db.models import ProcessVersion
-    #     instance = ProcessVersion.query(name=self.name, version=self.version, limit=1)
-    #     if not instance:
-    #         logger.warning(f"PV: Gonna have to make a new process version {self.version}")
-    #         instance = ProcessVersion()
-    #     return instance
-
-
+    
 class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     
     proceduretype: str | PydProcedureType | None = Field(default=None)
@@ -419,6 +389,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
     equipment: List[str] | List[PydProcedureEquipmentAssociation] = Field(default_factory=list, repr=False)
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
+    started_date: datetime = Field(default_factory=datetime.now, repr=False)
+    completed_date: datetime | None = Field(default_factory=datetime.now, repr=False)
 
     @field_validator("technician", mode="before")#"kittype", mode="before")
     @classmethod
@@ -496,28 +468,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     continue
         return output
 
-    # @field_validator("name", mode="after")
-    # @classmethod
-    # def validate_name_default(cls, value: Any, info: ValidationInfo) -> dict:
-    #     # Check if we are using the default "NA" value
-    #     print(info)
-    #     sys.exit()
-    #     if isinstance(value, dict) and value.get("value") == "NA":
-    #         # Access other fields from info.data (populated in order of definition)
-    #         run = info.data.get("run")
-    #         proceduretype = info.data.get("proceduretype")
-    #         repeat_of = info.data.get("repeat_of")
-    #         # Format logic (adjusting for potential Pydantic objects)
-    #         run_str = getattr(run, "rsl_plate_number", str(run)) if run else "Unassigned Run"
-    #         pt_str = getattr(proceduretype, "name", str(proceduretype)) if proceduretype else "Unassigned ProcedureType"
-    #         rep_str = f" ({getattr(repeat_of, 'name', str(repeat_of))})" if repeat_of else ""
-            
-    #         return {"value": f"{run_str}-{pt_str}{rep_str}", "missing": True}
-        
-    #     return value
-
     @model_validator(mode="after")
-    def rescue_name(self) -> PydProcedure:
+    def validate_this(self) -> PydProcedure:
         # At this point, ALL fields (including defaults) are populated on 'self'
         if self.name.get("value") == "NA":
             # 1. Resolve Procedure Type
@@ -536,50 +488,18 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             
         return self
 
-    # @model_validator(mode="after")
-    # # @classmethod
-    # def validate_model(self, data):
-
-    #     if data.name == self.__class__.model_fields['name'].default['value'] or data.name.get('value') == "NA":
-    #         proceduretype = data.proceduretype
-    #         if proceduretype:
-    #             if isinstance(proceduretype, PydProcedureType):
-    #                 proceduretype = proceduretype.name
-    #             elif isinstance(proceduretype, str):
-    #                 pass
-    #             else:
-    #                 proceduretype = f"ProcedureType {type(proceduretype)}"
-    #         else:
-    #             proceduretype = "Unassigned ProcedureType"
-    #         run = data.run
-    #         if run:
-    #             if isinstance(run, PydRun):
-    #                 run = run.rsl_plate_number
-    #             elif isinstance(run, str):
-    #                 pass
-    #             else:
-    #                 run = f"Run {type(run)}"
-    #         else:
-    #             run = "Unassigned Run"
-    #         repeat_of = data.repeat_of
-    #         if repeat_of:
-    #             if isinstance(repeat_of, PydProcedure):
-    #                 repeat_of = f" ({repeat_of.name})"
-    #             elif isinstance(run, str):
-    #                 repeat_of = f" ({repeat_of})"
-    #             else:
-    #                 repeat_of = ""
-    #         else:
-    #             repeat_of = ""
-    #         setattr(data, 'name', dict(value=f"{run}-{proceduretype}{repeat_of}", missing=True))
-    #     return data
-
+    @field_validator("started_date", mode="before")
+    @classmethod
+    def create_started_date(cls, value):
+        if not value:
+            value = datetime.now()
+        return value
 
     @property
     def rows_columns_count(self) -> tuple[int, int]:
-        from backend.db.models import Procedure
+        from backend.db.models import ProcedureType
         try:
-            proc: ProcedureType = Procedure.query(name=self.name).proceduretype
+            proc: ProcedureType = self.sql_instance.proceduretype
         except AttributeError as e:
             logger.error(f"Can't get rows, columns due to {e}")
             return 0, 0
@@ -597,15 +517,17 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             except TypeError:
                 return len(self.sample)
 
-    def reorder_reagents(self, reagentrole: str, options: list):
-        reagent_used = next((reagent for reagent in self.reagent if reagent.reagentrole == reagentrole), None)
-        if not reagent_used:
-            return options
-        roi = next((item for item in options if item.lot == reagent_used.lot and item.name == reagent_used.name), None)
-        if not roi:
-            return options
-        options.insert(0, options.pop(options.index(roi)))
-        return options
+    # def reorder_reagents(self, reagentrole: str, options: list):
+    #     reagent_used = next((reagent for reagent in self.reagent if reagent.reagentrole == reagentrole), None)
+    #     if not reagent_used:
+    #         return options
+    #     roi = next((item for item in options if item.lot == reagent_used.lot and item.name == reagent_used.name), None)
+    #     if not roi:
+    #         return options
+    #     options.insert(0, options.pop(options.index(roi)))
+    #     return options
+
+    
 
     def update_samples(self, sample_list: List[dict]):
         from backend.db.models import Sample
@@ -730,12 +652,13 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         reg.save()
 
     def to_sql(self, update: bool = True):
-        self.sql_instance = super().to_sql(update=update)
+        from backend.db.models import Procedure
+        self.sql_instance: Procedure = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
         # from backend.db.models import Sample, Equipment, Results, ReagentLot, Run
         # logger.debug(f"PydProcedure.proceduretype = {self.proceduretype}")
-        logger.debug(f"Coming into sql: {pformat(self.__dict__)}")
+        logger.debug(f"Coming into sql: {pformat(self.improved_dict)}")
         self.sql_instance.proceduretype = self.proceduretype
         self.sql_instance.run = self.run
         self.sql_instance.repeat_of = self.repeat_of
@@ -829,7 +752,14 @@ class PydClientSubmission(PydConcrete):
     @classmethod
     def create_submitter_plate_num(cls, value, values):
         if value['value'] in [None, "None"]:
-            val = f"{values.data['submissiontype']['value']}-{values.data['submission_category']['value']}-{values.data['submitted_date']['value']}"
+            match values.data['submitted_date']['value']:
+                case datetime():
+                    submitted_date = values.data['submitted_date']['value'].strftime("%Y-%m-%d %H:%M:%S")
+                case date():
+                    submitted_date = datetime.combine(values.data['submitted_date']['value'], datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S")
+                case _:
+                    submitted_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            val = f"{values.data['clientlab']['value']}-{values.data['submission_category']['value']}-{submitted_date}"
             return dict(value=val, missing=True)
         else:
             value['value'] = value['value'].strip()
@@ -910,7 +840,8 @@ class PydClientSubmission(PydConcrete):
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
     def to_sql(self, update: bool = True):
-        output = super().to_sql(update)
+        from backend.db.models import ClientSubmission
+        self.sql_instance: ClientSubmission = super().to_sql(update)
 
         # Ensure clientlab and contact relationships are applied to the SQL
         # instance. SQL model setters (ClientSubmission.clientlab/contact)
@@ -921,7 +852,7 @@ class PydClientSubmission(PydConcrete):
             cl = self.clientlab
             if isinstance(cl, dict) and 'value' in cl:
                 cl = {'name': cl['value']}
-            output.clientlab = cl
+            self.sql_instance.clientlab = cl
         except Exception:
             logger.debug(f"No clientlab to set for {self}")
 
@@ -929,21 +860,20 @@ class PydClientSubmission(PydConcrete):
             ct = self.contact
             if isinstance(ct, dict) and 'value' in ct:
                 ct = {'name': ct['value']}
-            output.contact = ct
+            self.sql_instance.contact = ct
         except Exception:
-            logger.debug(f"No contact to set for {self}")
+            logger.error(f"No contact to set for {self}")
         
         try:
             st = self.submissiontype
             if isinstance(st, dict) and 'value' in st:
                 st = {'name': st['value']}
-            output.submissiontype = st
+            self.sql_instance.submissiontype = st
         except Exception:
-            logger.debug(f"No contact to set for {self}")
+            logger.error(f"No contact to set for {self}")
         
-        logger.debug(f"Adding samples: {pformat(self.sample)}")
-        output.sample = self.sample
-        return output, None
+        self.sql_instance.sample = self.sample
+        return self.sql_instance, None
     
 
     @property
@@ -1191,124 +1121,136 @@ class PydRun(PydConcrete):  #, extra='allow'):
         missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
         return missing_info, missing_reagents
 
-    @report_result
-    def to_sql(self, update: bool = True) -> Tuple[Run | None, Report]:
-        """
-        Converts this instance into a backend.db.models.procedure.BasicRun instance
-
-        Returns:
-            Tuple[BasicRun, Alert]: BasicRun instance, result object
-        """
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Run
+        self.sql_instance: Run = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
-        from backend.db.models import Run
-        report = Report()
-        # dicto = self.improved_dict()
-        instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
-                                               rsl_plate_number=self.rsl_plate_number['value'])
-        if instance is None:
-            report.add_result(Alert(msg="Overwrite Cancelled."))
-            return None, report
-        report.add_result(result)
-        self.handle_duplicate_samples()
-        for key, value in self.improved_dict.items():
-            if isinstance(value, dict):
-                try:
-                    value = value['value']
-                except KeyError:
-                    if key == "custom":
-                        pass
-                    else:
-                        continue
-            if value is None:
-                continue
-            match key:
-                case "reagents":
-                    for reagent in self.reagents:
-                        reagent = reagent.to_sql(submission=instance)
-                case "sample":
-                    for sample in self.samples:
-                        sample, associations, _ = sample.to_sql(run=instance)
-                        for assoc in associations:
-                            if assoc is not None:
-                                if assoc not in instance.clientsubmissionsampleassociation:
-                                    instance.clientsubmissionsampleassociation.append(assoc)
-                                else:
-                                    logger.warning(f"Sample association {assoc} is already present in {instance}")
-                case "equipment":
-                    for equip in self.equipment:
-                        if equip is None:
-                            continue
-                        equip, association = equip.to_sql(procedure=instance, kittype=self.extraction_kit)
-                        if association is not None:
-                            instance.submission_equipment_associations.append(association)
-                case "tips":
-                    for tips in self.tips:
-                        if tips is None:
-                            continue
-                        try:
-                            association = tips.to_sql(procedure=instance)
-                        except AttributeError:
-                            continue
-                        if association is not None:
-                            if association not in instance.submission_tips_associations:
-                                instance.submission_tips_associations.append(association)
-                            else:
-                                logger.warning(f"Tips association {association} is already present in {instance}")
-                case item if item in instance.timestamps:
-                    logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
-                    if isinstance(value, date):
-                        value = datetime.combine(value, datetime.now().time())
-                        value = value.replace(tzinfo=timezone)
-                    elif isinstance(value, str):
-                        value: datetime = datetime.strptime(value, "%Y-%m-%d")
-                        value = value.replace(tzinfo=timezone)
-                    else:
-                        value = value
-                    instance.set_attribute(key=key, value=value)
-                case item if item in instance.jsons:
-                    try:
-                        ii = value.items()
-                    except AttributeError:
-                        ii = {}
-                    for k, v in ii:
-                        if isinstance(v, datetime):
-                            value[k] = v.strftime("%Y-%m-%d %H:%M:%S")
-                        else:
-                            pass
-                    instance.set_attribute(key=key, value=value)
-                case _:
-                    try:
-                        check = instance.__getattribute__(key) != value
-                    except AttributeError:
-                        continue
-                    if check:
-                        try:
-                            instance.set_attribute(key=key, value=value)
-                        except AttributeError as e:
-                            logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
-                            continue
-                        except KeyError:
-                            continue
-                    else:
-                        logger.warning(f"{key} already == {value} so no updating.")
-        try:
-            instance.calculate_base_cost()
-        except (TypeError, AttributeError) as e:
-            logger.error(f"Looks like that kittype doesn't have cost breakdown yet due to: {e}, using 0.")
-            try:
-                instance.run_cost = instance.extraction_kit.cost_per_run
-            except AttributeError:
-                instance.run_cost = 0
-        # NOTE: Apply any discounts that are applicable for client and kittype.
-        try:
-            discounts = [item.amount for item in
-                         Discount.query(kittype=instance.extraction_kit, organization=instance.clientlab)]
-            if len(discounts) > 0:
-                instance.run_cost = instance.run_cost - sum(discounts)
-        except Exception as e:
-            logger.error(f"An unknown exception occurred when calculating discounts: {e}")
-        return instance, report
+        logger.debug(f"Coming into sql: {pformat(self.__dict__)}")
+        self.sql_instance.clientsubmission = self.clientsubmission
+        self.sql_instance.procedure = self.proceduretype
+        self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
+        return self.sql_instance, None
+
+    # @report_result
+    # def to_sql(self, update: bool = True) -> Tuple[Run | None, Report]:
+    #     """
+    #     Converts this instance into a backend.db.models.procedure.BasicRun instance
+
+    #     Returns:
+    #         Tuple[BasicRun, Alert]: BasicRun instance, result object
+    #     """
+    #     self.sql_instance = super().to_sql(update=update)
+    #     if not update:
+    #         return self.sql_instance, None
+    #     from backend.db.models import Run
+    #     report = Report()
+    #     # dicto = self.improved_dict()
+    #     instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
+    #                                            rsl_plate_number=self.rsl_plate_number['value'])
+    #     if instance is None:
+    #         report.add_result(Alert(msg="Overwrite Cancelled."))
+    #         return None, report
+    #     report.add_result(result)
+    #     self.handle_duplicate_samples()
+    #     for key, value in self.improved_dict.items():
+    #         if isinstance(value, dict):
+    #             try:
+    #                 value = value['value']
+    #             except KeyError:
+    #                 if key == "custom":
+    #                     pass
+    #                 else:
+    #                     continue
+    #         if value is None:
+    #             continue
+    #         match key:
+    #             case "reagents":
+    #                 for reagent in self.reagents:
+    #                     reagent = reagent.to_sql(submission=instance)
+    #             case "sample":
+    #                 for sample in self.samples:
+    #                     sample, associations, _ = sample.to_sql(run=instance)
+    #                     for assoc in associations:
+    #                         if assoc is not None:
+    #                             if assoc not in instance.clientsubmissionsampleassociation:
+    #                                 instance.clientsubmissionsampleassociation.append(assoc)
+    #                             else:
+    #                                 logger.warning(f"Sample association {assoc} is already present in {instance}")
+    #             case "equipment":
+    #                 for equip in self.equipment:
+    #                     if equip is None:
+    #                         continue
+    #                     equip, association = equip.to_sql(procedure=instance, kittype=self.extraction_kit)
+    #                     if association is not None:
+    #                         instance.submission_equipment_associations.append(association)
+    #             case "tips":
+    #                 for tips in self.tips:
+    #                     if tips is None:
+    #                         continue
+    #                     try:
+    #                         association = tips.to_sql(procedure=instance)
+    #                     except AttributeError:
+    #                         continue
+    #                     if association is not None:
+    #                         if association not in instance.submission_tips_associations:
+    #                             instance.submission_tips_associations.append(association)
+    #                         else:
+    #                             logger.warning(f"Tips association {association} is already present in {instance}")
+    #             case item if item in instance.timestamps:
+    #                 logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
+    #                 if isinstance(value, date):
+    #                     value = datetime.combine(value, datetime.now().time())
+    #                     value = value.replace(tzinfo=timezone)
+    #                 elif isinstance(value, str):
+    #                     value: datetime = datetime.strptime(value, "%Y-%m-%d")
+    #                     value = value.replace(tzinfo=timezone)
+    #                 else:
+    #                     value = value
+    #                 instance.set_attribute(key=key, value=value)
+    #             case item if item in instance.jsons:
+    #                 try:
+    #                     ii = value.items()
+    #                 except AttributeError:
+    #                     ii = {}
+    #                 for k, v in ii:
+    #                     if isinstance(v, datetime):
+    #                         value[k] = v.strftime("%Y-%m-%d %H:%M:%S")
+    #                     else:
+    #                         pass
+    #                 instance.set_attribute(key=key, value=value)
+    #             case _:
+    #                 try:
+    #                     check = instance.__getattribute__(key) != value
+    #                 except AttributeError:
+    #                     continue
+    #                 if check:
+    #                     try:
+    #                         instance.set_attribute(key=key, value=value)
+    #                     except AttributeError as e:
+    #                         logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
+    #                         continue
+    #                     except KeyError:
+    #                         continue
+    #                 else:
+    #                     logger.warning(f"{key} already == {value} so no updating.")
+    #     try:
+    #         instance.calculate_base_cost()
+    #     except (TypeError, AttributeError) as e:
+    #         logger.error(f"Looks like that kittype doesn't have cost breakdown yet due to: {e}, using 0.")
+    #         try:
+    #             instance.run_cost = instance.extraction_kit.cost_per_run
+    #         except AttributeError:
+    #             instance.run_cost = 0
+    #     # NOTE: Apply any discounts that are applicable for client and kittype.
+    #     try:
+    #         discounts = [item.amount for item in
+    #                      Discount.query(kittype=instance.extraction_kit, organization=instance.clientlab)]
+    #         if len(discounts) > 0:
+    #             instance.run_cost = instance.run_cost - sum(discounts)
+    #     except Exception as e:
+    #         logger.error(f"An unknown exception occurred when calculating discounts: {e}")
+    #     return instance, report
 
     def to_form(self, parent: QWidget, disable: list | None = None):
         """
@@ -1423,6 +1365,14 @@ class PydTipsLot(PydConcrete):
             value = bool(value)
         return value
 
+    def to_sql(self, update: bool = True):
+        from backend.db.models import TipsLot
+        self.sql_instance: TipsLot = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.tips = self.tips
+        return self.sql_instance, None
+
 
 class PydProcedureSampleAssociation(PydConcrete):
 
@@ -1434,7 +1384,8 @@ class PydProcedureSampleAssociation(PydConcrete):
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
 
     def to_sql(self, update: bool = True):
-        self.sql_instance = super().to_sql(update=update)
+        from backend.db.models import ProcedureSampleAssociation
+        self.sql_instance: ProcedureSampleAssociation = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
         self.sql_instance.procedure = self.procedure
@@ -1452,6 +1403,13 @@ class PydProcedureEquipmentAssociation(PydConcrete):
     equipmentrole: str | dict | PydEquipmentRole = Field(default="NA")
     processversion: str | dict | PydProcessVersion | None = Field(default=None)
     tipslot: List[str] | List[dict] | List[PydTipsLot] = Field(default_factory=list)
+
+    @field_validator("start_time", "end_time", mode="before")
+    @classmethod
+    def set_starttime(cls, value):
+        if not value:
+            value = datetime.now()
+        return value
 
     @property
     def constructed_name(self) -> str:
@@ -1476,7 +1434,8 @@ class PydProcedureEquipmentAssociation(PydConcrete):
         return f"{procedure}->{equipment}"
 
     def to_sql(self, update: bool = True):
-        self.sql_instance = super().to_sql(update=update)
+        from backend.db.models import ProcedureEquipmentAssociation
+        self.sql_instance: ProcedureEquipmentAssociation = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
         # sql.procedure = self.procedure
@@ -1520,7 +1479,8 @@ class PydProcedureReagentLotAssociation(PydConcrete):
         return f"{procedure}->{reagentlot}"
 
     def to_sql(self, update: bool = True):
-        self.sql_instance = super().to_sql(update=update)
+        from backend.db.models import ProcedureReagentLotAssociation
+        self.sql_instance: ProcedureReagentLotAssociation = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
         self.sql_instance.procedure = self.procedure
@@ -1529,3 +1489,21 @@ class PydProcedureReagentLotAssociation(PydConcrete):
         return self.sql_instance, None
         # NOTE: Handle repeat naming.
         
+
+class PydClientSubmissionSampleAssociation(PydConcrete):
+
+    row: int = Field(default=0)
+    column: int = Field(default=0)
+    submission_rank: int = Field(default=0)  #: Location in sample list
+    clientsubmission: str | dict | PydClientSubmission = Field(default="NA")
+    sample: str | dict | PydSample = Field(default="NA")
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import ClientSubmissionSampleAssociation
+        self.sql_instance: ClientSubmissionSampleAssociation = super().to_sql(update=update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.clientsubmission = self.clientsubmission
+        self.sql_instance.sample = self.sample
+        return self.sql_instance, None
+    

@@ -32,7 +32,8 @@ class PCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         workbook = super().write_to_workbook(workbook)
-        header_row = self.proceduretype.allowed_result_methods['PCR']['sample']['header_row']
+        resultstype = next((item for item in self.proceduretype.allowed_result_methods if item['name'] == "Qubit"), dict(header_row=1))
+        header_row = resultstype.get('header_row', 1)
         proto_columns = [(1, "sample"), (2, "target")]
         columns = []
         for iii, header in enumerate(self.column_headers, start=3):
