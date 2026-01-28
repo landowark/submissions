@@ -555,17 +555,25 @@ class ClientSubmission(BaseClass, LogMixin):
         output['name'] = self.name
         output['client_lab'] = output['clientlab']
         output['submission_type'] = output['submissiontype']
+        output['abbreviation'] = self.submissiontype.abbreviation or "XX"
         try:
             output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name"]
+                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",
+                               "abbreviation"]
         except KeyError:
             output['excluded'] = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name"]
+                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",
+                               "abbreviation"]
         output['expanded'] = ["clientlab", "contact", "submissiontype"]
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
+        return output
+
+    def to_html(self, **kwargs):
+        details = self.details_dict_expand_fields(fields=[{"run":['procedure']}, "sample"])
+        output = super().to_html(**details)
         return output
 
 
@@ -1278,7 +1286,7 @@ class Run(BaseClass, LogMixin):
         from backend import managers
         Manager = getattr(managers, f"Default{self.__class__.__name__}Manager")
         manager = Manager(parent=obj, input_object=self.to_pydantic())
-        default_name = manager.pyd.construct_filename()
+        default_name = manager.pyd.export_filename
         output_filepath = select_save_file(obj=obj, default_name=default_name, extension="xlsx")
         workbook = manager.write()
         try:
@@ -1304,7 +1312,7 @@ class Run(BaseClass, LogMixin):
         pyd = self.to_pydantic()
         if fname is None:
             from frontend.widgets.functions import select_save_file
-            fname = select_save_file(default_name=pyd.construct_filename(), extension="xlsx", obj=obj)
+            fname = select_save_file(default_name=pyd.export_filename, extension="xlsx", obj=obj)
         if fname.name == "":
             return
         writer = pyd.to_writer()
@@ -1400,6 +1408,10 @@ class Run(BaseClass, LogMixin):
             padded_list.append(sample)
         return list(sorted(padded_list, key=itemgetter('procedure_rank')))
 
+    def to_html(self, **kwargs):
+        details = self.details_dict_expand_fields(fields=['procedure', 'sample'])
+        output = super().to_html(**details)
+        return output
 
 # NOTE: Sample Classes
 

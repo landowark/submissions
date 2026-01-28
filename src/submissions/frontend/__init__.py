@@ -12,7 +12,6 @@ from .widgets import (
     GelBox, ControlsForm,
     InfoPane,
     StartEndDatePicker, CheckableComboBox, Pagifier,
-    AddEdit, EditProperty,
     SearchBox, SearchResults, FieldSearch,
     QuestionAsker, AlertPop, HTMLPop, ObjectSelector,
     ProcedureCreation,

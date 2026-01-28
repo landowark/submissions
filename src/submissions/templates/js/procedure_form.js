@@ -161,6 +161,7 @@ function reagentrole_startup(reagentrole) {
 }
 
 function equipment_startup(equipmentrole) {
+    console.log(equipmentrole);
     updateEquipmentChoices(equipmentrole);
     var eq_dropdown = document.getElementById(equipmentrole.name);
     eq_dropdown.addEventListener("change", function(event){

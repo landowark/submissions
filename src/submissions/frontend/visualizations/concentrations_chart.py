@@ -5,7 +5,6 @@ from pprint import pformat
 from . import CustomFigure
 import logging, sys, plotly.express as px
 import pandas as pd
-from PyQt6.QtWidgets import QWidget
 from operator import itemgetter
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -13,11 +12,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class ConcentrationsChart(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, settings: dict,
-                 ytitle: str | None = None,
-                 parent: QWidget | None = None,
-                 months: int = 6):
-        super().__init__(df=df, modes=modes, settings=settings)
+    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, **kwargs):
+        super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         self.df = df
         self.construct_chart()
         self.update_layout(showlegend=False)
@@ -35,7 +31,6 @@ class ConcentrationsChart(CustomFigure):
                                  color="positive", color_discrete_map={"positive": "red", "negative": "green", "sample":"orange"}
                                  )
         except (ValueError, AttributeError) as e:
-            # logger.error(f"Error constructing chart: {e}")
             scatter = px.scatter()
         # NOTE: For some reason if data is allowed to sort itself it leads to wrong ordering of x axis.
         traces = sorted(scatter.data, key=itemgetter("name"))

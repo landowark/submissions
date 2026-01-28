@@ -6,7 +6,7 @@ import logging, sys
 from typing import TYPE_CHECKING
 from pathlib import Path
 from openpyxl.workbook import Workbook
-from backend.validators import ClientSubmissionNamer, RSLNamer
+from backend.validators import ClientSubmissionNamer
 from backend.managers import DefaultManager
 from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
 from backend.excel.writers.clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter

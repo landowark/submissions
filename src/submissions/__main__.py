@@ -4,7 +4,9 @@ from tools import ctx, check_if_app, CustomLogger
 
 # NOTE: environment variable must be set to enable qtwebengine in network path
 if check_if_app():
-    os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = "1"
+    os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--no-sandbox --disable-gpu --disable-software-rasterizer --disable-gpu-compositing'
+    os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = '1'
+    os.environ['QT_OPENGL'] = 'software'
 
 # NOTE: setup custom logger
 logging.setLoggerClass(CustomLogger)

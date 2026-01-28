@@ -41,7 +41,8 @@ def select_open_file(obj: QMainWindow, file_extension: str | None = None) -> Pat
         if fname.__str__() == ".":
             logger.warning(f"No file selected, cancelling.")
             return
-    obj.last_dir = fname.parent
+    if obj:
+        obj.last_dir = fname.parent
     logger.info(f"File selected: {fname}")
     return fname
 
@@ -65,7 +66,8 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
     except AttributeError:
         home_dir = obj.app.last_dir.joinpath(default_name).resolve().__str__()
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])
-    obj.last_dir = fname.parent
+    if obj:
+        obj.last_dir = fname.parent
     return fname
 
 

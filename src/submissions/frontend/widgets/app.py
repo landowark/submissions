@@ -13,7 +13,6 @@ from PyQt6.QtGui import QAction
 from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
-# from backend.db.models import ReagentLot
 from backend.validators.pydant import PydAbstract, PydConcrete
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
@@ -76,7 +75,6 @@ class App(QMainWindow):
         methodsMenu = menuBar.addMenu("&Search")
         manageabstractsMenu = menuBar.addMenu("&Manage Abstracts")
         managedconcreteMenu = menuBar.addMenu("&Manage Concrete")
-        # maintenanceMenu = menuBar.addMenu("&Monthly")
         helpMenu = menuBar.addMenu("&Help")
         helpMenu.addAction(self.helpAction)
         helpMenu.addAction(self.docsAction)
@@ -84,15 +82,6 @@ class App(QMainWindow):
         fileMenu.addAction(self.importAction)
         fileMenu.addAction(self.archiveSubmissionsAction)
         methodsMenu.addAction(self.searchSample)
-        # maintenanceMenu.addAction(self.joinExtractionAction)
-        # maintenanceMenu.addAction(self.joinPCRAction)
-        # editMenu.addAction(self.editReagentAction)
-        # editMenu.addAction(self.manageOrgsAction)
-        
-        # if getpass.getuser() == "lwark":
-        #     editMenu.addAction(self.manageKitsAction)
-        # if not is_power_user():
-        #     editMenu.setEnabled(False)
         for action in self.abstractActions:
             manageabstractsMenu.addAction(action)
             if not is_power_user():
@@ -121,7 +110,6 @@ class App(QMainWindow):
         self.searchSample = QAction("Search Sample", self)
         self.githubAction = QAction("Github", self)
         self.archiveSubmissionsAction = QAction("Submissions to Excel", self)
-        # self.editReagentAction = QAction("Edit Reagent", self)
         self.abstractActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydAbstract.get_managables()]
         self.concreateActions = [QAction(f"Manage {subcls.__name__.replace("Pyd", "")}", self) for subcls in PydConcrete.get_managables()]
                 
@@ -131,18 +119,13 @@ class App(QMainWindow):
         connect menu and tool bar item to functions
         """
         self.importAction.triggered.connect(lambda fname: self.table_widget.formwidget.import_submission_function(fname=fname))
-        self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
-        # self.joinExtractionAction.triggered.connect(self.table_widget.sub_wid.link_extractions)
-        # self.joinPCRAction.triggered.connect(self.table_widget.sub_wid.link_pcr)
+        # self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
         self.searchSample.triggered.connect(self.runSampleSearch)
         self.githubAction.triggered.connect(self.openGithub)
         self.archiveSubmissionsAction.triggered.connect(self.submissions_to_excel)
         self.table_widget.pager.current_page.textChanged.connect(self.update_data)
-        # self.editReagentAction.triggered.connect(self.edit_reagent)
-        # self.manageOrgsAction.triggered.connect(self.manage_orgs)
-        # self.manageKitsAction.triggered.connect(self.manage_kits)
         for action in self.abstractActions:
             class_ = next((subcls for subcls in PydAbstract.get_managables() if f"Manage {subcls.__name__.replace('Pyd', '')}" == action.text()), None)
             if class_:
@@ -213,15 +196,6 @@ class App(QMainWindow):
         if dlg.exec():
             new_org = dlg.parse_form()
             new_org.save()
-
-    # def manage_kits(self, *args, **kwargs):
-    #     from frontend.widgets.omni_manager_pydant import ManagerWindow as ManagerWindowPyd
-    #     dlg = ManagerWindowPyd(parent=self, object_type=KitType, extras=[], add_edit='edit', managers=set())
-    #     if dlg.exec():
-    #         output = dlg.parse_form()
-    #         sql = output.to_sql()
-    #         assert isinstance(sql, KitType)
-    #         sql.save()
 
     @under_development
     def submissions_to_excel(self, *args, **kwargs):

@@ -29,9 +29,7 @@ class DefaultProcedureManager(DefaultManager):
                 self.proceduretype = input_object.proceduretype.sql_instance
             case dict():
                 self.proceduretype = ProcedureType.query(name=input_object.get("proceduretype", None), limit=1)
-        logger.debug(f"Procedure Type: {self.proceduretype}")
         self.procedure = input_object
-        logger.debug(f"Input object: {pformat(input_object)}")
         # This is the sql object
         super().__init__(parent=parent, input_object=input_object)
 

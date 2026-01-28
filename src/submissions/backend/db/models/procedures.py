@@ -2,6 +2,7 @@
 All kittype and reagent related models
 """
 from __future__ import annotations
+from pathlib import Path
 from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
@@ -706,19 +707,20 @@ class ReagentLot(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    @check_authorization
-    def edit_from_search(self, obj, **kwargs):
-        from frontend.widgets.omni_add_edit import AddEdit
-        dlg = AddEdit(parent=None, instance=self, disabled=['reagent'])
-        if dlg.exec():
-            pyd = dlg.parse_form()
-            fields = pyd.model_fields
-            for field in fields:
-                if field in ['instance']:
-                    continue
-                field_value = pyd.__getattribute__(field)
-                self.set_attribute(field, field_value)
-            self.save()
+    # @check_authorization
+    # def edit_from_search(self, obj, **kwargs):
+    #     from frontend.widgets.omni_add_edit import AddEdit
+    #     dlg = AddEdit(parent=None, instance=self, disabled=['reagent'])
+    #     if dlg.exec():
+    #         pyd = dlg.parse_form()
+    #         fields = pyd.model_fields
+    #         for field in fields:
+    #             if field in ['instance']:
+    #                 continue
+    #             field_value = pyd.__getattribute__(field)
+    #             # self.set_attribute(field, field_value)
+    #             setattr(self, field, field_value)
+    #         self.save()
 
     @property
     def details_dict(self) -> dict:
@@ -1454,7 +1456,25 @@ class ProcedureType(BaseClass):
             sample=samples
         )
         return PydProcedure(**output)
-        
+    
+    @property
+    def plate_grid(self) -> dict:
+        """
+        Makes an x by y array to represent a plate.
+
+        Args:
+            rows (int): Number of rows.
+            columns (int): Number of columns
+
+        Returns:
+            dict: cell number : (row, column)
+        """
+        # NOTE: columns/rows
+        # matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
+        # NOTE: rows/columns
+        matrix = np.array([[0 for xxx in range(1, self.plate_rows + 1)] for yyy in range(1, self.plate_columns + 1)])
+        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
+
     @property
     def ranked_plate(self):
         matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
@@ -1468,6 +1488,10 @@ class ProcedureType(BaseClass):
     def allowed_result_methods(self):
         return [item.details_dict for item in self.resultstype]
 
+    def to_html(self, **kwargs):
+        details = self.details_dict
+        output = super().to_html(**details)
+        return output
 
 class Procedure(BaseClass):
     
@@ -2053,14 +2077,6 @@ class Procedure(BaseClass):
         from backend.validators.pydant import PydReagent
         output = super().to_pydantic()
         output.sample = [item.to_pydantic() for item in self.proceduresampleassociation]
-        # for reagent in self.reagent:
-        #     match reagent:
-        #         case dict():
-        #             reagents.append(PydReagent(**reagent))
-        #         case PydReagent():
-        #             reagents.append(reagent)
-        #         case _:
-        #             pass
         output.run = self.run.to_pydantic()
         output.reagentlot = [item.to_pydantic() for item in self.procedurereagentlotassociation]
         output.result = [item.to_pydantic() for item in self.results]
@@ -2122,6 +2138,70 @@ class Procedure(BaseClass):
         self.set_cost()
         super().save()
 
+    # def reorder_proceduretype_by_procedure(self):
+    #     proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
+    #         {
+    #             "reagentrole":[
+    #                     {"reagent":["reagentlot"]}]
+                        
+    #         }, 
+    #         {
+    #             "equipmentrole": [
+    #                     {"equipmentroleequipmentassociation":["equipment", "process"]}]
+    #         }
+    #         ])
+    #     procedure_dict = self.improved_dict_expand_fields([
+    #             "procedurereagentlotassociation",
+    #             "procedureequipmentassociation"
+    #         ])
+    #     for assoc in procedure_dict["procedurereagentlotassociation"]:
+    #         reagentrole = assoc['reagentrole']
+    #         reagent = assoc['reagent']
+    #         reagentlot = assoc['reagentlot']
+    #         try:
+    #             pt_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
+    #         except StopIteration:
+    #             continue
+    #         try:
+    #             pt_reagentlots = next(item['reagentlot'] for item in pt_reagent if item['name'] == reagent)
+    #         except StopIteration:
+    #             continue
+    #         rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
+    #         pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
+    #     for assoc in procedure_dict["procedureequipmentassociation"]:
+    #         equipmentrole = assoc['equipmentrole']
+    #         equipment = assoc['equipment']
+    #         try:
+    #             pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
+    #         except StopIteration:
+    #             continue
+    #         eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
+    #         pt_equipment.insert(0, pt_equipment.pop(eq_index))
+    #     for reagentrole in proceduretype_dict.get("reagentrole", []):
+    #         for reagent in reagentrole['reagent']:
+    #             if len(reagent['reagentlot']) < 1:
+    #                 reagent['reagentlot'].append(dict(name="", active=True))
+    #             else:
+    #                 try:
+    #                     reagent['reagentlot'].remove(dict(name="", active=True))
+    #                 except Exception:
+    #                     pass
+    #             try:
+    #                 check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
+    #             except TypeError:
+    #                 check = True
+    #             if not check:
+    #                 reagent['reagentlot'].append(dict(name="--New--", active=True))
+    #     regex = re.compile(r".*R\d$")
+    #     # run = Run.query(name=self.run.rsl_plate_number, limit=1)
+    #     proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype.name == self.proceduretype.name and not bool(regex.match(item.name))]
+       
+    #     return proceduretype_dict
+
+    # def to_html(self, **kwargs) -> str:
+    #     details = self.reorder_proceduretype_by_procedure()
+    #     output = super().to_html(**details)
+    #     return output
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """

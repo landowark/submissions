@@ -3,7 +3,6 @@ Construct turnaround time charts
 """
 from pprint import pformat
 from . import CustomFigure
-from PyQt6.QtWidgets import QWidget
 import logging, plotly.express as px, pandas as pd
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -11,12 +10,9 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class TurnaroundChart(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, threshold: float | None = None,
-                 ytitle: str | None = None,
-                 parent: QWidget | None = None,
-                 months: int = 6):
-        super().__init__(df=df, modes=modes, settings=settings)
-        self.df = df
+    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, threshold: float | None = None, **kwargs):
+        super().__init__(df=df, modes=modes, settings=settings, **kwargs)
+        
         self.construct_chart()
         if threshold:
             self.add_hline(y=threshold)

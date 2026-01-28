@@ -13,13 +13,13 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class IridaFigure(CustomFigure):
 
-    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, ytitle: str | None = None, parent: QWidget | None = None):
+    def __init__(self, df: pd.DataFrame, modes: list, settings: dict, **kwargs):
 
-        super().__init__(df=df, modes=modes, settings=settings)
+        super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         self.df = df
         self.construct_chart(df=df, modes=modes, start_date=settings['start_date'], end_date=settings['end_date'])
 
-    def construct_chart(self, df: pd.DataFrame, modes: list, start_date: date, end_date:date):
+    def construct_chart(self, df: pd.DataFrame, modes: list, **kwargs):
         """
         Creates a plotly chart for control from a pandas dataframe
 

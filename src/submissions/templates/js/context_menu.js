@@ -213,8 +213,34 @@ function insertEN( targetItem ) {
     elem.setAttribute("class", "well negativecontrol EN");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + en_name + '</p>'
-    gridC.insertBefore(elem, targetItem.nextSibling);
-    targetItem.remove();
+    // gridC.insertBefore(elem, targetItem.nextSibling);
+    gridC.insertBefore(elem, targetItem);
+    // remove the target item (previous behavior: replace target with new element)
+    // targetItem.remove();
+
+    // additionally: find and remove the next element (after the original target)
+    // that contains an empty <p> in its innerHTML
+    try {
+        const children = Array.from(gridC.children);
+        // find the index where the new element currently sits
+        const startIndex = children.indexOf(elem);
+        if (startIndex !== -1) {
+            for (let i = startIndex + 1; i < children.length; i++) {
+                const child = children[i];
+                const p = child.querySelector && child.querySelector('p');
+                if (p) {
+                    // consider <p> empty if its innerHTML is empty or only whitespace
+                    if (p.innerHTML.trim() === '') {
+                        gridC.removeChild(child);
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        // defensive: if anything goes wrong, don't block the rest of the UI
+        console.error('insertPositive: error while removing next empty <p> element', e);
+    }
 }
 
 function insertPositive( targetItem ) {
@@ -228,12 +254,39 @@ function insertPositive( targetItem ) {
     elem.setAttribute("class", "well positivecontrol");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + pos_name + '</p>'
-    gridC.insertBefore(elem, targetItem.nextSibling);
-    targetItem.remove();
+    // insert the new positive control after the target item (keeps previous behavior)
+    // gridC.insertBefore(elem, targetItem.nextSibling);
+    gridC.insertBefore(elem, targetItem);
+    // remove the target item (previous behavior: replace target with new element)
+    // targetItem.remove();
+
+    // additionally: find and remove the next element (after the original target)
+    // that contains an empty <p> in its innerHTML
+    try {
+        const children = Array.from(gridC.children);
+        // find the index where the new element currently sits
+        const startIndex = children.indexOf(elem);
+        if (startIndex !== -1) {
+            for (let i = startIndex + 1; i < children.length; i++) {
+                const child = children[i];
+                const p = child.querySelector && child.querySelector('p');
+                if (p) {
+                    // consider <p> empty if its innerHTML is empty or only whitespace
+                    if (p.innerHTML.trim() === '') {
+                        gridC.removeChild(child);
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        // defensive: if anything goes wrong, don't block the rest of the UI
+        console.error('insertPositive: error while removing next empty <p> element', e);
+    }
 }
 
 function insertNegative( targetItem ) {
-
+    console.log("Insert at: " + targetItem)
     const gridC = document.getElementById("plate-container");
     var existing_neg = document.getElementsByClassName("negativecontrol");
     var neg_num = existing_neg.length + 1;
@@ -243,11 +296,39 @@ function insertNegative( targetItem ) {
     elem.setAttribute("class", "well negativecontrol");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + neg_name + '</p>'
-    gridC.insertBefore(elem, targetItem.nextSibling);
-    targetItem.remove();
+    // gridC.insertBefore(elem, targetItem.nextSibling);
+    gridC.insertBefore(elem, targetItem);
+    // remove the target item (previous behavior: replace target with new element)
+    // targetItem.remove();
+
+    // additionally: find and remove the next element (after the original target)
+    // that contains an empty <p> in its innerHTML
+    try {
+        const children = Array.from(gridC.children);
+        // find the index where the new element currently sits
+        const startIndex = children.indexOf(elem);
+        if (startIndex !== -1) {
+            for (let i = startIndex + 1; i < children.length; i++) {
+                const child = children[i];
+                const p = child.querySelector && child.querySelector('p');
+                if (p) {
+                    // consider <p> empty if its innerHTML is empty or only whitespace
+                    if (p.innerHTML.trim() === '') {
+                        gridC.removeChild(child);
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        // defensive: if anything goes wrong, don't block the rest of the UI
+        console.error('insertPositive: error while removing next empty <p> element', e);
+    }
 }
 
 function removeSample( targetItem ) {
+
+    console.log("Removing: " + targetItem)
     const gridC = document.getElementById("plate-container");
     var existing_wells = document.getElementsByClassName("well");
     var en_num = existing_wells.length + 1;
@@ -257,8 +338,9 @@ function removeSample( targetItem ) {
     elem.setAttribute("class", "well");
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;"></p>'
-    gridC.insertBefore(elem, targetItem.nextSibling);
-    targetItem.remove();
+    gridC.insertBefore(elem, targetItem);
+    // targetItem.remove();
+    gridC.remove(targetItem);
 }
 
 

@@ -15,15 +15,15 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class CustomFigure(Figure):
 
-    df = None
-
-    def __init__(self, df: pd.DataFrame, settings: dict, modes: list, ytitle: str | None = None, parent: QWidget | None = None):
+    def __init__(self, df: pd.DataFrame, settings: dict, modes: list, ytitle: str | None = None, **kwargs):
         super().__init__()
-        try:
-            months = int(settings['months'])
-        except KeyError:
-            months = 6
-        self.df = df
+        months = int(settings.get('months', 6))
+        # Set dataframe on the instance using object.__setattr__ because
+        # plotly.graph_objects.Figure implements a custom __setattr__ which
+        # can raise AttributeError for arbitrary attribute names. Using the
+        # base object setattr bypasses that and stores the dataframe safely.
+        object.__setattr__(self, 'df', df)
+        self.data = []
         self.update_xaxes(range=[settings['start_date'] - timedelta(days=1), settings['end_date']])
         self.generic_figure_markers(modes=modes, ytitle=ytitle, months=months)
 
@@ -60,7 +60,7 @@ class CustomFigure(Figure):
         self.update_xaxes(
             rangeslider_visible=True,
             rangeselector=dict(
-                buttons=[button for button in self.make_plotly_buttons(months=months)]
+                buttons = [button for button in self.make_plotly_buttons(months=months)]
             )
         )
         assert isinstance(self, CustomFigure)
@@ -97,6 +97,7 @@ class CustomFigure(Figure):
         Returns:
             Generator[dict, None, None]: list of buttons.
         """
+        # NOTE: self.data is set in the child instances.
         fig_len = len(self.data)
         if len(modes) > 1:
             for ii, mode in enumerate(modes):
@@ -105,7 +106,7 @@ class CustomFigure(Figure):
                 # NOTE: And break it into {len(modes)} chunks
                 mode_vis = list(divide_chunks(mode_vis, len(modes)))
                 # NOTE: Then, for each chunk, if the chunk index isn't equal to the index of the current mode, set to false
-                for jj, sublist in enumerate(mode_vis):
+                for jj, _ in enumerate(mode_vis):
                     if jj != ii:
                         mode_vis[jj] = [not elem for elem in mode_vis[jj]]
                 # NOTE: Finally, flatten list.

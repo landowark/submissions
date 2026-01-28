@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging, sys
 from pprint import pformat
 from openpyxl.workbook import Workbook
-from openpyxl.styles import Alignment
+from openpyxl.styles import Alignment, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 from typing import TYPE_CHECKING
 from . import DefaultKEYVALUEWriter, DefaultTABLEWriter
@@ -16,7 +16,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
-    exclude = ["name", "id", "clientlab", "filepath"]
+    exclude = ["name", "id", "clientlab", "filepath", "comments", "sample", 
+               "excluded", "run", "clientsubmissionsampleassociation", "expanded"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -24,13 +25,15 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
     def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
         worksheet.cell(row=start_row, column=1, value="Submitter Info")
         worksheet.cell(row=start_row, column=1).alignment = Alignment(horizontal="center")
+        worksheet.cell(row=start_row, column=1).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
+        worksheet.cell(row=start_row, column=2).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
         return worksheet
 
 
 class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
 
-    exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank"]
+    exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample"]
     header_order = ["submission_rank", "sample_id"]
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
@@ -62,5 +65,4 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
             except StopIteration:
                 sample = PydClientSubmissionSampleAssociation(sample="", clientsubmission=self.pydant_obj.name, submission_rank=iii)
             output_samples.append(sample)
-        logger.debug(f"Padded samples: {pformat(output_samples)}")
         return sorted(output_samples, key=lambda x: x.submission_rank)

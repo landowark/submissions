@@ -46,7 +46,16 @@ class PydTips(PydAbstract):
     manufacturer: str = Field(default="NA", description="Company that makes these tips")
     capacity: int = Field(default=1000, description="Maximum volume (uL).")
     ref: str = Field(default="NA", description="Reference number from manufacturer.")
-    process: List[str] | List[dict] = Field(default_factory=list, description="List of processes using these tips.", repr=False) 
+    process: List[str] | List[dict] = Field(default_factory=list, description="List of processes using these tips.", repr=False)
+
+    def to_sql(self, update: bool = True):
+        from backend.db.models import Tips
+        self.sql_instance: Tips = super().to_sql(update)
+        if not update:
+            return self.sql_instance, None
+        self.sql_instance.tipslot = self.tipslot
+        self.sql_instance.process = self.process
+        return self.sql_instance, None 
     
 
 class PydReagentRole(PydAbstract):
@@ -99,9 +108,9 @@ class PydProcess(PydAbstract):
     
 class PydResultsType(PydAbstract):
 
-    name: str = Field(default="NA", description="Brief description of this type.")
+    name: str = Field(default="NA")
     results: List[dict] = Field(default_factory=list, repr=False)
-    proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes using this type.", repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, repr=False)
 
     def to_sql(self, update: bool = True):
         self.sql_instance = super().to_sql(update)
@@ -133,7 +142,6 @@ class PydSubmissionType(PydAbstract):
     @field_validator("proceduretype")
     @classmethod
     def validate_proceduretype(cls, value, values) -> List[str]:
-        print(values)
         if not value and values.data.get("name", "Default SubmissionType") == "Default SubmissionType":
             from backend.db.models import ProcedureType
             value = [item.name for item in ProcedureType.query()]
@@ -173,10 +181,10 @@ class PydSubmissionType(PydAbstract):
     def to_sql(self, update: bool = True):
         from backend.db.models import SubmissionType
         self.sql_instance: SubmissionType = super().to_sql(update)
-        if not update:
-            return self.sql_instance, None
         self.sql_instance.file_name_template = self.file_name_template
         self.sql_instance.abbreviation = self.abbreviation
+        if not update:
+            return self.sql_instance, None
         self.sql_instance.proceduretype = self.proceduretype
         self.sql_instance.clientsubmission = self.clientsubmission
         return self.sql_instance, None
@@ -221,18 +229,6 @@ class PydProcedureType(PydAbstract):
         if field == "submissiontype" and value == "Default SubmissionType":
             logger.error("Cannot remove default submission type.")
             return
-        # current = self.__getattribute__(field)
-        # if not isinstance(current, list):
-        #     logger.error(f"Field {field} is not a list relationship.")
-        #     return
-        # new_list = []
-        # for item in current:
-        #     if isinstance(item, str) and item == value:
-        #         continue  # Skip if it's the target string
-        #     elif isinstance(item, dict) and value in item.values():
-        #         continue  # Skip if dict contains the target value
-        #     new_list.append(item)
-        # self.__setattr__(field, new_list)
         super().remove_relationship(field=field, value=value)
 
     def construct_plate_map(self, sample_dicts: List[PydSample], creation:bool=True, vw_modifier:float=1.0) -> str:

@@ -2,12 +2,14 @@
 Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
+from pathlib import Path
 import logging, sys, string, inspect
 from pprint import pformat
 from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
 from typing import Any, ClassVar, Generator, List
+from types import UnionType
 from tools import classproperty, jinja_template_loading, row_keys, sanitize_object_for_json
 from backend.db import models
 from sqlalchemy.orm.attributes import InstrumentedAttribute
@@ -112,7 +114,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     @model_validator(mode='after')
     @classmethod
     def validate_model(cls, data):
-        # print(data)
         for key, value in data.model_extra.items():
             # NOTE: make sure all date variables are date objects.
             if key in cls._sql_class.timestamps:
@@ -141,16 +142,21 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         item = getattr(self, key)
         match item:
             case dict():
-                try:
-                    item = item['value']
-                except KeyError:
-                    logger.error(f"Couldn't get {key} dict value: {item}")
-                    pass
+                item = item.get('value', None)
             case _:
                 pass
         return item
 
-    def improved_dict_expand_fields(self, fields: List[str] | List[dict]):
+    def improved_dict_expand_fields(self, fields: List[str | dict]) -> dict:
+        """
+        Expands fields in the improved dict for use in forms.
+
+        Args:
+            fields (List[str] | List[dict]): List[str] is a flat expansion, List[dict] expands recursively.
+
+        Returns:
+            dict: Expanded dictionary.
+        """
         if len(fields) == 0:
             fields = self.improved_dict.keys()
         dict_ = self.improved_dict
@@ -224,8 +230,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         output = {k: self.filter_field(k) for k in fields if k not in ["sql_instance", "new"]}
+        # logger.debug(f"{self.__class__.__name__} output:\n{output}")
         if "misc_info" in output.keys():
-            for k, v in output['misc_info'].items():
+            iterator = output['misc_info'] or {}
+            for k, v in iterator.items():
                 if "sql_instance" in k:
                     continue
                 if k not in output.keys():
@@ -235,10 +243,23 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 output['name'] = self.sql_instance.name
             except AttributeError:
-                logger.error(f"Cannot set name for {self.__class__.__name__}")
+                try:
+                    output['name'] = self.constructed_name
+                except AttributeError:
+                    logger.error(f"Cannot set name for {self.__class__.__name__}")
         return output
 
-    def to_sql(self, update: bool = True):
+    def to_sql(self, update: bool = True) -> models.BaseClass:
+        """
+        Converts this instance to the corresponding SQLAlchemy object.
+
+        Args:
+            update (bool): If True, relationships will be updated.
+
+        Returns:
+            models.BaseClass: SQLAlchemy translation of this object.
+
+        """
         # Prevent accidental clearing of existing SQL relationship lists:
         # Many SQLAlchemy relationship setters in this codebase treat an
         # assignment of an empty list as an instruction to clear that
@@ -279,7 +300,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         for k, v in self.model_extra.items():
             self.sql_instance._misc_info[k] = sanitize_object_for_json(v)
         return self.sql_instance
-
+    
     @property
     def fields(self) -> list:
         """
@@ -292,13 +313,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         for k, v in self.improved_dict.items():
             match v:
                 case str() | int() | float() | datetime() | date():
-                    output.append(k)
+                    pass
                 case x if issubclass(v.__class__, PydBaseClass):
-                    output.append(k)
+                    pass
                 case _:
                     continue
-            if k == "tipslot":
-                output.append(k)
+            # k = self.__class__.replacement_matrix.get(k, k)
+            output.append(k)
         return list(set(output))
     
     @classproperty
@@ -334,7 +355,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """        
         type_ = getattr(cls._sql_class, field.lower().strip("_"))
         type_name = type_.__class__.__name__
-        logger.debug(f"Type name for {field}: {type_name}")
         match type_name:
             case "hybrid_propertyProxy":
                 try:
@@ -351,7 +371,14 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         else:
                             type_name = "RelationshipScalar"
                     else:
-                        type_name = cls.model_fields[field].annotation.__name__
+                        annotation = cls.model_fields[field].annotation
+                        if isinstance(annotation, UnionType):
+                            type_name = annotation.__args__[0].__name__
+                        else:
+                            try:
+                                type_name = annotation.__name__
+                            except AttributeError:
+                                type_name = "Skipped"
                 if type_name == "ObjectAssociationProxyInstance":
                     if is_new:
                         type_name = "Skipped"
@@ -505,7 +532,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             field (str): Field name
             value (str): Value to add to the relationship.
         """
-        logger.debug(f"Adding relationship: field: {field}, value: {value}, data: {data}")
         current = self.__getattribute__(field)
         if data is not None:
             value = dict(name=value, **data)
@@ -517,7 +543,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             return
         current.append(value)
         self.__setattr__(field, current)
-        logger.debug(f"Current {self.__class__.__name__}: {self.__dict__}")
 
     def remove_relationship(self, field: str, value: str):
         """
@@ -555,6 +580,70 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             self.__dict__.update(new.__dict__)
         except ValidationError as e:
             raise e
+        
+    def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
+                            **kwargs) -> str:
+        details = {self._sql_class.__name__.lower() : self.clean_details_for_render(kwargs)}
+        # template = self.details_template
+        if isinstance(css_in, str):
+            css_in = [css_in]
+        env = jinja_template_loading()
+        html_folder = Path(env.loader.__getattribute__("searchpath")[0])
+        css_in = ["styles"] + css_in
+        css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
+        if isinstance(js_in, str):
+            js_in = [js_in]
+        js_in = ["details"] + js_in
+        js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
+        # if isinstance(template, str):
+        #     template = f"{template}.html"
+        # template = env.get_template(self.details_template)
+        css_out = []
+        for css in css_in:
+            with open(css, "r") as f:
+                css_out.append(f.read())
+        js_out = []
+        for js in js_in:
+            with open(js, "r") as f:
+                js_out.append(f.read())
+        return self.sql_instance.details_template.render(css=css_out, js=js_out, **details)
+    
+    @classmethod
+    def clean_details_for_render(cls, dictionary: dict) -> dict:
+        """
+        Cleans dictionary for rendering on a template.
+
+        Args:
+            dictionary (dict): input dictionary
+
+        Returns:
+            dict: cleaned dictionary
+        """
+        from backend.db.models import BaseClass
+        output = {}
+        for k, value in dictionary.items():
+            match value:
+                case datetime() | date():
+                    value = value.strftime("%Y-%m-%d")
+                case bytes():
+                    continue
+                case dict():
+                    try:
+                        value = value['name']
+                    except KeyError:
+                        if k == "_misc_info" or k == "misc_info":
+                            value = value
+                        else:
+                            continue
+                case x if issubclass(value.__class__, BaseClass) or issubclass(value.__class__, PydBaseClass) :
+                    try:
+                        value = value.name
+                    except AttributeError:
+                        continue
+                case _:
+                    pass
+            output[k] = value
+        return output
 
 
 class PydAbstract(PydBaseClass):

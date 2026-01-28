@@ -10,6 +10,7 @@
     <!--  Is this working?  -->
     <body>
         {% block body %}
+        {{ now }}
         <h1>{% if edit %}Edit{% else %}New{% endif %} {{ proceduretype['name'] }} for
             {% if run['plate_number'] %}
             <a style="height:30px; font-size:30px" id="rsl_plate_num">{{ run['plate_number'] }}</a>

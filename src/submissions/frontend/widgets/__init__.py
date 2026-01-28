@@ -2,8 +2,10 @@
 Contains all custom generated PyQT6 derivative widgets.
 """
 from PyQt6.QtCore import QAbstractTableModel, Qt
-# from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
+import logging
+
+logger = logging.getLogger("submissions.frontend.widgets")
 
 
 class CustomWebEnginePage(QWebEnginePage):
@@ -11,7 +13,15 @@ class CustomWebEnginePage(QWebEnginePage):
     def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
         # You can customize the output format here
         # print(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
-        print(f"JS Console ({lineNumber}) [{level}]: {message}")
+        # Use logger so messages follow the app logging configuration
+        try:
+            logger.debug(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
+        except Exception:
+            print(f"JS Console ({lineNumber}) [{level}]: {message}")
+
+    # Note: do not override `renderProcessTerminated` here because in PyQt6
+    # it may be exposed as a signal; instead we connect to the signal from
+    # the code that creates the page (ProcedureCreation) to log terminations.
 
     # def acceptNavigationRequest(self, url, _type, isMainFrame):
     #     print(f"Navigation request to: {url.toString()}")
@@ -76,7 +86,6 @@ from .functions import select_open_file, select_save_file, save_pdf
 from .gel_checker import GelBox, ControlsForm
 from .info_tab import InfoPane
 from .misc import StartEndDatePicker, CheckableComboBox, Pagifier
-from .omni_add_edit import AddEdit, EditProperty
 from .omni_search import SearchBox, SearchResults, FieldSearch
 from .pop_ups import QuestionAsker, AlertPop, HTMLPop, ObjectSelector
 from .procedure_creation import ProcedureCreation

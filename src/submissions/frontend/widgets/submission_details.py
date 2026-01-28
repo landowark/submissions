@@ -60,35 +60,32 @@ class SubmissionDetails(QDialog):
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
         self.object_details(object_=self.object_)
-        self.webview.page().setWebChannel(self.channel)
+        # self.webview.page().setWebChannel(self.channel)
 
     def object_details(self, object_):
         from backend.db.models import ClientSubmission, Run, Procedure
-        logger.debug(f"Incoming object: {object_}")
-        match object_:
-            case ClientSubmission():
-                expand = [{"run":['procedure']}, "sample"]
-                # expand = ["run", "sample"]
-            case Run():
-                expand = ['procedure', 'sample']
-            
-            case _:
-                expand = []
-        details = object_.details_dict_expand_fields(fields=expand)
-        details = object_.clean_details_for_render(details)
-        template = object_.details_template
-        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        key = object_.__class__.__name__.lower()
-        d = {key: details}
-        html = template.render(**d, css=[css])
-        html = render_details_template(template, **d)
-        self.webview.setHtml(html)
+        # logger.debug(f"Incoming object: {object_}")
+        # match object_:
+        #     case ClientSubmission():
+        #         expand = [{"run":['procedure']}, "sample"]
+        #     case Run():
+        #         expand = ['procedure', 'sample']
+        #     case _:
+        #         expand = []
+        # details = object_.details_dict_expand_fields(fields=expand)
+        # details = object_.clean_details_for_render(details)
+        # template = object_.details_template
+        # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
+        #     css = f.read()
+        # key = object_.__class__.__name__.lower()
+        # d = {object_.__class__.__name__.lower(): details}
+        # html = template.render(**d, css=[css])
+        # html = render_details_template(template, **d)
+        html = object_.to_html()
+        self.webview.setHtml("<h1>TEST</h1><script>console.log('running');</script>")
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
-        with open(f"{object_.__class__.__qualname__}.html", "w") as f:
-            f.write(html)
-
+        
     def activate_export(self) -> None:
         """
         Determines if export pdf should be active.
@@ -116,7 +113,6 @@ class SubmissionDetails(QDialog):
     def equipment_details(self, equipment: str | Equipment):
         if isinstance(equipment, str):
             equipment = Equipment.query(name=equipment)
-        # base_dict = equipment.to_sub_dict(full_data=True)
         base_dict = equipment.details_dict
         template = equipment.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
@@ -130,7 +126,6 @@ class SubmissionDetails(QDialog):
     def process_details(self, process: str | Process):
         if isinstance(process, str):
             process = Process.query(name=process)
-        # base_dict = process.to_sub_dict(full_data=True)
         base_dict = process.details_dict
         template = process.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
@@ -144,7 +139,6 @@ class SubmissionDetails(QDialog):
     def tips_details(self, tips: str | Tips):
         if isinstance(tips, str):
             tips = Tips.query(lot=tips)
-        # base_dict = tips.to_sub_dict(full_data=True)
         base_dict = tips.details_dict
         template = tips.details_template
         template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
@@ -165,7 +159,6 @@ class SubmissionDetails(QDialog):
         from backend.db.models import Sample
         if isinstance(sample, str):
             sample = Sample.query(sample_id=sample)
-        # base_dict = sample.to_sub_dict(full_data=True)
         base_dict = sample.details_dict
         exclude = ['procedure', 'excluded', 'colour', 'tooltip']
         base_dict['excluded'] = exclude

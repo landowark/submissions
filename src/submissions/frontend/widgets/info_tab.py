@@ -30,7 +30,7 @@ class InfoPane(QWidget):
         self.setLayout(self.layout)
 
     @report_result
-    def update_data(self, *args, **kwargs):
+    def update_data(self, *args, **kwargs) -> Report | None:
         report = Report()
         self.start_date = self.datepicker.start_date.date().toPyDate()
         self.end_date = self.datepicker.end_date.date().toPyDate()

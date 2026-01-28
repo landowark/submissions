@@ -3,7 +3,7 @@ Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
 import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd, \
-    itertools, openpyxl
+    itertools, openpyxl, string
 from copy import copy
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
@@ -47,7 +47,7 @@ main_aux_dir = Path.home().joinpath(f"{os_config_dir}/procedure")
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
-row_map = {1: "A", 2: "B", 3: "C", 4: "D", 5: "E", 6: "F", 7: "G", 8: "H"}
+row_map = dict(enumerate(string.ascii_uppercase, start=1))
 row_keys = {v: k for k, v in row_map.items()}
 
 # NOTE: Sets background for uneditable comboboxes and date edits.
@@ -380,51 +380,51 @@ class CustomLogger(Logger):
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
 
-def setup_logger(verbosity: int = 3):
-    """
-    Set logger levels using settings.
+# def setup_logger(verbosity: int = 3):
+#     """
+#     Set logger levels using settings.
 
-    Args:
-        verbosity (int, optional): Level of verbosity desired 3 is highest. Defaults to 3.
+#     Args:
+#         verbosity (int, optional): Level of verbosity desired 3 is highest. Defaults to 3.
 
-    Returns:
-        logger: logger object
-    """
+#     Returns:
+#         logger: logger object
+#     """
 
-    def handle_exception(exc_type, exc_value, exc_traceback):
-        if issubclass(exc_type, KeyboardInterrupt):
-            sys.__excepthook__(exc_type, exc_value, exc_traceback)
-            return
-        logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+#     def handle_exception(exc_type, exc_value, exc_traceback):
+#         if issubclass(exc_type, KeyboardInterrupt):
+#             sys.__excepthook__(exc_type, exc_value, exc_traceback)
+#             return
+#         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
-    logger = logging.getLogger("procedure")
-    logger.setLevel(logging.DEBUG)
-    # NOTE: create file handler which logs even debug messages
-    try:
-        Path(LOGDIR).mkdir(parents=True)
-    except FileExistsError:
-        logger.warning(f"Logging directory {LOGDIR} already exists.")
-    # NOTE: logging to file turned off due to repeated permission errors
-    # NOTE: create console handler with a higher log level
-    # NOTE: create custom logger with STERR -> log
-    ch = logging.StreamHandler(stream=sys.stdout)
-    # NOTE: set logging level based on verbosity
-    match verbosity:
-        case 3:
-            ch.setLevel(logging.DEBUG)
-        case 2:
-            ch.setLevel(logging.INFO)
-        case 1:
-            ch.setLevel(logging.WARNING)
-    ch.name = "Stream"
-    # NOTE: create formatter and add it to the handlers
-    formatter = CustomFormatter()
-    ch.setFormatter(formatter)
-    # NOTE: add the handlers to the logger
-    logger.addHandler(ch)
-    # NOTE: Output exception and traceback to logger
-    sys.excepthook = handle_exception
-    return logger
+#     logger = logging.getLogger("procedure")
+#     logger.setLevel(logging.DEBUG)
+#     # NOTE: create file handler which logs even debug messages
+#     try:
+#         Path(LOGDIR).mkdir(parents=True)
+#     except FileExistsError:
+#         logger.warning(f"Logging directory {LOGDIR} already exists.")
+#     # NOTE: logging to file turned off due to repeated permission errors
+#     # NOTE: create console handler with a higher log level
+#     # NOTE: create custom logger with STERR -> log
+#     ch = logging.StreamHandler(stream=sys.stdout)
+#     # NOTE: set logging level based on verbosity
+#     match verbosity:
+#         case 3:
+#             ch.setLevel(logging.DEBUG)
+#         case 2:
+#             ch.setLevel(logging.INFO)
+#         case 1:
+#             ch.setLevel(logging.WARNING)
+#     ch.name = "Stream"
+#     # NOTE: create formatter and add it to the handlers
+#     formatter = CustomFormatter()
+#     ch.setFormatter(formatter)
+#     # NOTE: add the handlers to the logger
+#     logger.addHandler(ch)
+#     # NOTE: Output exception and traceback to logger
+#     sys.excepthook = handle_exception
+#     return logger
 
 
 def jinja_template_loading() -> Environment:
@@ -440,14 +440,13 @@ def jinja_template_loading() -> Environment:
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
     else:
-        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()  # .__str__()
+        loader_path = Path(__file__).parents[1].joinpath('templates').absolute()
     # NOTE: jinja template loading
     loader = FileSystemLoader(loader_path)
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
     return env
-
 
 def render_details_template(template: str | Template, css_in: List[str] | str = [], js_in: List[str] | str = [],
                             **kwargs) -> str:
@@ -525,7 +524,7 @@ def copy_sheet_attributes(source_sheet, target_sheet):
 
     # NOTE: set specific column width and hidden property
     # NOTE: we cannot copy the entire column_dimensions attribute so we copy selected attributes
-    for key, value in source_sheet.column_dimensions.items():
+    for key, _ in source_sheet.column_dimensions.items():
         target_sheet.column_dimensions[key].min = copy(source_sheet.column_dimensions[
                                                            key].min)  # Excel actually groups multiple columns under 1 key. Use the min max attribute to also group the columns in the targetSheet
         target_sheet.column_dimensions[key].max = copy(source_sheet.column_dimensions[
@@ -789,7 +788,6 @@ def yaml_regex_creator(loader, node):
     nodes = loader.construct_sequence(node)
     name = nodes[0].replace(" ", "_")
     abbr = nodes[1]
-    # return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)"
 
 
@@ -925,7 +923,7 @@ def report_result(func):
         except AttributeError:
             logger.error("No results available")
             results = []
-        for iii, result in enumerate(results):
+        for result in results:
             try:
                 dlg = result.report()
                 if "testing" in args:
@@ -1109,30 +1107,10 @@ def sanitize_object_for_json(input_dict: dict) -> dict | str:
     return output
 
 
-def create_plate_grid(rows: int, columns: int) -> dict:
-    """
-    Makes an x by y array to represent a plate.
-
-    Args:
-        rows (int): Number of rows.
-        columns (int): Number of columns
-
-    Returns:
-        dict: cell number : (row, column)
-    """
-    # NOTE: columns/rows
-    # matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
-    # NOTE: rows/columns
-    matrix = np.array([[0 for xxx in range(1, rows + 1)] for yyy in range(1, columns + 1)])
-    return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
-
-
 class classproperty(property):
     """
     Allows for properties on classes as well as objects.
     """
-    # def __get__(self, owner_self, owner_cls):
-    #     return self.fget(owner_cls)
     def __init__(self, f):
         self.f = f
     def __get__(self, obj, cls=None):
@@ -1169,10 +1147,8 @@ class Settings(BaseSettings, extra="allow"):
     def main_aux_dir(cls):
         if platform.system() == "Windows":
             os_config_dir = "AppData/local"
-            # logger.info(f"Got platform Windows, config_dir: {os_config_dir}")
         else:
             os_config_dir = ".config"
-            # logger.info(f"Got platform {platform.system()}, config_dir: {os_config_dir}")
         return Path.home().joinpath(f"{os_config_dir}/procedure")
 
     @classproperty

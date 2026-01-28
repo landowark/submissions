@@ -1,5 +1,5 @@
 """
-Creates forms that the user can enter equipment info into.
+Creates forms that the user can enter equipment info into. (Currently unused)
 """
 import sys, logging
 from pprint import pformat
@@ -86,7 +86,6 @@ class EquipmentUsage(QDialog):
         tips = next((tps for tps in equipment.tips if tps.name == tips))
         eoi.tips = tips.to_pydantic()
         self.procedure.equipment.append(eoi)
-        # logger.debug(f"Updated equipment: {self.procedure.equipment}")
 
     def save_procedure(self):
         sql, _ = self.procedure.to_sql()
@@ -129,6 +128,7 @@ class RoleComboBox(QWidget):
         """
         equip = self.box.currentText()
         equip2 = next((item for item in self.role.equipment if item.name == equip), self.role.equipment[0])
+        # NOTE: Prevent tip update
         with QSignalBlocker(self.process) as blocker:
             self.process.clear()
         self.process.addItems([item for item in equip2.process if item in self.role.process])

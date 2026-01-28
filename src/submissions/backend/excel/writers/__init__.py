@@ -2,18 +2,17 @@
 Module for default excel writers
 """
 from __future__ import annotations
-from operator import itemgetter
 import logging, sys
 from datetime import datetime, date
 from pprint import pformat
-from typing import Any, Literal
+from typing import Any
 from openpyxl.styles import Alignment, PatternFill
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
 from backend.db.models import BaseClass, ProcedureType
 from backend.validators.pydant import PydBaseClass
-from tools import flatten_list, create_plate_grid, sort_dict_by_list
+from tools import flatten_list, sort_dict_by_list, row_map
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -29,7 +28,6 @@ class DefaultWriter(object):
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
         self.pydant_obj = pydant_obj
         self.proceduretype = proceduretype
-        logger.debug(f"{proceduretype} -> {self.proceduretype}")
 
     @classmethod
     def stringify_value(cls, value: Any) -> str:
@@ -57,9 +55,12 @@ class DefaultWriter(object):
     @classmethod
     def prettify_key(cls, key: str) -> str:
         key = key.replace("type", " type").strip()
+        key = key.replace("role", " role").strip()
+        key = key.replace("version", " version").strip()
+        key = key.replace("lot", " lot").strip()
         key = key.replace("_", " ")
         key = key.title()
-        key = key.replace("Id", "ID")
+        key = key.replace(" Id", " ID")
         return key
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
@@ -134,7 +135,7 @@ class DefaultKEYVALUEWriter(DefaultWriter):
         self.fill_dictionary = self.pydant_obj.improved_dict
 
     def delineate_end_row(self, start_row: int = 1):
-        data_length = len(self.fill_dictionary)
+        data_length = len([key for key in self.fill_dictionary.keys() if key not in self.__class__.exclude])
         return data_length + start_row
 
     @classmethod
@@ -145,7 +146,9 @@ class DefaultKEYVALUEWriter(DefaultWriter):
                           start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
         dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
+        logger.debug(f"Starting dictionary:\n{pformat(dictionary)}")
         dictionary =  sort_dict_by_list(dictionary=dictionary, order_list=self.key_order)
+        logger.debug(f"Sorted dictionary:\n{pformat(dictionary)}")
         for ii, (k, v) in enumerate(dictionary.items(), start=self.start_row):
             value = self.stringify_value(value=v)
             if value is None:
@@ -175,53 +178,15 @@ class DefaultTABLEWriter(DefaultWriter):
         end_row = start_row + len(self.pydant_obj) + 1
         return end_row
 
-    # def pad_samples_to_length(self, row_count,
-    #                           mode: Literal["submission", "procedure"] = "submission"):  #, column_names):
-    #     from backend.validators.pydant import PydProcedureSampleAssociation
-    #     output_samples = []
-    #     for iii in range(1, row_count + 1):
-    #         if isinstance(self.pydant_obj, list):
-    #             iterator = self.pydant_obj
-    #         else:
-    #             if mode == "submission":
-    #                 iti = "clientsubmission"
-    #             else:
-    #                 iti = mode
-    #             iterator = getattr(self.pydant_obj.sql_instance, f"{iti}sampleassociation")
-    #         try:
-    #             sample = next((item.to_pydantic() for item in iterator if getattr(item, f"{mode}_rank") == iii))
-    #         except StopIteration:
-    #             sample = PydProcedureSampleAssociation(sample_id="")
-    #             setattr(sample, f"{mode}_rank", iii)
-    #             if mode == "procedure":
-    #                 if all([item.row for item in self.pydant_obj.sample]):
-    #                     rows, columns = self.pydant_obj.rows_columns_count
-    #                     grid = create_plate_grid(rows=rows, columns=columns)
-    #                     sample.row, sample.column = grid[sample.procedure_rank]
-    #         output_samples.append(sample)
-    #     logger.debug(f"Padded samples: {pformat(output_samples)}")
-    #     return sorted(output_samples, key=lambda x: getattr(x, f"{mode}_rank"))
-
-    
-            
-    
-
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.header_list = self.sort_header_row(list(set(flatten_list([item.fields for item in self.pydant_obj]))))
-        logger.debug(f"Header list: {self.header_list}")
+        self.header_list = [(iii, item) for iii, item in enumerate(self.header_list, start=1)]
         self.worksheet = self.write_header_row(worksheet=self.worksheet)
-        for iii, object in enumerate(self.pydant_obj, start=1):
-            write_row = self.start_row + iii
-            for header in self.header_list:
-                try:
-                    column = next((cell for cell in self.worksheet[self.start_row] if
-                                   cell.value == header.replace("_", " ").title()))
-                except StopIteration:
-                    logger.warning(f'Could not find column for {header.replace("_", " ").title()}')
-                    continue
-                column = column.column
+        for row, object in enumerate(self.pydant_obj, start=1):
+            write_row = self.start_row + row
+            for column, header in self.header_list:
                 try:
                     value = object.improved_dict[header.lower().replace(" ", "")]
                 except (AttributeError, KeyError) as e:
@@ -229,9 +194,17 @@ class DefaultTABLEWriter(DefaultWriter):
                         value = object.improved_dict[header.lower().replace(" ", "_")]
                     except (AttributeError, KeyError):
                         value = ""
-                # logger.debug(f"Value for {header} = {value}")
+                if header == "row":
+                    if value == 0:
+                        value = ""
+                    else:
+                        try:
+                            value = row_map[value]
+                        except KeyError:
+                            pass
+                elif header == "column" and value == 0:
+                    value = ""
                 value = self.stringify_value(value)
-                # logger.debug(f"Output value: {value}")
                 self.worksheet.cell(row=write_row, column=column, value=value)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
@@ -245,8 +218,8 @@ class DefaultTABLEWriter(DefaultWriter):
         return output + sorted([item for item in header_list if item not in cls.exclude])
 
     def write_header_row(self, worksheet: Worksheet) -> Worksheet:
-        for iii, header in enumerate(self.header_list, start=1):
-            worksheet.cell(row=self.start_row, column=iii, value=header.replace("_", " ").title())
+        for iii, header in self.header_list:
+            worksheet.cell(row=self.start_row, column=iii, value=self.prettify_key(header))
             worksheet.cell(row=self.start_row, column=iii).alignment = Alignment(horizontal='center')
             worksheet.cell(row=self.start_row, column=iii).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
         return worksheet

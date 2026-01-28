@@ -2,7 +2,6 @@
 Default writers for procedures.
 """
 from __future__ import annotations
-from operator import itemgetter
 import logging, sys
 from pprint import pformat
 from openpyxl.workbook import Workbook
@@ -16,7 +15,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
     header_order = []
     exclude = ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap']
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -24,7 +23,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.pydant_obj.proceduretype.name[:20]} Quality")
+        workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.pydant_obj.proceduretype.name[:20]} Quality", start_row=start_row)
         return workbook
 
 
@@ -47,8 +46,9 @@ class ProcedureReagentWriter(DefaultTABLEWriter):
 class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
     exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
-               "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation"]
-    header_order = ['equipmentrole', 'equipment', 'asset_number', 'processversion', 'tipslot', 'start_time', 'end_time']
+               "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
+               "start_time", "end_time"]
+    header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -87,7 +87,6 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
         output_samples = []
         rows = self.proceduretype.plate_rows
         columns = self.proceduretype.plate_columns
-        logger.debug(type(self.pydant_obj))
         if rows == 0 or columns == 0:
             for iii in range(1, self.pydant_obj.max_sample_rank + 1):
                 try:

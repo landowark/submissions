@@ -7,7 +7,7 @@ from PyQt6.QtWebChannel import QWebChannel
 from backend.db.models import BaseClass
 from backend.validators.pydant import PydConcrete
 from . import CustomWebEnginePage
-from PyQt6.QtCore import Qt, pyqtSlot, QVariant
+from PyQt6.QtCore import pyqtSlot, QVariant
 from tools import jinja_template_loading, render_details_template
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -22,7 +22,6 @@ class OmniManager(QDialog):
         super().__init__(parent)
         self.object_type = object_type
         self.pydant = None
-        # logger.debug(f"Creating OmniManager for {object_type}")
         self.webview = QWebEngineView()
         custom_page = CustomWebEnginePage(self.webview)
         self.webview.setPage(custom_page)
@@ -51,7 +50,6 @@ class OmniManager(QDialog):
             addendum = ["", "--New--"]
         object_list = addendum + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
         object_name = self.sql_type.__name__
-        # logger.debug(f"Object list for {self.sql_type}: {object_list}")
         html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
         self.webview.setHtml(html)
         

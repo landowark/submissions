@@ -587,6 +587,33 @@ class BaseClass(Base):
         except TemplateNotFound as e:
             template = env.get_template("details.html")
         return template
+    
+    def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
+                            **kwargs) -> str:
+        details = {self.__class__.__name__.lower() : self.clean_details_for_render(kwargs)}
+        # template = self.details_template
+        if isinstance(css_in, str):
+            css_in = [css_in]
+        env = jinja_template_loading()
+        html_folder = Path(env.loader.__getattribute__("searchpath")[0])
+        css_in = ["styles"] + css_in
+        css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
+        if isinstance(js_in, str):
+            js_in = [js_in]
+        js_in = ["details"] + js_in
+        js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
+        # if isinstance(template, str):
+        #     template = f"{template}.html"
+        # template = env.get_template(self.details_template)
+        css_out = []
+        for css in css_in:
+            with open(css, "r") as f:
+                css_out.append(f.read())
+        js_out = []
+        for js in js_in:
+            with open(js, "r") as f:
+                js_out.append(f.read())
+        return self.details_template.render(css=css_out, js=js_out, **details)
 
     def check_all_attributes(self, **kwargs) -> bool:
         """
@@ -918,7 +945,7 @@ class BaseClass(Base):
                     except AttributeError as e:
                         logger.error(f"Skipping {key} in {self} due to {e}")
                         continue
-                    print(f"Value {key} if of type {type(value)}")
+                    logger.debug(f"Value {key} is of type {type(value)}")
                     match value:
                         case InstrumentedAttribute():
                             pass
@@ -1030,7 +1057,7 @@ class BaseClass(Base):
             obj: Parent QWidget or QDialog
         """
         from frontend.widgets.submission_details import SubmissionDetails
-        dlg = SubmissionDetails(parent=obj, object_=self)
+        dlg = SubmissionDetails(parent=obj, object_=self.to_pydantic())
         dlg.exec()
 
     # TODO: Figure this out

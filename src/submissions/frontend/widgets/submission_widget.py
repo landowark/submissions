@@ -5,25 +5,22 @@ from __future__ import annotations
 import sys, logging
 from PyQt6.QtWidgets import (
     QWidget, QPushButton, QVBoxLayout, QSpinBox, QDoubleSpinBox,
-    QComboBox, QDateEdit, QLineEdit, QLabel, QCheckBox, QHBoxLayout, QGridLayout
+    QComboBox, QDateEdit, QLineEdit, QLabel
 )
-from PyQt6.QtCore import pyqtSignal, Qt, QSignalBlocker
+from PyQt6.QtCore import pyqtSignal, Qt
 from .functions import select_open_file, select_save_file
 from pathlib import Path
-from tools import Report, Alert, check_not_nan, main_form_style, report_result, get_application_from_parent
-from backend.validators import PydReagent, PydClientSubmission
+from tools import Report, Alert, main_form_style, report_result, get_application_from_parent
+from backend.validators import PydClientSubmission
 from backend.db.models import (
-    ClientLab, SubmissionType, Reagent, ReagentLot,
-    ReagentRole, ProcedureTypeReagentRoleAssociation
+    ClientLab, SubmissionType
 )
 from pprint import pformat
-from .pop_ups import QuestionAsker
-from .omni_add_edit import AddEdit
 from typing import List, Tuple, TYPE_CHECKING
 from datetime import date
 from .sample_checker import SampleChecker
 if TYPE_CHECKING:
-    from backend.db.models import Run, ClientSubmission
+    from backend.db.models import ClientSubmission
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -167,31 +164,7 @@ class SubmissionFormContainer(QWidget):
             report.add_result(Alert(msg=message, owner=self.__class__.__name__, status="Warning"))
         return report
 
-    @report_result
-    def add_reagent(self, instance: ReagentLot | None = None):
-        """
-        Action to create new reagent in DB.
-
-        Args:
-            instance (Reagent | None): Blank reagent instance to be edited and then added.
-
-        Returns:
-            models.Reagent: the constructed reagent object to add to procedure
-        """
-        report = Report()
-        if not instance:
-            instance = ReagentLot()
-        dlg = AddEdit(parent=self, instance=instance)
-        if dlg.exec():
-            reagent = dlg.parse_form()
-            reagent.missing = False
-            # NOTE: send reagent to db
-            sqlobj = reagent.to_sql()
-            sqlobj.save()
-            report.add_result(Alert(owner=__name__, code=0, msg="New reagent created.", status="Information"))
-            return reagent, report
-
-
+    
 class SubmissionFormWidget(QWidget):
     update_reagent_fields = ['kittype']
 
@@ -208,7 +181,7 @@ class SubmissionFormWidget(QWidget):
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
         self.layout = QVBoxLayout()
-        for k in list(self.pyd.__class__.model_fields.keys()):# + list(self.pyd.model_extra.keys()):
+        for k in list(self.pyd.__class__.model_fields.keys()):
             if k in self.ignore:
                 logger.warning(f"{k} in form_ignore {self.ignore}, not creating widget")
                 continue
@@ -229,12 +202,12 @@ class SubmissionFormWidget(QWidget):
                                             clientsubmission_object=pyd.sql_instance, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
-            if k in self.__class__.update_reagent_fields:
-                add_widget.input.currentTextChanged.connect(self.scrape_reagents)
-                self.disabler = self.DisableReagents(self)
-                self.disabler.checkbox.setChecked(True)
-                self.layout.addWidget(self.disabler)
-                self.disabler.checkbox.checkStateChanged.connect(self.disable_reagents)
+            # if k in self.__class__.update_reagent_fields:
+            #     add_widget.input.currentTextChanged.connect(self.scrape_reagents)
+            #     self.disabler = self.DisableReagents(self)
+            #     self.disabler.checkbox.setChecked(True)
+            #     self.layout.addWidget(self.disabler)
+            #     self.disabler.checkbox.checkStateChanged.connect(self.disable_reagents)
         self.setStyleSheet(main_form_style)
         self.setLayout(self.layout)
 
@@ -245,82 +218,81 @@ class SubmissionFormWidget(QWidget):
         for reagent in self.findChildren(self.ReagentFormWidget):
             reagent.flip_check(self.disabler.checkbox.isChecked())
 
-    def create_widget(self, key: str, value: dict | PydReagent, submission_type: str | SubmissionType | None = None,
-                      extraction_kit: str | None = None, clientsubmission_object: ClientSubmission | None = None,
-                      disable: bool = False) -> "self.InfoItem":
+    def create_widget(self, key: str, value: dict, submission_type: str | SubmissionType | None = None,
+                      clientsubmission_object: ClientSubmission | None = None) -> SubmissionFormWidget.InfoItem | None:
         """
         Make an InfoItem widget to hold a field
 
         Args:
-            disable ():
             key (str): Name of the field
             value (dict): Value of field
             submission_type (str | None, optional): Submissiontype as str. Defaults to None.
 
         Returns:
-            self.InfoItem: Form widget to hold name:value
+            SubmissionFormWidget.InfoItem: Form widget to hold name:value
         """
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if key not in self.ignore:
-            match value:
-                case PydReagent():
-                    if value.name.lower() != "not applicable":
-                        widget = self.ReagentFormWidget(parent=self, reagent=value, extraction_kit=extraction_kit)
-                    else:
-                        widget = None
-                case _:
-                    widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
+            # match value:
+            #     case PydReagent():
+            #         if value.name.lower() != "not applicable":
+            #             widget = self.ReagentFormWidget(parent=self, reagent=value, extraction_kit=extraction_kit)
+            #         else:
+            #             widget = None
+            #     case _:
+            #         widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
+            #                                clientsubmission_object=clientsubmission_object)
+            # if disable:
+            #     widget.input.setEnabled(False)
+            #     widget.input.setToolTip("Widget disabled to protect database integrity.")
+            return self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
                                            clientsubmission_object=clientsubmission_object)
-            if disable:
-                widget.input.setEnabled(False)
-                widget.input.setToolTip("Widget disabled to protect database integrity.")
-            return widget
         return None
 
-    @report_result
-    def scrape_reagents(self, *args, **kwargs):  #kittype:str, caller:str|None=None):
-        """
-        Extracted scrape reagents function that will procedure when
-        form 'kittype' widget is updated.
+    # @report_result
+    # def scrape_reagents(self, *args, **kwargs):  #kittype:str, caller:str|None=None):
+    #     """
+    #     Extracted scrape reagents function that will procedure when
+    #     form 'kittype' widget is updated.
 
-        Args:
-            obj (QMainWindow): updated main application
-            extraction_kit (str): name of extraction kittype (in 'kittype' widget)
+    #     Args:
+    #         obj (QMainWindow): updated main application
+    #         extraction_kit (str): name of extraction kittype (in 'kittype' widget)
 
-        Returns:
-            Tuple[QMainWindow, dict]: Updated application and result
-        """
-        self.extraction_kit = args[0]
-        report = Report()
-        # NOTE: Remove previous reagent widgets
-        try:
-            old_reagents = self.find_widgets()
-        except AttributeError:
-            logger.error(f"Couldn't find old reagents.")
-            old_reagents = []
-        for reagent in old_reagents:
-            if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
-                reagent.setParent(None)
-        reagents, integrity_report, missing_reagents = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
-        expiry_report = self.pyd.check_reagent_expiries(exempt=missing_reagents)
-        for reagent in reagents:
-            add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
-            self.layout.addWidget(add_widget)
-        report.add_result(integrity_report)
-        report.add_result(expiry_report)
-        if hasattr(self.pyd, "csv"):
-            export_csv_btn = QPushButton("Export CSV")
-            export_csv_btn.setObjectName("export_csv_btn")
-            self.layout.addWidget(export_csv_btn)
-            export_csv_btn.clicked.connect(self.export_csv_function)
-        submit_btn = QPushButton("Submit")
-        submit_btn.setObjectName("submit_btn")
-        self.layout.addWidget(submit_btn)
-        submit_btn.clicked.connect(self.submit_new_sample_function)
-        self.setLayout(self.layout)
-        self.disabler.checkbox.setChecked(True)
-        return report
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Updated application and result
+    #     """
+    #     self.extraction_kit = args[0]
+    #     report = Report()
+    #     # NOTE: Remove previous reagent widgets
+    #     try:
+    #         old_reagents = self.find_widgets()
+    #     except AttributeError:
+    #         logger.error(f"Couldn't find old reagents.")
+    #         old_reagents = []
+    #     for reagent in old_reagents:
+    #         if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
+    #             reagent.setParent(None)
+    #     reagents, integrity_report, missing_reagents = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
+    #     expiry_report = self.pyd.check_reagent_expiries(exempt=missing_reagents)
+    #     for reagent in reagents:
+    #         add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
+    #         self.layout.addWidget(add_widget)
+    #     report.add_result(integrity_report)
+    #     report.add_result(expiry_report)
+    #     if hasattr(self.pyd, "csv"):
+    #         export_csv_btn = QPushButton("Export CSV")
+    #         export_csv_btn.setObjectName("export_csv_btn")
+    #         self.layout.addWidget(export_csv_btn)
+    #         export_csv_btn.clicked.connect(self.export_csv_function)
+    #     submit_btn = QPushButton("Submit")
+    #     submit_btn.setObjectName("submit_btn")
+    #     self.layout.addWidget(submit_btn)
+    #     submit_btn.clicked.connect(self.submit_new_sample_function)
+    #     self.setLayout(self.layout)
+    #     self.disabler.checkbox.setChecked(True)
+    #     return report
 
     def clear_form(self):
         """
@@ -329,21 +301,21 @@ class SubmissionFormWidget(QWidget):
         for item in self.findChildren(QWidget):
             item.setParent(None)
 
-    def find_widgets(self, object_name: str | None = None) -> List[QWidget]:
-        """
-        Gets all widgets filtered by object name
+    # def find_widgets(self, object_name: str | None = None) -> List[QWidget]:
+    #     """
+    #     Gets all widgets filtered by object name
 
-        Args:
-            object_name (str | None, optional): name to filter by. Defaults to None.
+    #     Args:
+    #         object_name (str | None, optional): name to filter by. Defaults to None.
 
-        Returns:
-            List[QWidget]: Widgets matching filter
-        """
-        if object_name:
-            query = self.findChildren(QWidget, name=object_name)
-        else:
-            query = self.findChildren(QWidget)
-        return query
+    #     Returns:
+    #         List[QWidget]: Widgets matching filter
+    #     """
+    #     if object_name:
+    #         query = self.findChildren(QWidget, name=object_name)
+    #     else:
+    #         query = self.findChildren(QWidget)
+    #     return query
 
     @report_result
     def submit_new_sample_function(self, *args) -> Report:
@@ -360,12 +332,6 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         result = self.parse_form()
         report.add_result(result)
-        # exempt = [item.reagent.role for item in self.findChildren(self.ReagentFormWidget) if not item.lot.isEnabled()]
-        # if self.disabler.checkbox.isChecked():
-        #     _, result, _ = self.pyd.check_kit_integrity(exempt=exempt)
-        #     report.add_result(result)
-        # if len(result.results) > 0:
-        #     return report
         base_submission = self.pyd.to_sql()
         # NOTE: check output message for issues
         if base_submission is None:
@@ -393,7 +359,7 @@ class SubmissionFormWidget(QWidget):
             fname (Path | None, optional): Input filename. Defaults to None.
         """
         if isinstance(fname, bool) or fname is None:
-            fname = select_save_file(obj=self, default_name=self.pyd.construct_filename(), extension="csv")
+            fname = select_save_file(obj=self, default_name=self.pyd.export_filename, extension="csv")
         try:
             self.pyd.export_csv(fname)
         except PermissionError:
@@ -411,21 +377,21 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         logger.info(f"Hello from form parser!")
         info = {}
-        reagents = []
+        # reagents = []
         for widget in self.findChildren(QWidget):
-            match widget:
-                case self.ReagentFormWidget():
-                    reagent = widget.parse_form()
-                    if reagent is not None:
-                        reagents.append(reagent)
-                    else:
-                        report.add_result(Alert(msg="Failed integrity check", status="Critical"))
-                        return report
-                case self.InfoItem():
-                    field, value = widget.parse_form()
-                    if field is not None:
-                        info[field] = value
-        self.pyd.reagents = reagents
+            # match widget:
+                # case self.ReagentFormWidget():
+                #     reagent = widget.parse_form()
+                #     if reagent is not None:
+                #         reagents.append(reagent)
+                #     else:
+                #         report.add_result(Alert(msg="Failed integrity check", status="Critical"))
+                #         return report
+                # case self.InfoItem():
+            field, value = widget.parse_form()
+            if field is not None:
+                info[field] = value
+        # self.pyd.reagents = reagents
         for item in self.recover:
             if hasattr(self, item):
                 value = getattr(self, item)
@@ -504,13 +470,9 @@ class SubmissionFormWidget(QWidget):
             from backend.db.models import ClientSubmission
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
-            # if sub_obj is None:
-            #     sub_obj = submission_type.submission_class
             if isinstance(value, dict):
                 value = value.get('value', value)
             obj = parent.parent().parent()
-            # class_field = getattr(ClientSubmission, key)
-            
             match key:
                 case 'clientlab':
                     add_widget = MyQComboBox(scrollWidget=parent)
@@ -544,20 +506,6 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(categories)
                     add_widget.setToolTip("Enter procedure category or select from list.")
                 case _:
-                    # if key in ClientSubmission.timestamps:
-                    #     add_widget = MyQDateEdit(calendarPopup=True, scrollWidget=parent)
-                    #     # NOTE: sets submitted date based on date found in excel sheet
-                    #     try:
-                    #         add_widget.setDate(value)
-                    #     # NOTE: if not found, use today
-                    #     except:
-                    #         add_widget.setDate(date.today())
-                    #     add_widget.setToolTip(f"Select date for {key}")
-                    # else:
-                    #     # NOTE: anything else gets added in as a line edit
-                    #     add_widget = QLineEdit()
-                    #     add_widget.setText(str(value).replace("_", " "))
-                    #     add_widget.setToolTip(f"Enter value for {key}")
                     field_type = ClientSubmission.determine_field_type(key)
                     match field_type:
                         case "TIMESTAMP":
@@ -652,155 +600,155 @@ class SubmissionFormWidget(QWidget):
                     output = key.replace('_', ' ')
                 self.setText(f"UPDATED {output}")
 
-    class ReagentFormWidget(QWidget):
+    # class ReagentFormWidget(QWidget):
 
-        def __init__(self, parent: QWidget, reagent: PydReagent, extraction_kit: str):
-            super().__init__(parent)
-            self.parent = parent
-            self.app = get_application_from_parent(parent)
-            self.reagent = reagent
-            self.extraction_kit = extraction_kit
-            layout = QGridLayout()
-            self.check = QCheckBox()
-            self.check.setChecked(True)
-            self.check.checkStateChanged.connect(self.disable)
-            layout.addWidget(self.check, 0, 0, 1, 1)
-            self.label = self.ReagentParsedLabel(reagent=reagent)
-            layout.addWidget(self.label, 0, 1, 1, 9)
-            self.lot = self.ReagentLot(scrollWidget=parent, reagent=reagent, extraction_kit=extraction_kit)
-            layout.addWidget(self.lot, 1, 0, 1, 10)
-            # NOTE: Remove spacing between reagents
-            layout.setContentsMargins(0, 0, 0, 0)
-            self.setLayout(layout)
-            self.setObjectName(reagent.name)
-            self.missing = reagent.missing
-            # NOTE: If changed set self.missing to True and update self.label
-            self.lot.currentTextChanged.connect(self.updated)
+    #     def __init__(self, parent: QWidget, reagent: PydReagent, extraction_kit: str):
+    #         super().__init__(parent)
+    #         self.parent = parent
+    #         self.app = get_application_from_parent(parent)
+    #         self.reagent = reagent
+    #         self.extraction_kit = extraction_kit
+    #         layout = QGridLayout()
+    #         self.check = QCheckBox()
+    #         self.check.setChecked(True)
+    #         self.check.checkStateChanged.connect(self.disable)
+    #         layout.addWidget(self.check, 0, 0, 1, 1)
+    #         self.label = self.ReagentParsedLabel(reagent=reagent)
+    #         layout.addWidget(self.label, 0, 1, 1, 9)
+    #         self.lot = self.ReagentLot(scrollWidget=parent, reagent=reagent, extraction_kit=extraction_kit)
+    #         layout.addWidget(self.lot, 1, 0, 1, 10)
+    #         # NOTE: Remove spacing between reagents
+    #         layout.setContentsMargins(0, 0, 0, 0)
+    #         self.setLayout(layout)
+    #         self.setObjectName(reagent.name)
+    #         self.missing = reagent.missing
+    #         # NOTE: If changed set self.missing to True and update self.label
+    #         self.lot.currentTextChanged.connect(self.updated)
 
-        def flip_check(self, checked: bool):
-            with QSignalBlocker(self.check) as b:
-                self.check.setChecked(checked)
-                self.lot.setEnabled(checked)
-                self.label.setEnabled(checked)
+    #     def flip_check(self, checked: bool):
+    #         with QSignalBlocker(self.check) as b:
+    #             self.check.setChecked(checked)
+    #             self.lot.setEnabled(checked)
+    #             self.label.setEnabled(checked)
 
-        def disable(self):
-            self.lot.setEnabled(self.check.isChecked())
-            self.label.setEnabled(self.check.isChecked())
-            with QSignalBlocker(self.parent.disabler.checkbox) as blocker:
-                if any([item.lot.isEnabled() for item in self.parent.findChildren(self.__class__)]):
-                    self.parent.disabler.checkbox.setChecked(True)
-                else:
-                    self.parent.disabler.checkbox.setChecked(False)
+    #     def disable(self):
+    #         self.lot.setEnabled(self.check.isChecked())
+    #         self.label.setEnabled(self.check.isChecked())
+    #         with QSignalBlocker(self.parent.disabler.checkbox) as blocker:
+    #             if any([item.lot.isEnabled() for item in self.parent.findChildren(self.__class__)]):
+    #                 self.parent.disabler.checkbox.setChecked(True)
+    #             else:
+    #                 self.parent.disabler.checkbox.setChecked(False)
 
-        @report_result
-        def parse_form(self) -> Tuple[PydReagent | None, Report]:
-            """
-            Pulls form info into PydReagent
+    #     @report_result
+    #     def parse_form(self) -> Tuple[PydReagent | None, Report]:
+    #         """
+    #         Pulls form info into PydReagent
 
-            Returns:
-                Tuple[PydReagent, dict]: PydReagent and Report(?)
-            """
-            report = Report()
-            if not self.lot.isEnabled():
-                return None, report
-            lot = self.lot.currentText()
-            wanted_reagent, new = Reagent.query_or_create(lot=lot, role=self.reagent.role, expiry=self.reagent.expiry)
-            # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
-            if new:
-                dlg = QuestionAsker(title=f"Add {lot}?",
-                                    message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
-                if dlg.exec():
-                    wanted_reagent = self.parent.parent().add_reagent(instance=wanted_reagent)
-                    return wanted_reagent, report
-                else:
-                    # NOTE: In this case we will have an empty reagent and the procedure will fail kittype integrity check
-                    return None, report
-            else:
-                # NOTE: Since this now gets passed in directly from the clientsubmissionparser -> pydclientsubmission -> form and the clientsubmissionparser gets the name from the db, it should no longer be necessary to query the db with reagent/kittype, but with rt name directly.
-                rt = ReagentRole.query(name=self.reagent.role)
-                if rt is None:
-                    rt = ReagentRole.query(kittype=self.extraction_kit, reagent=wanted_reagent)
-                final = PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
-                                   expiry=wanted_reagent.expiry.date(), missing=False)
-                return final, report
+    #         Returns:
+    #             Tuple[PydReagent, dict]: PydReagent and Report(?)
+    #         """
+    #         report = Report()
+    #         if not self.lot.isEnabled():
+    #             return None, report
+    #         lot = self.lot.currentText()
+    #         wanted_reagent, new = Reagent.query_or_create(lot=lot, role=self.reagent.role, expiry=self.reagent.expiry)
+    #         # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
+    #         if new:
+    #             dlg = QuestionAsker(title=f"Add {lot}?",
+    #                                 message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
+    #             if dlg.exec():
+    #                 wanted_reagent = self.parent.parent().add_reagent(instance=wanted_reagent)
+    #                 return wanted_reagent, report
+    #             else:
+    #                 # NOTE: In this case we will have an empty reagent and the procedure will fail kittype integrity check
+    #                 return None, report
+    #         else:
+    #             # NOTE: Since this now gets passed in directly from the clientsubmissionparser -> pydclientsubmission -> form and the clientsubmissionparser gets the name from the db, it should no longer be necessary to query the db with reagent/kittype, but with rt name directly.
+    #             rt = ReagentRole.query(name=self.reagent.role)
+    #             if rt is None:
+    #                 rt = ReagentRole.query(kittype=self.extraction_kit, reagent=wanted_reagent)
+    #             final = PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
+    #                                expiry=wanted_reagent.expiry.date(), missing=False)
+    #             return final, report
 
-        def updated(self):
-            """
-            Set widget status to updated
-            """
-            self.missing = True
-            self.label.updated(self.reagent.role)
+    #     def updated(self):
+    #         """
+    #         Set widget status to updated
+    #         """
+    #         self.missing = True
+    #         self.label.updated(self.reagent.role)
 
-        class ReagentParsedLabel(QLabel):
+    #     class ReagentParsedLabel(QLabel):
 
-            def __init__(self, reagent: PydReagent):
-                super().__init__()
-                try:
-                    check = not reagent.missing
-                except:
-                    check = False
-                self.setObjectName(f"{reagent.role}_label")
-                if check:
-                    self.setText(f"Parsed {reagent.role}")
-                else:
-                    self.setText(f"MISSING {reagent.role}")
+    #         def __init__(self, reagent: PydReagent):
+    #             super().__init__()
+    #             try:
+    #                 check = not reagent.missing
+    #             except:
+    #                 check = False
+    #             self.setObjectName(f"{reagent.role}_label")
+    #             if check:
+    #                 self.setText(f"Parsed {reagent.role}")
+    #             else:
+    #                 self.setText(f"MISSING {reagent.role}")
 
-            def updated(self, reagent_role: str):
-                """
-                Marks widget as updated
+    #         def updated(self, reagent_role: str):
+    #             """
+    #             Marks widget as updated
 
-                Args:
-                    reagent_role (str): _description_
-                """
-                self.setText(f"UPDATED {reagent_role}")
+    #             Args:
+    #                 reagent_role (str): _description_
+    #             """
+    #             self.setText(f"UPDATED {reagent_role}")
 
-        class ReagentLot(MyQComboBox):
+    #     class ReagentLot(MyQComboBox):
 
-            def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
-                super().__init__(scrollWidget=scrollWidget)
-                self.setEditable(True)
-                looked_up_rt = ProcedureTypeReagentRoleAssociation.query(reagentrole=reagent.reagentrole,
-                                                                   proceduretype=extraction_kit)
-                relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
-                # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
-                if str(reagent.lot) not in relevant_reagents:
-                    if check_not_nan(reagent.lot):
-                        relevant_reagents.insert(0, str(reagent.lot))
-                    else:
-                        try:
-                            looked_up_reg = Reagent.query(lot=looked_up_rt.last_used)
-                        except AttributeError:
-                            looked_up_reg = None
-                        if isinstance(looked_up_reg, list):
-                            looked_up_reg = None
-                        if looked_up_reg:
-                            try:
-                                relevant_reagents.insert(0, relevant_reagents.pop(
-                                    relevant_reagents.index(looked_up_reg.lot)))
-                            except ValueError as e:
-                                logger.error(f"Error reordering relevant reagents: {e}")
-                else:
-                    if len(relevant_reagents) > 1:
-                        idx = relevant_reagents.index(str(reagent.lot))
-                        moved_reag = relevant_reagents.pop(idx)
-                        relevant_reagents.insert(0, moved_reag)
-                    else:
-                        pass
-                self.setObjectName(f"lot_{reagent.equipmentrole}")
-                self.addItems(relevant_reagents)
-                self.setToolTip(f"Enter lot number for the reagent used for {reagent.equipmentrole}")
+    #         def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
+    #             super().__init__(scrollWidget=scrollWidget)
+    #             self.setEditable(True)
+    #             looked_up_rt = ProcedureTypeReagentRoleAssociation.query(reagentrole=reagent.reagentrole,
+    #                                                                proceduretype=extraction_kit)
+    #             relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
+    #             # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
+    #             if str(reagent.lot) not in relevant_reagents:
+    #                 if check_not_nan(reagent.lot):
+    #                     relevant_reagents.insert(0, str(reagent.lot))
+    #                 else:
+    #                     try:
+    #                         looked_up_reg = Reagent.query(lot=looked_up_rt.last_used)
+    #                     except AttributeError:
+    #                         looked_up_reg = None
+    #                     if isinstance(looked_up_reg, list):
+    #                         looked_up_reg = None
+    #                     if looked_up_reg:
+    #                         try:
+    #                             relevant_reagents.insert(0, relevant_reagents.pop(
+    #                                 relevant_reagents.index(looked_up_reg.lot)))
+    #                         except ValueError as e:
+    #                             logger.error(f"Error reordering relevant reagents: {e}")
+    #             else:
+    #                 if len(relevant_reagents) > 1:
+    #                     idx = relevant_reagents.index(str(reagent.lot))
+    #                     moved_reag = relevant_reagents.pop(idx)
+    #                     relevant_reagents.insert(0, moved_reag)
+    #                 else:
+    #                     pass
+    #             self.setObjectName(f"lot_{reagent.equipmentrole}")
+    #             self.addItems(relevant_reagents)
+    #             self.setToolTip(f"Enter lot number for the reagent used for {reagent.equipmentrole}")
 
-    class DisableReagents(QWidget):
+    # class DisableReagents(QWidget):
 
-        def __init__(self, parent: QWidget):
-            super().__init__(parent)
-            self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
-            layout = QHBoxLayout()
-            self.label = QLabel("Import Reagents")
-            self.checkbox = QCheckBox()
-            layout.addWidget(self.label)
-            layout.addWidget(self.checkbox)
-            self.setLayout(layout)
+    #     def __init__(self, parent: QWidget):
+    #         super().__init__(parent)
+    #         self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
+    #         layout = QHBoxLayout()
+    #         self.label = QLabel("Import Reagents")
+    #         self.checkbox = QCheckBox()
+    #         layout.addWidget(self.label)
+    #         layout.addWidget(self.checkbox)
+    #         self.setLayout(layout)
 
 
 class ClientSubmissionFormWidget(SubmissionFormWidget):
@@ -813,14 +761,11 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         except AttributeError:
             pass
         self.sample = samples
-        logger.debug(f"Form samples:\n{pformat(self.sample)}")
-        # Note: At this point, samples are pydsamples
+        # NOTE: At this point, samples are pydsamples
         start_run_btn = QPushButton("Save")
         self.layout.addWidget(start_run_btn)
         start_run_btn.clicked.connect(self.create_new_submission)
         
-        logger.debug(f"PYD:\n{pformat(self.pyd.__dict__)}")
-
     @report_result
     def parse_form(self) -> Report:
         """
@@ -832,20 +777,20 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         report = Report()
         logger.info(f"Hello from client procedure form parser!")
         info = {}
-        reagents = []
+        # reagents = []
         for widget in self.findChildren(QWidget):
-            match widget:
-                case self.ReagentFormWidget():
-                    reagent = widget.parse_form()
-                    if reagent is not None:
-                        reagents.append(reagent)
-                    else:
-                        report.add_result(Alert(msg="Failed integrity check", status="Critical"))
-                        return report
-                case self.InfoItem():
-                    field, value = widget.parse_form()
-                    if field is not None:
-                        info[field] = value
+            # match widget:
+            #     case self.ReagentFormWidget():
+            #         reagent = widget.parse_form()
+            #         if reagent is not None:
+            #             reagents.append(reagent)
+            #         else:
+            #             report.add_result(Alert(msg="Failed integrity check", status="Critical"))
+            #             return report
+            #     case self.InfoItem():
+            field, value = widget.parse_form()
+            if field is not None:
+                info[field] = value
         for item in self.recover:
             if hasattr(self, item):
                 logger.debug(f"Setting pyd {item} to {value}")
@@ -885,7 +830,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                     sample_sql = sample_sql[0]
             else:
                 sample_sql = sample
-
             # Defensive checks
             if isinstance(sample_sql, PydSample):
                 logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
@@ -898,12 +842,9 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             # If a sample already exists in DB, query it and reuse that instance.
             existing = Sample.query(sample_id=sid)
             if existing:
-                # logger.debug(f"Got existing: {sid}")
                 # Sample.query may return a single object or a list; normalize to object
                 sample_sql = existing[0] if isinstance(existing, list) else existing
             else:
-                # logger.debug(f"Saving sample {sid}")
-                
                 # Skip samples with missing/blank placeholder IDs
                 try:
                     sid_str = str(sid).strip()
@@ -927,14 +868,12 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         try:
             if hasattr(sql, 'clientsubmissionsampleassociation'):
                 sql.clientsubmissionsampleassociation = []
-                logger.debug("Cleared pre-built clientsubmissionsampleassociation on SQL submission.")
         except Exception as e:
             logger.warning(f"Could not clear existing sample associations: {e}")
         try:
             sql.sample = saved_samples
         except Exception as e:
             logger.error(f"Couldn't set samples to {pyd.sample}\ndue to {e}")
-        logger.debug(f"SQL:\n{pformat(sql.__dict__)}")
         sql.save()
         self.app.table_widget.sub_wid.set_data()
         self.setParent(None)
