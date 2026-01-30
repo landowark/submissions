@@ -118,6 +118,7 @@ div.gallery {
     text-align: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
+    background-color: #ffffff;
     cursor: move;
 }
 
@@ -142,6 +143,10 @@ ul.no-bullets {
 
 .positivecontrol {
   background-color: pink;
+}
+
+.regular {
+  background-color: greenyellow;
 }
 
 /*  */

@@ -3,17 +3,15 @@ from __future__ import annotations
 from pprint import pformat
 import csv, logging, re, sys
 from datetime import date, datetime, timedelta, timezone
-from operator import itemgetter
 from pathlib import Path
-from typing import Any, ClassVar, Generator, List, Tuple, TYPE_CHECKING
+from typing import ClassVar, Generator, List, Tuple, TYPE_CHECKING
 from pydantic import Field, field_validator, model_validator
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
-from backend.db.models.procedures import SubmissionType
 from backend.validators import RSLNamer
 from backend.validators.pydant import PydConcrete
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, Report, check_not_nan, report_result, row_keys, sort_dict_by_list, timezone
+from tools import Alert, Report, check_not_nan, pop_first_matching_dict, report_result, row_keys, sort_dict_by_list, timezone
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -106,9 +104,9 @@ class PydReagentLot(PydConcrete):
             case _:
                 reagent = self.reagent
         try:
-            return f"{reagent}-{self.lot}"
+            return f"{reagent} - {self.lot}"
         except AttributeError:
-            return f"{reagent}-{self.lot}"
+            return f"{reagent} - {self.lot}"
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ReagentLot
@@ -141,10 +139,10 @@ class PydSample(PydConcrete):
     sample_id: str
     rank: int | List[int] | None = Field(default=0, validate_default=True)
     enabled: bool = Field(default=True, repr=False)
-    row: int = Field(default=0, repr=False)
-    column: int = Field(default=0, repr=False)
-    results: List[PydResults] | PydResults = Field(default=[], repr=False)
-    is_control: int = Field(default=0, repr=False)
+    row: int = Field(default=0)
+    column: int = Field(default=0)
+    results: List[PydResults] | PydResults = Field(default_factory=list, repr=False)
+    is_control: int = Field(default=0)
 
     @field_validator('is_control', mode='before')
     @classmethod
@@ -193,6 +191,65 @@ class PydSample(PydConcrete):
             value = 0
         return value
 
+    # @model_validator(mode="after")
+    # def populate_sql_instance(self) -> "PydSample":
+    #     """
+    #     Ensure that a usable SQL `Sample` instance exists after PydSample
+    #     initialization. If the prepared `sql_instance` does not have a
+    #     SQLAlchemy `_sa_instance_state` (i.e. it's a plain/unsaved object),
+    #     populate its important fields from the pydantic model so that
+    #     downstream assignment to association setters does not end up
+    #     converting it to None due to missing `sample_id`.
+    #     """
+    #     # Attempt to get existing sql_instance (may be None)
+    #     sql_inst = getattr(self, "sql_instance", None)
+    #     # If no sql_instance yet, ask super to prepare a blank one (no DB write)
+    #     if sql_inst is None:
+    #         try:
+    #             res = super().to_sql(update=False)
+    #             # super().to_sql may return (instance, None) in this codebase
+    #             if isinstance(res, tuple):
+    #                 sql_inst = res[0]
+    #             else:
+    #                 sql_inst = res
+    #         except Exception:
+    #             sql_inst = None
+    #     # If we have a sql instance and it's not a bound SA instance, populate fields
+    #     if sql_inst is not None and not hasattr(sql_inst, "_sa_instance_state"):
+    #         try:
+    #             # set sample_id only if valid
+    #             if getattr(self, "sample_id", None) and PydSample.is_sample_id_valid(self.sample_id):
+    #                 sql_inst.sample_id = self.sample_id
+    #         except Exception:
+    #             pass
+    #         try:
+    #             # Ensure misc_info exists and populate common metadata
+    #             try:
+    #                 misc = sql_inst._misc_info
+    #                 if misc is None:
+    #                     sql_inst._misc_info = {}
+    #             except Exception:
+    #                 sql_inst._misc_info = {}
+    #             # populate rank/row/column/enabled/is_control where present
+    #             meta = {
+    #                 "rank": getattr(self, "rank", None),
+    #                 "row": getattr(self, "row", None),
+    #                 "column": getattr(self, "column", None),
+    #                 "enabled": getattr(self, "enabled", None),
+    #                 "is_control": getattr(self, "is_control", None),
+    #             }
+    #             for k, v in meta.items():
+    #                 if v is not None:
+    #                     sql_inst._misc_info[k] = v
+    #         except Exception:
+    #             pass
+    #         # Attach back to pyd instance for later use
+    #         try:
+    #             self.sql_instance = sql_inst
+    #         except Exception:
+    #             pass
+    #     return self
+    
     @property
     def constructed_name(self):
         return self.sample_id
@@ -232,7 +289,7 @@ class PydSample(PydConcrete):
                 return existing, None
             # If no existing object, ensure the blank sql_instance has sample_id set
             return self.sql_instance, None
-        self.sql_instance._misc_info["rank"] = self.rank
+        self.sql_instance.rank = self.rank
         return self.sql_instance, None
 
     @classmethod
@@ -382,9 +439,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     repeat: bool = Field(default=False, repr=False)
     repeat_of: str | PydProcedure | None = Field(default=None, repr=False)
     name: dict = Field(default_factory=lambda: {"value": "NA", "missing": True}, validate_default=True)
-    plate_map: str | None = Field(default=None, repr=False)
+    platemap: str | None = Field(default=None, repr=False)
     reagentlot: List[str] | List[PydProcedureReagentLotAssociation] = Field(default_factory=list, repr=False)
-    sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
+    sample: List[str | PydSample] = Field(default_factory=list, repr=False)
     equipment: List[str] | List[PydProcedureEquipmentAssociation] = Field(default_factory=list, repr=False)
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
     started_date: datetime = Field(default_factory=datetime.now, repr=False)
@@ -491,8 +548,26 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             value = datetime.now()
         return value
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        if isinstance(self.run, PydRun):
+            run = self.run.name
+        else:
+            run = self.run
+        if isinstance(self.proceduretype, PydProcedureType):
+            proceduretype = self.proceduretype.name
+        else:
+            proceduretype = self.proceduretype
+        if isinstance(self.repeat_of, PydProcedure):
+            repeat_of = f" ({self.repeat_of.name})"
+        elif isinstance(self.repeat_of, str):
+            repeat_of = f" ({self.repeat_of})"
+        else:
+            repeat_of = ""
+        self.name = dict(value=f"{run}-{proceduretype}{repeat_of}-{self.started_date.strftime("%Y-%m-%d %H:%M:%S")}", missing=False)
+
     @property
-    def rows_columns_count(self) -> tuple[int, int]:
+    def rows_columns_count(self) -> Tuple[int, int]:
         from backend.db.models import ProcedureType
         try:
             proc: ProcedureType = self.sql_instance.proceduretype
@@ -518,37 +593,27 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # Build a new ordered list of samples matching the sample_list order.
         new_samples: List[PydSample] = []
         for iii, sample_dict in enumerate(sample_list, start=1):
+            # logger.debug(f"Sample: {sample_dict}")
             sample_id = sample_dict.get('sample_id', '')
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
-            # try to find existing sample by id (case-insensitive)
-            sample = None
-            if sample_id:
-                sample_sql = Sample.query(sample_id=sample_id, limit=1)
-                sample = next((item for item in self.sample if (item.sample_id or "").upper() == sample_id.upper()), None)
-            # fallback: match by row/column
-            if not sample:
-                sample = next((item for item in self.sample if item.row == row and item.column == column), None)
-            # If still not found, and sample_id is empty, skip (was blank)
-            if not sample and sample_id == "":
-                continue
-            # If still not found, create a new sample
-            if not sample:
-                sample = PydSample(sample_id=sample_id, row=row, column=column, sql_instance=sample_sql)
-                # also add to original collection so future lookups can find it
-                self.sample.append(sample)
+            try:
+                sample = pop_first_matching_dict(self.sample, "sample_id", sample_dict['sample_id'])
+            except StopIteration:
+                sample = PydSample(sample_id=sample_id)
             # Do NOT change the sample_id (we want to preserve the existing sample's identity).
             # Update position/rank/control/classification metadata.
             sample.row = row
             sample.column = column
-            sample.procedure_rank = sample_dict.get('index', 0)
-            sample.sql_instance = sample_sql
-            try:
-                well_class = sample_dict.get('class', '').split(" ")[-1]
-            except IndexError:
-                well_class = ""
+            sample.rank = int(sample_dict.get('index', iii))
+            # try:
+            #     well_class = sample_dict.get('class', '').replace("well ", "").split(" ")[0]
+            # except IndexError:
+            #     well_class = ""
+            well_class = next((item for item in sample_dict.get('class', '').replace("well ", "").split(" ") if item in ['negativecontrol', 'positivecontrol']), "")
+            # logger.debug(f"Got well_class: {well_class}")
             match well_class:
                 case "negativecontrol":
                     sample.is_control = -1
@@ -559,8 +624,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             new_samples.append(sample)
         # Replace the sample list with the reordered list. Preserve any samples not present in
         # sample_list by appending them after the ordered ones (so they are not lost).
-        remaining = [s for s in self.sample if s not in new_samples]
-        self.sample = new_samples + remaining
+        remaining = []#[s for s in self.sample if s not in new_samples]
+        self.sample = sorted(new_samples + remaining, key=lambda x: (x.column, x.row))
+        logger.debug(f"Rearranged samples:\n{pformat(self.sample)}")
 
     def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str|None=None, checked:bool=True):
         from backend.db.models import ReagentLot
@@ -583,7 +649,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
-        logger.info(f"Updated reagentlot to: {[item.name for item in self.reagentlot]}")
+        # logger.info(f"Updated reagentlot to: {[item.name for item in self.reagentlot]}")
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
@@ -601,7 +667,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         out_tips = []
         for tipslot in tips:
             try:
-                tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tipslot.split("-")]
+                tips_manufacturer, tipsref, lot = [item if item != "" else None for item in tipslot.split(" - ")]
                 tips = TipsLot.query(manufacturer=tips_manufacturer, ref=tipsref, lot=lot)
                 out_tips.append(tips.to_pydantic())
             except ValueError:
@@ -609,7 +675,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         eoi.tipslot = out_tips
         if checked:
             self.equipment.append(eoi)
-        logger.info(f"Updated equipment to {self.equipment}")
+        # logger.info(f"Updated equipment to {self.equipment}")
 
     @classmethod
     def update_new_reagents(cls, reagent: PydReagent):
@@ -621,15 +687,67 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.sql_instance: Procedure = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
-        logger.debug(f"Coming into sql: {pformat(self.improved_dict)}")
+        logger.debug(f"Coming into sql: {pformat(self.improved_dict['sample'])}")
         self.sql_instance.proceduretype = self.proceduretype
         self.sql_instance.run = self.run
         self.sql_instance.repeat_of = self.repeat_of
         self.sql_instance.reagentlot = self.reagentlot
-        self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
+        # Convert pyd samples to SQL Sample instances before assigning.
+        # Use update=True only when the sample_id does not already exist in DB;
+        # otherwise use update=False to avoid unnecessary writes.
+        samples_sql = []
+        from backend.db.models import Sample as SQLSample, ProcedureSampleAssociation
+        for sample in self.sample:
+            row, column = self.proceduretype.ranked_plate[sample.rank]
+            # Skip invalid/sample placeholders
+            if not PydSample.is_sample_id_valid(sample):
+                continue
+            # If it's already a SQLSample instance, reuse it
+            if isinstance(sample, SQLSample):
+                samples_sql.append(ProcedureSampleAssociation(sample=sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+                continue
+            # If it's a PydSample, decide whether to update or not based on DB
+            if isinstance(sample, PydSample):
+                try:
+                    existing = SQLSample.query(sample_id=sample.sample_id, limit=1) if sample.sample_id else None
+                except Exception:
+                    existing = None
+                try:
+                    if existing:
+                        result = sample.to_sql(update=False)
+                    else:
+                        result = sample.to_sql(update=True)
+                    if isinstance(result, tuple):
+                        sql_sample = result[0]
+                    else:
+                        sql_sample = result
+                    if sql_sample is not None:
+                        samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank, row=row, column=column))
+                except Exception as e:
+                    # If conversion fails, skip this sample
+                    logger.exception(f"Failed converting PydSample {sample} to SQL Sample due to {e}")
+                continue
+            # Fallback: try to call to_sql on unknown types
+            # try:
+            #     result = sample.to_sql(update=False)
+            #     if isinstance(result, tuple):
+            #         sql_sample = result[0]
+            #     else:
+            #         sql_sample = result
+            #     # if isinstance(sql_sample, SQLSample):
+            #     #     logger.debug(f"Adding Assoc: {sql_sample}, {self.sql_instance}, rank {sample.rank}")
+            #     #     samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank))
+            # except Exception as e:
+            #     logger.error(f"Could not create sql_sample for {sample} due to {e}")
+            #     continue
+            # # if isinstance(sql_sample, SQLSample):
+            # logger.debug(f"Adding Assoc: {sql_sample}, {self.sql_instance}, rank {sample.rank}")
+            # samples_sql.append(ProcedureSampleAssociation(sample=sql_sample, procedure=self.sql_instance, rank=sample.rank))
+        self.sql_instance.sample = samples_sql
         self.sql_instance.equipment = self.equipment
         # NOTE: At this point, results will likely be an empty list.
         self.sql_instance.results = self.results
+        logger.debug(f"Coming out of sql: {pformat(self.sql_instance.__dict__)}")
         return self.sql_instance, None
     
     def check_reagent_expiries(self, exempt: List[str] = []) -> Report:
@@ -662,6 +780,20 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             report.add_result(result)
         return report
     
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        logger.debug(type(output['proceduretype']))
+        output['excluded'] = ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
+                              "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
+        if isinstance(output['proceduretype'], PydProcedureType):
+            output['proceduretype'] = output['proceduretype'].name
+        if isinstance(output['run'], PydRun):
+            output['run'] = output['run'].name
+        output['platemap'] = self.make_procedure_platemap()
+        
+        return output
+
     def reorder_proceduretype_by_procedure(self):
         proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
             {
@@ -674,7 +806,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                         {"equipmentroleequipmentassociation":["equipment", "process"]}]
             }
             ])
-        logger.debug(f"Run: {self.run.sql_instance}")
         procedure_dict = self.improved_dict_expand_fields([
                 "procedurereagentlotassociation",
                 "procedureequipmentassociation"
@@ -724,10 +855,18 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             item.proceduretype.name == self.proceduretype.sql_instance.name 
             and not bool(regex.match(item.name))
         ]
+        proceduretype_dict['platemap'] = procedure_dict['platemap']
         return proceduretype_dict
+    
+    def make_procedure_platemap(self):
+        from backend.validators.pydant import PydProcedureType
+        #proceduretype: PydProcedureType = self.proceduretype.to_pydantic()
+        html = self.proceduretype.construct_plate_map(sample_dicts=self.sample, creation=False, vw_modifier=1.15)
+        return html
 
     def to_html(self, **kwargs) -> str:
-        details = self.reorder_proceduretype_by_procedure()
+        # details = self.reorder_proceduretype_by_procedure()
+        details = self.improved_dict
         output = super().to_html(**details)
         return output
  
@@ -947,7 +1086,8 @@ class PydClientSubmission(PydConcrete):
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
-        output['sample'] = self.sample
+        output['run'] = [item.to_pydantic().improved_dict for item in self.sql_instance.run]
+        # output['sample'] = self.sample
         output['clientlab'] = output['clientlab']
         try:
             output['contact_email'] = output['contact']['email']
@@ -977,9 +1117,10 @@ class PydClientSubmission(PydConcrete):
                 c.writerow([cell.value for cell in r])
 
     def to_html(self, **kwargs):
-        details = self.improved_dict_expand_fields(fields=[{"run":['procedure']}, "sample"])
+        details = self.improved_dict_expand_fields(fields=[{"run":['procedure', 'sample']}, "sample"])
         output = super().to_html(**details)
         return output
+
 
 class PydRun(PydConcrete):  #, extra='allow'):
 
@@ -1125,49 +1266,12 @@ class PydRun(PydConcrete):  #, extra='allow'):
         super().__init__(**data)
         # NOTE: this could also be done with default_factory
         # from backend.db.models import ClientSubmission
-        # clientsub = ClientSubmission.query(name=self.clientsubmission, limit=1)
         clientsub = self.sql_instance.clientsubmission
         try:
             submission_type = clientsub.submissiontype
         except AttributeError:
             submission_type = "Default SubmissionType"
         self.namer = RSLNamer(submission_type=submission_type)
-
-    # def handle_duplicate_samples(self):
-    #     """
-    #     Collapses multiple sample with same submitter id into one with lists for rows, columns.
-    #     Necessary to prevent trying to create duplicate sample in SQL creation.
-    #     """
-    #     submitter_ids = list(set([sample.sample_id for sample in self.samples]))
-    #     output = []
-    #     for id in submitter_ids:
-    #         relevants = [item for item in self.samples if item.sample_id == id]
-    #         if len(relevants) <= 1:
-    #             output += relevants
-    #         else:
-    #             rows = [item.row[0] for item in relevants]
-    #             columns = [item.column[0] for item in relevants]
-    #             ids = [item.assoc_id[0] for item in relevants]
-    #             ranks = [item.submission_rank[0] for item in relevants]
-    #             dummy = relevants[0]
-    #             dummy.assoc_id = ids
-    #             dummy.row = rows
-    #             dummy.column = columns
-    #             dummy.submission_rank = ranks
-    #             output.append(dummy)
-    #     self.samples = output
-
-    # def find_missing(self) -> Tuple[dict, dict]:
-    #     """
-    #     Retrieves info and reagents marked as missing.
-
-    #     Returns:
-    #         Tuple[dict, dict]: Dict for missing info, dict for missing reagents.
-    #     """
-    #     info = {k: v for k, v in self.improved_dict.items() if isinstance(v, dict)}
-    #     missing_info = {k: v for k, v in info.items() if v['missing']}
-    #     missing_reagents = [reagent for reagent in self.reagents if reagent.missing]
-    #     return missing_info, missing_reagents
 
     def to_sql(self, update: bool = True):
         from backend.db.models import Run
@@ -1179,140 +1283,6 @@ class PydRun(PydConcrete):  #, extra='allow'):
         self.sql_instance.procedure = self.procedure
         self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
         return self.sql_instance, None
-
-    # @report_result
-    # def to_sql(self, update: bool = True) -> Tuple[Run | None, Report]:
-    #     """
-    #     Converts this instance into a backend.db.models.procedure.BasicRun instance
-
-    #     Returns:
-    #         Tuple[BasicRun, Alert]: BasicRun instance, result object
-    #     """
-    #     self.sql_instance = super().to_sql(update=update)
-    #     if not update:
-    #         return self.sql_instance, None
-    #     from backend.db.models import Run
-    #     report = Report()
-    #     # dicto = self.improved_dict()
-    #     instance, result = Run.query_or_create(submissiontype=self.submission_type['value'],
-    #                                            rsl_plate_number=self.rsl_plate_number['value'])
-    #     if instance is None:
-    #         report.add_result(Alert(msg="Overwrite Cancelled."))
-    #         return None, report
-    #     report.add_result(result)
-    #     self.handle_duplicate_samples()
-    #     for key, value in self.improved_dict.items():
-    #         if isinstance(value, dict):
-    #             try:
-    #                 value = value['value']
-    #             except KeyError:
-    #                 if key == "custom":
-    #                     pass
-    #                 else:
-    #                     continue
-    #         if value is None:
-    #             continue
-    #         match key:
-    #             case "reagents":
-    #                 for reagent in self.reagents:
-    #                     reagent = reagent.to_sql(submission=instance)
-    #             case "sample":
-    #                 for sample in self.samples:
-    #                     sample, associations, _ = sample.to_sql(run=instance)
-    #                     for assoc in associations:
-    #                         if assoc is not None:
-    #                             if assoc not in instance.clientsubmissionsampleassociation:
-    #                                 instance.clientsubmissionsampleassociation.append(assoc)
-    #                             else:
-    #                                 logger.warning(f"Sample association {assoc} is already present in {instance}")
-    #             case "equipment":
-    #                 for equip in self.equipment:
-    #                     if equip is None:
-    #                         continue
-    #                     equip, association = equip.to_sql(procedure=instance, kittype=self.extraction_kit)
-    #                     if association is not None:
-    #                         instance.submission_equipment_associations.append(association)
-    #             case "tips":
-    #                 for tips in self.tips:
-    #                     if tips is None:
-    #                         continue
-    #                     try:
-    #                         association = tips.to_sql(procedure=instance)
-    #                     except AttributeError:
-    #                         continue
-    #                     if association is not None:
-    #                         if association not in instance.submission_tips_associations:
-    #                             instance.submission_tips_associations.append(association)
-    #                         else:
-    #                             logger.warning(f"Tips association {association} is already present in {instance}")
-    #             case item if item in instance.timestamps:
-    #                 logger.warning(f"Incoming timestamp key: {item}, with value: {value}")
-    #                 if isinstance(value, date):
-    #                     value = datetime.combine(value, datetime.now().time())
-    #                     value = value.replace(tzinfo=timezone)
-    #                 elif isinstance(value, str):
-    #                     value: datetime = datetime.strptime(value, "%Y-%m-%d")
-    #                     value = value.replace(tzinfo=timezone)
-    #                 else:
-    #                     value = value
-    #                 instance.set_attribute(key=key, value=value)
-    #             case item if item in instance.jsons:
-    #                 try:
-    #                     ii = value.items()
-    #                 except AttributeError:
-    #                     ii = {}
-    #                 for k, v in ii:
-    #                     if isinstance(v, datetime):
-    #                         value[k] = v.strftime("%Y-%m-%d %H:%M:%S")
-    #                     else:
-    #                         pass
-    #                 instance.set_attribute(key=key, value=value)
-    #             case _:
-    #                 try:
-    #                     check = instance.__getattribute__(key) != value
-    #                 except AttributeError:
-    #                     continue
-    #                 if check:
-    #                     try:
-    #                         instance.set_attribute(key=key, value=value)
-    #                     except AttributeError as e:
-    #                         logger.error(f"Could not set attribute: {key} to {value} due to: \n\n {e}")
-    #                         continue
-    #                     except KeyError:
-    #                         continue
-    #                 else:
-    #                     logger.warning(f"{key} already == {value} so no updating.")
-    #     try:
-    #         instance.calculate_base_cost()
-    #     except (TypeError, AttributeError) as e:
-    #         logger.error(f"Looks like that kittype doesn't have cost breakdown yet due to: {e}, using 0.")
-    #         try:
-    #             instance.run_cost = instance.extraction_kit.cost_per_run
-    #         except AttributeError:
-    #             instance.run_cost = 0
-    #     # NOTE: Apply any discounts that are applicable for client and kittype.
-    #     try:
-    #         discounts = [item.amount for item in
-    #                      Discount.query(kittype=instance.extraction_kit, organization=instance.clientlab)]
-    #         if len(discounts) > 0:
-    #             instance.run_cost = instance.run_cost - sum(discounts)
-    #     except Exception as e:
-    #         logger.error(f"An unknown exception occurred when calculating discounts: {e}")
-    #     return instance, report
-
-    # def to_form(self, parent: QWidget, disable: list | None = None):
-    #     """
-    #     Converts this instance into a frontend.widgets.submission_widget.SubmissionFormWidget
-
-    #     Args:
-    #         disable (list, optional): a list of widgets to be disabled in the form. Defaults to None.
-    #         parent (QWidget): parent widget of the constructed object
-
-    #     Returns:
-    #         SubmissionFormWidget: Submission form widget
-    #     """
-    #     from frontend.widgets.submission_widget import SubmissionFormWidget
-    #     return SubmissionFormWidget(parent=parent, pyd=self, disable=disable)
 
     @property
     def export_filename(self) -> str:
@@ -1330,20 +1300,16 @@ class PydRun(PydConcrete):  #, extra='allow'):
             "/", "")
         return render
 
-    # @property
-    # def sample_list(self) -> List[dict]:
-    #     samples = []
-    #     for sample in self.samples:
-    #         sample = sample.improved_dict
-    #         sample['row'] = sample['row'][0]
-    #         sample['column'] = sample['column'][0]
-    #         sample['submission_rank'] = sample['submission_rank'][0]
-    #         samples.append(sample)
-    #     samples = sorted(samples, key=itemgetter("submission_rank"))
-    #     return samples
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        output['procedure'] = [item.to_pydantic().improved_dict for item in self.sql_instance.procedure]
+        output['excluded'] = ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath"]
+        return output
 
     def to_html(self, **kwargs):
         details = self.improved_dict_expand_fields(fields=['procedure', 'sample'])
+        logger.debug(f"Run details:\n{pformat(details['procedure'])}")
         output = super().to_html(**details)
         return output
 
@@ -1403,6 +1369,7 @@ class PydProcedureSampleAssociation(PydConcrete):
     procedure: str | PydProcedure = Field(default="NA")
     sample: str | PydSample = Field(default="NA")
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
+    enabled: bool = Field(default=True)
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcedureSampleAssociation

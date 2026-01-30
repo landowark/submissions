@@ -1107,6 +1107,37 @@ def sanitize_object_for_json(input_dict: dict) -> dict | str:
     return output
 
 
+def pop_first_matching_dict(list_of_dicts, key, value_to_match):
+    """
+    Removes and returns the first dictionary in the list where
+    the specified key's value matches the value_to_match.
+
+    Args:
+        list_of_dicts: The list of dictionaries to search.
+        key: The dictionary key to check the value against.
+        value_to_match: The value to match for the given key.
+
+    Returns:
+        The popped dictionary, or None if no match is found.
+    """
+    from backend.validators.pydant import PydBaseClass
+    from backend.db.models import BaseClass
+    for index, d in enumerate(list_of_dicts):
+        match d:
+            case dict():
+                d_value = d.get(key)
+            case x if issubclass(d.__class__, PydBaseClass):
+                d_value = getattr(d, key)
+            case x if issubclass(d.__class__, BaseClass):
+                d_value = getattr(d, key)
+            case _:
+                raise ValueError(f"Unmatched value {type(d)}")
+        if d_value == value_to_match:
+            # Pop and return the dictionary at the found index
+            return list_of_dicts.pop(index)
+    # Return None if no matching dictionary is found
+    raise StopIteration(f"Could not find {key} value")
+
 class classproperty(property):
     """
     Allows for properties on classes as well as objects.

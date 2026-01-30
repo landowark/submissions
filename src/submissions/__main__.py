@@ -7,6 +7,8 @@ if check_if_app():
     os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = '--no-sandbox --disable-gpu --disable-software-rasterizer --disable-gpu-compositing'
     os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = '1'
     os.environ['QT_OPENGL'] = 'software'
+else:
+    os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
 
 # NOTE: setup custom logger
 logging.setLoggerClass(CustomLogger)

@@ -13,7 +13,7 @@ from . import CustomWebEnginePage
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
 from frontend.widgets import CustomWebEnginePage
-from tools import get_application_from_parent, render_details_template, sanitize_object_for_json, get_index_of_value_in_dict_list
+from tools import get_application_from_parent, render_details_template, get_index_of_value_in_dict_list
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -23,6 +23,9 @@ class ProcedureCreation(QDialog):
     def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
         from backend.validators.pydant import PydProcedureType
         super().__init__(parent)
+        if 'QTWEBENGINE_REMOTE_DEBUGGING' not in os.environ:
+            os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
+            logger.info('Enabled QTWEBENGINE_REMOTE_DEBUGGING=9222 for remote inspection')
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
@@ -38,53 +41,21 @@ class ProcedureCreation(QDialog):
         else:
             title = self.run.rsl_plate_number
         self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
-        self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
+        # sample_dicts = [item.improved_dict for item in self.procedure.sample]
+        # self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
+        self.platemap = self.proceduretype_dict['platemap']
         self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
                                                    enumerate(self.procedure.sample, start=1)])
         self.app = get_application_from_parent(parent)
         # Ensure remote debugging is enabled before the WebEngine is initialised.
         # This exposes the remote inspector on localhost:9222 so you can open
         # http://localhost:9222/ in a desktop browser and inspect console/network errors.
-        if 'QTWEBENGINE_REMOTE_DEBUGGING' not in os.environ:
-            os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
-            logger.info('Enabled QTWEBENGINE_REMOTE_DEBUGGING=9222 for remote inspection')
-
+        
         self.webview = QWebEngineView(parent=self)
         self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.webview.setMinimumSize(1200, 800)
         custom_page = CustomWebEnginePage(self.webview)
         self.webview.setPage(custom_page)
-        # Connect a loadFinished handler to capture page load status and HTML for debugging
-        # try:
-        #     self.webview.loadFinished.connect(self._on_load_finished)
-        # except Exception:
-        #     # If signal isn't available for some reason, we'll still proceed — console messages will help
-        #     logger.debug('Could not connect loadFinished signal')
-        # # Connect additional lifecycle signals for better diagnostics
-        # try:
-        #     self.webview.loadStarted.connect(lambda: logger.info('QWebEngineView loadStarted'))
-        # except Exception:
-        #     logger.debug('Could not connect loadStarted')
-        # try:
-        #     self.webview.loadProgress.connect(lambda p: logger.info(f'QWebEngineView loadProgress {p}%'))
-        # except Exception:
-        #     logger.debug('Could not connect loadProgress')
-        # try:
-        #     self.webview.urlChanged.connect(lambda u: logger.info(f'QWebEngineView urlChanged: {u.toString()}'))
-        # except Exception:
-        #     logger.debug('Could not connect urlChanged')
-        # # If the underlying QWebEnginePage exposes a renderProcessTerminated signal, connect to it
-        # try:
-        #     page = self.webview.page()
-        #     if hasattr(page, 'renderProcessTerminated'):
-        #         def _on_render_terminated(status, code):
-        #             logger.error(f'Render process terminated (signal): status={status}, code={code}')
-        #         try:
-        #             page.renderProcessTerminated.connect(_on_render_terminated)
-        #         except Exception:
-        #             logger.debug('Could not connect page.renderProcessTerminated')
-        # except Exception:
-        #     logger.debug('Could not access webview.page() to connect renderProcessTerminated')
         # NOTE: Decide if exporting should be allowed.
         self.layout = QGridLayout()
         # NOTE: button to export a pdf version
@@ -103,86 +74,19 @@ class ProcedureCreation(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
         self.set_html()
 
-    # def _on_load_finished(self, ok: bool):
-    #     """Handler connected to QWebEngineView.loadFinished to log status and capture HTML for debugging."""
-    #     if not ok:
-    #         logger.error("QWebEngineView reported loadFinished(False)")
-    #     else:
-    #         logger.info("QWebEngineView loadFinished(True) — fetching document HTML for debug")
-
-    #     def _got_html(html: str):
-    #         if html is None:
-    #             logger.debug("runJavaScript returned no HTML")
-    #         else:
-    #             logger.debug(f"Document HTML length: {len(html)} characters")
-
-    #     try:
-    #         # Asynchronously retrieve the outer HTML to confirm content and surface script-clearing behavior
-    #         self.webview.page().runJavaScript("document.documentElement.outerHTML", _got_html)
-    #     except Exception as e:
-    #         logger.exception("Error while running runJavaScript to fetch document HTML: %s", e)
-
-    # @classmethod
-    # def reorder_proceduretype_by_procedure(cls, proceduretype_dict: dict, procedure_dict: dict):
-    #     for assoc in procedure_dict["procedurereagentlotassociation"]:
-    #         reagentrole = assoc['reagentrole']
-    #         reagent = assoc['reagent']
-    #         reagentlot = assoc['reagentlot']
-    #         try:
-    #             pt_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
-    #         except StopIteration:
-    #             continue
-    #         try:
-    #             pt_reagentlots = next(item['reagentlot'] for item in pt_reagent if item['name'] == reagent)
-    #         except StopIteration:
-    #             continue
-    #         rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
-    #         pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
-    #     for assoc in procedure_dict["procedureequipmentassociation"]:
-    #         equipmentrole = assoc['equipmentrole']
-    #         equipment = assoc['equipment']
-    #         try:
-    #             pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
-    #         except StopIteration:
-    #             continue
-    #         eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
-    #         pt_equipment.insert(0, pt_equipment.pop(eq_index))
-    #     return proceduretype_dict
-
     def set_html(self):
-        # NOTE: Add --New-- as an option for reagents.
-        # from backend.db.models import Run
-        # for reagentrole in self.proceduretype_dict.get("reagentrole", []):
-        #     for reagent in reagentrole['reagent']:
-        #         if len(reagent['reagentlot']) < 1:
-        #             reagent['reagentlot'].append(dict(name="", active=True))
-        #         else:
-        #             try:
-        #                 reagent['reagentlot'].remove(dict(name="", active=True))
-        #             except Exception:
-        #                 pass
-        #         try:
-        #             check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
-        #         except TypeError:
-        #             check = True
-        #         if not check:
-        #             reagent['reagentlot'].append(dict(name="--New--", active=True))
-        # regex = re.compile(r".*R\d$")
-        # run = Run.query(name=self.run.rsl_plate_number, limit=1)
-        # self.proceduretype_dict['previous'] = [""] + [item.name for item in run.procedure if item.proceduretype.name == self.proceduretype.name and not bool(regex.match(item.name))]
         html = render_details_template(
             template="procedure_creation",
             js_in=["procedure_form", "grid_drag", "context_menu"],
             proceduretype=self.proceduretype_dict,
             run=self.run.improved_dict,
             procedure=self.procedure,
-            plate_map=self.plate_map,
+            platemap=self.platemap,
             now = datetime.datetime.now()
         )
-        
-        self.webview.setHtml("<h1>TEST</h1><script>console.log('running');</script>")
-        with open("created_procedure.html", "w") as f:
-            f.write(html)
+        self.webview.setHtml(html)
+        # with open("created_procedure.html", "w") as f:
+        #     f.write(html)
 
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
@@ -233,7 +137,7 @@ class ProcedureCreation(QDialog):
     @pyqtSlot(str, str, bool)
     def update_reagent(self, reagentrole: str, name_lot_expiry: str, checked:bool=True):
         try:
-            name, lot = name_lot_expiry.rsplit("-", 1)
+            name, lot = name_lot_expiry.split(" - ", 1)
         except ValueError as e:
             logger.error(f"Could not split reagent name and lot from: {name_lot_expiry} due to {e}")
             return

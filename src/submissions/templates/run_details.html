@@ -18,7 +18,7 @@
     {% if run['sample'] %}
     <button type="button"><h3><u>Run Samples:</u></h3></button>
     <p>{% for sample in run['sample'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['active'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="{% if sample['enabled'] %}data-link {% else %}unused {% endif %}sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id']}}</a><br>
     {% endfor %}</p>
     {% endif %}
     {% if run['procedure'] %}

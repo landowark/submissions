@@ -653,7 +653,7 @@ class ReagentLot(BaseClass):
             reagent = self.reagent.name
         except AttributeError:
             reagent = "Unassigned Reagent"
-        return f"{reagent}-{self.lot}"
+        return f"{reagent} - {self.lot}"
 
     @name.expression
     def name(cls):
@@ -664,7 +664,7 @@ class ReagentLot(BaseClass):
             .scalar_subquery()
         )
         # NOTE: Can't use f strings for this.
-        return regeant_subquery + "-" + cls.lot
+        return regeant_subquery + " - " + cls.lot
 
     @classmethod
     def query(cls,
@@ -706,21 +706,6 @@ class ReagentLot(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-
-    # @check_authorization
-    # def edit_from_search(self, obj, **kwargs):
-    #     from frontend.widgets.omni_add_edit import AddEdit
-    #     dlg = AddEdit(parent=None, instance=self, disabled=['reagent'])
-    #     if dlg.exec():
-    #         pyd = dlg.parse_form()
-    #         fields = pyd.model_fields
-    #         for field in fields:
-    #             if field in ['instance']:
-    #                 continue
-    #             field_value = pyd.__getattribute__(field)
-    #             # self.set_attribute(field, field_value)
-    #             setattr(self, field, field_value)
-    #         self.save()
 
     @property
     def details_dict(self) -> dict:
@@ -1455,6 +1440,7 @@ class ProcedureType(BaseClass):
             run=run,
             sample=samples
         )
+        logger.debug(f"Samples: {pformat(samples)}")
         return PydProcedure(**output)
     
     @property
@@ -1492,6 +1478,7 @@ class ProcedureType(BaseClass):
         details = self.details_dict
         output = super().to_html(**details)
         return output
+
 
 class Procedure(BaseClass):
     
@@ -1745,15 +1732,15 @@ class Procedure(BaseClass):
                         output = next((assoc for assoc in self.proceduresampleassociation if assoc.sample.name==item))
                     except StopIteration:
                         logger.error(f"Couldn't find {item} in {[eq.sample.name for eq in self.proceduresampleassociation]}")
-                        output = ProcedureSampleAssociation(sample=item, procedure=self)
+                        output = ProcedureSampleAssociation(sample=item, procedure=self, rank=iii)
                 case PydProcedureSampleAssociation():
                     output = item.to_sql()
                 case Sample():
-                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=iii)
+                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=item._misc_info.get("rank", iii))
                 case PydSample():
-                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=iii, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'rank']})
+                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=getattr(item, "rank", iii), **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'rank']})
                 case dict():
-                    output = ProcedureSampleAssociation(sample=item['name'], procedure=self, rank=iii, **{k: v for k, v in item.items() if k not in ['name', 'rank']})
+                    output = ProcedureSampleAssociation(sample=item['name'], procedure=self, rank=item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['name', 'rank']})
                 case ProcedureSampleAssociation():
                     output = item
                     output.procedure_rank = iii
@@ -2069,7 +2056,7 @@ class Procedure(BaseClass):
             logger.error(f"Run: {self.run}, ClientSubmission: {self.run.clientsubmission}")
             output['clientlab'] = "Unknown"
         output['cost'] = 0.00
-        output['platemap'] = self.make_procedure_platemap()
+        # output['platemap'] = self.make_procedure_platemap()
         # logger.debug(f"details_dict:\n{pformat(output)}")
         return output
 
@@ -2112,11 +2099,12 @@ class Procedure(BaseClass):
             output = {k: v for k, v in dicto.items()}
         return output
 
-    def make_procedure_platemap(self):
-        dicto = [sample.to_pydantic() for sample in self.proceduresampleassociation]
-        proceduretype = self.proceduretype.to_pydantic()
-        html = proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
-        return html
+    # def make_procedure_platemap(self):
+    #     from backend.validators.pydant import PydProcedureType
+    #     dicto = [sample.to_pydantic() for sample in self.proceduresampleassociation]
+    #     proceduretype: PydProcedureType = self.proceduretype.to_pydantic()
+    #     html = proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
+    #     return html
 
     @property
     def submissiontype(self):
@@ -2135,8 +2123,15 @@ class Procedure(BaseClass):
         self._cost = self.proceduretype.plate_cost + samples_cost
 
     def save(self):
+        from backend.db.models import RunSampleAssociation
         self.set_cost()
         super().save()
+        rank = max([item.run_rank for item in self.run.runsampleassociation])
+        for iii, sampleassociation in enumerate(self.proceduresampleassociation, start=1):
+            if sampleassociation.sample.sample_id not in [s.sample_id for s in self.run.sample]:
+                assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)
+                assoc.save()
+        
 
     # def reorder_proceduretype_by_procedure(self):
     #     proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
@@ -2202,6 +2197,7 @@ class Procedure(BaseClass):
     #     details = self.reorder_proceduretype_by_procedure()
     #     output = super().to_html(**details)
     #     return output
+
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """
@@ -4037,7 +4033,7 @@ class TipsLot(BaseClass, LogMixin):
             ref = self.tips.ref
         except AttributeError:
             ref = "Unassigned manufacturer"
-        return f"{manufacturer}-{ref}-{self.lot}"
+        return f"{manufacturer} - {ref} - {self.lot}"
 
     @name.expression
     def name(cls):
@@ -4054,7 +4050,7 @@ class TipsLot(BaseClass, LogMixin):
             .scalar_subquery()
         )
         # NOTE: Can't use f strings for this.
-        return tipsman_subquery + "-" + tipsref_subquery + "-" + cast(cls.lot, String)
+        return tipsman_subquery + " - " + tipsref_subquery + " - " + cast(cls.lot, String)
 
     @hybrid_property
     def active(self):

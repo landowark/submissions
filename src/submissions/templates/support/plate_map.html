@@ -1,7 +1,7 @@
 
         <div class="plate" id="plate-container" style="grid-template-columns: repeat({{ plate_columns }}, {{ vw }}vw);grid-template-rows: repeat({{ plate_rows }}, {{ vw }}vw);">
             {% for sample in samples %}
-                <div class="well {{ sample['sample_type'] }}" draggable="true" id="{{ sample['sample_id'] }}" style="background-color: {{ sample['background_color'] }};">
+                <div class="well{% if sample['control_type'] %} {{ sample['control_type'] }}{% endif %}" draggable="true" id="{{ sample['sample_id'] }}">
                   {% if creation %}
                     <p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">{{ sample['sample_id'] }}</p>
                   {% else %}

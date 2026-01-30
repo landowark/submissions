@@ -61,8 +61,7 @@ function positionMenu(e) {
 
 function menuItemListener( link ) {
     const contextIndex = [...gridContainer.children].indexOf(taskItemInContext);
-    const task_id = taskItemInContext.getAttribute("id")
-//    backend.log("Task action - " + link.getAttribute("data-action"));
+    const task_id = taskItemInContext.getAttribute("id");
     switch (link.getAttribute("data-action")) {
         case "InsertSample":
             insertSample(contextIndex, task_id);
@@ -77,15 +76,62 @@ function menuItemListener( link ) {
             insertNegative(taskItemInContext);
         break;
         case "RemoveSample":
-            removeSample(contextIndex);
+            removeSample(taskItemInContext);
         break;
         default:
             backend.log("default");
         break;
     }
+
     rearrange_plate();
+
     toggleMenuOff();
+
 }
+
+
+function gatherWellsText() {
+    var container = document.getElementById('plate-container');
+    if (!container) return '';
+    var wells = container.querySelectorAll('div.well');
+    var parts = [];
+    wells.forEach(function(well, idx){
+        var ps = well.querySelectorAll('p');
+        var texts = [];
+        ps.forEach(function(p){
+            var t = p.innerText || p.textContent || '';
+            t = t.trim();
+            if (t) texts.push(t);
+        });
+        if (texts.length) {
+        parts.push('<div class="well-block"><h4>Well ' + (idx+1) + '</h4><p>' + texts.join('</p><p>') + '</p></div>');
+        }
+    });
+    openPrintWindow(parts.join(''));
+    
+
+    function openPrintWindow(html) {
+        var printWindow = window.open('', '_blank', 'width=800,height=600');
+        if (!printWindow) { console.error('Popup blocked'); return; }
+        printWindow.document.open();
+        printWindow.document.write('<!doctype html><html><head><title>Print wells</title><style>body{font-family: Arial, sans-serif;padding:20px} .well-block{border-bottom:1px solid #ccc;margin-bottom:12px;padding-bottom:8px} .well-block h4{margin:0 0 6px 0;font-size:14px} .well-block p{margin:0 0 4px 0}</style></head><body>' + html + '</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(function(){ printWindow.print(); }, 250);
+    }
+
+    // document.addEventListener('DOMContentLoaded', function(){
+    // var btn = document.getElementById('print-wells-btn');
+    // if (!btn) return;
+    //     btn.addEventListener('click', function(){
+    //         var html = gatherWellsText();
+    //         if (!html) {
+    //         alert('No <p> content found in wells.');
+    //         return;
+    //         }
+    //         openPrintWindow(html);
+    //     });
+    };
 
 ///////////////////////////////////////
 ///////////////////////////////////////
@@ -255,7 +301,6 @@ function insertPositive( targetItem ) {
     elem.setAttribute("draggable", "true");
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;">' + pos_name + '</p>'
     // insert the new positive control after the target item (keeps previous behavior)
-    // gridC.insertBefore(elem, targetItem.nextSibling);
     gridC.insertBefore(elem, targetItem);
     // remove the target item (previous behavior: replace target with new element)
     // targetItem.remove();
@@ -340,7 +385,19 @@ function removeSample( targetItem ) {
     elem.innerHTML = '<p style="font-size: 0.7em; text-align: center; word-wrap: break-word;"></p>'
     gridC.insertBefore(elem, targetItem);
     // targetItem.remove();
-    gridC.remove(targetItem);
+    try {
+        const children = Array.from(gridC.children);
+        // find the index where the new element currently sits
+        const childIndex = children.indexOf(targetItem);
+        if (childIndex !== -1) {
+            console.log("Removing from index: " + childIndex);
+            gridC.removeChild(children[childIndex]);
+        }
+    } catch (e) {
+        // defensive: if anything goes wrong, don't block the rest of the UI
+        console.error('removeSample: error while removing next empty <p> element', e);
+    }
+    // gridC.remove(targetItem);
 }
 
 

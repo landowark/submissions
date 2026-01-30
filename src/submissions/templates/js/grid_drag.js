@@ -24,7 +24,7 @@ gridContainer.addEventListener("dragover", (e) => {
 //Handle Drop
 gridContainer.addEventListener("drop", (e) => {
   e.preventDefault();
-
+  console.log("Drag and drop")
   const targetItem = e.target;
 
   if (
@@ -47,9 +47,9 @@ gridContainer.addEventListener("drop", (e) => {
     output = [];
     fullGrid = [...gridContainer.children];
     fullGrid.forEach(function(item, index) {
-        output.push({sample_id: item.id, index: index + 1})
+        output.push({sample_id: item.id, index: index + 1});
     });
-    backend.rearrange_plate(output);
-//    rearrange_plate();
+    // backend.rearrange_plate(output);
+    rearrange_plate();
   }
 });

@@ -573,6 +573,7 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def to_html(self, **kwargs):
         details = self.details_dict_expand_fields(fields=[{"run":['procedure']}, "sample"])
+        details['excluded'] = ["comment"]
         output = super().to_html(**details)
         return output
 
@@ -733,7 +734,7 @@ class Run(BaseClass, LogMixin):
         if not isinstance(value, list):
             value = [value]
         list_ = []
-        for item in value:
+        for iii, item in enumerate(value):
             logger.debug(f"Incoming sample: {type(item)} - {item}")
             match item:
                 case str():
@@ -741,11 +742,13 @@ class Run(BaseClass, LogMixin):
                         output = next((assoc for assoc in self.runsampleassociation if assoc.sample.name==item))
                     except StopIteration:
                         logger.error(f"Couldn't find {item} in {[eq.sample.name for eq in self.runsampleassociation]}")
-                        output = RunSampleAssociation(sample=item, run=self)
+                        output = RunSampleAssociation(sample=item, run=self, rank=iii)
                 case dict():
-                    output = RunSampleAssociation(sample=item['name'], run=self, **{k: v for k, v in item.items() if k != 'name'})
-                case PydSample():
-                    output = RunSampleAssociation(sample=item, run=self, **{k: v for k, v in item.__dict__.items() if k != 'name'})
+                    output = RunSampleAssociation(sample=item['name'], run=self, rank = item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['name', 'rank']})
+                case PydSample() | Sample():
+                    output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
+                # case Sample():
+                #     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
                 case RunSampleAssociation():
                     output = item
                 case _:
@@ -1215,6 +1218,7 @@ class Run(BaseClass, LogMixin):
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
+        logger.debug(f"Procedure samples: {pformat(procedure.sample)}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
@@ -1375,6 +1379,7 @@ class Run(BaseClass, LogMixin):
         ranked_samples = []
         unranked_samples = []
         for sample in self.sample:
+            logger.debug(sample.is_control)
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
                 try:
@@ -1383,7 +1388,8 @@ class Run(BaseClass, LogMixin):
                     logger.error(pformat(plate_dict))
                     raise e
                 ranked_samples.append(dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
-                                           procedure_rank=submission_rank, background_color="#6ffe1d"))
+                                           procedure_rank=submission_rank, is_control=sample.is_control, enabled=True,
+                                           control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')))
             else:
                 unranked_samples.append(sample)
         possible_ranks = (item for item in list(plate_dict.keys()) if
@@ -1397,21 +1403,18 @@ class Run(BaseClass, LogMixin):
             ranked_samples.append(
                 dict(well_id=sample.sample_id, sample_id=sample.sample_id, row=row, column=column,
                      procedure_rank=submission_rank,
-                     background_color="#6ffe1d", enabled=True))
+                     is_control=sample.is_control, enabled=True,
+                     control_type=('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')))
         padded_list = []
         for iii in range(1, proceduretype.total_wells + 1):
             row, column = proceduretype.ranked_plate[iii]
             sample = next((item for item in ranked_samples if item['procedure_rank'] == iii),
-                          dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, procedure_rank=iii,
-                               background_color="#ffffff", enabled=False)
-                          )
+                     dict(well_id=f"blank_{iii}", sample_id="", row=row, column=column, procedure_rank=iii,
+                         is_control=0, enabled=False, control_type='')
+                     )
             padded_list.append(sample)
+        logger.debug(pformat(padded_list))
         return list(sorted(padded_list, key=itemgetter('procedure_rank')))
-
-    def to_html(self, **kwargs):
-        details = self.details_dict_expand_fields(fields=['procedure', 'sample'])
-        output = super().to_html(**details)
-        return output
 
 # NOTE: Sample Classes
 
@@ -1612,9 +1615,9 @@ class Sample(BaseClass, LogMixin):
     def searchables(cls):
         return [dict(label="Submitter ID", field="sample_id")]
 
-    def to_pydantic(self):
-        from backend.validators import PydSample
-        return PydSample(**self.details_dict)
+    # def to_pydantic(self):
+    #     from backend.validators import PydSample
+    #     return PydSample(**self.details_dict)
 
     @classmethod
     @setup_lookup
@@ -1852,15 +1855,15 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output['rank'] = self.submission_rank
         return output
 
-    def to_pydantic(self) -> PydSample:
-        """
-        Creates a pydantic model for this sample.
+    # def to_pydantic(self) -> PydSample:
+    #     """
+    #     Creates a pydantic model for this sample.
 
-        Returns:
-            PydSample: Pydantic Model
-        """
-        from backend.validators import PydSample
-        return PydSample(**self.details_dict)
+    #     Returns:
+    #         PydSample: Pydantic Model
+    #     """
+    #     from backend.validators import PydSample
+    #     return PydSample(**self.details_dict)
 
     @classmethod
     @setup_lookup
@@ -2283,8 +2286,75 @@ class ProcedureSampleAssociation(BaseClass):
     _procedure = relationship(Procedure,
                              back_populates="proceduresampleassociation")  #: associated procedure
 
-    _sample = relationship(Sample, back_populates="sampleprocedureassociation")  #: associated equipment
+    # Explicitly cascade save-update and merge from association -> sample so that
+    # adding a transient ProcedureSampleAssociation to a Session will also
+    # attach (and persist) its Sample. We intentionally avoid destructive
+    # cascades (like delete) here to prevent accidental deletion of Sample
+    # rows when associations are removed.
+    _sample = relationship(
+        Sample,
+        back_populates="sampleprocedureassociation",
+        cascade="save-update, merge",
+    )  #: associated equipment
+
     _results = relationship("Results", back_populates="_sampleprocedureassociation")  #: associated results
+
+    @hybrid_property
+    def sample(self):
+        return self._sample
+    
+    @sample.setter
+    def sample(self, value):
+        from backend.validators.pydant import PydSample
+        match value:
+            case str():
+                output = Sample.query(name=value, limit=1)
+            case dict():
+                output = Sample.query_or_create(**value)
+            case PydSample():
+                # NOTE: If the sample hasn't already been saved, we'll have to do some updating.
+                update = not hasattr(value.sql_instance, "_sa_instance_state")
+                if update:
+                    logger.warning(f"{value} has not been saved previously. Updating")
+                output = value.to_sql(update=update)
+                logger.debug(f"Output from to_sql: {output}")
+            case Sample():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for procedure")
+                return
+        if isinstance(output, tuple):
+            output = output[0]
+        if isinstance(output, Sample):
+            self._sample = output
+        else:
+            logger.error(f"Could not set _sample to {type(output)}")
+
+    @hybrid_property
+    def procedure(self):
+        return self._procedure
+
+    @procedure.setter
+    def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
+        match value:
+            case str():
+                output = Procedure.query(name=value, limit=1)
+            case dict():
+                output = Procedure.query_or_create(**value)
+            case PydProcedure():
+                output = value.to_sql(update=False)
+            case Procedure():
+                output = value
+            case _:
+                logger.error(f"Unmatched value {value} for procedure")
+                return
+        if isinstance(output, tuple):
+            output = output[0]
+        if isinstance(output, Procedure):
+            self._procedure = output
+        else:
+            logger.error(f"Could not set _procedure to {type(output)}")
 
     def __init__(self, new_id: int | None = None,  *args, **kwargs):
         """
@@ -2329,11 +2399,12 @@ class ProcedureSampleAssociation(BaseClass):
                     self._misc_info.update({'results': results})
                 except Exception:
                     pass
+        self.procedure_rank = procedure_rank
         if new_id:
             self.id = new_id
         else:
             self.id = self.__class__.autoincrement_id(procedure_rank=self.procedure_rank)
-            
+    
     @hybrid_property
     def name(self):
         try:
@@ -2419,38 +2490,14 @@ class ProcedureSampleAssociation(BaseClass):
                 return
         if isinstance(output, tuple):
             output = output[0]
-        if not PydSample.is_sample_id_valid(output.sample_id):
-            output = None
         if isinstance(output, Sample):
+            if not PydSample.is_sample_id_valid(output.sample_id):
+                output = None
             self._sample = output
         else:
             logger.error(f"Could not set _sample to {type(output)}")
   
-    @hybrid_property
-    def procedure(self):
-        return self._procedure
-
-    @procedure.setter
-    def procedure(self, value):
-        from backend.validators.pydant import PydProcedure
-        match value:
-            case str():
-                output = Procedure.query(name=value, limit=1)
-            case dict():
-                output = Procedure.query_or_create(**value)
-            case PydProcedure():
-                output = value.to_sql(update=False)
-            case Procedure():
-                output = value
-            case _:
-                logger.error(f"Unmatched value {value} for procedure")
-                return
-        if isinstance(output, tuple):
-            output = output[0]
-        if isinstance(output, Procedure):
-            self._procedure = output
-        else:
-            logger.error(f"Could not set _procedure to {type(output)}")
+    
 
     @property
     def well(self):
@@ -2511,6 +2558,16 @@ class ProcedureSampleAssociation(BaseClass):
         output['row'] = self.row
         output['column'] = self.column
         output['results'] = [item.details_dict for item in self.results]
+        match self.sample._is_control:
+            case 1:
+                output['control_type'] = 'positivecontrol'
+                
+            case -1:
+                output['control_type'] = 'negativecontrol'
+                
+            case _:
+                output['control_type'] = 'regular'
+                
         # output['excluded'] += ["is_control", "well_id", "sample_location", "sample_type"]
         return output
 
@@ -2538,4 +2595,5 @@ class ProcedureSampleAssociation(BaseClass):
     def save(self):
         if self.sample_id in [None, ""]:
             return
+        
         super().save()        

@@ -31,6 +31,7 @@ class PydReagent(PydAbstract):
         return value
     
     def to_sql(self, update: bool = True):
+        # self.name = self.name.replace("-", ":")
         from backend.db.models import Reagent
         self.sql_instance: Reagent = super().to_sql(update)
         if not update:

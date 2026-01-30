@@ -15,7 +15,7 @@ class CustomWebEnginePage(QWebEnginePage):
         # print(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
         # Use logger so messages follow the app logging configuration
         try:
-            logger.debug(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
+            logger.debug(f"JS Console ({lineNumber}) [{level}]: {message}")
         except Exception:
             print(f"JS Console ({lineNumber}) [{level}]: {message}")
 

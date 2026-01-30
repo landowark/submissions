@@ -276,7 +276,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         except AssertionError:
             raise AttributeError(f"Sql Instance for {self.__class__.__name__} is None, cannot save")
         for k, v in sanitized_dicto.items():
-            logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
+            # logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
             try:
                 class_attr = getattr(self._sql_class, k, None).property
             except AttributeError as e:
@@ -635,13 +635,26 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             value = value
                         else:
                             continue
-                case x if issubclass(value.__class__, BaseClass) or issubclass(value.__class__, PydBaseClass) :
+                case x if issubclass(value.__class__, BaseClass): 
+                    try:
+                        value = value.name
+                    except AttributeError:
+                        logger.error(f"Couldn't get name for BaseClass subclase {type(value)}")
+                        continue
+                case x if issubclass(value.__class__, PydBaseClass):
+                    try:
+                        value = value.name
+                    except AttributeError:
+                        logger.error(f"Couldn't get name for PydBaseClass subclase {type(value)}")
+                        continue
+                case str() | int() | float() | list():
+                    pass
+                case _:
+                    logger.warning(f"Unmatched type for {k}: {type(value)}")
                     try:
                         value = value.name
                     except AttributeError:
                         continue
-                case _:
-                    pass
             output[k] = value
         return output
 

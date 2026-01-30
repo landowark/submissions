@@ -3,7 +3,7 @@ Webview to show procedure and sample details.
 """
 from __future__ import annotations
 
-import json, sys, logging
+import json, sys, logging, os
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -34,6 +34,7 @@ class SubmissionDetails(QDialog):
     def __init__(self, parent, object_: ClientSubmission | Run | Procedure | Sample | Reagent, **kwargs) -> None:
 
         super().__init__(parent, **kwargs)
+        
         self.object_ = object_
         self.app = get_application_from_parent(parent)
         self.webview = QWebEngineView(parent=self)
@@ -60,31 +61,13 @@ class SubmissionDetails(QDialog):
         self.channel.registerObject('backend', self)
         # NOTE: Used to maintain javascript functions.
         self.object_details(object_=self.object_)
-        # self.webview.page().setWebChannel(self.channel)
 
     def object_details(self, object_):
-        from backend.db.models import ClientSubmission, Run, Procedure
-        # logger.debug(f"Incoming object: {object_}")
-        # match object_:
-        #     case ClientSubmission():
-        #         expand = [{"run":['procedure']}, "sample"]
-        #     case Run():
-        #         expand = ['procedure', 'sample']
-        #     case _:
-        #         expand = []
-        # details = object_.details_dict_expand_fields(fields=expand)
-        # details = object_.clean_details_for_render(details)
-        # template = object_.details_template
-        # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
-        #     css = f.read()
-        # key = object_.__class__.__name__.lower()
-        # d = {object_.__class__.__name__.lower(): details}
-        # html = template.render(**d, css=[css])
-        # html = render_details_template(template, **d)
         html = object_.to_html()
-        self.webview.setHtml("<h1>TEST</h1><script>console.log('running');</script>")
+        self.webview.setHtml(html)
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
+        # with open(f"{object_.__class__.__name__}_submissiondetails.html", "w") as f:
+        #     f.write(html)
         
     def activate_export(self) -> None:
         """

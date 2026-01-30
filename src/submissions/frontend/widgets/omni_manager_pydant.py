@@ -44,10 +44,10 @@ class OmniManager(QDialog):
             None
         """
         logger.debug("Resetting form to initial state.")
-        if issubclass(self.pydant.__class__, PydConcrete):
-            addendum = [""]
-        else:
-            addendum = ["", "--New--"]
+        # if issubclass(self.pydant.__class__, PydConcrete):
+        #     addendum = [""]
+        # else:
+        addendum = ["", "--New--"]
         object_list = addendum + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
         object_name = self.sql_type.__name__
         html = render_details_template("managers/default_manager", js_in=['manager'], object_name=object_name, object_list=object_list)
