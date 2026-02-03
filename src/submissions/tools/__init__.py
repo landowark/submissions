@@ -23,7 +23,7 @@ from typing import Any, Tuple, Literal, List, Generator
 from sqlalchemy.orm.relationships import _RelationshipDeclared
 from __init__ import project_path
 from configparser import ConfigParser
-from tkinter import Tk  # NOTE: This is for choosing database path before app is created.
+from tkinter import Tk  # NOTE: This is for potentially choosing database path before app is created.
 from tkinter.filedialog import askdirectory
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz

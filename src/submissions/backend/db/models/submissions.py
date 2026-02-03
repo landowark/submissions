@@ -215,12 +215,12 @@ class ClientSubmission(BaseClass, LogMixin):
                 case Run():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for run")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._run")
                     continue
             if isinstance(output, ReagentLot):
                 self._run.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _run")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._run")
 
     @hybrid_property
     def clientlab(self):
@@ -258,6 +258,8 @@ class ClientSubmission(BaseClass, LogMixin):
         if not isinstance(value, list) and not isinstance(value, _AssociationList):
             value = [value]
         for item in value:
+            if item is None:
+                continue
             if item.sample_id.lower() in ["blank", "na", "none", ""]:
                 continue
             match item:
@@ -282,7 +284,7 @@ class ClientSubmission(BaseClass, LogMixin):
                 if output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
                     self.clientsubmissionsampleassociation.append(output)
             else:
-                logger.error(f"Could not add {item} to ._sample")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
 
     @hybrid_property
     def submitted_date(self):
@@ -695,7 +697,7 @@ class Run(BaseClass, LogMixin):
             if isinstance(output, Procedure):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _procedure")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._procedure")
         self._procedure = list_
 
     @hybrid_property
@@ -715,14 +717,14 @@ class Run(BaseClass, LogMixin):
             case ClientSubmission():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for clientsubmission")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.+clientsubmission")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ClientSubmission):
             self._clientsubmission = output
         else:
-            logger.error(f"Could not set _clientsubmission to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._clientsubmission to {type(output)}")
 
     @hybrid_property
     def sample(self):
@@ -745,21 +747,21 @@ class Run(BaseClass, LogMixin):
                         output = RunSampleAssociation(sample=item, run=self, rank=iii)
                 case dict():
                     output = RunSampleAssociation(sample=item['name'], run=self, rank = item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['name', 'rank']})
-                case PydSample() | Sample():
+                case PydSample():
                     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
-                # case Sample():
-                #     output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii), **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
+                case Sample():
+                    output = RunSampleAssociation(sample=item, run=self, rank = getattr(item, "rank", iii))#, **{k: v for k, v in item.__dict__.items() if k not in ['name', 'rank']})
                 case RunSampleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}.sample")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._sample")
                     continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, RunSampleAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to ._sample")
+                logger.error(f"Could not add {item} to {self.__class__.__qualname__}._sample")
         self.runsampleassociation = list_
 
     @hybrid_property
@@ -1516,13 +1518,13 @@ class Sample(BaseClass, LogMixin):
                 case ClientSubmissionSampleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for clientsubmission")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._clientsubmission")
                     continue
             if isinstance(output, ClientSubmissionSampleAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to ._clientsubmission")
+                logger.error(f"Could not add {item} to {self.__class__.__qualname__}._clientsubmission")
         self.sampleclientsubmissionassociation  = list_
 
     @hybrid_property
@@ -1531,6 +1533,7 @@ class Sample(BaseClass, LogMixin):
     
     @run.setter
     def run(self, value):
+        from backend.db.models import Run
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -1546,14 +1549,16 @@ class Sample(BaseClass, LogMixin):
                     output = RunSampleAssociation(run=item['name'], sample=self, **{k: v for k, v in item.items() if k != 'name'})
                 case RunSampleAssociation():
                     output = item
+                case Run():
+                    output = RunSampleAssociation(run=item, sample=self)
                 case _:
-                    logger.error(f"Unmatched value {item} for sample")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._sample")
                     return
             if isinstance(output, RunSampleAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to ._sample")
+                logger.error(f"Could not add {item} to {self.__class__.__qualname__}._sample")
         self.samplerunassociation = list_
 
     @hybrid_property
@@ -1577,6 +1582,8 @@ class Sample(BaseClass, LogMixin):
                     output = ProcedureSampleAssociation(procedure=item['name'], sample=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureSampleAssociation():
                     output = item
+                case Procedure():
+                    output = ProcedureSampleAssociation(procedure=item, sample=self)
                 case _:
                     logger.error(f"Unmatched value {item} for sample")
                     return
@@ -1584,7 +1591,7 @@ class Sample(BaseClass, LogMixin):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to ._sample")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._sample")
         self.sampleprocedureassociation = list_
 
     @hybrid_property
@@ -2018,7 +2025,8 @@ class RunSampleAssociation(BaseClass):
             except Exception:
                 # fallback: store in misc_info if setter fails
                 try:
-                    self._misc_info.update({'run': run})
+                    safe_run = self._serialize_misc_value(run)
+                    self._misc_info.update({'run': safe_run})
                 except Exception:
                     pass
         # Resolve reagentrole
@@ -2027,7 +2035,8 @@ class RunSampleAssociation(BaseClass):
                 self.sample = sample
             except Exception:
                 try:
-                    self._misc_info.update({'sample': sample})
+                    safe_sample = self._serialize_misc_value(sample)
+                    self._misc_info.update({'sample': safe_sample})
                 except Exception:
                     pass
     
@@ -2466,7 +2475,7 @@ class ProcedureSampleAssociation(BaseClass):
                 output.result.update(dict(sample_id=self.sample.sample_id))
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _results")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
         self._results = list_
   
     @hybrid_property
@@ -2486,7 +2495,7 @@ class ProcedureSampleAssociation(BaseClass):
             case Sample():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for sample")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._sample")
                 return
         if isinstance(output, tuple):
             output = output[0]
@@ -2495,7 +2504,7 @@ class ProcedureSampleAssociation(BaseClass):
                 output = None
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}_sample to {type(output)}")
   
     
 

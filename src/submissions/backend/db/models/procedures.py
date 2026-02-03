@@ -148,16 +148,18 @@ class ReagentRole(BaseClass):
                         output = ProcedureTypeReagentRoleAssociation(proceduretype=item, reagentrole=self)
                 case dict():
                     output = ProcedureTypeReagentRoleAssociation(proceduretype=item['name'], reagentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                case ProcedureType():
+                    output = ProcedureTypeReagentRoleAssociation(proceduretype=item, reagentrole=self)
                 case ProcedureTypeReagentRoleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {value} for {self}._proceduretype")
+                    logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._proceduretype")
                     continue
             if isinstance(output, ProcedureTypeReagentRoleAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to _proceduretype")
+                logger.error(f"Could not add {item} to {self.__class__.__qualname__}._proceduretype")
         self.reagentroleproceduretypeassociation = list_
 
     @hybrid_property
@@ -183,13 +185,13 @@ class ReagentRole(BaseClass):
                 case ReagentRoleReagentAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {value} for {self}._reagent")
+                    logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagent")
                     continue
             if isinstance(output, ReagentRoleReagentAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to _reagent")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._reagent")
         self.reagentrolereagentassociation = list_
 
     @classmethod
@@ -350,7 +352,7 @@ class Reagent(BaseClass, LogMixin):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to _reagentrole")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._reagentrole")
         self.reagentreagentroleassociation = list_
 
     @hybrid_property
@@ -395,7 +397,7 @@ class Reagent(BaseClass, LogMixin):
             if isinstance(output, ReagentLot):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {item} to _reagentlot")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._reagentlot")
         self._reagentlot = list_
 
     @classmethod
@@ -551,22 +553,22 @@ class ReagentLot(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.procedure.name for eq in self.reagentlotprocedureassociation]}")
                         output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self)
                 case Procedure():
-                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.details_dict if k != 'name'})
+                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self)
                 case PydProcedure():
-                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.improved_dict if k != 'name'})
+                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.improved_dict.items() if k != 'name'})
                 case dict():
                     output = ProcedureReagentLotAssociation(procedure=item['name'], reagentlot=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureReagentLotAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for .procedure")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}.procedure")
                     continue
             # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureReagentLotAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to ._procedure")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._procedure")
         self.procedurereagentlotassociation = list_
 
     @hybrid_property
@@ -594,7 +596,7 @@ class ReagentLot(BaseClass):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
+                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
         output = datetime.combine(output, datetime.max.time())
         value = output.replace(tzinfo=timezone)
         self._expiry = value
@@ -616,14 +618,14 @@ class ReagentLot(BaseClass):
             case Reagent():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for .reagent")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.reagent")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Reagent):
             self._reagent = output
         else:
-            logger.error(f"Could not add {value} to ._reagent.")
+            logger.error(f"Could set {self.__class__.__qualname__}._reagent to {value}.")
         
     @hybrid_property
     def active(self):
@@ -972,7 +974,7 @@ class SubmissionType(BaseClass):
                 case ClientSubmission():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value: {item} for .clientsubmission")
+                    logger.error(f"Unmatched value: {item} for {self.__class__.__qualname__}.clientsubmission")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -980,7 +982,7 @@ class SubmissionType(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {output} to ._clientsubmission")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._clientsubmission")
         self._clientsubmission = list_
 
     @hybrid_property
@@ -1006,7 +1008,7 @@ class SubmissionType(BaseClass):
                 case ProcedureType():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value: {item} for .proceduretype")
+                    logger.error(f"Unmatched value: {item} for {self.__class__.__qualname__}.proceduretype")
                     continue
             if isinstance(output, tuple):
                 return output[0]
@@ -1014,7 +1016,7 @@ class SubmissionType(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to ._proceduretype")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._proceduretype")
         self._proceduretype = list_
     
     @hybrid_property
@@ -1032,12 +1034,12 @@ class SubmissionType(BaseClass):
             case timedelta():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for turnaround_time")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.turnaround_time")
                 output = timedelta(days=3)
         if isinstance(output, timedelta):
             self._turnaround_time = output
         else:
-            logger.error(f"Could not set turnaround_time to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}.turnaround_time to {type(output)}")
 
     @hybrid_property
     def abbreviation(self):
@@ -1167,7 +1169,7 @@ class ProcedureType(BaseClass):
     _resultstype = relationship("ResultsType", back_populates="_proceduretype",
                                   secondary=proceduretype_resulttype)  #: run this kittype was used for
     
-    discount = relationship("Discount", back_populates="_proceduretype")
+    _discount = relationship("Discount", back_populates="_proceduretype")
 
     proceduretypeequipmentroleassociation = relationship(
         "ProcedureTypeEquipmentRoleAssociation",
@@ -1268,21 +1270,21 @@ class ProcedureType(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.equipmentrole.name for eq in self.proceduretypeequipmentroleassociation]}")
                         output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self)
                 case EquipmentRole():
-                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict if k != 'name'})
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict.items() if k != 'name'})
                 case PydEquipmentRole():
-                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict if k != 'name'})
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict.items() if k != 'name'})
                 case dict():
                     output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k != 'name'})
                 case ProcedureTypeEquipmentRoleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for equipmentrole")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipmentrole")
                     continue
             if isinstance(output, ProcedureTypeEquipmentRoleAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Couldn't add {item} to _equipmentrole")
+                logger.error(f"Couldn't add {output} to {self.__class__.__qualname__}._equipmentrole")
         self.proceduretypeequipmentroleassociation = list_
             
     @hybrid_property
@@ -1305,23 +1307,21 @@ class ProcedureType(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.reagent.name for eq in self.reagentrolereagentassociation]}")
                         output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self)
                 case ReagentRole():
-                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict if k != 'name'})
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict.items() if k not in ['name', 'proceduretype']})
                 case PydReagentRole():
-                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict if k != 'name'})
-                # case str():
-                #     output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self)
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'proceduretype']})
                 case dict():
-                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k not in ['name', 'proceduretype']})
                 case ProcedureTypeReagentRoleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {type(item)} for reagentrole")
+                    logger.error(f"Unmatched value {type(item)} for {self.__class__.__qualname__}._reagentrole")
                     continue
             if isinstance(output, ProcedureTypeReagentRoleAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Couldn't add {item} to _reagentrole")
+                logger.error(f"Couldn't add {item} to {self.__class__.__qualname__}._reagentrole")
         self.proceduretypereagentroleassociation = list_
 
     @hybrid_property
@@ -1347,7 +1347,7 @@ class ProcedureType(BaseClass):
                 case ResultsType():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for resultstype.")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}.resultstype.")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -1355,7 +1355,7 @@ class ProcedureType(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _resultstype")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._resultstype")
         self._resultstype = list_
     
     @hybrid_property
@@ -1381,14 +1381,14 @@ class ProcedureType(BaseClass):
                 case SubmissionType():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for proceduretype")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._submissiontype")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, SubmissionType):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _submissiontype")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._submissiontype")
         # NOTE: Ensure this has access to "Default SubmissionType"
         if "Default SubmissionType" not in [st.name for st in self._submissiontype]:
             list_.append(SubmissionType.query(name="Default SubmissionType", limit=1))
@@ -1415,7 +1415,7 @@ class ProcedureType(BaseClass):
                 case Procedure():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for procedure")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._procedure")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -1423,8 +1423,36 @@ class ProcedureType(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to procedure")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}.procedure")
         self._procedure = list_
+
+    @hybrid_property
+    def discount(self):
+        return self._discount
+
+    @discount.setter
+    def discount(self, value):
+        
+        if not isinstance(value, list):
+            value = [value]
+        list_ = []
+        for item in value:
+            match item:
+                case dict():
+                    output = Discount.query_or_create(**item)
+                case Discount():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._discount")
+                    continue
+            if isinstance(output, tuple):
+                output = output[0]
+            if isinstance(output, Discount):
+                if output not in list_:
+                    list_.append(output)
+            else:
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._discount")
+        self._discount = list_
 
     def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
         from backend.validators.pydant import PydProcedure
@@ -1658,10 +1686,12 @@ class Procedure(BaseClass):
                     output = item.to_sql()
                 case dict():
                     output = ProcedureReagentLotAssociation(reagentlot=item['name'], procedure=self, **{k: v for k, v in item.items() if k != 'name'})
+                case ReagentLot():
+                    output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self)
                 case ProcedureReagentLotAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for reagentlot")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._reagentlot")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -1669,7 +1699,7 @@ class Procedure(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to ._reagentlot")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._reagentlot")
         self.procedurereagentlotassociation = list_
 
     @hybrid_property
@@ -1705,13 +1735,13 @@ class Procedure(BaseClass):
                         output = output[0]
                     output.procedure = self
                 case _:
-                    logger.error(f"Unmatched value {item} for equipment")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipment")
                     continue
             if isinstance(output, ProcedureEquipmentAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _equipment")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._equipment")
         self.procedureequipmentassociation = list_
 
     @hybrid_property
@@ -1745,7 +1775,7 @@ class Procedure(BaseClass):
                     output = item
                     output.procedure_rank = iii
                 case _:
-                    logger.error(f"Unmatched value {item.__class__.__qualname__} for sample")
+                    logger.error(f"Unmatched value {item} for {item.__class__.__qualname__}._sample")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -1753,7 +1783,7 @@ class Procedure(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _sample")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._sample")
         self.proceduresampleassociation = list_
 
     @hybrid_property
@@ -1783,7 +1813,7 @@ class Procedure(BaseClass):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
+                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._started_date")
         value = output.replace(tzinfo=timezone)
         self._started_date = value
 
@@ -1814,7 +1844,7 @@ class Procedure(BaseClass):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
+                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._completed_date")
         value = output.replace(tzinfo=timezone)
         self._completed_date = value
 
@@ -1837,12 +1867,12 @@ class Procedure(BaseClass):
             case ProcedureType():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for proceduretype")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._proceduretype")
                 return
         if isinstance(output, ProcedureType):
             self._proceduretype = output
         else:
-            logger.error(f"Could not set _proceduretype to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._proceduretype to {type(output)}")
 
     @hybrid_property
     def run(self):
@@ -1864,12 +1894,12 @@ class Procedure(BaseClass):
             case Run():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for run")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._run")
                 return
         if isinstance(output, Run):
             self._run = output
         else:
-            logger.error(f"Unable to set run to {type(output)}")
+            logger.error(f"Unable to set {self.__class__.__qualname__}._run to {type(output)}")
     
     @hybrid_property
     def results(self):
@@ -1894,14 +1924,14 @@ class Procedure(BaseClass):
                 case Results():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for results")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._results")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, Results):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _results")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._results")
         self._results = list_
     
     @hybrid_property
@@ -1925,11 +1955,11 @@ class Procedure(BaseClass):
             case None:
                 output = None
             case _:
-                raise ValueError(f"Unmatched value {value} for repeat_of")
+                raise ValueError(f"Unmatched value {value} for {self.__class__.__qualname__}._repeat_of")
         if isinstance(output, Procedure):
             self._repeat_of = output
         else:
-            logger.error(f"Could not set repeat_of to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._repeat_of to {type(output)}")
     
     @hybrid_property
     def repeat(self) -> bool:
@@ -2099,13 +2129,6 @@ class Procedure(BaseClass):
             output = {k: v for k, v in dicto.items()}
         return output
 
-    # def make_procedure_platemap(self):
-    #     from backend.validators.pydant import PydProcedureType
-    #     dicto = [sample.to_pydantic() for sample in self.proceduresampleassociation]
-    #     proceduretype: PydProcedureType = self.proceduretype.to_pydantic()
-    #     html = proceduretype.construct_plate_map(sample_dicts=dicto, creation=False, vw_modifier=1.15)
-    #     return html
-
     @property
     def submissiontype(self):
         return self.run.clientsubmission.submissiontype
@@ -2132,72 +2155,6 @@ class Procedure(BaseClass):
                 assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)
                 assoc.save()
         
-
-    # def reorder_proceduretype_by_procedure(self):
-    #     proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
-    #         {
-    #             "reagentrole":[
-    #                     {"reagent":["reagentlot"]}]
-                        
-    #         }, 
-    #         {
-    #             "equipmentrole": [
-    #                     {"equipmentroleequipmentassociation":["equipment", "process"]}]
-    #         }
-    #         ])
-    #     procedure_dict = self.improved_dict_expand_fields([
-    #             "procedurereagentlotassociation",
-    #             "procedureequipmentassociation"
-    #         ])
-    #     for assoc in procedure_dict["procedurereagentlotassociation"]:
-    #         reagentrole = assoc['reagentrole']
-    #         reagent = assoc['reagent']
-    #         reagentlot = assoc['reagentlot']
-    #         try:
-    #             pt_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
-    #         except StopIteration:
-    #             continue
-    #         try:
-    #             pt_reagentlots = next(item['reagentlot'] for item in pt_reagent if item['name'] == reagent)
-    #         except StopIteration:
-    #             continue
-    #         rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
-    #         pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
-    #     for assoc in procedure_dict["procedureequipmentassociation"]:
-    #         equipmentrole = assoc['equipmentrole']
-    #         equipment = assoc['equipment']
-    #         try:
-    #             pt_equipment = next(item["equipmentroleequipmentassociation"] for item in proceduretype_dict['equipmentrole'] if item['name'] == equipmentrole)
-    #         except StopIteration:
-    #             continue
-    #         eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
-    #         pt_equipment.insert(0, pt_equipment.pop(eq_index))
-    #     for reagentrole in proceduretype_dict.get("reagentrole", []):
-    #         for reagent in reagentrole['reagent']:
-    #             if len(reagent['reagentlot']) < 1:
-    #                 reagent['reagentlot'].append(dict(name="", active=True))
-    #             else:
-    #                 try:
-    #                     reagent['reagentlot'].remove(dict(name="", active=True))
-    #                 except Exception:
-    #                     pass
-    #             try:
-    #                 check = "--New--" in (reagentlot['name'] for reagentlot in reagent['reagentlot'])
-    #             except TypeError:
-    #                 check = True
-    #             if not check:
-    #                 reagent['reagentlot'].append(dict(name="--New--", active=True))
-    #     regex = re.compile(r".*R\d$")
-    #     # run = Run.query(name=self.run.rsl_plate_number, limit=1)
-    #     proceduretype_dict['previous'] = [""] + [item.name for item in self.run.procedure if item.proceduretype.name == self.proceduretype.name and not bool(regex.match(item.name))]
-       
-    #     return proceduretype_dict
-
-    # def to_html(self, **kwargs) -> str:
-    #     details = self.reorder_proceduretype_by_procedure()
-    #     output = super().to_html(**details)
-    #     return output
-
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """
@@ -2267,14 +2224,14 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             case ProcedureType():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for proceduretype")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._proceduretype")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ProcedureType):
             self._proceduretype = output
         else:
-            logger.error(f"Could not set _proceduretype to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._proceduretype to {type(output)}")
 
     @hybrid_property
     def reagentrole(self):
@@ -2293,14 +2250,14 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             case ReagentRole():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for reagentrole")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagentrole")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
-            logger.error(f"Could not set _reagentrole to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
     @hybrid_property
     def name(self):
@@ -2420,7 +2377,7 @@ class ProcedureReagentLotAssociation(BaseClass):
         properly wired.
         """
         procedure = kwargs.pop('procedure', None)
-        reagentlot = kwargs.pop('procedure', None)
+        reagentlot = kwargs.pop('reagentlot', None)
         reagentrole = kwargs.pop('reagentrole', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
@@ -2499,14 +2456,14 @@ class ProcedureReagentLotAssociation(BaseClass):
             case ReagentLot():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for reagentlot")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagentlot")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ReagentLot):
             self._reagentlot = output
         else:
-            logger.error(f"Could not set _reagentlot to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._reagentlot to {type(output)}")
     
     @hybrid_property
     def procedure(self):
@@ -2525,14 +2482,14 @@ class ProcedureReagentLotAssociation(BaseClass):
             case Procedure():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for procedure")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._procedure")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            logger.error(f"Could not set _procedure to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._procedure to {type(output)}")
 
     @hybrid_property
     def reagentrole(self):
@@ -2551,14 +2508,14 @@ class ProcedureReagentLotAssociation(BaseClass):
             case ReagentRole():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for reagentrole")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagentrole")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
-            logger.error(f"Could not set _reagentrole to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
     @classmethod
     @setup_lookup
@@ -2711,14 +2668,14 @@ class ReagentRoleReagentAssociation(BaseClass):
             case Reagent():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for reagent")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagent")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Reagent):
             self._reagent = output
         else:
-            logger.error(f"Could not set _reagent to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._reagent to {type(output)}")
     
     @hybrid_property
     def reagentrole(self):
@@ -2737,14 +2694,14 @@ class ReagentRoleReagentAssociation(BaseClass):
             case ReagentRole():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for reagentrole")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagentrole")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ReagentRole):
             self._reagentrole = output
         else:
-            logger.error(f"Could not set _reagentrole to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
 
 
 class EquipmentRole(BaseClass):
@@ -2824,8 +2781,10 @@ class EquipmentRole(BaseClass):
                     output = EquipmentRoleEquipmentAssociation.query_or_create(equipment=item['name'], equipmentrole=self, **{k: v for k, v in item.items() if k != 'name'})
                 case EquipmentRoleEquipmentAssociation():
                     output = item
+                case Equipment():
+                    output = EquipmentRoleEquipmentAssociation(equipment=item, equipmentrole=self)
                 case _:
-                    logger.error(f"Can't add item {item} to {self.name}._equipment")
+                    logger.error(f"Unmatched value {item} to {self.__class__.__qualname__}._equipment")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -2833,7 +2792,7 @@ class EquipmentRole(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Can't add item {item} to {self.name}._equipment")
+                logger.error(f"Can't add item {output} to {self.__class__.__qualname__}._equipment")
                 continue
         self.equipmentroleequipmentassociation = list_
 
@@ -2857,10 +2816,12 @@ class EquipmentRole(BaseClass):
                         output = ProcedureTypeEquipmentRoleAssociation(proceduretype=item, equipmentrole=self)
                 case dict():
                     output = ProcedureTypeEquipmentRoleAssociation.query_or_create(proceduretype=item['name'], equipmentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                case ProcedureType():
+                    output = ProcedureTypeEquipmentRoleAssociation(proceduretype=item, equipmentrole=self)
                 case ProcedureTypeEquipmentRoleAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value type: {item} for EquipmentRole.proceduretype")
+                    logger.error(f"Unmatched value type: {item} for {self.__class__.__qualname__}._proceduretype")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -2868,7 +2829,7 @@ class EquipmentRole(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Unknown instance for Equipmentrole.proceduretype: {output}")
+                logger.error(f"Can't add {output} to {self.__class__.__qualname__}._proceduretype")
                 continue
         self.equipmentroleproceduretypeassociation = list_
 
@@ -3022,8 +2983,10 @@ class Equipment(BaseClass, LogMixin):
                     output = EquipmentRoleEquipmentAssociation.query_or_create(equipmentrole=item.get('name'), equipment=self, **{k: v for k, v in item.items() if k != 'name'})
                 case EquipmentRoleEquipmentAssociation():
                     output = item
+                case EquipmentRole():
+                    output = EquipmentRoleEquipmentAssociation(equipmentrole=item, equipment=self)
                 case _:
-                    logger.error(f"Unmatched value {value} for equipmentrole")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipmentrole")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -3031,7 +2994,7 @@ class Equipment(BaseClass, LogMixin):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {output} to equipmentrole")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._equipmentrole")
         self.equipmentequipmentroleassociation = list_
 
     @hybrid_property
@@ -3053,16 +3016,18 @@ class Equipment(BaseClass, LogMixin):
                         output = ProcedureEquipmentAssociation(procedure=item, equipment=self)
                 case dict():
                     output = ProcedureEquipmentAssociation(procedure=item['name'], equipment=self, **{k: v for k, v in item.items() if k != 'name'})
+                case Procedure():
+                    output = ProcedureEquipmentAssociation(procedure=item, equipment=self)
                 case ProcedureEquipmentAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {value} for procedure")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._procedure")
                     continue
             if isinstance(output, ProcedureEquipmentAssociation):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {item} to _procedure")
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._procedure")
         self.equipmentprocedureassociation = list_
 
     @hybrid_property
@@ -3249,7 +3214,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                 case Process():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for process")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._process")
                     return
             if isinstance(output, tuple):
                 output = output[0]
@@ -3257,7 +3222,7 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Can't add item {type(output)} to {self.name}._equipment")
+                logger.error(f"Can't add item {type(output)} to {self.__class__.__qualname__}._process")
                 continue
         self._process = list_
     
@@ -3278,14 +3243,14 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
             case Equipment():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for equipment")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._equipment")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Equipment):
             self._equipment = output
         else:
-            logger.error(f"Could not set _equipment to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._equipment to {type(output)}")
     
     @hybrid_property
     def equipmentrole(self):
@@ -3304,14 +3269,14 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
             case EquipmentRole():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for equipmentrole")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._equipmentrole")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, EquipmentRole):
             self._equipmentrole = output
         else:
-            logger.error(f"Could not set _equipmentrole to {value}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._equipmentrole to {value}")
         
     @classmethod
     @setup_lookup
@@ -3434,13 +3399,14 @@ class Process(BaseClass):
                 case EquipmentRoleEquipmentAssociation():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {value} for equipmentroleequipmentassociation")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._equipmentroleequipmentassociation")
                     continue
             if isinstance(output, EquipmentRoleEquipmentAssociation):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {item} to _equipmentroleequipmentassociation")
-        self._processversion = list_
+                logger.error(f"Could not add {output} to {self.__class__.__qualname__}._equipmentroleequipmentassociation")
+        # assign to the correct private attribute for equipment-role<->equipment associations
+        self._equipmentroleequipmentassociation = list_
     
     @hybrid_property
     def processversion(self):
@@ -3465,14 +3431,14 @@ class Process(BaseClass):
                 case ProcessVersion():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {value} for processversion")
+                    logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._processversion")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, ProcessVersion):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _processversion")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._processversion")
         self._processversion = list_
 
     @hybrid_property
@@ -3498,14 +3464,14 @@ class Process(BaseClass):
                 case Tips():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {value} for tips")
+                    logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._tips")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, Tips):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _tips")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tips")
         self._tips = list_
 
     @classmethod
@@ -3653,7 +3619,7 @@ class ProcessVersion(BaseClass):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
+                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}._date_verified")
         value = output.replace(tzinfo=timezone)
         self._date_verified = value
 
@@ -3674,14 +3640,14 @@ class ProcessVersion(BaseClass):
             case Process():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for process")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._process")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Process):
             self._process = output
         else:
-            logger.error(f"Could not set _process to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._process to {type(output)}")
     
     @hybrid_property
     def name(self) -> str:
@@ -3719,7 +3685,7 @@ class ProcessVersion(BaseClass):
                 else:
                     raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
             case _:
-                logger.error(f"Unmatched value {value} for active")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.active")
         self._active = output
 
     @property
@@ -3820,14 +3786,14 @@ class Tips(BaseClass):
                 case Process():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for process")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._process")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, Process):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _process")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._process")
         self._process = list_
     
     @hybrid_property
@@ -3851,14 +3817,14 @@ class Tips(BaseClass):
                 case TipsLot():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for tipslot")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._tipslot")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, TipsLot):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _tipslot")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tipslot")
         self._tipslot = list_
 
     @hybrid_property
@@ -3989,7 +3955,7 @@ class TipsLot(BaseClass, LogMixin):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
+                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
         value = output.replace(tzinfo=timezone)
         self._expiry = value
     
@@ -4010,14 +3976,14 @@ class TipsLot(BaseClass, LogMixin):
             case Tips():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for tips")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._tips")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Tips):
             self._tips = output
         else:
-            logger.error(f"Could not set _tips to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._tips to {type(output)}")
     
     @property
     def size(self) -> str:
@@ -4069,9 +4035,9 @@ class TipsLot(BaseClass, LogMixin):
                 elif value.lower() in ["true", "1", "yes", "on"]:
                     output = 1
                 else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.lot}.active")
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._active")
             case _:
-                raise TypeError(f"Unsupported type: {type(value)} for {self.lot}.active")
+                raise TypeError(f"Unsupported type: {type(value)} for {self.__class__.__qualname__}._active")
         self._active = output
 
     @classmethod
@@ -4202,7 +4168,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
         if isinstance(output, ProcedureEquipmentTipslotAssociation):
             self._procedureequipmenttipslotassociation = output
         else:
-            logger.error(f"Could not add {type(output)} to _tipslot")
+            logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tipslot")
 
     @hybrid_property
     def tipslot(self):
@@ -4221,14 +4187,14 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
             case TipsLot():
                 output = value
             case _:
-                logger.error(f"Unmatched value {type(value)} for tipslot")
+                logger.error(f"Unmatched value {type(value)} for {self.__class__.__qualname__}._tipslot")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, TipsLot):
             self._tipslot = output
         else:
-            logger.error(f"Could not add {type(output)} to _tipslot")
+            logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tipslot")
 
     @hybrid_property
     def name(self) -> str:
@@ -4399,7 +4365,7 @@ class ProcedureEquipmentAssociation(BaseClass):
                 case TipsLot():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {type(item)} for tipslot")
+                    logger.error(f"Unmatched value {type(item)} for {self.__class__.__qualname__}._tipslot")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -4407,7 +4373,7 @@ class ProcedureEquipmentAssociation(BaseClass):
             if isinstance(output, ProcedureEquipmentTipslotAssociation):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _tipslot")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tipslot")
         self._procedureequipmenttipslotassociation = list_
     
     @hybrid_property
@@ -4427,14 +4393,14 @@ class ProcedureEquipmentAssociation(BaseClass):
             case EquipmentRole():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for equipmentrole.")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._equipmentrole.")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, EquipmentRole):
             self._equipmentrole = output
         else:
-            logger.error(f"Could not set _equipmentrole to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._equipmentrole to {type(output)}")
     
     @hybrid_property
     def equipment(self):
@@ -4453,14 +4419,14 @@ class ProcedureEquipmentAssociation(BaseClass):
             case Equipment():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for equipment")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._equipment")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Equipment):
             self._equipment = output
         else:
-            logger.error(f"Could not set _equipment to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._equipment to {type(output)}")
     
     @hybrid_property
     def procedure(self):
@@ -4479,14 +4445,14 @@ class ProcedureEquipmentAssociation(BaseClass):
             case Procedure():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for procedure")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._procedure")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            logger.error(f"Could not set _procedure to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._procedure to {type(output)}")
     
     @hybrid_property
     def processversion(self):
@@ -4712,9 +4678,9 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                 elif value.lower() in ['false', '0', 'no', 'off']:
                     self._static = 0
                 else:
-                    raise ValueError(f"Cannot convert string {value} to boolean for {self.name}._static")
+                    raise ValueError(f"Cannot convert string {value} to boolean for {self.__class__.__qualname__}._static")
             case _:
-                raise TypeError(f"Unsupported type {type(value)} for {self.name}._static")
+                raise TypeError(f"Unsupported type {type(value)} for {self.__class__.__qualname__}._static")
 
     @hybrid_property
     def name(self):
@@ -4762,14 +4728,14 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             case ProcedureType():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for proceduretype")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._proceduretype")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ProcedureType):
             self._proceduretype = output
         else:
-            logger.error(f"Could not set _proceduretype to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._proceduretype to {type(output)}")
     
     @hybrid_property
     def equipmentrole(self):
@@ -4788,14 +4754,14 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             case EquipmentRole():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for equipmentrole")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._equipmentrole")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, EquipmentRole):
             self._equipmentrole = output
         else:
-            logger.error(f"Could not set _equipmentrole to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._equipmentrole to {type(output)}")
             
     @classproperty
     def aliases(cls):
@@ -4942,7 +4908,7 @@ class Results(BaseClass):
             case dict():
                 self._result = value
             case _:
-                logger.error(f"Unmatched value for result: {type(value)}")
+                logger.error(f"Unmatched value for {self.__class__.__qualname__}._result: {type(value)}")
         
     @hybrid_property
     def name(self):
@@ -5000,7 +4966,7 @@ class Results(BaseClass):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value} for datetime")
+                raise ValueError(f"Unmatched value {value} for {self.__class__.__qualname__}.date_analyzed")
         value = output.replace(tzinfo=timezone)
         self._date_analyzed = output
 
@@ -5021,14 +4987,14 @@ class Results(BaseClass):
             case ResultsType():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for resultstype")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._resultstype")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ResultsType):
             self._resultstype = output
         else:
-            logger.error(f"Could not set _resultstype to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._resultstype to {type(output)}")
     
     @hybrid_property
     def procedure(self):
@@ -5054,7 +5020,7 @@ class Results(BaseClass):
         if isinstance(output, Procedure):
             self._procedure = output
         else:
-            logger.error(f"Could not set _procedure to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._procedure to {type(output)}")
 
     @hybrid_property
     def sampleprocedureassociation(self):
@@ -5074,14 +5040,14 @@ class Results(BaseClass):
             case ProcedureSampleAssociation():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for sampleprocedureassociation")
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._sampleprocedureassociation")
                 return
         if isinstance(output, tuple):
             output = output[0]
         if isinstance(output, ProcedureSampleAssociation):
             self._sampleprocedureassociation = output
         else:
-            logger.error(f"Could not set _sampleprocedureassociation to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._sampleprocedureassociation to {type(output)}")
     
     @property
     def sample_id(self):
@@ -5175,7 +5141,7 @@ class ResultsType(BaseClass):
                 case ProcedureType():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for proceduretype")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._proceduretype")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
@@ -5183,7 +5149,7 @@ class ResultsType(BaseClass):
                 if output not in list_:
                     list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _proceduretype")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._proceduretype")
         self._proceduretype = list_
 
     @hybrid_property
@@ -5210,14 +5176,14 @@ class ResultsType(BaseClass):
                 case Results():
                     output = item
                 case _:
-                    logger.error(f"Unmatched value {item} for results")
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._results")
                     continue
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, Results):
                 list_.append(output)
             else:
-                logger.error(f"Could not add {type(output)} to _results")
+                logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}_results")
         self._results = list_
 
     @hybrid_property
@@ -5229,7 +5195,7 @@ class ResultsType(BaseClass):
         if isinstance(value, dict):
             self._info = value
         else:
-            raise ValueError(f"Unmatched type {type(value)} for info")
+            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._info")
 
     @hybrid_property
     def samples(self) -> dict:
@@ -5240,4 +5206,4 @@ class ResultsType(BaseClass):
         if isinstance(value, dict):
             self._samples = value
         else:
-            raise ValueError(f"Unmatched type {type(value)} for samples")
+            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._samples")

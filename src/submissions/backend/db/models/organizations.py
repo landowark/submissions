@@ -112,6 +112,7 @@ class ClientLab(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
+        list_ = []
         for item in value:
             match item:
                 case str():
@@ -128,9 +129,11 @@ class ClientLab(BaseClass):
             if isinstance(output, tuple):
                 output = output[0]
             if isinstance(output, Contact):
-                self._contact.append(output)
+                if output not in list_:
+                    list_.append(output)
             else:
                 logger.error(f"Can't add {type(output)} to _contact")
+        self._contact = list_
 
     ##### Query Function #####
     
@@ -230,6 +233,7 @@ class Contact(BaseClass):
             value = []
         if not isinstance(value, list):
             value = [value]
+        list_ = []
         for item in value:
             match item:
                 case str():
@@ -245,11 +249,14 @@ class Contact(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item} for clientlab")
                     continue
+            if isinstance(output, tuple):
+                output = output[0]
             if isinstance(output, ClientLab):
-                if output not in self._clientlab:
-                    self._contact.append(output)
+                if output not in list_:
+                    list_.append(output)
             else:
                 logger.error(f"Could not add {type(output)} to _clientlab")
+        self._clientlab = list_
 
     @hybrid_property
     def clientsubmission(self):

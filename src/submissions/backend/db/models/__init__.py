@@ -765,7 +765,7 @@ class BaseClass(Base):
                         return setter(self, value)
             except Exception as e:
                 # fall back to default behavior if detection fails
-                logger.error(f"Unable to call setter for {self.__str__()}.{attr} due to {e}")
+                logger.error(f"Unable to call setter for {self.__str__()}.{attr.__name__} due to {e}")
             try:
                 return super().__setattr__(key, value)
             except AttributeError as e:
