@@ -23,6 +23,7 @@ clientlab_contact = Table(
     extend_existing=True
 )
 
+
 class ClientLab(BaseClass):
     """
     Base of clientlab
@@ -71,7 +72,7 @@ class ClientLab(BaseClass):
     
     @hybrid_property
     def clientsubmission(self):
-        return self._clientsubmssion
+        return self._clientsubmission
 
     @clientsubmission.setter
     def clientsubmission(self, value):
@@ -89,13 +90,13 @@ class ClientLab(BaseClass):
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
                     output = item.to_sql(update=False)
-                    if isinstance(output, tuple):
-                        output = output[0]
                 case ClientSubmission():
                     output = item
                 case _:
                     logger.error(f"Unmatched value {item} for clientsubmission")
                     continue
+            if isinstance(output, tuple):
+                output = output[0]
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:
@@ -260,7 +261,7 @@ class Contact(BaseClass):
 
     @hybrid_property
     def clientsubmission(self):
-        return self._clientsubmssion
+        return self._clientsubmission
 
     @clientsubmission.setter
     def clientsubmission(self, value):
@@ -278,13 +279,13 @@ class Contact(BaseClass):
                     output = ClientSubmission.query_or_create(**item)
                 case PydClientSubmission():
                     output = item.to_sql(update=False)
-                    if isinstance(output, tuple):
-                        output = output[0]
                 case ClientSubmission():
                     output = item
                 case _:
                     logger.error(f"Unmatched value {item} for clientsubmission")
                     continue
+            if isinstance(output, tuple):
+                output = output[0]
             if isinstance(output, ClientSubmission):
                 self._clientsubmission.append(output)
             else:

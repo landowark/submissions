@@ -315,10 +315,17 @@ class PydEquipment(PydConcrete):
     asset_number: str = Field(default="NA", description="Asset number of this equipment.")
     name: str = Field(default="NA", description="Name of this equipment.")
     nickname: str = Field(default="NA", description="Nickname of this equipment.", validate_default=True)
+    manufacturer: str | None = Field(default="NA", description="Company that makes this equipment")
+    ref: str = Field(default="NA", description="Manufacturer's reference number")
     procedure: List[str] = Field(default_factory=list, repr=False)
     equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
-    # processversion: List[str] | List[dict] | None = Field(default_factory=list, repr=False)
-    # tipslot: List[str] | List[dict] | None = Field(default_factory=list, repr=False)
+    
+    @field_validator("manufacturer", "ref")
+    @classmethod
+    def validate_optional_strings(cls, value):
+        if value is None:
+            return "NA"
+        return value
 
     @field_validator('nickname')
     @classmethod

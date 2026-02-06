@@ -147,7 +147,7 @@ class ReagentRole(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.proceduretype.name for eq in self.reagentroleproceduretypeassociation]}")
                         output = ProcedureTypeReagentRoleAssociation(proceduretype=item, reagentrole=self)
                 case dict():
-                    output = ProcedureTypeReagentRoleAssociation(proceduretype=item['name'], reagentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureTypeReagentRoleAssociation(proceduretype=item, reagentrole=self, **{k: v for k, v in item.items() if k not in ['proceduretype']})
                 case ProcedureType():
                     output = ProcedureTypeReagentRoleAssociation(proceduretype=item, reagentrole=self)
                 case ProcedureTypeReagentRoleAssociation():
@@ -181,9 +181,11 @@ class ReagentRole(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.reagent.name for eq in self.reagentrolereagentassociation]}")
                         output = ReagentRoleReagentAssociation(reagent=item, reagentrole=self)
                 case dict():
-                    output = ReagentRoleReagentAssociation(reagent=item['name'], reagentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ReagentRoleReagentAssociation(reagent=item, reagentrole=self, **{k: v for k, v in item.items() if k not in ['reagent', "reagentrole"]})
                 case ReagentRoleReagentAssociation():
                     output = item
+                case Reagent():
+                    output = ReagentRoleReagentAssociation(reagent=item, reagentrole=self)
                 case _:
                     logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._reagent")
                     continue
@@ -269,7 +271,7 @@ class ReagentRole(BaseClass):
                 last_used = None
             if last_used:
                 reagents.insert(0, reagents.pop(reagents.index(last_used)))
-        return [reagent.to_pydantic(reagentrole=self.name) for reagent in reagents]
+        return [reagent.to_pydantic() for reagent in reagents]
 
     
 class Reagent(BaseClass, LogMixin):
@@ -280,6 +282,8 @@ class Reagent(BaseClass, LogMixin):
     id = Column(INTEGER, primary_key=True)  #: primary key
     _eol_ext = Column(Interval())  #: extension of life interval
     name = Column(String(64), unique=True)  #: reagent name
+    manufacturer = Column(String(32))
+    ref = Column(String(16))
     cost_per_ml = Column(FLOAT(2))  #: amount a millilitre of reagent costs
     _reagentlot = relationship("ReagentLot", back_populates="_reagent", cascade="all, delete-orphan")  #: joined parent reagent type
 
@@ -342,11 +346,13 @@ class Reagent(BaseClass, LogMixin):
                         logger.error(f"Couldn't find {item} in {[eq.reagentrole.name for eq in self.reagentreagentroleassociation]}")
                         output = ReagentRoleReagentAssociation(reagentrole=item, reagent=self)
                 case dict():
-                    output = ReagentRoleReagentAssociation(reagentrole=item['name'], reagent=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ReagentRoleReagentAssociation(reagentrole=item, reagent=self, **{k: v for k, v in item.items() if k not in ['reagentrole', 'reagent']})
                 case ReagentRoleReagentAssociation():
                     output = item
+                case ReagentRole():
+                    output = ReagentRoleReagentAssociation(reagentrole=item, reagent=self)
                 case _:
-                    logger.error(f"Unmatched value {value} for {self}._reagentrole")
+                    logger.error(f"Unmatched value {item} for {self}._reagentrole")
                     continue
             if isinstance(output, ReagentRoleReagentAssociation):
                 if output not in list_:
@@ -573,7 +579,7 @@ class ReagentLot(BaseClass):
 
     @hybrid_property
     def expiry(self):
-        return self._expiry
+        return self._expiry.replace(tzinfo=timezone) if self._expiry else None
 
     @expiry.setter
     def expiry(self, value):
@@ -1024,7 +1030,7 @@ class SubmissionType(BaseClass):
         if self._turnaround_time:
             return self._turnaround_time
         else:
-            return timedelta(days=3)
+            return timedelta(days=5)
         
     @turnaround_time.setter
     def turnaround_time(self, value):
@@ -1034,8 +1040,8 @@ class SubmissionType(BaseClass):
             case timedelta():
                 output = value
             case _:
-                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.turnaround_time")
-                output = timedelta(days=3)
+                logger.warning(f"Unmatched value {value} for {self.__class__.__qualname__}.turnaround_time")
+                output = timedelta(days=5)
         if isinstance(output, timedelta):
             self._turnaround_time = output
         else:
@@ -1115,7 +1121,7 @@ class SubmissionType(BaseClass):
         return regex
 
     @classmethod
-    def get_regex(cls, submission_type: SubmissionType | str | None = None) -> re.Pattern:
+    def get_regex(cls, submission_type: SubmissionType | str | dict | None = None) -> re.Pattern | None:
         """
         Gets the regex string for identifying a certain class of procedure.
 
@@ -1127,6 +1133,7 @@ class SubmissionType(BaseClass):
         """
         if isinstance(submission_type, dict):
             submission_type = submission_type.get('value', None)
+            
         if not isinstance(submission_type, SubmissionType):
             submission_type = cls.query(name=submission_type)
         if isinstance(submission_type, list):
@@ -1270,11 +1277,11 @@ class ProcedureType(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.equipmentrole.name for eq in self.proceduretypeequipmentroleassociation]}")
                         output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self)
                 case EquipmentRole():
-                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict.items() if k != 'name'})
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict.items() if k not in ['equipmentrole', 'proceduretype', 'name']})
                 case PydEquipmentRole():
-                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict.items() if k != 'name'})
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict.items() if k not in ['equipmentrole', 'proceduretype', 'name']})
                 case dict():
-                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureTypeEquipmentRoleAssociation(equipmentrole=item, proceduretype=self, **{k: v for k, v in item.items() if k not in ['equipmentrole', 'proceduretype', 'name']})
                 case ProcedureTypeEquipmentRoleAssociation():
                     output = item
                 case _:
@@ -1311,7 +1318,7 @@ class ProcedureType(BaseClass):
                 case PydReagentRole():
                     output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'proceduretype']})
                 case dict():
-                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item['name'], proceduretype=self, **{k: v for k, v in item.items() if k not in ['name', 'proceduretype']})
+                    output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.items() if k not in ['name', 'proceduretype']})
                 case ProcedureTypeReagentRoleAssociation():
                     output = item
                 case _:
@@ -1472,7 +1479,7 @@ class ProcedureType(BaseClass):
         return PydProcedure(**output)
     
     @property
-    def plate_grid(self) -> dict:
+    def ranked_plate(self):
         """
         Makes an x by y array to represent a plate.
 
@@ -1483,14 +1490,7 @@ class ProcedureType(BaseClass):
         Returns:
             dict: cell number : (row, column)
         """
-        # NOTE: columns/rows
-        # matrix = np.array([[0 for yyy in range(1, columns + 1)] for xxx in range(1, rows + 1)])
         # NOTE: rows/columns
-        matrix = np.array([[0 for xxx in range(1, self.plate_rows + 1)] for yyy in range(1, self.plate_columns + 1)])
-        return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
-
-    @property
-    def ranked_plate(self):
         matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
         return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
@@ -1685,7 +1685,7 @@ class Procedure(BaseClass):
                 case PydProcedureReagentLotAssociation():
                     output = item.to_sql()
                 case dict():
-                    output = ProcedureReagentLotAssociation(reagentlot=item['name'], procedure=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self, **{k: v for k, v in item.items() if k not in ['reagentlot', 'procedure']})
                 case ReagentLot():
                     output = ProcedureReagentLotAssociation(reagentlot=item, procedure=self)
                 case ProcedureReagentLotAssociation():
@@ -1723,9 +1723,9 @@ class Procedure(BaseClass):
                 case Equipment():
                     output = ProcedureEquipmentAssociation(equipment=item, procedure=self)
                 case PydEquipment():
-                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'procedure']})
+                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'procedure', 'equipment']})
                 case dict():
-                    output = ProcedureEquipmentAssociation(equipment=item['name'], procedure=self, **{k: v for k, v in item.items() if k not in ['name', 'procedure']})
+                    output = ProcedureEquipmentAssociation(equipment=item, procedure=self, **{k: v for k, v in item.items() if k not in ['name', 'procedure', "equipment"]})
                 case ProcedureEquipmentAssociation():
                     output = item
                     output.procedure = self
@@ -1768,9 +1768,9 @@ class Procedure(BaseClass):
                 case Sample():
                     output = ProcedureSampleAssociation(sample=item, procedure=self, rank=item._misc_info.get("rank", iii))
                 case PydSample():
-                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=getattr(item, "rank", iii), **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'rank']})
+                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=getattr(item, "rank", iii), **{k: v for k, v in item.improved_dict.items() if k not in ['name', 'rank', 'sample', 'procedure']})
                 case dict():
-                    output = ProcedureSampleAssociation(sample=item['name'], procedure=self, rank=item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['name', 'rank']})
+                    output = ProcedureSampleAssociation(sample=item, procedure=self, rank=item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['name', 'rank', 'sample', 'procedure']})
                 case ProcedureSampleAssociation():
                     output = item
                     output.procedure_rank = iii
@@ -1788,7 +1788,7 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def started_date(self):
-        return self._started_date
+        return self._started_date.replace(tzinfo=timezone) if self._started_date else None
 
     @started_date.setter
     def started_date(self, value):
@@ -1819,7 +1819,7 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def completed_date(self):
-        return self._completed_date
+        return self._completed_date.replace(tzinfo=timezone) if self._completed_date else None
 
     @completed_date.setter
     def completed_date(self, value):
@@ -1862,13 +1862,13 @@ class Procedure(BaseClass):
                 output = ProcedureType.query_or_create(**value)
             case PydProcedureType():
                 output = value.to_sql(update=False)
-                if isinstance(output, tuple):
-                    output = output[0]
             case ProcedureType():
                 output = value
             case _:
                 logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}._proceduretype")
                 return
+        if isinstance(output, tuple):
+            output = output[0]
         if isinstance(output, ProcedureType):
             self._proceduretype = output
         else:
@@ -1886,7 +1886,17 @@ class Procedure(BaseClass):
             case str():
                 output = Run.query(name=value, limit=1)
             case dict():
-                output = Run.query_or_create(**value)
+                # If caller provided a clientsubmission object inside the dict, avoid
+                # running Run.query_or_create which may build queries with pagination
+                # applied earlier; instead construct a Run instance directly.
+                try:
+                    cs = value.get("clientsubmission")
+                except Exception:
+                    cs = None
+                if isinstance(cs, BaseClass):
+                    output = Run(**value)
+                else:
+                    output = Run.query_or_create(**value)
             case PydRun():
                 output = value.to_sql(update=False)
                 if isinstance(output, tuple):
@@ -2056,6 +2066,7 @@ class Procedure(BaseClass):
     def delete(self, obj):
         logger.debug("Delete!")
 
+    # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property
     def details_dict(self) -> dict:
         output = super().details_dict
@@ -2086,8 +2097,6 @@ class Procedure(BaseClass):
             logger.error(f"Run: {self.run}, ClientSubmission: {self.run.clientsubmission}")
             output['clientlab'] = "Unknown"
         output['cost'] = 0.00
-        # output['platemap'] = self.make_procedure_platemap()
-        # logger.debug(f"details_dict:\n{pformat(output)}")
         return output
 
     def to_pydantic(self, **kwargs):
@@ -2778,7 +2787,7 @@ class EquipmentRole(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.equipment.name for eq in self.equipmentroleequipmentassociation]}")
                         output = EquipmentRoleEquipmentAssociation(equipment=item, equipmentrole=self)
                 case dict():
-                    output = EquipmentRoleEquipmentAssociation.query_or_create(equipment=item['name'], equipmentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = EquipmentRoleEquipmentAssociation(equipment=item, equipmentrole=self, **{k: v for k, v in item.items() if k not in ['name', 'equipment', "equipmentrole"]})
                 case EquipmentRoleEquipmentAssociation():
                     output = item
                 case Equipment():
@@ -2815,7 +2824,7 @@ class EquipmentRole(BaseClass):
                         logger.error(f"Couldn't find {item} in {[eq.proceduretype.name for eq in self.equipmentroleproceduretypeassociation]}")
                         output = ProcedureTypeEquipmentRoleAssociation(proceduretype=item, equipmentrole=self)
                 case dict():
-                    output = ProcedureTypeEquipmentRoleAssociation.query_or_create(proceduretype=item['name'], equipmentrole=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureTypeEquipmentRoleAssociation(proceduretype=item, equipmentrole=self, **{k: v for k, v in item.items() if k not in ['proceduretype', 'equipmentrole', 'name']})
                 case ProcedureType():
                     output = ProcedureTypeEquipmentRoleAssociation(proceduretype=item, equipmentrole=self)
                 case ProcedureTypeEquipmentRoleAssociation():
@@ -2880,23 +2889,22 @@ class EquipmentRole(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def get_processes(self, proceduretype: str | ProcedureType | None) -> Generator[Process, None, None]:
-        """
-        Get process used by this EquipmentRole
+    # def get_processes(self, proceduretype: str | ProcedureType | None=None) -> Generator[Process, None, None]:
+    #     """
+    #     Get process used by this EquipmentRole
 
-        Args:
-            proceduretype (str | SubmissionType | None): SubmissionType of interest
-            kittype (str | KitType | None, optional): KitType of interest. Defaults to None.
+    #     Args:
+    #         proceduretype (str | ProcedureType | None): ProcedureType of interest
 
-        Returns:
-            List[Process]: List of process
-        """
-        if isinstance(proceduretype, str):
-            proceduretype = SubmissionType.query(name=proceduretype)
-        for process in self.process:
-            if proceduretype and proceduretype not in process.proceduretype:
-                continue
-            yield process.name
+    #     Returns:
+    #         List[Process]: List of process
+    #     """
+    #     if isinstance(proceduretype, str):
+    #         proceduretype = ProcedureType.query(name=proceduretype)
+    #     for process in self.process:
+    #         if proceduretype and proceduretype not in process.proceduretype:
+    #             continue
+    #         yield process.name
 
 
 class Equipment(BaseClass, LogMixin):
@@ -2906,6 +2914,8 @@ class Equipment(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: id, primary key
     name = Column(String(64))  #: equipment name
+    manufacturer = Column(String(32))
+    ref = Column(String(16))
     _nickname = Column(String(64))  #: equipment nickname
     asset_number = Column(String(16))  #: Given asset number (corpo nickname if you will)
 
@@ -2980,7 +2990,7 @@ class Equipment(BaseClass, LogMixin):
                         logger.error(f"Couldn't find {item} in {[eq.equipmentrole.name for eq in self.equipmentequipmentroleassociation]}")
                         output = EquipmentRoleEquipmentAssociation(equipmentrole=item, equipment=self)
                 case dict():
-                    output = EquipmentRoleEquipmentAssociation.query_or_create(equipmentrole=item.get('name'), equipment=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = EquipmentRoleEquipmentAssociation(equipmentrole=item, equipment=self, **{k: v for k, v in item.items() if k not in ['equipment', 'equipmentrole', 'name']})
                 case EquipmentRoleEquipmentAssociation():
                     output = item
                 case EquipmentRole():
@@ -3015,7 +3025,7 @@ class Equipment(BaseClass, LogMixin):
                         logger.error(f"Couldn't find {item} in {[eq.procedure.name for eq in self.equipmentprocedureassociation]}")
                         output = ProcedureEquipmentAssociation(procedure=item, equipment=self)
                 case dict():
-                    output = ProcedureEquipmentAssociation(procedure=item['name'], equipment=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureEquipmentAssociation(procedure=item, equipment=self, **{k: v for k, v in item.items() if k not in ['name', 'procedure', 'equipment']})
                 case Procedure():
                     output = ProcedureEquipmentAssociation(procedure=item, equipment=self)
                 case ProcedureEquipmentAssociation():
@@ -3092,7 +3102,6 @@ class Equipment(BaseClass, LogMixin):
 
     
     @classmethod
-    @declared_attr
     def manufacturer_regex(cls) -> re.Pattern:
         """
         Creates regex to determine tip manufacturer
@@ -3594,7 +3603,7 @@ class ProcessVersion(BaseClass):
 
     @hybrid_property
     def date_verified(self):
-        return self._date_verified
+        return self._date_verified.replace(tzinfo=timezone) if self._date_verified else None
     
     @date_verified.setter
     def date_verified(self, value):
@@ -3885,7 +3894,7 @@ class TipsLot(BaseClass, LogMixin):
     lot = Column(String(64), unique=True)  #: lot number
     _expiry = Column(TIMESTAMP)  #: date of expiry
     _active = Column(INTEGER, default=1)  #: whether or not these tips are currently in use.
-    procedureequipmenttipslotassociation = relationship("ProcedureEquipmentTipslotAssociation", 
+    _procedureequipmenttipslotassociation = relationship("ProcedureEquipmentTipslotAssociation", 
                                                  back_populates="_tipslot", 
                                                  cascade="all, delete-orphan"
                                                  )
@@ -3900,6 +3909,7 @@ class TipsLot(BaseClass, LogMixin):
         tips = kwargs.pop('tips', None)
         expiry = kwargs.pop('expiry', None)
         active = kwargs.pop('active', None)
+        procedureequipmenttipslotassociation = kwargs.pop('procedureequipmenttipslotassociation', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -3909,6 +3919,14 @@ class TipsLot(BaseClass, LogMixin):
             except Exception:
                 try:
                     self._misc_info.update({'tips': tips})
+                except Exception:
+                    pass
+        if procedureequipmenttipslotassociation is not None:
+            try:
+                self.procedureequipmenttipslotassociation = procedureequipmenttipslotassociation
+            except Exception:
+                try:
+                    self._misc_info.update({'procedureequipmenttipslotassociation': procedureequipmenttipslotassociation})
                 except Exception:
                     pass
         if expiry is not None:
@@ -3932,7 +3950,7 @@ class TipsLot(BaseClass, LogMixin):
 
     @hybrid_property
     def expiry(self) -> str:
-        return self._expiry
+        return self._expiry.replace(tzinfo=timezone) if self._expiry else None
 
     @expiry.setter
     def expiry(self, value):
@@ -3985,9 +4003,48 @@ class TipsLot(BaseClass, LogMixin):
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._tips to {type(output)}")
     
+    @hybrid_property
+    def procedureequipmenttipslotassociation(self):
+        return self._procedureequipmenttipslotassociation
+
+    @procedureequipmenttipslotassociation.setter
+    def procedureequipmenttipslotassociation(self, value):
+        if value is None:
+            value = []
+        if not isinstance(value, list):
+            value = [value]
+        list_ = []
+        for item in value:
+            match item:
+                case dict():
+                    output = ProcedureEquipmentTipslotAssociation.query_or_create(**item)
+                case ProcedureEquipmentTipslotAssociation():
+                    output = item
+                case ProcedureEquipmentAssociation():
+                    # output = ProcedureEquipmentTipslotAssociation.query_or_create(
+                    #     procedure_id=item.procedure_id,
+                    #     equipment_id=item.equipment_id,
+                    #     equipmentrole_id=item.equipmentrole_id,
+                    #     tipslot_id=self.id
+                    # )
+                    output = ProcedureEquipmentTipslotAssociation(
+                        procedureequipmentassociation = item,
+                        tipslot = self
+                    )
+                case _:
+                    logger.error(f"Unmatched value {type(value)} for {self.__class__.__name__}._procedureequipmenttipslotassociation")
+                    return
+            if isinstance(output, tuple):
+                output = output[0]
+            if isinstance(output, ProcedureEquipmentTipslotAssociation):
+                list_.append(output)
+            else:
+                logger.error(f"Could not add {type(output)} to {self.__class__.__name__}._procedureequipmenttipslotassociation")
+        self._procedureequipmenttipslotassociation = list_
+
     @property
-    def size(self) -> str:
-        return f"{self.capacity}ul"
+    def capacity(self) -> str:
+        return f"{self.tips.capacity}ul"
 
     @hybrid_property
     def name(self) -> str:
@@ -4096,17 +4153,17 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     procedure_id = Column(
         INTEGER,
-        ForeignKey("_procedureequipmentassociation.procedure_id"),
+        # ForeignKey("_procedureequipmentassociation.procedure_id"),
         primary_key=True
     )
     equipment_id = Column(
         INTEGER,
-        ForeignKey("_procedureequipmentassociation.equipment_id"),
+        # ForeignKey("_procedureequipmentassociation.equipment_id"),
         primary_key=True
     )
     equipmentrole_id = Column(
         INTEGER,
-        ForeignKey("_procedureequipmentassociation.equipmentrole_id"),
+        # ForeignKey("_procedureequipmentassociation.equipmentrole_id"),
         primary_key=True
     )
     tipslot_id = Column(
@@ -4117,10 +4174,10 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     __table_args__ = (
         ForeignKeyConstraint(
-            ["procedure_id", "equipment_id", "equipmentrole_id"],
+            ["equipment_id", "procedure_id", "equipmentrole_id"],
             [
-                "_procedureequipmentassociation.procedure_id",
                 "_procedureequipmentassociation.equipment_id",
+                "_procedureequipmentassociation.procedure_id",
                 "_procedureequipmentassociation.equipmentrole_id",
             ],
         ),
@@ -4145,7 +4202,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     _tipslot = relationship(
         "TipsLot",
-        back_populates="procedureequipmenttipslotassociation",
+        back_populates="_procedureequipmenttipslotassociation",
         foreign_keys=[tipslot_id]
     )
 
@@ -4161,14 +4218,14 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
             case ProcedureEquipmentAssociation():
                 output = value
             case _:
-                logger.error(f"Unmatched value {type(value)} for tipslot")
+                logger.error(f"Unmatched value {type(value)} for {self.__class__.__name__}._procedureequipmentassociation")
                 return
         if isinstance(output, tuple):
             output = output[0]
-        if isinstance(output, ProcedureEquipmentTipslotAssociation):
-            self._procedureequipmenttipslotassociation = output
+        if isinstance(output, ProcedureEquipmentAssociation):
+            self._procedureequipmentassociation = output
         else:
-            logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._tipslot")
+            logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._procedureequipmentassociation")
 
     @hybrid_property
     def tipslot(self):
@@ -4941,7 +4998,7 @@ class Results(BaseClass):
 
     @hybrid_property
     def date_analyzed(self):
-        return self._date_analyzed
+        return self._date_analyzed.replace(tzinfo=timezone) if self._started_date else None
     
     @date_analyzed.setter
     def date_analyzed(self, value):

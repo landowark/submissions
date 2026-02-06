@@ -8,10 +8,12 @@ from pprint import pformat
 from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
-from typing import Any, ClassVar, Generator, List
+from typing import Any, ClassVar, Generator, List, Type
 from types import UnionType
 from tools import classproperty, jinja_template_loading, row_keys, sanitize_object_for_json
 from backend.db import models
+# NOTE: Below is necessary for test environment
+from backend.db.models import BaseClass
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.orm import DeclarativeMeta, ColumnProperty
@@ -41,7 +43,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return [arg for arg in args if arg[0] not in extra_fields]
 
     name: str | dict = Field(default="NA", validate_default=True)
-    sql_instance: models.BaseClass | None = Field(default=None, validate_default=True, repr=False)
+    sql_instance: BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
 
     # _sql_object: ClassVar = None

@@ -19,10 +19,19 @@ class PydReagent(PydAbstract):
     reagentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this reagent can fill.", repr=False)
     eol_ext: int = Field(default=0, description="Extension of Life (days)")
     name: str = Field(default="NA", validate_default=True, description="Name of this reagent.")
+    manufacturer: str | None = Field(default="NA", description="Company that makes this reagent.")
+    ref: str | None = Field(default="NA", description="Manufacturer's reference number")
     comment: str = Field(default="", validate_default=True)
     cost_per_ml: float = Field(default=0.00, description="Cost of a millilitre of this reagent.")
     reagentlot: List[str] | List[dict] = Field(default_factory=list, description="Lot numbers of this reagent.", repr=False)
 
+    @field_validator("manufacturer", "ref")
+    @classmethod
+    def validate_optional_strings(cls, value):
+        if value is None:
+            return "NA"
+        return value
+    
     @field_validator("eol_ext", mode="before")
     @classmethod
     def timedelta_to_int(cls, value):

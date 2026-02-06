@@ -1098,7 +1098,7 @@ class Run(BaseClass, LogMixin):
                         else:
                             field_value = dict(value=self.__getattribute__(key), missing=missing)
                     except AttributeError:
-                        logger.error(f"{key} is not available in {self}")
+                        logger.warning(f"{key} is not available in {self}")
                         field_value = dict(value="NA", missing=True)
             new_dict[key] = field_value
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
@@ -2551,7 +2551,7 @@ class ProcedureSampleAssociation(BaseClass):
         try:
             output = max([item.id for item in cls.query()])
         except ValueError as e:
-            logger.error(f"Unable to autoincrement id due to: {e}, setting to 0")
+            logger.warning(f"Unable to autoincrement id due to: {e}, setting to 0")
             output = 0
         return output + procedure_rank
 
