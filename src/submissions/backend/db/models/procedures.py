@@ -2074,7 +2074,7 @@ class Procedure(BaseClass):
             output['proceduretype'] = output['proceduretype'].details_dict['name']
         except AttributeError:
             pass
-        output['results'] = [result.details_dict for result in output['results']]
+        output['results'] = [result.details_dict for result in self.results]
         run_samples = [sample for sample in self.run.sample]
         active_samples = [sample.details_dict for sample in self.proceduresampleassociation
                           if sample.sample.sample_id in [s.sample_id for s in run_samples]]
@@ -2347,15 +2347,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         Returns:
             Generator: Generates of reagents.
         """
-        reagents = self.reagentrole.control
-        try:
-            regex = self.uses['exclude_regex']
-        except KeyError:
-            regex = "^$"
-        relevant_reagents = [reagent for reagent in reagents if
-                             not check_regex_match(pattern=regex, check=str(reagent.lot))]
-        for rel_reagent in relevant_reagents:
-            yield rel_reagent
+        return (reagent for reagent in self.reagentrole.reagent)
 
 
 class ProcedureReagentLotAssociation(BaseClass):
@@ -4044,7 +4036,7 @@ class TipsLot(BaseClass, LogMixin):
 
     @property
     def capacity(self) -> str:
-        return f"{self.tips.capacity}ul"
+        return f"{self.tips.capacity}uL" if self.tips and self.tips.capacity else "Unknown capacity"
 
     @hybrid_property
     def name(self) -> str:
@@ -4970,9 +4962,12 @@ class Results(BaseClass):
     @hybrid_property
     def name(self):
         try:
-            assoc = self.procedure.name
-        except AttributeError:
-            assoc = "Unassigned Results Association"
+            assoc = self.sampleprocedureassociation.name
+        except AttributeError:    
+            try:
+                assoc = self.procedure.name
+            except AttributeError:
+                assoc = "Unassigned Results Association"
         try:
             resultstype = self.resultstype.name
         except AttributeError:
@@ -4998,7 +4993,7 @@ class Results(BaseClass):
 
     @hybrid_property
     def date_analyzed(self):
-        return self._date_analyzed.replace(tzinfo=timezone) if self._started_date else None
+        return self._date_analyzed.replace(tzinfo=timezone) if self._date_analyzed else None
     
     @date_analyzed.setter
     def date_analyzed(self, value):
@@ -5103,6 +5098,10 @@ class Results(BaseClass):
             output = output[0]
         if isinstance(output, ProcedureSampleAssociation):
             self._sampleprocedureassociation = output
+            try:
+                self.procedure = output.procedure
+            except Exception as e:
+                logger.error(f"Problem setting procedure from sampleprocedureassociation: {e}")
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._sampleprocedureassociation to {type(output)}")
     
@@ -5139,8 +5138,8 @@ class ResultsType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     name = Column(String(64))
-    _info = Column(JSON)
-    _samples = Column(JSON)
+    _info = Column(JSON) #: where to look for procedure information
+    _samples = Column(JSON) # where to look for sample information
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
     _proceduretype = relationship(ProcedureType, back_populates="_resultstype", secondary=proceduretype_resulttype)
 

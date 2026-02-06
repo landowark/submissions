@@ -18,7 +18,9 @@ from backend.db.models import (
     EquipmentRoleEquipmentAssociation,
     Tips,
     TipsLot,
-    ProcedureEquipmentTipslotAssociation
+    ProcedureEquipmentTipslotAssociation,
+    Results,
+    ProcedureSampleAssociation
 )
 from backend.validators.pydant import (
     PydProcedure
@@ -31,6 +33,7 @@ from unittest import main
 from pytz import timezone as tz
 import logging
 
+
 logger = logging.getLogger(f"testing.{__name__}")
 
 
@@ -40,8 +43,6 @@ class DBBasicFunctions(DatabaseTestCase):
     def test_db_creation(self):
         self.assertIsInstance(self.session, Session)
         self.assertEqual(self.engine.url.render_as_string(), "sqlite:///:memory:")
-
-
 
 
 class DBReagentRole(DatabaseTestCase):
@@ -857,6 +858,129 @@ class DBTipsLot(DatabaseTestCase):
         self.tipslot.active = "on"
         self.assertTrue(self.tipslot.active)
 
+
+class DBResultsType(DatabaseTestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.resultstype = ResultsType.query(limit=1)
+
+    def test_query(self):
+        self.assertIsInstance(self.resultstype, ResultsType)
+
+    
+
+    def test_get_proceduretype(self):
+        try:
+            self.assertIsInstance(self.resultstype.proceduretype, list)
+        except AssertionError as e:
+            logger.error(f"{type(self.resultstype.proceduretype)} is not an associationlist object.")
+            raise e  
+        try:
+            self.assertIsInstance(self.resultstype.proceduretype[0], ProcedureType)
+        except AssertionError as e:
+            logger.error(f"{self.resultstype.proceduretype[0]} is not a ProcedureType object.")
+            raise e
+        
+    def test_set_proceduretype(self):
+        test_insert = ProcedureType(name="Insert ProcedureType")
+        self.resultstype.proceduretype = [test_insert]
+        self.assertIn(test_insert, self.resultstype.proceduretype)
+        test_insert = dict(name="Dict ProcedureType")
+        self.resultstype.proceduretype = [test_insert]
+        self.assertIn("Dict ProcedureType", [item.name for item in self.resultstype.proceduretype])
+
+    def test_get_results(self):
+        try:
+            self.assertIsInstance(self.resultstype.results, list)
+        except AssertionError as e:
+            logger.error(f"{type(self.resultstype.results)} is not an associationlist object.")
+            raise e  
+        try:
+            self.assertIsInstance(self.resultstype.results[0], Results)
+        except AssertionError as e:
+            logger.error(f"{self.resultstype.results[0]} is not a Results object.")
+            raise e
+
+    def test_set_results(self):
+        test_insert = Results(result=dict(test="Insert Results", value=1234))
+        self.resultstype.results = [test_insert]
+        self.assertIn(test_insert, self.resultstype.results)
+        
+
+class DBResults(DatabaseTestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.results = Results.query(limit=1)
+
+    def test_query(self):
+        self.assertIsInstance(self.results, Results)
+
+    def test_get_resultstype(self):
+        try:
+            self.assertIsInstance(self.results.resultstype, ResultsType)
+        except AssertionError as e:
+            logger.error(f"{self.results.resultstype} is not a ResultsType object.")
+            raise e
+        
+    def test_set_resultstype(self):
+        test_insert = ResultsType(name="Insert ResultsType")
+        self.results.resultstype = test_insert
+        self.assertEqual(test_insert, self.results.resultstype)
+        test_insert = dict(name="Dict ResultsType")
+        self.results.resultstype = test_insert
+        self.assertEqual("Dict ResultsType", self.results.resultstype.name)
+
+    def test_get_procedure(self):
+        try:
+            self.assertIsInstance(self.results.procedure, Procedure)
+        except AssertionError as e:
+            logger.error(f"{self.results.procedure} is not a Procedure object.")
+            raise e
+        
+    def test_set_procedure(self):
+        test_insert = Procedure(name="Insert Procedure")
+        self.results.procedure = test_insert
+        self.assertEqual(test_insert, self.results.procedure)
+        test_insert = dict(name="Dict Procedure")
+        self.results.procedure = test_insert
+        self.assertEqual("Dict Procedure", self.results.procedure.name)
+
+    def test_get_name(self):
+        self.assertEqual(self.results.name, 'Unknown Run-Unknown ProcedureType->Test Sample (rank=1)-Test ResultsType')
+
+    def test_get_date_analyzed(self):
+        try:
+            self.assertIsInstance(self.results.date_analyzed, datetime)
+        except AssertionError as e:
+            logger.error(f"{type(self.results.date_analyzed)} is not a datetime object.")
+            raise e  
+        dt = datetime.now().replace(tzinfo=tz("America/Winnipeg"))
+        self.assertEqual(self.results.date_analyzed.date(), dt.date())
+        self.assertEqual(self.results.date_analyzed.hour, dt.hour)
+        self.assertEqual(self.results.date_analyzed.minute, dt.minute)
+
+    def test_set_date_analyzed(self):
+        test_insert = "2026-02-02"
+        dt = datetime.combine(date(2026, 2, 2), time(hour=0, minute=0)).replace(tzinfo=tz("America/Winnipeg"))
+        self.results.date_analyzed = test_insert
+        self.assertEqual(self.results.date_analyzed, dt)
+
+    def test_get_sampleprocedureassociation(self):
+        try:
+            self.assertIsInstance(self.results.sampleprocedureassociation, ProcedureSampleAssociation)
+        except AssertionError as e:
+            logger.error(f"{self.results.sampleprocedureassociation} is not a Proceduresampleassociation object.")
+            raise e
+        
+    def test_set_sampleprocedureassociation(self):
+        test_insert = ProcedureSampleAssociation(procedure=Procedure(name="Insert Procedure"), sample=Sample(sample_id="Insert Sample"))
+        self.results.sampleprocedureassociation = test_insert
+        self.assertEqual(test_insert, self.results.sampleprocedureassociation)
+
+    def test_get_sample_id(self):
+        self.assertEqual(self.results.sample_id, "Test Sample")
 
 if __name__ == "__main__":
     main()
