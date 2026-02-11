@@ -788,6 +788,7 @@ def yaml_regex_creator(loader, node):
     nodes = loader.construct_sequence(node)
     name = nodes[0].replace(" ", "_")
     abbr = nodes[1]
+<<<<<<< Updated upstream
     return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)"
 
 
@@ -797,6 +798,9 @@ def get_index_of_value_in_dict_list(key: str, value, list_):
     if len(indices) == 1:
         return indices[0], entries[0]
     return list(zip(indices, entries))
+=======
+    return rf"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+>>>>>>> Stashed changes
 
 
 def super_splitter(ins_str: str, substring: str, idx: int) -> str:
