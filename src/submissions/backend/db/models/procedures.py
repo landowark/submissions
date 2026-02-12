@@ -2,17 +2,16 @@
 All kittype and reagent related models
 """
 from __future__ import annotations
-from pathlib import Path
 from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
 from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query, declared_attr
+from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
-from tools import check_authorization, setup_lookup, check_regex_match, flatten_list, timezone
+from tools import check_authorization, setup_lookup, flatten_list, timezone
 from typing import List, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError

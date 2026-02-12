@@ -39,30 +39,31 @@ def baseclass_instance():
         def constructed_name(self) -> str:
             return "ConcreteBaseClass"
         
-    @classproperty
-    def _sql_name(cls) -> str:
-        return "BaseClass"
+        @classproperty
+        def _sql_name(cls) -> str:
+            return "BaseClass"
 
-    # @classproperty
-    # def _sql_class(cls) -> models.BaseClass:
-    #     # Lazy import here to reduce the chance of circular-import issues
-    #     # (models may import pydant elsewhere during package import).
-        
-    #     try:
-    #         return getattr(models, cls._sql_name)
-       
-    #     except AttributeError as e:
-    #         # Provide a clearer error message listing available top-level
-    #         # model names to help debugging name mismatches / import order.
-    #         available = [n for n in dir(models) if not n.startswith("_")]
-    #         raise AttributeError(
-    #             f"SQL model '{cls._sql_name}' not found on backend.db.models. "
-    #             f"Available top-level attributes: {available}") from e
+        @classproperty
+        def _sql_class(cls) -> models.BaseClass:
+            # Lazy import here to reduce the chance of circular-import issues
+            # (models may import pydant elsewhere during package import).
+            try:
+                return getattr(models, cls._sql_name)
+           
+            except AttributeError as e:
+                # Provide a clearer error message listing available top-level
+                # model names to help debugging name mismatches / import order.
+                available = [n for n in dir(models) if not n.startswith("_")]
+                raise AttributeError(
+                    f"SQL model '{cls._sql_name}' not found on backend.db.models. "
+                    f"Available top-level attributes: {available}") from e
         
     instance = PydConcreteBaseClass(test_dict={"value": 1, "name": 2})
     return instance
 
 
 def test_filter_fields(baseclass_instance):
-    filtered = baseclass_instance.filter_fields("test_dict")
+    filtered = baseclass_instance.filter_field("test_dict")
     assert filtered == 1
+
+
