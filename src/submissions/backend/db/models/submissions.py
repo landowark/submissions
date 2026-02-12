@@ -629,8 +629,14 @@ class Run(BaseClass, LogMixin):
                 except Exception:
                     pass
         # Resolve proceduretype
+        # If started_date not provided, try to default from associated clientsubmission.
+        # If clientsubmission isn't set yet (e.g. when creating an empty instance to be
+        # populated later by query_or_create), fall back to now to avoid AttributeError.
         if started_date is None:
-            started_date = self.clientsubmission.submitted_date
+            try:
+                started_date = self.clientsubmission.submitted_date
+            except Exception:
+                started_date = datetime.now()
         try:
             self.started_date = started_date
         except Exception:
@@ -1194,12 +1200,17 @@ class Run(BaseClass, LogMixin):
             case _:
                 pass
         # NOTE: Split query results into pages of size {page_size}
+        # Do not apply .limit()/.offset() directly on the Query here because
+        # execute_query will add filters afterwards. Applying limit/offset
+        # before filters causes SQLAlchemy to raise when filters are added.
         if page_size > 0:
-            query = query.limit(page_size)
-        page = page - 1
-        if page is not None:
-            query = query.offset(page * page_size)
-        return cls.execute_query(query=query, limit=limit, **kwargs)
+            offset = (page - 1) * page_size if page is not None else None
+            # If no explicit limit was set, limit the results to the page size
+            if limit == 0:
+                limit = page_size
+        else:
+            offset = None
+        return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     # NOTE: Custom context events for the ui
 
@@ -2104,6 +2115,7 @@ class RunSampleAssociation(BaseClass):
             case str():
                 output = Run.query(name=value, limit=1)
             case dict():
+                print(value)
                 output = Run.query_or_create(**value)
             case PydRun():
                 output = value.to_sql(update=False)
@@ -2464,7 +2476,7 @@ class ProcedureSampleAssociation(BaseClass):
                     output = Results.query_or_create(**item)
                 case PydResults():
                     output = item.to_sql()
-                case Procedure():
+                case Results():
                     output = item
                 case _:
                     logger.error(f"Unmatched value {item} for results")

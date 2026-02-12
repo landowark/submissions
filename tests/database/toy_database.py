@@ -215,6 +215,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     instance.procedurereagentlotassociation[0].reagentrole = created.get("ReagentRole", None)
                     instance.equipment=created.get("Equipment", [])
                     instance.procedureequipmentassociation[0].equipmentrole = created.get("EquipmentRole", None)
+                    instance.procedureequipmentassociation[0].processversion = created.get("ProcessVersion", None)
                     tipslot = created.get("TipsLot", [])
                     if tipslot:
                         tipslot.procedureequipmenttipslotassociation=instance.procedureequipmentassociation[0]

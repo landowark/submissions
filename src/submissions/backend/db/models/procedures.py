@@ -546,6 +546,7 @@ class ReagentLot(BaseClass):
     
     @procedure.setter
     def procedure(self, value):
+        from backend.validators.pydant import PydProcedure
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -563,7 +564,7 @@ class ReagentLot(BaseClass):
                 case PydProcedure():
                     output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.improved_dict.items() if k != 'name'})
                 case dict():
-                    output = ProcedureReagentLotAssociation(procedure=item['name'], reagentlot=self, **{k: v for k, v in item.items() if k != 'name'})
+                    output = ProcedureReagentLotAssociation(procedure=item, reagentlot=self, **{k: v for k, v in item.items() if k not in ['procedure', 'reagentlot']})
                 case ProcedureReagentLotAssociation():
                     output = item
                 case _:
@@ -579,7 +580,7 @@ class ReagentLot(BaseClass):
 
     @hybrid_property
     def expiry(self):
-        return self._expiry.replace(tzinfo=timezone) if self._expiry else None
+        return self._expiry if self._expiry else None
 
     @expiry.setter
     def expiry(self, value):
@@ -1788,7 +1789,7 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def started_date(self):
-        return self._started_date.replace(tzinfo=timezone) if self._started_date else None
+        return self._started_date if self._started_date else None
 
     @started_date.setter
     def started_date(self, value):
@@ -1819,7 +1820,7 @@ class Procedure(BaseClass):
 
     @hybrid_property
     def completed_date(self):
-        return self._completed_date.replace(tzinfo=timezone) if self._completed_date else None
+        return self._completed_date if self._completed_date else None
 
     @completed_date.setter
     def completed_date(self, value):
@@ -3195,39 +3196,6 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         return equipmentrole_subquery + "->" + equipment_subquery
     
     @hybrid_property
-    def process(self):
-        return self._process
-
-    @process.setter
-    def process(self, value):
-        from backend.validators.pydant import PydProcess
-        if not isinstance(value, list):
-            value = [value]
-        list_ = []
-        for item in value:
-            match item:
-                case str():
-                    output = Process.query(name=item, limit=1)
-                case dict():
-                    output = Process.query_or_create(**item)
-                case PydProcess():
-                    output = item.to_sql(update=False)
-                case Process():
-                    output = item
-                case _:
-                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._process")
-                    return
-            if isinstance(output, tuple):
-                output = output[0]
-            if isinstance(output, Process):
-                if output not in list_:
-                    list_.append(output)
-            else:
-                logger.error(f"Can't add item {type(output)} to {self.__class__.__qualname__}._process")
-                continue
-        self._process = list_
-    
-    @hybrid_property
     def equipment(self):
         return self._equipment
 
@@ -3279,6 +3247,40 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._equipmentrole to {value}")
         
+    @hybrid_property
+    def process(self):
+        return self._process
+
+    @process.setter
+    def process(self, value):
+        from backend.validators.pydant import PydProcess
+        if not isinstance(value, list):
+            value = [value]
+        list_ = []
+        for item in value:
+            match item:
+                case str():
+                    output = Process.query(name=item, limit=1)
+                case dict():
+                    output = Process.query_or_create(**item)
+                case PydProcess():
+                    output = item.to_sql(update=False)
+                case Process():
+                    output = item
+                case _:
+                    logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._process")
+                    return
+            if isinstance(output, tuple):
+                output = output[0]
+            if isinstance(output, Process):
+                if output not in list_:
+                    list_.append(output)
+            else:
+                logger.error(f"Can't add item {type(output)} to {self.__class__.__qualname__}._process")
+                continue
+        self._process = list_
+    
+
     @classmethod
     @setup_lookup
     def query(cls,
@@ -3595,7 +3597,7 @@ class ProcessVersion(BaseClass):
 
     @hybrid_property
     def date_verified(self):
-        return self._date_verified.replace(tzinfo=timezone) if self._date_verified else None
+        return self._date_verified if self._date_verified else None
     
     @date_verified.setter
     def date_verified(self, value):
@@ -3942,7 +3944,7 @@ class TipsLot(BaseClass, LogMixin):
 
     @hybrid_property
     def expiry(self) -> str:
-        return self._expiry.replace(tzinfo=timezone) if self._expiry else None
+        return self._expiry if self._expiry else None
 
     @expiry.setter
     def expiry(self, value):
@@ -4248,6 +4250,10 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
     @hybrid_property
     def name(self) -> str:
         try:
+            procedure = self.procedureequipmentassociation.procedure.name
+        except AttributeError as e:
+            procedure = "Unknown Procedure"
+        try:
             equipmentrole = self.procedureequipmentassociation.equipmentrole.name
         except AttributeError as e:
             equipmentrole = "Unknown EquipmentRole"
@@ -4255,7 +4261,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
             tipslot = self.tipslot.name
         except AttributeError as e:
             tipslot = "Unknown TipsLot"
-        return f"{equipmentrole}->{tipslot}"
+        return f"{procedure}({equipmentrole})->{tipslot}"
 
     def __init__(self, *args, **kwargs):
         """
@@ -4561,31 +4567,31 @@ class ProcedureEquipmentAssociation(BaseClass):
     def comment(self):
         return self._comment
 
-    @property
-    def process(self):
-        return ProcessVersion.query(id=self.processversion_id)
+    # @property
+    # def process(self):
+    #     return ProcessVersion.query(id=self.processversion_id)
 
-    @property
-    def tips(self):
-        try:
-            return TipsLot.query(id=self.tipslot_id, limit=1)
-        except AttributeError:
-            return None
+    # @property
+    # def tips(self):
+    #     try:
+    #         return TipsLot.query(id=self.tipslot_id, limit=1)
+    #     except AttributeError:
+    #         return None
 
-    def to_sub_dict(self) -> dict:
-        """
-        This RunEquipmentAssociation as a dictionary
+    # def to_sub_dict(self) -> dict:
+    #     """
+    #     This RunEquipmentAssociation as a dictionary
 
-        Returns:
-            dict: This RunEquipmentAssociation as a dictionary
-        """
-        try:
-            process = self.process.name
-        except AttributeError:
-            process = "No process found"
-        output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comment,
-                      processes=[process], role=self.equipmentrole, nickname=self.equipment.nickname)
-        return output
+    #     Returns:
+    #         dict: This RunEquipmentAssociation as a dictionary
+    #     """
+    #     try:
+    #         process = self.process.name
+    #     except AttributeError:
+    #         process = "No process found"
+    #     output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comment,
+    #                   processes=[process], role=self.equipmentrole, nickname=self.equipment.nickname)
+    #     return output
 
     def to_pydantic(self) -> PydProcedureEquipmentAssociation:
         """
@@ -4993,7 +4999,7 @@ class Results(BaseClass):
 
     @hybrid_property
     def date_analyzed(self):
-        return self._date_analyzed.replace(tzinfo=timezone) if self._date_analyzed else None
+        return self._date_analyzed if self._date_analyzed else None
     
     @date_analyzed.setter
     def date_analyzed(self, value):

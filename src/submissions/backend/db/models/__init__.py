@@ -379,13 +379,14 @@ class BaseClass(Base):
         if "name" in query_kwargs.keys():
             query_kwargs = dict(name=query_kwargs.get("name"))
         instance = cls.query(limit=1, **query_kwargs)
-        if not instance or isinstance(instance, list):
+        if instance is None or isinstance(instance, list):
             instance = cls()
             new = True
         for k, v in kwargs.items():
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
+            print(f"k: {k}")
             try:
                 setattr(instance, k, v)
             except AttributeError:

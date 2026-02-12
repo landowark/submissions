@@ -788,19 +788,7 @@ def yaml_regex_creator(loader, node):
     nodes = loader.construct_sequence(node)
     name = nodes[0].replace(" ", "_")
     abbr = nodes[1]
-<<<<<<< Updated upstream
-    return f"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\\d{2}-?\\d{2}-?\\d{2}(?:(_|-)?\\d?([^_0123456789\\sA-QS-Z]|$)?R?\\d?)?)"
-
-
-def get_index_of_value_in_dict_list(key: str, value, list_):
-    entries = [item for item in list_ if item.get(key, None) == value]
-    indices = [list_.index(entry) for entry in entries]
-    if len(indices) == 1:
-        return indices[0], entries[0]
-    return list(zip(indices, entries))
-=======
     return rf"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
->>>>>>> Stashed changes
 
 
 def super_splitter(ins_str: str, substring: str, idx: int) -> str:
@@ -1111,7 +1099,7 @@ def sanitize_object_for_json(input_dict: dict) -> dict | str:
     return output
 
 
-def pop_first_matching_dict(list_of_dicts, key, value_to_match):
+def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["pop", "return", "index"] = "pop") -> dict | Tuple[int, dict]:
     """
     Removes and returns the first dictionary in the list where
     the specified key's value matches the value_to_match.
@@ -1137,8 +1125,13 @@ def pop_first_matching_dict(list_of_dicts, key, value_to_match):
             case _:
                 raise ValueError(f"Unmatched value {type(d)}")
         if d_value == value_to_match:
-            # Pop and return the dictionary at the found index
-            return list_of_dicts.pop(index)
+            if mode == "pop":
+                # Pop and return the dictionary at the found index
+                return list_of_dicts.pop(index)
+            elif mode == "return":
+                return d
+            elif mode == "index":
+                return index, d
     # Return None if no matching dictionary is found
     raise StopIteration(f"Could not find {key} value")
 

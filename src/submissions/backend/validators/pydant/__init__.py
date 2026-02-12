@@ -46,7 +46,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     sql_instance: BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
 
-    # _sql_object: ClassVar = None
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
     
@@ -113,14 +112,31 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 output = data
         return output
 
+    # @model_validator(mode='after')
+    # @classmethod
+    # def validate_model(cls, data):
+    #     for key, value in data.model_extra.items():
+    #         # NOTE: make sure all date variables are date objects.
+    #         if key in cls._sql_class.timestamps:
+    #             if isinstance(value, str):
+    #                 data.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
+    #         # NOTE: translate row letter to an integer
+    #         if key == "row" and isinstance(value, str):
+    #             if value.lower() in string.ascii_lowercase[0:8]:
+    #                 try:
+    #                     value = row_keys[value]
+    #                 except KeyError:
+    #                     value = value
+    #             data.__setattr__(key, value)
+    #     return data
+
     @model_validator(mode='after')
-    @classmethod
-    def validate_model(cls, data):
-        for key, value in data.model_extra.items():
+    def validate_model(self):
+        for key, value in self.model_extra.items():
             # NOTE: make sure all date variables are date objects.
-            if key in cls._sql_class.timestamps:
+            if key in self._sql_class.timestamps:
                 if isinstance(value, str):
-                    data.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
+                    self.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
             # NOTE: translate row letter to an integer
             if key == "row" and isinstance(value, str):
                 if value.lower() in string.ascii_lowercase[0:8]:
@@ -128,8 +144,9 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         value = row_keys[value]
                     except KeyError:
                         value = value
-                data.__setattr__(key, value)
-        return data
+                self.__setattr__(key, value)
+        # return data
+        return self
 
     def filter_field(self, key: str) -> Any:
         """

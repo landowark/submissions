@@ -1,6 +1,7 @@
 
 import sys
-sys.path.append("C:\\Users\\lwark\\Documents\\python\\submissions\\src\\submissions")
+if "C:\\Users\\lwark\\Documents\\python\\submissions\\src\\submissions" not in sys.path:
+    sys.path.append("C:\\Users\\lwark\\Documents\\python\\submissions\\src\\submissions")
 from unittest import TestCase
 from toy_database import make_toy_db
 import logging

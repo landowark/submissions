@@ -11,7 +11,7 @@ from dateutil.parser import parse, ParserError
 from backend.validators import RSLNamer
 from backend.validators.pydant import PydConcrete
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, Report, check_not_nan, pop_first_matching_dict, report_result, row_keys, sort_dict_by_list, timezone
+from tools import Alert, Report, check_not_nan, find_first_matching_dict, report_result, row_keys, sort_dict_by_list, timezone
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -607,7 +607,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 sample_id = ""
             row, column = self.proceduretype.ranked_plate[sample_dict['index']]
             try:
-                sample = pop_first_matching_dict(self.sample, "sample_id", sample_dict['sample_id'])
+                sample = find_first_matching_dict(self.sample, "sample_id", sample_dict['sample_id'])
             except StopIteration:
                 sample = PydSample(sample_id=sample_id)
             # Do NOT change the sample_id (we want to preserve the existing sample's identity).

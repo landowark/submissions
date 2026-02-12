@@ -13,7 +13,7 @@ from . import CustomWebEnginePage
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
 from frontend.widgets import CustomWebEnginePage
-from tools import get_application_from_parent, render_details_template, get_index_of_value_in_dict_list
+from tools import get_application_from_parent, render_details_template, find_first_matching_dict
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -128,8 +128,8 @@ class ProcedureCreation(QDialog):
         expiry = datetime.datetime.strptime(expiry, "%Y-%m-%d")
         expiry = datetime.datetime.combine(expiry, datetime.datetime.max.time())
         pyd = PydReagentLot(reagent=reagent, lot=lot, expiry=expiry, active=True)
-        reagentrole_idx, rr_dummy = get_index_of_value_in_dict_list(key="name", value=reagentrole, list_=self.proceduretype_dict['reagentrole'])
-        reagent_idx, _ = get_index_of_value_in_dict_list(key="name", value=reagent, list_=rr_dummy['reagent'])
+        reagentrole_idx, rr_dummy = find_first_matching_dict(key="name", value_to_match=reagentrole, list_of_dicts=self.proceduretype_dict['reagentrole'], mode="index")
+        reagent_idx, _ = find_first_matching_dict(key="name", value_to_match=reagent, list_of_dicts=rr_dummy['reagent'], mode="index")
         self.proceduretype_dict['reagentrole'][reagentrole_idx]['reagent'][reagent_idx]['reagentlot'].insert(0, pyd)
         self.set_html()
 

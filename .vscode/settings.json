@@ -16,6 +16,17 @@
         ],
     "python.defaultInterpreterPath": ".venv\\Scripts\\python.exe",
     "python.terminal.activateEnvironment": true,
-    "python.analysis.exclude": ["**/site-packages", "**/temp", "**/__pycache__", ".venv", "env"]
+    "python.analysis.exclude": [
+        "**/site-packages",
+        "**/temp",
+        "**/__pycache__",
+        ".venv",
+        "env"
+    ],
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
     
 }
