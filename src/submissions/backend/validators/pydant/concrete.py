@@ -320,7 +320,7 @@ class PydEquipment(PydConcrete):
     procedure: List[str] = Field(default_factory=list, repr=False)
     equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
     
-    @field_validator("manufacturer", "ref")
+    @field_validator("manufacturer", "ref", mode="before")
     @classmethod
     def validate_optional_strings(cls, value):
         if value is None:
@@ -555,6 +555,25 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             value = datetime.now()
         return value
 
+    @field_validator("sample", mode="before")
+    @classmethod
+    def convert_association(cls, value):
+        output = None
+        if isinstance(value, list):
+            output = []
+            for sample in value:
+                match sample:
+                    case PydProcedureSampleAssociation():
+                        output.append(sample.sample)
+                    case PydSample() | str():
+                        output.append(sample)
+                    case dict():
+                        output.append(PydSample(**sample))
+                    case _:
+                        logger.error(f"Unmatched type {type(sample)} for sample")
+                        continue
+        return output
+
     def __init__(self, **data):
         super().__init__(**data)
         if isinstance(self.run, PydRun):
@@ -605,7 +624,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
-            row, column = self.proceduretype.ranked_plate[sample_dict['index']]
+            try:
+                row, column = self.proceduretype.ranked_plate[sample_dict['index']]
+            except KeyError:
+                continue
             try:
                 sample = find_first_matching_dict(self.sample, "sample_id", sample_dict['sample_id'])
             except StopIteration:
@@ -790,7 +812,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
-        logger.debug(type(output['proceduretype']))
         output['excluded'] = ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
                               "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
         if isinstance(output['proceduretype'], PydProcedureType):
@@ -868,7 +889,12 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def make_procedure_platemap(self):
         from backend.validators.pydant import PydProcedureType
         #proceduretype: PydProcedureType = self.proceduretype.to_pydantic()
-        html = self.proceduretype.construct_plate_map(sample_dicts=self.sample, creation=False, vw_modifier=1.15)
+        try:
+            assert all([isinstance(s, PydSample) for s in self.sample])
+            sample_dicts = self.sample
+        except AssertionError:
+            sample_dicts = [s.to_pydantic() for s in self.sql_instance.sample]
+        html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
     def to_html(self, **kwargs) -> str:
@@ -894,7 +920,7 @@ class PydClientSubmission(PydConcrete):
     submissiontype: dict | None
     submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
     clientlab: dict | None
-    sample_count: dict | None
+    sample_count: dict | None = Field(default=dict(value=0, missing=True), validate_default=True)
     full_batch_size: int | dict = Field(default=0)
     submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
@@ -941,6 +967,8 @@ class PydClientSubmission(PydConcrete):
     @field_validator("sample_count", mode="before")
     @classmethod
     def enforce_sample_count(cls, value):
+        if value is None:
+            value = dict(value=0, missing=True)
         if isinstance(value, str) or isinstance(value, int):
             value = dict(value=value, missing=False)
         return value

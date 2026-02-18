@@ -1,17 +1,31 @@
 import pyodbc
-import sys, os
+import sys, tkinter.filedialog
 from pathlib import Path
-import tkinter.filedialog
+from os import environ
+from dotenv import load_dotenv
 
-# 1. Configuration - Update these with your actual server details
-server = os.getenv('SQL_SERVER', None)
-database = os.getenv('SQL_DATABASE', None)
+load_dotenv()
 
-if not server or not database:
-    print("Error: SQL_SERVER and SQL_DATABASE environment variables must be set.")
-    sys.exit(1)
+
 
 def main():
+
+    # 1. Configuration - Update these with your actual server details
+    server = environ.get('SQL_SERVER', None)
+    database = environ.get('SQL_DATABASE', None)
+
+    if not server or not database:
+        print("Error: SQL_SERVER and SQL_DATABASE environment variables must be set.")
+        sys.exit(1)
+    else:
+        conn_str = (
+            "DRIVER={ODBC Driver 18 for SQL Server};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            "Trusted_Connection=yes;"
+            "TrustServerCertificate=yes;"
+        )
+        print(f"Connection: {conn_str}")
 
     file_path = tkinter.filedialog.askopenfilename(title="Select the Excel file to upload", filetypes=[("Excel files", "*.xlsx *.xls")])
     
@@ -35,14 +49,7 @@ def main():
         sys.exit(1)
 
     # 2. Establish Connection (Using Windows Authentication)
-    conn_str = (
-        "DRIVER={ODBC Driver 18 for SQL Server};"
-        f"SERVER={server};"
-        f"DATABASE={database};"
-        "Trusted_Connection=yes;"
-        "TrustServerCertificate=yes;"
-    )
-
+    
     try:
         conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()

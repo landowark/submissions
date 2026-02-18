@@ -1,0 +1,577 @@
+<html lang="en"><head>
+    
+    <meta charset="UTF-8">
+    
+    <style>
+        
+        /* Tooltip container */
+.tooltip {
+  position: relative;
+  display: inline-block;
+  border-bottom: 1px dotted black; /* If you want dots under the hoverable text */
+}
+
+/* Tooltip text */
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 120px;
+  background-color: black;
+  color: #fff;
+  text-align: center;
+  padding: 5px 0;
+  border-radius: 6px;
+
+  /* Position the tooltip text - see examples below! */
+  position: absolute;
+  z-index: 1;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -60px;
+}
+/* Show the tooltip text when you mouse over the tooltip container */
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  font-size: large;
+}
+
+.data-link {
+  color: blue;
+  text-decoration: underline;
+  text-decoration-color: blue;
+}
+
+.data-link:hover {
+  color: #ff33ff;
+  text-decoration-color: #ff33ff;
+  cursor: pointer;
+}
+
+div.procedure_creation_leftright {
+  width:100%;
+  overflow:auto;
+  border-style: solid;
+  border-width: 2px;
+  background-color: #FFFFFF;
+  display: flex;
+}
+
+div.procedure_creation_leftright div.left {
+  height: 100%;
+  width:15%;
+  float:left;
+  border-style: solid;
+  border-width: 1px;
+  background-color: #FFF4A3;
+  padding: 5px;
+  flex: 0.25;
+}
+
+div.procedure_creation_leftright div.right {
+  height: 100%;
+  width:84%;
+  float:left;
+  border-style: solid;
+  border-width: 1px;
+  background-color:#D9EEE1;
+  padding: 5px;
+  flex: 0.75;
+  object-fit: contain;
+}
+
+.dropdown {
+  width: 100%;
+}
+
+.form_text.full {
+  width: 97%;
+}
+
+div.gallery {
+  width: 100%;
+  object-fit: contain;
+}
+
+.context-menu {
+  display: none;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 150px;
+  margin: 32px;
+  position: absolute;
+
+}
+
+
+.context-menu--active {
+  display: block;
+  z-index: 10;
+  background-color: white;
+  border: 2px solid black;
+  padding: 5px;
+}
+
+.plate {
+    display: inline-grid;
+    grid-auto-flow: column;
+    place-content: center center;
+    grid-gap: 2px;
+}
+
+.well {
+    border: 1px solid #000;
+    padding: 20px;
+    display: flex;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    background-color: #ffffff;
+    cursor: move;
+}
+
+.well:hover {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
+}
+
+.grid-item p {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+ul.no-bullets {
+  list-style-type: none; /* Remove bullets */
+  padding: 0; /* Remove padding */
+  margin: 0; /* Remove margins */
+}
+
+.negativecontrol {
+  background-color: cyan;
+}
+
+.positivecontrol {
+  background-color: pink;
+}
+
+.regular {
+  background-color: greenyellow;
+}
+
+/*  */
+.nested {
+  margin-left: 50px;
+  padding: 0 18px;
+  overflow: hidden;
+  background-color: #f1f1f1;
+  .nested {
+        background-color: #ffffff;
+  }
+}
+
+.hidden_input {
+    display: none;
+}
+
+/* Style the button that is used to open and close the collapsible content */
+.collapsible {
+  background-color: #eee;
+  color: #444;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  border: none;
+  text-align: left;
+  outline: none;
+  font-size: 15px;
+}
+
+/* Add a background color to the button if it is clicked on (add the .active class with JS), and when you move the mouse over it (hover) */
+.active, .collapsible:hover {
+  background-color: #ccc;
+}
+
+.unused {
+  color: red;
+  text-decoration-line: line-through;
+  text-decoration-color: red;
+}
+
+.grid-container {
+          display: grid;
+          grid-auto-flow: column;
+        }
+
+.disable_section {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* Dual List */
+
+.dual-listbox-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px; /* Space between panels */
+}
+
+.list-panel {
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.list-panel select {
+    width: 200px;
+    height: 250px;
+    border: none;
+    outline: none;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.controls button {
+    padding: 8px 12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.controls button:hover {
+    background-color: #0056b3;
+}
+
+
+        
+    </style>
+    
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    
+</head>
+<body>
+
+
+
+<h2 id="ObjectName">Manage Equipment</h2>
+
+<select id="initial_object" onchange="update_selection(this.value)">
+    
+        <option value=""></option>
+    
+        <option value="--New--">--New--</option>
+    
+        <option value="Kingfisher 1">Kingfisher 1</option>
+    
+        <option value="Kingfisher 2">Kingfisher 2</option>
+    
+        <option value="Kingfisher 3">Kingfisher 3</option>
+    
+        <option value="Kingfisher 4">Kingfisher 4</option>
+    
+        <option value="Biomek">Biomek</option>
+    
+        <option value="Kingfisher Standalone">Kingfisher Standalone</option>
+    
+        <option value="Quant Studio 1">Quant Studio 1</option>
+    
+        <option value="Quant Studio 2">Quant Studio 2</option>
+    
+        <option value="Quant Studio 3">Quant Studio 3</option>
+    
+</select>
+<div id="object_form" data-dual-list-handler-attached="true"><br>
+
+
+<label for="name" style="font-size: medium;">name 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Name of this equipment.</span>
+    </div>:
+</label><br>
+
+
+<input type="text" id="name" name="name" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="asset_number" style="font-size: medium;">asset_number 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Asset number of this equipment.</span>
+    </div>:
+</label><br>
+
+
+<input type="text" id="asset_number" name="asset_number" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="nickname" style="font-size: medium;">nickname 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Nickname of this equipment.</span>
+    </div>:
+</label><br>
+
+
+<input type="text" id="nickname" name="nickname" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="manufacturer" style="font-size: medium;">manufacturer 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Company that makes this equipment</span>
+    </div>:
+</label><br>
+
+
+<input type="text" id="manufacturer" name="manufacturer" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+<label for="ref" style="font-size: medium;">ref 
+    <div class="tooltip"><u style="color: blue;">?</u>
+        <span class="tooltiptext">Manufacturer's reference number</span>
+    </div>:
+</label><br>
+
+
+<input type="text" id="ref" name="ref" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+
+<br><br>
+
+
+
+<br><br>
+
+
+<button type="button" onclick="backend.submit()">Submit</button>
+</div>
+
+
+
+
+
+
+
+
+<script>
+    
+
+var backend;
+if (typeof QWebChannel !== 'undefined') {
+    new QWebChannel(qt.webChannelTransport, function(channel) {
+        backend = channel.objects.backend;
+        console.log('QWebChannel ready, backend:', backend);
+    });
+} else {
+    console.warn('QWebChannel or qt not available yet - make sure qwebchannel.js is included');
+}
+</script>
+
+<script>
+    
+async function update_selection(value) {
+    console.log("Selected value:", value);  
+    if (backend) {
+        await backend.update_selection(value).then((html) => {
+            document.getElementById('object_form').innerHTML = html;
+        })
+    } else {
+        console.warn('Backend is not available yet.');
+    }      
+    backend.save_html(); 
+}
+
+function instumentedattribute_change(field, value) {
+    console.log("Field changed:", field, "New value:", value);
+    var editting = document.getElementById('name');
+    try {
+        if (editting.value === "Default SubmissionType") {
+            alert("Cannot modify Default SubmissionType.");
+            return; // Prevent changes to Default SubmissionType
+        }
+    } catch (error) {
+        console.error("Error occurred:", error.message);
+    }
+    backend.update_instrumentedattribute(field, value);
+}
+
+function moveOptions(sourceListId, destinationListId, data, form) {
+    field = sourceListId.split("_")[0];
+    console.log("Moving", field, "options from", sourceListId, "to", destinationListId);
+    var sourceList = document.getElementById(sourceListId);
+    var destinationList = document.getElementById(destinationListId);
+    var manage_name = document.getElementById('ObjectName').innerText.replace('Manage ', '');
+    var editting = document.getElementById('name').value;
+    Array.from(sourceList.selectedOptions).forEach(option => {
+        if (sourceListId.includes("available")) {
+            if (form) {
+                if (!form.id.includes("association_Form")) {
+                    backend.add_relationship(field, option.value, data);
+                } else {
+                    console.warn("Not going to add relationship for association")
+                }
+            } else {
+                backend.add_relationship(field, option.value, data);
+            }
+        } else if (sourceListId.includes("selected")) {
+            if (option.value === "Default SubmissionType" && ["ProcedureType"].includes(manage_name)) {
+                alert("Cannot remove default submission type.");
+                return; // Skip moving the default option
+            } else if (editting === "Default SubmissionType" && field === "proceduretype" && destinationListId.includes("available")) {
+                alert("Can't remove procedure types from Default SubmissionType.");
+                return; // Skip moving the default option
+            } else {
+                backend.remove_relationship(field, option.value);
+            }
+        }
+        destinationList.appendChild(option);
+    });
+}
+
+function get_association_form_data(association_form, field) {
+    if (!association_form) return null;
+
+    var formdata = new FormData(association_form);
+
+    if (association_form.id.includes("association")) {
+        console.log("This is an association.");
+        
+        // 1. Find the containers
+        let containers = association_form.querySelectorAll(".dual-listbox-container");
+        
+        containers.forEach(container => {
+            // 2. Target the specific select element with the 'selected' class
+            let selectElement = container.querySelector("select.selected");
+            
+            if (selectElement) {
+                // 3. Map the options correctly
+                let optionValues = Array.from(selectElement.options).map(opt => opt.value);
+                
+                optionValues.forEach(val => formdata.append(container.id, val));
+            }
+        });
+    }
+
+    // 4. Handle multiple values correctly
+    // Object.fromEntries only keeps the last value for duplicate keys.
+    // Use this logic to ensure arrays stay as arrays:
+    var formObject = {};
+    // formdata.forEach((value, key) => {
+    //     if (!formObject[key]) {
+    //         formObject[key] = value;
+    //         return;
+    //     }
+    //     if (!Array.isArray(formObject[key])) {
+    //         formObject[key] = [formObject[key]];
+    //     }
+    //     formObject[key].push(value);
+    // });
+
+    // Iterate unique keys to build the final object
+    for (let key of new Set(formdata.keys())) {
+        let allValues = formdata.getAll(key);
+        
+        // Check if this key belongs to a dual-listbox container
+        const isListBox = document.getElementById(key)?.classList.contains('dual-listbox-container');
+
+        // Logic: If it's a listbox OR has multiple values, store as an array.
+        // Otherwise, store as a single value (string/file).
+        if (isListBox || allValues.length > 1) {
+            formObject[key] = allValues;
+        } else {
+            formObject[key] = allValues[0];
+        }
+    }
+
+
+    console.log("Form object: ", JSON.stringify(formObject, null, 4));
+    return formObject;
+}
+
+
+// Replace per-button attachment with delegated handler
+function setupDualListDelegation() {
+    const container = document.getElementById('object_form');
+    if (!container || container.dataset.dualListHandlerAttached) return;
+    container.addEventListener('click', (e) => {
+        const t = e.target;
+        container.dataset.dualListHandlerAttached = 'true';
+        
+        if (t.classList && t.classList.contains('addSelectedBtn')) {
+            e.preventDefault();
+            console.log("Add button clicked (delegated):", t.name);
+            this_form = document.getElementById(`${t.name}association_Form`);
+            let data = {};
+            if (this_form) {
+                data = get_association_form_data(form=this_form, field=t.name);
+            }
+            moveOptions(`${t.name}_availableOptions`, `${t.name}_selectedOptions`, data, t.form);
+        } else if (t.classList && t.classList.contains('removeSelectedBtn')) {
+            e.preventDefault();
+            console.log("Remove button clicked (delegated):", t.name);
+            moveOptions(`${t.name}_selectedOptions`, `${t.name}_availableOptions`);
+        } else {
+            return;
+        }
+        
+    });
+    container.dataset.dualListHandlerAttached = 'true';
+}
+
+// initialize for any static content on load
+document.addEventListener('DOMContentLoaded', () => {
+    setupDualListDelegation();
+});
+
+async function createAssociationForm(field, selectedValue) {
+    console.log("Creating association form for field:", field, "and selected value:", selectedValue);
+    await backend.get_association_form(field, selectedValue).then((html) => {
+        document.getElementById(field + 'association_Form').innerHTML = html;
+        backend.save_html()
+    });
+}
+
+// Example usage for a button click
+// var addButtons = document.getElementsByClassName('addSelectedBtn');
+// var removeButtons = document.getElementsByClassName('removeSelectedBtn');
+
+// for (let i = 0; i < addButtons.length; i++) {
+//     addButtons[i].addEventListener('click', (e) => {
+//         e.preventDefault();
+//         console.log("Add button clicked:", addButtons[i].name);
+//         moveOptions(addButtons[i].name + '_availableOptions', addButtons[i].name + '_selectedOptions');
+//     });
+// };
+
+// for (let i = 0; i < removeButtons.length; i++) {
+//     removeButtons[i].addEventListener('click', (e) => {
+//         e.preventDefault();
+//         console.log("Remove button clicked:", removeButtons[i].name);
+//         moveOptions(removeButtons[i].name + '_selectedOptions', removeButtons[i].name + '_availableOptions');
+//     });
+// }
+
+// document.getElementById('addButton').addEventListener('click', () => {
+//   moveOptions('availableOptions', 'selectedOptions');
+// });
+
+// document.getElementById('removeButton').addEventListener('click', () => {
+//   moveOptions('selectedOptions', 'availableOptions');
+// });
+
+
+
+</script>
+
+
+
+
+
+</body></html>

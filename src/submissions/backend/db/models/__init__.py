@@ -189,7 +189,8 @@ class BaseClass(Base):
         try:
             return [item.name.strip("_") for item in cls.__table__.columns if isinstance(item.type, TIMESTAMP)]
         except AttributeError as e:
-            logger.error(f"Could not get timestamps due to {e}")
+            if not cls.__qualname__ == "BaseClass":
+                logger.error(f"Could not get timestamps due to {e}")
             return []
 
     def _serialize_misc_value(self, value):
@@ -946,7 +947,7 @@ class BaseClass(Base):
                     except AttributeError as e:
                         logger.error(f"Skipping {key} in {self} due to {e}")
                         continue
-                    logger.debug(f"Value {key} is of type {type(value)}")
+                    # logger.debug(f"Value {key} is of type {type(value)}")
                     match value:
                         case InstrumentedAttribute():
                             pass

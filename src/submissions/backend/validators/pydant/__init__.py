@@ -8,7 +8,7 @@ from pprint import pformat
 from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
-from typing import Any, ClassVar, Generator, List, Type
+from typing import Any, ClassVar, Generator, List
 from types import UnionType
 from tools import classproperty, jinja_template_loading, row_keys, sanitize_object_for_json
 from backend.db import models
@@ -30,6 +30,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     model_config = ConfigDict(
         extra="allow",
         arbitrary_types_allowed=True,
+        validate_assignment=True
     )
 
     def __repr_args__(self) -> core_schema.ReprArgs:
@@ -112,24 +113,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 output = data
         return output
 
-    # @model_validator(mode='after')
-    # @classmethod
-    # def validate_model(cls, data):
-    #     for key, value in data.model_extra.items():
-    #         # NOTE: make sure all date variables are date objects.
-    #         if key in cls._sql_class.timestamps:
-    #             if isinstance(value, str):
-    #                 data.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
-    #         # NOTE: translate row letter to an integer
-    #         if key == "row" and isinstance(value, str):
-    #             if value.lower() in string.ascii_lowercase[0:8]:
-    #                 try:
-    #                     value = row_keys[value]
-    #                 except KeyError:
-    #                     value = value
-    #             data.__setattr__(key, value)
-    #     return data
-
     @model_validator(mode='after')
     def validate_model(self):
         for key, value in self.model_extra.items():
@@ -166,7 +149,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 pass
         return item
 
-    def improved_dict_expand_fields(self, fields: List[str | dict]) -> dict:
+    def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str) -> dict:
         """
         Expands fields in the improved dict for use in forms.
 
@@ -176,6 +159,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             dict: Expanded dictionary.
         """
+        # Allow callers to pass a single dict or string instead of a list
+        if isinstance(fields, dict):
+            fields = [fields]
+        elif isinstance(fields, str):
+            fields = [fields]
+
         if len(fields) == 0:
             fields = self.improved_dict.keys()
         dict_ = self.improved_dict
@@ -205,6 +194,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         case x if issubclass(value.__class__, models.BaseClass):
                             output = value.to_pydantic().improved_dict
                         case _:
+                            logger.warning(f"Got unmatched type during expand_fields: {value.__class__.__name__}")
                             continue
                 case dict():
                     key = list(field.keys())[0]
@@ -216,7 +206,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         continue
                     match value:
                         case _AssociationList():
-                            output = []
+                            # output = []
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
@@ -227,9 +217,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                                     output.append(target)
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
+                            
                         case x if issubclass(value.__class__, models.BaseClass):
-                            output = value.to_pydantic().improved_dict
+                            output = value.to_pydantic().improved_dict_expand_fields(new_fields)
                         case _:
+                            logger.warning(f"Got unmatched type during expand_fields: {value.__class__.__name__}")
                             continue
                 case _:
                     continue
@@ -297,10 +289,14 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         for k, v in sanitized_dicto.items():
             # logger.debug(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
             try:
-                class_attr = getattr(self._sql_class, k, None).property
+                class_attr = getattr(self._sql_class, k, None)
             except AttributeError as e:
                 logger.error(f"Couldn't get class_attr {k} for {self._sql_class} due to {e}")
                 continue
+            if class_attr is None:
+                continue
+            if hasattr(class_attr, "property"):
+                class_attr = class_attr.property
             match class_attr:
                 case hybrid_property():
                     continue
@@ -397,15 +393,26 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             try:
                                 type_name = annotation.__name__
                             except AttributeError:
+                                logger.error(f"Could not determine type name for field {field} on {cls.__name__} with annotation {cls.model_fields[field].annotation}")
                                 type_name = "Skipped"
                 if type_name == "ObjectAssociationProxyInstance":
                     if is_new:
+                        logger.warning(f"AssociationProxyInstance field {field} on {cls.__name__} is being treated as Skipped for new instance.")
                         type_name = "Skipped"
             case "ObjectAssociationProxyInstance":
                 if is_new:
+                    logger.warning(f"AssociationProxyInstance field {field} on {cls.__name__} is being treated as Skipped for new instance.")
                     type_name = "Skipped"
             case "InstrumentedAttribute":
-                type_name = cls.model_fields[field].annotation.__name__
+                IA = cls.model_fields[field].annotation
+                if isinstance(IA, UnionType):
+                    IA = IA.__args__[0]
+                try:
+                    type_name = IA.__name__
+
+                except AttributeError:
+                    logger.warning(f"Could not determine type name for field {field} on {cls.__name__} with annotation {cls.model_fields[field].annotation}")
+                    type_name = "Skipped"
             case _:
                 logger.warning(f"Got unmatched type: {type_name} for field {field}.")
         return type_name

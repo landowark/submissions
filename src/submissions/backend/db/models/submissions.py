@@ -43,7 +43,7 @@ class ClientSubmission(BaseClass, LogMixin):
     clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL",
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
-    sample_count = Column(INTEGER)  #: Number of sample in the procedure
+    # sample_count = Column(INTEGER)  #: Number of sample in the procedure
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
     comments = Column(JSON)  #: comment objects from users.
     _run = relationship("Run", back_populates="_clientsubmission")  #: many-to-one relationship
@@ -321,6 +321,10 @@ class ClientSubmission(BaseClass, LogMixin):
     def name(self):
         return self.submitter_plate_id
 
+    @hybrid_property
+    def sample_count(self):
+        return len(self.clientsubmissionsampleassociation)
+
     @property
     def max_sample_rank(self) -> int:
         try:
@@ -425,7 +429,8 @@ class ClientSubmission(BaseClass, LogMixin):
             pd.DataFrame: Pandas Dataframe of all relevant procedure
         """
         # NOTE: use lookup function to create list of dicts
-        subs = [item.to_dict() for item in
+        # subs = [item.to_dict() for item in
+        subs = [item.details_dict for item in
                 cls.query(submissiontype=submissiontype, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
         df = pd.DataFrame.from_records(subs)
@@ -1228,10 +1233,13 @@ class Run(BaseClass, LogMixin):
 
     def add_procedure(self, obj, proceduretype_name: str):
         from frontend.widgets.procedure_creation import ProcedureCreation
+        from backend.validators.pydant import PydSample
         procedure_type: ProcedureType = next(
             (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
-        logger.debug(f"Procedure samples: {pformat(procedure.sample)}")
+        assert all([isinstance(s, PydSample) for s in procedure.sample])
+        # Passed check
+        # logger.debug(f"Procedure samples: {pformat(procedure.sample)}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
@@ -1392,7 +1400,6 @@ class Run(BaseClass, LogMixin):
         ranked_samples = []
         unranked_samples = []
         for sample in self.sample:
-            logger.debug(sample.is_control)
             submission_rank = self.get_submission_rank_of_sample(sample=sample)
             if submission_rank != 0:
                 try:
@@ -1426,7 +1433,7 @@ class Run(BaseClass, LogMixin):
                          is_control=0, enabled=False, control_type='')
                      )
             padded_list.append(sample)
-        logger.debug(pformat(padded_list))
+        logger.debug(f"Padded samples:\n{pformat(padded_list)}")
         return list(sorted(padded_list, key=itemgetter('procedure_rank')))
 
 # NOTE: Sample Classes
@@ -2518,8 +2525,6 @@ class ProcedureSampleAssociation(BaseClass):
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}_sample to {type(output)}")
   
-    
-
     @property
     def well(self):
         if self.row > 0:

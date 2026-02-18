@@ -6,13 +6,13 @@ let draggedItem = null;
 //Handle Drag start
 gridContainer.addEventListener("dragstart", (e) => {
 
-  draggedItem = e.target;
+  draggedItem = e.target.closest('.well');
   draggedItem.style.opacity = "0.5";
 });
 
 //Handle Drag End
 gridContainer.addEventListener("dragend", (e) => {
-  e.target.style.opacity = "1";
+  draggedItem.style.opacity = "1";
   draggedItem = null;
 });
 
@@ -25,7 +25,7 @@ gridContainer.addEventListener("dragover", (e) => {
 gridContainer.addEventListener("drop", (e) => {
   e.preventDefault();
   console.log("Drag and drop")
-  const targetItem = e.target;
+  const targetItem = e.target.closest('.well');
 
   if (
     targetItem &&
@@ -47,7 +47,7 @@ gridContainer.addEventListener("drop", (e) => {
     output = [];
     fullGrid = [...gridContainer.children];
     fullGrid.forEach(function(item, index) {
-        output.push({sample_id: item.id, index: index + 1});
+        output.push({sample_id: item.id, index: index + 1, class: item.className});
     });
     // backend.rearrange_plate(output);
     rearrange_plate();

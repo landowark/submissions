@@ -199,4 +199,4 @@ def test_procedure_set_cost(procedure):
     assert procedure.procedurereagentlotassociation[0].reagentlot.reagent is not None
     procedure.set_cost()
     assert procedure.cost is not None
-    assert procedure.cost == 1.25
+    assert procedure.cost == 1.27

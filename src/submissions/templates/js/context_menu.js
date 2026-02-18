@@ -364,6 +364,8 @@ function insertNegative( targetItem ) {
                     }
                 }
             }
+        } else {
+            console.log("Unable to get start index:", startIndex);
         }
     } catch (e) {
         // defensive: if anything goes wrong, don't block the rest of the UI

@@ -3,6 +3,7 @@ All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
 import logging, sys, numpy as np
+from pprint import pformat
 from datetime import timedelta
 from typing import List, TYPE_CHECKING
 from pydantic import field_validator, Field
@@ -57,6 +58,11 @@ class PydTips(PydAbstract):
     capacity: int = Field(default=1000, description="Maximum volume (uL).")
     ref: str = Field(default="NA", description="Reference number from manufacturer.")
     process: List[str] | List[dict] = Field(default_factory=list, description="List of processes using these tips.", repr=False)
+    cost_per_tip: float = Field(default=0.00, description="Cost of a single tip.")
+
+    @property
+    def constructed_name(self) -> str:
+        return f"{self.manufacturer}-{self.ref}({self.capacity}uL)"
 
     def to_sql(self, update: bool = True):
         from backend.db.models import Tips
@@ -81,7 +87,7 @@ class PydReagentRole(PydAbstract):
             return self.sql_instance, None
         self.sql_instance.proceduretype = self.proceduretype
         self.sql_instance.reagent = self.reagent
-        return self.sql_instance
+        return self.sql_instance, None
 
 
 class PydEquipmentRole(PydAbstract):
@@ -119,7 +125,7 @@ class PydProcess(PydAbstract):
 class PydResultsType(PydAbstract):
 
     name: str = Field(default="NA")
-    results: List[dict] = Field(default_factory=list, repr=False)
+    results: List[str] | List[dict] = Field(default_factory=list, repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, repr=False)
 
     def to_sql(self, update: bool = True):
@@ -141,6 +147,13 @@ class PydSubmissionType(PydAbstract):
     abbreviation: str = Field(default="XX", description="Shorthand to be used in naming convention (RSL-XX-YYYYMMMDD-1).")
     clientsubmission: List[str] | List[dict] = Field(default_factory=list, repr=False)
     proceduretype: List[str] | List[dict] = Field(default_factory=list, description="ProcedureTypes this type uses.", repr=False)
+
+    @field_validator("file_name_template", mode="before")
+    @classmethod
+    def set_default_template(cls, value):
+        if value == None:
+            value = "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
+        return value
 
     @field_validator("file_name_template")
     @classmethod
@@ -253,8 +266,11 @@ class PydProcedureType(PydAbstract):
         Returns:
             str: html output string.
         """
+        from .concrete import PydSample
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
+        assert all([isinstance(s, PydSample) for s in sample_dicts])
+        # samples are not PydSamples at this point
         sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
@@ -273,8 +289,10 @@ class PydProcedureType(PydAbstract):
             List[PydSample]: Padded list.
         """
         from backend.validators.pydant import PydSample
+        logger.debug(f"Samples from construct_plate_map:\n{pformat(sample_dicts)}")
         output = []
         for row, column in self.ranked_plate.values():
+
             sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
                           PydSample(sample_id="", row=row, column=column, enabled=False, background_color="white"))
             output.append(sample)

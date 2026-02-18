@@ -276,7 +276,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     instance = model(
                         manufacturer="ACME Tips",
                         capacity=1000,
-                        ref="XXXX"
+                        ref="XXXX",
+                        cost_per_tip=0.02
                     )
                     instance.tipslot=created.get("TipsLot", [])
                     instance.process=created.get("Process", [])

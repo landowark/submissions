@@ -5,12 +5,14 @@ from __future__ import annotations
 from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
-from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, select
+from pydantic import BaseModel
+from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, or_, select
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
+
 from tools import check_authorization, setup_lookup, flatten_list, timezone
 from typing import List, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
@@ -387,7 +389,10 @@ class Reagent(BaseClass, LogMixin):
         for item in value:
             match item:
                 case str():
-                    output = ReagentLot.query(name=item, limit=1)
+                    if " - " in item:
+                        output = ReagentLot.query(name=item, limit=1)
+                    else:
+                        output = ReagentLot.query(lot=item, limit=1)
                 case dict():
                     output = ReagentLot.query_or_create(**item)
                 case PydReagentLot():
@@ -2151,6 +2156,11 @@ class Procedure(BaseClass):
             rr_reg_assoc = ReagentRoleReagentAssociation.query(reagent=reagent, reagentrole=reagentrole, limit=1)
             ml_per_sample = rr_reg_assoc.ml_used_per_sample
             numbers_array.append(cost_per_ml * ml_per_sample * len(self.sample))
+        for equipmentassoc in self.procedureequipmentassociation:
+            for tipassoc in equipmentassoc.tipslot:
+                tip = tipassoc.tips
+                cost_per_tip = tip.cost_per_tip
+                numbers_array.append(cost_per_tip * len(self.sample))
         samples_cost = np.sum(numbers_array)
         self._cost = self.proceduretype.plate_cost + samples_cost
 
@@ -3732,6 +3742,7 @@ class Tips(BaseClass):
     manufacturer = Column(String(64))  #: Name of manufacturer
     capacity = Column(INTEGER)  #: How many uL the tip can hold.
     ref = Column(String(64))  #: tip reference number
+    _cost_per_tip = Column(FLOAT(2))  #: cost per tip in CAD
     _process = relationship("Process", back_populates="_tips", secondary=process_tips)  #: Associated process
 
     def __init__(self, *args, **kwargs):
@@ -3743,6 +3754,7 @@ class Tips(BaseClass):
         """
         process = kwargs.pop('process', None)
         tipslot = kwargs.pop('tipslot', None)
+        cost_per_tip = kwargs.pop('cost_per_tip', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve process
@@ -3764,6 +3776,37 @@ class Tips(BaseClass):
                     self._misc_info.update({'tipslot': tipslot})
                 except Exception:
                     pass
+
+        if cost_per_tip is not None:
+            try:
+                self.cost_per_tip = cost_per_tip
+            except Exception:
+                try:
+                    self._misc_info.update({'cost_per_tip': cost_per_tip})
+                except Exception:
+                    pass
+
+    @hybrid_property
+    def cost_per_tip(self):
+        return self._cost_per_tip if self._cost_per_tip else 0.00
+    
+    @cost_per_tip.setter
+    def cost_per_tip(self, value):
+        if value is None or value < 0:
+            value = 0.00
+        match value:
+            case int() | float():
+                output = float(value)
+            case str():
+                try:
+                    output = float(value)
+                except ValueError:
+                    logger.error(f"Could not convert {value} to float for {self.__class__.__qualname__}.cost_per_tip")
+                    return
+            case _:
+                logger.error(f"Unmatched value {value} for {self.__class__.__qualname__}.cost_per_tip")
+                return
+        self._cost_per_tip = output
 
     @hybrid_property
     def process(self):
@@ -3831,11 +3874,11 @@ class Tips(BaseClass):
 
     @hybrid_property
     def name(self):
-        return f"{self.manufacturer}-{self.ref}({self.capacity})"
+        return f"{self.manufacturer} - {self.ref}({self.capacity}uL)"
 
     @name.expression
     def name(cls):
-        return func.concat(cls.manufacturer, '-', cls.ref, "(", cast(cls.capacity, String), ")")#.label("name")
+        return func.concat(cls.manufacturer, ' - ', cls.ref, "(", cast(cls.capacity, String), "uL)")#.label("name")
 
     @classmethod
     @setup_lookup
@@ -4092,6 +4135,7 @@ class TipsLot(BaseClass, LogMixin):
 
     @classmethod
     def query(cls,
+              name: str | None = None,
               manufacturer: str | None = None,
               ref: str | None = None,
               lot: str | None = None,
@@ -4110,6 +4154,12 @@ class TipsLot(BaseClass, LogMixin):
             Tips | List[Tips]: Tips matching criteria
         """
         query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+                limit = 1
+            case _:
+                pass
         if manufacturer is not None and ref is not None:
             manufacturer = None
         match manufacturer:
@@ -4966,13 +5016,11 @@ class Results(BaseClass):
         
     @hybrid_property
     def name(self):
+        
         try:
-            assoc = self.sampleprocedureassociation.name
-        except AttributeError:    
-            try:
-                assoc = self.procedure.name
-            except AttributeError:
-                assoc = "Unassigned Results Association"
+            assoc = self.procedure.name
+        except AttributeError:
+            assoc = "Unassigned Procedure Association"
         try:
             resultstype = self.resultstype.name
         except AttributeError:
@@ -4981,6 +5029,7 @@ class Results(BaseClass):
     
     @name.expression
     def name(cls):
+
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -4994,7 +5043,7 @@ class Results(BaseClass):
             .scalar_subquery()
         )
         # NOTE: Can't use f strings for this.
-        return procedure_subquery + "->" + resultstype_subquery
+        return procedure_subquery + "-" + resultstype_subquery
 
     @hybrid_property
     def date_analyzed(self):
@@ -5132,6 +5181,29 @@ class Results(BaseClass):
     def image(self, value):
         self._img = value
 
+    # @classmethod
+    # def query(cls, name: str | None = None, limit: int = 0, **kwargs) -> Results | List[Results]:
+    #     """Query Results, with optional name filtering."""
+    #     query = cls.__database_session__.query(cls)
+    #     from backend.db.models import ProcedureSampleAssociation
+    #     logger.debug(f"Querying Results with name={name} and kwargs={kwargs}")
+    #     if name is not None:
+    #         query = query.outerjoin(
+    #             ProcedureSampleAssociation, 
+    #             cls._sampleprocedureassociation
+    #         ).outerjoin(
+    #             Procedure,
+    #             cls._procedure
+    #         ).filter(
+    #             or_(
+    #                 ProcedureSampleAssociation.name == name,
+    #                 Procedure.name == name
+    #             )
+    #         )
+    #         limit = 1
+        
+    #     return cls.execute_query(query=query, limit=limit, **kwargs)
+
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         if bool(self.sample_id):
@@ -5268,3 +5340,6 @@ class ResultsType(BaseClass):
             self._samples = value
         else:
             raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._samples")
+
+    def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
+        return super().to_pydantic(pyd_model_name, **kwargs)
