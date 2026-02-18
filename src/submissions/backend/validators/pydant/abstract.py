@@ -269,7 +269,7 @@ class PydProcedureType(PydAbstract):
         from .concrete import PydSample
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
-        assert all([isinstance(s, PydSample) for s in sample_dicts])
+        # assert all([isinstance(s, PydSample) for s in sample_dicts])
         # samples are not PydSamples at this point
         sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)

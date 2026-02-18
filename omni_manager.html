@@ -256,7 +256,7 @@ ul.no-bullets {
 
 
 
-<h2 id="ObjectName">Manage Equipment</h2>
+<h2 id="ObjectName">Manage ReagentLot</h2>
 
 <select id="initial_object" onchange="update_selection(this.value)">
     
@@ -264,88 +264,142 @@ ul.no-bullets {
     
         <option value="--New--">--New--</option>
     
-        <option value="Kingfisher 1">Kingfisher 1</option>
+        <option value="Omega VHB Buffer - 64145GG259">Omega VHB Buffer - 64145GG259</option>
     
-        <option value="Kingfisher 2">Kingfisher 2</option>
+        <option value="Omega SPM Buffer - 61219FV114">Omega SPM Buffer - 61219FV114</option>
     
-        <option value="Kingfisher 3">Kingfisher 3</option>
+        <option value="Omega Elution Buffer - 50642BD476">Omega Elution Buffer - 50642BD476</option>
     
-        <option value="Kingfisher 4">Kingfisher 4</option>
+        <option value="Omega XP2 Buffer - 63854GL159">Omega XP2 Buffer - 63854GL159</option>
     
-        <option value="Biomek">Biomek</option>
+        <option value="Omega Mag Bind RQ - 72595DB227">Omega Mag Bind RQ - 72595DB227</option>
     
-        <option value="Kingfisher Standalone">Kingfisher Standalone</option>
+        <option value="Omega RBB Buffer - 72220ER86">Omega RBB Buffer - 72220ER86</option>
     
-        <option value="Quant Studio 1">Quant Studio 1</option>
+        <option value="100 mM Tris-HCl - 81744">100 mM Tris-HCl - 81744</option>
     
-        <option value="Quant Studio 2">Quant Studio 2</option>
+        <option value="Omega Proteinase K - 74598EM649">Omega Proteinase K - 74598EM649</option>
     
-        <option value="Quant Studio 3">Quant Studio 3</option>
+        <option value="Omega DS Buffer - 46571AQ114">Omega DS Buffer - 46571AQ114</option>
+    
+        <option value="CA 100% Ethanol - 041167">CA 100% Ethanol - 041167</option>
+    
+        <option value="MN96 Type B Bead Plate - BEP23128">MN96 Type B Bead Plate - BEP23128</option>
+    
+        <option value="ZymoBiomics MCS - 238716">ZymoBiomics MCS - 238716</option>
+    
+        <option value="Ceres Nanotrap ER1 - NT06970">Ceres Nanotrap ER1 - NT06970</option>
+    
+        <option value="Ceres Nanotrap Particles - NT04328">Ceres Nanotrap Particles - NT04328</option>
+    
+        <option value="MagMAX Microbiome Lysis Solution - 2401030EOL">MagMAX Microbiome Lysis Solution - 2401030EOL</option>
+    
+        <option value="MagMAX Viral/Pathogen Binding Solution - 2963314">MagMAX Viral/Pathogen Binding Solution - 2963314</option>
+    
+        <option value="MagMAX Proteinase K - 2402102-6">MagMAX Proteinase K - 2402102-6</option>
+    
+        <option value="MVPII Binding Beads - 3004881-1">MVPII Binding Beads - 3004881-1</option>
+    
+        <option value="Ambion Nuclease Free Water - 2405280-8">Ambion Nuclease Free Water - 2405280-8</option>
+    
+        <option value="N1N2 Duplex Primer - N1N2Duplex-20251121RW">N1N2 Duplex Primer - N1N2Duplex-20251121RW</option>
+    
+        <option value="TaqPath 1 Step Master Mix - 3041051">TaqPath 1 Step Master Mix - 3041051</option>
     
 </select>
 <div id="object_form" data-dual-list-handler-attached="true"><br>
 
 
-<label for="name" style="font-size: medium;">name 
+<label for="lot" style="font-size: medium;">lot 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Name of this equipment.</span>
+        <span class="tooltiptext">Lot number of this reagent.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="name" name="name" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="text" id="lot" name="lot" value="3041051" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
-<label for="asset_number" style="font-size: medium;">asset_number 
+<label for="reagent" style="font-size: medium;">reagent 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Asset number of this equipment.</span>
+        <span class="tooltiptext">Type of reagent this lot is.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="asset_number" name="asset_number" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+<select id="reagent" name="reagent" onchange="instumentedattribute_change(this.id, this.value)">
+    <!-- Options will be populated dynamically -->
+    
+    <option value="TaqPath 1 Step Master Mix" selected="">TaqPath 1 Step Master Mix</option>
+    
+    
+        <option value="Omega VHB Buffer">Omega VHB Buffer</option>
+    
+        <option value="Omega SPM Buffer">Omega SPM Buffer</option>
+    
+        <option value="Omega Elution Buffer">Omega Elution Buffer</option>
+    
+        <option value="Omega XP2 Buffer">Omega XP2 Buffer</option>
+    
+        <option value="Omega Mag Bind RQ">Omega Mag Bind RQ</option>
+    
+        <option value="Omega RBB Buffer">Omega RBB Buffer</option>
+    
+        <option value="100 mM Tris-HCl">100 mM Tris-HCl</option>
+    
+        <option value="Omega Proteinase K">Omega Proteinase K</option>
+    
+        <option value="Omega DS Buffer">Omega DS Buffer</option>
+    
+        <option value="CA 100% Ethanol">CA 100% Ethanol</option>
+    
+        <option value="MN96 Type B Bead Plate">MN96 Type B Bead Plate</option>
+    
+        <option value="ZymoBiomics MCS">ZymoBiomics MCS</option>
+    
+        <option value="Ceres Nanotrap ER1">Ceres Nanotrap ER1</option>
+    
+        <option value="Ceres Nanotrap Particles">Ceres Nanotrap Particles</option>
+    
+        <option value="MagMAX Microbiome Lysis Solution">MagMAX Microbiome Lysis Solution</option>
+    
+        <option value="MagMAX Viral/Pathogen Binding Solution">MagMAX Viral/Pathogen Binding Solution</option>
+    
+        <option value="MagMAX Proteinase K">MagMAX Proteinase K</option>
+    
+        <option value="MVPII Binding Beads">MVPII Binding Beads</option>
+    
+        <option value="Ambion Nuclease Free Water">Ambion Nuclease Free Water</option>
+    
+        <option value="N1N2 Duplex Primer">N1N2 Duplex Primer</option>
+    
+</select>
 
 <br><br>
 
 
-<label for="nickname" style="font-size: medium;">nickname 
+<label for="expiry" style="font-size: medium;">expiry 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Nickname of this equipment.</span>
+        <span class="tooltiptext">Expiry date of this reagent lot.</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="nickname" name="nickname" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
+<input type="date" id="expiry" name="expiry" value="2026-05-30" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 
 
-<label for="manufacturer" style="font-size: medium;">manufacturer 
+<label for="active" style="font-size: medium;">active 
     <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Company that makes this equipment</span>
+        <span class="tooltiptext">Is this lot currently in use?</span>
     </div>:
 </label><br>
 
 
-<input type="text" id="manufacturer" name="manufacturer" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
-<label for="ref" style="font-size: medium;">ref 
-    <div class="tooltip"><u style="color: blue;">?</u>
-        <span class="tooltiptext">Manufacturer's reference number</span>
-    </div>:
-</label><br>
-
-
-<input type="text" id="ref" name="ref" value="NA" onchange="instumentedattribute_change(this.id, this.value)">
-
-<br><br>
-
-
+<input type="checkbox" id="active" name="active" checked="" onchange="instumentedattribute_change(this.id, this.value)">
 
 <br><br>
 

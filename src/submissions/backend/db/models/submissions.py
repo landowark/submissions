@@ -2122,7 +2122,7 @@ class RunSampleAssociation(BaseClass):
             case str():
                 output = Run.query(name=value, limit=1)
             case dict():
-                print(value)
+                # print(value)
                 output = Run.query_or_create(**value)
             case PydRun():
                 output = value.to_sql(update=False)

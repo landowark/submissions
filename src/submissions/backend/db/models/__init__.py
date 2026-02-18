@@ -387,7 +387,7 @@ class BaseClass(Base):
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
-            print(f"k: {k}")
+            # print(f"k: {k}")
             try:
                 setattr(instance, k, v)
             except AttributeError:

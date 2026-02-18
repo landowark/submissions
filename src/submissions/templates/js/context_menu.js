@@ -275,11 +275,15 @@ function insertEN( targetItem ) {
                 const child = children[i];
                 const p = child.querySelector && child.querySelector('p');
                 if (p) {
-                    // consider <p> empty if its innerHTML is empty or only whitespace
-                    if (p.innerHTML.trim() === '') {
+                    // consider <p> empty if its innerHTML is empty or only whitespace, or contains &nbsp;
+                    if (p.innerHTML.trim() === '' || p.innerHTML === '&nbsp;') {
                         gridC.removeChild(child);
                         break;
                     }
+                } else {
+                    console.log("P element not found.");
+                    gridC.removeChild(child);
+                    break;
                 }
             }
         }
@@ -316,11 +320,15 @@ function insertPositive( targetItem ) {
                 const child = children[i];
                 const p = child.querySelector && child.querySelector('p');
                 if (p) {
-                    // consider <p> empty if its innerHTML is empty or only whitespace
-                    if (p.innerHTML.trim() === '') {
+                    // consider <p> empty if its innerHTML is empty or only whitespace, or contains &nbsp;
+                    if (p.innerHTML.trim() === '' || p.innerHTML === '&nbsp;') {
                         gridC.removeChild(child);
                         break;
                     }
+                } else {
+                    console.log("P element not found.");
+                    gridC.removeChild(child);
+                    break;
                 }
             }
         }
@@ -357,11 +365,18 @@ function insertNegative( targetItem ) {
                 const child = children[i];
                 const p = child.querySelector && child.querySelector('p');
                 if (p) {
-                    // consider <p> empty if its innerHTML is empty or only whitespace
-                    if (p.innerHTML.trim() === '') {
+                    // consider <p> empty if its innerHTML is empty or only whitespace, or contains &nbsp;
+                    if (p.innerHTML.trim() === '' || p.innerHTML.trim() === '&nbsp;') {
                         gridC.removeChild(child);
                         break;
+                    } else {
+                        console.log("The p element has:", p.innerHTML)
                     }
+
+                } else {
+                    console.log("P element not found.");
+                    gridC.removeChild(child);
+                    break;
                 }
             }
         } else {
@@ -369,7 +384,7 @@ function insertNegative( targetItem ) {
         }
     } catch (e) {
         // defensive: if anything goes wrong, don't block the rest of the UI
-        console.error('insertPositive: error while removing next empty <p> element', e);
+        console.error('insertNegative: error while removing next empty <p> element', e);
     }
 }
 

@@ -776,7 +776,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.sql_instance.equipment = self.equipment
         # NOTE: At this point, results will likely be an empty list.
         self.sql_instance.results = self.results
-        logger.debug(f"Coming out of sql: {pformat(self.sql_instance.__dict__)}")
+        # logger.debug(f"Coming out of sql: {pformat(self.sql_instance.__dict__)}")
         return self.sql_instance, None
     
     def check_reagent_expiries(self, exempt: List[str] = []) -> Report:
@@ -893,7 +893,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             assert all([isinstance(s, PydSample) for s in self.sample])
             sample_dicts = self.sample
         except AssertionError:
-            sample_dicts = [s.to_pydantic() for s in self.sql_instance.sample]
+            sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
 
