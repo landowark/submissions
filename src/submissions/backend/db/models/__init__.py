@@ -243,8 +243,11 @@ class BaseClass(Base):
 
         Returns:
             str: Type name
-        """        
-        type_ = getattr(cls, field.lower().strip("_"))
+        """       
+        try: 
+            type_ = getattr(cls, field.lower().strip("_"))
+        except TypeError:
+            return "Invalid"
         type_name = type_.__class__.__name__
         match type_name:
             case "hybrid_propertyProxy":

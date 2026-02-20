@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class PCRInfoParser(DefaultResultsInfoParser):
+class DiomniPCRInfoParser(DefaultResultsInfoParser):
 
     def __init__(self, filepath: Path | str, procedure=None, **kwargs):
-        self.results_type = "PCR"
+        self.results_type = "Diomni PCR"
         self.procedure = procedure
         super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type=self.results_type)
         date_analyzed = next((v for k,v in self.parsed_info if k == "analysis_date/time"),
@@ -33,7 +33,7 @@ class PCRInfoParser(DefaultResultsInfoParser):
         return self._pyd_object(**data, date_analyzed=self.date_analyzed, parent=self.procedure)
 
 
-class PCRSampleParser(DefaultResultsSampleParser):
+class DiomniPCRSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 
     def __init__(self, filepath: Path | str, date_analyzed: datetime, sheet: str | None = None, start_row: int = 1,  procedure=None, **kwargs):

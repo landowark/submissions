@@ -115,6 +115,11 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
     Object for retrieving submitter info from "Client Info" sheet
     """
 
+    sheets = [ dict(
+                sheet = "Client Info",
+                start_row = 1) 
+            ]
+
     pyd_name = "PydClientSubmission"
 
     def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, *args, **kwargs):
@@ -122,7 +127,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
             self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         else:
             self.submissiontype = submissiontype
-        super().__init__(filepath=filepath, sheet="Client Info", start_row=1, **kwargs)
+        super().__init__(filepath=filepath, **kwargs)
 
     @property
     def parsed_info(self):
@@ -136,8 +141,14 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
             output['submissiontype']['value'] = self.submissiontype.name.title()
         except KeyError:
             pass
-        if isinstance(output['submitted_date']['value'], datetime):
+        try:
+            check = isinstance(output['submitted_date']['value'], datetime)
+        except KeyError as e:
+            logger.error(output.keys())
+            raise e
+        if check:
             output['submitted_date']['value'] = output['submitted_date']['value'].date()
+            
         return output
 
 
@@ -146,17 +157,22 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
     Object for retrieving submitter samples from "sample list" sheet
     """
 
+    sheets = [ dict(
+                sheet = "Client Info",
+                start_row = 18) 
+            ]
+
     pyd_name = "PydSample"
 
-    def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, start_row: int = 1, *args,
+    def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, sheets: List[dict] = [], *args,
                  **kwargs):
         if not submissiontype:
             self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
         else:
             self.submissiontype = submissiontype
-        super().__init__(filepath=filepath, sheet="Client Info", start_row=start_row, **kwargs)
-        logger.debug(f"Parser: {pformat(self.__dict__)}")
-        logger.debug([item for item in self.parsed_info])
+        super().__init__(filepath=filepath, sheets=sheets, **kwargs)
+        # logger.debug(f"Parser: {pformat(self.__dict__)}")
+        # logger.debug([item for item in self.parsed_info])
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:

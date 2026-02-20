@@ -17,8 +17,7 @@ from .db import (
 from .excel import (
     DefaultParser, DefaultKEYVALUEParser, DefaultTABLEParser, ProcedureInfoParser, ProcedureSampleParser,
     ProcedureReagentParser, ProcedureEquipmentParser, DefaultResultsInfoParser, DefaultResultsSampleParser,
-    PCRSampleParser, PCRInfoParser, ClientSubmissionSampleParser, ClientSubmissionInfoParser, PCRInfoParser,
-    PCRSampleParser,
+    DiomniPCRSampleParser, DiomniPCRInfoParser, ClientSubmissionSampleParser, ClientSubmissionInfoParser, 
     DefaultWriter, DefaultKEYVALUEWriter, DefaultTABLEWriter,
     ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter,
     PCRInfoWriter, PCRSampleWriter,

@@ -42,12 +42,16 @@ class DefaultClientSubmissionManager(DefaultManager):
 
     def to_pydantic(self):
         self.info_parser = ClientSubmissionInfoParser(filepath=self.input_object, submissiontype=self.submissiontype)
+        
+        # NOTE: Alter sheets List[dict] so that the start_row sent to sample parser is the end row of the info parser
+        sheets = self.ratchet_start_row()
+        logger.debug(f"Sheets going into sample parser: {sheets}")
         self.sample_parser = ClientSubmissionSampleParser(filepath=self.input_object,
                                                           submissiontype=self.submissiontype,
-                                                          start_row=self.info_parser.end_row)
+                                                          sheets=sheets)
         self.clientsubmission = self.info_parser.to_pydantic()
         
-        self.clientsubmission.full_batch_size = (self.sample_parser.end_row - 1) - self.sample_parser.start_row
+        # self.clientsubmission.full_batch_size = (self.sample_parser.end_row - 1) - self.sample_parser.start_row
         self.clientsubmission.sample = self.sample_parser.to_pydantic()
         return self.clientsubmission
 

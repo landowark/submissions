@@ -219,7 +219,7 @@ class SubmissionFormWidget(QWidget):
             reagent.flip_check(self.disabler.checkbox.isChecked())
 
     def create_widget(self, key: str, value: dict, submission_type: str | SubmissionType | None = None,
-                      clientsubmission_object: ClientSubmission | None = None) -> SubmissionFormWidget.InfoItem | None:
+                      clientsubmission_object: ClientSubmission | None = None, disable: bool = False) -> SubmissionFormWidget.InfoItem | None:
         """
         Make an InfoItem widget to hold a field
 
@@ -247,7 +247,7 @@ class SubmissionFormWidget(QWidget):
             #     widget.input.setEnabled(False)
             #     widget.input.setToolTip("Widget disabled to protect database integrity.")
             return self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
-                                           clientsubmission_object=clientsubmission_object)
+                                           clientsubmission_object=clientsubmission_object, disable=disable)
         return None
 
     # @report_result
@@ -301,22 +301,7 @@ class SubmissionFormWidget(QWidget):
         for item in self.findChildren(QWidget):
             item.setParent(None)
 
-    # def find_widgets(self, object_name: str | None = None) -> List[QWidget]:
-    #     """
-    #     Gets all widgets filtered by object name
-
-    #     Args:
-    #         object_name (str | None, optional): name to filter by. Defaults to None.
-
-    #     Returns:
-    #         List[QWidget]: Widgets matching filter
-    #     """
-    #     if object_name:
-    #         query = self.findChildren(QWidget, name=object_name)
-    #     else:
-    #         query = self.findChildren(QWidget)
-    #     return query
-
+    
     @report_result
     def submit_new_sample_function(self, *args) -> Report:
         """
@@ -404,7 +389,7 @@ class SubmissionFormWidget(QWidget):
     class InfoItem(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
-                     clientsubmission_object: ClientSubmission | None = None) -> None:
+                     clientsubmission_object: ClientSubmission | None = None, disable: bool = False) -> None:
             super().__init__(parent)
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
@@ -426,6 +411,8 @@ class SubmissionFormWidget(QWidget):
                 layout.addWidget(self.input)
             layout.setContentsMargins(0, 0, 0, 0)
             self.setLayout(layout)
+            self.input.setDisabled(disable)
+            self.input.setToolTip("Widget disabled to protect database integrity.")
             match self.input:
                 case QComboBox():
                     self.input.currentTextChanged.connect(self.update_missing)
@@ -506,6 +493,7 @@ class SubmissionFormWidget(QWidget):
                     add_widget.addItems(categories)
                     add_widget.setToolTip("Enter procedure category or select from list.")
                 case _:
+                    
                     field_type = ClientSubmission.determine_field_type(key)
                     match field_type:
                         case "TIMESTAMP":
@@ -546,6 +534,8 @@ class SubmissionFormWidget(QWidget):
                             # NOTE: set combobox values to lookedup values
                             add_widget.addItems(labs)
                             add_widget.setToolTip(f"Select {key}.")
+                        case "Invalid":
+                            add_widget = None
                         case _:
                             add_widget = QLineEdit()
                             try:

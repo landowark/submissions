@@ -5229,6 +5229,8 @@ class ResultsType(BaseClass):
         """
         results = kwargs.pop('results', None)
         proceduretype = kwargs.pop('proceduretype', None)
+        info = kwargs.pop("info", {})
+        samples = kwargs.pop("samples", {})
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -5250,6 +5252,8 @@ class ResultsType(BaseClass):
                     self._misc_info.update({'results': results})
                 except Exception:
                     pass
+        self._info = info
+        self._samples = samples
 
     @hybrid_property
     def proceduretype(self):

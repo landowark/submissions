@@ -35,5 +35,5 @@ class DefaultResultsManager(DefaultManager):
         sample = [item for item in self.sample_parser.to_pydantic()]
         return sample
 
-from .pcr_results_manager import PCRManager
+from .diomni_pcr_results_manager import DiomniPCRManager
 from .qubit_results_manager import QubitManager

@@ -20,4 +20,5 @@ class QubitManager(DefaultResultsManager):
 
     def parse(self):
         self.info_parser = QubitInfoParser(filepath=self.fname, procedure=self.procedure)
-        self.sample_parser = QubitSampleParser(filepath=self.fname, procedure=self.procedure, start_row=self.info_parser.end_row)
+        sheets = self.ratchet_start_row()
+        self.sample_parser = QubitSampleParser(filepath=self.fname, procedure=self.procedure, sheets=sheets)

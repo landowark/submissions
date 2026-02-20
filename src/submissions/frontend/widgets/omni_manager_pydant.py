@@ -176,7 +176,8 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        with open("omni_manager.html", "w", encoding="utf-8") as f:
-            f.write(html)
+        # with open("omni_manager.html", "w", encoding="utf-8") as f:
+            # f.write(html)
+        ...
 
 

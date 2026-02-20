@@ -60,6 +60,7 @@ class ClientSubmission(BaseClass, LogMixin):
         "ClientSubmissionSampleAssociation",
         back_populates="_clientsubmission",
         cascade="all, delete-orphan",
+        lazy="selectin",
     )  #: Relation to ClientSubmissionSampleAssociation
 
     _sample = association_proxy("clientsubmissionsampleassociation",
@@ -321,8 +322,8 @@ class ClientSubmission(BaseClass, LogMixin):
     def name(self):
         return self.submitter_plate_id
 
-    @hybrid_property
-    def sample_count(self):
+    @property
+    def sample_count(self) -> int:
         return len(self.clientsubmissionsampleassociation)
 
     @property
@@ -892,7 +893,7 @@ class Run(BaseClass, LogMixin):
             # NOTE: Fields not placed in ui form
             form_ignore=['reagents', 'ctx', 'id', 'cost', 'extraction_info', 'signed_by', 'comment', 'namer',
                          'submission_object', "tips", 'contact_phone', 'custom', 'cost_centre', 'completed_date',
-                         'control', "origin_plate", "new", "sql_instance", "name", "full_batch_size"] + recover,
+                         'control', "origin_plate", "new", "sql_instance", "name", "full_batch_size", "sample_count"] + recover,
             # NOTE: Fields not placed in ui form to be moved to pydantic
             form_recover=recover
         ))

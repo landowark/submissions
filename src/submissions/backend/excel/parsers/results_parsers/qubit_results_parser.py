@@ -14,10 +14,15 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class QubitInfoParser(DefaultResultsInfoParser):
 
-    def __init__(self, filepath: Path | str, procedure: Procedure | None = None, **kwargs):
+    sheets = [ dict(
+                sheet = 1,
+                start_row = 18) 
+            ]
+
+    def __init__(self, filepath: Path | str, procedure: Procedure | None = None, sheets: List[dict] = [], **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
-        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit")
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit", sheets=sheets)
 
     def to_pydantic(self):
         """
@@ -33,10 +38,10 @@ class QubitInfoParser(DefaultResultsInfoParser):
 class QubitSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | str, sheet: str | None = None, start_row: int = 1, procedure: Procedure | None = None, **kwargs):
+    def __init__(self, filepath: Path | str, sheets: List[dict] = [], procedure: Procedure | None = None, **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
-        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit")
+        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit", sheets=sheets)
         self.sample_matcher()
 
     def sample_matcher(self):

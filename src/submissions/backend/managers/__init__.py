@@ -31,6 +31,18 @@ class DefaultManager(object):
                 logger.warning(f"Unmatched input object: {type(input_object)}. Looking for file.")
                 self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
                 self.pyd = self.to_pydantic()
+
+    def ratchet_start_row(self):
+        """
+        Changes start_row of sample_parser to end_row of info parser. Used when chaining parsers together.
+        """
+        output = []
+        for sheet in self.info_parser.sheets:
+            item = {k: v for k, v in sheet.items() if k != "end_row"}
+            item['start_row'] = sheet.get("end_row", 1)
+            output.append(item)
+        return output
+
         
 
 from .clientsubmissions import DefaultClientSubmissionManager

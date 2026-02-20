@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging, re, csv
 from pathlib import Path
 from pprint import pformat
-from typing import Generator, TYPE_CHECKING
+from typing import Generator, TYPE_CHECKING, List
 from openpyxl.cell import MergedCell
 from openpyxl.reader.excel import load_workbook
 from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
 from backend.validators import pydant
 if TYPE_CHECKING:
@@ -37,8 +38,8 @@ class DefaultParser(object):
         instance.filepath = filepath
         return instance
 
-    def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None = None, sheet: str | None = None,
-                 start_row: int = 1, *args, **kwargs):
+    def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None = None, sheets: List[dict] | None = None,
+                 *args, **kwargs):
         """
 
         Args:
@@ -60,20 +61,35 @@ class DefaultParser(object):
             logger.error(
                 f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}, using {self.__class__.pyd_name}")
             self._pyd_object = getattr(pydant, self.__class__.pyd_name)
-        if not sheet:
-            sheet = self.__class__.sheet
-        self.sheet = sheet
-        if not start_row:
-            start_row = self.__class__.start_row
+        
         if self.filepath.suffix == ".xlsx":
             self.workbook = load_workbook(self.filepath, data_only=True)
-            self.worksheet = self.workbook[self.sheet]
+            
         # NOTE: convert csv to xlsx for standardization purposes.
         elif self.filepath.suffix == ".csv":
-            self.workbook, self.worksheet = self.csv2xlsx(self.filepath)
-        self.start_row = self.delineate_start_row(start_row=start_row)
-        self.end_row = self.delineate_end_row(start_row=self.start_row)
-        logger.debug(f"Parsing from {self.start_row} to {self.end_row}")
+            self.workbook, _ = self.csv2xlsx(self.filepath)
+        # self.start_row = self.delineate_start_row(start_row=start_row)
+        # self.end_row = self.delineate_end_row(start_row=self.start_row)
+        # logger.debug(f"Parsing from {self.start_row} to {self.end_row}")
+        if not sheets:
+            sheets = self.__class__.sheets
+        logger.debug(f"Sheets before {self.__class__.__name__} set: {sheets}")
+        for sheet in sheets:
+            worksheet: Worksheet = self.get_worksheet(sheet=sheet.get('sheet', 0))
+            sheet['start_row'] = self.delineate_start_row(worksheet=worksheet, start_row=sheet.get("start_row", 1))
+            sheet['end_row'] = self.delineate_end_row(worksheet=worksheet, start_row=sheet.get("start_row",1))
+        self.sheets = sheets
+        logger.debug(f"Sheets after {self.__class__.__name__} set: {self.sheets}")
+
+    
+    def get_worksheet(self, sheet: str | int = 0):
+        match sheet:
+            case str():
+                return self.workbook[sheet]
+            case int():
+                return self.workbook.worksheets[sheet - 1]
+            case _:
+                raise TypeError(f"Invalid type for worksheet retrieval: {type(sheet)}")
 
     @classmethod
     def csv2xlsx(cls, filepath):
@@ -107,35 +123,37 @@ class DefaultParser(object):
             proceduretype = ProcedureType.query(name=proceduretype)
         return proceduretype
 
-    def delineate_start_row(self, start_row: int = 1) -> int:
+    @classmethod
+    def delineate_start_row(cls, worksheet: Worksheet, start_row: int = 1) -> int:
         """
         Determines the start row by finding the first non-empty row.
 
         Returns:
             int: Start row number
         """
-        for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
+        for iii, row in enumerate(worksheet.iter_rows(min_row=start_row), start=start_row):
             if not all([item.value is None for item in row]):
                 return iii
-        return self.worksheet.min
+        return worksheet.min_row
 
-    def delineate_end_row(self, start_row: int = 1):
+    @classmethod
+    def delineate_end_row(cls, worksheet: Worksheet, start_row: int = 1):
         """
         Determines the end row by finding the first empty row.
 
         Returns:
             int: End row number
         """
-        for iii, row in enumerate(self.worksheet.iter_rows(min_row=start_row), start=start_row):
+        for iii, row in enumerate(worksheet.iter_rows(min_row=start_row), start=start_row):
             if all([item.value is None for item in row]):
                 return iii
-        return self.worksheet.max_row + 1
+        return worksheet.max_row + 1
 
 
 class DefaultKEYVALUEParser(DefaultParser):
 
-    sheet = "Client Info"
-    start_row = 1
+    
+    
 
     @property
     def parsed_info(self) -> Generator[tuple, None, None]:
@@ -145,29 +163,40 @@ class DefaultKEYVALUEParser(DefaultParser):
         Returns:
             Generator[tuple, None, None]: (key, value) tuple.
         """
-        rows = range(self.start_row, self.end_row)
-        for row in rows:
-            check_row = [item for item in self.worksheet.rows][row-1]
-            if any([isinstance(cell, MergedCell) for cell in check_row]):
-                continue
-            key = self.worksheet.cell(row, 1).value
-            if key:
-                # NOTE: If there are more than 3 spaces in the key, continue
-                if key.count(" ") > 3:
+        
+        for iii, sheet in enumerate(self.sheets):
+            logger.debug(f"Running sheet: {sheet}")
+            worksheet: Worksheet = self.get_worksheet(sheet.get('sheet', 0))
+            start_row = sheet.get('start_row', self.delineate_start_row(worksheet=worksheet))
+            logger.debug(f"Using start row: {start_row}")
+            # NOTE: Update start_row of sheet to reflect reality.
+            self.sheets[iii]['start_row'] = start_row
+            end_row = sheet.get('end_row', self.delineate_end_row(worksheet=worksheet, start_row=start_row))
+            logger.debug(f"Using end row: {end_row}")
+            # NOTE: Update end_row of sheet to reflect reality.
+            self.sheets[iii]['end_row'] = end_row
+            rows = range(start_row, end_row)
+            for row in rows:
+                check_row = [item for item in worksheet.rows][row-1]
+                if any([isinstance(cell, MergedCell) for cell in check_row]):
                     continue
-                # NOTE: Remove anything in brackets.
-                key = re.sub(r"\(.*\)", "", key)
-                key = key.lower().replace(":", "").strip().replace(" ", "_")
-                value = self.worksheet.cell(row, 2).value
-                missing = False if value else True
-                value = dict(value=value, missing=missing)
-                yield key, value
+                key = worksheet.cell(row, 1).value
+                if key:
+                    # NOTE: If there are more than 3 spaces in the key, continue
+                    if key.count(" ") > 3:
+                        continue
+                    # NOTE: Remove anything in brackets.
+                    key = re.sub(r"\(.*\)", "", key)
+                    key = key.lower().replace(":", "").strip().replace(" ", "_")
+                    value = worksheet.cell(row, 2).value
+                    missing = False if value else True
+                    value = dict(value=value, missing=missing)
+                    yield key, value
 
 
 class DefaultTABLEParser(DefaultParser):
 
-    sheet = "Client Info"
-    start_row = 18
+    
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
@@ -177,19 +206,28 @@ class DefaultTABLEParser(DefaultParser):
         Returns:
             Generator[dict, None, None]: {column_header: row column value}
         """
-        df = DataFrame(
-            [item for item in self.worksheet.values][self.start_row - 1:self.end_row - 1])
-        df.columns = df.iloc[0]
-        df = df[1:]
-        df = df.dropna(axis=1, how='all')
-        for ii, row in enumerate(df.iterrows()):
-            output = {}
-            for key, value in row[1].to_dict().items():
-                if isinstance(key, str):
-                    key = key.lower().replace(" ", "_")
-                    key = re.sub(r"_(\(.*\)|#)", "", key)
-                output[key] = value
-            yield output
+        
+        for iii, sheet in enumerate(self.sheets):
+            logger.debug(f"Parsing sheet: {sheet}")
+            worksheet: Worksheet = self.get_worksheet(sheet.get('sheet', 0))
+            start_row = sheet.get('start_row', self.delineate_start_row(worksheet=worksheet))
+            end_row = sheet.get('end_row', self.delineate_end_row(worksheet=worksheet, start_row=start_row))
+            logger.debug(f"DF construction: start row: {start_row}, end row: {end_row}")
+            self.sheets[iii]['start_row'] = start_row
+            self.sheets[iii]['end_row'] = end_row
+            df = DataFrame(
+                [item for item in worksheet.values][start_row - 1: end_row - 1])
+            df.columns = df.iloc[0]
+            df = df[1:]
+            df = df.dropna(axis=1, how='all')
+            for ii, row in enumerate(df.iterrows()):
+                output = {}
+                for key, value in row[1].to_dict().items():
+                    if isinstance(key, str):
+                        key = key.lower().replace(" ", "_")
+                        key = re.sub(r"_(\(.*\)|#)", "", key)
+                    output[key] = value
+                yield output
 
     def to_pydantic(self, **kwargs):
         return [self._pyd_object(**output) for output in self.parsed_info]
@@ -198,7 +236,7 @@ class DefaultTABLEParser(DefaultParser):
 from .procedure_parsers import ProcedureInfoParser, ProcedureSampleParser, ProcedureReagentParser, ProcedureEquipmentParser
 from .results_parsers import (
     DefaultResultsInfoParser, DefaultResultsSampleParser,
-    PCRSampleParser, PCRInfoParser
+    DiomniPCRSampleParser, DiomniPCRInfoParser,
+    QubitInfoParser, QubitSampleParser
 )
 from .clientsubmission_parser import ClientSubmissionSampleParser, ClientSubmissionInfoParser
-from .results_parsers.pcr_results_parser import PCRInfoParser, PCRSampleParser
