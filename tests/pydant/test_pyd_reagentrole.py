@@ -78,8 +78,8 @@ def test_pydreagentrole_fields(pydreagentrole_created_instance):
     """Test that the fields property lists all field names."""
     fields = pydreagentrole_created_instance.fields
     assert "name" in fields
-    assert "reagent" not in fields
-    assert "proceduretype" not in fields
+    assert "reagent" in fields
+    assert "proceduretype" in fields
     
 
 def test_pydreagentrole_described_fields(pydreagentrole_created_instance):

@@ -88,6 +88,7 @@ def test_pydsubmissiontype_improved_dict(pydsubmissiontype_created_instance):
 def test_pydsubmissiontype_expand_fields(pydsubmissiontype_sql_instance):
     """Test that expand_fields properly expands submissiontype and resultslot."""
     expanded = pydsubmissiontype_sql_instance.improved_dict_expand_fields(["clientsubmission"])
+    # NOTE: validation error downstream converting the clientsubmission - run - procedure (no sample.row or sample.column)
     assert isinstance(expanded['clientsubmission'], list)
     assert expanded['clientsubmission'][0]['name'] == "Test ClientSubmission"
     expanded = pydsubmissiontype_sql_instance.improved_dict_expand_fields({"proceduretype": ['equipmentrole']})
@@ -100,8 +101,8 @@ def test_pydsubmissiontype_fields(pydsubmissiontype_created_instance):
     """Test that the fields property lists all field names."""
     fields = pydsubmissiontype_created_instance.fields
     assert "name" in fields
-    assert "proceduretype" not in fields
-    assert "clientsubmission" not in fields
+    assert "proceduretype" in fields
+    assert "clientsubmission" in fields
     assert "file_name_template" in fields
     assert "turnaround_time" in fields
     assert "abbreviation" in fields

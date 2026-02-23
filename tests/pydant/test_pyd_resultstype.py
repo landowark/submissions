@@ -78,8 +78,8 @@ def test_pydresultstype_fields(pydresultstype_created_instance):
     """Test that the fields property lists all field names."""
     fields = pydresultstype_created_instance.fields
     assert "name" in fields
-    assert "results" not in fields
-    assert "proceduretype" not in fields
+    assert "results" in fields
+    assert "proceduretype" in fields
     
 
 def test_pydresultstype_described_fields(pydresultstype_created_instance):

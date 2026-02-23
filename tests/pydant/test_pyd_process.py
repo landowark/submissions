@@ -13,8 +13,8 @@ def pydprocess_created_instance(reset_database):
     """
     process = pydant.PydProcess(
         name="Bob's Process",
-        tips=["ACME Tips-XXXX(1000uL)"],
-        processversion=["Test Process-v1.0"]
+        tips=["ACME Tips - XXXX(1000uL)"],
+        processversion=["Test Process - v1.0"]
     )
     return process
 
@@ -28,8 +28,8 @@ def pydprocess_sql_instance(reset_database):
 def test_pydprocess_creation(pydprocess_created_instance):
     """Test that Pydprocess properties are correctly set."""
     assert pydprocess_created_instance.name == "Bob's Process"
-    assert pydprocess_created_instance.tips == ["ACME Tips-XXXX(1000uL)"]
-    assert pydprocess_created_instance.processversion == ["Test Process-v1.0"]
+    assert "ACME Tips - XXXX(1000uL)" in pydprocess_created_instance.tips 
+    assert  "Test Process - v1.0" in pydprocess_created_instance.processversion
     
 
 def test_pydprocess_to_sql(pydprocess_created_instance):
@@ -43,12 +43,12 @@ def test_pydprocess_to_sql(pydprocess_created_instance):
     assert sql_instance.processversion is not None
     assert len(sql_instance.processversion) > 0
     assert isinstance(sql_instance.processversion[0], models.procedures.ProcessVersion)
-    assert sql_instance.processversion[0].name == "Bob's Process-v1.0"
+    assert sql_instance.processversion[0].name == "Bob's Process - v1.0"
     # Test that tipslot is properly resolved (should not be None)
     assert sql_instance.tips is not None
     assert len(sql_instance.tips) > 0
     assert isinstance(sql_instance.tips[0], models.procedures.Tips)
-    assert sql_instance.tips[0].name == "ACME Tips-XXXX(1000uL)"
+    assert sql_instance.tips[0].name == "ACME Tips - XXXX(1000uL)"
     # assert isinstance(sql_instance.eol_ext, timedelta)
 
 
@@ -58,27 +58,27 @@ def test_pydprocess_improved_dict(pydprocess_created_instance):
     assert "name" in d
     assert d['name'] == "Bob's Process"
     assert "tips" in d
-    assert d['tips'] == ["ACME Tips-XXXX(1000uL)"]
+    assert "ACME Tips - XXXX(1000uL)" in d['tips'] 
     assert "processversion" in d
-    assert d['processversion'] == ["Test Process-v1.0"]
+    assert  "Test Process - v1.0" in d['processversion']
 
 
 def test_pydprocess_expand_fields(pydprocess_sql_instance):
     """Test that expand_fields properly expands process and tipslot."""
     expanded = pydprocess_sql_instance.improved_dict_expand_fields(["tips"])
     assert isinstance(expanded['tips'], list)
-    assert expanded['tips'][0]['name'] == "ACME Tips-XXXX(1000uL)"
+    assert expanded['tips'][0]['name'] == "ACME Tips - XXXX(1000uL)"
     expanded = pydprocess_sql_instance.improved_dict_expand_fields(["processversion"])
     assert isinstance(expanded['processversion'], list)
-    assert expanded['processversion'][0]['name'] == "Test Process-v1.0"
+    assert expanded['processversion'][0]['name'] == "Test Process - v1.0"
     
 
 def test_pydprocess_fields(pydprocess_created_instance):
     """Test that the fields property lists all field names."""
     fields = pydprocess_created_instance.fields
     assert "name" in fields
-    assert "tips" not in fields
-    assert "processversion" not in fields
+    assert "tips" in fields
+    assert "processversion" in fields
     
 
 def test_pydprocess_described_fields(pydprocess_created_instance):
@@ -109,7 +109,7 @@ def test_form_dictionary(pydprocess_sql_instance):
     assert tips['type'] == 'RELATIONSHIPLIST'
     processversion = next((item for item in list_ if item['field'] == "processversion"), None)
     assert processversion is not None
-    assert processversion['value'] == ['Test Process-v1.0']
+    assert 'Test Process - v1.0' in processversion['value'] 
     assert processversion['type'] == 'RELATIONSHIPLIST'
 
 

@@ -20,7 +20,7 @@ from .excel import (
     DiomniPCRSampleParser, DiomniPCRInfoParser, ClientSubmissionSampleParser, ClientSubmissionInfoParser, 
     DefaultWriter, DefaultKEYVALUEWriter, DefaultTABLEWriter,
     ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter,
-    PCRInfoWriter, PCRSampleWriter,
+    DiomniPCRInfoWriter, DiomniPCRSampleWriter,
     ClientSubmissionInfoWriter, ClientSubmissionSampleWriter,
     ReportArchetype, ReportMaker, TurnaroundMaker, ConcentrationMaker, ChartReportMaker
 )

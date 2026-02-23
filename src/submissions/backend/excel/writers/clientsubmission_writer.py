@@ -4,6 +4,7 @@ Module for ClientSubmission writing
 from __future__ import annotations
 import logging, sys
 from pprint import pformat
+from openpyxl.cell import MergedCell
 from openpyxl.workbook import Workbook
 from openpyxl.styles import Alignment, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
@@ -33,7 +34,9 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
 class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
 
-    exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample"]
+    exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample",
+               "excluded", "procedure", "run", "sampleclientsubmissionassociation", "sampleprocedureassociation",
+               "samplerunassociation"]
     header_order = ["submission_rank", "sample_id"]
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
@@ -51,7 +54,10 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
         for row in worksheet.iter_rows(min_row=self.start_row, max_row=self.end_row):
             for cell in row:
                 if cell.value in [0, "0", "None"]:
-                    cell.value = ""
+                    if isinstance(cell, MergedCell):
+                        continue
+                    else:
+                        cell.value = ""
                 cell.alignment = Alignment(horizontal="center")
         return worksheet
     

@@ -12,7 +12,7 @@ def pydtips_created_instance(reset_database):
     will have all required relationships properly resolved.
     """
     tips = pydant.PydTips(
-        tipslot=["Test TipsLot"],
+        tipslot=["ACME Tips - XXXX - 098765"],
         manufacturer="Acme Corp",
         ref="AC12345",
         capacity=100,
@@ -24,7 +24,7 @@ def pydtips_created_instance(reset_database):
 
 @pytest.fixture(scope="function")
 def pydtips_sql_instance(reset_database):
-    pydtips_sql_instance = models.Tips.query(name="ACME Tips-XXXX(1000uL)", limit=1)
+    pydtips_sql_instance = models.Tips.query(name="ACME Tips - XXXX(1000uL)", limit=1)
     return pydtips_sql_instance.to_pydantic() if pydtips_sql_instance else None
 
 
@@ -32,7 +32,7 @@ def test_pydtips_creation(pydtips_created_instance):
     """Test that Pydtips properties are correctly set."""
     assert pydtips_created_instance.name == "Acme Corp-AC12345(100uL)"
     assert pydtips_created_instance.capacity == 100
-    assert pydtips_created_instance.tipslot == ["Test TipsLot"]
+    assert pydtips_created_instance.tipslot == ["ACME Tips - XXXX - 098765"]
     assert pydtips_created_instance.manufacturer == "Acme Corp"
     assert pydtips_created_instance.ref == "AC12345"
     assert pydtips_created_instance.process == ["Test Process"]
@@ -75,7 +75,7 @@ def test_pydtips_improved_dict(pydtips_created_instance):
     assert "cost_per_tip" in d
     assert d['cost_per_tip'] == 0.05
     assert "tipslot" in d
-    assert d['tipslot'] == ["Test TipsLot"]
+    assert d['tipslot'] == ["ACME Tips - XXXX - 098765"]
 
 
 def test_pydtips_expand_fields(pydtips_sql_instance):

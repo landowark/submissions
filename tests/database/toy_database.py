@@ -191,7 +191,6 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     if reagentrole:
                         from backend.db.models import ReagentRoleReagentAssociation
                         assoc = ReagentRoleReagentAssociation(reagentrole=reagentrole, reagent=instance, ml_used_per_sample=0.5)
-                    
 
                 case "ReagentLot":
                     instance = model(
@@ -289,6 +288,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         active=True
                     )
                     instance.tips=created.get("Tips", None)
+                
                 case "ResultsType":
                     instance = model(
                         name="Test ResultsType",
@@ -343,6 +343,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     instance.clientsubmission=created.get("ClientSubmission", None)
                     instance.procedure=created.get("Procedure", [])
                     instance.sample=created.get("Sample", [])
+                
                 case "Sample":
                     instance = model(
                         sample_id="Test Sample",
@@ -351,6 +352,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     instance.clientsubmission=created.get("ClientSubmission", [])
                     instance.run=created.get("Run", [])
                     instance.procedure=created.get("Procedure", [])
+                
                 case _:
                     print(f"Unmatched Model {model.__name__}")
                     continue

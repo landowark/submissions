@@ -44,8 +44,10 @@ class DefaultWriter(object):
                 value = value.name
             case x if issubclass(value.__class__, PydBaseClass):
                 value = value.name
-            case bytes() | list():
+            case bytes(): 
                 value = None
+            case list():
+                value = "\\n".join([str(item) for item in value])
             case datetime() | date():
                 value = value.strftime("%Y-%m-%d %H:%M:%S")
             case _:
@@ -231,7 +233,7 @@ class DefaultTABLEWriter(DefaultWriter):
 
 from .procedure_writers import ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter
 from .results_writers import (
-    PCRInfoWriter, PCRSampleWriter,
+    DiomniPCRInfoWriter, DiomniPCRSampleWriter,
     QubitInfoWriter, QubitSampleWriter
 )
 from .clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter

@@ -38,4 +38,4 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
 
 
 from .qubit_results_writer import QubitInfoWriter, QubitSampleWriter
-from .pcr_results_writer import PCRInfoWriter, PCRSampleWriter
+from .diomni_pcr_results_writer import DiomniPCRInfoWriter, DiomniPCRSampleWriter

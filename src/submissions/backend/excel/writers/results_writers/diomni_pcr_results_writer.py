@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
-class PCRInfoWriter(DefaultResultsInfoWriter):
+class DiomniPCRInfoWriter(DefaultResultsInfoWriter):
 
     start_row = 1
 
@@ -28,7 +28,7 @@ class PCRInfoWriter(DefaultResultsInfoWriter):
         return workbook
 
 
-class PCRSampleWriter(DefaultResultsSampleWriter):
+class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook) -> Workbook:
         workbook = super().write_to_workbook(workbook)

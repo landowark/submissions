@@ -47,16 +47,16 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
     exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
                "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
-               "start_time", "end_time"]
+               "start_time", "end_time", "manufacturer", "ref"]
     header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
-        output = []
-        for equipment in self.pydant_obj.equipment:
-            equipment.tipslot = "\n".join([str(item) for item in equipment.tipslot])
-            output.append(equipment)
+        output = self.pydant_obj.equipment
+        # for equipment in self.pydant_obj.equipment:
+        #     equipment.tipslot = "\n".join([str(item) for item in equipment.tipslot])
+        #     output.append(equipment)
         self.pydant_obj = output
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
@@ -69,8 +69,8 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
 
     exclude = ['id', 'enabled', 'name', "submission_rank", 'background_color', "is_control", "well_id", "sample", "sample_location", 
                "sample_type", "clientsubmission", "excluded", "procedure", "rank", "results", "run", "sampleclientsubmissionassociation",
-               "sampleprocedureassociation", "samplerunassociation"]
-    header_order = ['procedure_rank', 'sample_id']
+               "sampleprocedureassociation", "samplerunassociation", "control_type"]
+    header_order = ['procedure_rank', 'sample_id', 'row', 'column']
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)

@@ -11,7 +11,7 @@ from .parsers import (
 from .writers import (
     DefaultWriter, DefaultKEYVALUEWriter, DefaultTABLEWriter,
     ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter,
-    PCRInfoWriter, PCRSampleWriter,
+    DiomniPCRInfoWriter, DiomniPCRSampleWriter,
     ClientSubmissionInfoWriter, ClientSubmissionSampleWriter
 )
 from .reports import ReportArchetype, ReportMaker, TurnaroundMaker, ConcentrationMaker, ChartReportMaker

@@ -314,11 +314,12 @@ class PydProcedureType(PydAbstract):
         self.sql_instance: ProcedureType = super().to_sql(update)
         if not update:
             return self.sql_instance, None
+        self.sql_instance.procedure = self.procedure
         self.sql_instance.submissiontype = self.submissiontype
         self.sql_instance.equipmentrole = self.equipmentrole
         self.sql_instance.reagentrole = self.reagentrole
         self.sql_instance.resultstype = self.resultstype
-        return self.sql_instance
+        return self.sql_instance, None
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):

@@ -66,4 +66,4 @@ def test_tipslot_set_active(tipslot):
 
 
 def test_tips_get_name(tipslot):
-    assert tipslot.tips.name == "ACME Tips-XXXX(1000)"
+    assert tipslot.tips.name == "ACME Tips - XXXX(1000uL)"

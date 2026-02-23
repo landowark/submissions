@@ -177,6 +177,8 @@ class PydSample(PydConcrete):
     @field_validator("row", mode="before")
     @classmethod
     def row_str_to_int(cls, value):
+        if value is None:
+            value = 0
         if isinstance(value, str):
             try:
                 value = row_keys[value]
@@ -187,6 +189,8 @@ class PydSample(PydConcrete):
     @field_validator("column", mode="before")
     @classmethod
     def column_str_to_int(cls, value):
+        if value is None:
+            value = 0
         if isinstance(value, str):
             value = 0
         return value
@@ -1405,6 +1409,27 @@ class PydProcedureSampleAssociation(PydConcrete):
     sample: str | PydSample = Field(default="NA")
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
     enabled: bool = Field(default=True)
+
+    @field_validator("row", mode="before")
+    @classmethod
+    def row_str_to_int(cls, value):
+        if value is None:
+            value = 0
+        if isinstance(value, str):
+            try:
+                value = row_keys[value]
+            except KeyError:
+                value = 0
+        return value
+
+    @field_validator("column", mode="before")
+    @classmethod
+    def column_str_to_int(cls, value):
+        if value is None:
+            value = 0
+        if isinstance(value, str):
+            value = 0
+        return value
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcedureSampleAssociation

@@ -1412,6 +1412,7 @@ class ProcedureType(BaseClass):
 
     @procedure.setter
     def procedure(self, value):
+        print(f"Adding {value} to {self}.procedure")
         from backend.validators.pydant import PydProcedure
         if not isinstance(value, list):
             value = [value]
@@ -3664,8 +3665,8 @@ class ProcessVersion(BaseClass):
     @hybrid_property
     def name(self) -> str:
         if self.process is None:
-            return f"Unassigned-v{str(self.version)}"
-        return f"{self.process.name}-v{str(self.version)}"
+            return f"Unassigned - v{str(self.version)}"
+        return f"{self.process.name} - v{str(self.version)}"
 
     @name.expression
     def name(cls):
@@ -3676,7 +3677,7 @@ class ProcessVersion(BaseClass):
             .scalar_subquery()
         )
         # NOTE: Can't use f strings for this.
-        return process_subquery + "-v" + cast(cls.version, String)
+        return process_subquery + " - v" + cast(cls.version, String)
 
     @hybrid_property
     def active(self):
@@ -3847,6 +3848,7 @@ class Tips(BaseClass):
 
     @tipslot.setter
     def tipslot(self, value):
+        print(f"Adding {value} to {self}.tipslot")
         from backend.validators.pydant import PydTipsLot
         if not isinstance(value, list):
             value = [value]

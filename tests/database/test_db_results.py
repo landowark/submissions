@@ -53,7 +53,7 @@ def test_results_set_procedure(results):
 
 
 def test_results_get_name(results):
-    assert results.name == "Unknown Run-Unknown ProcedureType->Test Sample (rank=1)-Test ResultsType"
+    assert results.name == "Unknown Run-Unknown ProcedureType-Test ResultsType"
 
 
 def test_results_date_analyzed(results):

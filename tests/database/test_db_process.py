@@ -63,4 +63,4 @@ def test_process_set_tips(process):
 
     test_insert = dict(manufacturer="Sir Tipsalot", capacity=100, ref="YYYY")
     process.tips = [test_insert]
-    assert "Sir Tipsalot-YYYY(100)" in [item.name for item in process.tips]
+    assert "Sir Tipsalot - YYYY(100uL)" in [item.name for item in process.tips]

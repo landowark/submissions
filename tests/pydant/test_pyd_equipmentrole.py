@@ -78,8 +78,8 @@ def test_pydequipmentrole_fields(pydequipmentrole_created_instance):
     """Test that the fields property lists all field names."""
     fields = pydequipmentrole_created_instance.fields
     assert "name" in fields
-    assert "equipment" not in fields
-    assert "proceduretype" not in fields
+    assert "equipment" in fields
+    assert "proceduretype" in fields
     
 
 def test_pydequipmentrole_described_fields(pydequipmentrole_created_instance):

@@ -24,7 +24,7 @@ def test_tips_query(tips):
 
 
 def test_tips_get_name(tips):
-    assert tips.name == "ACME Tips-XXXX(1000)"
+    assert tips.name == "ACME Tips - XXXX(1000uL)"
 
 
 def test_tips_get_process(tips):
