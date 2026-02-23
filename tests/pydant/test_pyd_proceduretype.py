@@ -21,7 +21,6 @@ def pydproceduretype_created_instance(reset_database):
         resultstype=["Test ResultsType"],
         equipmentrole=["Test EquipmentRole"],
         reagentrole=["Test ReagentRole"]
-        
     )
     return proceduretype
 
@@ -65,8 +64,8 @@ def test_pydproceduretype_to_sql(pydproceduretype_created_instance):
     # assert isinstance(sql_instance.eol_ext, timedelta)
     # Test that reagentlot is properly resolved (should not be None)
     assert sql_instance.submissiontype is not None
-    assert isinstance(sql_instance.submissiontype, models.procedures.SubmissionType)
-    assert sql_instance.submissiontype.name == "Default SubmissionType"
+    assert isinstance(sql_instance.submissiontype[0], models.procedures.SubmissionType)
+    assert sql_instance.submissiontype[0].name == "Default SubmissionType"
     # 
     assert sql_instance.equipmentrole is not None
     assert len(sql_instance.equipmentrole) > 0

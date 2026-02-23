@@ -70,7 +70,7 @@ def test_procedureequipmentassociation_set_equipmentrole(procedureequipmentassoc
 def test_procedureequipmentassociation_get_processversion(procedureequipmentassociation):
     
     assert isinstance(procedureequipmentassociation.processversion, ProcessVersion)
-    assert procedureequipmentassociation.processversion.name == "Test Process-v1.0"
+    assert procedureequipmentassociation.processversion.name == "Test Process - v1.0"
 
 
 def test_procedureequipmentassociation_set_processversion(procedureequipmentassociation):
@@ -80,11 +80,5 @@ def test_procedureequipmentassociation_set_processversion(procedureequipmentasso
     assert test_insert == procedureequipmentassociation.processversion
     test_insert = dict(version=2.0, process=pr)
     procedureequipmentassociation.processversion = test_insert
-    assert "Test Process-v2.0" == procedureequipmentassociation.processversion.name
+    assert "Test Process - v2.0" == procedureequipmentassociation.processversion.name
 
-
-
-
-
-
-    

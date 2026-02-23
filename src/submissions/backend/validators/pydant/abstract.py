@@ -376,7 +376,7 @@ class PydProcedureTypeEquipmentRoleAssociation(PydAbstract):
     
     @classproperty
     def aliases(cls) -> List[str]:
-        return super().aliases + ["equipmentroleproceduretypassociation"]
+        return super().aliases + ["equipmentroleproceduretypeassociation"]
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcedureTypeEquipmentRoleAssociation

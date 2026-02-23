@@ -1305,6 +1305,7 @@ class ProcedureType(BaseClass):
     
     @reagentrole.setter
     def reagentrole(self, value):
+        print(f"Adding {value} to {self}.reagentrole")
         from backend.validators.pydant import PydReagentRole
         if not isinstance(value, list):
             value = [value]
@@ -1316,7 +1317,7 @@ class ProcedureType(BaseClass):
                     try:
                         output = next((assoc for assoc in self.proceduretypereagentroleassociation if assoc.reagentrole.name==item))
                     except StopIteration:
-                        logger.error(f"Couldn't find {item} in {[eq.reagent.name for eq in self.reagentrolereagentassociation]}")
+                        logger.error(f"Couldn't find {item} in {[eq.reagent.name for eq in self.proceduretypereagentroleassociation]}")
                         output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self)
                 case ReagentRole():
                     output = ProcedureTypeReagentRoleAssociation(reagentrole=item, proceduretype=self, **{k: v for k, v in item.details_dict.items() if k not in ['name', 'proceduretype']})
@@ -1412,7 +1413,6 @@ class ProcedureType(BaseClass):
 
     @procedure.setter
     def procedure(self, value):
-        print(f"Adding {value} to {self}.procedure")
         from backend.validators.pydant import PydProcedure
         if not isinstance(value, list):
             value = [value]
@@ -2259,6 +2259,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @reagentrole.setter
     def reagentrole(self, value):
+        print(f"Adding {value} to {self}.reagentrole")
         from backend.validators.pydant import PydReagentRole
         match value:
             case str():

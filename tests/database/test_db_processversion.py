@@ -38,7 +38,7 @@ def test_processversion_set_process(processversion):
 
 
 def test_processversion_get_name(processversion):
-    assert processversion.name == "Test Process-v1.0"
+    assert processversion.name == "Test Process - v1.0"
 
 
 def test_processversion_set_active(processversion):
