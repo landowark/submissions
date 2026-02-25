@@ -43,6 +43,12 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
             case _:
                 value = None
         return value
+    
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        output['result'] = self.result
+        return output
 
     def to_sql(self):
         from backend.db.models import Results, ProcedureSampleAssociation, Procedure
@@ -55,14 +61,16 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
             sql.image = self.image
         if not sql.date_analyzed:
             sql.date_analyzed = self.date_analyzed
-        match self.parent:
-            case ProcedureSampleAssociation():
-                sql.sampleprocedureassociation = self.parent
-            case Procedure():
-                sql.procedure = self.parent
-            case _:
-                logger.error("Improper association found.")
-        return sql
+        # match self.parent:
+        #     case ProcedureSampleAssociation():
+        #         sql.sampleprocedureassociation = self.parent
+        #     case Procedure():
+        #         sql.procedure = self.parent
+        #     case _:
+        #         logger.error("Improper association found.")
+        sql.procedure = self.procedure
+        sql.sampleprocedureassociation = self.sample
+        return sql, None
 
 
 class PydReagentLot(PydConcrete):

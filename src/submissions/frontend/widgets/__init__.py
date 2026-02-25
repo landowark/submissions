@@ -12,7 +12,6 @@ class CustomWebEnginePage(QWebEnginePage):
 
     def javaScriptConsoleMessage(self, level, message, lineNumber, sourceID):
         # You can customize the output format here
-        # print(f"JS Console ({sourceID}:{lineNumber}) [{level}]: {message}")
         # Use logger so messages follow the app logging configuration
         try:
             logger.debug(f"JS Console ({lineNumber}) [{level}]: {message}")

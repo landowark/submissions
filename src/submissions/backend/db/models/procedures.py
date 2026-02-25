@@ -1305,7 +1305,6 @@ class ProcedureType(BaseClass):
     
     @reagentrole.setter
     def reagentrole(self, value):
-        print(f"Adding {value} to {self}.reagentrole")
         from backend.validators.pydant import PydReagentRole
         if not isinstance(value, list):
             value = [value]
@@ -2163,7 +2162,11 @@ class Procedure(BaseClass):
                 cost_per_tip = tip.cost_per_tip
                 numbers_array.append(cost_per_tip * len(self.sample))
         samples_cost = np.sum(numbers_array)
-        self._cost = self.proceduretype.plate_cost + samples_cost
+        try:
+            plate_cost = self.proceduretype.plate_cost or 0.00
+        except AttributeError:
+            plate_cost = 0.00
+        self._cost = plate_cost + samples_cost
 
     def save(self):
         from backend.db.models import RunSampleAssociation
@@ -2259,7 +2262,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @reagentrole.setter
     def reagentrole(self, value):
-        print(f"Adding {value} to {self}.reagentrole")
         from backend.validators.pydant import PydReagentRole
         match value:
             case str():
@@ -3849,7 +3851,6 @@ class Tips(BaseClass):
 
     @tipslot.setter
     def tipslot(self, value):
-        print(f"Adding {value} to {self}.tipslot")
         from backend.validators.pydant import PydTipsLot
         if not isinstance(value, list):
             value = [value]
@@ -5137,8 +5138,16 @@ class Results(BaseClass):
 
     @sampleprocedureassociation.setter
     def sampleprocedureassociation(self, value):
+        """
+        Input objects will be assumed to be sample only and use self.procedure to set.
+        """
         from backend.validators.pydant import PydProcedureSampleAssociation
         from backend.db.models import ProcedureSampleAssociation
+        try:
+            proc = self.procedure
+        except AttributeError as e:
+            logger.critical(f"Could not get procedure for setting association.")
+            raise e
         match value:
             case str():
                 output = ProcedureSampleAssociation.query(name=value, limit=1)

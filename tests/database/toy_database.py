@@ -309,7 +309,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     else:
                         assoc = assoc.proceduresampleassociation[0]
                     instance = model(
-                        result={},
+                        result=dict(hello="world"),
                         date_analyzed=date.today(),
                         procedure=None,
                         img=None

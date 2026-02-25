@@ -25,7 +25,6 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     if ctx.database_schema == "sqlite":
         execution_phrase = "PRAGMA foreign_keys=ON"
-        # print(f"Executing '{execution_phrase}' in sql.")
     else:
         cursor.close()
         return

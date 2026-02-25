@@ -119,7 +119,6 @@ class SubmissionsTree(QTreeView):
                 query_str=submission['submitter_plate_id'],
                 item_type=ClientSubmission
             ), additions=True)
-            # print(submission['run'])
             for run in submission['run']:
                 run_item = self.model.add_child(parent=submission_item, child=dict(
                     name=run['plate_number'],

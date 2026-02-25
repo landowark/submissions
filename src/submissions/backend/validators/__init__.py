@@ -135,7 +135,6 @@ class RSLNamer(object):
         # filename = Path(filename) if Path(filename).exists() else filename
         # if not submission_type:
         #     submission_type = self.retrieve_submission_type(filename=filename)
-        # print(data)
         match submission_type:
             case str():
                 self.sub_object = SubmissionType.query(name=submission_type, limit=1)

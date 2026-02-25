@@ -329,6 +329,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             match v:
                 case str() | int() | float() | datetime() | date():
                     pass
+                case dict():
+                    pass
                 case list():
                     pass
                 case x if issubclass(v.__class__, PydBaseClass):
