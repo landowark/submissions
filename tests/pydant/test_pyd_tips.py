@@ -30,7 +30,7 @@ def pydtips_sql_instance(reset_database):
 
 def test_pydtips_creation(pydtips_created_instance):
     """Test that Pydtips properties are correctly set."""
-    assert pydtips_created_instance.name == "Acme Corp-AC12345(100uL)"
+    assert pydtips_created_instance.name == "Acme Corp - AC12345(100uL)"
     assert pydtips_created_instance.capacity == 100
     assert pydtips_created_instance.tipslot == ["ACME Tips - XXXX - 098765"]
     assert pydtips_created_instance.manufacturer == "Acme Corp"
@@ -63,7 +63,7 @@ def test_pydtips_improved_dict(pydtips_created_instance):
     """Test that the improved_dict property includes all fields."""
     d = pydtips_created_instance.improved_dict
     assert "name" in d
-    assert d['name'] == "Acme Corp-AC12345(100uL)"
+    assert d['name'] == "Acme Corp - AC12345(100uL)"
     assert "manufacturer" in d
     assert d['manufacturer'] == "Acme Corp"
     assert "ref" in d

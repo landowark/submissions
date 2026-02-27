@@ -6,7 +6,7 @@ import logging, sys, numpy as np
 from pprint import pformat
 from datetime import timedelta
 from typing import List, TYPE_CHECKING
-from pydantic import field_validator, Field
+from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract
 from tools import jinja_template_loading
 if TYPE_CHECKING:
@@ -60,9 +60,16 @@ class PydTips(PydAbstract):
     process: List[str] | List[dict] = Field(default_factory=list, description="List of processes using these tips.", repr=False)
     cost_per_tip: float = Field(default=0.00, description="Cost of a single tip.")
 
+    @computed_field
     @property
-    def constructed_name(self) -> str:
-        return f"{self.manufacturer}-{self.ref}({self.capacity}uL)"
+    def name(self) -> str:
+        return f"{self.manufacturer} - {self.ref}({self.capacity}uL)"
+
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        output['name'] = self.name
+        return output
 
     def to_sql(self, update: bool = True):
         from backend.db.models import Tips

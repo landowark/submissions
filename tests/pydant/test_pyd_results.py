@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import pytest
 from test_pyd_base import pydant, models
 
@@ -30,7 +30,7 @@ def pydresults_sql_instance(reset_database):
 
 def test_pydresults_creation(pydresults_created_instance):
     """Test that Pydresults properties are correctly set."""
-    assert pydresults_created_instance.name == "NA"
+    assert pydresults_created_instance.name == "Unknown Run-Unknown ProcedureType-Test ResultsType"
     
     assert pydresults_created_instance.resultstype == "Test ResultsType"
     assert pydresults_created_instance.procedure == "Unknown Run-Unknown ProcedureType"
@@ -84,7 +84,8 @@ def test_pydresults_expand_fields(pydresults_sql_instance):
     expanded = pydresults_sql_instance.improved_dict_expand_fields(["procedure"])
     # NOTE: validation error downstream converting the clientsubmission - run - procedure (no sample.row or sample.column)
     assert isinstance(expanded['procedure'], dict)
-    assert expanded['procedure']['name'] == 'RSL-XX-20260202-1-Test ProcedureType-2026-02-24 00:00:00'
+    t = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    assert expanded['procedure']['name'] == f'RSL-XX-20260202-1-Test ProcedureType-{t}'
     expanded = pydresults_sql_instance.improved_dict_expand_fields({"resultstype": ['proceduretype']})
     assert isinstance(expanded['resultstype'], dict)
     assert expanded['resultstype']['name'] == "Test ResultsType"

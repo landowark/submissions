@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import logging, sys, string, inspect
 from pprint import pformat
-from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator, computed_field
 from pydantic_core import core_schema
 from datetime import date, datetime
 from typing import Any, ClassVar, Generator, List
@@ -43,20 +43,21 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         extra_fields = getattr(self, '__pydantic_extra__', {})
         return [arg for arg in args if arg[0] not in extra_fields]
 
-    name: str | dict = Field(default="NA", validate_default=True)
+    # name: str | dict = Field(default="NA", validate_default=True)
     sql_instance: BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
 
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
     
-    def model_post_init(self, __context__=None) -> None:
-        if self.name == "NA":
-            try:
-                self.name = self.constructed_name
-            except AttributeError:
-                logger.error(f"{self.__class__.__qualname__} has no attribute 'constructed_name'")
+    # def model_post_init(self, __context__=None) -> None:
+    #     if self.name == "NA":
+    #         try:
+    #             self.name = self.constructed_name
+    #         except AttributeError:
+    #             logger.error(f"{self.__class__.__qualname__} has no attribute 'constructed_name'")
     
+
     @classproperty
     def aliases(cls) -> List[str]:
         return [cls.__name__.replace("Pyd", "").lower()]
@@ -194,7 +195,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         case x if issubclass(value.__class__, models.BaseClass):
                             output = value.to_pydantic().improved_dict
                         case _:
-                            logger.warning(f"Got unmatched type during expand_fields: {value.__class__.__name__}")
+                            logger.warning(f"Got unmatched type for {field} during expand_fields: {value.__class__.__name__}")
                             continue
                 case dict():
                     key = list(field.keys())[0]
@@ -379,8 +380,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 try:
                     type_ = getattr(cls._sql_class, type_.property.key)
                 except AttributeError:
-                    type_ = getattr(cls._sql_class, f"_{field}") # Dicey workaround for hybrid_property with underscore
+                    try:
+                        type_ = getattr(cls._sql_class, f"_{field}") # Dicey workaround for hybrid_property with underscore
+                    except AttributeError as e:
+                        type_ = getattr(cls._sql_class, field) # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
+                logger.debug(f"Using type_name: {type_name}")
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
                     type_name = type_.__class__.__name__
@@ -562,7 +567,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             field (str): Field name
             value (str): Value to add to the relationship.
         """
-        current = self.__getattribute__(field)
+        try:
+            current = self.__getattribute__(field)
+        except AttributeError:
+            current = []
         if data is not None:
             value = dict(name=value, **data)
         if not isinstance(current, list):
@@ -582,7 +590,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             field (str): Field name
             value (str): The value to remove from the relationship.
         """
-        current = self.__getattribute__(field)
+        try:
+            current = self.__getattribute__(field)
+        except AttributeError:
+            logger.error(f"Couldn't find attribute {field} to remove {value} from.")
+            current = []
         if not isinstance(current, list):
             logger.error(f"Field {field} is not a list relationship.")
             return

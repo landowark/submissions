@@ -5,7 +5,7 @@ import csv, logging, re, sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import ClassVar, Generator, List, Tuple, TYPE_CHECKING
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator, computed_field
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
 from backend.validators import RSLNamer
@@ -44,6 +44,19 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
                 value = None
         return value
     
+    @computed_field
+    @property
+    def name(self) -> str:
+        if isinstance(self.procedure, PydProcedure):
+            assoc = self.procedure.name
+        else:
+            assoc = self.procedure
+        if isinstance(self.resultstype, PydResultsType):
+            resultstype = self.resultstype.name
+        else:
+            resultstype = self.resultstype
+        return f"{assoc}-{resultstype}"
+
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
@@ -104,6 +117,7 @@ class PydReagentLot(PydConcrete):
                 raise ValueError(f"Could not parse expiry date: {value}")
         return value
 
+    @computed_field
     @property
     def name(self) -> str:
         match self.reagent:
@@ -114,7 +128,13 @@ class PydReagentLot(PydConcrete):
         try:
             return f"{reagent} - {self.lot}"
         except AttributeError:
-            return f"{reagent} - {self.lot}"
+            return f"{reagent} - Unknown Lot"
+
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        output['name'] = self.name
+        return output
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ReagentLot
@@ -203,74 +223,16 @@ class PydSample(PydConcrete):
             value = 0
         return value
 
-    # @model_validator(mode="after")
-    # def populate_sql_instance(self) -> "PydSample":
-    #     """
-    #     Ensure that a usable SQL `Sample` instance exists after PydSample
-    #     initialization. If the prepared `sql_instance` does not have a
-    #     SQLAlchemy `_sa_instance_state` (i.e. it's a plain/unsaved object),
-    #     populate its important fields from the pydantic model so that
-    #     downstream assignment to association setters does not end up
-    #     converting it to None due to missing `sample_id`.
-    #     """
-    #     # Attempt to get existing sql_instance (may be None)
-    #     sql_inst = getattr(self, "sql_instance", None)
-    #     # If no sql_instance yet, ask super to prepare a blank one (no DB write)
-    #     if sql_inst is None:
-    #         try:
-    #             res = super().to_sql(update=False)
-    #             # super().to_sql may return (instance, None) in this codebase
-    #             if isinstance(res, tuple):
-    #                 sql_inst = res[0]
-    #             else:
-    #                 sql_inst = res
-    #         except Exception:
-    #             sql_inst = None
-    #     # If we have a sql instance and it's not a bound SA instance, populate fields
-    #     if sql_inst is not None and not hasattr(sql_inst, "_sa_instance_state"):
-    #         try:
-    #             # set sample_id only if valid
-    #             if getattr(self, "sample_id", None) and PydSample.is_sample_id_valid(self.sample_id):
-    #                 sql_inst.sample_id = self.sample_id
-    #         except Exception:
-    #             pass
-    #         try:
-    #             # Ensure misc_info exists and populate common metadata
-    #             try:
-    #                 misc = sql_inst._misc_info
-    #                 if misc is None:
-    #                     sql_inst._misc_info = {}
-    #             except Exception:
-    #                 sql_inst._misc_info = {}
-    #             # populate rank/row/column/enabled/is_control where present
-    #             meta = {
-    #                 "rank": getattr(self, "rank", None),
-    #                 "row": getattr(self, "row", None),
-    #                 "column": getattr(self, "column", None),
-    #                 "enabled": getattr(self, "enabled", None),
-    #                 "is_control": getattr(self, "is_control", None),
-    #             }
-    #             for k, v in meta.items():
-    #                 if v is not None:
-    #                     sql_inst._misc_info[k] = v
-    #         except Exception:
-    #             pass
-    #         # Attach back to pyd instance for later use
-    #         try:
-    #             self.sql_instance = sql_inst
-    #         except Exception:
-    #             pass
-    #     return self
-    
+    @computed_field
     @property
-    def constructed_name(self):
+    def name(self) -> str:
         return self.sample_id
     
-    # @property
-    # def improved_dict(self) -> dict:
-    #     output = super().improved_dict
-    #     output['name'] = self.sample_id
-    #     return output
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        output['name'] = self.name
+        return output
 
     def to_sql(self, update: bool=True):
         # Ensure we return a SQL Sample instance that has a valid sample_id
@@ -301,6 +263,9 @@ class PydSample(PydConcrete):
                 return existing, None
             # If no existing object, ensure the blank sql_instance has sample_id set
             return self.sql_instance, None
+        self.sql_instance.clientsubmission = getattr(self, "clientsubmission", [])
+        self.sql_instance.run = getattr(self, "run", [])
+        self.sql_instance.procedure = getattr(self, "procedure", [])
         self.sql_instance.rank = self.rank
         return self.sql_instance, None
 

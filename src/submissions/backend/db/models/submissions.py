@@ -18,7 +18,7 @@ from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from tools import (setup_lookup, jinja_template_loading, create_holidays_for_year,
+from tools import (flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
                    is_power_user, row_map, timezone, Report)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
@@ -1641,9 +1641,10 @@ class Sample(BaseClass, LogMixin):
     def searchables(cls):
         return [dict(label="Submitter ID", field="sample_id")]
 
-    # def to_pydantic(self):
-    #     from backend.validators import PydSample
-    #     return PydSample(**self.details_dict)
+    def to_pydantic(self):
+        output: PydSample = super().to_pydantic()
+        output.results = [result.to_pydantic() for result in flatten_list([assoc.results for assoc in self.sampleprocedureassociation])]
+        return output
 
     @classmethod
     @setup_lookup
