@@ -953,7 +953,7 @@ class SubmissionType(BaseClass):
     def file_name_template(self):
         if self._file_name_template:
             return self._file_name_template
-        return "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
+        return "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
     
     @file_name_template.setter
     def file_name_template(self, value):
@@ -1022,7 +1022,7 @@ class SubmissionType(BaseClass):
                     logger.error(f"Unmatched value: {item} for {self.__class__.__qualname__}.proceduretype")
                     continue
             if isinstance(output, tuple):
-                return output[0]
+                output = output[0]
             if isinstance(output, ProcedureType):
                 if output not in list_:
                     list_.append(output)
@@ -1402,7 +1402,8 @@ class ProcedureType(BaseClass):
             else:
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._submissiontype")
         # NOTE: Ensure this has access to "Default SubmissionType"
-        if "Default SubmissionType" not in [st.name for st in self._submissiontype]:
+        check_subtypes = [st.name for st in list_]
+        if "Default SubmissionType" not in check_subtypes:
             list_.append(SubmissionType.query(name="Default SubmissionType", limit=1))
         self._submissiontype = list_
         
@@ -1516,7 +1517,7 @@ class ProcedureType(BaseClass):
 class Procedure(BaseClass):
     
     id = Column(INTEGER, primary_key=True)  #: Primary key
-    name = Column(String, unique=True)  #: Name of the procedure (RSL number)
+    _name = Column(String, unique=True)  #: Name of the procedure (RSL number)
     repeat_of_id = Column(INTEGER, ForeignKey("_procedure.id", name="fk_repeat_id"))
     _cost = Column(FLOAT(2), default=0.00)
     _repeat_of = relationship("Procedure", remote_side=[id])
@@ -1668,6 +1669,16 @@ class Procedure(BaseClass):
         else:
             repeatof = ""
         self.name = f"{run}-{proceduretype}{repeatof}"  
+
+    @hybrid_property
+    def name(self) -> str:
+        return self._name
+    
+    @name.setter
+    def name(self, value):
+        if isinstance(value, dict):
+            value = value.get("value", "NA")
+        self._name = value
 
     @hybrid_property
     def reagentlot(self):
@@ -2178,6 +2189,28 @@ class Procedure(BaseClass):
                 assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)
                 assoc.save()
         
+    @property
+    def column_count(self) -> int:
+        """
+        Calculate the number of columns in this procedure
+
+        Returns:
+            int: Number of unique columns.
+        """
+        columns = set([assoc.column for assoc in self.proceduresampleassociation])
+        return len(columns)
+
+    @property
+    def row_count(self) -> int:
+        """
+        Calculate the number of columns in this procedure
+
+        Returns:
+            int: Number of unique columns.
+        """
+        columns = set([assoc.row for assoc in self.proceduresampleassociation])
+        return len(columns)
+
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """
@@ -2198,6 +2231,16 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     # NOTE: reference to the "SubmissionType" object
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypereagentroleassociation")  #: relationship to associated SubmissionType
+
+    @classproperty
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
+        return super().aliases + ["reagentroleproceduretypeassociation"]
 
     def __init__(self, *args, **kwargs):
         """
@@ -2535,6 +2578,7 @@ class ProcedureReagentLotAssociation(BaseClass):
     @classmethod
     @setup_lookup
     def query(cls,
+              name: str | None = None,
               procedure: Procedure | str | int | None = None,
               reagentlot: Reagent | str | None = None,
               reagentrole: str | ReagentRole | None = None,
@@ -2552,6 +2596,11 @@ class ProcedureReagentLotAssociation(BaseClass):
             RunReagentAssociation|List[RunReagentAssociation]: SubmissionReagentAssociation(s) of interest
         """
         query: Query = cls.__database_session__.query(cls)
+        match name:
+            case str():
+                query = query.filter(cls.name == name)
+            case _:
+                pass
         match reagentlot:
             case ReagentLot() | str():
                 if isinstance(reagentlot, str):
@@ -2594,6 +2643,16 @@ class ProcedureReagentLotAssociation(BaseClass):
         except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
             self.__database_session__.rollback()
             raise e
+
+    @classproperty
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
+        return super().aliases + ["reagentlotprocedureassociation"]
 
 
 class ReagentRoleReagentAssociation(BaseClass):
@@ -2717,6 +2776,16 @@ class ReagentRoleReagentAssociation(BaseClass):
             self._reagentrole = output
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._reagentrole to {type(output)}")
+
+    @classproperty
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
+        return super().aliases + ["reagentreagentroleassociation"]
 
 
 class EquipmentRole(BaseClass):
@@ -3292,7 +3361,16 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
                 logger.error(f"Can't add item {type(output)} to {self.__class__.__qualname__}._process")
                 continue
         self._process = list_
-    
+
+    @classproperty
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
+        return super().aliases + ["equipmentequipmentroleassociation"]
 
     @classmethod
     @setup_lookup
@@ -4230,7 +4308,6 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
         ),
     )
 
-
     # Relationships
     _procedureequipmentassociation = relationship(
         "ProcedureEquipmentAssociation",
@@ -4451,6 +4528,16 @@ class ProcedureEquipmentAssociation(BaseClass):
                     self._misc_info.update({'tipslot': tipslot})
                 except Exception:
                     pass
+    
+    @classproperty
+    def aliases(cls) -> List[str]:
+        """
+        Gets other names the sql object of this class might go by.
+
+        Returns:
+            List[str]: List of names
+        """
+        return super().aliases + ["equipmentprocedureassociation"]
 
     @hybrid_property
     def tipslot(self):
@@ -4620,32 +4707,6 @@ class ProcedureEquipmentAssociation(BaseClass):
     def comment(self):
         return self._comment
 
-    # @property
-    # def process(self):
-    #     return ProcessVersion.query(id=self.processversion_id)
-
-    # @property
-    # def tips(self):
-    #     try:
-    #         return TipsLot.query(id=self.tipslot_id, limit=1)
-    #     except AttributeError:
-    #         return None
-
-    # def to_sub_dict(self) -> dict:
-    #     """
-    #     This RunEquipmentAssociation as a dictionary
-
-    #     Returns:
-    #         dict: This RunEquipmentAssociation as a dictionary
-    #     """
-    #     try:
-    #         process = self.process.name
-    #     except AttributeError:
-    #         process = "No process found"
-    #     output = dict(name=self.equipment.name, asset_number=self.equipment.asset_number, comment=self.comment,
-    #                   processes=[process], role=self.equipmentrole, nickname=self.equipment.nickname)
-    #     return output
-
     def to_pydantic(self) -> PydProcedureEquipmentAssociation:
         """
         Returns a pydantic model based on this object.
@@ -4708,19 +4769,10 @@ class ProcedureEquipmentAssociation(BaseClass):
         output.update(relevant)
         output['misc_info'] = misc
         output['equipment'] = self.equipment.name
-        output['equipmentrole'] = self.equipmentrole.name
+        # equipmentrole is optional and may be None (see bug report)
+        output['equipmentrole'] = self.equipmentrole.name if self.equipmentrole else ""
         output['processversion'] = self.processversion.name if self.processversion else ""
         output['tipslot'] = [tipslot.name for tipslot in self.tipslot]
-        # try:
-        #     # output['processversion'] = self.processversion.details_dict
-        #     output['processversion'] = self.processversion.name
-        # except AttributeError:
-        #     output['processversion'] = ""
-        # try:
-        #     # output['tipslot'] = self.tipslot.details_dict
-        #     output['tipslot'] = self.tipslot.name
-        # except AttributeError as e:
-        #     output['tipslot'] = ""
         return output
 
 

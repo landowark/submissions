@@ -1,4 +1,5 @@
-from datetime import timedelta, date, datetime
+from datetime import date, timedelta
+
 import pytest
 from test_pyd_base import pydant, models
 from sqlalchemy.ext.associationproxy import ObjectAssociationProxyInstance
@@ -102,13 +103,25 @@ def test_pydsample_improved_dict(pydsample_created_instance):
 
 
 def test_pydsample_expand_fields(pydsample_sql_instance):
-    """Test that expand_fields properly expands sample and sample."""
+    """Test that expand_fields properly expands sample and sample.
+
+    Historically expanding the clientsubmission could induce the same
+    ``KeyError`` seen in :mod:`test_pyd_submissiontype` because a nested run
+    would be converted with an incomplete clientsubmission.  This test checks
+    that the operation completes and includes a ``run`` key.
+    """
     expanded = pydsample_sql_instance.improved_dict_expand_fields(["clientsubmission"])
     assert isinstance(expanded['clientsubmission'], list)
-    assert expanded['clientsubmission'][0]['submitter_plate_id'] == "Test ClientSubmission"
+    cs = expanded['clientsubmission'][0]
+    assert cs['submitter_plate_id'] == {'missing': False, 'value': 'Test ClientSubmission'}
+    assert 'run' in cs
+    assert isinstance(cs['run'], list)
+
     expanded = pydsample_sql_instance.improved_dict_expand_fields({"procedure": ['submissiontype']})
     assert isinstance(expanded['procedure'], list)
-    assert expanded['procedure'][0]['name'] == "RSL-XX-20260202-1-Test ProcedureType-2026-02-25 00:00:00"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert expanded['procedure'][0]['name']['value'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
+    assert expanded['procedure'][0]['name']['missing'] == False
     assert expanded['procedure'][0]['submissiontype']['name'] == "Default SubmissionType"
 
 
@@ -167,6 +180,4 @@ def test_update_instrumented_attribute(pydsample_created_instance):
     # Update the manufacturer field, which is a simple string
     pydsample_created_instance.update_instrumentedattribute("sample_id", "New ID")
     assert pydsample_created_instance.sample_id == "NEW ID"
-
-
 

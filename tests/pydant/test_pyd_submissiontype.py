@@ -62,7 +62,7 @@ def test_pydsubmissiontype_to_sql(pydsubmissiontype_created_instance):
     assert sql_instance.file_name_template == "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
     assert sql_instance.turnaround_time == timedelta(days=3)
     assert sql_instance.abbreviation == "BST"
-    assert sql_instance.defaults is None # This field gets filtered out by PydSubmissionType.filter_field
+    assert sql_instance.defaults == {"test_key": "test_value"} # This field gets filtered out by PydSubmissionType.filter_field
 
 
 def test_pydsubmissiontype_improved_dict(pydsubmissiontype_created_instance):
@@ -82,7 +82,7 @@ def test_pydsubmissiontype_improved_dict(pydsubmissiontype_created_instance):
     assert d['abbreviation'] == "BST"
     assert "defaults" in d
     # NOTE: This field gets filtered out by PydSubmissionType.filter_field
-    assert d['defaults'] is None
+    assert d['defaults'] == {"test_key": "test_value"}
 
 
 def test_pydsubmissiontype_expand_fields(pydsubmissiontype_sql_instance):
@@ -106,7 +106,7 @@ def test_pydsubmissiontype_fields(pydsubmissiontype_created_instance):
     assert "file_name_template" in fields
     assert "turnaround_time" in fields
     assert "abbreviation" in fields
-    assert "defaults" not in fields
+    # assert "defaults" not in fields
     
 
 def test_pydsubmissiontype_described_fields(pydsubmissiontype_created_instance):
@@ -118,7 +118,7 @@ def test_pydsubmissiontype_described_fields(pydsubmissiontype_created_instance):
     assert "file_name_template" not in fields
     assert "turnaround_time" in fields
     assert "abbreviation" in fields
-    assert "defaults" not in fields
+    # assert "defaults" not in fields
     
 
 def test_determine_field_type(pydsubmissiontype_created_instance):

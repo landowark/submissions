@@ -900,7 +900,7 @@ class PydClientSubmission(PydConcrete):
     sample_count: dict | None = Field(default=dict(value=0, missing=True), validate_default=True)
     full_batch_size: int | dict = Field(default=0)
     submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
+    comments: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
@@ -964,19 +964,29 @@ class PydClientSubmission(PydConcrete):
     @field_validator("submitter_plate_id")
     @classmethod
     def create_submitter_plate_num(cls, value, values):
-        if value['value'] in [None, "None"]:
-            match values.data['submitted_date']['value']:
-                case datetime():
-                    submitted_date = values.data['submitted_date']['value'].strftime("%Y-%m-%d %H:%M:%S")
-                case date():
-                    submitted_date = datetime.combine(values.data['submitted_date']['value'], datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S")
-                case _:
-                    submitted_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            val = f"{values.data['clientlab']['value']}-{values.data['submission_category']['value']}-{submitted_date}"
-            return dict(value=val, missing=True)
-        else:
-            value['value'] = value['value'].strip()
-            return value
+        match value:
+            case dict():
+                if value['value'] in [None, "None"]:
+                    match values.data['submitted_date']['value']:
+                        case datetime():
+                            submitted_date = values.data['submitted_date']['value'].strftime("%Y-%m-%d %H:%M:%S")
+                        case date():
+                            submitted_date = datetime.combine(values.data['submitted_date']['value'], datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S")
+                        case _:
+                            submitted_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    try:
+                        val = f"{values.data.get('clientlab', dict(value=""))['value']}-{values.data['submission_category']['value']}-{submitted_date}"
+                    except KeyError as e:
+                        print(values.data)
+                        raise e
+                    return dict(value=val, missing=True)
+                else:
+                    value['value'] = value['value'].strip()
+                    return value
+            case str():
+                return dict(value=value, missing=False)
+            case _:
+                raise ValueError(f"Unmatched type {value} for PydClientSubmission._submitter_plate_id")
 
     @field_validator("submitted_date")
     @classmethod
@@ -1008,7 +1018,7 @@ class PydClientSubmission(PydConcrete):
                 value['value'] = "NA"
         return value
 
-    @field_validator("comment", mode="before")
+    @field_validator("comments", mode="before")
     @classmethod
     def convert_comment_string(cls, value):
         if isinstance(value, str):

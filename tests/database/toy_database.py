@@ -106,7 +106,6 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
         "ClientLab",
         "Contact",
         "SubmissionType",
-        "ProcedureType",
         "ReagentRole",
         "Reagent",
         "ReagentLot",
@@ -116,6 +115,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
         "ProcessVersion",
         "Tips",
         "TipsLot",
+        "ProcedureType",
         "Sample",
         "ClientSubmission",
         "Run",
@@ -128,7 +128,6 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
     
     for item in order_list:
         model: BaseClass = models.get(item)
-        
         try:
             match model.__name__:
                 case "ClientLab":
@@ -136,6 +135,9 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         name="Test Lab", 
                         cost_centre="XXXXXX", 
                     )
+                    # attach early so relationship setters use an instrumented collection
+                    session.add(instance)
+                    session.flush()
                     instance.contact=created.get("Contact", None)
 
                 case "Contact":
@@ -144,6 +146,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         email="jtest@email.com",
                         tel="(555) 555-5555"
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.clientlab = created.get("ClientLab", None)
                     
                 case "SubmissionType":
@@ -154,6 +158,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         file_name_template="{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}",
                         regex=None,
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.turnaround_time=5
                     instance.abbreviation="XX"
                     instance.clientsubmission=created.get("ClientSubmission", None)
@@ -166,37 +172,56 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         plate_rows=8,
                         plate_cost=1.00,
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.procedure=created.get("Procedure", [])
-                    instance.submissiontype=created.get("SubmissionType", [])
+                    # instance.submissiontype=created.get("SubmissionType", [])
                     instance.resultstype=created.get("ResultsType", [])
                     instance.discount=created.get("Discount", [])
-                    instance.equipmentrole=created.get("EquipmentRole", [])
-                    instance.reagentrole = created.get("ReagentRole", [])
+                    eqro = created.get("EquipmentRole", None)
+                    if eqro is not None:
+                        instance.equipmentrole=eqro
+                    instance.reagentrole=created.get("ReagentRole", [])
 
                 case "ReagentRole":
                     instance = model(
                         name="Test ReagentRole"
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.proceduretype=created.get("ProcedureType", [])
-                    instance.reagent=created.get("Reagent", [])
-                    
+                    reagent=created.get("Reagent", [])
+                    if reagent:
+                        from backend.db.models import ReagentRoleReagentAssociation
+                        assoc = ReagentRoleReagentAssociation(reagentrole=instance, reagent=reagent, ml_used_per_sample=0.5)
+                        instance.reagentrolereagentassociation = [assoc]
+                    else:
+                        print("No reagent found!")
+
                 case "Reagent":
                     instance = model(
                         name="Test Solution",
                         cost_per_ml=0.50
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.eol_ext = 30
                     instance.reagentlot=created.get("ReagentLot", [])
                     reagentrole=created.get("ReagentRole", [])
                     if reagentrole:
                         from backend.db.models import ReagentRoleReagentAssociation
                         assoc = ReagentRoleReagentAssociation(reagentrole=reagentrole, reagent=instance, ml_used_per_sample=0.5)
+                        instance.reagentreagentroleassociation = [assoc]
+                    else:
+                        print("No reagentrole found!")
 
                 case "ReagentLot":
                     instance = model(
                         lot="012345",
                         active=True
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.expiry=date(year=date.today().year + 1, month=date.today().month, day=date.today().day)
                     instance.reagent=created.get("Reagent", None)
                     instance.procedure=created.get("Procedure", [])
@@ -207,6 +232,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         started_date=date.today() - timedelta(days=1),
                         technician="Bob Redshirt",
                         results=[])
+                    session.add(instance)
+                    session.flush()
                     instance.proceduretype=created.get("ProcedureType", None)
                     instance.run=created.get("Run", None)
                     instance.sample=created.get("Sample", [])
@@ -223,17 +250,27 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     instance = model(
                         name="Test EquipmentRole"
                     )
-                    instance.proceduretype=created.get("ProcedureType", [])
+                    session.add(instance)
+                    session.flush()
+                    proc = created.get("ProcedureType", None)
+                    if proc is not None:
+                        instance.proceduretype = proc
                     instance.equipment=created.get("Equipment", [])
                     
                 case "Equipment":
                     instance = model(
                         name="Test Instrument",
                         nickname="Testerino",
-                        asset_number="000000"
+                        asset_number="000000",
+                        manufacturer="ACME Corp",
+                        ref="12345"
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.procedure=created.get("Procedure", [])
                     instance.equipmentrole=created.get("EquipmentRole", [])
+                    # instance.equipmentequipmentroleassociation[0].equipmentrole = created.get("EquipmentRole", None)
+                    # instance.equipmentprocedureassociation[0].procedure = created.get("Procedure", None)
                     
                 case "Process":
                     assoc = created.get("EquipmentRole", None)
@@ -248,6 +285,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     instance = model(
                         name="Test Process"
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.tips=created.get("Tips", [])
                     instance.processversion=created.get("ProcessVersion", [])
                     instance.equipmentroleequipmentassociation=assoc
@@ -268,6 +307,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         project="NA",
                         active=True
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.process=created.get("Process", None)
                     instance.procedureequipmentassociation=assoc
                     
@@ -278,6 +319,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         ref="XXXX",
                         cost_per_tip=0.02
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.tipslot=created.get("TipsLot", [])
                     instance.process=created.get("Process", [])
                     
@@ -287,6 +330,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         expiry=date(year=date.today().year + 1, month=date.today().month, day=date.today().day),
                         active=True
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.tips=created.get("Tips", None)
                 
                 case "ResultsType":
@@ -295,6 +340,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         info={},
                         samples={}
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.results=created.get("Results", [])
                     instance.proceduretype=created.get("ProcedureType", [])
                     
@@ -314,6 +361,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         procedure=None,
                         img=None
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.sampleprocedureassociation=assoc
                     instance.resultstype=created.get("ResultsType", None)
                     
@@ -326,6 +375,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         comments = {},
                         cost_centre="XXXXXX"
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.clientlab=created.get("ClientLab", None)
                     instance.run=created.get("Run", None)
                     instance.contact=created.get("Contact", None)
@@ -335,11 +386,13 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                 case "Run":
                     instance = model(
                         rsl_plate_number="RSL-XX-20260202-1",
-                        
                         completed_date=date.today(),
                         started_date=date.today() - timedelta(days=1),
                         comment={}
+                        # signed_by="Bob"
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.clientsubmission=created.get("ClientSubmission", None)
                     instance.procedure=created.get("Procedure", [])
                     instance.sample=created.get("Sample", [])
@@ -349,6 +402,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                         sample_id="Test Sample",
                         is_control=True
                     )
+                    session.add(instance)
+                    session.flush()
                     instance.clientsubmission=created.get("ClientSubmission", [])
                     instance.run=created.get("Run", [])
                     instance.procedure=created.get("Procedure", [])
@@ -357,7 +412,8 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
                     print(f"Unmatched Model {model.__name__}")
                     continue
         except Exception as e:
-            instance = None
+            logger.error(f"Error creating fixture for {model.__name__}: {e}")
+            continue
         try:
             # instance = obj(**{k: v for k, v in kwargs.items() if v is not None})
             session.add(instance)
@@ -366,7 +422,7 @@ def _populate_minimal(session: Session, models_pkg) -> dict:
         except Exception as e:
             # If the simple creation fails, rollback the session to a
             # clean state and continue with other classes.
-            logger.error(f"Error creating fixture for {model.__name__}: {e}")
+            logger.error(f"Error saving fixture for {model.__name__}: {e}")
             session.rollback()
             created[model.__name__] = None
             continue

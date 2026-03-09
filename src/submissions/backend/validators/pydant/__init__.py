@@ -51,13 +51,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     non_expandables: ClassVar[List] = ["procedure"]
     
     # def model_post_init(self, __context__=None) -> None:
-    #     if self.name == "NA":
+    #     for k, v in self.model_dump().items():
     #         try:
-    #             self.name = self.constructed_name
-    #         except AttributeError:
-    #             logger.error(f"{self.__class__.__qualname__} has no attribute 'constructed_name'")
+    #             setattr(self.sql_instance, k, self.filter_field(key=k, value=v))
+    #         except AttributeError as e:
+    #             logger.warning(f"Could not set {self.sql_instance}.{k} to {v} due to {e}")
     
-
     @classproperty
     def aliases(cls) -> List[str]:
         return [cls.__name__.replace("Pyd", "").lower()]
@@ -132,7 +131,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # return data
         return self
 
-    def filter_field(self, key: str) -> Any:
+    def filter_field(self, key: str, value: Any | None = None) -> Any:
         """
         Attempts to get value from field dictionary
 
@@ -142,13 +141,16 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             Any (): Value found.
         """
-        item = getattr(self, key)
-        match item:
+        if not value:
+            value = getattr(self, key)
+        
+        match value:
             case dict():
-                item = item.get('value', None)
+                if self.determine_field_type(key) != "dict":
+                    value = value.get('value', None)
             case _:
                 pass
-        return item
+        return value
 
     def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str) -> dict:
         """
@@ -165,7 +167,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             fields = [fields]
         elif isinstance(fields, str):
             fields = [fields]
-
         if len(fields) == 0:
             fields = self.improved_dict.keys()
         dict_ = self.improved_dict
@@ -180,16 +181,16 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         continue
                     match value:
                         case InstrumentedAttribute():
-                            pass
+                            output = self.filter_field(key)   # or self.filter_field(key)
                         case _AssociationList():
                             output = []
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict
                                 target = getattr(item, key)
-                                target = target.to_pydantic().improved_dict
-                                target.update({k:v for k, v in dicto.items() if k !="name"})
-                                if target['name'] not in [thing['name'] for thing in output]:
-                                    output.append(target)
+                                new = target.to_pydantic().improved_dict
+                                new.update({k:v for k, v in dicto.items() if k !="name"})
+                                if new['name'] not in [thing['name'] for thing in output]:
+                                    output.append(new)
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
@@ -212,13 +213,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
                                 target = getattr(item, key)
-                                target = target.to_pydantic().improved_dict_expand_fields(new_fields)
-                                target.update({k:v for k, v in dicto.items() if k !="name"})
-                                if target['name'] not in [thing['name'] for thing in output]:
-                                    output.append(target)
+                                new = target.to_pydantic().improved_dict_expand_fields(new_fields)
+                                new.update({k:v for k, v in dicto.items() if k !="name"})
+                                if new['name'] not in [thing['name'] for thing in output]:
+                                    output.append(new)
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
-                            
                         case x if issubclass(value.__class__, models.BaseClass):
                             output = value.to_pydantic().improved_dict_expand_fields(new_fields)
                         case _:
@@ -255,10 +255,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             try:
                 output['name'] = self.sql_instance.name
             except AttributeError:
-                try:
-                    output['name'] = self.constructed_name
-                except AttributeError:
-                    logger.error(f"Cannot set name for {self.__class__.__name__}")
+                logger.error(f"Cannot set name for {self.__class__.__name__}")
         return output
 
     def to_sql(self, update: bool = True) -> models.BaseClass:
@@ -373,7 +370,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             str: Type name
         """        
-        type_ = getattr(cls._sql_class, field.lower().strip("_"))
+        try:
+            type_ = getattr(cls._sql_class, field.lower().strip("_"))
+        except AttributeError:
+            return
         type_name = type_.__class__.__name__
         match type_name:
             case "hybrid_propertyProxy":
@@ -395,14 +395,19 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         else:
                             type_name = "RelationshipScalar"
                     else:
-                        annotation = cls.model_fields[field].annotation
+                        try:
+                            annotation = cls.model_fields[field].annotation
+                        except KeyError:
+                            return "Skipped"
                         if isinstance(annotation, UnionType):
                             type_name = annotation.__args__[0].__name__
                         else:
                             try:
                                 type_name = annotation.__name__
                             except AttributeError:
-                                logger.error(f"Could not determine type name for field {field} on {cls.__name__} with annotation {cls.model_fields[field].annotation}")
+                                logger.error(f"Could not determine type name for field {field} on {cls.__name__} {cls.model_fields[field].annotation}")
+                                type_name = "Skipped"
+                            except KeyError:
                                 type_name = "Skipped"
                 if type_name == "ObjectAssociationProxyInstance":
                     if is_new:
@@ -413,7 +418,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     logger.warning(f"AssociationProxyInstance field {field} on {cls.__name__} is being treated as Skipped for new instance.")
                     type_name = "Skipped"
             case "InstrumentedAttribute":
-                IA = cls.model_fields[field].annotation
+                try:
+                    IA = cls.model_fields[field].annotation
+                except KeyError:
+                    return "Skipped"
                 if isinstance(IA, UnionType):
                     IA = IA.__args__[0]
                 try:

@@ -82,3 +82,23 @@ def test_procedureequipmentassociation_set_processversion(procedureequipmentasso
     procedureequipmentassociation.processversion = test_insert
     assert "Test Process - v2.0" == procedureequipmentassociation.processversion.name
 
+
+def test_procedureequipmentassociation_details_dict_no_role(db):
+    """Ensure details_dict gracefully handles missing equipmentrole.
+
+    This mirrors a bug where ``equipmentrole`` was ``None`` on an
+    association and accessing ``.name`` raised ``AttributeError``. The fix
+    returns an empty string instead.
+    """
+    # create a new association without specifying equipmentrole
+    assoc = ProcedureEquipmentAssociation(
+        equipment="Test Instrument",
+        procedure="Unknown Run-Unknown ProcedureType",
+    )
+    # The new object shouldn't have an equipmentrole set yet
+    assert assoc.equipmentrole is None
+    # Accessing details_dict must not raise and should include an empty value
+    d = assoc.details_dict
+    assert 'equipmentrole' in d
+    assert d['equipmentrole'] == ""
+

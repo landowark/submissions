@@ -7,13 +7,13 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse
 from jinja2 import Template, TemplateNotFound
 from pandas import DataFrame
-from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT
-from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
+from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT, inspect as sql_inspect
+from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList, AssociationProxyExtensionType
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_property, HybridExtensionType
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
@@ -244,6 +244,18 @@ class BaseClass(Base):
         Returns:
             str: Type name
         """       
+        def handle_instrument_attr(type_):
+            type_ = type_.property
+            type_name = type_.__class__.__name__
+            if type_name == "_RelationshipDeclared":
+                if type_.uselist:
+                    type_name = "RelationshipList"
+                else:
+                    type_name = "RelationshipScalar"
+            else:
+                type_name = type_.expression.type.__str__()
+            return type_name
+        
         try: 
             type_ = getattr(cls, field.lower().strip("_"))
         except TypeError:
@@ -257,15 +269,7 @@ class BaseClass(Base):
                     type_ = getattr(cls, f"_{field}") # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
                 if type_name == "InstrumentedAttribute":
-                    type_ = type_.property
-                    type_name = type_.__class__.__name__
-                    if type_name == "_RelationshipDeclared":
-                        if type_.uselist:
-                            type_name = "RelationshipList"
-                        else:
-                            type_name = "RelationshipScalar"
-                    else:
-                        type_name = type_.expression.type.__str__()
+                    type_name = handle_instrument_attr(type_=type_)
                 if type_name == "ObjectAssociationProxyInstance":
                     if is_new:
                         type_name = "SKIPPED"
@@ -273,7 +277,7 @@ class BaseClass(Base):
                 if is_new:
                     type_name = "SKIPPED"
             case "InstrumentedAttribute":
-                type_name = type_.type.__str__()
+                type_name = handle_instrument_attr(type_=type_)
             case _:
                 logger.warning(f"Got unmatched type: {type_name} for field {field}.")
         type_name = re.sub(r"\(.*\)", "", type_name)
@@ -729,16 +733,19 @@ class BaseClass(Base):
             return super().__setattr__(key, value)
         elif key == "new":
             return
+        # print(f"Setting: {key}")
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
             attr = inspect.getattr_static(self.__class__, key)
             class_has_attr = True
-        except AttributeError:
+        except AttributeError as e:
+            # logger.error(e)
             attr = None
             class_has_attr = False
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
             # ensure value is json serializable (or coerce it)
+            # print("Doing has not attribute.")
             try:
                 safe_value = self._serialize_misc_value(value)
             except TypeError:
@@ -748,19 +755,23 @@ class BaseClass(Base):
                 try:
                     try:
                         if self._misc_info is None:
-                            self._misc_info = {}
+                            # self._misc_info = {}
+                            super().__setattr__("_misc_info", {})
                     except AttributeError:
-                        self._misc_info = {}
+                        # self._misc_info = {}
+                        super().__setattr__("_misc_info", {})
                     self._misc_info.update({key: safe_value})
                 except AttributeError:
-                    self._misc_info = {key: safe_value}
-            return
+                    # self._misc_info = {key: safe_value}
+                    super().__setattr__("_misc_info", {key: safe_value})
+            # return
         else:
             # If the class attribute is a descriptor for a property (including
             # SQLAlchemy hybrid_property), calling super().__setattr__ may not
             # always trigger the descriptor's fset. Detect hybrid_property or
             # builtin property descriptors and call their fset directly so
             # property setters run when users call setattr(instance, name, val).
+            current = getattr(self, key)
             try:
                 # hybrid_property is imported in module scope above
                 if isinstance(attr, (property, hybrid_property)):
@@ -770,13 +781,60 @@ class BaseClass(Base):
             except Exception as e:
                 # fall back to default behavior if detection fails
                 logger.error(f"Unable to call setter for {self.__str__()}.{attr.__name__} due to {e}")
+                return super().__setattr__(key, current)
             try:
+                # print("Doing has attribute")
                 return super().__setattr__(key, value)
             except AttributeError as e:
-                if "association" in key:
-                    logger.warning(f"Disallowing setting of association {key} automatically")
-                else:
-                    logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                # if "association" in key:
+                #     logger.error(f"Problem with value {value}, {e}")
+                #     # logger.warning(f"Disallowing setting of association {key} automatically")
+                #     # if "_sa_instance_state" in e.__str__():
+                #     #     query_class = self.get_relationship_sqlclass(key)
+                #     #     if isinstance(value, list):
+                #     #         new_value = [query_class.query(name=item, limit=1) for item in value]
+                #     #     else:
+                #     #         new_value = query_class.query(name=value, limit=1)
+                #     #     if new_value:
+                #     #         setattr(self, key, new_value)
+
+                # else:
+                logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
+                # return super().__setattr__(key, current)
+    
+    @classmethod
+    def get_association_proxy_details(cls, field_name):
+        """
+        Retrieves details of a specific association proxy field.
+        """
+        mapper = sql_inspect(cls)
+        descriptor = mapper.all_orm_descriptors.get(field_name)
+
+        if isinstance(descriptor, AssociationProxy):
+            # Initialize the descriptor
+            descriptor.__get__(None, cls)
+            return {
+                "name": field_name,
+                "target_attribute": descriptor.value_attr,
+                
+                "info": descriptor.__dict__
+            }
+        else:
+            return None
+
+    @classmethod
+    def find_proxies_for_field(cls, field_name):
+        """Finds proxies targeting a specific relationship and field."""
+        mapper = sql_inspect(cls)
+        for _, desc in mapper.all_orm_descriptors.items():
+            descriptor = getattr(desc, "extension_type", None)
+            match descriptor:
+                case AssociationProxyExtensionType.ASSOCIATION_PROXY:
+                    if desc.target_collection == field_name:
+                        return desc.value_attr.strip("_")
+                case _:
+                    continue
+        return 
     
     @classmethod
     def get_relationship_sqlclass(cls, key) -> BaseClass | None:
@@ -791,7 +849,7 @@ class BaseClass(Base):
         """
         field_type = cls.determine_field_type(key)
         if "RELATIONSHIP" in field_type:
-            return BaseClass.find_subclasses(class_name=key.strip("_"))
+            return cls.find_subclasses(class_alias=key.strip("_"))
         return None
    
     def delete(self, **kwargs):
@@ -913,29 +971,6 @@ class BaseClass(Base):
         Returns: 
             dict[Any, Any]
         """
-        # # Track visited objects to avoid recursion cycles when expanding relationships.
-        # if visited is None:
-        #     visited = set()
-        # # Identify this instance by class name and primary key (if available), else by id().
-        # try:
-        #     pk = getattr(self, 'id')
-        # except Exception:
-        #     pk = id(self)
-        # identifier = (self.__class__.__name__, pk)
-        # # If already visited, return a shallow dict (avoid further expansion).
-        # if identifier in visited:
-        #     shallow = self.details_dict
-        #     # Remove any heavy relationship fields to keep shallow.
-        #     for rel_field in ('run', 'procedure', 'sample', 'clientsubmission'):
-        #         if rel_field in shallow:
-        #             try:
-        #                 shallow[rel_field] = shallow[rel_field].name
-        #             except Exception:
-        #                 shallow[rel_field] = shallow[rel_field]
-        #     return shallow
-        # # Mark current object as visited for downstream recursion checks.
-        # visited.add(identifier)
-
         dict_ = self.details_dict
         if len(fields) == 0:
             return dict_
@@ -952,7 +987,7 @@ class BaseClass(Base):
                     # logger.debug(f"Value {key} is of type {type(value)}")
                     match value:
                         case InstrumentedAttribute():
-                            pass
+                            output = getattr(self.sql_instance, key)   # or self.filter_field(key)
                         case _AssociationList():
                             output = []
                             for item in value.col:
@@ -1051,7 +1086,8 @@ class BaseClass(Base):
         """
         pyd = self.pydantic_model(pyd_model_name=pyd_model_name)
         details = self.details_dict
-        return pyd(sql_instance=self, **details)
+        details['sql_instance'] = self
+        return pyd(**details)
 
     def show_details(self, obj):
         """

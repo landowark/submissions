@@ -27,7 +27,7 @@ def test_submissiontype_query(submissiontype):
 def test_submissiontype_file_name_template(submissiontype):
     assert (
         submissiontype.file_name_template
-        == "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
+        == "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
     )
 
 
