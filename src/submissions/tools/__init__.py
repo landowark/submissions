@@ -15,12 +15,11 @@ from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader, Template
 from logging import handlers, Logger
 from pathlib import Path
-from sqlalchemy.orm import Session, InstrumentedAttribute
+from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 from typing import Any, Tuple, Literal, List, Generator
-from sqlalchemy.orm.relationships import _RelationshipDeclared
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for potentially choosing database path before app is created.
@@ -89,62 +88,6 @@ def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
     return sorted(df[column_name].unique())
 
 
-# def check_key_or_attr(key: str, interest: dict | object, check_none: bool = False) -> bool:
-#     """
-#     Checks if key exists in dict or object has attribute.
-
-#     Args:
-#         key (str): key or attribute name
-#         interest (dict | object): Dictionary or object to be checked.
-#         check_none (bool, optional): Return false if value exists, but is None. Defaults to False.
-
-#     Returns:
-#         bool: True if exists, else False
-#     """
-#     match interest:
-#         case dict():
-#             if key in interest.keys():
-#                 if check_none:
-#                     match interest[key]:
-#                         case dict():
-#                             if 'value' in interest[key].keys():
-#                                 try:
-#                                     check = interest[key]['value'] is None
-#                                 except KeyError:
-#                                     check = True
-#                                 if check:
-#                                     return False
-#                                 else:
-#                                     return True
-#                             else:
-#                                 try:
-#                                     check = interest[key] is None
-#                                 except KeyError:
-#                                     check = True
-#                                 if check:
-#                                     return False
-#                                 else:
-#                                     return True
-#                         case _:
-#                             if interest[key] is None:
-#                                 return False
-#                             else:
-#                                 return True
-#                 else:
-#                     return True
-#             return False
-#         case object():
-#             if hasattr(interest, key):
-#                 if check_none:
-#                     if interest.__getattribute__(key) is None:
-#                         return False
-#                     else:
-#                         return True
-#                 else:
-#                     return True
-#             return False
-
-
 def check_not_nan(cell_contents) -> bool:
     """
     Check to ensure excel sheet cell contents are not blank.
@@ -194,39 +137,6 @@ def convert_nans_to_nones(input_str: str) -> str | None:
     if check_not_nan(input_str):
         return input_str
     return None
-
-
-# def is_missing(value: Any) -> Tuple[Any, bool]:
-#     """
-#     Checks if a parsed value is missing.
-
-#     Args:
-#         value (Any): Incoming value
-
-#     Returns:
-#         Tuple[Any, bool]: Value, True if nan, else False
-#     """
-#     if check_not_nan(value):
-#         return value, False
-#     else:
-#         return convert_nans_to_nones(value), True
-
-
-# def check_regex_match(pattern: str, check: str) -> bool:
-#     """
-#     Determines if a pattern matches a str
-
-#     Args:
-#         pattern (str): regex pattern string
-#         check (str): string to be checked
-
-#     Returns:
-#         bool: match found?
-#     """
-#     try:
-#         return bool(re.match(fr"{pattern}", check))
-#     except TypeError:
-#         return False
 
 
 def get_first_blank_df_row(df: pd.DataFrame) -> int:
@@ -380,52 +290,6 @@ class CustomLogger(Logger):
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
 
 
-# def setup_logger(verbosity: int = 3):
-#     """
-#     Set logger levels using settings.
-
-#     Args:
-#         verbosity (int, optional): Level of verbosity desired 3 is highest. Defaults to 3.
-
-#     Returns:
-#         logger: logger object
-#     """
-
-#     def handle_exception(exc_type, exc_value, exc_traceback):
-#         if issubclass(exc_type, KeyboardInterrupt):
-#             sys.__excepthook__(exc_type, exc_value, exc_traceback)
-#             return
-#         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-
-#     logger = logging.getLogger("procedure")
-#     logger.setLevel(logging.DEBUG)
-#     # NOTE: create file handler which logs even debug messages
-#     try:
-#         Path(LOGDIR).mkdir(parents=True)
-#     except FileExistsError:
-#         logger.warning(f"Logging directory {LOGDIR} already exists.")
-#     # NOTE: logging to file turned off due to repeated permission errors
-#     # NOTE: create console handler with a higher log level
-#     # NOTE: create custom logger with STERR -> log
-#     ch = logging.StreamHandler(stream=sys.stdout)
-#     # NOTE: set logging level based on verbosity
-#     match verbosity:
-#         case 3:
-#             ch.setLevel(logging.DEBUG)
-#         case 2:
-#             ch.setLevel(logging.INFO)
-#         case 1:
-#             ch.setLevel(logging.WARNING)
-#     ch.name = "Stream"
-#     # NOTE: create formatter and add it to the handlers
-#     formatter = CustomFormatter()
-#     ch.setFormatter(formatter)
-#     # NOTE: add the handlers to the logger
-#     logger.addHandler(ch)
-#     # NOTE: Output exception and traceback to logger
-#     sys.excepthook = handle_exception
-#     return logger
-
 
 def jinja_template_loading() -> Environment:
     """
@@ -449,6 +313,7 @@ def jinja_template_loading() -> Environment:
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
     return env
+
 
 def render_details_template(template: str | Template, css_in: List[str] | str = [], js_in: List[str] | str = [],
                             **kwargs) -> str:
@@ -493,7 +358,6 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     except IndexError:
         return None, None
     return row, column
-
 
 
 def copy_xl_sheet(source_sheet, target_sheet):
@@ -640,33 +504,6 @@ def setup_lookup(func):
     return wrapper
 
 
-# def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
-#     if manager is None:
-#         return None, False
-#     if object_name in manager.aliases:
-#         return manager, True
-#     relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
-#                      if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
-#     relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
-#     for relationship in relationships:
-#         if relationship.key == object_name and "association" not in relationship.key:
-#             try:
-#                 rel_obj = getattr(manager, relationship.key)
-#                 if rel_obj is not None:
-#                     return rel_obj, False
-#             except AttributeError:
-#                 pass
-#         if "association" in relationship.key:
-#             try:
-#                 rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
-#                                 if getattr(item, object_name) is not None), None)
-#                 if rel_obj is not None:
-#                     return rel_obj, False
-#             except AttributeError:
-#                 pass
-#     return None, None
-
-
 def get_application_from_parent(widget):
     try:
         return widget.app
@@ -768,77 +605,6 @@ class Report(BaseModel):
                     self.results.append(res)
             case _:
                 logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
-
-
-# def rreplace(s: str, old: str, new: str) -> str:
-#     """
-#     Removes rightmost occurrence of a substring
-
-#     Args:
-#         s (str): input string
-#         old (str): original substring
-#         new (str): new substring
-
-#     Returns:
-#         str: updated string
-#     """
-#     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
-
-
-# def list_sort_dict(input_dict: dict, sort_list: list) -> dict:
-#     sort_list = reversed(sort_list)
-#     for item in sort_list:
-#         try:
-#             input_dict = {item: input_dict.pop(item), **input_dict}
-#         except KeyError:
-#             continue
-#     return input_dict
-
-
-# def remove_key_from_list_of_dicts(input_list: list, key: str) -> list:
-#     """
-#     Removes a key from all dictionaries in a list of dictionaries
-
-#     Args:
-#         input_list (list): Input list of dicts
-#         key (str): Name of key to remove.
-
-#     Returns:
-#         list: List of updated dictionaries
-#     """
-#     for item in input_list:
-#         try:
-#             del item[key]
-#         except KeyError:
-#             continue
-#     return input_list
-
-
-# def yaml_regex_creator(loader, node):
-#     # Note: Add to import from json, NOT export yaml in app.
-#     nodes = loader.construct_sequence(node)
-#     name = nodes[0].replace(" ", "_")
-#     abbr = nodes[1]
-#     return rf"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
-
-
-# def super_splitter(ins_str: str, substring: str, idx: int) -> str:
-#     """
-#     Splits string on substring at index
-
-#     Args:
-#         ins_str (str): input string
-#         substring (str): substring to split on
-#         idx (int): the occurrence of the substring to return
-
-#     Returns:
-
-#     """
-#     try:
-#         return ins_str.split(substring)[idx]
-#     except IndexError:
-#         logger.error(f"Index of split {idx} not found.")
-#         return ins_str
 
 
 def is_developer() -> bool:
@@ -1042,27 +808,6 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
     return sorted(holidays)
 
 
-# def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -> bool:
-#     """
-#     Determines if a dictionary is in a list of dictionaries (possible ordering issue with just using dict in list)
-
-#     Args:
-#         listo (List[dict): List of dictionaries to compare to.
-#         dicto (dict): Dictionary to compare.
-
-#     Returns:
-#         bool: True if dicto is equal to any dictionary in the list.
-#     """
-#     if isinstance(dicto, list) and isinstance(listo, list):
-#         return listo == dicto
-#     elif isinstance(dicto, dict) and isinstance(listo, dict):
-#         return listo == dicto
-#     elif isinstance(dicto, dict) and isinstance(listo, list):
-#         return any([dicto == d for d in listo])
-#     else:
-#         raise TypeError(f"Unsupported variable: {type(listo)}")
-
-
 def flatten_list(input_list: list) -> list:
     """
     Takes nested lists and returns a single flat list.
@@ -1076,62 +821,8 @@ def flatten_list(input_list: list) -> list:
     return list(itertools.chain.from_iterable(input_list))
 
 
-# def sanitize_object_for_json(input_dict: dict) -> dict | str:
-#     """
-#     Takes an object and makes sure its components can be converted to JSON
-
-#     Args:
-#         input_dict (dict): Dictionary of interest
-
-#     Returns:
-#         dict:
-#     """
-#     if not isinstance(input_dict, dict):
-#         match input_dict:
-#             case int() | float() | bool():
-#                 pass
-#             case datetime() | date():
-#                 # input_dict = input_dict.strftime("%Y-%m-%d %H:%M:%S")
-#             # case date():
-#             #     input_dict = input_dict.strftime("%Y-%m-%d")
-#                 input_dict = input_dict.isoformat()
-            
-#             case _:
-#                 try:
-#                     input_dict = json.dumps(input_dict)
-#                 except TypeError:
-#                     match input_dict:
-#                         case str():
-#                             input_dict = input_dict.strip('\"')
-#                         case _:
-#                             input_dict = str(input_dict).strip('\"')
-#         return input_dict
-#     output = {}
-#     for key, value in input_dict.items():
-#         match value:
-#             case list():
-#                 value = [sanitize_object_for_json(object) for object in value]
-#             case dict():
-#                 value = sanitize_object_for_json(value)
-#             case datetime():
-#                 value = value.strftime("%Y-%m-%d %H:%M:%S")
-#             case date():
-#                 value = value.strftime("%Y-%m-%d")
-#             case _:
-#                 try:
-#                     value = json.dumps(value)
-#                 except TypeError:
-#                     match value:
-#                         case str():
-#                             pass
-#                         case _:
-#                             value = str(value)
-#         if isinstance(value, str):
-#             value = value.strip('\"')
-#         output[key] = value
-#     return output
-
 def sanitize_object_for_json(input_obj):
+
     from backend.db.models import BaseClass
     match input_obj:
         case datetime() | date():
@@ -1184,6 +875,7 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
                 return index, d
     # Return None if no matching dictionary is found
     raise StopIteration(f"Could not find {key} value")
+
 
 class classproperty(property):
     """

@@ -2,10 +2,8 @@
 Contains all operations for creating charts, graphs and visual effects.
 """
 from datetime import timedelta, date
-from pathlib import Path
 from typing import Generator
 import plotly
-from PyQt6.QtWidgets import QWidget
 import pandas as pd, logging
 from plotly.graph_objects import Figure
 from tools import divide_chunks

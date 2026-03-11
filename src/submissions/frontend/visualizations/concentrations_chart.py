@@ -30,7 +30,7 @@ class ConcentrationsChart(CustomFigure):
                                  hover_data=["name", "procedure", "submitted_date", "concentration"],
                                  color="positive", color_discrete_map={"positive": "red", "negative": "green", "sample":"orange"}
                                  )
-        except (ValueError, AttributeError) as e:
+        except (ValueError, AttributeError, KeyError) as e:
             scatter = px.scatter()
         # NOTE: For some reason if data is allowed to sort itself it leads to wrong ordering of x axis.
         traces = sorted(scatter.data, key=itemgetter("name"))
