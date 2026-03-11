@@ -918,7 +918,11 @@ class PydClientSubmission(PydConcrete):
     def enforce_submitted_date(cls, value):
         match value:
             case str():
-                value = dict(value=datetime.strptime(value, "%Y-%m-%d %H:%M:%S").date(), missing=False)
+                try:
+                    value = parse(value)
+                except ParserError:
+                    value = None
+                value = dict(value=value, missing=False)
             case datetime():
                 value = dict(value=value, missing=False)
             case date():

@@ -1,7 +1,7 @@
 """
 Constructs main application.
 """
-import getpass, logging, webbrowser, sys
+import logging, webbrowser, sys
 from pprint import pformat
 from PyQt6.QtCore import qInstallMessageHandler
 from PyQt6.QtWidgets import (

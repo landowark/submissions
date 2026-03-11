@@ -300,8 +300,10 @@ def jinja_template_loading() -> Environment:
     """
     # NOTE: allows retrieval of an object's Python type directly within a template
     # Usage: The type of this variable is: {{ my_variable | get_type }}
-    def get_type(obj):
-        return type(obj).__name__
+    def get_type(obj_):
+        return type(obj_).__name__
+    def get_value(obj_):
+        return obj_.get('value') if isinstance(obj_, dict) else obj_
     # NOTE: determine if pyinstaller launcher is being used
     if check_if_app():
         loader_path = Path(sys._MEIPASS).joinpath("files", "templates")
@@ -312,6 +314,7 @@ def jinja_template_loading() -> Environment:
     env = Environment(loader=loader)
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
+    env.filters['extract_value'] = get_value
     return env
 
 

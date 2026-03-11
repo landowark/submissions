@@ -9,10 +9,10 @@
 <body>
 {% endif %}
     {% block body %}
-    <h2><u>Procedure Details for {{ procedure['name'] }}</u></h2>
+    <h2><u>Procedure Details for {{ procedure['name'] | extract_value }}</u></h2>
     {{ super() }}
     <p>{% for key, value in procedure.items() if key not in procedure['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: {{ value }}</b><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Pcr", "PCR") }}: {{ value | extract_value }}</b><br>
     {% endfor %}</p>
     {% if procedure['reagent'] %}
     <button type="button"><h3><u>Reagents:</u></h3></button>

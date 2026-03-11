@@ -296,7 +296,7 @@ class PydProcedureType(PydAbstract):
             List[PydSample]: Padded list.
         """
         from backend.validators.pydant import PydSample
-        logger.debug(f"Samples from construct_plate_map:\n{pformat(sample_dicts)}")
+        # logger.debug(f"Samples from construct_plate_map:\n{pformat(sample_dicts)}")
         output = []
         for row, column in self.ranked_plate.values():
 

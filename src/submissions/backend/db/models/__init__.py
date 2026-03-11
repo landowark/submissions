@@ -7,13 +7,13 @@ from datetime import datetime, date, timedelta
 from dateutil.parser import parse
 from jinja2 import Template, TemplateNotFound
 from pandas import DataFrame
-from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, FLOAT, inspect as sql_inspect
+from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList, AssociationProxyExtensionType
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
-from sqlalchemy.ext.hybrid import hybrid_property, HybridExtensionType
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
@@ -139,12 +139,10 @@ class BaseClass(Base):
                 allowed.add(name)
         # Keep internal allowed names
         allowed.update({'_misc_info'})
-
         valid_kwargs = {k: v for k, v in kwargs.items() if k in allowed}
         misc_kwargs = {k: v for k, v in kwargs.items() if k not in valid_kwargs}
         # Call SQLAlchemy / Declarative __init__ only with valid kwargs
         super().__init__(**valid_kwargs)
-
         # Ensure _misc_info exists and merge misc kwargs into it
         try:
             if self._misc_info is None:
@@ -220,14 +218,12 @@ class BaseClass(Base):
         except Exception:
             # fall through to other heuristics
             pass
-
         # If it's a BaseClass-like instance, prefer name/id when available
         try:
             if isinstance(value, BaseClass):
                 return getattr(value, "name", None) or getattr(value, "id", None) or str(value)
         except Exception:
             pass
-
         # As a last resort, try to convert to string. If that fails, raise.
         try:
             return str(value)
@@ -255,7 +251,6 @@ class BaseClass(Base):
             else:
                 type_name = type_.expression.type.__str__()
             return type_name
-        
         try: 
             type_ = getattr(cls, field.lower().strip("_"))
         except TypeError:
@@ -450,7 +445,6 @@ class BaseClass(Base):
             if isinstance(v, BaseClass):
                 obj_primarykey = getattr(v, "id", None)
                 is_relationship = isinstance(getattr(attr, "property", None), RelationshipProperty)
-
                 # If it's a relationship property, prefer .has / .any when no pk
                 if is_relationship:
                     related_cls = attr.property.mapper.class_
@@ -598,8 +592,18 @@ class BaseClass(Base):
     
     def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
                             **kwargs) -> str:
-        details = {self.__class__.__name__.lower() : self.clean_details_for_render(kwargs)}
-        # template = self.details_template
+        """
+        Creates an html string. Loads js and css files.
+
+        Args:
+            css_in (List[str| Path] | str): css files to be used. Default []
+            js_in (List[str| Path] | str): js files to be used. Default []
+
+        Returns:
+            str: html code
+
+        """
+        details = {self.__class__.__name__.lower() : self.sanitize_obj_for_json(kwargs)}
         if isinstance(css_in, str):
             css_in = [css_in]
         env = jinja_template_loading()
@@ -610,9 +614,6 @@ class BaseClass(Base):
             js_in = [js_in]
         js_in = ["details"] + js_in
         js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
-        # if isinstance(template, str):
-        #     template = f"{template}.html"
-        # template = env.get_template(self.details_template)
         css_out = []
         for css in css_in:
             with open(css, "r") as f:
@@ -733,19 +734,16 @@ class BaseClass(Base):
             return super().__setattr__(key, value)
         elif key == "new":
             return
-        # print(f"Setting: {key}")
         # NOTE: if attribute not found in this object, value gets shoved in to misc_info
         try:
             attr = inspect.getattr_static(self.__class__, key)
             class_has_attr = True
         except AttributeError as e:
-            # logger.error(e)
             attr = None
             class_has_attr = False
         # NOTE: if attribute not found in this object, value gets shoved into misc_info
         if not class_has_attr:
             # ensure value is json serializable (or coerce it)
-            # print("Doing has not attribute.")
             try:
                 safe_value = self._serialize_misc_value(value)
             except TypeError:
@@ -755,14 +753,11 @@ class BaseClass(Base):
                 try:
                     try:
                         if self._misc_info is None:
-                            # self._misc_info = {}
                             super().__setattr__("_misc_info", {})
                     except AttributeError:
-                        # self._misc_info = {}
                         super().__setattr__("_misc_info", {})
                     self._misc_info.update({key: safe_value})
                 except AttributeError:
-                    # self._misc_info = {key: safe_value}
                     super().__setattr__("_misc_info", {key: safe_value})
             # return
         else:
@@ -783,24 +778,10 @@ class BaseClass(Base):
                 logger.error(f"Unable to call setter for {self.__str__()}.{attr.__name__} due to {e}")
                 return super().__setattr__(key, current)
             try:
-                # print("Doing has attribute")
                 return super().__setattr__(key, value)
             except AttributeError as e:
-                # if "association" in key:
-                #     logger.error(f"Problem with value {value}, {e}")
-                #     # logger.warning(f"Disallowing setting of association {key} automatically")
-                #     # if "_sa_instance_state" in e.__str__():
-                #     #     query_class = self.get_relationship_sqlclass(key)
-                #     #     if isinstance(value, list):
-                #     #         new_value = [query_class.query(name=item, limit=1) for item in value]
-                #     #     else:
-                #     #         new_value = query_class.query(name=value, limit=1)
-                #     #     if new_value:
-                #     #         setattr(self, key, new_value)
-
-                # else:
                 logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
-                # return super().__setattr__(key, current)
+                
     
     @classmethod
     def get_association_proxy_details(cls, field_name):
@@ -816,7 +797,6 @@ class BaseClass(Base):
             return {
                 "name": field_name,
                 "target_attribute": descriptor.value_attr,
-                
                 "info": descriptor.__dict__
             }
         else:
@@ -882,84 +862,88 @@ class BaseClass(Base):
         return output_date
 
     @classmethod
-    def clean_details_for_render(cls, dictionary: dict) -> dict:
+    def sanitize_obj_for_json(cls, obj_, expand: bool=False) -> Any:
         """
-        Cleans dictionary for rendering on a template.
+        Cleans obj (generally a dict) for rendering on a template or storage as a json.
 
         Args:
-            dictionary (dict): input dictionary
+            obj_: input object
 
         Returns:
-            dict: cleaned dictionary
-        """
-        output = {}
-        for k, value in dictionary.items():
-            match value:
-                case datetime() | date():
-                    value = value.strftime("%Y-%m-%d")
-                case bytes():
-                    continue
-                case dict():
-                    try:
-                        value = value['name']
-                    except KeyError:
-                        if k == "_misc_info" or k == "misc_info":
-                            value = value
-                        else:
-                            continue
-                case x if issubclass(value.__class__, BaseClass):
-                    try:
-                        value = value.name
-                    except AttributeError:
-                        continue
-                case _:
-                    pass
-            output[k] = value
-        return output
-
-    @classmethod
-    def correct_details_fields(cls, value: Any, expand: bool=False) -> Any:
-        """
-        Corrects fields in details_dict to proper types.
-
-        Args:
-            value (Any): input value
-        Returns:
-            Any: corrected value
+            Any: cleaned object
         """
         from backend.validators.pydant import PydBaseClass
-        match value:
-            case str():
-                output = value.strip('\"')
-            case list():
-                output = [cls.correct_details_fields(v, expand=expand) for v in value]
-            case dict():
-                output = {k: cls.correct_details_fields(v, expand=expand) for k, v in value.items()}
-            case x if issubclass(value.__class__, BaseClass):
-                if not expand:
-                    output = value.name
-                else:
-                    output = value.details_dict
-            case x if issubclass(value.__class__, PydBaseClass):
-                if not expand:
-                    output = value.name
-                else:
-                    output = value.sql_instance.details_dict
-            case _AssociationList():
-                output = [cls.correct_details_fields(v, expand=expand) for v in value]
-            # NOTE: datetime is a subclass of date, so the datetime() case
-            # must come before date() to avoid matching datetimes as dates
-            # (which would force end-of-day time).
+        match obj_:
             case datetime():
-                output = datetime.strftime(value, "%Y-%m-%d %H:%M:%S")
+                return obj_.isoformat()
             case date():
-                output = datetime.combine(value, datetime.max.time())
-                output = datetime.strftime(output, "%Y-%m-%d %H:%M:%S")
+                return datetime.combine(obj_, datetime.max.time()).isoformat()
             case timedelta():
-                output = value.days
+                return obj_.days
+            case list() | _AssociationList():
+                return [cls.sanitize_obj_for_json(item, expand=expand) for item in obj_]
+            case dict():
+                return {k: cls.sanitize_obj_for_json(v, expand=expand) for k, v in obj_.items()}
+            case x if issubclass(obj_.__class__, BaseClass):
+            # case x if obj_.__class__.__name__ in [q.__name__ for q in BaseClass.find_subclasses()]:
+                if not expand:
+                    return cls.sanitize_obj_for_json(obj_.name)
+                else:
+                    return cls.sanitize_obj_for_json(obj_.details_dict, expand=expand)
+            case x if issubclass(obj_.__class__, PydBaseClass):
+            # case x if obj_.sql_instance.__class__.__name__ in [q.__name__ for q in BaseClass.find_subclasses()]:
+                if not expand:
+                    return cls.sanitize_obj_for_json(obj_.name)
+                else:
+                    return cls.sanitize_obj_for_json(obj_.improved_dict, expand=expand)
             case _:
-                output = value
-        return output
+                # print(f"Unmatched obj_ {obj_}: {type(obj_)}")
+                return obj_
+
+    # @classmethod
+    # def correct_details_fields(cls, value: Any, expand: bool=False) -> Any:
+    #     """
+    #     Corrects fields in details_dict to proper types.
+
+    #     Args:
+    #         value (Any): input value
+
+    #     Returns:
+    #         Any: corrected value
+    #     """
+    #     from backend.validators.pydant import PydBaseClass
+    #     match value:
+    #         case str():
+    #             output = value.strip('\"')
+    #         case list():
+    #             output = [cls.correct_details_fields(v, expand=expand) for v in value]
+    #         case dict():
+    #             output = {k: cls.correct_details_fields(v, expand=expand) for k, v in value.items()}
+    #         case x if issubclass(value.__class__, BaseClass):
+    #             if not expand:
+    #                 output = value.name
+    #             else:
+    #                 output = value.details_dict
+    #         case x if issubclass(value.__class__, PydBaseClass):
+    #             if not expand:
+    #                 output = value.name
+    #             else:
+    #                 output = value.sql_instance.details_dict
+    #         case _AssociationList():
+    #             output = [cls.correct_details_fields(v, expand=expand) for v in value]
+    #         # NOTE: datetime is a subclass of date, so the datetime() case
+    #         # must come before date() to avoid matching datetimes as dates
+    #         # (which would force end-of-day time).
+    #         case datetime():
+    #             output = datetime.strftime(value, "%Y-%m-%d %H:%M:%S")
+    #         case date():
+    #             output = datetime.combine(value, datetime.max.time())
+    #             output = datetime.strftime(output, "%Y-%m-%d %H:%M:%S")
+    #         case timedelta():
+    #             output = value.days
+    #         case _:
+    #             output = value
+    #     return output
     
     def details_dict_expand_fields(self, fields: List[str] | List[dict], visited: set | None = None) -> dict:
         """
@@ -984,10 +968,9 @@ class BaseClass(Base):
                     except AttributeError as e:
                         logger.error(f"Skipping {key} in {self} due to {e}")
                         continue
-                    # logger.debug(f"Value {key} is of type {type(value)}")
                     match value:
                         case InstrumentedAttribute():
-                            output = getattr(self.sql_instance, key)   # or self.filter_field(key)
+                            output = getattr(self.sql_instance, key)
                         case _AssociationList():
                             output = []
                             for item in value.col:
@@ -1058,7 +1041,7 @@ class BaseClass(Base):
                 value = getattr(self, k)
             except AttributeError:
                 continue
-            corrected_value = self.correct_details_fields(value)
+            corrected_value = self.sanitize_obj_for_json(value)
             output[k.strip("_")] = corrected_value
         if self._misc_info:
             for key, value in self._misc_info.items():
@@ -1069,7 +1052,7 @@ class BaseClass(Base):
                     continue
                 if key in output['excluded']:
                     continue
-                output[key] = self.correct_details_fields(value)
+                output[key] = self.sanitize_obj_for_json(value)
         if 'name' not in output.keys():
             output['name'] = self.name
         return output

@@ -10,10 +10,10 @@
 <body>
 {% endif %}
     {% block body %}
-    <h2><u>Run Details for {{ run['rsl_plate_number'] }}</u></h2>
+    <h2><u>Run Details for {{ run['rsl_plate_number'] | extract_value }}</u></h2>
     {{ super() }}
     <p>{% for key, value in run.items() if key not in run['excluded'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value | extract_value }}<br>
     {% endfor %}</p>
     {% if run['sample'] %}
     <button type="button"><h3><u>Run Samples:</u></h3></button>

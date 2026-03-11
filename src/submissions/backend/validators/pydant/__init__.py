@@ -302,7 +302,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     if getattr(self.sql_instance, k) == v:
                         continue
                     else:
-                        logger.debug(f"New value for {k} on {self.sql_instance}: {v}")
+                        # logger.debug(f"New value for {k} on {self.sql_instance}: {v}")
                         try:
                             setattr(self.sql_instance, k, v)
                         except AttributeError as e:
@@ -311,7 +311,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case _:
                     pass
         for k, v in self.model_extra.items():
-            self.sql_instance._misc_info[k] = sanitize_object_for_json(v)
+            # self.sql_instance._misc_info[k] = sanitize_object_for_json(v)
+            self.sql_instance ._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
         return self.sql_instance
     
     @property
@@ -385,7 +386,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     except AttributeError as e:
                         type_ = getattr(cls._sql_class, field) # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
-                logger.debug(f"Using type_name: {type_name}")
+                # logger.debug(f"Using type_name: {type_name}")
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
                     type_name = type_.__class__.__name__

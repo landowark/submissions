@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from sqlalchemy.orm.collections import InstrumentedList
@@ -136,3 +136,38 @@ def test_clientsubmission_get_max_sample_rank(clientsubmission):
 def test_clientsubmission_get_custom_context_events(clientsubmission):
     assert ["Add Run", "Edit", "Add Comment", "Show Details", "Delete"] == list(clientsubmission.custom_context_events.keys())
     assert all([callable(obj) for obj in clientsubmission.custom_context_events.values()])
+
+
+def test_tools_sanitize_object_for_json():
+    
+    # from backend.db.models import ClientSubmission
+    
+    test_dict = {
+        "integer": 42,
+        "float": 3.14,
+        "boolean": True,
+        "string": "Hello World",
+        "date_obj": date(2023, 10, 5),
+        "datetime_obj": datetime(2023, 10, 5, 14, 30, 0),
+        "nested_dict": {
+            "inner_key": "inner_value",
+            "inner_date": date(2024, 1, 1)
+        },
+        "list_of_mixed": [
+            "string_in_list",
+            date(2025, 12, 25),
+            {"list_dict_key": 100}
+        ],
+        "unserializable": ClientSubmission(submitter_plate_id="Bob")
+    }
+    output = ClientSubmission.sanitize_obj_for_json(test_dict)
+    assert output['integer'] == 42
+    assert output['float'] == 3.14
+    assert output['boolean'] is True
+    assert output['string'] == "Hello World"
+    assert output['unserializable'] == "Bob"
+    assert output['date_obj'] == '2023-10-05T23:59:59.999999'
+    assert output['datetime_obj'] == '2023-10-05T14:30:00'
+    assert output['nested_dict'] == {'inner_key': 'inner_value', 'inner_date': '2024-01-01T23:59:59.999999'}
+    assert output['list_of_mixed'] == ['string_in_list', '2025-12-25T23:59:59.999999', {'list_dict_key': 100}]
+
