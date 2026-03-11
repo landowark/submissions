@@ -89,60 +89,60 @@ def get_unique_values_in_df_column(df: pd.DataFrame, column_name: str) -> list:
     return sorted(df[column_name].unique())
 
 
-def check_key_or_attr(key: str, interest: dict | object, check_none: bool = False) -> bool:
-    """
-    Checks if key exists in dict or object has attribute.
+# def check_key_or_attr(key: str, interest: dict | object, check_none: bool = False) -> bool:
+#     """
+#     Checks if key exists in dict or object has attribute.
 
-    Args:
-        key (str): key or attribute name
-        interest (dict | object): Dictionary or object to be checked.
-        check_none (bool, optional): Return false if value exists, but is None. Defaults to False.
+#     Args:
+#         key (str): key or attribute name
+#         interest (dict | object): Dictionary or object to be checked.
+#         check_none (bool, optional): Return false if value exists, but is None. Defaults to False.
 
-    Returns:
-        bool: True if exists, else False
-    """
-    match interest:
-        case dict():
-            if key in interest.keys():
-                if check_none:
-                    match interest[key]:
-                        case dict():
-                            if 'value' in interest[key].keys():
-                                try:
-                                    check = interest[key]['value'] is None
-                                except KeyError:
-                                    check = True
-                                if check:
-                                    return False
-                                else:
-                                    return True
-                            else:
-                                try:
-                                    check = interest[key] is None
-                                except KeyError:
-                                    check = True
-                                if check:
-                                    return False
-                                else:
-                                    return True
-                        case _:
-                            if interest[key] is None:
-                                return False
-                            else:
-                                return True
-                else:
-                    return True
-            return False
-        case object():
-            if hasattr(interest, key):
-                if check_none:
-                    if interest.__getattribute__(key) is None:
-                        return False
-                    else:
-                        return True
-                else:
-                    return True
-            return False
+#     Returns:
+#         bool: True if exists, else False
+#     """
+#     match interest:
+#         case dict():
+#             if key in interest.keys():
+#                 if check_none:
+#                     match interest[key]:
+#                         case dict():
+#                             if 'value' in interest[key].keys():
+#                                 try:
+#                                     check = interest[key]['value'] is None
+#                                 except KeyError:
+#                                     check = True
+#                                 if check:
+#                                     return False
+#                                 else:
+#                                     return True
+#                             else:
+#                                 try:
+#                                     check = interest[key] is None
+#                                 except KeyError:
+#                                     check = True
+#                                 if check:
+#                                     return False
+#                                 else:
+#                                     return True
+#                         case _:
+#                             if interest[key] is None:
+#                                 return False
+#                             else:
+#                                 return True
+#                 else:
+#                     return True
+#             return False
+#         case object():
+#             if hasattr(interest, key):
+#                 if check_none:
+#                     if interest.__getattribute__(key) is None:
+#                         return False
+#                     else:
+#                         return True
+#                 else:
+#                     return True
+#             return False
 
 
 def check_not_nan(cell_contents) -> bool:
@@ -196,37 +196,37 @@ def convert_nans_to_nones(input_str: str) -> str | None:
     return None
 
 
-def is_missing(value: Any) -> Tuple[Any, bool]:
-    """
-    Checks if a parsed value is missing.
+# def is_missing(value: Any) -> Tuple[Any, bool]:
+#     """
+#     Checks if a parsed value is missing.
 
-    Args:
-        value (Any): Incoming value
+#     Args:
+#         value (Any): Incoming value
 
-    Returns:
-        Tuple[Any, bool]: Value, True if nan, else False
-    """
-    if check_not_nan(value):
-        return value, False
-    else:
-        return convert_nans_to_nones(value), True
+#     Returns:
+#         Tuple[Any, bool]: Value, True if nan, else False
+#     """
+#     if check_not_nan(value):
+#         return value, False
+#     else:
+#         return convert_nans_to_nones(value), True
 
 
-def check_regex_match(pattern: str, check: str) -> bool:
-    """
-    Determines if a pattern matches a str
+# def check_regex_match(pattern: str, check: str) -> bool:
+#     """
+#     Determines if a pattern matches a str
 
-    Args:
-        pattern (str): regex pattern string
-        check (str): string to be checked
+#     Args:
+#         pattern (str): regex pattern string
+#         check (str): string to be checked
 
-    Returns:
-        bool: match found?
-    """
-    try:
-        return bool(re.match(fr"{pattern}", check))
-    except TypeError:
-        return False
+#     Returns:
+#         bool: match found?
+#     """
+#     try:
+#         return bool(re.match(fr"{pattern}", check))
+#     except TypeError:
+#         return False
 
 
 def get_first_blank_df_row(df: pd.DataFrame) -> int:
@@ -434,6 +434,8 @@ def jinja_template_loading() -> Environment:
     Returns:
         Environment: jinja2 environment object
     """
+    # NOTE: allows retrieval of an object's Python type directly within a template
+    # Usage: The type of this variable is: {{ my_variable | get_type }}
     def get_type(obj):
         return type(obj).__name__
     # NOTE: determine if pyinstaller launcher is being used
@@ -493,17 +495,27 @@ def convert_well_to_row_column(input_str: str) -> Tuple[int, int]:
     return row, column
 
 
-# Copy a sheet with style, format, layout, ect. from one Excel file to another Excel file
-# Please add the ..path\\+\\file..  and  ..sheet_name.. according to your desire.
-
-
 
 def copy_xl_sheet(source_sheet, target_sheet):
-    copy_cells(source_sheet, target_sheet)  # copy all the cel values and styles
+    """
+    Copy a sheet's values with style, format, layout, etc. from one Excel sheet to another
+
+    Args:
+        source_sheet (Worksheet): Input sheet
+        target_sheet (Worksheet): Output sheet
+    """
+    copy_cells(source_sheet, target_sheet)  # copy all the cell values and styles
     copy_sheet_attributes(source_sheet, target_sheet)
 
 
 def copy_sheet_attributes(source_sheet, target_sheet):
+    """
+    Copy a sheet's style, format, layout, etc. from one Excel sheet to another
+
+    Args:
+        source_sheet (Worksheet): Input sheet
+        target_sheet (Worksheet): Output sheet
+    """
     if isinstance(source_sheet, openpyxl.worksheet._read_only.ReadOnlyWorksheet):
         return
     target_sheet.sheet_format = copy(source_sheet.sheet_format)
@@ -535,6 +547,13 @@ def copy_sheet_attributes(source_sheet, target_sheet):
 
 
 def copy_cells(source_sheet, target_sheet):
+    """
+    Copy a sheet's values from one Excel sheet to another
+
+    Args:
+        source_sheet (Worksheet): Input sheet
+        target_sheet (Worksheet): Output sheet
+    """
     for r, row in enumerate(source_sheet.iter_rows()):
         for c, cell in enumerate(row):
             source_cell = cell
@@ -556,15 +575,27 @@ def copy_cells(source_sheet, target_sheet):
                 target_cell.comment = copy(source_cell.comment)
 
 
-def list_str_comparator(input_str: str, listy: List[str], mode: Literal["starts_with", "contains"]) -> bool:
+def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts_with", "contains"] = "starts_with") -> bool:
+    """
+    If target string starts with/contains any string in a list, return true.
+
+    Args: 
+        target_str (str): String to be tested against list.
+        list_ (str): List of the tests to be run.
+        mode (Literal["starts_with", "contains"]): comparisons to be run. Defaults to "starts_with".
+
+    Returns:
+        bool: whether target string starts with/contains any string in the list.
+    
+    """
     match mode:
         case "starts_with":
-            if any([input_str.startswith(item) for item in listy]):
+            if any([target_str.startswith(item) for item in list_]):
                 return True
             else:
                 return False
         case "contains":
-            if any([item in input_str for item in listy]):
+            if any([item in target_str for item in list_]):
                 return True
             else:
                 return False
@@ -609,31 +640,31 @@ def setup_lookup(func):
     return wrapper
 
 
-def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
-    if manager is None:
-        return None, False
-    if object_name in manager.aliases:
-        return manager, True
-    relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
-                     if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
-    relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
-    for relationship in relationships:
-        if relationship.key == object_name and "association" not in relationship.key:
-            try:
-                rel_obj = getattr(manager, relationship.key)
-                if rel_obj is not None:
-                    return rel_obj, False
-            except AttributeError:
-                pass
-        if "association" in relationship.key:
-            try:
-                rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
-                                if getattr(item, object_name) is not None), None)
-                if rel_obj is not None:
-                    return rel_obj, False
-            except AttributeError:
-                pass
-    return None, None
+# def check_object_in_manager(manager: list, object_name: object) -> Tuple[Any, bool]:
+#     if manager is None:
+#         return None, False
+#     if object_name in manager.aliases:
+#         return manager, True
+#     relationships = [getattr(manager.__class__, item) for item in dir(manager.__class__)
+#                      if isinstance(getattr(manager.__class__, item), InstrumentedAttribute)]
+#     relationships = [item for item in relationships if isinstance(item.property, _RelationshipDeclared)]
+#     for relationship in relationships:
+#         if relationship.key == object_name and "association" not in relationship.key:
+#             try:
+#                 rel_obj = getattr(manager, relationship.key)
+#                 if rel_obj is not None:
+#                     return rel_obj, False
+#             except AttributeError:
+#                 pass
+#         if "association" in relationship.key:
+#             try:
+#                 rel_obj = next((getattr(item, object_name) for item in getattr(manager, relationship.key)
+#                                 if getattr(item, object_name) is not None), None)
+#                 if rel_obj is not None:
+#                     return rel_obj, False
+#             except AttributeError:
+#                 pass
+#     return None, None
 
 
 def get_application_from_parent(widget):
@@ -739,75 +770,75 @@ class Report(BaseModel):
                 logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
 
 
-def rreplace(s: str, old: str, new: str) -> str:
-    """
-    Removes rightmost occurrence of a substring
+# def rreplace(s: str, old: str, new: str) -> str:
+#     """
+#     Removes rightmost occurrence of a substring
 
-    Args:
-        s (str): input string
-        old (str): original substring
-        new (str): new substring
+#     Args:
+#         s (str): input string
+#         old (str): original substring
+#         new (str): new substring
 
-    Returns:
-        str: updated string
-    """
-    return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
-
-
-def list_sort_dict(input_dict: dict, sort_list: list) -> dict:
-    sort_list = reversed(sort_list)
-    for item in sort_list:
-        try:
-            input_dict = {item: input_dict.pop(item), **input_dict}
-        except KeyError:
-            continue
-    return input_dict
+#     Returns:
+#         str: updated string
+#     """
+#     return (s[::-1].replace(old[::-1], new[::-1], 1))[::-1]
 
 
-def remove_key_from_list_of_dicts(input_list: list, key: str) -> list:
-    """
-    Removes a key from all dictionaries in a list of dictionaries
-
-    Args:
-        input_list (list): Input list of dicts
-        key (str): Name of key to remove.
-
-    Returns:
-        list: List of updated dictionaries
-    """
-    for item in input_list:
-        try:
-            del item[key]
-        except KeyError:
-            continue
-    return input_list
+# def list_sort_dict(input_dict: dict, sort_list: list) -> dict:
+#     sort_list = reversed(sort_list)
+#     for item in sort_list:
+#         try:
+#             input_dict = {item: input_dict.pop(item), **input_dict}
+#         except KeyError:
+#             continue
+#     return input_dict
 
 
-def yaml_regex_creator(loader, node):
-    # Note: Add to import from json, NOT export yaml in app.
-    nodes = loader.construct_sequence(node)
-    name = nodes[0].replace(" ", "_")
-    abbr = nodes[1]
-    return rf"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
+# def remove_key_from_list_of_dicts(input_list: list, key: str) -> list:
+#     """
+#     Removes a key from all dictionaries in a list of dictionaries
+
+#     Args:
+#         input_list (list): Input list of dicts
+#         key (str): Name of key to remove.
+
+#     Returns:
+#         list: List of updated dictionaries
+#     """
+#     for item in input_list:
+#         try:
+#             del item[key]
+#         except KeyError:
+#             continue
+#     return input_list
 
 
-def super_splitter(ins_str: str, substring: str, idx: int) -> str:
-    """
-    Splits string on substring at index
+# def yaml_regex_creator(loader, node):
+#     # Note: Add to import from json, NOT export yaml in app.
+#     nodes = loader.construct_sequence(node)
+#     name = nodes[0].replace(" ", "_")
+#     abbr = nodes[1]
+#     return rf"(?P<{name}>RSL(?:-|_)?{abbr}(?:-|_)?20\d{2}-?\d{2}-?\d{2}(?:(_|-)?\d?([^_0123456789\sA-QS-Z]|$)?R?\d?)?)"
 
-    Args:
-        ins_str (str): input string
-        substring (str): substring to split on
-        idx (int): the occurrence of the substring to return
 
-    Returns:
+# def super_splitter(ins_str: str, substring: str, idx: int) -> str:
+#     """
+#     Splits string on substring at index
 
-    """
-    try:
-        return ins_str.split(substring)[idx]
-    except IndexError:
-        logger.error(f"Index of split {idx} not found.")
-        return ins_str
+#     Args:
+#         ins_str (str): input string
+#         substring (str): substring to split on
+#         idx (int): the occurrence of the substring to return
+
+#     Returns:
+
+#     """
+#     try:
+#         return ins_str.split(substring)[idx]
+#     except IndexError:
+#         logger.error(f"Index of split {idx} not found.")
+#         return ins_str
 
 
 def is_developer() -> bool:
@@ -950,7 +981,7 @@ def is_list_etc(object):
             return False
         case _:
             try:
-                check = iter(object)
+                check = bool(iter(object))
             except TypeError:
                 check = False
             return check
@@ -1011,25 +1042,25 @@ def create_holidays_for_year(year: int | None = None) -> List[date]:
     return sorted(holidays)
 
 
-def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -> bool:
-    """
-    Determines if a dictionary is in a list of dictionaries (possible ordering issue with just using dict in list)
+# def check_dictionary_inclusion_equality(listo: List[dict] | dict, dicto: dict) -> bool:
+#     """
+#     Determines if a dictionary is in a list of dictionaries (possible ordering issue with just using dict in list)
 
-    Args:
-        listo (List[dict): List of dictionaries to compare to.
-        dicto (dict): Dictionary to compare.
+#     Args:
+#         listo (List[dict): List of dictionaries to compare to.
+#         dicto (dict): Dictionary to compare.
 
-    Returns:
-        bool: True if dicto is equal to any dictionary in the list.
-    """
-    if isinstance(dicto, list) and isinstance(listo, list):
-        return listo == dicto
-    elif isinstance(dicto, dict) and isinstance(listo, dict):
-        return listo == dicto
-    elif isinstance(dicto, dict) and isinstance(listo, list):
-        return any([dicto == d for d in listo])
-    else:
-        raise TypeError(f"Unsupported variable: {type(listo)}")
+#     Returns:
+#         bool: True if dicto is equal to any dictionary in the list.
+#     """
+#     if isinstance(dicto, list) and isinstance(listo, list):
+#         return listo == dicto
+#     elif isinstance(dicto, dict) and isinstance(listo, dict):
+#         return listo == dicto
+#     elif isinstance(dicto, dict) and isinstance(listo, list):
+#         return any([dicto == d for d in listo])
+#     else:
+#         raise TypeError(f"Unsupported variable: {type(listo)}")
 
 
 def flatten_list(input_list: list) -> list:
@@ -1045,58 +1076,74 @@ def flatten_list(input_list: list) -> list:
     return list(itertools.chain.from_iterable(input_list))
 
 
-def sanitize_object_for_json(input_dict: dict) -> dict | str:
-    """
-    Takes an object and makes sure its components can be converted to JSON
+# def sanitize_object_for_json(input_dict: dict) -> dict | str:
+#     """
+#     Takes an object and makes sure its components can be converted to JSON
 
-    Args:
-        input_dict (dict): Dictionary of interest
+#     Args:
+#         input_dict (dict): Dictionary of interest
 
-    Returns:
-        dict:
-    """
-    if not isinstance(input_dict, dict):
-        match input_dict:
-            case int() | float() | bool():
-                pass
-            case datetime():
-                input_dict = input_dict.strftime("%Y-%m-%d %H:%M:%S")
-            case date():
-                input_dict = input_dict.strftime("%Y-%m-%d")
-            case _:
-                try:
-                    input_dict = json.dumps(input_dict)
-                except TypeError:
-                    match input_dict:
-                        case str():
-                            input_dict = input_dict.strip('\"')
-                        case _:
-                            input_dict = str(input_dict).strip('\"')
-        return input_dict
-    output = {}
-    for key, value in input_dict.items():
-        match value:
-            case list():
-                value = [sanitize_object_for_json(object) for object in value]
-            case dict():
-                value = sanitize_object_for_json(value)
-            case datetime():
-                value = value.strftime("%Y-%m-%d %H:%M:%S")
-            case date():
-                value = value.strftime("%Y-%m-%d")
-            case _:
-                try:
-                    value = json.dumps(value)
-                except TypeError:
-                    match value:
-                        case str():
-                            pass
-                        case _:
-                            value = str(value)
-        if isinstance(value, str):
-            value = value.strip('\"')
-        output[key] = value
-    return output
+#     Returns:
+#         dict:
+#     """
+#     if not isinstance(input_dict, dict):
+#         match input_dict:
+#             case int() | float() | bool():
+#                 pass
+#             case datetime() | date():
+#                 # input_dict = input_dict.strftime("%Y-%m-%d %H:%M:%S")
+#             # case date():
+#             #     input_dict = input_dict.strftime("%Y-%m-%d")
+#                 input_dict = input_dict.isoformat()
+            
+#             case _:
+#                 try:
+#                     input_dict = json.dumps(input_dict)
+#                 except TypeError:
+#                     match input_dict:
+#                         case str():
+#                             input_dict = input_dict.strip('\"')
+#                         case _:
+#                             input_dict = str(input_dict).strip('\"')
+#         return input_dict
+#     output = {}
+#     for key, value in input_dict.items():
+#         match value:
+#             case list():
+#                 value = [sanitize_object_for_json(object) for object in value]
+#             case dict():
+#                 value = sanitize_object_for_json(value)
+#             case datetime():
+#                 value = value.strftime("%Y-%m-%d %H:%M:%S")
+#             case date():
+#                 value = value.strftime("%Y-%m-%d")
+#             case _:
+#                 try:
+#                     value = json.dumps(value)
+#                 except TypeError:
+#                     match value:
+#                         case str():
+#                             pass
+#                         case _:
+#                             value = str(value)
+#         if isinstance(value, str):
+#             value = value.strip('\"')
+#         output[key] = value
+#     return output
+
+def sanitize_object_for_json(input_obj):
+    from backend.db.models import BaseClass
+    match input_obj:
+        case datetime() | date():
+            return input_obj.isoformat()
+        case list():
+            return [sanitize_object_for_json(item) for item in input_obj]
+        case dict():
+            return {k: sanitize_object_for_json(v) for k, v in input_obj.items()}
+        case x if issubclass(input_obj.__class__, BaseClass):
+            return sanitize_object_for_json(input_obj.name)
+        case _:
+            return input_obj
 
 
 def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["pop", "return", "index"] = "pop") -> dict | Tuple[int, dict]:
@@ -1114,6 +1161,7 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
     """
     from backend.validators.pydant import PydBaseClass
     from backend.db.models import BaseClass
+    from unittest.mock import MagicMock
     for index, d in enumerate(list_of_dicts):
         match d:
             case dict():
@@ -1121,6 +1169,8 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
             case x if issubclass(d.__class__, PydBaseClass):
                 d_value = getattr(d, key)
             case x if issubclass(d.__class__, BaseClass):
+                d_value = getattr(d, key)
+            case x if hasattr(d, "__dict__") or hasattr(d, key): # <--- Set for test purposes
                 d_value = getattr(d, key)
             case _:
                 raise ValueError(f"Unmatched value {type(d)}")
@@ -1377,6 +1427,7 @@ class Settings(BaseSettings, extra="allow"):
         import __init__ as package
         if value is None:
             return package
+        return value
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1391,6 +1442,7 @@ class Settings(BaseSettings, extra="allow"):
     def set_from_db(self):
         if 'pytest' in sys.modules:
             output = dict(power_users=['lwark', 'styson', 'ruwang'],
+                          super_users=['lwark'],
                           startup_scripts=dict(hello=None),
                           teardown_scripts=dict(goodbye=None)
                           )

@@ -1,13 +1,10 @@
-from datetime import date, datetime, timedelta
-
+from datetime import datetime, timedelta
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from sqlalchemy.orm.collections import InstrumentedList
 from custom_resources import DatabaseTestCase
-from backend.db.models import (ClientSubmission, Sample, ReagentRole, 
-                               ResultsType, SubmissionType, Procedure, Run,
+from backend.db.models import (ClientSubmission, Sample, SubmissionType, Run,
                                Contact, ClientLab, ClientSubmissionSampleAssociation)
-from backend.validators.pydant import PydProcedure
 from pytz import timezone as tz
 
 
@@ -34,7 +31,6 @@ def test_clientsubmission_query(clientsubmission):
 
 def test_clientsubmission_get_clientlab(clientsubmission):
     assert isinstance(clientsubmission.clientlab, ClientLab)
-    # assert isinstance(clientsubmission.clientlab[0], EquipmentRole)
     assert clientsubmission.clientlab.name == "Test Lab"
 
 
@@ -140,4 +136,3 @@ def test_clientsubmission_get_max_sample_rank(clientsubmission):
 def test_clientsubmission_get_custom_context_events(clientsubmission):
     assert ["Add Run", "Edit", "Add Comment", "Show Details", "Delete"] == list(clientsubmission.custom_context_events.keys())
     assert all([callable(obj) for obj in clientsubmission.custom_context_events.values()])
-
