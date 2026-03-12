@@ -8,7 +8,7 @@ from sqlalchemy.orm import declarative_base, DeclarativeMeta, Query
 from . import BaseClass
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
-import logging, sys
+import logging
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

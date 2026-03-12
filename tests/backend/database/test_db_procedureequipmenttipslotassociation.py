@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 import logging
 import pytest
 from custom_resources import DatabaseTestCase
@@ -34,7 +35,8 @@ def test_procedureequipmenttipslotassociation_query(procedureequipmenttipslotass
 
 
 def test_procedureequipmenttipslotassociation_get_name(procedureequipmenttipslotassociation):
-    assert procedureequipmenttipslotassociation.name == "Unknown Run-Unknown ProcedureType(Test EquipmentRole)->ACME Tips - XXXX - 098765"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert procedureequipmenttipslotassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00(Test EquipmentRole)->ACME Tips - XXXX - 098765"
 
 
 def test_procedureequipmenttipslotassociation_get_tipslot(procedureequipmenttipslotassociation):

@@ -4,6 +4,7 @@ Models for the main procedure and sample types.
 from __future__ import annotations
 from getpass import getuser
 import json, logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
+from uuid import uuid4
 from inspect import isclass
 from zipfile import BadZipfile
 from operator import itemgetter
@@ -103,7 +104,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     self._misc_info.update({'clientlab': clientlab})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve run
         if run is not None:
             try:
                 self.run = run
@@ -113,7 +114,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     self._misc_info.update({'run': run})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve contact
         if contact is not None:
             try:
                 self.contact = contact
@@ -122,7 +123,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     self._misc_info.update({'contact': contact})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve submissiontype
         if submissiontype is not None:
             try:
                 self.submissiontype = submissiontype
@@ -131,7 +132,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     self._misc_info.update({'submissiontype': submissiontype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
@@ -148,7 +149,7 @@ class ClientSubmission(BaseClass, LogMixin):
     @submitter_plate_id.setter
     def submitter_plate_id(self, value):
         if isinstance(value, dict):
-            value = value["value"]
+            value = value.get("value", uuid4().__str__())
         self._submitter_plate_id = value
 
     @hybrid_property
@@ -158,7 +159,6 @@ class ClientSubmission(BaseClass, LogMixin):
     @submissiontype.setter
     def submissiontype(self, value):
         from backend.validators.pydant import PydSubmissionType
-        logger.debug(f"Incoming submissiontype: {value}")
         match value:
             case str():
                 output = SubmissionType.query(name=value, limit=1)
@@ -226,8 +226,6 @@ class ClientSubmission(BaseClass, LogMixin):
                     output = Run.query_or_create(**item)
                 case PydRun():
                     output = item.to_sql(update=False)
-                    if isinstance(output, tuple):
-                        output = output[0]
                 case Run():
                     output = item
                 case _:
@@ -254,8 +252,6 @@ class ClientSubmission(BaseClass, LogMixin):
                 output = ClientLab.query_or_create(**value)
             case PydClientLab():
                 output = value.to_sql(update=False)
-                if isinstance(output, tuple):
-                    output = output[0]
             case ClientLab():
                 output = value
             case _:
@@ -449,7 +445,6 @@ class ClientSubmission(BaseClass, LogMixin):
             pd.DataFrame: Pandas Dataframe of all relevant procedure
         """
         # NOTE: use lookup function to create list of dicts
-        # subs = [item.to_dict() for item in
         subs = [item.details_dict for item in
                 cls.query(submissiontype=submissiontype, limit=limit, chronologic=chronologic, page=page,
                           page_size=page_size)]
@@ -493,7 +488,6 @@ class ClientSubmission(BaseClass, LogMixin):
             sub_lab = sub_lab.replace("_", " ").title()
         except AttributeError:
             pass
-
         # NOTE: get extraction kittype name from nested kittype object
         output = {
             "id": self.id,
@@ -507,11 +501,9 @@ class ClientSubmission(BaseClass, LogMixin):
             return output
         if full_data:
             samples = None
-            # runs = [item.to_dict(full_data=True) for item in self.run]
             runs = [item.details_dict for item in self.run]
         else:
             samples = None
-            custom = None
             runs = None
         try:
             comments = self.comments
@@ -672,7 +664,7 @@ class Run(BaseClass, LogMixin):
                 self._misc_info.update({'started_date': started_date})
             except Exception:
                 pass
-        # Resolve reagentrole
+        # Resolve completed_date
         if completed_date is not None:
             try:
                 self.completed_date = completed_date
@@ -682,7 +674,7 @@ class Run(BaseClass, LogMixin):
                     self._misc_info.update({'completed_date': completed_date})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
@@ -691,7 +683,7 @@ class Run(BaseClass, LogMixin):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
@@ -803,7 +795,6 @@ class Run(BaseClass, LogMixin):
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}._sample")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, RunSampleAssociation):
                 if output not in list_:
                     list_.append(output)
@@ -986,13 +977,6 @@ class Run(BaseClass, LogMixin):
             case _:
                 return None
 
-    # def generate_associations(self, name: str, fields: List[str] | List[dict]):
-    #     try:
-    #         field = self.__getattribute__(name)
-    #     except AttributeError:
-    #         return None
-    #     yield item.details_dict_expand_fields(fields=fields)
-
     @property
     def sample_count(self):
         return len(self.sample)
@@ -1059,27 +1043,6 @@ class Run(BaseClass, LogMixin):
         df.set_index("id", inplace=True)
         return df
 
-    # @property
-    # def column_count(self) -> int:
-    #     """
-    #     Calculate the number of columns in this procedure
-
-    #     Returns:
-    #         int: Number of unique columns.
-    #     """
-    #     columns = set([assoc.column for assoc in self.runsampleassociation])
-    #     return len(columns)
-
-    # def calculate_base_cost(self, include_repeat: bool = False) -> None:
-    #     """
-    #     Calculates cost of the plate
-    #     """
-    #     # NOTE: Calculate number of columns based on largest column number
-    #     if include_repeat:
-    #         return np.sum([proc.cost for proc in self.procedure])
-    #     else:
-    #         return np.sum([proc.cost for proc in self.procedure if not proc.repeat])
-
     @property
     def hitpicked(self) -> list:
         """
@@ -1125,7 +1088,7 @@ class Run(BaseClass, LogMixin):
             PydSubmission: converted object.
         """
         from backend.validators import PydRun
-        dict_ = self.details_dict#(full_data=True, backup=backup)
+        dict_ = self.details_dict
         new_dict = {}
         for key, value in dict_.items():
             missing = value in ['', 'None', None]
@@ -1138,10 +1101,7 @@ class Run(BaseClass, LogMixin):
                 case "clientsubmission" | "client_submission":
                     field_value = self.clientsubmission.name
                 case "procedure":
-                    # field_value = [item.to_pydantic() for item in self.procedure]
                     field_value = [item.details_dict for item in self.procedure]
-                # case "run_cost":
-                #     field_value = self.run_cost
                 case _:
                     try:
                         key = key.lower().replace(" ", "_")
@@ -1284,12 +1244,10 @@ class Run(BaseClass, LogMixin):
         procedure = procedure_type.construct_dummy_procedure(run=self)
         assert all([isinstance(s, PydSample) for s in procedure.sample])
         # Passed check
-        # logger.debug(f"Procedure samples: {pformat(procedure.sample)}")
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
             sql.save()
-            # logger.debug(pformat(sql.procedureequipmentassociation))
         obj.set_data()
 
     def delete(self, obj=None):
@@ -1397,7 +1355,7 @@ class Run(BaseClass, LogMixin):
         return self.calculate_turnaround(start_date=self.started_date.date(), end_date=completed)
 
     @classmethod
-    def calculate_turnaround(cls, start_date: date | None = None, end_date: date | None = None) -> int:
+    def calculate_turnaround(cls, start_date: date | None = None, end_date: date | None = None) -> int | None:
         """
         Calculates number of business days between data submitted and date completed
 
@@ -1529,7 +1487,7 @@ class Sample(BaseClass, LogMixin):
         procedure = kwargs.pop('procedure', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve clientsubmission
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
@@ -1539,7 +1497,7 @@ class Sample(BaseClass, LogMixin):
                     self._misc_info.update({'clientsubmission': clientsubmission})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve run
         if run is not None:
             try:
                 self.run = run
@@ -1549,7 +1507,7 @@ class Sample(BaseClass, LogMixin):
                     self._misc_info.update({'run': run})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
@@ -1613,7 +1571,6 @@ class Sample(BaseClass, LogMixin):
                         output = RunSampleAssociation(run=item, sample=self)
                 case dict():
                     r = item.get("name", None) or item.get("rsl_plate_number", None)
-                    print(r)
                     output = RunSampleAssociation(run=r, sample=self, **{k: v for k, v in item.items() if k not in ["rsl_plate_number", 'name']})
                 case RunSampleAssociation():
                     output = item
@@ -1698,6 +1655,8 @@ class Sample(BaseClass, LogMixin):
     
     @name.setter
     def name(self, value):
+        if not isinstance(value, str):
+            value = str(value)    
         self.sample_id = value
 
     @classmethod
@@ -1946,16 +1905,6 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output['rank'] = self.submission_rank
         return output
 
-    # def to_pydantic(self) -> PydSample:
-    #     """
-    #     Creates a pydantic model for this sample.
-
-    #     Returns:
-    #         PydSample: Pydantic Model
-    #     """
-    #     from backend.validators import PydSample
-    #     return PydSample(**self.details_dict)
-
     @classmethod
     @setup_lookup
     def query(cls,
@@ -2112,7 +2061,7 @@ class RunSampleAssociation(BaseClass):
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         self.run_rank = run_rank
-        # Resolve proceduretype
+        # Resolve run
         if run is not None:
             try:
                 self.run = run
@@ -2123,7 +2072,7 @@ class RunSampleAssociation(BaseClass):
                     self._misc_info.update({'run': safe_run})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
@@ -2150,16 +2099,34 @@ class RunSampleAssociation(BaseClass):
             run_rank = "No Submission Rank"
         return f"{run}->{sample} (rank={run_rank})"
     
+    # @name.expression
+    # def name(cls):
+    #     return func.concat(
+    #         Run.name,
+    #         "->",
+    #         Sample.name,
+    #         " (rank=",
+    #         cast(cls.run_rank, String),
+    #         ")"
+    #     ).label("name")
+    
+
     @name.expression
     def name(cls):
-        return func.concat(
-            Run.name,
-            "-",
-            Sample.name,
-            " (rank=",
-            cast(cls.run_rank, String),
-            ")"
-        ).label("name")
+        run_subquery = (
+            select(Run.name)
+            .where(Run.id==cls.run_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        sample_subquery = (
+            select(Sample.name)
+            .where(Sample.id==cls.sample_id)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+        # Note: Can't use f strings for this.
+        return run_subquery + "->" + sample_subquery + " (rank=" + cast(cls.run_rank, String) + ")"
 
     @hybrid_property
     def sample(self):
@@ -2232,7 +2199,7 @@ class RunSampleAssociation(BaseClass):
             dict: dictionary of sample id, row and column in elution plate
         """
         # NOTE: Since there is no PCR, negliable result is necessary.
-        sample = self.to_sub_dict()
+        sample = self.details_dict
         env = jinja_template_loading()
         template = env.get_template("support/tooltip.html")
         tooltip_text = template.render(fields=sample)
@@ -2420,7 +2387,6 @@ class ProcedureSampleAssociation(BaseClass):
                 if update:
                     logger.warning(f"{value} has not been saved previously. Updating")
                 output = value.to_sql(update=update)
-                logger.debug(f"Output from to_sql: {output}")
             case Sample():
                 output = value
             case _:
@@ -2484,7 +2450,7 @@ class ProcedureSampleAssociation(BaseClass):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
@@ -2493,7 +2459,7 @@ class ProcedureSampleAssociation(BaseClass):
                     self._misc_info.update({'sample': sample})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve results
         if results is not None:
             try:
                 self.results = results

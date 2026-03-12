@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 import logging
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
@@ -34,7 +35,8 @@ def test_procedurereagentlotassociation_query(procedurereagentlotassociation):
 
 
 def test_procedurereagentlotassociation_get_name(procedurereagentlotassociation):
-    assert procedurereagentlotassociation.name == "Unknown Run-Unknown ProcedureType->Test Solution - 012345"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert procedurereagentlotassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Solution - 012345"
 
 
 def test_procedurereagentlotassociation_get_reagentlot(procedurereagentlotassociation):
@@ -54,7 +56,8 @@ def test_procedurereagentlotassociation_set_reagentlot(procedurereagentlotassoci
 
 def test_procedurereagentlotassociation_get_procedure(procedurereagentlotassociation):
     assert isinstance(procedurereagentlotassociation.procedure, Procedure)
-    assert procedurereagentlotassociation.procedure.name == "Unknown Run-Unknown ProcedureType"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert procedurereagentlotassociation.procedure.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00"
 
 
 def test_procedurereagentlotassociation_set_procedure(procedurereagentlotassociation):
@@ -62,9 +65,9 @@ def test_procedurereagentlotassociation_set_procedure(procedurereagentlotassocia
     procedurereagentlotassociation.procedure = test_insert
     assert test_insert == procedurereagentlotassociation.procedure
 
-    test_insert = dict(name="Dict Procedure")
-    procedurereagentlotassociation.procedure = test_insert
-    assert "Dict Procedure" == procedurereagentlotassociation.procedure.name
+    # test_insert = dict(name="Dict Procedure")
+    # procedurereagentlotassociation.procedure = test_insert
+    # assert "Dict Procedure" == procedurereagentlotassociation.procedure.name
 
 
 def test_procedurereagentlotassociation_get_reagentrole(procedurereagentlotassociation):

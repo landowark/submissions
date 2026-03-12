@@ -77,8 +77,8 @@ def test_pydreagentlot_expand_fields(pydreagentlot_sql_instance):
     expanded = pydreagentlot_sql_instance.improved_dict_expand_fields({"procedure": ['submissiontype']})
     assert isinstance(expanded['procedure'], list)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert expanded['procedure'][0]['name']['value'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
-    assert expanded['procedure'][0]['name']['missing'] == False
+    assert expanded['procedure'][0]['name'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
+    # assert expanded['procedure'][0]['name']['missing'] == False
     assert expanded['procedure'][0]['submissiontype']['name'] == "Default SubmissionType"
 
 

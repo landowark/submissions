@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 import pytest
 from test_pyd_base import pydant, models
 
@@ -11,12 +11,13 @@ def pydproceduretype_created_instance(reset_database):
     pre-created ReagentRole and ReagentLot instances, so sql_instances
     will have all required relationships properly resolved.
     """
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     proceduretype = pydant.PydProcedureType(
         name="Bob's ProcedureType",
         plate_columns=12,
         plate_rows=8,
         plate_cost=3.50,
-        procedure=["Unknown Run-Unknown ProcedureType"],
+        procedure=[f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00'],
         submissiontype=["Default SubmissionType"],
         resultstype=["Test ResultsType"],
         equipmentrole=["Test EquipmentRole"],
@@ -37,7 +38,8 @@ def test_pydproceduretype_creation(pydproceduretype_created_instance):
     assert pydproceduretype_created_instance.plate_columns == 12
     assert pydproceduretype_created_instance.plate_rows == 8
     assert pydproceduretype_created_instance.plate_cost == 3.50
-    assert "Unknown Run-Unknown ProcedureType" in pydproceduretype_created_instance.procedure 
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in pydproceduretype_created_instance.procedure 
     assert "Default SubmissionType" in pydproceduretype_created_instance.submissiontype 
     assert "Test ResultsType" in pydproceduretype_created_instance.resultstype
     assert "Test EquipmentRole" in pydproceduretype_created_instance.equipmentrole
@@ -55,7 +57,8 @@ def test_pydproceduretype_to_sql(pydproceduretype_created_instance):
     assert sql_instance.procedure is not None
     assert len(sql_instance.procedure) > 0
     assert isinstance(sql_instance.procedure[0], models.procedures.Procedure)
-    assert sql_instance.procedure[0].name == "Unknown Run-Unknown ProcedureType"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert sql_instance.procedure[0].name == f"RSL-XX-20260202-1 - Bob's ProcedureType (1) - {day} 00:00:00"
     # Test that reagentlot is properly resolved (should not be None)
     assert sql_instance.resultstype is not None
     assert len(sql_instance.resultstype) > 0
@@ -90,7 +93,8 @@ def test_pydproceduretype_improved_dict(pydproceduretype_created_instance):
     assert "plate_cost" in d
     assert d['plate_cost'] == 3.50
     assert "procedure" in d
-    assert "Unknown Run-Unknown ProcedureType" in d['procedure']
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in d['procedure']
     assert "submissiontype" in d
     assert "Default SubmissionType" in d['submissiontype']
     assert "resultstype" in d

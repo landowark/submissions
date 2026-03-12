@@ -11,12 +11,14 @@ def pydresults_created_instance(reset_database):
     pre-created Results and EquipmentLot instances, so sql_instances
     will have all required relationships properly resolved.
     """
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    thing = f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00'
     results = pydant.PydResults(
         result = dict(test="Positive", passed=True),
         resultstype="Test ResultsType",
         image=None,
-        procedure="Unknown Run-Unknown ProcedureType",
-        sample="Unknown Run-Unknown ProcedureType->Test Sample (rank=1)",
+        procedure=thing,
+        sample=f"{thing}->Test Sample (rank=1)",
         date_analyzed=datetime.combine(date=date(2026, 2, 25), time=datetime.min.time())
     )
     return results
@@ -24,18 +26,21 @@ def pydresults_created_instance(reset_database):
 
 @pytest.fixture(scope="function")
 def pydresults_sql_instance(reset_database):
-    pydresults_sql_instance = models.Results.query(name="Unknown Run-Unknown ProcedureType-Test ResultsType", limit=1)
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    pydresults_sql_instance = models.Results.query(name=f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Test ResultsType", limit=1)
     return pydresults_sql_instance.to_pydantic() if pydresults_sql_instance else None
 
 
 def test_pydresults_creation(pydresults_created_instance):
     """Test that Pydresults properties are correctly set."""
-    assert pydresults_created_instance.name == "Unknown Run-Unknown ProcedureType-Test ResultsType"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    
+    assert pydresults_created_instance.name == f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00-Test ResultsType'
     
     assert pydresults_created_instance.resultstype == "Test ResultsType"
-    assert pydresults_created_instance.procedure == "Unknown Run-Unknown ProcedureType"
+    assert pydresults_created_instance.procedure == f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00'
     assert pydresults_created_instance.image is None
-    assert pydresults_created_instance.sample == "Unknown Run-Unknown ProcedureType->Test Sample (rank=1)"
+    assert pydresults_created_instance.sample == f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Sample (rank=1)'
     assert pydresults_created_instance.date_analyzed.strftime("%Y-%m-%d") == "2026-02-25"
         
 
@@ -53,11 +58,12 @@ def test_pydresults_to_sql(pydresults_created_instance):
     # Test that clientsubmission is properly resolved (should not be None)
     assert sql_instance.procedure is not None
     assert isinstance(sql_instance.procedure, models.submissions.Procedure)
-    assert sql_instance.procedure.name == "Unknown Run-Unknown ProcedureType"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert sql_instance.procedure.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00"
     # Test that clientsubmission is properly resolved (should not be None)
     assert sql_instance.sampleprocedureassociation is not None
     assert isinstance(sql_instance.sampleprocedureassociation, models.submissions.ProcedureSampleAssociation)
-    assert sql_instance.sampleprocedureassociation.name == "Unknown Run-Unknown ProcedureType->Test Sample (rank=1)"
+    assert sql_instance.sampleprocedureassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Sample (rank=1)"
     # misc
     assert sql_instance.image is None
     assert sql_instance.date_analyzed.strftime("%Y-%m-%d") == "2026-02-25"
@@ -69,7 +75,8 @@ def test_pydresults_improved_dict(pydresults_created_instance):
     assert "resultstype" in d
     assert d['resultstype'] == "Test ResultsType"
     assert "procedure" in d
-    assert d['procedure'] == "Unknown Run-Unknown ProcedureType" 
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert d['procedure'] == f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00'
     assert "result" in d
     assert d['result']['test'] == "Positive"
     assert d['result']
@@ -84,8 +91,8 @@ def test_pydresults_expand_fields(pydresults_sql_instance):
     expanded = pydresults_sql_instance.improved_dict_expand_fields(["procedure"])
     # NOTE: validation error downstream converting the clientsubmission - run - procedure (no sample.row or sample.column)
     assert isinstance(expanded['procedure'], dict)
-    t = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
-    assert expanded['procedure']['name'] == {'missing': False, 'value': f'RSL-XX-20260202-1-Test ProcedureType-{t}'}
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert expanded['procedure']['name'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
     expanded = pydresults_sql_instance.improved_dict_expand_fields({"resultstype": ['proceduretype']})
     assert isinstance(expanded['resultstype'], dict)
     assert expanded['resultstype']['name'] == "Test ResultsType"

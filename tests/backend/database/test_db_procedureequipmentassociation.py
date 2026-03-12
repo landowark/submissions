@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 import logging
 import pytest
 from custom_resources import DatabaseTestCase
@@ -33,7 +34,8 @@ def test_procedureequipmentassociation_query(procedureequipmentassociation):
 
 
 def test_procedureequipmentassociation_get_name(procedureequipmentassociation):
-    assert procedureequipmentassociation.name == "Unknown Run-Unknown ProcedureType->Test Instrument"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert procedureequipmentassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Instrument"
 
 
 def test_procedureequipmentassociation_get_equipment(procedureequipmentassociation):

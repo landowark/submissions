@@ -6,22 +6,20 @@ from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
 from pydantic import BaseModel
-from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, or_, select
+from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship, Query
+from sqlalchemy.orm import aliased, relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
-
 from tools import check_authorization, setup_lookup, flatten_list, timezone
 from typing import List, Generator, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
-    from backend.validators.pydant import PydEquipment, PydProcedure, PydProcedureEquipmentAssociation
+    from backend.validators.pydant import PydProcedure, PydProcedureEquipmentAssociation
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -263,8 +261,7 @@ class ReagentRole(BaseClass):
             return [reagent.to_pydantic() for reagent in self.reagent]
         if isinstance(proceduretype, str):
             proceduretype = ProcedureType.query(name=proceduretype)
-        assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype),
-                     None)
+        assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype), None)
         reagents = [reagent for reagent in self.reagent]
         if assoc:
             last_used = Reagent.query(name=assoc.last_used)
@@ -733,8 +730,6 @@ class Discount(BaseClass):
     Relationship table for client labs for certain kits.
     """
 
-    # skip_on_edit = True
-
     id = Column(INTEGER, primary_key=True)  #: primary key
     _proceduretype = relationship("ProcedureType")  #: joined parent proceduretype
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete='SET NULL',
@@ -939,7 +934,7 @@ class SubmissionType(BaseClass):
                     self._misc_info.update({'proceduretype': proceduretype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve clientsubmission
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
@@ -1223,7 +1218,7 @@ class ProcedureType(BaseClass):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve submissiontype
         if submissiontype is not None:
             try:
                 self.submissiontype = submissiontype
@@ -1243,7 +1238,7 @@ class ProcedureType(BaseClass):
                     self._misc_info.update({'resultstype': resultstype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipmentrole = equipmentrole
@@ -1445,7 +1440,6 @@ class ProcedureType(BaseClass):
 
     @discount.setter
     def discount(self, value):
-        
         if not isinstance(value, list):
             value = [value]
         list_ = []
@@ -1474,24 +1468,18 @@ class ProcedureType(BaseClass):
             run = run.to_pydantic()
         else:
             samples = []
-        # logger.debug(f"Constructed samples: {pformat(samples)}")
         output = dict(
             proceduretype=self,
             repeat=False,
             run=run,
             sample=samples
         )
-        logger.debug(f"Samples: {pformat(samples)}")
         return PydProcedure(**output)
     
     @property
     def ranked_plate(self):
         """
         Makes an x by y array to represent a plate.
-
-        Args:
-            rows (int): Number of rows.
-            columns (int): Number of columns
 
         Returns:
             dict: cell number : (row, column)
@@ -1508,16 +1496,11 @@ class ProcedureType(BaseClass):
     def allowed_result_methods(self):
         return [item.details_dict for item in self.resultstype]
 
-    def to_html(self, **kwargs):
-        details = self.details_dict
-        output = super().to_html(**details)
-        return output
-
 
 class Procedure(BaseClass):
     
     id = Column(INTEGER, primary_key=True)  #: Primary key
-    _name = Column(String, unique=True)  #: Name of the procedure (RSL number)
+    # _name = Column(String, unique=True)  #: Name of the procedure (RSL number)
     repeat_of_id = Column(INTEGER, ForeignKey("_procedure.id", name="fk_repeat_id"))
     _cost = Column(FLOAT(2), default=0.00)
     _repeat_of = relationship("Procedure", remote_side=[id])
@@ -1574,7 +1557,7 @@ class Procedure(BaseClass):
         equipment = kwargs.pop('equipment', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve repeat_of
         if repeat_of is not None:
             try:
                 self.repeat_of = repeat_of
@@ -1584,7 +1567,7 @@ class Procedure(BaseClass):
                     self._misc_info.update({'repeat_of': repeat_of})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve started_date
         if started_date is not None:
             try:
                 self.started_date = started_date
@@ -1602,7 +1585,7 @@ class Procedure(BaseClass):
                     self._misc_info.update({'completed_date': completed_date})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve proceduretype
         if proceduretype is not None:
             try:
                 self.proceduretype = proceduretype
@@ -1611,7 +1594,7 @@ class Procedure(BaseClass):
                     self._misc_info.update({'proceduretype': proceduretype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve results
         if results is not None:
             try:
                 self.results = results
@@ -1620,7 +1603,7 @@ class Procedure(BaseClass):
                     self._misc_info.update({'results': results})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve run
         if run is not None:
             try:
                 self.run = run
@@ -1638,7 +1621,7 @@ class Procedure(BaseClass):
                     self._misc_info.update({'sample': sample})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve reagentlot
         if reagentlot is not None:
             try:
                 self.reagentlot = reagentlot
@@ -1647,7 +1630,7 @@ class Procedure(BaseClass):
                     self._misc_info.update({'reagentlot': reagentlot})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve equipment
         if equipment is not None:
             try:
                 self.equipment = equipment
@@ -1656,6 +1639,22 @@ class Procedure(BaseClass):
                     self._misc_info.update({'equipment': equipment})
                 except Exception:
                     pass
+        # try:
+        #     run = self.run.name
+        # except AttributeError:
+        #     run = "Unknown Run"
+        # try:
+        #     proceduretype = self.proceduretype.name
+        # except AttributeError:
+        #     proceduretype = "Unknown ProcedureType"
+        # if self.repeat_of:
+        #     repeatof = f" ({self.repeat_of})"
+        # else:
+        #     repeatof = ""
+        # self.name = f"{run} - {proceduretype}{repeatof}"  
+
+    @hybrid_property
+    def name(self) -> str:
         try:
             run = self.run.name
         except AttributeError:
@@ -1664,21 +1663,39 @@ class Procedure(BaseClass):
             proceduretype = self.proceduretype.name
         except AttributeError:
             proceduretype = "Unknown ProcedureType"
-        if self.repeat_of:
-            repeatof = f" ({self.repeat_of})"
+        if self.id is not None:
+            id = f" ({self.id})"
         else:
-            repeatof = ""
-        self.name = f"{run}-{proceduretype}{repeatof}"  
-
-    @hybrid_property
-    def name(self) -> str:
-        return self._name
+            id = ""
+        try:
+            started_date = self.started_date.strftime("%Y-%m-%d %H:%M:%S")
+        except AttributeError:
+            started_date = "NA"
+        return f"{run} - {proceduretype}{id} - {started_date}"  
     
-    @name.setter
-    def name(self, value):
-        if isinstance(value, dict):
-            value = value.get("value", "NA")
-        self._name = value
+    @name.expression
+    def name(cls):
+        from backend.db.models import Run
+        # Create an alias to avoid the recursive property lookup
+        run_subquery = (
+            select(Run.name)
+            .where(Run.id==cls.run_id)
+            # .correlate(cls)
+            .scalar_subquery()
+        )
+        proceduretype_subquery = (
+            select(ProcedureType.name)
+            .where(ProcedureType.id==cls.proceduretype_id)
+            # .correlate(cls)
+            .scalar_subquery()
+        )
+        # Use func.concat or comma-separated args in func.concat to force the || operator
+        return func.coalesce(run_subquery, "Unknown Run") + \
+            " - " + \
+            func.coalesce(proceduretype_subquery, "Unknown ProcedureType") + \
+            func.coalesce(" (" + cast(cls.id, String) + ")", "") + \
+            " - " + \
+            func.coalesce(func.strftime("%Y-%m-%d %H:%M:%S", cls._started_date), "NA")
 
     @hybrid_property
     def reagentlot(self):
@@ -1975,7 +1992,7 @@ class Procedure(BaseClass):
             case PydProcedure():
                 output = value.to_sql(update=False)
                 if isinstance(output, tuple):
-                        output = output[0]
+                    output = output[0]
             case Procedure():
                 output = value
             case None:
@@ -2116,7 +2133,6 @@ class Procedure(BaseClass):
         return output
 
     def to_pydantic(self, **kwargs):
-        from backend.validators.pydant import PydReagent
         output = super().to_pydantic()
         output.sample = [item.to_pydantic() for item in self.proceduresampleassociation]
         output.run = self.run.to_pydantic()
@@ -2418,7 +2434,7 @@ class ProcedureReagentLotAssociation(BaseClass):
     reagentlot_id = Column(INTEGER, ForeignKey("_reagentlot.id"), primary_key=True)  #: id of associated reagent
     procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)
-    _comment = Column(String(1024))  #: Comments about reagents
+    _comment = Column(String(1024))  #: Comments about reagent
 
     _procedure = relationship("Procedure",
                              back_populates="procedurereagentlotassociation")  #: associated procedure
@@ -2439,7 +2455,7 @@ class ProcedureReagentLotAssociation(BaseClass):
         reagentrole = kwargs.pop('reagentrole', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
@@ -2449,7 +2465,7 @@ class ProcedureReagentLotAssociation(BaseClass):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve reagentlot
         if reagentlot is not None:
             try:
                 self.reagentlot = reagentlot
@@ -2823,7 +2839,7 @@ class EquipmentRole(BaseClass):
         equipment = kwargs.pop('equipment', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve reagent
+        # Resolve proceduretype
         if proceduretype is not None:
             try:
                 self.proceduretype = proceduretype
@@ -2833,7 +2849,7 @@ class EquipmentRole(BaseClass):
                     self._misc_info.update({'proceduretype': proceduretype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve equipment
         if equipment is not None:
             try:
                 self.equipment = equipment
@@ -2964,24 +2980,7 @@ class EquipmentRole(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    # def get_processes(self, proceduretype: str | ProcedureType | None=None) -> Generator[Process, None, None]:
-    #     """
-    #     Get process used by this EquipmentRole
-
-    #     Args:
-    #         proceduretype (str | ProcedureType | None): ProcedureType of interest
-
-    #     Returns:
-    #         List[Process]: List of process
-    #     """
-    #     if isinstance(proceduretype, str):
-    #         proceduretype = ProcedureType.query(name=proceduretype)
-    #     for process in self.process:
-    #         if proceduretype and proceduretype not in process.proceduretype:
-    #             continue
-    #         yield process.name
-
-
+    
 class Equipment(BaseClass, LogMixin):
     """
     A concrete instance of equipment
@@ -3022,7 +3021,7 @@ class Equipment(BaseClass, LogMixin):
         nickname = kwargs.pop('nickname', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve reagent
+        # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
@@ -3032,7 +3031,7 @@ class Equipment(BaseClass, LogMixin):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipment = equipmentrole
@@ -3041,7 +3040,7 @@ class Equipment(BaseClass, LogMixin):
                     self._misc_info.update({'equipmentrole': equipmentrole})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve nickname
         try:
             self.nickname = nickname
         except Exception:
@@ -3448,7 +3447,7 @@ class Process(BaseClass):
         tips = kwargs.pop('tips', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve process
+        # Resolve processversion
         if processversion is not None:
             try:
                 self.processversion = processversion
@@ -3458,7 +3457,7 @@ class Process(BaseClass):
                     self._misc_info.update({'processversion': processversion})
                 except Exception:
                     pass
-        # Resolve equipmentrole
+        # Resolve equipmentroleequipmentassociation
         if equipmentroleequipmentassociation is not None:
             try:
                 self.equipmentroleequipmentassociation = equipmentroleequipmentassociation
@@ -3467,7 +3466,7 @@ class Process(BaseClass):
                     self._misc_info.update({'equipmentroleequipmentassociation': equipmentroleequipmentassociation})
                 except Exception:
                     pass
-        # Resolve equipment
+        # Resolve tips
         if tips is not None:
             try:
                 self.tips = tips
@@ -3667,7 +3666,7 @@ class ProcessVersion(BaseClass):
                     self._misc_info.update({'process': process})
                 except Exception:
                     pass
-        # Resolve equipmentrole
+        # Resolve active
         if active is not None:
             try:
                 self.active = active
@@ -3676,7 +3675,7 @@ class ProcessVersion(BaseClass):
                     self._misc_info.update({'active': active})
                 except Exception:
                     pass
-        # Resolve equipment
+        # Resolve date_verified
         if date_verified is not None:
             try:
                 self.date_verified = date_verified
@@ -3849,7 +3848,7 @@ class Tips(BaseClass):
                     self._misc_info.update({'process': process})
                 except Exception:
                     pass
-        # Resolve equipmentrole
+        # Resolve tipslot
         if tipslot is not None:
             try:
                 self.tipslot = tipslot
@@ -3960,7 +3959,7 @@ class Tips(BaseClass):
 
     @name.expression
     def name(cls):
-        return func.concat(cls.manufacturer, ' - ', cls.ref, "(", cast(cls.capacity, String), "uL)")#.label("name")
+        return func.concat(cls.manufacturer, ' - ', cls.ref, "(", cast(cls.capacity, String), "uL)")
 
     @classmethod
     @setup_lookup
@@ -4030,7 +4029,7 @@ class TipsLot(BaseClass, LogMixin):
         procedureequipmenttipslotassociation = kwargs.pop('procedureequipmenttipslotassociation', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve tips
         if tips is not None:
             try:
                 self.tips = tips
@@ -4056,7 +4055,7 @@ class TipsLot(BaseClass, LogMixin):
                     self._misc_info.update({'expiry': expiry})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve active
         if active is not None:
             try:
                 self.active = active
@@ -4139,12 +4138,6 @@ class TipsLot(BaseClass, LogMixin):
                 case ProcedureEquipmentTipslotAssociation():
                     output = item
                 case ProcedureEquipmentAssociation():
-                    # output = ProcedureEquipmentTipslotAssociation.query_or_create(
-                    #     procedure_id=item.procedure_id,
-                    #     equipment_id=item.equipment_id,
-                    #     equipmentrole_id=item.equipmentrole_id,
-                    #     tipslot_id=self.id
-                    # )
                     output = ProcedureEquipmentTipslotAssociation(
                         procedureequipmentassociation = item,
                         tipslot = self
@@ -4246,7 +4239,6 @@ class TipsLot(BaseClass, LogMixin):
             manufacturer = None
         match manufacturer:
             case str():
-                # logger.debug(f"Looking for {manufacturer}")
                 query = query.join(Tips).filter(Tips.manufacturer == manufacturer)
             case _:
                 pass
@@ -4405,7 +4397,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
         tipslot = kwargs.pop('tipslot', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve procedureequipmentassociation
         if procedureequipmentassociation is not None:
             try:
                 self.procedureequipmentassociation = procedureequipmentassociation
@@ -4415,8 +4407,7 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
                     self._misc_info.update({'procedureequipmentassociation': procedureequipmentassociation})
                 except Exception:
                     pass
-        # Resolve reagentrole
-        
+        # Resolve tipslot
         if tipslot is not None:
             try:
                 self.tipslot = tipslot
@@ -4474,7 +4465,6 @@ class ProcedureEquipmentAssociation(BaseClass):
         to pass names like 'Omega Bacterial Extraction' and have the association
         properly wired.
         """
-        from backend.validators.pydant import PydProcessVersion
         procedure = kwargs.pop('procedure', None)
         equipment = kwargs.pop('equipment', None)
         processversion = kwargs.pop('processversion', None)
@@ -4717,7 +4707,6 @@ class ProcedureEquipmentAssociation(BaseClass):
         from backend.validators.pydant import PydProcedureEquipmentAssociation
         
         output = PydProcedureEquipmentAssociation(**self.details_dict)
-        # output.tips = self.tips.to_pydantic(pyd_model_name="PydTips")
         return output
 
     @classmethod
@@ -4811,7 +4800,7 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
                     self._misc_info.update({'proceduretype': proceduretype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipmentrole = equipmentrole
@@ -5001,7 +4990,7 @@ class Results(BaseClass):
         result = kwargs.pop('result', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
@@ -5011,7 +5000,7 @@ class Results(BaseClass):
                     self._misc_info.update({'procedure': procedure})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve date_analyzed
         if date_analyzed is not None:
             try:
                 self.date_analyzed = date_analyzed
@@ -5020,6 +5009,7 @@ class Results(BaseClass):
                     self._misc_info.update({'date_analyzed': date_analyzed})
                 except Exception:
                     pass
+        # Resolve sampleprocedureassociation
         if sampleprocedureassociation is not None:
             try:
                 self.sampleprocedureassociation = sampleprocedureassociation
@@ -5029,13 +5019,13 @@ class Results(BaseClass):
                     self._misc_info.update({'sampleprocedureassociation': sampleprocedureassociation})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve image
         if image is not None:
             try:
                 self.image = image
             except Exception:
                 pass
-        # Resolve reagentrole
+        # Resolve resultstype
         if resultstype is not None:
             try:
                 self.resultstype = resultstype
@@ -5044,6 +5034,7 @@ class Results(BaseClass):
                     self._misc_info.update({'resultstype': resultstype})
                 except Exception:
                     pass
+        # Resolve result
         if result is not None:
             try:
                 self.result = result
@@ -5072,7 +5063,6 @@ class Results(BaseClass):
         
     @hybrid_property
     def name(self):
-        
         try:
             assoc = self.procedure.name
         except AttributeError:
@@ -5081,7 +5071,7 @@ class Results(BaseClass):
             resultstype = self.resultstype.name
         except AttributeError:
             resultstype = "Unassigned ResultsType"
-        return f"{assoc}-{resultstype}"
+        return f"{assoc} - {resultstype}"
     
     @name.expression
     def name(cls):
@@ -5099,7 +5089,7 @@ class Results(BaseClass):
             .scalar_subquery()
         )
         # NOTE: Can't use f strings for this.
-        return procedure_subquery + "-" + resultstype_subquery
+        return procedure_subquery + " - " + resultstype_subquery
 
     @hybrid_property
     def date_analyzed(self):
@@ -5245,29 +5235,6 @@ class Results(BaseClass):
     def image(self, value):
         self._img = value
 
-    # @classmethod
-    # def query(cls, name: str | None = None, limit: int = 0, **kwargs) -> Results | List[Results]:
-    #     """Query Results, with optional name filtering."""
-    #     query = cls.__database_session__.query(cls)
-    #     from backend.db.models import ProcedureSampleAssociation
-    #     logger.debug(f"Querying Results with name={name} and kwargs={kwargs}")
-    #     if name is not None:
-    #         query = query.outerjoin(
-    #             ProcedureSampleAssociation, 
-    #             cls._sampleprocedureassociation
-    #         ).outerjoin(
-    #             Procedure,
-    #             cls._procedure
-    #         ).filter(
-    #             or_(
-    #                 ProcedureSampleAssociation.name == name,
-    #                 Procedure.name == name
-    #             )
-    #         )
-    #         limit = 1
-        
-    #     return cls.execute_query(query=query, limit=limit, **kwargs)
-
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         if bool(self.sample_id):
@@ -5307,7 +5274,7 @@ class ResultsType(BaseClass):
                     self._misc_info.update({'proceduretype': proceduretype})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve results
         if results is not None:
             try:
                 self.results = results

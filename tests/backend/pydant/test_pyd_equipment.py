@@ -11,6 +11,7 @@ def pydequipment_created_instance(reset_database):
     pre-created Equipment and Equipment instances, so sql_instances
     will have all required relationships properly resolved.
     """
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     equipment = pydant.PydEquipment(
         name="Bob's Equipment",
         asset_number="2222",
@@ -18,7 +19,7 @@ def pydequipment_created_instance(reset_database):
         manufacturer="Scrapyard",
         ref="0000",
         equipmentrole=["Test EquipmentRole"],
-        procedure=["Unknown Run-Unknown ProcedureType"]
+        procedure=[f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00']
     )
     return equipment
 
@@ -32,7 +33,8 @@ def pydequipment_sql_instance(reset_database):
 def test_pydequipment_creation(pydequipment_created_instance):
     """Test that Pydequipment properties are correctly set."""
     assert pydequipment_created_instance.name == "Bob's Equipment"
-    assert "Unknown Run-Unknown ProcedureType" in pydequipment_created_instance.procedure 
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in pydequipment_created_instance.procedure 
     assert "Test EquipmentRole" in pydequipment_created_instance.equipmentrole
     assert pydequipment_created_instance.asset_number == "2222"
     assert pydequipment_created_instance.nickname == "Scrapheap"
@@ -53,9 +55,10 @@ def test_pydequipment_to_sql(pydequipment_created_instance):
     assert all([isinstance(item, models.procedures.EquipmentRole) for item in sql_instance.equipmentrole])
     assert "Test EquipmentRole" in [c.name for c in sql_instance.equipmentrole]
     # Test that equipment is properly resolved (should not be None)
-    assert len(sql_instance.equipmentrole) > 0
+    assert len(sql_instance.procedure) > 0
     assert all([isinstance(item, models.procedures.Procedure) for item in sql_instance.procedure])
-    assert "Unknown Run-Unknown ProcedureType" in [c.name for c in sql_instance.procedure]
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in [c.name for c in sql_instance.procedure]
     # assert len(sql_instance.equipmentrole) > 0
     assert sql_instance.nickname == "Scrapheap"
     assert sql_instance.asset_number == "2222"
@@ -69,7 +72,8 @@ def test_pydequipment_improved_dict(pydequipment_created_instance):
     assert "name" in d
     assert d['name'] == "Bob's Equipment"
     assert "equipmentrole" in d
-    assert "Unknown Run-Unknown ProcedureType" in d['procedure']
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in d['procedure']
     assert "equipmentrole" in d
     assert "Test EquipmentRole" in d['equipmentrole']
     assert "asset_number" in d
@@ -88,8 +92,8 @@ def test_pydequipment_expand_fields(pydequipment_sql_instance):
     expanded = pydequipment_sql_instance.improved_dict_expand_fields({"procedure": ['submissiontype']})
     assert isinstance(expanded['procedure'], list)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert expanded['procedure'][0]['name']['value'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
-    assert expanded['procedure'][0]['name']['missing'] == False
+    assert expanded['procedure'][0]['name'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
+    # assert expanded['procedure'][0]['name']['missing'] == False
     assert expanded['procedure'][0]['submissiontype']['name'] == "Default SubmissionType"
 
 

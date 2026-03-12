@@ -55,7 +55,6 @@ class BaseClass(Base):
     
     @misc_info.setter
     def misc_info(self, value):
-        logger.debug(f"Setting misc_info to {value}")
         self._misc_info = value
 
     @classproperty
@@ -206,7 +205,6 @@ class BaseClass(Base):
             return value
         except TypeError:
             pass
-
         # Handle some common non-serializable types
         try:
             if isinstance(value, datetime):
@@ -885,66 +883,18 @@ class BaseClass(Base):
             case dict():
                 return {k: cls.sanitize_obj_for_json(v, expand=expand) for k, v in obj_.items()}
             case x if issubclass(obj_.__class__, BaseClass):
-            # case x if obj_.__class__.__name__ in [q.__name__ for q in BaseClass.find_subclasses()]:
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)
                 else:
                     return cls.sanitize_obj_for_json(obj_.details_dict, expand=expand)
             case x if issubclass(obj_.__class__, PydBaseClass):
-            # case x if obj_.sql_instance.__class__.__name__ in [q.__name__ for q in BaseClass.find_subclasses()]:
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)
                 else:
                     return cls.sanitize_obj_for_json(obj_.improved_dict, expand=expand)
             case _:
-                # print(f"Unmatched obj_ {obj_}: {type(obj_)}")
                 return obj_
 
-    # @classmethod
-    # def correct_details_fields(cls, value: Any, expand: bool=False) -> Any:
-    #     """
-    #     Corrects fields in details_dict to proper types.
-
-    #     Args:
-    #         value (Any): input value
-
-    #     Returns:
-    #         Any: corrected value
-    #     """
-    #     from backend.validators.pydant import PydBaseClass
-    #     match value:
-    #         case str():
-    #             output = value.strip('\"')
-    #         case list():
-    #             output = [cls.correct_details_fields(v, expand=expand) for v in value]
-    #         case dict():
-    #             output = {k: cls.correct_details_fields(v, expand=expand) for k, v in value.items()}
-    #         case x if issubclass(value.__class__, BaseClass):
-    #             if not expand:
-    #                 output = value.name
-    #             else:
-    #                 output = value.details_dict
-    #         case x if issubclass(value.__class__, PydBaseClass):
-    #             if not expand:
-    #                 output = value.name
-    #             else:
-    #                 output = value.sql_instance.details_dict
-    #         case _AssociationList():
-    #             output = [cls.correct_details_fields(v, expand=expand) for v in value]
-    #         # NOTE: datetime is a subclass of date, so the datetime() case
-    #         # must come before date() to avoid matching datetimes as dates
-    #         # (which would force end-of-day time).
-    #         case datetime():
-    #             output = datetime.strftime(value, "%Y-%m-%d %H:%M:%S")
-    #         case date():
-    #             output = datetime.combine(value, datetime.max.time())
-    #             output = datetime.strftime(output, "%Y-%m-%d %H:%M:%S")
-    #         case timedelta():
-    #             output = value.days
-    #         case _:
-    #             output = value
-    #     return output
-    
     def details_dict_expand_fields(self, fields: List[str] | List[dict], visited: set | None = None) -> dict:
         """
         details_dict with additional information from relationships.
@@ -1080,14 +1030,8 @@ class BaseClass(Base):
             obj: Parent QWidget or QDialog
         """
         from frontend.widgets.submission_details import SubmissionDetails
-        dlg = SubmissionDetails(parent=obj, object_=self.to_pydantic())
+        dlg = SubmissionDetails(parent=obj, object_ = self.to_pydantic())
         dlg.exec()
-
-    # TODO: Figure this out
-    def export(self, obj, output_filepath: str | Path | None = None):
-        from backend import managers
-        Manager = getattr(managers, f"Default{self.__class__.__name__}")
-        manager = Manager(parent=obj, input_object=self)
 
     @classmethod
     def find_subclasses(cls, class_name: str|None=None, class_alias: str|None=None) -> BaseClass | List[BaseClass] | None:
@@ -1194,7 +1138,6 @@ from .procedures import (
 from .submissions import (
     ClientSubmission, Run, Sample, ClientSubmissionSampleAssociation, RunSampleAssociation, ProcedureSampleAssociation
 )
-# from .controls import ControlType, Control
 
 # NOTE: Add a creator to the procedure for reagent association. Assigned here due to circular import constraints.
 # https://docs.sqlalchemy.org/en/20/orm/extensions/associationproxy.html#sqlalchemy.ext.associationproxy.association_proxy.params.creator

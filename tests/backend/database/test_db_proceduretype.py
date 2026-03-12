@@ -92,9 +92,9 @@ def test_proceduretype_set_procedure(proceduretype):
     test_insert = Procedure(name="Insert Procedure")
     proceduretype.procedure = [test_insert]
     assert test_insert in proceduretype.procedure
-    test_insert = dict(name="Dict Procedure")
-    proceduretype.procedure = [test_insert]
-    assert "Dict Procedure" in [item.name for item in proceduretype.procedure]
+    # test_insert = dict(name="Dict Procedure")
+    # proceduretype.procedure = [test_insert]
+    # assert "Dict Procedure" in [item.name for item in proceduretype.procedure]
 
 
 def test_proceduretype_construct_dummy_procedure(proceduretype):

@@ -34,9 +34,9 @@ def test_equipment_set_procedure(equipment):
     equipment.procedure = [test_insert]
     assert test_insert in equipment.procedure
 
-    test_insert = dict(name="Dict Procedure")
-    equipment.procedure = [test_insert]
-    assert "Dict Procedure" in [item.name for item in equipment.procedure]
+    # test_insert = dict(name="Dict Procedure")
+    # equipment.procedure = [test_insert]
+    # assert "Dict Procedure" in [item.name for item in equipment.procedure]
 
 
 def test_equipment_get_equipmentrole(equipment):

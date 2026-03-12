@@ -9,8 +9,8 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass
 from tools import check_authorization, setup_lookup
 from typing import List, TYPE_CHECKING
-if TYPE_CHECKING:
-    from backend.validators.pydant import PydContact
+# if TYPE_CHECKING:
+#     from backend.validators.pydant import PydContact
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -48,7 +48,7 @@ class ClientLab(BaseClass):
         contact = kwargs.pop('contact', None)
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
-        # Resolve proceduretype
+        # Resolve clientsubmission
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
@@ -58,7 +58,7 @@ class ClientLab(BaseClass):
                     self._misc_info.update({'clientsubmission': clientsubmission})
                 except Exception:
                     pass
-        # Resolve reagentrole
+        # Resolve contact
         if contact is not None:
             try:
                 self.contact = contact
