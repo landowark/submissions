@@ -18,10 +18,10 @@ class DefaultManager(object):
         # NOTE: If input_object is a str or path, use parser to construct object
         match input_object:
             case str():
-                self.input_object = Path(input_object)
+                self.input_object = Path(input_object).absolute()
                 self.pyd = self.to_pydantic()
             case Path():
-                self.input_object = input_object
+                self.input_object = input_object.absolute()
                 self.pyd = self.to_pydantic()
             case x if issubclass(input_object.__class__, PydBaseClass):
                 self.pyd = input_object
@@ -31,6 +31,12 @@ class DefaultManager(object):
                 logger.warning(f"Unmatched input object: {type(input_object)}. Looking for file.")
                 self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
                 self.pyd = self.to_pydantic()
+
+    def to_pydantic(self):
+        """
+        To be implemented in subclasses only.
+        """
+        raise NotImplementedError("This method is defined in subclasses only.")
 
     def ratchet_start_row(self):
         """

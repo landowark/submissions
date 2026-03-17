@@ -1,5 +1,5 @@
 import pytest
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import EquipmentRole, Equipment, ProcedureType
 from sqlalchemy.ext.associationproxy import _AssociationList
 

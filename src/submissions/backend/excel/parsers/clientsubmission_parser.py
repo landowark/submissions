@@ -11,106 +11,107 @@ from typing import Generator, TYPE_CHECKING
 from openpyxl.reader.excel import load_workbook
 from tools import row_keys
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
+from backend.validators import ClientSubmissionNamer
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class SubmissionTyperMixin(object):
+# class SubmissionTyperMixin(object):
 
-    @classmethod
-    def retrieve_submissiontype(cls, filepath: Path) -> "SubmissionType":
-        """
-        Gets the submission type from a file.
+#     @classmethod
+#     def retrieve_submissiontype(cls, filepath: Path) -> "SubmissionType":
+#         """
+#         Gets the submission type from a file.
 
-        Args:
-            filepath (Path): The import file
+#         Args:
+#             filepath (Path): The import file
 
-        Returns:
-            SubmissionType: The determined submissiontype
-        """
-        # NOTE: Attempt 1, get from form properties:
-        sub_type = cls.get_subtype_from_properties(filepath=filepath)
-        if not sub_type:
-            # NOTE: Attempt 2, get by opening file and using default parser
-            logger.warning(
-                f"Getting submissiontype from file properties failed, falling back on preparse.\nDepending on excel structure this might yield an incorrect submissiontype")
-            sub_type = cls.get_subtype_from_preparse(filepath=filepath)
-        if not sub_type:
-            logger.warning(
-                f"Getting submissiontype from preparse failed, falling back on filename regex.\nDepending on excel structure this might yield an incorrect submissiontype")
-            sub_type = cls.get_subtype_from_regex(filepath=filepath)
-        return sub_type
+#         Returns:
+#             SubmissionType: The determined submissiontype
+#         """
+#         # NOTE: Attempt 1, get from form properties:
+#         sub_type = cls.get_subtype_from_properties(filepath=filepath)
+#         if not sub_type:
+#             # NOTE: Attempt 2, get by opening file and using default parser
+#             logger.warning(
+#                 f"Getting submissiontype from file properties failed, falling back on preparse.\nDepending on excel structure this might yield an incorrect submissiontype")
+#             sub_type = cls.get_subtype_from_preparse(filepath=filepath)
+#         if not sub_type:
+#             logger.warning(
+#                 f"Getting submissiontype from preparse failed, falling back on filename regex.\nDepending on excel structure this might yield an incorrect submissiontype")
+#             sub_type = cls.get_subtype_from_regex(filepath=filepath)
+#         return sub_type
 
-    @classmethod
-    def get_subtype_from_regex(cls, filepath: Path) -> SubmissionType:
-        """
-        Uses regex of the file name to determine submissiontype
+#     @classmethod
+#     def get_subtype_from_regex(cls, filepath: Path) -> SubmissionType:
+#         """
+#         Uses regex of the file name to determine submissiontype
 
-        Args:
-            filepath (Path): The import file
+#         Args:
+#             filepath (Path): The import file
 
-        Returns:
-            SubmissionType: The determined submissiontype
-        """
-        from backend.db.models import SubmissionType
-        regex = SubmissionType.regexes
-        m = regex.search(filepath.__str__())
-        try:
-            sub_type = m.lastgroup
-        except AttributeError as e:
-            sub_type = None
-            logger.critical(f"No submission type or procedure type found!: {e}")
-        sub_type = SubmissionType.query(name=sub_type, limit=1)
-        if not sub_type:
-            return
-        return sub_type
+#         Returns:
+#             SubmissionType: The determined submissiontype
+#         """
+#         from backend.db.models import SubmissionType
+#         regex = SubmissionType.regexes
+#         m = regex.search(filepath.__str__())
+#         try:
+#             sub_type = m.lastgroup
+#         except AttributeError as e:
+#             sub_type = None
+#             logger.critical(f"No submission type or procedure type found!: {e}")
+#         sub_type = SubmissionType.query(name=sub_type, limit=1)
+#         if not sub_type:
+#             return
+#         return sub_type
 
-    @classmethod
-    def get_subtype_from_preparse(cls, filepath: Path) -> SubmissionType:
-        """
-        Performs a default parse of the file in an attempt to find the submission type.
+#     @classmethod
+#     def get_subtype_from_preparse(cls, filepath: Path) -> SubmissionType:
+#         """
+#         Performs a default parse of the file in an attempt to find the submission type.
 
-        Args:
-            filepath (Path): The import file
+#         Args:
+#             filepath (Path): The import file
 
-        Returns:
-            SubmissionType: The determined submissiontype
-        """
-        from backend.db.models import SubmissionType
-        parser = ClientSubmissionInfoParser(filepath=filepath, submissiontype=SubmissionType.query(name="Default"))
-        sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype" or k == "submission_type"), None)
-        if isinstance(sub_type, dict):
-            sub_type = sub_type['value']
-        sub_type = SubmissionType.query(name=sub_type.title())
-        if isinstance(sub_type, list):
-            return
-        return sub_type
+#         Returns:
+#             SubmissionType: The determined submissiontype
+#         """
+#         from backend.db.models import SubmissionType
+#         parser = ClientSubmissionInfoParser(filepath=filepath, submissiontype=SubmissionType.query(name="Default"))
+#         sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype" or k == "submission_type"), None)
+#         if isinstance(sub_type, dict):
+#             sub_type = sub_type['value']
+#         sub_type = SubmissionType.query(name=sub_type.title())
+#         if isinstance(sub_type, list):
+#             return
+#         return sub_type
 
-    @classmethod
-    def get_subtype_from_properties(cls, filepath: Path) -> "SubmissionType":
-        """
-        Attempts to get submission type from the xl metadata.
+#     @classmethod
+#     def get_subtype_from_properties(cls, filepath: Path) -> "SubmissionType":
+#         """
+#         Attempts to get submission type from the xl metadata.
 
-        Args:
-            filepath (Path): The import file
+#         Args:
+#             filepath (Path): The import file
 
-        Returns:
-            SubmissionType: The determined submissiontype
-        """
-        from backend.db.models import SubmissionType
-        wb = load_workbook(filepath)
-        # NOTE: Gets first category in the metadata.
-        categories = wb.properties.category.split(";")
-        sub_type = next((item.strip().title() for item in categories), None)
-        sub_type = SubmissionType.query(name=sub_type)
-        if isinstance(sub_type, list):
-            return
-        return sub_type
+#         Returns:
+#             SubmissionType: The determined submissiontype
+#         """
+#         from backend.db.models import SubmissionType
+#         wb = load_workbook(filepath)
+#         # NOTE: Gets first category in the metadata.
+#         categories = wb.properties.category.split(";")
+#         sub_type = next((item.strip().title() for item in categories), None)
+#         sub_type = SubmissionType.query(name=sub_type)
+#         if isinstance(sub_type, list):
+#             return
+#         return sub_type
 
 
-class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
+class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin):
     """
     Object for retrieving submitter info from "Client Info" sheet
     """
@@ -123,8 +124,9 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
     pyd_name = "PydClientSubmission"
 
     def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, *args, **kwargs):
+        namer = ClientSubmissionNamer(filepath=filepath)
         if not submissiontype:
-            self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
+            self.submissiontype = namer.submissiontype
         else:
             self.submissiontype = submissiontype
         super().__init__(filepath=filepath, **kwargs)
@@ -152,7 +154,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser, SubmissionTyperMixin):
         return output
 
 
-class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
+class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
     """
     Object for retrieving submitter samples from "sample list" sheet
     """
@@ -166,8 +168,9 @@ class ClientSubmissionSampleParser(DefaultTABLEParser, SubmissionTyperMixin):
 
     def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, sheets: List[dict] = [], *args,
                  **kwargs):
+        namer = ClientSubmissionNamer(filepath=filepath)
         if not submissiontype:
-            self.submissiontype = self.retrieve_submissiontype(filepath=filepath)
+            self.submissiontype = namer.submissiontype
         else:
             self.submissiontype = submissiontype
         super().__init__(filepath=filepath, sheets=sheets, **kwargs)

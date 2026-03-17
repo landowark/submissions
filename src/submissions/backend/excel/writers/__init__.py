@@ -155,6 +155,7 @@ class DefaultKEYVALUEWriter(DefaultWriter):
             value = self.stringify_value(value=v)
             if value is None:
                 continue
+        
             self.worksheet.cell(column=1, row=ii, value=self.prettify_key(k))
             self.worksheet.cell(column=2, row=ii, value=value)
         self.worksheet = self.postwrite(self.worksheet)

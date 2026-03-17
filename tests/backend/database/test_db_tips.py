@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy.orm.collections import InstrumentedList
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import Process, Tips
 
 

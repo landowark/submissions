@@ -55,7 +55,6 @@ class ClientSubmissionNamer(DefaultNamer):
         if not sub_type:
             logger.warning(f"Getting submissiontype from preparse failed, falling back on filename regex.\nDepending on file name this might yield an incorrect submissiontype")
             sub_type = self.get_subtype_from_regex()
-        
         if not sub_type:
             logger.warning(f"Getting submissiontype from regex failed, asking user.")
             from frontend.widgets import ObjectSelector
@@ -96,10 +95,10 @@ class ClientSubmissionNamer(DefaultNamer):
         Returns:
             SubmissionType
         """
-        from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser
         from backend.db.models import SubmissionType
-        parser = ClientSubmissionInfoParser(self.filepath)
-        sub_type = next((value for k, value in parser.parsed_info.items() if k == "submissiontype"), None)
+        from backend.excel.parsers import DefaultKEYVALUEParser
+        parser = DefaultKEYVALUEParser(filepath=self.filepath)
+        sub_type = next((value for k, value in parser.parsed_info if k in ["submissiontype", "submission_type"]), None)
         sub_type = SubmissionType.query(name=sub_type)
         if isinstance(sub_type, list):
             sub_type = None

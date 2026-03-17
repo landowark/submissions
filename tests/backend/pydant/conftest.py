@@ -13,7 +13,7 @@ if "C:\\Users\\lwark\\Documents\\python\\submissions\\src\\submissions" not in s
 if "C:\\Users\\lwark\\Documents\\python\\submissions\\tests\\backend\\database" not in sys.path:
     sys.path.append("C:\\Users\\lwark\\Documents\\python\\submissions\\tests\\backend\\database")
 
-from toy_database import make_toy_db
+from tests.resources.toy_database import make_toy_db
 
 
 @pytest.fixture(scope="function")

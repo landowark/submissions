@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from datetime import datetime, date, timedelta
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import ReagentRole, Reagent, ReagentLot, Procedure
 from pytz import timezone as tz
 

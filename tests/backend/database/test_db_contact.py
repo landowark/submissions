@@ -1,5 +1,5 @@
 import pytest
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import Contact, ClientSubmission, ClientLab
 
 @pytest.fixture(scope="function")

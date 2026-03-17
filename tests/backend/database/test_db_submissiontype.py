@@ -1,6 +1,6 @@
 import pytest
 from datetime import timedelta
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import SubmissionType, ClientSubmission, ProcedureType
 
 

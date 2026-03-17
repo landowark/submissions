@@ -1,8 +1,8 @@
 import pytest
-from custom_resources import DatabaseTestCase
-from toy_database import make_toy_db
+from tests.resources.custom_resources import DatabaseTestCase
+from tests.resources.toy_database import make_toy_db
 from backend.db.models import ResultsType, Results, Procedure, ProcedureSampleAssociation, Sample
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from pytz import timezone as tz
 
 
@@ -47,13 +47,10 @@ def test_results_set_procedure(results):
     results.procedure = test_insert
     assert test_insert == results.procedure
 
-    # test_insert = dict(name="Dict Procedure")
-    # results.procedure = test_insert
-    # assert "Dict Procedure" == results.procedure.name
-
 
 def test_results_get_name(results):
-    assert results.name == "RSL-XX-20260202-1 - Test ProcedureType (1) - 2026-03-11 00:00:00 - Test ResultsType"
+    day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    assert results.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Test ResultsType"
 
 
 def test_results_date_analyzed(results):
@@ -83,3 +80,4 @@ def test_results_set_sampleprocedureassociation(results):
 
 def test_results_get_sample_id(results):
     assert results.sample_id == "Test Sample"
+

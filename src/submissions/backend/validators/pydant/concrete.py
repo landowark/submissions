@@ -1043,6 +1043,10 @@ class PydClientSubmission(PydConcrete):
         if isinstance(value, str):
             value = dict(value=value)
         return value
+    
+    @property
+    def name(self):
+        return self.submitter_plate_id
 
     def to_form(self, parent: QWidget, samples: List = [], disable: list | None = None):
         """
@@ -1107,7 +1111,7 @@ class PydClientSubmission(PydConcrete):
         if output > 0:
             return output
         else:
-            return max([item.submission_rank for item in self.sample])
+            return max([getattr(item, "submission_rank", None) or getattr(item, "rank", None) for item in self.sample])
 
     @property
     def improved_dict(self) -> dict:

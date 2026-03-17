@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from sqlalchemy.orm.collections import InstrumentedList
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import ProcedureType, EquipmentRole, ReagentRole, ResultsType, SubmissionType, Procedure, Run
 from backend.validators.pydant import PydProcedure
 

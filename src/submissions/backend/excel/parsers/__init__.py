@@ -20,6 +20,8 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultParser(object):
 
+    sheets = [dict(sheet = "Client Info", start_row = 1)]
+
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.filepath.stem}>"
 
@@ -27,7 +29,7 @@ class DefaultParser(object):
         """
         Is called before __init__. Ensures filepath is present.
         """
-        filepath = kwargs['filepath']
+        filepath = kwargs.get('filepath') or args[0]
         if isinstance(filepath, str):
             filepath = Path(filepath)
         try:
@@ -54,17 +56,8 @@ class DefaultParser(object):
             filepath = Path(filepath)
         self.filepath = filepath
         self.proceduretype = proceduretype
-        try:
-            self._pyd_object = getattr(pydant,
-                                       f"Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}")
-        except AttributeError as e:
-            logger.error(
-                f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}, using {self.__class__.pyd_name}")
-            self._pyd_object = getattr(pydant, self.__class__.pyd_name)
-        
         if self.filepath.suffix == ".xlsx":
             self.workbook = load_workbook(self.filepath, data_only=True)
-            
         # NOTE: convert csv to xlsx for standardization purposes.
         elif self.filepath.suffix == ".csv":
             self.workbook, _ = self.csv2xlsx(self.filepath)
@@ -80,8 +73,24 @@ class DefaultParser(object):
             sheet['end_row'] = self.delineate_end_row(worksheet=worksheet, start_row=sheet.get("start_row",1))
         self.sheets = sheets
         logger.debug(f"Sheets after {self.__class__.__name__} set: {self.sheets}")
+        # try:
+        #     self._pyd_object = self.pydant_object
+        # except AttributeError:
+        #     self._pyd_object = None
 
-    
+    @property
+    def _pyd_object(self):
+        try:
+            return getattr(pydant, f"Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}")
+        except AttributeError as e:
+            logger.error(
+                f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}, using {self.__class__.pyd_name}")
+            try:
+                return getattr(pydant, self.__class__.pyd_name)
+            except AttributeError:
+                logger.error(f"Couldn't get pyd object using pyd_name. Returning None")
+                return None
+        
     def get_worksheet(self, sheet: str | int = 0):
         match sheet:
             case str():
@@ -151,9 +160,6 @@ class DefaultParser(object):
 
 
 class DefaultKEYVALUEParser(DefaultParser):
-
-    
-    
 
     @property
     def parsed_info(self) -> Generator[tuple, None, None]:

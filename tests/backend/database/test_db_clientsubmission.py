@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from sqlalchemy.orm.collections import InstrumentedList
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import (ClientSubmission, Sample, SubmissionType, Run,
                                Contact, ClientLab, ClientSubmissionSampleAssociation)
 from pytz import timezone as tz

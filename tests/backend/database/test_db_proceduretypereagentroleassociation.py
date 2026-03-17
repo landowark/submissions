@@ -3,7 +3,7 @@ from typing import Generator
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import (
     ProcedureTypeReagentRoleAssociation,
     Reagent,

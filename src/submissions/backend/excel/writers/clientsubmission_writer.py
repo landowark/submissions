@@ -18,7 +18,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
     exclude = ["name", "id", "clientlab", "filepath", "comments", "sample", 
-               "excluded", "run", "clientsubmissionsampleassociation", "expanded"]
+               "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)

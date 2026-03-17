@@ -11,7 +11,8 @@ from backend.managers import DefaultManager
 from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
 from backend.excel.writers.clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter
 if TYPE_CHECKING:
-    from backend.db.models import SubmissionType
+    from backend.db.models import SubmissionType, ClientSubmission
+    from backend.validators.pydant import PydClientSubmission
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -19,24 +20,34 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DefaultClientSubmissionManager(DefaultManager):
 
     def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
-                 input_object: Path | str | None = None):
-        from backend.db.models import SubmissionType
-        logger.debug(f"Input object: {input_object}")
+                 input_object: Path | str | ClientSubmission | PydClientSubmission | None = None):
+        from backend.db.models import SubmissionType, ClientSubmission
+        from backend.validators.pydant import PydClientSubmission
         match input_object:
             case str() | Path():
                 self.namer = ClientSubmissionNamer(filepath=input_object)
-                submissiontype = self.namer.submissiontype
+            case x if isinstance(input_object, ClientSubmission):
+                self.namer = input_object
+            case x if isinstance(input_object, PydClientSubmission):
+                self.namer = input_object
             case _:
                 logger.warning(f"Skipping submission type")
+        if submissiontype is None:
+            try:
+                submissiontype = self.namer.submissiontype
+            except Exception as e:
+                raise TypeError(f"Unknown type for submissiontype of {type(submissiontype)}")
         match submissiontype:
             case str():
                 submissiontype = SubmissionType.query(name=submissiontype)
             case dict():
-                submissiontype = SubmissionType.query(name=submissiontype['name'])
+                q = submissiontype.get("name") or submissiontype.get("value")
+                submissiontype = SubmissionType.query(name=q)
             case SubmissionType():
                 pass
             case _:
-                raise TypeError(f"Unknown type for submissiontype of {type(submissiontype)}")
+                # NOTE: if unmatched, try to get from input_object
+                pass
         self.submissiontype = submissiontype
         super().__init__(parent=parent, input_object=input_object)
 
@@ -45,14 +56,17 @@ class DefaultClientSubmissionManager(DefaultManager):
         
         # NOTE: Alter sheets List[dict] so that the start_row sent to sample parser is the end row of the info parser
         sheets = self.ratchet_start_row()
-        logger.debug(f"Sheets going into sample parser: {sheets}")
         self.sample_parser = ClientSubmissionSampleParser(filepath=self.input_object,
                                                           submissiontype=self.submissiontype,
                                                           sheets=sheets)
+        # if self.info_parser._pyd_object is not None:
         self.clientsubmission = self.info_parser.to_pydantic()
-        
-        # self.clientsubmission.full_batch_size = (self.sample_parser.end_row - 1) - self.sample_parser.start_row
-        self.clientsubmission.sample = self.sample_parser.to_pydantic()
+        # else:
+        # self.clientsubmission = None
+        try:
+            self.clientsubmission.sample = self.sample_parser.to_pydantic()
+        except AttributeError:
+            pass
         return self.clientsubmission
 
     def write(self, workbook: Workbook) -> Workbook:

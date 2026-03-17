@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from sqlalchemy.orm.collections import InstrumentedList
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import (Run, Sample, ReagentRole, 
                                ResultsType, SubmissionType, Procedure, Run,
                                Contact, ClientSubmission, RunSampleAssociation)

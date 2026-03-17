@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
 from tools import tz
 from datetime import datetime, date
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import ReagentRole, Reagent, ReagentLot
 
 

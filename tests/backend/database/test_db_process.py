@@ -1,5 +1,5 @@
 import pytest
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import Process, ProcessVersion, EquipmentRoleEquipmentAssociation, Equipment, EquipmentRole, Tips
 from sqlalchemy.orm.collections import InstrumentedList
 from datetime import date

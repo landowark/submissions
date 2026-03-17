@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy.ext.associationproxy import _AssociationList
-from custom_resources import DatabaseTestCase
+from tests.resources.custom_resources import DatabaseTestCase
 from backend.db.models import ReagentRole, ProcedureType, Reagent
 
 @pytest.fixture(scope="function")
