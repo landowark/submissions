@@ -7,7 +7,7 @@ from backend.validators.pydant import PydClientSubmission
 from tests.resources.custom_resources import DatabaseTestCase
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 def db():
     tc = DatabaseTestCase()
     tc.setUp()
@@ -22,10 +22,14 @@ def db():
 def clientsubmission(db):
     return ClientSubmission.query(limit=1)
 
-
-def test_construction_from_excel():
+@pytest.fixture(scope="function")
+def construct_from_excel():
     io_ = Path(r"tests\resources\226C4100.xlsx")
-    clientmanager = managers.DefaultClientSubmissionManager(None, input_object=io_)
+    return managers.DefaultClientSubmissionManager(None, input_object=io_)
+
+
+def test_construction_from_excel(construct_from_excel):
+    clientmanager = construct_from_excel
     assert isinstance(clientmanager.submissiontype, SubmissionType)
     assert clientmanager.submissiontype.name == "Default SubmissionType"
     assert isinstance(clientmanager.pyd, PydClientSubmission)
@@ -58,3 +62,8 @@ def test_write(clientsubmission):
     assert ws.cell(1,1).value == "Submitter Info"
     assert ws.cell(13, 3).value == "Row"
 
+def test_find_procedures(construct_from_excel):
+    clientmanager = construct_from_excel
+    assert isinstance(clientmanager.input_object, Path)
+    procedures = clientmanager.find_procedures()
+    assert "Test ProcedureType Quality" in procedures

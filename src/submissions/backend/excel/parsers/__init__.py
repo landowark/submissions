@@ -91,8 +91,10 @@ class DefaultParser(object):
                 logger.error(f"Couldn't get pyd object using pyd_name. Returning None")
                 return None
         
-    def get_worksheet(self, sheet: str | int = 0):
+    def get_worksheet(self, sheet: Worksheet | str | int = 0):
         match sheet:
+            case Worksheet():
+                return sheet
             case str():
                 return self.workbook[sheet]
             case int():

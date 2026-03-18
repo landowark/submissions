@@ -23,7 +23,7 @@ class ProcedureInfoParser(DefaultKEYVALUEParser):
     def __init__(self, filepath: Path | str, proceduretype: ProcedureType | None=None, *args, **kwargs):
         from backend.validators.pydant import PydProcedure
         proceduretype = self.correct_procedure_type(proceduretype)
-        super().__init__(filepath=filepath, proceduretype=proceduretype, *args, **kwargs)
+        super().__init__(filepath=filepath, *args, **kwargs)
         self._pyd_object = PydProcedure
 
 

@@ -4,14 +4,16 @@ Module for manager of Procedure object.
 from __future__ import annotations
 from pprint import pformat
 import logging, sys
+from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from backend.managers import DefaultManager
 from typing import TYPE_CHECKING
 from pathlib import Path
 from backend.excel.parsers import procedure_parsers
 from backend.excel.writers import procedure_writers, results_writers
 if TYPE_CHECKING:
-    from backend.db.models import Procedure
+    from backend.db.models import Procedure, ProcedureType
     from backend.validators.pydant import PydProcedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -19,26 +21,45 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultProcedureManager(DefaultManager):
 
-    def __init__(self, parent, input_object: Path | str | Procedure | PydProcedure | dict | None = None):
+    def __init__(self, parent, input_object: Path | str | Procedure | PydProcedure | dict | Worksheet | None = None,
+                 proceduretype: str | ProcedureType | None = None):
         from backend.db.models import ProcedureType, Procedure
         from backend.validators.pydant import PydProcedure
+        self.proceduretype = proceduretype
+        if isinstance(input_object, str):
+            input_object = Path(input_object).absolute()
         match input_object:
-            case Procedure():
-                self.proceduretype = input_object.proceduretype
-            case PydProcedure():
-                self.proceduretype = input_object.proceduretype.sql_instance
+            # case Procedure():
+            #     self.procedure = input_object.to_pydantic()
+            # case PydProcedure():
+            #     self.procedure = input_object
             case dict():
-                self.proceduretype = ProcedureType.query(name=input_object.get("proceduretype", None), limit=1)
-        self.procedure = input_object
+                input_object = Procedure.query_or_create(**input_object).to_pydantic()
+            case Path():
+                wb = load_workbook(input_object)
+                if self.proceduretype is None:
+                    raise TypeError("Need a proceduretype to parse from file.")
+                else:
+                    actual = next((sheet for sheet in wb.sheetnames if sheet.removesuffix(" Quality") == self.proceduretype), None)
+                    if actual is not None:
+                        input_object = wb[actual]
+                    else:
+                        raise TypeError("Need a proceduretype to parse from file.")
+                    input_object = self.parse(worksheet = input_object)
+            case Worksheet():
+                input_object = self.parse(worksheet = input_object)
+        if isinstance(input_object, Worksheet):
+
+        # self.procedure = input_object
         # This is the sql object
         super().__init__(parent=parent, input_object=input_object)
 
-    def parse(self):
+    def parse(self, worksheet: Worksheet):
         try:
             info_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}InfoParser")
         except AttributeError:
             info_parser = procedure_parsers.ProcedureInfoParser
-        self.info_parser = info_parser(filepath=self.fname, proceduretype=self.proceduretype)
+        self.info_parser = info_parser(worksheet=worksheet)
         try:
             reagent_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}ReagentParser")
         except AttributeError:

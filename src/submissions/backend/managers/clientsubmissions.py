@@ -50,7 +50,19 @@ class DefaultClientSubmissionManager(DefaultManager):
                 pass
         self.submissiontype = submissiontype
         super().__init__(parent=parent, input_object=input_object)
+        for procedure in self.find_procedures():
+            proceduretype = procedure.strip(" Quality")
 
+    def find_procedures(self):
+        # At this point strings should be parsed into path
+        from backend.db.models import ProcedureType
+        if not isinstance(self.input_object, Path):
+            return []
+        else:
+            ptypes = [item.name for item in ProcedureType.query()]
+            actuals = [sheet for sheet in self.info_parser.workbook.sheetnames if sheet.removesuffix(" Quality") in ptypes]
+            return actuals
+                
     def to_pydantic(self):
         self.info_parser = ClientSubmissionInfoParser(filepath=self.input_object, submissiontype=self.submissiontype)
         

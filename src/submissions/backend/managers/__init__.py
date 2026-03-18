@@ -15,6 +15,7 @@ class DefaultManager(object):
 
     def __init__(self, parent, input_object: Path | str | None = None):
         self.parent = parent
+        self.input_object = input_object
         # NOTE: If input_object is a str or path, use parser to construct object
         match input_object:
             case str():

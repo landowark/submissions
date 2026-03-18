@@ -15,7 +15,7 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
     header_order = []
     exclude = ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation"]
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
