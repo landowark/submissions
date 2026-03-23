@@ -2038,7 +2038,9 @@ class Procedure(BaseClass):
                 pass
         match name:
             case str():
-                query = query.filter(cls.name == name)
+                # NOTE: Updated to startswith to enable search using truncated excel tab names.
+                # Possible problem: Another procedure starts with same string.
+                query = query.filter(cls.name.istartswith(name))
                 limit = 1
             case _:
                 pass

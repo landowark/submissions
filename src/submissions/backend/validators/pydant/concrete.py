@@ -205,22 +205,28 @@ class PydSample(PydConcrete):
     @field_validator("row", mode="before")
     @classmethod
     def row_str_to_int(cls, value):
-        if value is None:
+        if value in [None, ""]:
             value = 0
         if isinstance(value, str):
             try:
                 value = row_keys[value]
             except KeyError:
-                value = 0
+                try:
+                    value = int(value)
+                except ValueError:
+                    value = 0
         return value
 
     @field_validator("column", mode="before")
     @classmethod
     def column_str_to_int(cls, value):
-        if value is None:
+        if value in [None, ""]:
             value = 0
         if isinstance(value, str):
-            value = 0
+            try:
+                value = int(value)
+            except ValueError:
+                value = 0
         return value
 
     @computed_field
@@ -446,7 +452,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         from backend.db.models import ProcedureType
         match value:
             case dict():
-                value = ProcedureType.query(name=value['name']).to_pydantic()
+                q = value.get("name", None) or value.get("value", None)
+                value = ProcedureType.query(name=q).to_pydantic()
             case str():
                 value = ProcedureType.query(name=value).to_pydantic()
             case ProcedureType():
@@ -457,24 +464,36 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 pass
         return value
 
-    @field_validator("run")
+    @field_validator("run", mode="before")
     @classmethod
     def lookup_run(cls, value):
-        from backend.db.models import Run
-        # When converting a Run -> PydRun the procedure dicts include the run
-        # as a simple name string. Converting that string back into a full
-        # PydRun here would cause a recursive conversion: Run.to_pydantic ->
-        # PydProcedure -> lookup_run -> Run.to_pydantic -> ... leading to
-        # infinite recursion. Instead, keep the run as the simple string name
-        # (or the found SQL Run) and let higher-level code handle converting
-        # to a PydRun only when it's safe to do so.
-        if isinstance(value, str):
-            # Do NOT call Run.query(...).to_pydantic() here to avoid recursion.
-            # Return the raw name so downstream consumers can access it safely.
-            return value
-        # If a Run SQL instance was supplied directly, leave it as-is (don't
-        # convert to pydantic here).
+        if isinstance(value, dict):
+            value = value.get("value", None) or value.get("name", None)
+    #     from backend.db.models import Run
+    #     # When converting a Run -> PydRun the procedure dicts include the run
+    #     # as a simple name string. Converting that string back into a full
+    #     # PydRun here would cause a recursive conversion: Run.to_pydantic ->
+    #     # PydProcedure -> lookup_run -> Run.to_pydantic -> ... leading to
+    #     # infinite recursion. Instead, keep the run as the simple string name
+    #     # (or the found SQL Run) and let higher-level code handle converting
+    #     # to a PydRun only when it's safe to do so.
+    #     if isinstance(value, str):
+    #         # Do NOT call Run.query(...).to_pydantic() here to avoid recursion.
+    #         # Return the raw name so downstream consumers can access it safely.
+    #         return value
+    #     # If a Run SQL instance was supplied directly, leave it as-is (don't
+    #     # convert to pydantic here).
         return value
+
+    @field_validator("repeat", mode="before")
+    @classmethod
+    def enforce_bool(cls, value):
+        if isinstance(value, dict):
+            value = value.get("value", False)
+        if value.lower() in [True, "true", "yes", "on", 1, "1"]:
+            return True
+        else:
+            return False
     
     @field_validator("repeat_of")
     @classmethod
@@ -510,7 +529,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @model_validator(mode="after")
     def validate_this(self) -> PydProcedure:
         # At this point, ALL fields (including defaults) are populated on 'self'
-        if self.name.get("value") == "NA":
+        if self.name.get("value", "NA") == "NA":
             # 1. Resolve Procedure Type
             pt_name = getattr(self.proceduretype, "name", str(self.proceduretype)) if self.proceduretype else "Unassigned ProcedureType"
             if isinstance(pt_name, dict):
@@ -530,6 +549,24 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def create_started_date(cls, value):
         if not value:
             value = datetime.now()
+        if isinstance(value, dict):
+            value = value.get("value", datetime.now())
+        if isinstance(value, str):
+            value = parse(value)
+        return value
+    
+    @field_validator("completed_date", mode="before")
+    @classmethod
+    def create_completed_date(cls, value):
+        if isinstance(value, dict):
+            value = value.get("value", None)
+        if isinstance(value, str):
+            if value.lower() == "None":
+                return None
+            try:
+                value = parse(value)
+            except ValueError:
+                return None
         return value
 
     @field_validator("sample", mode="before")
@@ -905,6 +942,7 @@ class PydClientSubmission(PydConcrete):
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     sample: List[str] | List[PydSample] | None = Field(default=[])
+    
 
     @field_validator("submissiontype", "clientlab", "contact", mode="before")
     @classmethod
@@ -962,7 +1000,7 @@ class PydClientSubmission(PydConcrete):
         try:
             value['value'] = int(value['value'])
         except (ValueError, TypeError):
-            raise TypeError(f"sample count value must be an integer")
+            raise TypeError(f"sample count value must be an integer, not {value['value']}")
         return value
 
     @field_validator("submitter_plate_id")
@@ -981,7 +1019,7 @@ class PydClientSubmission(PydConcrete):
                     try:
                         val = f"{values.data.get('clientlab', dict(value=""))['value']}-{values.data['submission_category']['value']}-{submitted_date}"
                     except KeyError as e:
-                        print(values.data)
+                        logger.error(values.data)
                         raise e
                     return dict(value=val, missing=True)
                 else:
@@ -1006,7 +1044,7 @@ class PydClientSubmission(PydConcrete):
         else:
             match value['value']:
                 case str():
-                    value['value'] = date.strptime(value['value'], "%Y-%m-%d")
+                    value['value'] = parse(value['value'])
                 case _:
                     pass
         value['value'] = datetime.combine(value['value'], datetime.now().time())
@@ -1448,6 +1486,15 @@ class PydProcedureEquipmentAssociation(PydConcrete):
     def set_starttime(cls, value):
         if not value:
             value = datetime.now()
+        return value
+    
+    @field_validator("tipslot", mode="before")
+    @classmethod
+    def set_tipslot(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str) or isinstance(value, dict) or isinstance(value, dict):
+            return [value]
         return value
 
     @property

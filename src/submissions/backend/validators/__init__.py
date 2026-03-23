@@ -6,6 +6,7 @@ import logging, re
 import sys
 from pathlib import Path
 from openpyxl import load_workbook
+from openpyxl.workbook import Workbook
 from tools import jinja_template_loading
 from jinja2 import Template
 from dateutil.parser import parse
@@ -18,22 +19,27 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultNamer(object):
 
-    def __init__(self, filepath: str | Path, **kwargs):
+    def __init__(self, filepath: str | Path | Workbook, **kwargs):
         if isinstance(filepath, str):
             filepath = Path(filepath)
-        try:
-            assert filepath.exists()
-        except AssertionError:
-            raise FileNotFoundError(f"File {filepath} does not exist.")
-        self.filepath = filepath
+        if isinstance(filepath, Path):
+            try:
+                assert filepath.exists()
+            except AssertionError:
+                raise FileNotFoundError(f"File {filepath} does not exist.")
+            self.filepath = filepath
+            self.workbook = load_workbook(self.filepath)
+        elif isinstance(filepath, Workbook):
+            self.workbook = filepath
 
 
 class ClientSubmissionNamer(DefaultNamer):
 
-    def __init__(self, filepath: str | Path, submissiontype: str|SubmissionType|None=None,
+    def __init__(self, filepath: str | Path | Workbook , submissiontype: str|SubmissionType|None=None,
                  data: dict | None = None, **kwargs):
         from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
+        
         if not submissiontype:
             self.submissiontype = self.retrieve_submissiontype()
         if isinstance(submissiontype, str):
@@ -97,7 +103,7 @@ class ClientSubmissionNamer(DefaultNamer):
         """
         from backend.db.models import SubmissionType
         from backend.excel.parsers import DefaultKEYVALUEParser
-        parser = DefaultKEYVALUEParser(filepath=self.filepath)
+        parser = DefaultKEYVALUEParser(worksheet=self.workbook["Client Info"])
         sub_type = next((value for k, value in parser.parsed_info if k in ["submissiontype", "submission_type"]), None)
         sub_type = SubmissionType.query(name=sub_type)
         if isinstance(sub_type, list):
@@ -112,9 +118,12 @@ class ClientSubmissionNamer(DefaultNamer):
             SubmissionType
         """
         from backend.db.models import SubmissionType
-        wb = load_workbook(self.filepath)
+        
         # NOTE: Gets first category in the metadata.
-        categories = wb.properties.category.split(";")
+        try:
+            categories = self.workbook.properties.category.split(";")
+        except AttributeError:
+            return None
         sub_type = next((item.strip().title() for item in categories), None)
         sub_type = SubmissionType.query(name=sub_type)
         if isinstance(sub_type, list):

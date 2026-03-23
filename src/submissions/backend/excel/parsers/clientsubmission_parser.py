@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from string import ascii_lowercase
 from typing import Generator, TYPE_CHECKING
-from openpyxl.reader.excel import load_workbook
+# from openpyxl.reader.excel import load_workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from tools import row_keys
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
 from backend.validators import ClientSubmissionNamer
@@ -116,20 +117,18 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
     Object for retrieving submitter info from "Client Info" sheet
     """
 
-    sheets = [ dict(
-                sheet = "Client Info",
-                start_row = 1) 
-            ]
+    range_dict = dict(start_row = 1)
 
     pyd_name = "PydClientSubmission"
 
-    def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, *args, **kwargs):
-        namer = ClientSubmissionNamer(filepath=filepath)
+    def __init__(self, worksheet: Worksheet, submissiontype: SubmissionType | None = None, *args, **kwargs):
+        # NOTE: parent workbook.file  must be set manually before reaching this step
+        namer = ClientSubmissionNamer(filepath=worksheet._parent.file)
         if not submissiontype:
             self.submissiontype = namer.submissiontype
         else:
             self.submissiontype = submissiontype
-        super().__init__(filepath=filepath, **kwargs)
+        super().__init__(worksheet=worksheet, **kwargs)
 
     @property
     def parsed_info(self):
@@ -150,7 +149,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
             raise e
         if check:
             output['submitted_date']['value'] = output['submitted_date']['value'].date()
-            
+        output['endrow'] = self.end_row
         return output
 
 
@@ -166,14 +165,15 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
 
     pyd_name = "PydSample"
 
-    def __init__(self, filepath: Path | str, submissiontype: SubmissionType | None = None, sheets: List[dict] = [], *args,
-                 **kwargs):
-        namer = ClientSubmissionNamer(filepath=filepath)
+    def __init__(self, worksheet: Worksheet, submissiontype: SubmissionType | None = None, *args, **kwargs):
+        namer = ClientSubmissionNamer(filepath=worksheet._parent.file)
         if not submissiontype:
             self.submissiontype = namer.submissiontype
         else:
             self.submissiontype = submissiontype
-        super().__init__(filepath=filepath, sheets=sheets, **kwargs)
+        super().__init__(worksheet=worksheet, **kwargs)
+        print(f"Start row: {self.start_row}")
+        print(f"End row: {self.end_row}")
         # logger.debug(f"Parser: {pformat(self.__dict__)}")
         # logger.debug([item for item in self.parsed_info])
 

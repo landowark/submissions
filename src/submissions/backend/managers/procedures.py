@@ -21,67 +21,38 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultProcedureManager(DefaultManager):
 
-    def __init__(self, parent, input_object: Path | str | Procedure | PydProcedure | dict | Worksheet | None = None,
-                 proceduretype: str | ProcedureType | None = None):
-        from backend.db.models import ProcedureType, Procedure
-        from backend.validators.pydant import PydProcedure
-        self.proceduretype = proceduretype
-        if isinstance(input_object, str):
-            input_object = Path(input_object).absolute()
-        match input_object:
-            # case Procedure():
-            #     self.procedure = input_object.to_pydantic()
-            # case PydProcedure():
-            #     self.procedure = input_object
-            case dict():
-                input_object = Procedure.query_or_create(**input_object).to_pydantic()
-            case Path():
-                wb = load_workbook(input_object)
-                if self.proceduretype is None:
-                    raise TypeError("Need a proceduretype to parse from file.")
-                else:
-                    actual = next((sheet for sheet in wb.sheetnames if sheet.removesuffix(" Quality") == self.proceduretype), None)
-                    if actual is not None:
-                        input_object = wb[actual]
-                    else:
-                        raise TypeError("Need a proceduretype to parse from file.")
-                    input_object = self.parse(worksheet = input_object)
-            case Worksheet():
-                input_object = self.parse(worksheet = input_object)
-        if isinstance(input_object, Worksheet):
-
-        # self.procedure = input_object
-        # This is the sql object
-        super().__init__(parent=parent, input_object=input_object)
-
-    def parse(self, worksheet: Worksheet):
+    def parse(self):
         try:
             info_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}InfoParser")
         except AttributeError:
             info_parser = procedure_parsers.ProcedureInfoParser
-        self.info_parser = info_parser(worksheet=worksheet)
+        self.info_parser = info_parser(worksheet=self.input_object)
+        
         try:
             reagent_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}ReagentParser")
         except AttributeError:
             reagent_parser = procedure_parsers.ProcedureReagentParser
-        self.reagent_parser = reagent_parser(filepath=self.fname, proceduretype=self.proceduretype)
-        try:
-            sample_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}SampleParser")
-        except AttributeError:
-            sample_parser = procedure_parsers.ProcedureSampleParser
-        self.sample_parser = sample_parser(filepath=self.fname, proceduretype=self.proceduretype)
+        self.reagent_parser = reagent_parser(worksheet=self.input_object, start_row=self.info_parser.end_row)
         try:
             equipment_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}EquipmentParser")
         except AttributeError:
             equipment_parser = procedure_parsers.ProcedureEquipmentParser
-        self.equipment_parser = equipment_parser(filepath=self.fname, proceduretype=self.proceduretype)
-        self.to_pydantic()
+        self.equipment_parser = equipment_parser(worksheet=self.input_object, start_row=self.reagent_parser.end_row)
+        try:
+            sample_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}SampleParser")
+        except AttributeError:
+            sample_parser = procedure_parsers.ProcedureSampleParser
+        self.sample_parser = sample_parser(worksheet=self.input_object, start_row=self.equipment_parser.end_row)
+        
+        # self.to_pydantic()
 
-    def to_pydantic(self):
-        self.procedure = self.info_parser.to_pydantic()
-        self.reagents = self.reagent_parser.to_pydantic()
-        self.samples = self.sample_parser.to_pydantic()
-        self.equipment = self.equipment_parser.to_pydantic()
+    def to_pydantic(self) -> PydProcedure:
+        from backend.validators.pydant import PydProcedure, PydProcedureReagentLotAssociation, PydSample, PydProcedureEquipmentAssociation
+        self.procedure = PydProcedure(**{k:v for k, v in self.info_parser.parsed_info})
+        self.procedure.reagentlot = [PydProcedureReagentLotAssociation(procedure=self.procedure, **item) for item in self.reagent_parser.parsed_info]
+        self.procedure.sample = [PydSample(**sample) for sample in self.sample_parser.parsed_info]
+        self.procedure.equipment = [PydProcedureEquipmentAssociation(procedure=self.procedure, **item) for item in self.equipment_parser.parsed_info]
+        return self.procedure
 
     def write(self, workbook: Workbook) -> Workbook:
         try:

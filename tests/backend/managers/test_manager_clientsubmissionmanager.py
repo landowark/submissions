@@ -62,8 +62,9 @@ def test_write(clientsubmission):
     assert ws.cell(1,1).value == "Submitter Info"
     assert ws.cell(13, 3).value == "Row"
 
+
 def test_find_procedures(construct_from_excel):
     clientmanager = construct_from_excel
-    assert isinstance(clientmanager.input_object, Path)
+    assert isinstance(clientmanager.input_object, Workbook)
     procedures = clientmanager.find_procedures()
-    assert "Test ProcedureType Quality" in procedures
+    assert "Test ProcedureTy Quality" in procedures

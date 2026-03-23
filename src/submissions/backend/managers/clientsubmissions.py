@@ -3,13 +3,15 @@ Module for manager of ClientSubmission object
 """
 from __future__ import annotations
 import logging, sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 from pathlib import Path
+from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 from backend.validators import ClientSubmissionNamer
 from backend.managers import DefaultManager
-from backend.excel.parsers.clientsubmission_parser import ClientSubmissionInfoParser, ClientSubmissionSampleParser
-from backend.excel.writers.clientsubmission_writer import ClientSubmissionInfoWriter, ClientSubmissionSampleWriter
+from backend.excel.parsers import clientsubmission_parser
+from backend.excel.writers import clientsubmission_writer 
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType, ClientSubmission
     from backend.validators.pydant import PydClientSubmission
@@ -19,12 +21,19 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DefaultClientSubmissionManager(DefaultManager):
 
+    sheets = {
+        "info":[dict(sheet="Client Info", start_row=1)],
+        "sample":[dict(sheet="Client Info", start_row=1)]
+        }
+
     def __init__(self, parent, submissiontype: SubmissionType | str | None = None,
-                 input_object: Path | str | ClientSubmission | PydClientSubmission | None = None):
+                 input_object: Path | str | ClientSubmission | PydClientSubmission | None = None, **kwargs):
         from backend.db.models import SubmissionType, ClientSubmission
         from backend.validators.pydant import PydClientSubmission
+        # NOTE: So the submissiontype schtick is mostly for a future incident in which I have to scrape 
+        # specialized excel sheets.
         match input_object:
-            case str() | Path():
+            case str() | Path() | Workbook():
                 self.namer = ClientSubmissionNamer(filepath=input_object)
             case x if isinstance(input_object, ClientSubmission):
                 self.namer = input_object
@@ -49,42 +58,89 @@ class DefaultClientSubmissionManager(DefaultManager):
                 # NOTE: if unmatched, try to get from input_object
                 pass
         self.submissiontype = submissiontype
-        super().__init__(parent=parent, input_object=input_object)
+        super().__init__(parent=parent, input_object=input_object, **kwargs)
+        if isinstance(self.input_object, Workbook):
+            for procedure in self.scrape_procedures():
+                pass
+
+        
+    def scrape_procedures(self):
+        from backend.db.models import ProcedureType
+        from backend.managers.procedures import DefaultProcedureManager
         for procedure in self.find_procedures():
             proceduretype = procedure.strip(" Quality")
+            proceduretype = ProcedureType.query(name=proceduretype)
+            try:
+                worksheet = self.input_object[procedure]
+            except KeyError:
+                continue
+            manager = DefaultProcedureManager(parent=self.parent, input_object=worksheet)
+            yield manager.to_pydantic()
+            
 
-    def find_procedures(self):
+    def find_procedures(self) -> Generator[str, None, None]:
         # At this point strings should be parsed into path
         from backend.db.models import ProcedureType
-        if not isinstance(self.input_object, Path):
-            return []
+        if not isinstance(self.input_object, Workbook):
+            yield from ()
         else:
             ptypes = [item.name for item in ProcedureType.query()]
-            actuals = [sheet for sheet in self.info_parser.workbook.sheetnames if sheet.removesuffix(" Quality") in ptypes]
-            return actuals
+            for sheet in self.input_object.sheetnames:
+                # Check if the base name or specific extraction name matches ptypes
+                for pt in ptypes:
+                    if pt.startswith(sheet.removesuffix(' Quality')):
+                        yield sheet
+            
                 
-    def to_pydantic(self):
-        self.info_parser = ClientSubmissionInfoParser(filepath=self.input_object, submissiontype=self.submissiontype)
+    def parse(self):
+        from backend.validators.pydant import PydSample
+        # workbook: Workbook = self.input_object
+        # workbook.file = self.input_object
+        try:
+            info_parser = getattr(clientsubmission_parser, f"{self.submissiontype.name}InfoParser")
+        except AttributeError:
+            info_parser = clientsubmission_parser.ClientSubmissionInfoParser
+        info = {}
+        for sheet in self.sheets['info']:
+            ws = self.get_worksheet(sheet.get("sheet", 1))
+            start_row = sheet.get("start_row", 1)
+            self.info_parser = info_parser(worksheet=ws, start_row=start_row)
+            info.update(self.info_parser.parsed_info)
+            for s in self.sheets['sample']:
+                if s['sheet'] == sheet['sheet']:
+                    s['start_row'] = self.info_parser.end_row + 1
         
         # NOTE: Alter sheets List[dict] so that the start_row sent to sample parser is the end row of the info parser
-        sheets = self.ratchet_start_row()
-        self.sample_parser = ClientSubmissionSampleParser(filepath=self.input_object,
-                                                          submissiontype=self.submissiontype,
-                                                          sheets=sheets)
+        # sheets = self.ratchet_start_row()
+        try:
+            sample_parser = getattr(clientsubmission_parser, f"{self.submissiontype.name}InfoParser")
+        except AttributeError:
+            sample_parser = clientsubmission_parser.ClientSubmissionSampleParser
+        samples = []
+        for sheet in self.sheets['sample']:
+            ws = self.get_worksheet(sheet.get("sheet", 1))
+            start_row = sheet.get("start_row", 1)
+            self.sample_parser = sample_parser(worksheet=ws, start_row=start_row)
+            for sample in self.sample_parser.parsed_info:
+                samples.append(sample)
         # if self.info_parser._pyd_object is not None:
-        self.clientsubmission = self.info_parser.to_pydantic()
+        self.clientsubmission = self._pyd_object(**info)
         # else:
         # self.clientsubmission = None
-        try:
-            self.clientsubmission.sample = self.sample_parser.to_pydantic()
-        except AttributeError:
-            pass
+        for sample in samples:
+            try:
+                self.clientsubmission.sample.append(PydSample(**sample))
+            except Exception as e:
+                logger.error(f"Couldn't add sample {sample} due to {e}")
+                continue
         return self.clientsubmission
+    
+    
 
     def write(self, workbook: Workbook) -> Workbook:
-        self.info_writer = ClientSubmissionInfoWriter(pydant_obj=self.pyd)
-        assert isinstance(self.info_writer, ClientSubmissionInfoWriter)
+        self.info_writer = clientsubmission_writer.ClientSubmissionInfoWriter(pydant_obj=self.pyd)
+        assert isinstance(self.info_writer, clientsubmission_writer.ClientSubmissionInfoWriter)
         workbook = self.info_writer.write_to_workbook(workbook)
-        self.sample_writer = ClientSubmissionSampleWriter(pydant_obj=self.pyd)
+        self.sample_writer = clientsubmission_writer.ClientSubmissionSampleWriter(pydant_obj=self.pyd)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.info_writer.worksheet.max_row + 1)
         return workbook
