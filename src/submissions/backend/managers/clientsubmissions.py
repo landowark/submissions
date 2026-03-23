@@ -14,7 +14,7 @@ from backend.excel.parsers import clientsubmission_parser
 from backend.excel.writers import clientsubmission_writer 
 if TYPE_CHECKING:
     from backend.db.models import SubmissionType, ClientSubmission
-    from backend.validators.pydant import PydClientSubmission
+    from backend.validators.pydant import PydClientSubmission, PydProcedure, PydRun
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -60,14 +60,36 @@ class DefaultClientSubmissionManager(DefaultManager):
         self.submissiontype = submissiontype
         super().__init__(parent=parent, input_object=input_object, **kwargs)
         if isinstance(self.input_object, Workbook):
-            for procedure in self.scrape_procedures():
-                pass
+            for procedure in self.scraped_procedures:
+                run = next((item for item in self.clientsubmission.run if item.rsl_plate_number==procedure.run), None)
+                if run is None:
+                    print("Constructing run...")
+                    run = self.construct_run(procedure=procedure)
+                else:
+                    print("Using existing run")
+                run.add_samples(procedure.sample)
+                run.procedure.append(procedure)
+                run.clientsubmission = run.clientsubmission.submitter_plate_id.get("value")
+                if run not in self.clientsubmission.run:
+                    self.clientsubmission.run.append(run)
 
+
+    def construct_run(self, procedure: PydProcedure) -> PydRun:
+        from backend.validators.pydant import PydRun
         
-    def scrape_procedures(self):
+        return PydRun(
+            rsl_plate_number = procedure.run,
+            clientsubmission = self.clientsubmission,
+            started_date = procedure.started_date,
+            completed_date = procedure.completed_date,
+        )
+
+    
+    @property
+    def scraped_procedures(self) -> Generator[PydProcedure, None, None]:
         from backend.db.models import ProcedureType
         from backend.managers.procedures import DefaultProcedureManager
-        for procedure in self.find_procedures():
+        for procedure in self.found_procedures:
             proceduretype = procedure.strip(" Quality")
             proceduretype = ProcedureType.query(name=proceduretype)
             try:
@@ -77,8 +99,8 @@ class DefaultClientSubmissionManager(DefaultManager):
             manager = DefaultProcedureManager(parent=self.parent, input_object=worksheet)
             yield manager.to_pydantic()
             
-
-    def find_procedures(self) -> Generator[str, None, None]:
+    @property
+    def found_procedures(self) -> Generator[str, None, None]:
         # At this point strings should be parsed into path
         from backend.db.models import ProcedureType
         if not isinstance(self.input_object, Workbook):

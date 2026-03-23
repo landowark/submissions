@@ -285,6 +285,7 @@ class PydSample(PydConcrete):
             case str():
                 sample_id = sample
             case _:
+                print(f"{sample} is not a valid type")
                 return False
         if sample_id.lower().startswith("blank"):
             return False
@@ -428,7 +429,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     technician: dict = Field(default=dict(value="NA", missing=True), repr=False)
     repeat: bool = Field(default=False, repr=False)
     repeat_of: str | PydProcedure | None = Field(default=None, repr=False)
-    name: dict = Field(default_factory=lambda: {"value": "NA", "missing": True}, validate_default=True)
+    # name: dict = Field(default_factory=lambda: {"value": "NA", "missing": True}, validate_default=True)
     platemap: str | None = Field(default=None, repr=False)
     reagentlot: List[str] | List[PydProcedureReagentLotAssociation] = Field(default_factory=list, repr=False)
     sample: List[str | PydSample] = Field(default_factory=list, repr=False)
@@ -502,15 +503,15 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             value = None
         return value
     
-    @field_validator("name", mode="before")
-    @classmethod
-    def name_to_dict(cls, value):
-        if isinstance(value, str):
-            missing = False
-            if value in [None, "", "NA"]:
-                missing = True
-            value = dict(value=value, missing=missing)
-        return value
+    # @field_validator("name", mode="before")
+    # @classmethod
+    # def name_to_dict(cls, value):
+    #     if isinstance(value, str):
+    #         missing = False
+    #         if value in [None, "", "NA"]:
+    #             missing = True
+    #         value = dict(value=value, missing=missing)
+    #     return value
     
     @field_validator("equipment", mode="before")
     @classmethod
@@ -526,23 +527,33 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     continue
         return output
 
-    @model_validator(mode="after")
-    def validate_this(self) -> PydProcedure:
-        # At this point, ALL fields (including defaults) are populated on 'self'
-        if self.name.get("value", "NA") == "NA":
-            # 1. Resolve Procedure Type
-            pt_name = getattr(self.proceduretype, "name", str(self.proceduretype)) if self.proceduretype else "Unassigned ProcedureType"
-            if isinstance(pt_name, dict):
-                pt_name = pt_name.get("value", "Unassigned ProcedureType")
-            # 2. Resolve Run
-            run_id = getattr(self.run, "rsl_plate_number", str(self.run)) if self.run else "Unassigned Run"
-            if isinstance(run_id, dict):
-                run_id = run_id.get("value", "Unassigned Run")
-            # 3. Resolve Repeat
-            rep_suffix = f" ({getattr(self.repeat_of, 'name', str(self.repeat_of))})" if self.repeat_of else ""
-            # Update the instance directly
-            self.name = {"value": f"{run_id}-{pt_name}{rep_suffix}", "missing": True}
-        return self
+    # @model_validator(mode="after")
+    # def validate_this(self) -> PydProcedure:
+    #     # At this point, ALL fields (including defaults) are populated on 'self'
+    #     if self.name.get("value", "NA") == "NA":
+    #         # 1. Resolve Procedure Type
+    @property
+    def name(self) -> dict:
+        pt_name = getattr(self.proceduretype, "name", str(self.proceduretype)) if self.proceduretype else "Unassigned ProcedureType"
+        if isinstance(pt_name, dict):
+            pt_name = pt_name.get("value", "Unassigned ProcedureType")
+        # 2. Resolve Run
+        run_id = getattr(self.run, "rsl_plate_number", str(self.run)) if self.run else "Unassigned Run"
+        if isinstance(run_id, dict):
+            run_id = run_id.get("value", "Unassigned Run")
+        # 3. Resolve Repeat
+        # rep_suffix = f" ({getattr(self.repeat_of, 'name', str(self.repeat_of))})" if self.repeat_of else ""
+        # Update the instance directly
+        started_date = getattr(self, "started_date", None)
+        if started_date is not None:
+            suffix = f" - {started_date.strftime("%Y-%m-%d %H:%M:%S")}"
+        else:
+            suffix = ""
+        id = getattr(self.sql_instance, "id", "")
+             
+        return {"value": f"{run_id} - {pt_name}{id}{suffix} - ", "missing": True}
+        # return self
+        return f"{run} - {proceduretype}{id} - {started_date}" 
 
     @field_validator("started_date", mode="before")
     @classmethod
@@ -588,23 +599,23 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                         continue
         return output
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        if isinstance(self.run, PydRun):
-            run = self.run.name
-        else:
-            run = self.run
-        if isinstance(self.proceduretype, PydProcedureType):
-            proceduretype = self.proceduretype.name
-        else:
-            proceduretype = self.proceduretype
-        if isinstance(self.repeat_of, PydProcedure):
-            repeat_of = f" ({self.repeat_of.name})"
-        elif isinstance(self.repeat_of, str):
-            repeat_of = f" ({self.repeat_of})"
-        else:
-            repeat_of = ""
-        self.name = dict(value=f"{run}-{proceduretype}{repeat_of}-{self.started_date.strftime("%Y-%m-%d %H:%M:%S")}", missing=False)
+    # def __init__(self, **data):
+    #     super().__init__(**data)
+    #     if isinstance(self.run, PydRun):
+    #         run = self.run.name
+    #     else:
+    #         run = self.run
+    #     if isinstance(self.proceduretype, PydProcedureType):
+    #         proceduretype = self.proceduretype.name
+    #     else:
+    #         proceduretype = self.proceduretype
+    #     if isinstance(self.repeat_of, PydProcedure):
+    #         repeat_of = f" ({self.repeat_of.name})"
+    #     elif isinstance(self.repeat_of, str):
+    #         repeat_of = f" ({self.repeat_of})"
+    #     else:
+    #         repeat_of = ""
+    #     self.name = dict(value=f"{run}-{proceduretype}{repeat_of}-{self.started_date.strftime("%Y-%m-%d %H:%M:%S")}", missing=False)
 
     @property
     def rows_columns_count(self) -> Tuple[int, int]:
@@ -941,7 +952,8 @@ class PydClientSubmission(PydConcrete):
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    sample: List[str] | List[PydSample] | None = Field(default=[])
+    sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
+    run: List[str | PydRun | dict ] = Field(default_factory=list, repr=False)
     
 
     @field_validator("submissiontype", "clientlab", "contact", mode="before")
@@ -1141,6 +1153,7 @@ class PydClientSubmission(PydConcrete):
             logger.error(f"No contact to set for {self}")
         
         self.sql_instance.sample = self.sample
+        self.sql_instance.run = self.run
         return self.sql_instance, None
     
     @property
@@ -1195,13 +1208,17 @@ class PydRun(PydConcrete):  #, extra='allow'):
     clientsubmission: PydClientSubmission | str | None = Field(default=None, repr=False)
     rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     started_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
-    completed_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
-    sample_count: dict | None
+    completed_date: dict | None = Field(default=dict(value=None, missing=True), validate_default=True, repr=False)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True, repr=False)
-    sample: List[PydSample] | Generator = Field(default=[], repr=False)
+    sample: List[PydSample] | Generator = Field(default_factory=list, repr=False)
+    # sample_count: dict | None = Field(default=None, validate_default=True)
     run_cost: float | dict = Field(default=dict(value=0.0, missing=True), repr=False)
     signed_by: str | dict = Field(default="", validate_default=True, repr=False)
     procedure: List[PydProcedure] | Generator = Field(default=[], repr=False)
+
+    @property
+    def sample_count(self):
+        return len(self.sample)
 
     @field_validator("signed_by")
     @classmethod
@@ -1220,6 +1237,8 @@ class PydRun(PydConcrete):  #, extra='allow'):
     @field_validator("started_date", mode="before")
     @classmethod
     def rescue_start_date(cls, value):
+        if not isinstance(value, dict):
+            value = dict(value=value, missing=True)
         try:
             check = value['value'] is None
         except TypeError:
@@ -1231,12 +1250,14 @@ class PydRun(PydConcrete):  #, extra='allow'):
     @field_validator("completed_date", mode="before")
     @classmethod
     def rescue_completed_date(cls, value):
-        try:
-            check = value['value'] is None
-        except TypeError:
-            check = True
-        if check:
-            return dict(value=date.today(), missing=True)
+        if not isinstance(value, dict):
+            value = dict(value=value, missing=True)
+        # try:
+        #     check = value['value'] is None
+        # except TypeError:
+        #     check = True
+        # if check:
+        #     return dict(value=date.today(), missing=True)
         return value
 
     @field_validator("started_date")
@@ -1289,15 +1310,20 @@ class PydRun(PydConcrete):  #, extra='allow'):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Could not get datetime from {value['value']}")
+                # raise ValueError(f"Could not get datetime from {value['value']}")
+                return dict(value=None, missing=True)
         value['value'] = output.replace(tzinfo=timezone)
         return value
 
     @field_validator("rsl_plate_number", mode='before')
     @classmethod
     def rescue_rsl_number(cls, value):
-        if value is None:
-            return dict(value=None, missing=True)
+        if not isinstance(value, dict):
+            if value:
+                missing = False
+            else:
+                missing = True
+            return dict(value=value, missing=missing)
         return value
 
     @field_validator("rsl_plate_number")
@@ -1316,12 +1342,12 @@ class PydRun(PydConcrete):  #, extra='allow'):
                                   data=values.data).parsed_name
             return dict(value=output, missing=True)
 
-    @field_validator("sample_count", mode='before')
-    @classmethod
-    def rescue_sample_count(cls, value):
-        if value is None:
-            return dict(value=None, missing=True)
-        return value
+    # @field_validator("sample_count")
+    # @classmethod
+    # def rescue_sample_count(cls, value, values):
+    #     if value is None:
+    #         return dict(value=len(values.data['sample']), missing=True)
+    #     return value
 
     @field_validator("sample", mode="before")
     @classmethod
@@ -1346,10 +1372,11 @@ class PydRun(PydConcrete):  #, extra='allow'):
         self.sql_instance: Run = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
-        logger.debug(f"Coming into sql: {pformat(self.__dict__)}")
+        print(f"Coming into sql: {pformat(self.__dict__)}")
         self.sql_instance.clientsubmission = self.clientsubmission
         self.sql_instance.procedure = self.procedure
         self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
+        print(f"Added samples: {self.sql_instance.sample}")
         return self.sql_instance, None
 
     @property
@@ -1373,6 +1400,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
         output = super().improved_dict
         output['procedure'] = [item.to_pydantic().improved_dict for item in self.sql_instance.procedure]
         output['excluded'] = ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath"]
+        output['sample_count'] = self.sample_count
         return output
 
     def to_html(self, **kwargs):
@@ -1380,6 +1408,14 @@ class PydRun(PydConcrete):  #, extra='allow'):
         logger.debug(f"Run details:\n{pformat(details['procedure'])}")
         output = super().to_html(**details)
         return output
+
+    def add_samples(self, samples):
+        print(f"Adding samples: {samples}")
+        if not isinstance(samples, list):
+            samples = [samples]
+        for sample in samples:
+            if sample not in self.sample:
+                self.sample.append(sample)
 
 
 class PydTipsLot(PydConcrete):

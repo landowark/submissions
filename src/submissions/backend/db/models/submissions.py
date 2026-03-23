@@ -218,6 +218,7 @@ class ClientSubmission(BaseClass, LogMixin):
             value = []
         if not isinstance(value, list):
             value = [value]
+        print(f"Setting run: {value}")
         for item in value:
             match item:
                 case str():
@@ -295,7 +296,11 @@ class ClientSubmission(BaseClass, LogMixin):
                     logger.error(f"Unmatched value {item} of type {type(item)} for sample")
                     continue
             if isinstance(output, ClientSubmissionSampleAssociation):
-                if output.sample.sample_id.lower() in ["blank", "na", "none", ""]:
+                try:
+                    check = output.sample.sample_id.lower() in ["blank", "na", "none", ""]
+                except AttributeError:
+                    check = True
+                if check:
                     continue
                 if output.sample not in (s.sample for s in self.clientsubmissionsampleassociation):
                     self.clientsubmissionsampleassociation.append(output)
@@ -883,7 +888,8 @@ class Run(BaseClass, LogMixin):
                         logger.error(f"Problem with parse fallback: {e}")
                         return value
             case _:
-                raise ValueError(f"Unmatched value {value['value']} for datetime")
+                logger.error(f"Unmatched value {value} for Run.completed date")
+                return None
         value = output.replace(tzinfo=timezone)
         self._completed_date = value
 
@@ -1865,7 +1871,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 output.save()
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {type(output)}")
+            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}")
   
     @hybrid_property
     def clientsubmission(self):
@@ -2152,7 +2158,7 @@ class RunSampleAssociation(BaseClass):
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {type(output)}")
+            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}")
   
     @hybrid_property
     def run(self):
@@ -2397,7 +2403,7 @@ class ProcedureSampleAssociation(BaseClass):
         if isinstance(output, Sample):
             self._sample = output
         else:
-            logger.error(f"Could not set _sample to {type(output)}")
+            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}")
 
     @hybrid_property
     def procedure(self):
