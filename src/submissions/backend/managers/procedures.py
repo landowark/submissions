@@ -12,14 +12,32 @@ from typing import TYPE_CHECKING
 from pathlib import Path
 from backend.excel.parsers import procedure_parsers
 from backend.excel.writers import procedure_writers, results_writers
+
 if TYPE_CHECKING:
-    from backend.db.models import Procedure, ProcedureType
-    from backend.validators.pydant import PydProcedure
+    from backend.db.models import ProcedureType
+    from backend.validators.pydant import PydProcedure, PydProcedureType
+    from backend.db.models import BaseClass
+    from backend.validators.pydant import PydBaseClass
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultProcedureManager(DefaultManager):
+
+    def __init__(self, parent, input_object: Path | str | PydBaseClass | BaseClass | Workbook | Worksheet | None = None,
+                 proceduretype: str | ProcedureType | PydProcedureType | None = None, **kwargs):
+        from backend.db.models import ProcedureType
+        super().__init__(parent, input_object, **kwargs)
+        match proceduretype:
+            case str():
+                proceduretype = ProcedureType.query(name=proceduretype, limit=1)
+                if isinstance(proceduretype, ProcedureType):
+                    proceduretype = proceduretype.to_pydantic()
+            case ProcedureType():
+                self.proceduretype = proceduretype.to_pydantic()
+            case  _:
+                self.proceduretype = proceduretype
+            
 
     def parse(self):
         try:

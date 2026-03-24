@@ -14,7 +14,7 @@ def pydresultstype_created_instance(reset_database):
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     resultstype = pydant.PydResultsType(
         name="Bob's ResultsType",
-        results=[f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Test ResultsType"],
+        results=[f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00 - Test ResultsType"],
         proceduretype=["Test ProcedureType"]
     )
     return resultstype
@@ -30,7 +30,7 @@ def test_pydresultstype_creation(pydresultstype_created_instance):
     """Test that Pydresultstype properties are correctly set."""
     assert pydresultstype_created_instance.name == "Bob's ResultsType"
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert pydresultstype_created_instance.results == [f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Test ResultsType"]
+    assert pydresultstype_created_instance.results == [f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00 - Test ResultsType"]
     assert pydresultstype_created_instance.proceduretype == ["Test ProcedureType"]
     
 
@@ -51,7 +51,7 @@ def test_pydresultstype_to_sql(pydresultstype_created_instance):
     assert len(sql_instance.results) > 0
     assert isinstance(sql_instance.results[0], models.procedures.Results)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert sql_instance.results[0].name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Bob's ResultsType"
+    assert sql_instance.results[0].name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00 - Bob's ResultsType"
     # assert isinstance(sql_instance.eol_ext, timedelta)
 
 
@@ -62,7 +62,7 @@ def test_pydresultstype_improved_dict(pydresultstype_created_instance):
     assert d['name'] == "Bob's ResultsType"
     assert "results" in d
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert d['results'] == [f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Test ResultsType"]
+    assert d['results'] == [f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00 - Test ResultsType"]
     assert "proceduretype" in d
     assert d['proceduretype'] == ["Test ProcedureType"]
 
@@ -72,7 +72,7 @@ def test_pydresultstype_expand_fields(pydresultstype_sql_instance):
     expanded = pydresultstype_sql_instance.improved_dict_expand_fields(["results"])
     assert isinstance(expanded['results'], list)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert expanded['results'][0]['name'] == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00-Test ResultsType"
+    assert expanded['results'][0]['name'] == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00-Test ResultsType"
     expanded = pydresultstype_sql_instance.improved_dict_expand_fields({"proceduretype": ['submissiontype']})
     assert isinstance(expanded['proceduretype'], list)
     assert expanded['proceduretype'][0]['name'] == "Test ProcedureType"

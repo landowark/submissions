@@ -17,7 +17,7 @@ def pydproceduretype_created_instance(reset_database):
         plate_columns=12,
         plate_rows=8,
         plate_cost=3.50,
-        procedure=[f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00'],
+        procedure=[f'RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00'],
         submissiontype=["Default SubmissionType"],
         resultstype=["Test ResultsType"],
         equipmentrole=["Test EquipmentRole"],
@@ -39,7 +39,7 @@ def test_pydproceduretype_creation(pydproceduretype_created_instance):
     assert pydproceduretype_created_instance.plate_rows == 8
     assert pydproceduretype_created_instance.plate_cost == 3.50
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in pydproceduretype_created_instance.procedure 
+    assert f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00" in pydproceduretype_created_instance.procedure 
     assert "Default SubmissionType" in pydproceduretype_created_instance.submissiontype 
     assert "Test ResultsType" in pydproceduretype_created_instance.resultstype
     assert "Test EquipmentRole" in pydproceduretype_created_instance.equipmentrole
@@ -58,7 +58,7 @@ def test_pydproceduretype_to_sql(pydproceduretype_created_instance):
     assert len(sql_instance.procedure) > 0
     assert isinstance(sql_instance.procedure[0], models.procedures.Procedure)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert sql_instance.procedure[0].name == f"RSL-XX-20260202-1 - Bob's ProcedureType (1) - {day} 00:00:00"
+    assert sql_instance.procedure[0].name == f"RSL-XX-20260202-1 - Bob's ProcedureType - {day} 00:00:00"
     # Test that reagentlot is properly resolved (should not be None)
     assert sql_instance.resultstype is not None
     assert len(sql_instance.resultstype) > 0
@@ -94,7 +94,7 @@ def test_pydproceduretype_improved_dict(pydproceduretype_created_instance):
     assert d['plate_cost'] == 3.50
     assert "procedure" in d
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in d['procedure']
+    assert f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00" in d['procedure']
     assert "submissiontype" in d
     assert "Default SubmissionType" in d['submissiontype']
     assert "resultstype" in d

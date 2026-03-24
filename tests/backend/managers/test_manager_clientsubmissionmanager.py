@@ -24,7 +24,7 @@ def clientsubmission(db):
 
 @pytest.fixture(scope="function")
 def construct_from_excel():
-    io_ = Path(r"tests\resources\226C4100.xlsx")
+    io_ = Path(r"tests\resources\226C4100.xlsx").absolute()
     return managers.DefaultClientSubmissionManager(None, input_object=io_)
 
 
@@ -66,5 +66,5 @@ def test_write(clientsubmission):
 def test_find_procedures(construct_from_excel):
     clientmanager = construct_from_excel
     assert isinstance(clientmanager.input_object, Workbook)
-    procedures = clientmanager.find_procedures()
+    procedures = clientmanager.found_procedures
     assert "Test ProcedureTy Quality" in procedures

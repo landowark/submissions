@@ -34,7 +34,7 @@ def test_proceduresampleassociation_query(proceduresampleassociation):
 
 def test_proceduresampleassociation_get_name(proceduresampleassociation):
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert proceduresampleassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Sample (rank=1)"
+    assert proceduresampleassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00->Test Sample (rank=1)"
 
 
 def test_proceduresampleassociation_get_sample(proceduresampleassociation):
@@ -54,7 +54,7 @@ def test_proceduresampleassociation_set_sample(proceduresampleassociation):
 def test_proceduresampleassociation_get_procedure(proceduresampleassociation):
     assert isinstance(proceduresampleassociation.procedure, Procedure)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert proceduresampleassociation.procedure.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00"
+    assert proceduresampleassociation.procedure.name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00"
 
 
 def test_proceduresampleassociation_set_procedure(proceduresampleassociation):

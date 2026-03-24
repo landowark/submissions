@@ -50,7 +50,7 @@ def test_results_set_procedure(results):
 
 def test_results_get_name(results):
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert results.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00 - Test ResultsType"
+    assert results.name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00 - Test ResultsType"
 
 
 def test_results_date_analyzed(results):

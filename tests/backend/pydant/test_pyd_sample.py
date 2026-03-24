@@ -25,7 +25,7 @@ def pydsample_created_instance(reset_database):
         is_control=0,
         clientsubmission=["Test ClientSubmission"],
         run=['RSL-XX-20260202-1'],
-        procedure=[f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00']
+        procedure=[f'RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00']
     )
     return sample
 
@@ -74,7 +74,7 @@ def test_pydsample_to_sql(pydsample_created_instance):
     assert len(sql_instance.procedure) > 0
     assert all([isinstance(item, models.procedures.Procedure) for item in sql_instance.procedure])
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert f'RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00' in [r.name for r in sql_instance.procedure]
+    assert f'RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00' in [r.name for r in sql_instance.procedure]
     # Test that sample is properly resolved (should not be None)
     assert sql_instance.is_control == 0
     
@@ -100,7 +100,7 @@ def test_pydsample_improved_dict(pydsample_created_instance):
     assert d['run'] == ['RSL-XX-20260202-1']
     assert "procedure" in d
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00" in d['procedure']
+    assert f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00" in d['procedure']
     assert "name" in d
     assert d['name'] == d['sample_id']
 
@@ -124,7 +124,7 @@ def test_pydsample_expand_fields(pydsample_sql_instance):
     assert isinstance(expanded['procedure'], list)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     # assert expanded['procedure'][0]['name']['value'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
-    assert expanded['procedure'][0]['name'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
+    assert expanded['procedure'][0]['name'] == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00"
     # assert expanded['procedure'][0]['name']['missing'] == False
     assert expanded['procedure'][0]['submissiontype']['name'] == "Default SubmissionType"
 

@@ -77,7 +77,7 @@ def test_pydreagentlot_expand_fields(pydreagentlot_sql_instance):
     expanded = pydreagentlot_sql_instance.improved_dict_expand_fields({"procedure": ['submissiontype']})
     assert isinstance(expanded['procedure'], list)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert expanded['procedure'][0]['name'] == f"RSL-XX-20260202-1-Test ProcedureType-{day} 00:00:00"
+    assert expanded['procedure'][0]['name'] == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00"
     # assert expanded['procedure'][0]['name']['missing'] == False
     assert expanded['procedure'][0]['submissiontype']['name'] == "Default SubmissionType"
 
@@ -125,7 +125,7 @@ def test_form_dictionary(pydreagentlot_sql_instance):
     assert reagent['type'] == 'RELATIONSHIPSCALAR'
     expiry = next((item for item in list_ if item['field'] == "expiry"), None)
     assert expiry is not None
-    assert expiry['value'].strftime("%Y-%m-%d") == (date.today() + timedelta(days=365)).strftime("%Y-%m-%d")
+    assert expiry['value'].strftime("%Y-%m-%d") == "2050-06-30"
     assert expiry['type'] == 'DATETIME'
     active = next((item for item in list_ if item['field'] == "active"), None)
     assert active is not None

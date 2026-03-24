@@ -2,8 +2,8 @@ from openpyxl import Workbook
 import pytest
 from test_manager_basic import managers
 from pathlib import Path
-from backend.db.models import ProcedureType, Procedure
-from backend.validators.pydant import PydProcedure
+from backend.db.models import Procedure
+from backend.validators.pydant import PydProcedureType
 from tests.resources.custom_resources import DatabaseTestCase
 
 
@@ -26,7 +26,7 @@ def procedure(db):
 def test_construction_from_sql(procedure):
     
     proceduremanager = managers.DefaultProcedureManager(None, input_object=procedure)
-    assert isinstance(proceduremanager.proceduretype, ProcedureType)
+    assert isinstance(proceduremanager.proceduretype, PydProcedureType)
     assert procedure.proceduretype.name == "Test ProcedureType"
     # assert isinstance(procedure.pyd, PydProcedure)
 

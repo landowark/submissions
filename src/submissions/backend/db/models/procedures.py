@@ -1671,7 +1671,7 @@ class Procedure(BaseClass):
             started_date = self.started_date.strftime("%Y-%m-%d %H:%M:%S")
         except AttributeError:
             started_date = "NA"
-        return f"{run} - {proceduretype}{id} - {started_date}"  
+        return f"{run} - {proceduretype} - {started_date}"  
     
     @name.expression
     def name(cls):
@@ -1693,7 +1693,6 @@ class Procedure(BaseClass):
         return func.coalesce(run_subquery, "Unknown Run") + \
             " - " + \
             func.coalesce(proceduretype_subquery, "Unknown ProcedureType") + \
-            func.coalesce(" (" + cast(cls.id, String) + ")", "") + \
             " - " + \
             func.coalesce(func.strftime("%Y-%m-%d %H:%M:%S", cls._started_date), "NA")
 

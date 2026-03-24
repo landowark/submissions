@@ -71,7 +71,7 @@ def test_sample_get_procedure(sample):
     assert isinstance(sample.procedure[0], Procedure)
     # assert isinstance(sample.procedure[0], EquipmentRole)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert sample.procedure[0].name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00"
+    assert sample.procedure[0].name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00"
 
 
 def test_sample_set_procedure(sample):

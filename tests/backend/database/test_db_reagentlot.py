@@ -45,7 +45,7 @@ def test_reagentlot_get_procedure(reagentlot):
     assert isinstance(reagentlot.procedure, _AssociationList)
     assert isinstance(reagentlot.procedure[0], Procedure)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert reagentlot.procedure[0].name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00"
+    assert reagentlot.procedure[0].name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00"
 
 
 def test_reagentlot_set_procedure(reagentlot):
@@ -60,7 +60,7 @@ def test_reagentlot_set_procedure(reagentlot):
 
 def test_reagentlot_get_expiry(reagentlot):
     assert isinstance(reagentlot.expiry, datetime)
-    assert reagentlot.expiry == datetime.combine(date(year=date.today().year + 1, month=date.today().month, day=date.today().day), datetime.max.time()).replace(tzinfo=tz("America/Winnipeg"))
+    assert reagentlot.expiry == datetime.combine(date(year=2050, month=6, day=30), datetime.max.time()).replace(tzinfo=tz("America/Winnipeg"))
 
 
 def test_reagentlot_set_expiry(reagentlot):

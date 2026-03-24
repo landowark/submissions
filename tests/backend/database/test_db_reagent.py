@@ -58,7 +58,7 @@ def test_reagent_set_reagentlot(reagent):
 
 def test_reagent_lot_dicts(reagent):
     dt = datetime.combine(
-        date(year=date.today().year + 1, month=date.today().month, day=date.today().day),
+        date(year=2050, month=6, day=30),
         datetime.max.time(),
     ).replace(tzinfo=tz("America/Winnipeg"))
 

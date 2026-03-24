@@ -413,6 +413,11 @@ class PydProcessVersion(PydConcrete, extra="allow", arbitrary_types_allowed=True
         
     #     return value
 
+    @property
+    def name(self) -> str:
+        process = self.process or "Unassigned"
+        return f"{process} - v{str(self.version)}"
+
     def to_sql(self, update: bool = True):
         from backend.db.models import ProcessVersion
         self.sql_instance: ProcessVersion = super().to_sql(update)
@@ -454,6 +459,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         match value:
             case dict():
                 q = value.get("name", None) or value.get("value", None)
+                print(f"Query name: {q}")
                 value = ProcedureType.query(name=q).to_pydantic()
             case str():
                 value = ProcedureType.query(name=value).to_pydantic()
@@ -491,7 +497,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def enforce_bool(cls, value):
         if isinstance(value, dict):
             value = value.get("value", False)
-        if value.lower() in [True, "true", "yes", "on", 1, "1"]:
+        if isinstance(value, str):
+            value = value.lower()
+        if value in [True, "true", "yes", "on", 1, "1"]:
             return True
         else:
             return False
@@ -551,9 +559,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             suffix = ""
         id = getattr(self.sql_instance, "id", "")
              
-        return {"value": f"{run_id} - {pt_name}{id}{suffix} - ", "missing": True}
+        return {"value": f"{run_id} - {pt_name}{suffix}", "missing": True}
         # return self
-        return f"{run} - {proceduretype}{id} - {started_date}" 
+        return f"{run} - {proceduretype} - {started_date}" 
 
     @field_validator("started_date", mode="before")
     @classmethod
@@ -1218,7 +1226,8 @@ class PydRun(PydConcrete):  #, extra='allow'):
 
     @property
     def sample_count(self):
-        return len(self.sample)
+        v = list(self.sample)
+        return len(v)
 
     @field_validator("signed_by")
     @classmethod
@@ -1455,6 +1464,18 @@ class PydTipsLot(PydConcrete):
         if isinstance(value, int):
             value = bool(value)
         return value
+
+    @property
+    def name(self) -> str:
+        try:
+            manufacturer = self.sql_instance.tips.manufacturer
+        except AttributeError:
+            manufacturer = "Unassigned manufacturer"
+        try:
+            ref = self.sql_instance.tips.ref
+        except AttributeError:
+            ref = "Unassigned manufacturer"
+        return f"{manufacturer} - {ref} - {self.lot}"
 
     def to_sql(self, update: bool = True):
         from backend.db.models import TipsLot

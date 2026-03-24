@@ -35,7 +35,7 @@ def test_procedureequipmentassociation_query(procedureequipmentassociation):
 
 def test_procedureequipmentassociation_get_name(procedureequipmentassociation):
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert procedureequipmentassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Instrument"
+    assert procedureequipmentassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00->Test Instrument"
 
 
 def test_procedureequipmentassociation_get_equipment(procedureequipmentassociation):

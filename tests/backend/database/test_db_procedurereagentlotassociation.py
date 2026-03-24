@@ -36,7 +36,7 @@ def test_procedurereagentlotassociation_query(procedurereagentlotassociation):
 
 def test_procedurereagentlotassociation_get_name(procedurereagentlotassociation):
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert procedurereagentlotassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00->Test Solution - 012345"
+    assert procedurereagentlotassociation.name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00->Test Solution - 012345"
 
 
 def test_procedurereagentlotassociation_get_reagentlot(procedurereagentlotassociation):
@@ -57,7 +57,7 @@ def test_procedurereagentlotassociation_set_reagentlot(procedurereagentlotassoci
 def test_procedurereagentlotassociation_get_procedure(procedurereagentlotassociation):
     assert isinstance(procedurereagentlotassociation.procedure, Procedure)
     day = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    assert procedurereagentlotassociation.procedure.name == f"RSL-XX-20260202-1 - Test ProcedureType (1) - {day} 00:00:00"
+    assert procedurereagentlotassociation.procedure.name == f"RSL-XX-20260202-1 - Test ProcedureType - {day} 00:00:00"
 
 
 def test_procedurereagentlotassociation_set_procedure(procedurereagentlotassociation):

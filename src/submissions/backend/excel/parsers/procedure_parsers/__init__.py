@@ -73,12 +73,13 @@ class ProcedureEquipmentParser(DefaultTABLEParser):
 
     @property
     def parsed_info(self):
+        from backend.db.models import Equipment
         output = super().parsed_info
         for item in output:
             equipment = item.get('equipment', None)
             if equipment is None :
                 continue
-            from backend.db.models import Equipment
+            print(f"Querying {equipment}")
             eq = Equipment.query(name=equipment)
             item['asset_number'] = eq.asset_number
             item['nickname'] = eq.nickname
