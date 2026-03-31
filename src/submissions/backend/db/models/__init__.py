@@ -53,6 +53,7 @@ class BaseClass(Base):
     def misc_info(self) -> dict:
         return self._misc_info
     
+    # NOTE: Placeholder setter for now, but allows for future validation or transformation of misc_info values if desired.
     @misc_info.setter
     def misc_info(self, value):
         self._misc_info = value
@@ -88,8 +89,7 @@ class BaseClass(Base):
         """
         return f"_{cls.query_alias}"
 
-    @declared_attr
-    @classmethod
+    @classproperty
     def __database_session__(cls) -> Session:
         """
         Pull db session from ctx to be used in operations
@@ -99,8 +99,7 @@ class BaseClass(Base):
         """
         return ctx.database_session
 
-    @declared_attr
-    @classmethod
+    @classproperty
     def __directory_path__(cls) -> Path:
         """
         Pull directory path from ctx to be used in operations.
@@ -110,8 +109,7 @@ class BaseClass(Base):
         """
         return ctx.directory_path
 
-    @declared_attr
-    @classmethod
+    @classproperty
     def __backup_path__(cls) -> Path:
         """
         Pull backup directory path from ctx to be used in operations.
@@ -173,6 +171,8 @@ class BaseClass(Base):
         try:
             return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
         except AttributeError:
+            if not cls.__qualname__ == "BaseClass":
+                logger.error(f"Could not get timestamps due to {e}")
             return []
         
     @classproperty
@@ -285,6 +285,7 @@ class BaseClass(Base):
             List[str]: List of fields this class is searchable by.
         """
         output = []
+        # NOTE: get only non-function attributes that are columns, not foreign keys, and of type String.
         for item in inspect.getmembers(cls, lambda a: not (inspect.isroutine(a))):
             if item[0] in ["_misc_info"]:
                 continue
@@ -449,6 +450,7 @@ class BaseClass(Base):
                     # If object has a primary key, we can compare directly
                     if obj_primarykey is not None:
                         try:
+                            # If the attribute is a list-like relationship, use contains; otherwise compare directly
                             if check:
                                 query = query.filter(attr.contains(v))
                             else:
@@ -631,8 +633,7 @@ class BaseClass(Base):
 
         Returns:
             bool: If a single unequivocal value is found will be false, else true.
-        """
-        """
+        
         Compare instance attributes to provided expected values.
 
         Behavior / assumptions:
@@ -648,6 +649,7 @@ class BaseClass(Base):
         Returns True only if all provided attribute expectations match the
         instance values; returns False on the first mismatch.
         """
+        
         def _as_identifier(val):
             """Return name or id for BaseClass-like objects, else the value itself."""
             try:
@@ -780,7 +782,6 @@ class BaseClass(Base):
             except AttributeError as e:
                 logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
                 
-    
     @classmethod
     def get_association_proxy_details(cls, field_name):
         """

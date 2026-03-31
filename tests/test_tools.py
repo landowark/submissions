@@ -209,7 +209,7 @@ def test_find_first_matching_dict_with_objects():
 def test_find_first_matching_dict_invalid_type():
     data = ["not a dict"]
     
-    with pytest.raises(ValueError, match="Unmatched value"):
+    with pytest.raises(StopIteration, match="Could not find id value"):
         find_first_matching_dict(data, "id", 1)
 
 
