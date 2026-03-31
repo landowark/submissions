@@ -29,8 +29,9 @@ class ProcedureInfoWriter(DefaultKEYVALUEWriter):
 
 class ProcedureReagentWriter(DefaultTABLEWriter):
 
-    exclude = ["id", "comments", "missing", "active", "name", "reagent", "reagentlot", "procedure", "excluded", "reagentlotprocedureassociation"]
-    header_order = ["reagentrole", "reagent_name", "lot", "expiry"]
+    exclude = ["id", "comments", "missing", "active", "name", "reagentlot", "procedure", "excluded", "reagentlotprocedureassociation", "procedurereagentlotassociation", "reagent_name"]
+    header_order = ["reagentrole", "reagent", "lot", "expiry"]
+
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -54,9 +55,6 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
         output = self.pydant_obj.equipment
-        # for equipment in self.pydant_obj.equipment:
-        #     equipment.tipslot = "\n".join([str(item) for item in equipment.tipslot])
-        #     output.append(equipment)
         self.pydant_obj = output
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
@@ -74,8 +72,10 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
+        self.procedure = self.pydant_obj.name
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
         self.pydant_obj = self.pad_procedure_samples_to_length()
+        # print(self.pydant_obj)
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
@@ -92,7 +92,11 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
                 try:
                     sample = next(item.to_pydantic() for item in self.pydant_obj.sql_instance.proceduresampleassociation if item.procedure_rank == iii)
                 except StopIteration:
-                    sample = PydProcedureSampleAssociation(sample="", procedure=self.proceduretype.name, procedure_rank=iii, row=0, column=0)
+                    try:
+                        sample = next(item for item in self.pydant_obj.sample if item.rank == iii)
+                        sample = PydProcedureSampleAssociation(sample=sample, procedure=self.procedure, procedure_rank=iii, row=sample.row, column=sample.column)
+                    except StopIteration:
+                        sample = PydProcedureSampleAssociation(sample="", procedure=self.procedure, procedure_rank=iii, row=0, column=0)
                 output_samples.append(sample)
             return sorted(output_samples, key=lambda x: x.procedure_rank)
         else:
@@ -102,7 +106,11 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
                     try:
                         sample = next(item.to_pydantic() for item in self.pydant_obj.sql_instance.proceduresampleassociation if item.column == ccc and item.row == rrr)
                     except StopIteration:
-                        sample = PydProcedureSampleAssociation(sample="", procedure=self.proceduretype.name, procedure_rank=iii, row=rrr, column=ccc)
+                        try:
+                            sample = next(item for item in self.pydant_obj.sample if item.column == ccc and item.row == rrr)
+                            sample = PydProcedureSampleAssociation(sample=sample, procedure=self.procedure, procedure_rank=iii, row=sample.row, column=sample.column)
+                        except StopIteration:
+                            sample = PydProcedureSampleAssociation(sample="", procedure=self.procedure, procedure_rank=iii, row=rrr, column=ccc)
                     output_samples.append(sample)
                     iii += 1
             return sorted(output_samples, key=lambda x: (x.column, x.row))        

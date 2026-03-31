@@ -1945,7 +1945,7 @@ class Procedure(BaseClass):
     
     @hybrid_property
     def results(self):
-        return self._results
+        return [item for item in self._results if not item.sample_id]  # filter out sample-level results, only return procedure-level results
 
     @results.setter
     def results(self, value):
@@ -2088,7 +2088,9 @@ class Procedure(BaseClass):
     def edit(self, obj):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
-        dlg = ProcedureCreation(parent=obj, procedure=self.to_pydantic(), edit=True)
+        procedure = self.construct_pyd_procedure_for_creation()
+        # procedure.sample = [assoc.to_pydantic() for assoc in self.proceduresampleassociation]
+        dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
             sql, _ = dlg.return_sql()
             # NOTE: Print out all procedureequipmentassociation objects
@@ -2143,6 +2145,36 @@ class Procedure(BaseClass):
         output.sample_results = flatten_list(
             [[result.to_pydantic() for result in item.results] for item in self.proceduresampleassociation])
         return output
+
+    def construct_pyd_procedure_for_creation(self) -> "PydProcedure":
+        """Return a widget-ready PydProcedure for ProcedureCreation."""
+        from backend.validators.pydant import PydProcedure, PydSample, PydReagentLot, PydProcedureReagentLotAssociation, PydProcedureSampleAssociation
+
+        sample_list = []
+        for assoc in self.proceduresampleassociation:
+            sample = assoc.sample.to_pydantic() if hasattr(assoc.sample, "to_pydantic") else assoc.sample
+            if isinstance(sample, PydSample):
+                sample.row = assoc.row
+                sample.column = assoc.column
+                sample.rank = assoc.procedure_rank
+                sample.enabled = getattr(assoc, "enabled", True)
+                sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
+            sample_list.append(sample)
+        output = dict(
+            proceduretype=self.proceduretype,
+            run=self.run.to_pydantic(),
+            technician=self.technician,
+            repeat=bool(self.repeat),
+            repeat_of=self.repeat_of.to_pydantic() if self.repeat_of is not None else None,
+            sample=sample_list,
+            reagentlot=[item.to_pydantic() for item in self.procedurereagentlotassociation],
+            equipment=[item.to_pydantic() for item in self.procedureequipmentassociation],
+            results=[item.to_pydantic() for item in self.results],
+            started_date=self.started_date,
+            completed_date=self.completed_date,
+        )
+        pyd = PydProcedure(**output)
+        return pyd
 
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
@@ -5055,7 +5087,10 @@ class Results(BaseClass):
     def result(self, value):
         if isinstance(value, str):
             logger.error(f"Got string {value}")
-            value = json.loads(value)
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError as e:
+                logger.error(f"Error decoding JSON: {e}")
         match value:
             case dict():
                 self._result = value
@@ -5239,7 +5274,10 @@ class Results(BaseClass):
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         if bool(self.sample_id):
-            output.sample = self._sampleprocedureassociation.name
+            output.sample_id = self.sample_id
+            output.sample = self.sampleprocedureassociation.sample.sample_id
+        for k, v in self.result.items():
+            setattr(output, k, v)
         return output
 
 

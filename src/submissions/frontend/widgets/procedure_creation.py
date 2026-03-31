@@ -21,7 +21,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class ProcedureCreation(QDialog):
 
     def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
-        from backend.validators.pydant import PydProcedureType
+        from backend.validators.pydant import PydProcedureType, PydProcedureSampleAssociation
         super().__init__(parent)
         if 'QTWEBENGINE_REMOTE_DEBUGGING' not in os.environ:
             os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
@@ -44,8 +44,8 @@ class ProcedureCreation(QDialog):
         # sample_dicts = [item.improved_dict for item in self.procedure.sample]
         # self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
         self.platemap = self.proceduretype_dict['platemap']
-        self.procedure.update_samples(sample_list=[dict(sample_id=sample.sample_id, index=iii) for iii, sample in
-                                                   enumerate(self.procedure.sample, start=1)])
+        logger.debug(self.platemap)
+        self.procedure.update_samples(sample_list=[sample for sample in self.constructed_sample_list])
         self.app = get_application_from_parent(parent)
         # Ensure remote debugging is enabled before the WebEngine is initialised.
         # This exposes the remote inspector on localhost:9222 so you can open
@@ -74,6 +74,24 @@ class ProcedureCreation(QDialog):
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
         self.set_html()
 
+    @property
+    def constructed_sample_list(self):
+        from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
+        for iii, sample in enumerate(self.procedure.sample, start=1):
+            # logger.debug(f"Constructing sample {iii} from {sample}")
+            match sample:
+                case PydSample():
+                    sample_id = sample.sample_id
+                case PydProcedureSampleAssociation():
+                    sample_id = sample.sample
+                case str():
+                    sample_id = sample
+                case dict():
+                    sample_id = sample.get("sample_id", f"Unknown Sample {iii}")
+                case _:
+                    sample_id = f"Unknown Sample {iii}"
+            yield dict(sample_id=sample_id, index=iii)
+
     def set_html(self):
         html = render_details_template(
             template="procedure_creation",
@@ -85,8 +103,7 @@ class ProcedureCreation(QDialog):
             now = datetime.datetime.now()
         )
         self.webview.setHtml(html)
-        # with open("created_procedure.html", "w") as f:
-        #     f.write(html)
+        
 
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)

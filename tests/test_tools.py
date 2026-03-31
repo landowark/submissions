@@ -97,7 +97,7 @@ def test_tools_sort_dict_by_list():
 
 
 def test_tools_is_developer():
-    print(ctx.super_users)
+    # print(ctx.super_users)
     assert is_developer() is True
 
 

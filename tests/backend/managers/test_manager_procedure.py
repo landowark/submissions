@@ -1,4 +1,4 @@
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 import pytest
 from test_manager_basic import managers
 from pathlib import Path
@@ -19,16 +19,43 @@ def db():
 
 
 @pytest.fixture(scope="function")
-def procedure(db):
-    return Procedure.query(limit=1)
+def proceduremanager(db):
+    procedure = Procedure.query(limit=1)
+    return managers.DefaultProcedureManager(None, input_object=procedure, proceduretype="Test ProcedureType")
 
 
-def test_construction_from_sql(procedure):
-    
-    proceduremanager = managers.DefaultProcedureManager(None, input_object=procedure)
+@pytest.fixture(scope="function")
+def construct_from_worksheet(db):
+    p = Path(__file__).parents[2] / "resources" / "226C4100.xlsx"
+    p = p.absolute()
+    wb = load_workbook(p)
+    assert isinstance(wb, Workbook)
+    return managers.DefaultProcedureManager(None, input_object=wb['Test ProcedureTy Quality'], proceduretype="Test ProcedureType")
+
+
+def test_construction_from_sql(proceduremanager):
     assert isinstance(proceduremanager.proceduretype, PydProcedureType)
-    assert procedure.proceduretype.name == "Test ProcedureType"
+    assert proceduremanager.proceduretype.name == "Test ProcedureType"
+    proceduremanager = managers.DefaultProcedureManager(None, input_object=Procedure.query(limit=1))
+    assert isinstance(proceduremanager.proceduretype, PydProcedureType)
+    assert proceduremanager.proceduretype.name == "Test ProcedureType"
     # assert isinstance(procedure.pyd, PydProcedure)
+
+
+def test_construction_from_worksheet(construct_from_worksheet):
+    
+    assert isinstance(construct_from_worksheet.proceduretype, PydProcedureType)
+    assert construct_from_worksheet.proceduretype.name == "Test ProcedureType"
+    
+
+def test_write(proceduremanager):
+    workbook = proceduremanager.write(Workbook())
+    assert isinstance(workbook, Workbook)
+    assert "Test ProcedureType Quality" in workbook.sheetnames
+    ws = workbook['Test ProcedureType Quality']
+    assert ws.cell(1,1).value == "Procedure Type"
+    assert ws.cell(13, 3).value == "Lot"
+    assert ws.cell(17, 1).value == "Test EquipmentRole"
 
 
 # def test_construction_from_pyd(clientsubmission):

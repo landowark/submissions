@@ -63,10 +63,10 @@ class DefaultClientSubmissionManager(DefaultManager):
             for procedure in self.scraped_procedures:
                 run = next((item for item in self.clientsubmission.run if item.rsl_plate_number==procedure.run), None)
                 if run is None:
-                    print("Constructing run...")
+                    # print("Constructing run...")
                     run = self.construct_run(procedure=procedure)
-                else:
-                    print("Using existing run")
+                # else:
+                #     ("Using existing run")
                 run.add_samples(procedure.sample)
                 run.procedure.append(procedure)
                 run.clientsubmission = run.clientsubmission.submitter_plate_id.get("value")
@@ -96,7 +96,7 @@ class DefaultClientSubmissionManager(DefaultManager):
                 worksheet = self.input_object[procedure]
             except KeyError:
                 continue
-            manager = DefaultProcedureManager(parent=self.parent, input_object=worksheet)
+            manager = DefaultProcedureManager(parent=self.parent, input_object=worksheet, proceduretype=proceduretype)
             yield manager.to_pydantic()
             
     @property

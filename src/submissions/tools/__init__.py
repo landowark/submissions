@@ -397,7 +397,7 @@ def copy_sheet_attributes(source_sheet, target_sheet):
         target_sheet.row_dimensions[rn] = copy(source_sheet.row_dimensions[rn])
 
     if source_sheet.sheet_format.defaultColWidth is None:
-        print('Unable to copy default column wide')
+        logger.error('Unable to copy default column wide')
     else:
         target_sheet.sheet_format.defaultColWidth = copy(source_sheet.sheet_format.defaultColWidth)
 
@@ -866,6 +866,8 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
                 d_value = getattr(d, key)
             case x if hasattr(d, "__dict__") or hasattr(d, key): # <--- Set for test purposes
                 d_value = getattr(d, key)
+            case str() | int() | float() | bool():
+                d_value = d
             case _:
                 raise ValueError(f"Unmatched value {type(d)}")
         if d_value == value_to_match:

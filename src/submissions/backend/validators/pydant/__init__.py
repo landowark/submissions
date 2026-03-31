@@ -285,7 +285,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         except AssertionError:
             raise AttributeError(f"Sql Instance for {self.__class__.__name__} is None, cannot save")
         for k, v in sanitized_dicto.items():
-            print(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
+            # print(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
             try:
                 class_attr = getattr(self._sql_class, k, None)
             except AttributeError as e:

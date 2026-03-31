@@ -27,6 +27,10 @@ def construct_from_excel():
     io_ = Path(r"tests\resources\226C4100.xlsx").absolute()
     return managers.DefaultClientSubmissionManager(None, input_object=io_)
 
+@pytest.fixture(scope="function")
+def construct_from_sql(clientsubmission):
+    return managers.DefaultClientSubmissionManager(None, input_object=clientsubmission)
+
 
 def test_construction_from_excel(construct_from_excel):
     clientmanager = construct_from_excel
@@ -35,12 +39,12 @@ def test_construction_from_excel(construct_from_excel):
     assert isinstance(clientmanager.pyd, PydClientSubmission)
 
 
-def test_construction_from_sql(clientsubmission):
-    assert clientsubmission.submissiontype.name == "Default SubmissionType"
-    clientmanager = managers.DefaultClientSubmissionManager(None, input_object=clientsubmission)
-    assert isinstance(clientmanager.submissiontype, SubmissionType)
-    assert clientmanager.submissiontype.name == "Default SubmissionType"
-    assert isinstance(clientmanager.pyd, PydClientSubmission)
+def test_construction_from_sql(construct_from_sql):
+    # assert clientsubmission.submissiontype.name == "Default SubmissionType"
+    # clientmanager = managers.DefaultClientSubmissionManager(None, input_object=clientsubmission)
+    assert isinstance(construct_from_sql.submissiontype, SubmissionType)
+    assert construct_from_sql.submissiontype.name == "Default SubmissionType"
+    assert isinstance(construct_from_sql.pyd, PydClientSubmission)
 
 
 def test_construction_from_pyd(clientsubmission):
@@ -52,10 +56,10 @@ def test_construction_from_pyd(clientsubmission):
     assert isinstance(clientmanager.pyd, PydClientSubmission)
 
 
-def test_write(clientsubmission):
-    clientmanager = managers.DefaultClientSubmissionManager(None, input_object=clientsubmission)
-    wb = Workbook()
-    workbook = clientmanager.write(wb)
+def test_write(construct_from_sql):
+    # clientmanager = managers.DefaultClientSubmissionManager(None, input_object=clientsubmission)
+    # wb = Workbook()
+    workbook = construct_from_sql.write(Workbook())
     assert isinstance(workbook, Workbook)
     assert "Client Info" in workbook.sheetnames
     ws = workbook['Client Info']

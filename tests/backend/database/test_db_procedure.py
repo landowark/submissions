@@ -128,6 +128,10 @@ def test_procedure_set_run(procedure):
     assert "Dict Run" == procedure.run.rsl_plate_number
 
 
+def test_procedure_get_results(procedure):
+    assert len(procedure.results) == 0
+
+
 def test_procedure_custom_context_events(procedure):
     expected = ["Add Results", "Add Equipment", "Edit", "Add Comment", "Show Details", "Delete"]
     assert set(procedure.custom_context_events.keys()) == set(expected)

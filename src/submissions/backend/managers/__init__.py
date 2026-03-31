@@ -65,7 +65,7 @@ class DefaultManager(object):
         # NOTE: If input_object is a str or path, use parser to construct object
         match input_object:
             case Workbook() | Worksheet():
-                self.input_object = input_object
+                # self.input_object = input_object
                 self.pyd = self.parse()
             case x if issubclass(input_object.__class__, pydant.PydBaseClass):
                 self.pyd = input_object

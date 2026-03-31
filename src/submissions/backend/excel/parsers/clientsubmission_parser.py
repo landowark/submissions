@@ -172,8 +172,8 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
         else:
             self.submissiontype = submissiontype
         super().__init__(worksheet=worksheet, **kwargs)
-        print(f"Start row: {self.start_row}")
-        print(f"End row: {self.end_row}")
+        # print(f"Start row: {self.start_row}")
+        # print(f"End row: {self.end_row}")
         # logger.debug(f"Parser: {pformat(self.__dict__)}")
         # logger.debug([item for item in self.parsed_info])
 

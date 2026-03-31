@@ -44,6 +44,12 @@ class ProcedureSampleParser(DefaultTABLEParser):
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
         self._pyd_object = PydSample
 
+    @property
+    def parsed_info(self) -> Generator[dict, None, None]:
+        for ii, sample in enumerate(super().parsed_info, start=1):
+            sample['rank'] = ii
+            yield sample
+
 
 class ProcedureReagentParser(DefaultTABLEParser):
 
@@ -79,7 +85,7 @@ class ProcedureEquipmentParser(DefaultTABLEParser):
             equipment = item.get('equipment', None)
             if equipment is None :
                 continue
-            print(f"Querying {equipment}")
+            # print(f"Querying {equipment}")
             eq = Equipment.query(name=equipment)
             item['asset_number'] = eq.asset_number
             item['nickname'] = eq.nickname

@@ -56,13 +56,13 @@ class DefaultParser(object):
         # logger.debug(f"Sheets before {self.__class__.__name__} set: {sheets}")
         # for sheet in sheets:
             # worksheet: Worksheet = self.get_worksheet(sheet=sheet.get('sheet', 0))
-        print(f"Start row: {start_row}, end row: {end_row}")
+        # print(f"Start row: {start_row}, end row: {end_row}")
         self.start_row = self.delineate_start_row(worksheet=worksheet, start_row=start_row)
         if end_row is None:
             self.end_row = self.delineate_end_row(worksheet=worksheet, start_row=self.start_row)
         else:
             self.end_row = self.delineate_end_row(worksheet=worksheet, start_row=end_row)
-        print(f"self.Start row: {self.start_row}, self.end row: {self.end_row}")
+        # print(f"self.Start row: {self.start_row}, self.end row: {self.end_row}")
         assert self.start_row <= self.end_row
         # self.sheets = sheets
         # logger.debug(f"Sheets after {self.__class__.__name__} set: {self.sheets}")
@@ -202,7 +202,7 @@ class DefaultTABLEParser(DefaultParser):
         # worksheet: Worksheet = self.get_worksheet(sheet.get('sheet', 0))
         # start_row = sheet.get('start_row', self.delineate_start_row(worksheet=worksheet))
         # end_row = sheet.get('end_row', self.delineate_end_row(worksheet=worksheet, start_row=start_row))
-        print(f"DF construction: start row: {self.start_row}, end row: {self.end_row}")
+        # print(f"DF construction: start row: {self.start_row}, end row: {self.end_row}")
         # self.sheets[iii]['start_row'] = start_row
         # self.sheets[iii]['end_row'] = end_row
         df = DataFrame(

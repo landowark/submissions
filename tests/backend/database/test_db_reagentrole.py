@@ -25,7 +25,7 @@ def test_get_proceduretype(reagentrole):
     try:
         assert isinstance(pt, _AssociationList)
     except AssertionError as e:
-        print(f"Expected list, got {type(pt)}")
+        # print(f"Expected list, got {type(pt)}")
         raise e
     assert isinstance(pt[0], ProcedureType)
 
@@ -42,7 +42,7 @@ def test_get_reagent(reagentrole):
     try:
         assert isinstance(r, _AssociationList)
     except AssertionError as e:
-        print(f"Expected list, got {type(r)}")
+        # print(f"Expected list, got {type(r)}")
         raise e
     assert isinstance(r[0], Reagent)
 

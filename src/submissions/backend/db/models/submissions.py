@@ -218,7 +218,6 @@ class ClientSubmission(BaseClass, LogMixin):
             value = []
         if not isinstance(value, list):
             value = [value]
-        print(f"Setting run: {value}")
         for item in value:
             match item:
                 case str():
@@ -788,7 +787,6 @@ class Run(BaseClass, LogMixin):
                         logger.error(f"Couldn't find {item} in {[eq.sample.name for eq in self.runsampleassociation]}")
                         output = RunSampleAssociation(sample=item, run=self, rank=iii)
                 case dict():
-                    print(item)
                     sam = item.get("sample_id", None) or item.get("name", None) 
                     output = RunSampleAssociation(sample=sam, run=self, rank = item.get("rank", iii), **{k: v for k, v in item.items() if k not in ['sample_id', 'rank']})
                 case PydSample():
@@ -1245,8 +1243,7 @@ class Run(BaseClass, LogMixin):
     def add_procedure(self, obj, proceduretype_name: str):
         from frontend.widgets.procedure_creation import ProcedureCreation
         from backend.validators.pydant import PydSample
-        procedure_type: ProcedureType = next(
-            (proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
+        procedure_type: ProcedureType = next((proceduretype for proceduretype in self.allowed_procedures if proceduretype.name == proceduretype_name))
         procedure = procedure_type.construct_dummy_procedure(run=self)
         assert all([isinstance(s, PydSample) for s in procedure.sample])
         # Passed check
@@ -1442,7 +1439,7 @@ class Run(BaseClass, LogMixin):
                          is_control=0, enabled=False, control_type='')
                      )
             padded_list.append(sample)
-        logger.debug(f"Padded samples:\n{pformat(padded_list)}")
+        # logger.debug(f"Padded samples:\n{pformat(padded_list)}")
         return list(sorted(padded_list, key=itemgetter('procedure_rank')))
 
 # NOTE: Sample Classes

@@ -4,7 +4,6 @@ Module for manager of Procedure object.
 from __future__ import annotations
 from pprint import pformat
 import logging, sys
-from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.managers import DefaultManager
@@ -12,7 +11,6 @@ from typing import TYPE_CHECKING
 from pathlib import Path
 from backend.excel.parsers import procedure_parsers
 from backend.excel.writers import procedure_writers, results_writers
-
 if TYPE_CHECKING:
     from backend.db.models import ProcedureType
     from backend.validators.pydant import PydProcedure, PydProcedureType
@@ -26,19 +24,33 @@ class DefaultProcedureManager(DefaultManager):
 
     def __init__(self, parent, input_object: Path | str | PydBaseClass | BaseClass | Workbook | Worksheet | None = None,
                  proceduretype: str | ProcedureType | PydProcedureType | None = None, **kwargs):
-        from backend.db.models import ProcedureType
-        super().__init__(parent, input_object, **kwargs)
+        from backend.db.models import ProcedureType, BaseClass
+        from backend.validators import pydant
+        if proceduretype is None:
+            try:
+                proceduretype = input_object.proceduretype
+            except AttributeError:
+                proceduretype = None
         match proceduretype:
             case str():
                 proceduretype = ProcedureType.query(name=proceduretype, limit=1)
                 if isinstance(proceduretype, ProcedureType):
-                    proceduretype = proceduretype.to_pydantic()
+                    self.proceduretype = proceduretype.to_pydantic()
+                else:
+                    self.proceduretype = None
             case ProcedureType():
                 self.proceduretype = proceduretype.to_pydantic()
             case  _:
                 self.proceduretype = proceduretype
+        super().__init__(parent, input_object, **kwargs)
+        match input_object:
+            case x if issubclass(input_object.__class__, pydant.PydBaseClass):
+                self.pyd.sample = [sample.to_pydantic() for sample in input_object.sql_instance.sample]
+                self.pyd.results = [result.to_pydantic() for result in input_object.sql_instance.results]
+            case x if issubclass(input_object.__class__, BaseClass):
+                self.pyd.sample = [sample.to_pydantic() for sample in input_object.sample]
+                self.pyd.results = [result.to_pydantic() for result in input_object.results]
             
-
     def parse(self):
         try:
             info_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}InfoParser")
@@ -62,13 +74,11 @@ class DefaultProcedureManager(DefaultManager):
             sample_parser = procedure_parsers.ProcedureSampleParser
         self.sample_parser = sample_parser(worksheet=self.input_object, start_row=self.equipment_parser.end_row)
         
-        # self.to_pydantic()
-
-    def to_pydantic(self) -> PydProcedure:
         from backend.validators.pydant import PydProcedure, PydProcedureReagentLotAssociation, PydSample, PydProcedureEquipmentAssociation
         self.procedure = PydProcedure(**{k:v for k, v in self.info_parser.parsed_info})
         self.procedure.reagentlot = [PydProcedureReagentLotAssociation(procedure=self.procedure, **item) for item in self.reagent_parser.parsed_info]
         self.procedure.sample = [PydSample(**sample) for sample in self.sample_parser.parsed_info]
+        # self.procedure.sample
         self.procedure.equipment = [PydProcedureEquipmentAssociation(procedure=self.procedure, **item) for item in self.equipment_parser.parsed_info]
         return self.procedure
 
@@ -95,16 +105,26 @@ class DefaultProcedureManager(DefaultManager):
             sample_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}SampleWriter")
         except AttributeError:
             sample_writer = procedure_writers.ProcedureSampleWriter
+        # Set as self.pyd. At this point self.pyd are PydProcedureSampleAssociation objects.
         self.sample_writer = sample_writer(pydant_obj=self.pyd, proceduretype=self.proceduretype)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.
-        for result in self.pyd.result:
-            Writer = getattr(results_writers, f"{result.result_type}InfoWriter")
+        self.result_info_writers = []
+        self.result_sample_writers = []
+        for result in self.pyd.results:
+            try:
+                Writer = getattr(results_writers, f"{getattr(result, "resultstype")}InfoWriter")
+            except AttributeError:
+                Writer = results_writers.DefaultResultsInfoWriter
             res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
             workbook = res_info_writer.write_to_workbook(workbook=workbook)
-        for result in self.pyd.sample_results:
-            logger.debug(f"Sample result: {pformat(type(result))}")
-            Writer = getattr(results_writers, f"{result.resultstype}SampleWriter")
-            res_sample_writer = Writer(pydant_obj=self.procedure, proceduretype=self.proceduretype)
-            workbook = res_sample_writer.write_to_workbook(workbook=workbook)
+            self.result_info_writers.append(res_info_writer)
+            # The sample writer should take as pydant_object, results as pydantic objects from each proceduresampleassociation in the procedure
+            try:
+                Writer = getattr(results_writers, f"{getattr(result, "resultstype", result.get("resultstype", ""))}SampleWriter")
+            except AttributeError:
+                Writer = results_writers.DefaultResultsSampleWriter
+            res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
+            workbook = res_sample_writer.write_to_workbook(workbook=workbook, start_row=res_info_writer.end_row + 1)
+            self.result_sample_writers.append(res_sample_writer)
         return workbook

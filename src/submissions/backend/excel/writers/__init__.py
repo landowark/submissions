@@ -73,6 +73,7 @@ class DefaultWriter(object):
             except AttributeError as e:
                 logger.error(f"Couldn't get start row due to {e}")
                 start_row = 1
+        print(f"{self.__class__.__qualname__} Starting row: {start_row}")
         if not sheet:
             sheet = self.__class__.sheet
         self.sheet = sheet
@@ -86,6 +87,7 @@ class DefaultWriter(object):
             self.worksheet = workbook[self.sheet]
         self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
         self.start_row = self.delineate_start_row(start_row=start_row)
+        print(f"{self.__class__.__qualname__} post delineation Starting row: {start_row}")
         # NOTE: Declared in child classes
         self.end_row = self.delineate_end_row(start_row=start_row)
         return workbook
@@ -155,9 +157,12 @@ class DefaultKEYVALUEWriter(DefaultWriter):
             value = self.stringify_value(value=v)
             if value is None:
                 continue
-        
+            # try:
             self.worksheet.cell(column=1, row=ii, value=self.prettify_key(k))
-            self.worksheet.cell(column=2, row=ii, value=value)
+            # except ValueError:
+                # print(dictionary)
+                # break
+            self.worksheet.cell(column=2, row=ii, value=self.stringify_value(value))
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
@@ -167,6 +172,7 @@ class DefaultKEYVALUEWriter(DefaultWriter):
 
 
 class DefaultTABLEWriter(DefaultWriter):
+
     sheet = "Client Info"
     start_row = 19
     header_order = []
@@ -208,6 +214,7 @@ class DefaultTABLEWriter(DefaultWriter):
                 elif header == "column" and value == 0:
                     value = ""
                 value = self.stringify_value(value)
+                print(f"Writing to row {write_row}")
                 self.worksheet.cell(row=write_row, column=column, value=value)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook

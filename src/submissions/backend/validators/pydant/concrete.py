@@ -285,7 +285,7 @@ class PydSample(PydConcrete):
             case str():
                 sample_id = sample
             case _:
-                print(f"{sample} is not a valid type")
+                # print(f"{sample} is not a valid type")
                 return False
         if sample_id.lower().startswith("blank"):
             return False
@@ -437,7 +437,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     # name: dict = Field(default_factory=lambda: {"value": "NA", "missing": True}, validate_default=True)
     platemap: str | None = Field(default=None, repr=False)
     reagentlot: List[str] | List[PydProcedureReagentLotAssociation] = Field(default_factory=list, repr=False)
-    sample: List[str | PydSample] = Field(default_factory=list, repr=False)
+    sample: List[str | PydSample | PydProcedureSampleAssociation] = Field(default_factory=list, repr=False)
     equipment: List[str] | List[PydProcedureEquipmentAssociation] = Field(default_factory=list, repr=False)
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
     started_date: datetime = Field(default_factory=datetime.now, repr=False)
@@ -459,7 +459,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         match value:
             case dict():
                 q = value.get("name", None) or value.get("value", None)
-                print(f"Query name: {q}")
+                # print(f"Query name: {q}")
                 value = ProcedureType.query(name=q).to_pydantic()
             case str():
                 value = ProcedureType.query(name=value).to_pydantic()
@@ -596,9 +596,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             output = []
             for sample in value:
                 match sample:
-                    case PydProcedureSampleAssociation():
-                        output.append(sample.sample)
-                    case PydSample() | str():
+                    case PydProcedureSampleAssociation() | PydSample() | str():
                         output.append(sample)
                     case dict():
                         output.append(PydSample(**sample))
@@ -652,7 +650,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # Build a new ordered list of samples matching the sample_list order.
         new_samples: List[PydSample] = []
         for iii, sample_dict in enumerate(sample_list, start=1):
-            # logger.debug(f"Sample: {sample_dict}")
+            logger.debug(f"Sample: {sample_dict}")
             sample_id = sample_dict.get('sample_id', '')
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
@@ -688,13 +686,14 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # sample_list by appending them after the ordered ones (so they are not lost).
         remaining = []#[s for s in self.sample if s not in new_samples]
         self.sample = sorted(new_samples + remaining, key=lambda x: (x.column, x.row))
-        logger.debug(f"Rearranged samples:\n{pformat(self.sample)}")
+        # logger.debug(f"Rearranged samples:\n{pformat(self.sample)}")
 
-    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str|None=None, checked:bool=True):
+    def update_reagents(self, reagentrole: str, name: str, lot: str, checked:bool=True):
         from backend.db.models import ReagentLot
         try:
-            removable = next((item for item in self.reagentlot if reagentrole in (rr.name for rr in item.reagentlot.sql_instance.reagent.reagentrole)), None)
+            removable = next((item for item in self.reagentlot if reagentrole in (rr.name for rr in item.sql_instance.reagentlot.reagent.reagentrole)), None)
         except AttributeError as e:
+            logger.error(self.reagentlot)
             raise e
         if removable:
             idx = self.reagentlot.index(removable)
@@ -859,12 +858,13 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
             {
                 "reagentrole":[
-                        {"reagent":["reagentlot"]}]
-                        
+                        {"reagent":["reagentlot"]}
+                        ]
             }, 
             {
                 "equipmentrole": [
-                        {"equipmentroleequipmentassociation":["equipment", "process"]}]
+                        {"equipmentroleequipmentassociation":["equipment", "process"]}
+                        ]
             }
             ])
         procedure_dict = self.improved_dict_expand_fields([
@@ -926,6 +926,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             assert all([isinstance(s, PydSample) for s in self.sample])
             sample_dicts = self.sample
         except AssertionError:
+            logger.warning("Not all samples are PydSample instances; attempting to convert from SQL Sample instances.")
             sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
@@ -1381,11 +1382,11 @@ class PydRun(PydConcrete):  #, extra='allow'):
         self.sql_instance: Run = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
-        print(f"Coming into sql: {pformat(self.__dict__)}")
+        # print(f"Coming into sql: {pformat(self.__dict__)}")
         self.sql_instance.clientsubmission = self.clientsubmission
         self.sql_instance.procedure = self.procedure
         self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
-        print(f"Added samples: {self.sql_instance.sample}")
+        # print(f"Added samples: {self.sql_instance.sample}")
         return self.sql_instance, None
 
     @property
@@ -1526,6 +1527,13 @@ class PydProcedureSampleAssociation(PydConcrete):
         self.sql_instance.sample = self.sample
         self.sql_instance.results = self.results
         return self.sql_instance, None
+    
+    @property
+    def improved_dict(self) -> dict:
+        output = super().improved_dict
+        output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
+        output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
+        return output
 
 
 class PydProcedureEquipmentAssociation(PydConcrete):
