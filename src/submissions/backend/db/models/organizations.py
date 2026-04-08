@@ -9,8 +9,6 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass
 from tools import check_authorization, setup_lookup
 from typing import List, TYPE_CHECKING
-# if TYPE_CHECKING:
-#     from backend.validators.pydant import PydContact
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

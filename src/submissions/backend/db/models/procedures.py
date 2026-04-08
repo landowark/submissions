@@ -8,7 +8,7 @@ import zipfile, logging, re, numpy as np, json
 from pydantic import BaseModel
 from sqlalchemy import Column, ForeignKeyConstraint, String, TIMESTAMP, JSON, INTEGER, ForeignKey, Interval, Table, FLOAT, and_, cast, func, select
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import aliased, relationship, Query
+from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
@@ -459,15 +459,15 @@ class Reagent(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    @property
-    def lot_dicts(self) -> List[dict[str, Any]]:
-        """
-        Gets all lots available for this Reagent
+    # @property
+    # def lot_dicts(self) -> List[dict[str, Any]]:
+    #     """
+    #     Gets all lots available for this Reagent
         
-        Returns: 
-            List[dict[str, Any]]: List of lot details. 
-        """
-        return [dict(name=self.name, lot=lot.lot, expiry=lot.expiry + self.eol_ext) for lot in self.reagentlot]
+    #     Returns: 
+    #         List[dict[str, Any]]: List of lot details. 
+    #     """
+    #     return [dict(name=self.name, lot=lot.lot, expiry=lot.expiry + self.eol_ext) for lot in self.reagentlot]
 
 
 class ReagentLot(BaseClass):
@@ -946,15 +946,11 @@ class SubmissionType(BaseClass):
     
     @hybrid_property
     def file_name_template(self):
-        if self._file_name_template:
-            return self._file_name_template
-        return "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
+        return self._file_name_template or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
     
     @file_name_template.setter
     def file_name_template(self, value):
-        if not value:
-            value = "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
-        self._file_name_template = value
+        self._file_name_template = value or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
 
     @hybrid_property
     def clientsubmission(self):
@@ -1027,10 +1023,7 @@ class SubmissionType(BaseClass):
     
     @hybrid_property
     def turnaround_time(self):
-        if self._turnaround_time:
-            return self._turnaround_time
-        else:
-            return timedelta(days=5)
+        return self._turnaround_time or timedelta(days=5)
         
     @turnaround_time.setter
     def turnaround_time(self, value):
@@ -1057,15 +1050,15 @@ class SubmissionType(BaseClass):
             value = str(value)
         self._abbreviation = value[0:4]
 
-    @classproperty
-    def aliases(cls) -> List[str]:
-        """
-        Gets other names the sql object of this class might go by.
+    # @classproperty
+    # def aliases(cls) -> List[str]:
+    #     """
+    #     Gets other names the sql object of this class might go by.
 
-        Returns:
-            List[str]: List of names
-        """
-        return super().aliases + ["submissiontypes"]
+    #     Returns:
+    #         List[str]: List of names
+    #     """
+    #     return super().aliases + ["submissiontypes"]
 
     @classmethod
     @setup_lookup
@@ -1479,7 +1472,7 @@ class ProcedureType(BaseClass):
     @property
     def ranked_plate(self):
         """
-        Makes an x by y array to represent a plate.
+        Makes an x by y array of zeros to represent a plate.
 
         Returns:
             dict: cell number : (row, column)
@@ -1639,19 +1632,6 @@ class Procedure(BaseClass):
                     self._misc_info.update({'equipment': equipment})
                 except Exception:
                     pass
-        # try:
-        #     run = self.run.name
-        # except AttributeError:
-        #     run = "Unknown Run"
-        # try:
-        #     proceduretype = self.proceduretype.name
-        # except AttributeError:
-        #     proceduretype = "Unknown ProcedureType"
-        # if self.repeat_of:
-        #     repeatof = f" ({self.repeat_of})"
-        # else:
-        #     repeatof = ""
-        # self.name = f"{run} - {proceduretype}{repeatof}"  
 
     @hybrid_property
     def name(self) -> str:

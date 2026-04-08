@@ -12,6 +12,7 @@ from backend.db.models import BaseClass
 from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
+import csv
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -26,7 +27,10 @@ class DefaultManager(object):
         """
         Is called before __init__. Ensures filepath is present.
         """
-        input_object = kwargs.get('input_object') or args[1]
+        try:
+            input_object = kwargs.get('input_object') or args[1]
+        except IndexError:
+            input_object = None
         if isinstance(input_object, str):
             input_object = Path(input_object)
         if isinstance(input_object, Path):
@@ -34,7 +38,6 @@ class DefaultManager(object):
                 assert input_object.exists()
             except AssertionError:
                 raise FileNotFoundError(f"File {input_object} does not exist.")
-            
         instance = super().__new__(cls)
         instance.input_object = input_object
         return instance
@@ -48,7 +51,7 @@ class DefaultManager(object):
             if input_object.suffix == ".csv":
                 input_object = self.csv2xlsx(input_object)
                 if isinstance(input_object, tuple):
-                    input_object = input_object[0]
+                    input_object = input_object[1]
             elif input_object.suffix == ".xlsx":
                 input_object = load_workbook(input_object, data_only=True)
             else:

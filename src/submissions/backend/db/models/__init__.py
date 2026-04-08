@@ -624,107 +624,6 @@ class BaseClass(Base):
                 js_out.append(f.read())
         return self.details_template.render(css=css_out, js=js_out, **details)
 
-    def check_all_attributes(self, **kwargs) -> bool:
-        """
-        Checks this instance against a dictionary of attributes to determine if they are a match.
-
-        Args:
-            kwargs: Attributes: values to be check for equivalence
-
-        Returns:
-            bool: If a single unequivocal value is found will be false, else true.
-        
-        Compare instance attributes to provided expected values.
-
-        Behavior / assumptions:
-        - For attributes that are other BaseClass instances, compares using their
-          `name` (or `id` if `name` missing).
-        - For list-like relationship attributes, compares sets of stringified
-          item identifiers (name/id) to be order-insensitive.
-        - Accepts string inputs for expected values and attempts to coerce them
-          to the type of the actual attribute when reasonable (int, float,
-          bool, datetime).
-        - Treats the string "none" (case-insensitive) as None.
-
-        Returns True only if all provided attribute expectations match the
-        instance values; returns False on the first mismatch.
-        """
-        
-        def _as_identifier(val):
-            """Return name or id for BaseClass-like objects, else the value itself."""
-            try:
-                if isinstance(val, BaseClass):
-                    return getattr(val, "name", None) or getattr(val, "id", None)
-            except Exception:
-                pass
-            return val
-
-        def _normalize_expected(expected, actual):
-            # Normalize simple string markers
-            if isinstance(expected, str):
-                s = expected.strip()
-                if s.lower() == "none":
-                    return None
-                if s.lower() in ("true", "false") and isinstance(actual, bool):
-                    return s.lower() == "true"
-                # numeric coercion when actual type suggests it
-                try:
-                    if isinstance(actual, int) and "." not in s:
-                        return int(s)
-                    if isinstance(actual, float):
-                        return float(s)
-                    if isinstance(actual, (datetime, date)):
-                        return parse(s)
-                except Exception:
-                    # leave as string if coercion fails
-                    pass
-            return expected
-
-        for key, expected in kwargs.items():
-            # pull actual value from attribute or misc_info if attribute not present
-            try:
-                self_value = getattr(self, key)
-            except AttributeError:
-                try:
-                    self_value = self._misc_info.get(key)
-                except Exception:
-                    return False
-
-            # Handle relationship lists / association proxies
-            if isinstance(self_value, (_AssociationList, list, tuple)):
-                # normalize collection to identifiers (name/id) and compare sets
-                actual_set = {str(_as_identifier(v)) for v in self_value}
-                if isinstance(expected, (list, tuple, set)):
-                    expected_set = {str(_as_identifier(v)) for v in expected}
-                else:
-                    expected_set = {str(_as_identifier(expected))}
-                if actual_set != expected_set:
-                    return False
-                else:
-                    continue
-
-            # If self_value is another BaseClass-like object, compare by identifier
-            if isinstance(self_value, BaseClass):
-                actual_id = _as_identifier(self_value)
-                if isinstance(expected, BaseClass):
-                    expected_id = _as_identifier(expected)
-                else:
-                    expected_id = expected
-                expected_id = _normalize_expected(expected_id, actual_id)
-                if actual_id != expected_id:
-                    return False
-                else:
-                    continue
-
-            # Normalize expected when possible based on actual type
-            expected_norm = _normalize_expected(expected, self_value)
-
-            # Final direct comparison (allowing for None)
-            if self_value != expected_norm:
-                return False
-
-        return True
-
     def __setattr__(self, key, value):
         """
         Custom dunder method to handle potential list relationship issues.
@@ -759,7 +658,6 @@ class BaseClass(Base):
                     self._misc_info.update({key: safe_value})
                 except AttributeError:
                     super().__setattr__("_misc_info", {key: safe_value})
-            # return
         else:
             # If the class attribute is a descriptor for a property (including
             # SQLAlchemy hybrid_property), calling super().__setattr__ may not
@@ -782,38 +680,37 @@ class BaseClass(Base):
             except AttributeError as e:
                 logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
                 
-    @classmethod
-    def get_association_proxy_details(cls, field_name):
-        """
-        Retrieves details of a specific association proxy field.
-        """
-        mapper = sql_inspect(cls)
-        descriptor = mapper.all_orm_descriptors.get(field_name)
+    # @classmethod
+    # def get_association_proxy_details(cls, field_name):
+    #     """
+    #     Retrieves details of a specific association proxy field.
+    #     """
+    #     mapper = sql_inspect(cls)
+    #     descriptor = mapper.all_orm_descriptors.get(field_name)
+    #     if isinstance(descriptor, AssociationProxy):
+    #         # Initialize the descriptor
+    #         descriptor.__get__(None, cls)
+    #         return {
+    #             "name": field_name,
+    #             "target_attribute": descriptor.value_attr,
+    #             "info": descriptor.__dict__
+    #         }
+    #     else:
+    #         return None
 
-        if isinstance(descriptor, AssociationProxy):
-            # Initialize the descriptor
-            descriptor.__get__(None, cls)
-            return {
-                "name": field_name,
-                "target_attribute": descriptor.value_attr,
-                "info": descriptor.__dict__
-            }
-        else:
-            return None
-
-    @classmethod
-    def find_proxies_for_field(cls, field_name):
-        """Finds proxies targeting a specific relationship and field."""
-        mapper = sql_inspect(cls)
-        for _, desc in mapper.all_orm_descriptors.items():
-            descriptor = getattr(desc, "extension_type", None)
-            match descriptor:
-                case AssociationProxyExtensionType.ASSOCIATION_PROXY:
-                    if desc.target_collection == field_name:
-                        return desc.value_attr.strip("_")
-                case _:
-                    continue
-        return 
+    # @classmethod
+    # def find_proxies_for_field(cls, field_name):
+    #     """Finds proxies targeting a specific relationship and field."""
+    #     mapper = sql_inspect(cls)
+    #     for _, desc in mapper.all_orm_descriptors.items():
+    #         descriptor = getattr(desc, "extension_type", None)
+    #         match descriptor:
+    #             case AssociationProxyExtensionType.ASSOCIATION_PROXY:
+    #                 if desc.target_collection == field_name:
+    #                     return desc.value_attr.strip("_")
+    #             case _:
+    #                 continue
+    #     return 
     
     @classmethod
     def get_relationship_sqlclass(cls, key) -> BaseClass | None:
@@ -913,20 +810,20 @@ class BaseClass(Base):
             match field:
                 case str():
                     # NOTE: This is necessary... mostly because I'm too lazy to figure out how to simplify it.
-                    key = field
+                    # key = field
                     try:
-                        value = getattr(self, key)
+                        value = getattr(self, field)
                     except AttributeError as e:
-                        logger.error(f"Skipping {key} in {self} due to {e}")
+                        logger.error(f"Skipping {field} in {self} due to {e}")
                         continue
                     match value:
                         case InstrumentedAttribute():
-                            output = getattr(self.sql_instance, key)
+                            output = getattr(self.sql_instance, field)
                         case _AssociationList():
                             output = []
                             for item in value.col:
                                 dicto: dict = item.details_dict
-                                target = getattr(item, key)
+                                target = getattr(item, field)
                                 target = target.details_dict
                                 target.update({k:v for k, v in dicto.items() if k !="name"})
                                 if target['name'] not in [thing['name'] for thing in output]:
@@ -939,19 +836,20 @@ class BaseClass(Base):
                             continue
                 case dict():
                     # NOTE: this handles recursions if fields is a dict.
-                    key = list(field.keys())[0]
                     new_fields = list(field.values())[0]
+                    field = list(field.keys())[0]
+                    
                     try:
-                        value = getattr(self, key)
+                        value = getattr(self, field)
                     except AttributeError as e:
-                        logger.error(f"Skipping {key} in {self} due to {e}")
+                        logger.error(f"Skipping {field} in {self} due to {e}")
                         continue
                     match value:
                         case _AssociationList():
                             output = [item.details_dict_expand_fields(new_fields) for item in value]
                             for item in value.col:
                                 dicto: dict = item.details_dict_expand_fields(new_fields)
-                                target = getattr(item, key)
+                                target = getattr(item, field)
                                 target = target.details_dict_expand_fields(new_fields)
                                 target.update({k:v for k, v in dicto.items() if k !="name"})
                                 if target['name'] not in [thing['name'] for thing in output]:
@@ -964,7 +862,7 @@ class BaseClass(Base):
                             continue
                 case _:
                     continue
-            dict_[key] = output
+            dict_[field] = output
         return dict_
     
     @property

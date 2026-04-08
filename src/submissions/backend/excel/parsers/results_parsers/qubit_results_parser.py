@@ -19,10 +19,10 @@ class QubitInfoParser(DefaultResultsInfoParser):
                 start_row = 18) 
             ]
 
-    def __init__(self, filepath: Path | str, procedure: Procedure | None = None, sheets: List[dict] = [], **kwargs):
+    def __init__(self, worksheet: Worksheet, procedure: Procedure | None = None, *args, **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
-        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit", sheets=sheets)
+        super().__init__(worksheet=worksheet, results_type="Qubit", *args, **kwargs)
 
     def to_pydantic(self):
         """
@@ -38,10 +38,10 @@ class QubitInfoParser(DefaultResultsInfoParser):
 class QubitSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 
-    def __init__(self, filepath: Path | str, sheets: List[dict] = [], procedure: Procedure | None = None, **kwargs):
+    def __init__(self, worksheet: Worksheet, procedure: Procedure | None = None, *args, **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
-        super().__init__(filepath=filepath, proceduretype=self.procedure.proceduretype, results_type="Qubit", sheets=sheets)
+        super().__init__(worksheet=worksheet, results_type="Qubit", *args, **kwargs)
         self.sample_matcher()
 
     def sample_matcher(self):
