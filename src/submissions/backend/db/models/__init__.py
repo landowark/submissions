@@ -20,6 +20,7 @@ from pathlib import Path
 from tools import report_result, jinja_template_loading, Report, Alert, ctx
 if TYPE_CHECKING:
     from pydantic import BaseModel
+    from backend.validators import PydSample
 
 # NOTE: Load testing environment
 if 'pytest' in sys.modules:
@@ -954,7 +955,7 @@ class BaseClass(Base):
             return BaseClass.__subclasses__()
 
     @classmethod
-    def rank_sample(cls, sample: Sample, iii: int) -> Sample:
+    def rank_sample(cls, sample: PydSample, iii: int) -> PydSample:
         """
         Adds a rank to a sample in this class
         

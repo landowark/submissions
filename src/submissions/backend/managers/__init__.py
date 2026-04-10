@@ -43,20 +43,7 @@ class DefaultManager(object):
         return instance
 
     def __init__(self, parent, input_object: Path | str | pydant.PydBaseClass | BaseClass | Workbook | Worksheet | None = None, **kwargs):
-        if isinstance(input_object, str):
-            input_object = Path(input_object)
-        if isinstance(input_object, Path):
-            input_object = input_object.absolute()
-            filepath = deepcopy(input_object)
-            if input_object.suffix == ".csv":
-                input_object = self.csv2xlsx(input_object)
-                if isinstance(input_object, tuple):
-                    input_object = input_object[1]
-            elif input_object.suffix == ".xlsx":
-                input_object = load_workbook(input_object, data_only=True)
-            else:
-                raise TypeError(f"Unknown file type: {input_object.suffix}")
-            input_object.file = filepath
+        
         self.parent = parent
         self.input_object = input_object
         self.sheets = kwargs.get("sheets", None)
@@ -65,23 +52,40 @@ class DefaultManager(object):
                 self.sheets = self.__class__.sheets
             except AttributeError:
                 self.sheets = {}
+        self.set_pyd()
+        
+    def set_pyd(self):
+        if isinstance(self.input_object, str):
+            self.input_object = Path(self.input_object)
+        if isinstance(self.input_object, Path):
+            self.input_object = self.input_object.absolute()
+            filepath = deepcopy(self.input_object)
+            if self.input_object.suffix == ".csv":
+                self.input_object = self.csv2xlsx(self.input_object)
+                if isinstance(self.input_object, tuple):
+                    self.input_object = self.input_object[1]
+            elif self.input_object.suffix == ".xlsx":
+                self.input_object = load_workbook(self.input_object, data_only=True)
+            else:
+                raise TypeError(f"Unknown file type: {self.input_object.suffix}")
+            self.input_object.file = filepath
         # NOTE: If input_object is a str or path, use parser to construct object
-        match input_object:
+        match self.input_object:
             case Workbook() | Worksheet():
                 # self.input_object = input_object
                 self.pyd = self.parse()
-            case x if issubclass(input_object.__class__, pydant.PydBaseClass):
-                self.pyd = input_object
-            case x if issubclass(input_object.__class__, BaseClass):
-                self.pyd = input_object.to_pydantic()
+            case x if issubclass(self.input_object.__class__, pydant.PydBaseClass):
+                self.pyd = self.input_object
+            case x if issubclass(self.input_object.__class__, BaseClass):
+                self.pyd = self.input_object.to_pydantic()
             case _:
-                logger.warning(f"Unmatched input object: {type(input_object)}. Looking for file.")
+                logger.warning(f"Unmatched input object: {type(self.input_object)}. Looking for file.")
                 if self.parent is not None:
-                    self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(parent))
-                    self.pyd = self.to_pydantic()
+                    # TODO: Allow for multiple filters. For now, just look for xlsx.
+                    self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(self.parent))
+                    self.set_pyd()
                 else:
                     raise ValueError(f"No parent, cannot get user input.")
-
 
     def parse(self):
         raise NotImplementedError("Parse only implemented in subclasses.")

@@ -694,7 +694,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             removable = next((item for item in self.reagentlot if reagentrole in (rr.name for rr in item.sql_instance.reagentlot.reagent.reagentrole)), None)
         except AttributeError as e:
             logger.error(self.reagentlot)
-            raise e
+            removable = None
         if removable:
             idx = self.reagentlot.index(removable)
             self.reagentlot.remove(removable)
@@ -748,10 +748,26 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         self.sql_instance: Procedure = super().to_sql(update=update)
         if not update:
             return self.sql_instance, None
+
+        def normalize_dict_field(field_name, value):
+            if not isinstance(value, dict):
+                return value
+            if field_name in ["technician", "started_date", "completed_date"]:
+                return value.get("value")
+            if field_name in ["proceduretype", "run", "repeat_of"]:
+                if set(value.keys()) <= {"value", "missing"}:
+                    return value["value"]
+                if set(value.keys()) <= {"name", "missing"}:
+                    return value["name"]
+            return value
+
         logger.debug(f"Coming into sql: {pformat(self.improved_dict['sample'])}")
-        self.sql_instance.proceduretype = self.proceduretype
-        self.sql_instance.run = self.run
-        self.sql_instance.repeat_of = self.repeat_of
+        self.sql_instance.technician = normalize_dict_field("technician", self.technician)
+        self.sql_instance.started_date = normalize_dict_field("started_date", self.started_date)
+        self.sql_instance.completed_date = normalize_dict_field("completed_date", self.completed_date)
+        self.sql_instance.proceduretype = normalize_dict_field("proceduretype", self.proceduretype)
+        self.sql_instance.run = normalize_dict_field("run", self.run)
+        self.sql_instance.repeat_of = normalize_dict_field("repeat_of", self.repeat_of)
         self.sql_instance.reagentlot = self.reagentlot
         # Convert pyd samples to SQL Sample instances before assigning.
         # Use update=True only when the sample_id does not already exist in DB;
@@ -964,7 +980,31 @@ class PydClientSubmission(PydConcrete):
     sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
     run: List[str | PydRun | dict ] = Field(default_factory=list, repr=False)
     
-
+    @field_validator("run", mode="before")
+    @classmethod
+    def enforce_run_list(cls, value):
+        if isinstance(value, list):
+            output = []
+            for item in value:
+                match item:
+                    case str() | PydRun() | dict():
+                        output.append(item)
+                    case _:
+                        logger.warning(f"Unmatched type {type(item)} in run list")
+            return output
+        else:
+            match value:
+                case str():
+                    if value.upper() not in ["", "NA"]:
+                        return [value]
+                    else:                        
+                        return []
+                case PydRun() | dict():
+                    return [value]
+                case _:
+                    logger.warning(f"Unmatched type {type(value)} for run field")
+                    return []
+                
     @field_validator("submissiontype", "clientlab", "contact", mode="before")
     @classmethod
     def enforce_value(cls, value):
@@ -1132,35 +1172,27 @@ class PydClientSubmission(PydConcrete):
         from backend.db.models import ClientSubmission
         self.sql_instance: ClientSubmission = super().to_sql(update)
 
-        # Ensure clientlab and contact relationships are applied to the SQL
-        # instance. SQL model setters (ClientSubmission.clientlab/contact)
-        # accept strings, dicts or pyd models. Incoming pyd fields may be of
-        # the shape {'value': 'Name', 'missing': False} - convert those to
-        # {'name': 'Name'} so the SQL setters can resolve them correctly.
-        try:
-            cl = self.clientlab
-            if isinstance(cl, dict) and 'value' in cl:
-                cl = {'name': cl['value']}
-            self.sql_instance.clientlab = cl
-        except Exception:
-            logger.debug(f"No clientlab to set for {self}")
+        def normalize_dict_field(field_name, value):
+            if not isinstance(value, dict):
+                return value
+            if field_name in ["clientlab", "contact", "submissiontype"]:
+                if "name" in value:
+                    return value
+                if "value" in value:
+                    return {"name": value["value"]}
+                return value
+            if field_name in ["submission_category", "cost_centre", "submitter_plate_id", "submitted_date"]:
+                return value.get("value")
+            return value
 
-        try:
-            ct = self.contact
-            if isinstance(ct, dict) and 'value' in ct:
-                ct = {'name': ct['value']}
-            self.sql_instance.contact = ct
-        except Exception:
-            logger.error(f"No contact to set for {self}")
-        
-        try:
-            st = self.submissiontype
-            if isinstance(st, dict) and 'value' in st:
-                st = {'name': st['value']}
-            self.sql_instance.submissiontype = st
-        except Exception:
-            logger.error(f"No contact to set for {self}")
-        
+        for field_name in ("clientlab", "contact", "submissiontype", "submission_category", "cost_centre", "submitted_date"):
+            try:
+                raw_value = getattr(self, field_name)
+                normalized_value = normalize_dict_field(field_name, raw_value)
+                setattr(self.sql_instance, field_name, normalized_value)
+            except Exception as exc:
+                logger.debug(f"Could not normalize {field_name} for {self}: {exc}")
+
         self.sql_instance.sample = self.sample
         self.sql_instance.run = self.run
         return self.sql_instance, None
@@ -1646,6 +1678,7 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     submission_rank: int = Field(default=0)  #: Location in sample list
     clientsubmission: str | dict | PydClientSubmission = Field(default="NA")
     sample: str | dict | PydSample = Field(default="NA")
+    enabled: bool = Field(default=True)
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ClientSubmissionSampleAssociation

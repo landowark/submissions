@@ -769,16 +769,11 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         info = {}
         # reagents = []
         for widget in self.findChildren(QWidget):
-            # match widget:
-            #     case self.ReagentFormWidget():
-            #         reagent = widget.parse_form()
-            #         if reagent is not None:
-            #             reagents.append(reagent)
-            #         else:
-            #             report.add_result(Alert(msg="Failed integrity check", status="Critical"))
-            #             return report
-            #     case self.InfoItem():
-            field, value = widget.parse_form()
+            match widget:
+                case self.InfoItem():
+                    field, value = widget.parse_form()
+                case _:
+                    continue
             if field is not None:
                 info[field] = value
         for item in self.recover:

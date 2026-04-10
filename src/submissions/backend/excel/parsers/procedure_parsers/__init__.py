@@ -23,7 +23,6 @@ class ProcedureInfoParser(DefaultKEYVALUEParser):
 
     def __init__(self, worksheet: Worksheet, start_row: int =1, end_row: int | None = None, *args, **kwargs):
         from backend.validators.pydant import PydProcedure
-        # proceduretype = self.correct_procedure_type(proceduretype)
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
         self._pyd_object = PydProcedure
 
@@ -40,7 +39,6 @@ class ProcedureSampleParser(DefaultTABLEParser):
 
     def __init__(self, worksheet: Worksheet, start_row: int =1, end_row: int | None = None, *args, **kwargs):
         from backend.validators.pydant import PydSample
-        # proceduretype = self.correct_procedure_type(proceduretype)
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
         self._pyd_object = PydSample
 
@@ -55,7 +53,6 @@ class ProcedureReagentParser(DefaultTABLEParser):
 
     def __init__(self, worksheet: Worksheet, start_row: int =1, end_row: int | None = None, *args, **kwargs):
         from backend.validators.pydant import PydReagent
-        # proceduretype = self.correct_procedure_type(proceduretype)
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
         self._pyd_object = PydReagent
 
@@ -73,7 +70,6 @@ class ProcedureEquipmentParser(DefaultTABLEParser):
 
     def __init__(self, worksheet: Worksheet, start_row: int =1, end_row: int | None = None, *args, **kwargs):
         from backend.validators.pydant import PydEquipment
-        # proceduretype = self.correct_procedure_type(proceduretype)
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
         self._pyd_object = PydEquipment
 
@@ -85,7 +81,6 @@ class ProcedureEquipmentParser(DefaultTABLEParser):
             equipment = item.get('equipment', None)
             if equipment is None :
                 continue
-            # print(f"Querying {equipment}")
             eq = Equipment.query(name=equipment)
             item['asset_number'] = eq.asset_number
             item['nickname'] = eq.nickname

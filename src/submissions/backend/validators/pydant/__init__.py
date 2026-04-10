@@ -50,13 +50,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
     
-    # def model_post_init(self, __context__=None) -> None:
-    #     for k, v in self.model_dump().items():
-    #         try:
-    #             setattr(self.sql_instance, k, self.filter_field(key=k, value=v))
-    #         except AttributeError as e:
-    #             logger.warning(f"Could not set {self.sql_instance}.{k} to {v} due to {e}")
-    
     @classproperty
     def aliases(cls) -> List[str]:
         return [cls.__name__.replace("Pyd", "").lower()]

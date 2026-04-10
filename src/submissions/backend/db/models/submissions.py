@@ -13,6 +13,7 @@ from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from backend.db.models.procedures import ReagentLot
+from backend.validators.pydant.concrete import PydClientSubmissionSampleAssociation
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select
 from sqlalchemy.orm import relationship, Query, declared_attr
@@ -470,71 +471,6 @@ class ClientSubmission(BaseClass, LogMixin):
         df.columns = [item.replace("_", " ").title() for item in df.columns]
         return df
 
-    def to_dict(self, full_data: bool = False, backup: bool = False, report: bool = False) -> dict:
-        """
-        Constructs dictionary used in procedure summary
-
-        Args:
-            expand (bool, optional): indicates if generators to be expanded. Defaults to False.
-            report (bool, optional): indicates if to be used for a report. Defaults to False.
-            full_data (bool, optional): indicates if sample dicts to be constructed. Defaults to False.
-            backup (bool, optional): passed to adjust_to_dict_samples. Defaults to False.
-
-        Returns:
-            dict: dictionary used in procedure summary and details
-        """
-        # NOTE: get lab from nested organization object
-        try:
-            sub_lab = self.clientlab.name
-        except AttributeError:
-            sub_lab = None
-        try:
-            sub_lab = sub_lab.replace("_", " ").title()
-        except AttributeError:
-            pass
-        # NOTE: get extraction kittype name from nested kittype object
-        output = {
-            "id": self.id,
-            "submissiontype": self.submissiontype_name,
-            "submitter_plate_id": self.submitter_plate_id,
-            "submitted_date": self.submitted_date.strftime("%Y-%m-%d"),
-            "clientlab": sub_lab,
-            "sample_count": self.sample_count,
-        }
-        if report:
-            return output
-        if full_data:
-            samples = None
-            runs = [item.details_dict for item in self.run]
-        else:
-            samples = None
-            runs = None
-        try:
-            comments = self.comments
-        except Exception as e:
-            logger.error(f"Error setting comment: {self.comments}, {e}")
-            comments = None
-        try:
-            contact = self.contact.name
-        except AttributeError as e:
-            try:
-                contact = f"Defaulted to: {self.clientlab.contacts[0].name}"
-            except (AttributeError, IndexError):
-                contact = "NA"
-        try:
-            contact_phone = self.contact.phone
-        except AttributeError:
-            contact_phone = "NA"
-        output["abbreviation"] = self.submissiontype.abbreviation
-        output["submission_category"] = self.submission_category
-        output["sample"] = samples
-        output["comment"] = comments
-        output["contact"] = contact
-        output["contact_phone"] = contact_phone
-        output["run"] = runs
-        output['name'] = self.name
-        return output
-
     @property
     def custom_context_events(self) -> dict:
         """
@@ -548,15 +484,26 @@ class ClientSubmission(BaseClass, LogMixin):
 
     def add_run(self, obj):
         from frontend.widgets.sample_checker import SampleChecker
-        samples = [sample.to_pydantic() for sample in self.clientsubmissionsampleassociation]
+        samples = [assoc.sample.to_pydantic() for assoc in self.clientsubmissionsampleassociation]
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
         if checker.exec():
             run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
             logger.debug(f"Created run: {pformat(run.__dict__)}")
             # Rank the selected pydantic samples, then convert them back to SQL Sample
-            pyd_selected = [self.rank_sample(sample, iii) for iii, sample in enumerate(samples, start=1) if sample.enabled]
-            logger.debug(f"Selected pydantic samples:\n{pformat(pyd_selected)}")
-            run.sample = pyd_selected
+            selected_samples = []
+            for iii, sample in enumerate(samples, start=1):
+                if not sample.enabled:
+                    logger.debug(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
+                    continue
+                else:
+                    sample = self.rank_sample(sample, iii)
+                    # output_sample = sample.to_sql(update=False)                    
+                    # if isinstance(output_sample, tuple):
+                        # output_sample = output_sample[0]
+                    selected_samples.append(sample)
+            # logger.debug(f"Selected pydantic samples:\n{pformat(pyd_selected)}")
+            # run.sample = pyd_selected
+            run.sample = selected_samples
             run.save()
         else:
             logger.warning("Run cancelled.")
@@ -579,6 +526,7 @@ class ClientSubmission(BaseClass, LogMixin):
         output['client_lab'] = output['clientlab']
         output['submission_type'] = output['submissiontype']
         output['abbreviation'] = self.submissiontype.abbreviation or "XX"
+        output['sample_count'] = self.sample_count
         try:
             output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
                                "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",

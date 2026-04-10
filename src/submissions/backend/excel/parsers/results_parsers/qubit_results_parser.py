@@ -4,7 +4,6 @@ Results parser for Qubit csv file.
 from __future__ import annotations
 import logging
 from typing import Generator, TYPE_CHECKING
-from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from pathlib import Path
 if TYPE_CHECKING:
@@ -22,17 +21,17 @@ class QubitInfoParser(DefaultResultsInfoParser):
     def __init__(self, worksheet: Worksheet, procedure: Procedure | None = None, *args, **kwargs):
         self.results_type = "Qubit"
         self.procedure = procedure
-        super().__init__(worksheet=worksheet, results_type="Qubit", *args, **kwargs)
+        super().__init__(worksheet=worksheet, results_type=self.results_type, *args, **kwargs)
 
-    def to_pydantic(self):
-        """
-        Since there is no overview generated, return blank PydResults object.
+    # def to_pydantic(self):
+    #     """
+    #     Since there is no overview generated, return blank PydResults object.
 
-        Returns:
-            None
-        """
-        from backend.validators.pydant import PydResults
-        return None
+    #     Returns:
+    #         None
+    #     """
+    #     from backend.validators.pydant import PydResults
+    #     return None
 
 
 class QubitSampleParser(DefaultResultsSampleParser):
@@ -42,20 +41,6 @@ class QubitSampleParser(DefaultResultsSampleParser):
         self.results_type = "Qubit"
         self.procedure = procedure
         super().__init__(worksheet=worksheet, results_type="Qubit", *args, **kwargs)
-        self.sample_matcher()
-
-    def sample_matcher(self):
-        dlg = ResultsSampleMatcher(
-            parent=None,
-            results_var_name="original_sample_conc.",
-            results=self.parsed_info,
-            samples=self.procedure.proceduresampleassociation,
-            procedure=self.procedure,
-            results_type="Qubit"
-        )
-        if dlg.exec():
-            for result in dlg.output:
-                result.save()
 
     @property
     def parsed_info(self) -> Generator[dict, None, None]:

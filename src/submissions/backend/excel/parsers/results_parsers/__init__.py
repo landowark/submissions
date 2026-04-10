@@ -2,13 +2,11 @@
 Default parsers for results 
 """
 from __future__ import annotations
-from pathlib import Path
 from openpyxl.worksheet.worksheet import Worksheet
 from backend.excel.parsers import DefaultKEYVALUEParser, DefaultTABLEParser
-from typing import TYPE_CHECKING, Tuple, Generator, Any, List
+from typing import Tuple, Generator, Any
 import logging
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -16,11 +14,11 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class DefaultResultsInfoParser(DefaultKEYVALUEParser):
     pyd_name = "PydResults"
 
-    def __init__(self, worksheet: Worksheet, results_type: str, *args, **kwargs):
-        from backend.db.models import ResultsType
-        if results_type:
-            self.results_type = ResultsType.query(name=results_type)
+    def __init__(self, worksheet: Worksheet, results_type: str | None, *args, **kwargs):
+        from backend.validators.pydant import PydResults
+        self.resultstype = results_type or "Default ResultsType"
         super().__init__(worksheet=worksheet, *args, **kwargs)
+        self._pyd_object = PydResults
 
     @property
     def parsed_info(self) -> Generator[Tuple[str, Any], None, None]:
@@ -35,11 +33,11 @@ class DefaultResultsInfoParser(DefaultKEYVALUEParser):
 class DefaultResultsSampleParser(DefaultTABLEParser):
     pyd_name = "PydResults"
 
-    def __init__(self, worksheet: Worksheet, results_type: str, *args, **kwargs):
-        from backend.db.models import ResultsType
-        if results_type:
-            self.results_type = ResultsType.query(name=results_type)
+    def __init__(self, worksheet: Worksheet, results_type: str | None, *args, **kwargs):
+        from backend.validators.pydant import PydResults
+        self.resultstype = results_type or "Default ResultsType"
         super().__init__(worksheet=worksheet, *args, **kwargs)
+        self._pyd_object = PydResults
 
 
 from .diomni_pcr_results_parser import DiomniPCRInfoParser, DiomniPCRSampleParser

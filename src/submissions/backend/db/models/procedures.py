@@ -2037,9 +2037,10 @@ class Procedure(BaseClass):
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
     def add_results(self, obj, resultstype_name: str):
+        resultstype = resultstype_name.replace(" ", "")
         logger.info(f"Add Results! {resultstype_name}")
         from backend.managers import results
-        results_manager = getattr(results, f"{resultstype_name}Manager")
+        results_manager = getattr(results, f"{resultstype}Manager")
         rs = results_manager(procedure=self, parent=obj)
         procedure_results = rs.procedure_to_pydantic()
         samples_results = rs.samples_to_pydantic()
