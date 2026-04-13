@@ -51,7 +51,6 @@ class DefaultResultsManager(DefaultManager):
                 result[key] = value
         return result
 
-    
     def procedure_to_pydantic(self) -> PydResults:
         return self._pyd_object(result={k: v for k, v in self.info}, resultstype=self.info['resultstype'], date_analyzed=self.info_parser.date_analyzed, parent=self.procedure)
 

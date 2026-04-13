@@ -155,18 +155,6 @@ class DefaultKEYVALUEParser(DefaultParser):
         Returns:
             Generator[tuple, None, None]: (key, value) tuple.
         """
-        
-        # for iii, sheet in enumerate(self.sheets):
-        logger.debug(f"Parsing sheet: {self.worksheet.title}")
-        
-        # start_row = sheet.get('start_row', self.delineate_start_row(worksheet=worksheet))
-        logger.debug(f"Using start row: {self.start_row}")
-        # NOTE: Update start_row of sheet to reflect reality.
-        # self.sheets[iii]['start_row'] = start_row
-        # end_row = sheet.get('end_row', self.delineate_end_row(worksheet=worksheet, start_row=start_row))
-        logger.debug(f"Using end row: {self.end_row}")
-        # NOTE: Update end_row of sheet to reflect reality.
-        # self.sheets[iii]['end_row'] = end_row
         rows = range(self.start_row, self.end_row)
         for row in rows:
             check_row = [item for item in self.worksheet.rows][row-1]
@@ -179,7 +167,7 @@ class DefaultKEYVALUEParser(DefaultParser):
                     continue
                 # NOTE: Remove anything in brackets.
                 key = re.sub(r"\(.*\)", "", key)
-                key = key.lower().replace(":", "").strip().replace(" ", "_")
+                key = re.sub(r"\s+", "_", key.lower().replace(":", "").strip())
                 value = self.worksheet.cell(row, 2).value
                 missing = False if value else True
                 value = dict(value=value, missing=missing)

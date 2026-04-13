@@ -2,6 +2,7 @@
 Module for manager of ClientSubmission object
 """
 from __future__ import annotations
+from pprint import pformat
 import logging, sys
 from typing import TYPE_CHECKING, Generator
 from pathlib import Path
@@ -69,7 +70,7 @@ class DefaultClientSubmissionManager(DefaultManager):
                 #     ("Using existing run")
                 run.add_samples(procedure.sample)
                 run.procedure.append(procedure)
-                run.clientsubmission = run.clientsubmission.submitter_plate_id.get("value")
+                # run.clientsubmission = run.clientsubmission.submitter_plate_id.get("value")
                 if run not in self.clientsubmission.run:
                     self.clientsubmission.run.append(run)
 
@@ -90,8 +91,10 @@ class DefaultClientSubmissionManager(DefaultManager):
         from backend.db.models import ProcedureType
         from backend.managers.procedures import DefaultProcedureManager
         for procedure in self.found_procedures:
+            logger.debug(f"Found procedure: {procedure}")
             proceduretype = procedure.strip(" Quality")
             proceduretype = ProcedureType.query(name=proceduretype)
+            logger.debug(f"Mapped procedure to procedure type: {proceduretype}")
             try:
                 worksheet = self.input_object[procedure]
             except KeyError:

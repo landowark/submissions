@@ -57,6 +57,16 @@ class BaseClass(Base):
     # NOTE: Placeholder setter for now, but allows for future validation or transformation of misc_info values if desired.
     @misc_info.setter
     def misc_info(self, value):
+        for k, v in value.items():
+            if k.replace("_", "").lower() in self.sqlalchemy_fields():
+                logger.warning(f"Key {k} in misc_info for {self.__class__.__name__} conflicts with existing field name. Skipping.")
+                continue
+            try:
+                safe_v = self._serialize_misc_value(v)
+                value[k] = safe_v
+            except TypeError:
+                logger.warning(f"Could not serialize misc_info value for key {k} with value {v}. Skipping.")
+                continue
         self._misc_info = value
 
     @classproperty
@@ -189,6 +199,25 @@ class BaseClass(Base):
         except AttributeError as e:
             if not cls.__qualname__ == "BaseClass":
                 logger.error(f"Could not get timestamps due to {e}")
+            return []
+
+    @classmethod
+    def sqlalchemy_fields(cls) -> List[str]:
+        """
+        Get list of SQLAlchemy mapped field names for this model.
+
+        Returns:
+            List[str]: List of column and relationship attribute names
+        """
+        try:
+            mapper = sql_inspect(cls)
+            column_names = [attr.key for attr in mapper.column_attrs]
+            relationship_names = [rel.key for rel in mapper.relationships]
+            sqls = sorted(set(column_names + relationship_names))
+            return [item.replace("_id", "").replace("_name", "").replace("_", "") for item in sqls]
+        except Exception as e:
+            if cls.__qualname__ != "BaseClass":
+                logger.debug(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
             return []
 
     def _serialize_misc_value(self, value):

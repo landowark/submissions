@@ -299,9 +299,16 @@ class RSLNamer(object):
         Returns:
             str: output file name.
         """
+        output = {}
+        for k, v in kwargs.items():
+            if isinstance(v, dict):
+                v = v.get("value", None) or v.get("name", None)
+            if v is not None:
+                output[k] = v
+            else: continue
         environment = jinja_template_loading()
         template = environment.from_string(source=template)
-        return template.render(**kwargs)
+        return template.render(**output)
 
     # def calculate_repeat(self) -> str:
     #     """

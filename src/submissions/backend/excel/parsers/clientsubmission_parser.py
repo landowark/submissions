@@ -118,6 +118,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
     """
 
     range_dict = dict(start_row = 1)
+    exclude = ["submitter_info"]
 
     pyd_name = "PydClientSubmission"
 
@@ -132,7 +133,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
 
     @property
     def parsed_info(self):
-        output = {k: v for k, v in super().parsed_info}
+        output = {k: v for k, v in super().parsed_info if k not in self.exclude}
         try:
             output['clientlab'] = output['client_lab']
         except KeyError:
@@ -162,6 +163,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
                 sheet = "Client Info",
                 start_row = 18) 
             ]
+    
 
     pyd_name = "PydSample"
 

@@ -41,6 +41,12 @@ class QubitManager(DefaultResultsManager):
             for result in dlg.output:
                 result.save()
 
+    def procedure_to_pydantic(self) -> None:
+        """
+        Qubit doesn't produce procedure-level results, so this method returns None.
+        """
+        return None
+
     def parse(self):
         if isinstance(self.input_object, Workbook):
              worksheet = self.get_worksheet(1)

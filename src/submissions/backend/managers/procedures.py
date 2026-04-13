@@ -42,6 +42,7 @@ class DefaultProcedureManager(DefaultManager):
                 self.proceduretype = proceduretype.to_pydantic()
             case  _:
                 self.proceduretype = proceduretype
+        assert self.proceduretype is not None, "Procedure type must be provided to ProcedureManager"
         super().__init__(parent, input_object, **kwargs)
         match input_object:
             case x if issubclass(input_object.__class__, pydant.PydBaseClass):
@@ -109,22 +110,35 @@ class DefaultProcedureManager(DefaultManager):
         self.sample_writer = sample_writer(pydant_obj=self.pyd, proceduretype=self.proceduretype)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.
-        self.result_info_writers = []
-        self.result_sample_writers = []
-        for result in self.pyd.results:
+        self.result_writers = []
+        for resulttype_name, parents in self.pyd.sql_instance.grouped_results.items():
+            grouped_writer = {}
+            info_result = parents['info']
             try:
-                Writer = getattr(results_writers, f"{getattr(result, "resultstype")}InfoWriter")
+                info_result = info_result.to_pydantic()
             except AttributeError:
-                Writer = results_writers.DefaultResultsInfoWriter
-            res_info_writer = Writer(pydant_obj=result, proceduretype=self.proceduretype)
-            workbook = res_info_writer.write_to_workbook(workbook=workbook)
-            self.result_info_writers.append(res_info_writer)
+                info_result = None
+            if info_result is not None:
+                try:
+                    Writer = getattr(results_writers, f"{resulttype_name}InfoWriter")
+                except AttributeError:
+                    Writer = results_writers.DefaultResultsInfoWriter
+                res_info_writer = Writer(pydant_obj=info_result, proceduretype=self.proceduretype)
+                workbook = res_info_writer.write_to_workbook(workbook=workbook)
+                grouped_writer['info'] = res_info_writer
             # The sample writer should take as pydant_object, results as pydantic objects from each proceduresampleassociation in the procedure
-            try:
-                Writer = getattr(results_writers, f"{getattr(result, "resultstype", result.get("resultstype", ""))}SampleWriter")
-            except AttributeError:
-                Writer = results_writers.DefaultResultsSampleWriter
-            res_sample_writer = Writer(pydant_obj=self.pyd.sample_results, proceduretype=self.proceduretype)
-            workbook = res_sample_writer.write_to_workbook(workbook=workbook, start_row=res_info_writer.end_row + 1)
-            self.result_sample_writers.append(res_sample_writer)
+            sample_results = [res.to_pydantic() for res in parents['sample']]
+            if len(sample_results) > 0:
+                try:
+                    Writer = getattr(results_writers, f"{resulttype_name}SampleWriter")
+                except AttributeError:
+                    Writer = results_writers.DefaultResultsSampleWriter
+                res_sample_writer = Writer(pydant_obj=sample_results, resultstype=resulttype_name, proceduretype=self.proceduretype)
+                try:
+                    new_start_row = res_info_writer.end_row + 1
+                except UnboundLocalError:
+                    new_start_row = 1
+                workbook = res_sample_writer.write_to_workbook(workbook=workbook, start_row=new_start_row)
+                grouped_writer['sample'] = res_sample_writer
+            self.result_writers.append(grouped_writer)
         return workbook

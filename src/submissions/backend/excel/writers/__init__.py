@@ -25,9 +25,9 @@ class DefaultWriter(object):
         except AttributeError:
             return f"{self.__class__.__name__}<Unknown Filepath>"
 
-    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
+    def __init__(self, pydant_obj, *args, **kwargs):
         self.pydant_obj = pydant_obj
-        self.proceduretype = proceduretype
+        self.proceduretype = kwargs.get("proceduretype", None)
 
     @classmethod
     def stringify_value(cls, value: Any) -> str:
@@ -77,7 +77,15 @@ class DefaultWriter(object):
         if not sheet:
             sheet = self.__class__.sheet
         self.sheet = sheet
-        if self.sheet not in workbook.sheetnames:
+        sheetnames = workbook.sheetnames
+        print(f"{self.sheet} in {workbook.sheetnames}")
+        if isinstance(sheetnames, property):
+            try:
+                sheetnames = sheetnames.fget(workbook)
+            except Exception as e:
+                logger.error(f"Couldn't resolve workbook sheetnames property due to {e}")
+                sheetnames = []
+        if self.sheet not in sheetnames:
             try:
                 self.worksheet = workbook["Sheet"]
                 self.worksheet.title = self.sheet
@@ -214,7 +222,6 @@ class DefaultTABLEWriter(DefaultWriter):
                 elif header == "column" and value == 0:
                     value = ""
                 value = self.stringify_value(value)
-                print(f"Writing to row {write_row}")
                 self.worksheet.cell(row=write_row, column=column, value=value)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook

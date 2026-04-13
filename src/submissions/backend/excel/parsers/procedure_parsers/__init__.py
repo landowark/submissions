@@ -45,6 +45,7 @@ class ProcedureSampleParser(DefaultTABLEParser):
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
         for ii, sample in enumerate(super().parsed_info, start=1):
+            logger.debug(f"Parsed sample: {sample}")
             sample['rank'] = ii
             yield sample
 
@@ -60,7 +61,7 @@ class ProcedureReagentParser(DefaultTABLEParser):
     def parsed_info(self):
         output = super().parsed_info
         for item in output:
-            if not item['lot']:
+            if item.get('lot', None) is None:
                 continue
             item['reagentrole'] = item.pop('reagent_role', "NA")
             item['reagent'] = item.pop('reagent_name', "NA")

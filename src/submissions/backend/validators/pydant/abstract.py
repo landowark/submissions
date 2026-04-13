@@ -328,6 +328,9 @@ class PydProcedureType(PydAbstract):
         self.sql_instance.resultstype = self.resultstype
         return self.sql_instance, None
 
+    @property
+    def allowed_result_methods(self) -> List[str]:
+        return self.sql_instance.allowed_result_methods
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 

@@ -175,9 +175,11 @@ class SubmissionFormWidget(QWidget):
             disable = []
         self.app = get_application_from_parent(parent)
         self.pyd = pyd
+        # NOTE: pyd contains run up to this point.
+        # logger.debug(pformat(self.pyd.__dict__))
         self.missing_info = []
-        self.submissiontype = SubmissionType.query(name=self.pyd.submissiontype['value'])
-        defaults = Run.get_default_info("form_recover", "form_ignore", submissiontype=self.pyd.submissiontype['value'])
+        self.submissiontype = SubmissionType.query(name=self.pyd.submissiontype.get('value'))
+        defaults = Run.get_default_info("form_recover", "form_ignore", submissiontype=self.pyd.submissiontype.get('value'))
         self.recover = defaults['form_recover']
         self.ignore = defaults['form_ignore']
         self.layout = QVBoxLayout()
@@ -302,39 +304,39 @@ class SubmissionFormWidget(QWidget):
             item.setParent(None)
 
     
-    @report_result
-    def submit_new_sample_function(self, *args) -> Report:
-        """
-        Parse forms and add sample to the database.
+    # @report_result
+    # def submit_new_sample_function(self, *args) -> Report:
+    #     """
+    #     Parse forms and add sample to the database.
 
-        Args:
-            obj (QMainWindow): original app window
+    #     Args:
+    #         obj (QMainWindow): original app window
 
-        Returns:
-            Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-        """
-        logger.info(f"\n\nBeginning Submission\n\n")
-        report = Report()
-        result = self.parse_form()
-        report.add_result(result)
-        base_submission = self.pyd.to_sql()
-        # NOTE: check output message for issues
-        if base_submission is None:
-            return
-        for reagent in base_submission.reagents:
-            reagent.update_last_used(kit=base_submission.extraction_kit)
-        save_output = base_submission.save()
-        # NOTE: update summary sheet
-        self.app.table_widget.sub_wid.set_data()
-        # NOTE: reset form
-        try:
-            check = save_output.results == []
-        except AttributeError:
-            logger.error(f"No save output, check passes")
-            check = True
-        if check:
-            self.setParent(None)
-        return report
+    #     Returns:
+    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
+    #     """
+    #     logger.info(f"\n\nBeginning Submission\n\n")
+    #     report = Report()
+    #     result = self.parse_form()
+    #     report.add_result(result)
+    #     base_submission = self.pyd.to_sql()
+    #     # NOTE: check output message for issues
+    #     if base_submission is None:
+    #         return
+    #     for reagent in base_submission.reagents:
+    #         reagent.update_last_used(kit=base_submission.extraction_kit)
+    #     save_output = base_submission.save()
+    #     # NOTE: update summary sheet
+    #     self.app.table_widget.sub_wid.set_data()
+    #     # NOTE: reset form
+    #     try:
+    #         check = save_output.results == []
+    #     except AttributeError:
+    #         logger.error(f"No save output, check passes")
+    #         check = True
+    #     if check:
+    #         self.setParent(None)
+    #     return report
 
     def export_csv_function(self, fname: Path | None = None):
         """
@@ -383,6 +385,7 @@ class SubmissionFormWidget(QWidget):
                 info[item] = value
         for k, v in info.items():
             self.pyd.__setattr__(k, v)
+        logger.debug(f"Got info from form: {pformat(self.pyd.__dict__)}")
         report.add_result(report)
         return report
 
@@ -788,6 +791,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                 v = v.get("value", None)
             logger.debug(f"Setting pyd {k} to {v}")
             self.pyd.__setattr__(k, v)
+        # NOTE: run is okay at this point.
+        # logger.debug(f"Got pydantic object from form: {pformat(self.pyd.__dict__)}")
         report.add_result(report)
         return report
 
@@ -802,7 +807,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         from backend.validators.pydant import PydSample
         from backend.db.models import Sample
         pyd = self.to_pydantic()
-        
+        # NOTE: run is empty at this point.
+        # logger.debug(f"Got pydantic object from form: {pformat(pyd.__dict__)}")
         # Save samples individually and collect the saved SQL Sample objects.
         # Later, attach these saved Sample objects to the submission SQL object so
         # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
@@ -839,9 +845,20 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                     sample_sql.save()
                 # At this point the rank is correct
             saved_samples.append(sample_sql)
+        logger.debug(f"Got pydantic run object from form: {pformat(pyd.run[0].__dict__)}")
+        # runs = []
+        # for run in pyd.run:
+        #     run = run.to_sql()
+        #     if isinstance(run, tuple):
+        #         run = run[0]
+        #     runs.append(run)
+        pyd.run = []
         sql = pyd.to_sql()
+        
         if isinstance(sql, tuple):
             sql = sql[0]
+        # sql.run = runs
+        # logger.debug(f"Got sqlalchemy run object from form: {pformat(sql.run[0].__dict__)}")
         # Remove any sample info accidentally left in misc_info by pyd.to_sql
         try:
             del sql._misc_info['sample']

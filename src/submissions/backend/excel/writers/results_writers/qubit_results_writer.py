@@ -20,7 +20,8 @@ class QubitInfoWriter(DefaultResultsInfoWriter):
 
 class QubitSampleWriter(DefaultResultsSampleWriter):
 
-    header_order = ["sample_id"]
+    
+    header_order = ["sample_id", "original_sample_conc."]
 
     def write_to_workbook(self, workbook: Workbook, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, *args, **kwargs)
@@ -32,7 +33,7 @@ class QubitSampleWriter(DefaultResultsSampleWriter):
             self.worksheet.cell(row=header_row, column=iii, value=header.replace("_", " ").title())
         for iii, result in enumerate(self.pydant_obj, start = 1):
             row = header_row + iii
-            for k, v in result.items():
+            for k, v in result.improved_dict.items():
                 try:
                     column = next((col[0].column for col in self.worksheet.iter_cols() if col[0].value == k.replace("_", " ").title()))
                 except StopIteration:
@@ -48,6 +49,7 @@ class QubitSampleWriter(DefaultResultsSampleWriter):
     def column_headers(self):
         output = []
         for result in self.pydant_obj:
-            for k, value in result.items():
-                output.append(k)
+            for k, value in result.improved_dict.items():
+                if k not in self.exclude:
+                    output.append(k)
         return sorted(list(set(output)))

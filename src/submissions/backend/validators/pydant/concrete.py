@@ -4,8 +4,8 @@ from pprint import pformat
 import csv, logging, re, sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import ClassVar, Generator, List, Tuple, TYPE_CHECKING
-from pydantic import Field, field_validator, model_validator, computed_field
+from typing import Annotated, ClassVar, Generator, List, Tuple, TYPE_CHECKING
+from pydantic import AfterValidator, Field, field_validator, model_validator, computed_field
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
 from backend.validators import RSLNamer
@@ -17,6 +17,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+def ensure_list(v: Any) -> List:
+    if isinstance(v, (Generator, filter, map)):
+        return list(v)
+    return v
 
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
@@ -61,6 +65,8 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     def improved_dict(self) -> dict:
         output = super().improved_dict
         output['result'] = self.result
+        if self.sample:
+            output['sample_id'] = self.sample.name if isinstance(self.sample, PydSample) else self.sample
         return output
 
     def to_sql(self):
@@ -1192,9 +1198,29 @@ class PydClientSubmission(PydConcrete):
                 setattr(self.sql_instance, field_name, normalized_value)
             except Exception as exc:
                 logger.debug(f"Could not normalize {field_name} for {self}: {exc}")
-
         self.sql_instance.sample = self.sample
         self.sql_instance.run = self.run
+        # sql_runs = []
+        # for run in self.run:
+        #     match run:
+        #         case PydRun():
+        #             pass
+        #         case dict():
+        #             try:
+        #                 run = PydRun(**run)
+        #             except Exception as e:
+        #                 logger.error(f"Could not convert dict {item} to PydRun due to {e}")
+        #         case str():
+        #             try:
+        #                 run = PydRun(rsl_plate_number=dict(value=run, missing=True))
+        #             except Exception as e:
+        #                 logger.error(f"Could not convert string {item} to PydRun due to {e}")
+        #         case _:
+        #             logger.warning(f"Unmatched type {type(item)} in run list; skipping.")
+        #             continue
+        #     sql_runs.append(run)
+        # self.sql_instance.run = sql_runs
+        # logger.debug(f"SQL instance after run conversion: {self.sql_instance.run[0].__dict__ if self.sql_instance.run else 'No runs'}")
         return self.sql_instance, None
     
     @property
@@ -1203,7 +1229,10 @@ class PydClientSubmission(PydConcrete):
         if output > 0:
             return output
         else:
-            return max([getattr(item, "submission_rank", None) or getattr(item, "rank", None) for item in self.sample])
+            try:
+                return max([getattr(item, "submission_rank", None) or getattr(item, "rank", None) for item in self.sample])
+            except TypeError:
+                return max([getattr(item, "submission_rank", None) for item in self.sql_instance.clientsubmissionsampleassociation])
 
     @property
     def improved_dict(self) -> dict:
@@ -1251,7 +1280,7 @@ class PydRun(PydConcrete):  #, extra='allow'):
     started_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
     completed_date: dict | None = Field(default=dict(value=None, missing=True), validate_default=True, repr=False)
     comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True, repr=False)
-    sample: List[PydSample] | Generator = Field(default_factory=list, repr=False)
+    sample: Annotated[List[PydSample] | Generator, AfterValidator(ensure_list)] = Field(default_factory=list, repr=False)
     # sample_count: dict | None = Field(default=None, validate_default=True)
     run_cost: float | dict = Field(default=dict(value=0.0, missing=True), repr=False)
     signed_by: str | dict = Field(default="", validate_default=True, repr=False)
@@ -1394,8 +1423,11 @@ class PydRun(PydConcrete):  #, extra='allow'):
     @field_validator("sample", mode="before")
     @classmethod
     def expand_samples(cls, value):
+        
         if isinstance(value, Generator):
             return [PydSample(**sample) for sample in value]
+        elif isinstance(value, list):
+            return [PydSample(**sample) if isinstance(sample, dict) else sample for sample in value]
         return value
 
     def __init__(self, **data):
@@ -1412,9 +1444,10 @@ class PydRun(PydConcrete):  #, extra='allow'):
     def to_sql(self, update: bool = True):
         from backend.db.models import Run
         self.sql_instance: Run = super().to_sql(update=update)
+        logger.debug(f"Coming into sql: {pformat(self.__dict__)}")
         if not update:
             return self.sql_instance, None
-        # print(f"Coming into sql: {pformat(self.__dict__)}")
+        
         self.sql_instance.clientsubmission = self.clientsubmission
         self.sql_instance.procedure = self.procedure
         self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
@@ -1432,9 +1465,8 @@ class PydRun(PydConcrete):  #, extra='allow'):
         try:
             template = self.sql_instance.clientsubmission.submissiontype.file_name_template
         except KeyError as e:
-            template = "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}_{{_completed_date}}"
-        render = self.namer.construct_export_name(template=template, **self.improved_dict).replace(
-            "/", "")
+            template = "{{ rsl_plate_number }}{% if clientsubmission %}_{{ clientsubmission }}{% endif %}{% if completed_date %}_{{ completed_date }}{% endif %}"
+        render = self.namer.construct_export_name(template=template, **self.improved_dict).replace("/", "")
         return render
 
     @property

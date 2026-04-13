@@ -17,8 +17,10 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
+
     exclude = ["name", "id", "clientlab", "filepath", "comments", "sample", 
-               "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size"]
+               "excluded", "run", "clientsubmissionsampleassociation", "expanded", "full_batch_size",
+               "endrow", "startrow", "abbreviation", "submitter_info"]
 
     def __init__(self, pydant_obj, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
@@ -45,6 +47,7 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         self.pydant_obj = self.pad_submission_samples_to_length()
+        print(f"Here's the padded samples: {pformat(self.pydant_obj)}")
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
@@ -64,7 +67,8 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
     def pad_submission_samples_to_length(self):
         from backend.validators.pydant import PydClientSubmissionSampleAssociation
         output_samples = []
-        for iii in range(1, self.pydant_obj.max_sample_rank + 1):
+        rng = self.pydant_obj.max_sample_rank + 1
+        for iii in range(1, rng):
             iterator = self.pydant_obj.sql_instance.clientsubmissionsampleassociation
             try:
                 sample = next(item.to_pydantic() for item in iterator if item.submission_rank == iii)

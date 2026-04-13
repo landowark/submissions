@@ -226,6 +226,7 @@ class ClientSubmission(BaseClass, LogMixin):
                 case dict():
                     output = Run.query_or_create(**item)
                 case PydRun():
+                    logger.debug(f"Converting PydRun to SQL: {pformat(item.__dict__)}")
                     output = item.to_sql(update=False)
                 case Run():
                     output = item
@@ -524,18 +525,17 @@ class ClientSubmission(BaseClass, LogMixin):
         output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
         output['name'] = self.name
         output['client_lab'] = output['clientlab']
-        output['submission_type'] = output['submissiontype']
+        output['submission_type'] = output.get('submissiontype')
         output['abbreviation'] = self.submissiontype.abbreviation or "XX"
-        output['sample_count'] = self.sample_count
+        output['sample_count'] = len(self.clientsubmissionsampleassociation)
+        excl = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
+                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",
+                               "abbreviation", "endrow", "startrow", "full_batch_size"]
         try:
-            output['excluded'] += ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",
-                               "abbreviation"]
+            output['excluded'] += excl
         except KeyError:
-            output['excluded'] = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",
-                               "abbreviation"]
-        output['expanded'] = ["clientlab", "contact", "submissiontype"]
+            output['excluded'] = excl
+        output['expanded'] = ["clientlab", "contact", "submission_type"]
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
@@ -863,7 +863,7 @@ class Run(BaseClass, LogMixin):
         # NOTE: Create defaults for all proceduretype
         # NOTE: Singles tells the query which fields to set limit to 1
         dicto = super().get_default_info()
-        recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
+        recover = ['filepath', 'sample', 'csv', 'comment', 'equipment', 'run']
         dicto.update(dict(
             details_ignore=['excluded', 'reagents', 'sample',
                             'extraction_info', 'comment', 'barcode',
@@ -939,8 +939,8 @@ class Run(BaseClass, LogMixin):
         output['plate_number'] = self.plate_number
         submission_samples = [sample for sample in self.clientsubmission.sample]
         active_samples = [dict(sample_id=assoc.sample.sample_id, active=True) for assoc in self.runsampleassociation
-                          if assoc.sample.sample_id in [s.sample_id for s in submission_samples]]
-        inactive_samples = [dict(sample_id=sample.sample_id, active=False) for sample in submission_samples if
+                          if assoc.sample and assoc.sample.sample_id in [s.sample_id for s in submission_samples if s]]
+        inactive_samples = [dict(sample_id=sample.sample_id, active=False) for sample in submission_samples if sample and
                             sample.sample_id not in [s['sample_id'] for s in active_samples]]
         output['sample'] = active_samples + inactive_samples
         output['permission'] = is_power_user()
@@ -1054,6 +1054,8 @@ class Run(BaseClass, LogMixin):
                     field_value = self.clientsubmission.name
                 case "procedure":
                     field_value = [item.details_dict for item in self.procedure]
+                case "sample":
+                    field_value = [assoc.sample.details_dict for assoc in self.runsampleassociation]
                 case _:
                     try:
                         key = key.lower().replace(" ", "_")

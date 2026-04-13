@@ -1454,6 +1454,28 @@ class ProcedureType(BaseClass):
                 logger.error(f"Could not add {type(output)} to {self.__class__.__qualname__}._discount")
         self._discount = list_
 
+    @classmethod
+    @setup_lookup
+    def query(cls, id: int | None = None, name: str | None = None, limit: int = 0,
+              **kwargs) -> Procedure | List[
+        Procedure]:
+        query: Query = cls.__database_session__.query(cls)
+        match id:
+            case int():
+                query = query.filter(cls.id == id)
+                limit = 1
+            case _:
+                pass
+        match name:
+            case str():
+                # NOTE: Updated to startswith to enable search using truncated excel tab names.
+                # Possible problem: Another procedure starts with same string.
+                query = query.filter(cls.name.istartswith(name))
+                limit = 1
+            case _:
+                pass
+        return cls.execute_query(query=query, limit=limit)
+
     def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
         from backend.validators.pydant import PydProcedure
         if run:
@@ -1925,7 +1947,7 @@ class Procedure(BaseClass):
     
     @hybrid_property
     def results(self):
-        return [item for item in self._results if not item.sample_id]  # filter out sample-level results, only return procedure-level results
+        return [result for result in self._results if not result.sample_id]  # filter out sample-level results, only return procedure-level results
 
     @results.setter
     def results(self, value):
@@ -1990,6 +2012,52 @@ class Procedure(BaseClass):
     @hybrid_property
     def cost(self) -> float:
         return self._cost
+
+    @property
+    def sample_results(self) -> dict[str, list]:
+        grouped_results: dict[str, list] = {}
+        for result in self._results:
+            if not result.sample_id:
+                continue
+            try:
+                resultstype = result.resultstype.name
+            except AttributeError:
+                resultstype = "Unassigned ResultsType"
+            grouped_results.setdefault(resultstype, []).append(result)
+        return grouped_results
+
+    @property
+    def grouped_results(self) -> dict[str, dict[str, list]]:
+        """Group procedure-level and sample-level results by resultstype.
+
+        Returns a dict keyed by resultstype, with nested "procedure" and "sample"
+        result lists.
+        """
+        def group_by_resultstype(results):
+            grouped: dict[str, List[Results] | Results | None] = {}
+            for result in results:
+                try:
+                    resultstype = result.resultstype.name
+                except AttributeError:
+                    resultstype = "Unassigned ResultsType"
+                if resultstype == "Sample":
+                    grouped.setdefault(resultstype, []).append(result)
+                else:
+                    grouped[resultstype] = result
+            return grouped
+
+        grouped: dict[str, dict[str, list]] = {}
+        procedure_groups = group_by_resultstype(self.results)
+        sample_groups = self.sample_results
+
+        all_resultstypes = set(procedure_groups) | set(sample_groups)
+        for resultstype in all_resultstypes:
+            grouped[resultstype] = {
+                "info": procedure_groups.get(resultstype, None),
+                "sample": sample_groups.get(resultstype, []),
+            }
+
+        return grouped
 
     @classmethod
     @setup_lookup
