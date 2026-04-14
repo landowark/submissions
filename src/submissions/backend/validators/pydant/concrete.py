@@ -291,13 +291,15 @@ class PydSample(PydConcrete):
             case str():
                 sample_id = sample
             case _:
-                # print(f"{sample} is not a valid type")
+                logger.warning(f"{sample} is not a valid type")
                 return False
-        if sample_id.lower().startswith("blank"):
+        if sample_id.strip().lower().startswith("blank"):
             return False
         if sample_id.strip().lower() in ["", "na", "none"]:
             return False
         return True
+
+    
 
 
 class PydEquipment(PydConcrete):
@@ -1172,6 +1174,7 @@ class PydClientSubmission(PydConcrete):
         else:
             for iii, sample in enumerate(samples):
                 sample.rank = iii
+        logger.debug(f"Converting to form with samples: {pformat(samples)}")
         return ClientSubmissionFormWidget(parent=parent, clientsubmission=self, samples=samples, disable=disable)
 
     def to_sql(self, update: bool = True):
@@ -1200,27 +1203,6 @@ class PydClientSubmission(PydConcrete):
                 logger.debug(f"Could not normalize {field_name} for {self}: {exc}")
         self.sql_instance.sample = self.sample
         self.sql_instance.run = self.run
-        # sql_runs = []
-        # for run in self.run:
-        #     match run:
-        #         case PydRun():
-        #             pass
-        #         case dict():
-        #             try:
-        #                 run = PydRun(**run)
-        #             except Exception as e:
-        #                 logger.error(f"Could not convert dict {item} to PydRun due to {e}")
-        #         case str():
-        #             try:
-        #                 run = PydRun(rsl_plate_number=dict(value=run, missing=True))
-        #             except Exception as e:
-        #                 logger.error(f"Could not convert string {item} to PydRun due to {e}")
-        #         case _:
-        #             logger.warning(f"Unmatched type {type(item)} in run list; skipping.")
-        #             continue
-        #     sql_runs.append(run)
-        # self.sql_instance.run = sql_runs
-        # logger.debug(f"SQL instance after run conversion: {self.sql_instance.run[0].__dict__ if self.sql_instance.run else 'No runs'}")
         return self.sql_instance, None
     
     @property

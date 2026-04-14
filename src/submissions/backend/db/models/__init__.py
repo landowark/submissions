@@ -8,8 +8,9 @@ from dateutil.parser import parse
 from jinja2 import Template, TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList, AssociationProxyExtensionType
-from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty
+from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
@@ -32,6 +33,38 @@ Base: DeclarativeMeta = declarative_base()
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
+class SafeMiscInfo(MutableDict, dict):
+
+    """
+    Dictionary wrapper for misc_info to ensure values are sanitized for JSON storage 
+    and to prevent key conflicts with actual model fields. 
+    Values set on this dict will be automatically sanitized using the parent model's 
+    sanitize_obj_for_json method if available, and keys that conflict with SQLAlchemy-mapped 
+    field names will be ignored to prevent issues with attribute access and querying.
+    """
+
+    def __init__(self, *args, owner: BaseClass | None = None, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self._owner = owner
+
+    def _set_safe_item(self, key, value):
+        if self._owner and key.replace("_", "").lower() in self._owner.sqlalchemy_fields:
+            logger.warning(f"Key {key} in misc_info conflicts with existing field name. Skipping.")
+            return
+        safe_value = self._owner.sanitize_obj_for_json(value) if self._owner else value
+        dict.__setitem__(self, key, safe_value)
+
+    def __setitem__(self, key, value):
+        self._set_safe_item(key, value)
+        self.changed()
+
+    def update(self, *args, **kwargs):
+        merged = dict(*args, **kwargs)
+        for key, value in merged.items():
+            self._set_safe_item(key, value)
+        self.changed()
+
+
 class BaseClass(Base):
     """
     Abstract class to pass ctx values to all SQLAlchemy objects.
@@ -42,13 +75,28 @@ class BaseClass(Base):
 
     singles = ['id']
 
-    _misc_info = Column(JSON)
+    _misc_info = Column(MutableDict.as_mutable(JSON))
 
     def __repr__(self) -> str:
         try:
             return f"<{self.__class__.__name__}({self.name})>"
         except AttributeError:
             return f"<{self.__class__.__name__}(Name Unavailable)>"
+
+    def _wrap_misc_info(self):
+        try:
+            if self._misc_info is None:
+                self._misc_info = SafeMiscInfo(owner=self)
+            elif isinstance(self._misc_info, SafeMiscInfo):
+                self._misc_info._owner = self
+            else:
+                self._misc_info = SafeMiscInfo(self._misc_info, owner=self)
+        except AttributeError:
+            self._misc_info = SafeMiscInfo(owner=self)
+
+    @reconstructor
+    def init_on_load(self):
+        self._wrap_misc_info()
 
     @hybrid_property
     def misc_info(self) -> dict:
@@ -57,17 +105,11 @@ class BaseClass(Base):
     # NOTE: Placeholder setter for now, but allows for future validation or transformation of misc_info values if desired.
     @misc_info.setter
     def misc_info(self, value):
-        for k, v in value.items():
-            if k.replace("_", "").lower() in self.sqlalchemy_fields():
-                logger.warning(f"Key {k} in misc_info for {self.__class__.__name__} conflicts with existing field name. Skipping.")
-                continue
-            try:
-                safe_v = self._serialize_misc_value(v)
-                value[k] = safe_v
-            except TypeError:
-                logger.warning(f"Could not serialize misc_info value for key {k} with value {v}. Skipping.")
-                continue
-        self._misc_info = value
+        if not isinstance(value, dict):
+            logger.warning(f"Attempted to set misc_info to non-dict value: {value}. Ignoring.")
+            return
+        self._misc_info = SafeMiscInfo(owner=self)
+        self._misc_info.update(value)
 
     @classproperty
     def aliases(cls) -> List[str]:
@@ -151,25 +193,10 @@ class BaseClass(Base):
         misc_kwargs = {k: v for k, v in kwargs.items() if k not in valid_kwargs}
         # Call SQLAlchemy / Declarative __init__ only with valid kwargs
         super().__init__(**valid_kwargs)
-        # Ensure _misc_info exists and merge misc kwargs into it
-        try:
-            if self._misc_info is None:
-                self._misc_info = {}
-        except AttributeError:
-            self._misc_info = {}
+        # Ensure _misc_info exists and is wrapped in the safe dict type
+        self._wrap_misc_info()
         if misc_kwargs:
-            # merge misc kwargs (overwrites existing misc keys if present)
-            # ensure values placed into _misc_info are json serializable
-            for k, v in misc_kwargs.items():
-                try:
-                    safe_v = self._serialize_misc_value(v)
-                except TypeError:
-                    # skip values that cannot be made serializable
-                    continue
-                try:
-                    self._misc_info.update({k: safe_v})
-                except AttributeError:
-                    self._misc_info = {k: safe_v}
+            self._misc_info.update(misc_kwargs)
 
     @classproperty
     def jsons(cls):
@@ -201,7 +228,7 @@ class BaseClass(Base):
                 logger.error(f"Could not get timestamps due to {e}")
             return []
 
-    @classmethod
+    @classproperty
     def sqlalchemy_fields(cls) -> List[str]:
         """
         Get list of SQLAlchemy mapped field names for this model.
@@ -248,7 +275,7 @@ class BaseClass(Base):
             pass
         # If it's a BaseClass-like instance, prefer name/id when available
         try:
-            if isinstance(value, BaseClass):
+            if issubclass(value.__class__, BaseClass):
                 return getattr(value, "name", None) or getattr(value, "id", None) or str(value)
         except Exception:
             pass
@@ -548,6 +575,8 @@ class BaseClass(Base):
         report = Report()
         del_keys = []
         try:
+            if not isinstance(self._misc_info, SafeMiscInfo):
+                self._misc_info = SafeMiscInfo(self._misc_info or {}, owner=self)
             items = list(self._misc_info.items())
         except AttributeError:
             items = []
@@ -558,9 +587,7 @@ class BaseClass(Base):
                 json.dumps(value)
             except TypeError:
                 try:
-                    safe_value = self._serialize_misc_value(value)
-                    # update in place
-                    self._misc_info[key] = safe_value
+                    self._misc_info[key] = self.sanitize_obj_for_json(value)
                 except TypeError:
                     del_keys.append(key)
         for dk in del_keys:

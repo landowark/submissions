@@ -198,9 +198,11 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
             return 0
         if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
             return 0
-        if sample_id.lower().startswith(("atcc", "mcs")):
+        if sample_id.lower().startswith(("atcc", "mcs", "pos", "positivecontrol", "poscontrol", "pc")):
             return 1
-        if sample_id.lower().startswith(("en", 'pbs')):
+        if sample_id.lower().startswith(("en", "neg", "negcontrol", "negativecontrol", "nc")):
+            return -1
+        if "pbs" in sample_id.lower():
             return -1
         return 0
         

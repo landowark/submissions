@@ -298,7 +298,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     continue
             if isinstance(output, ClientSubmissionSampleAssociation):
                 try:
-                    check = output.sample.sample_id.lower() in ["blank", "na", "none", ""]
+                    check = output.sample.sample_id.lower().startswith(("blank", "na", "none", ""))
                 except AttributeError:
                     check = True
                 if check:
@@ -1702,9 +1702,9 @@ class Sample(BaseClass, LogMixin):
     def save(self) -> Report | types.NoneType:
         if self.sample_id is None:
             return
-        if self.sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
+        if self.sample_id.lower() in ["", "blank", "na", "n/a", "n\\a", "none"]:
             return
-        super().save()
+        super().save()                                    
 
 # NOTE: Submission to Sample Associations
 
@@ -1818,7 +1818,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
                 output.save()
             self._sample = output
         else:
-            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}")
+            logger.error(f"{self.__class__.__qualname__} Could not set _sample to {type(output)}: {output}")
   
     @hybrid_property
     def clientsubmission(self):
@@ -1852,7 +1852,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['sample']}
         output = self.sample.details_dict
-        misc = output.get('misc_info', {})
+        misc = {k:v for k, v in output.get('misc_info', {}).items() if k not in ['sample']}
         output.update(relevant)
         output['misc_info'] = misc
         output['rank'] = self.submission_rank

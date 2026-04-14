@@ -11,7 +11,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from .functions import select_open_file, select_save_file
 from pathlib import Path
 from tools import Report, Alert, main_form_style, report_result, get_application_from_parent
-from backend.validators import PydClientSubmission
+from backend.validators import PydClientSubmission, PydSample
 from backend.db.models import (
     ClientLab, SubmissionType
 )
@@ -150,6 +150,7 @@ class SubmissionFormContainer(QWidget):
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
+        # Samples are okay up to this point
         if checker.exec():
             try:
                 assert isinstance(self.pydclientsubmission, PydClientSubmission)
@@ -166,8 +167,7 @@ class SubmissionFormContainer(QWidget):
 
     
 class SubmissionFormWidget(QWidget):
-    update_reagent_fields = ['kittype']
-
+    
     def __init__(self, parent: QWidget, pyd: PydClientSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
         from backend.db.models import Run
@@ -200,16 +200,9 @@ class SubmissionFormWidget(QWidget):
                 except KeyError:
                     value = dict(value=None, missing=True)
             add_widget = self.create_widget(key=k, value=value, submission_type=self.submissiontype,
-                                            # run_object=Run(), disable=check)
                                             clientsubmission_object=pyd.sql_instance, disable=check)
             if add_widget is not None:
                 self.layout.addWidget(add_widget)
-            # if k in self.__class__.update_reagent_fields:
-            #     add_widget.input.currentTextChanged.connect(self.scrape_reagents)
-            #     self.disabler = self.DisableReagents(self)
-            #     self.disabler.checkbox.setChecked(True)
-            #     self.layout.addWidget(self.disabler)
-            #     self.disabler.checkbox.checkStateChanged.connect(self.disable_reagents)
         self.setStyleSheet(main_form_style)
         self.setLayout(self.layout)
 
@@ -236,65 +229,9 @@ class SubmissionFormWidget(QWidget):
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if key not in self.ignore:
-            # match value:
-            #     case PydReagent():
-            #         if value.name.lower() != "not applicable":
-            #             widget = self.ReagentFormWidget(parent=self, reagent=value, extraction_kit=extraction_kit)
-            #         else:
-            #             widget = None
-            #     case _:
-            #         widget = self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
-            #                                clientsubmission_object=clientsubmission_object)
-            # if disable:
-            #     widget.input.setEnabled(False)
-            #     widget.input.setToolTip("Widget disabled to protect database integrity.")
             return self.InfoItem(parent=self, key=key, value=value, submission_type=submission_type,
                                            clientsubmission_object=clientsubmission_object, disable=disable)
         return None
-
-    # @report_result
-    # def scrape_reagents(self, *args, **kwargs):  #kittype:str, caller:str|None=None):
-    #     """
-    #     Extracted scrape reagents function that will procedure when
-    #     form 'kittype' widget is updated.
-
-    #     Args:
-    #         obj (QMainWindow): updated main application
-    #         extraction_kit (str): name of extraction kittype (in 'kittype' widget)
-
-    #     Returns:
-    #         Tuple[QMainWindow, dict]: Updated application and result
-    #     """
-    #     self.extraction_kit = args[0]
-    #     report = Report()
-    #     # NOTE: Remove previous reagent widgets
-    #     try:
-    #         old_reagents = self.find_widgets()
-    #     except AttributeError:
-    #         logger.error(f"Couldn't find old reagents.")
-    #         old_reagents = []
-    #     for reagent in old_reagents:
-    #         if isinstance(reagent, self.ReagentFormWidget) or isinstance(reagent, QPushButton):
-    #             reagent.setParent(None)
-    #     reagents, integrity_report, missing_reagents = self.pyd.check_kit_integrity(extraction_kit=self.extraction_kit)
-    #     expiry_report = self.pyd.check_reagent_expiries(exempt=missing_reagents)
-    #     for reagent in reagents:
-    #         add_widget = self.ReagentFormWidget(parent=self, reagent=reagent, extraction_kit=self.extraction_kit)
-    #         self.layout.addWidget(add_widget)
-    #     report.add_result(integrity_report)
-    #     report.add_result(expiry_report)
-    #     if hasattr(self.pyd, "csv"):
-    #         export_csv_btn = QPushButton("Export CSV")
-    #         export_csv_btn.setObjectName("export_csv_btn")
-    #         self.layout.addWidget(export_csv_btn)
-    #         export_csv_btn.clicked.connect(self.export_csv_function)
-    #     submit_btn = QPushButton("Submit")
-    #     submit_btn.setObjectName("submit_btn")
-    #     self.layout.addWidget(submit_btn)
-    #     submit_btn.clicked.connect(self.submit_new_sample_function)
-    #     self.setLayout(self.layout)
-    #     self.disabler.checkbox.setChecked(True)
-    #     return report
 
     def clear_form(self):
         """
@@ -302,41 +239,6 @@ class SubmissionFormWidget(QWidget):
         """
         for item in self.findChildren(QWidget):
             item.setParent(None)
-
-    
-    # @report_result
-    # def submit_new_sample_function(self, *args) -> Report:
-    #     """
-    #     Parse forms and add sample to the database.
-
-    #     Args:
-    #         obj (QMainWindow): original app window
-
-    #     Returns:
-    #         Tuple[QMainWindow, dict]: Collection of new main app window and result dict
-    #     """
-    #     logger.info(f"\n\nBeginning Submission\n\n")
-    #     report = Report()
-    #     result = self.parse_form()
-    #     report.add_result(result)
-    #     base_submission = self.pyd.to_sql()
-    #     # NOTE: check output message for issues
-    #     if base_submission is None:
-    #         return
-    #     for reagent in base_submission.reagents:
-    #         reagent.update_last_used(kit=base_submission.extraction_kit)
-    #     save_output = base_submission.save()
-    #     # NOTE: update summary sheet
-    #     self.app.table_widget.sub_wid.set_data()
-    #     # NOTE: reset form
-    #     try:
-    #         check = save_output.results == []
-    #     except AttributeError:
-    #         logger.error(f"No save output, check passes")
-    #         check = True
-    #     if check:
-    #         self.setParent(None)
-    #     return report
 
     def export_csv_function(self, fname: Path | None = None):
         """
@@ -364,21 +266,10 @@ class SubmissionFormWidget(QWidget):
         report = Report()
         logger.info(f"Hello from form parser!")
         info = {}
-        # reagents = []
         for widget in self.findChildren(QWidget):
-            # match widget:
-                # case self.ReagentFormWidget():
-                #     reagent = widget.parse_form()
-                #     if reagent is not None:
-                #         reagents.append(reagent)
-                #     else:
-                #         report.add_result(Alert(msg="Failed integrity check", status="Critical"))
-                #         return report
-                # case self.InfoItem():
             field, value = widget.parse_form()
             if field is not None:
                 info[field] = value
-        # self.pyd.reagents = reagents
         for item in self.recover:
             if hasattr(self, item):
                 value = getattr(self, item)
@@ -593,156 +484,6 @@ class SubmissionFormWidget(QWidget):
                     output = key.replace('_', ' ')
                 self.setText(f"UPDATED {output}")
 
-    # class ReagentFormWidget(QWidget):
-
-    #     def __init__(self, parent: QWidget, reagent: PydReagent, extraction_kit: str):
-    #         super().__init__(parent)
-    #         self.parent = parent
-    #         self.app = get_application_from_parent(parent)
-    #         self.reagent = reagent
-    #         self.extraction_kit = extraction_kit
-    #         layout = QGridLayout()
-    #         self.check = QCheckBox()
-    #         self.check.setChecked(True)
-    #         self.check.checkStateChanged.connect(self.disable)
-    #         layout.addWidget(self.check, 0, 0, 1, 1)
-    #         self.label = self.ReagentParsedLabel(reagent=reagent)
-    #         layout.addWidget(self.label, 0, 1, 1, 9)
-    #         self.lot = self.ReagentLot(scrollWidget=parent, reagent=reagent, extraction_kit=extraction_kit)
-    #         layout.addWidget(self.lot, 1, 0, 1, 10)
-    #         # NOTE: Remove spacing between reagents
-    #         layout.setContentsMargins(0, 0, 0, 0)
-    #         self.setLayout(layout)
-    #         self.setObjectName(reagent.name)
-    #         self.missing = reagent.missing
-    #         # NOTE: If changed set self.missing to True and update self.label
-    #         self.lot.currentTextChanged.connect(self.updated)
-
-    #     def flip_check(self, checked: bool):
-    #         with QSignalBlocker(self.check) as b:
-    #             self.check.setChecked(checked)
-    #             self.lot.setEnabled(checked)
-    #             self.label.setEnabled(checked)
-
-    #     def disable(self):
-    #         self.lot.setEnabled(self.check.isChecked())
-    #         self.label.setEnabled(self.check.isChecked())
-    #         with QSignalBlocker(self.parent.disabler.checkbox) as blocker:
-    #             if any([item.lot.isEnabled() for item in self.parent.findChildren(self.__class__)]):
-    #                 self.parent.disabler.checkbox.setChecked(True)
-    #             else:
-    #                 self.parent.disabler.checkbox.setChecked(False)
-
-    #     @report_result
-    #     def parse_form(self) -> Tuple[PydReagent | None, Report]:
-    #         """
-    #         Pulls form info into PydReagent
-
-    #         Returns:
-    #             Tuple[PydReagent, dict]: PydReagent and Report(?)
-    #         """
-    #         report = Report()
-    #         if not self.lot.isEnabled():
-    #             return None, report
-    #         lot = self.lot.currentText()
-    #         wanted_reagent, new = Reagent.query_or_create(lot=lot, role=self.reagent.role, expiry=self.reagent.expiry)
-    #         # NOTE: if reagent doesn't exist in database, offer to add it (uses App.add_reagent)
-    #         if new:
-    #             dlg = QuestionAsker(title=f"Add {lot}?",
-    #                                 message=f"Couldn't find reagent type {self.reagent.role}: {lot} in the database.\n\nWould you like to add it?")
-    #             if dlg.exec():
-    #                 wanted_reagent = self.parent.parent().add_reagent(instance=wanted_reagent)
-    #                 return wanted_reagent, report
-    #             else:
-    #                 # NOTE: In this case we will have an empty reagent and the procedure will fail kittype integrity check
-    #                 return None, report
-    #         else:
-    #             # NOTE: Since this now gets passed in directly from the clientsubmissionparser -> pydclientsubmission -> form and the clientsubmissionparser gets the name from the db, it should no longer be necessary to query the db with reagent/kittype, but with rt name directly.
-    #             rt = ReagentRole.query(name=self.reagent.role)
-    #             if rt is None:
-    #                 rt = ReagentRole.query(kittype=self.extraction_kit, reagent=wanted_reagent)
-    #             final = PydReagent(name=wanted_reagent.name, lot=wanted_reagent.lot, role=rt.name,
-    #                                expiry=wanted_reagent.expiry.date(), missing=False)
-    #             return final, report
-
-    #     def updated(self):
-    #         """
-    #         Set widget status to updated
-    #         """
-    #         self.missing = True
-    #         self.label.updated(self.reagent.role)
-
-    #     class ReagentParsedLabel(QLabel):
-
-    #         def __init__(self, reagent: PydReagent):
-    #             super().__init__()
-    #             try:
-    #                 check = not reagent.missing
-    #             except:
-    #                 check = False
-    #             self.setObjectName(f"{reagent.role}_label")
-    #             if check:
-    #                 self.setText(f"Parsed {reagent.role}")
-    #             else:
-    #                 self.setText(f"MISSING {reagent.role}")
-
-    #         def updated(self, reagent_role: str):
-    #             """
-    #             Marks widget as updated
-
-    #             Args:
-    #                 reagent_role (str): _description_
-    #             """
-    #             self.setText(f"UPDATED {reagent_role}")
-
-    #     class ReagentLot(MyQComboBox):
-
-    #         def __init__(self, scrollWidget, reagent, extraction_kit: str) -> None:
-    #             super().__init__(scrollWidget=scrollWidget)
-    #             self.setEditable(True)
-    #             looked_up_rt = ProcedureTypeReagentRoleAssociation.query(reagentrole=reagent.reagentrole,
-    #                                                                proceduretype=extraction_kit)
-    #             relevant_reagents = [str(item.lot) for item in looked_up_rt.get_all_relevant_reagents()]
-    #             # NOTE: if reagent in sheet is not found insert it into the front of relevant reagents so it shows
-    #             if str(reagent.lot) not in relevant_reagents:
-    #                 if check_not_nan(reagent.lot):
-    #                     relevant_reagents.insert(0, str(reagent.lot))
-    #                 else:
-    #                     try:
-    #                         looked_up_reg = Reagent.query(lot=looked_up_rt.last_used)
-    #                     except AttributeError:
-    #                         looked_up_reg = None
-    #                     if isinstance(looked_up_reg, list):
-    #                         looked_up_reg = None
-    #                     if looked_up_reg:
-    #                         try:
-    #                             relevant_reagents.insert(0, relevant_reagents.pop(
-    #                                 relevant_reagents.index(looked_up_reg.lot)))
-    #                         except ValueError as e:
-    #                             logger.error(f"Error reordering relevant reagents: {e}")
-    #             else:
-    #                 if len(relevant_reagents) > 1:
-    #                     idx = relevant_reagents.index(str(reagent.lot))
-    #                     moved_reag = relevant_reagents.pop(idx)
-    #                     relevant_reagents.insert(0, moved_reag)
-    #                 else:
-    #                     pass
-    #             self.setObjectName(f"lot_{reagent.equipmentrole}")
-    #             self.addItems(relevant_reagents)
-    #             self.setToolTip(f"Enter lot number for the reagent used for {reagent.equipmentrole}")
-
-    # class DisableReagents(QWidget):
-
-    #     def __init__(self, parent: QWidget):
-    #         super().__init__(parent)
-    #         self.app = self.parent().parent().parent().parent().parent().parent().parent().parent()
-    #         layout = QHBoxLayout()
-    #         self.label = QLabel("Import Reagents")
-    #         self.checkbox = QCheckBox()
-    #         layout.addWidget(self.label)
-    #         layout.addWidget(self.checkbox)
-    #         self.setLayout(layout)
-
 
 class ClientSubmissionFormWidget(SubmissionFormWidget):
 
@@ -796,10 +537,10 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         report.add_result(report)
         return report
 
-    # @report_result
     def to_pydantic(self, *args):
         self.parse_form()
         output = self.pyd
+        output.sample = [item for item in output.sample if PydSample.is_sample_id_valid(item)]
         return output
 
     @report_result
@@ -812,15 +553,19 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         # Save samples individually and collect the saved SQL Sample objects.
         # Later, attach these saved Sample objects to the submission SQL object so
         # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
-        saved_samples = []
+        # saved_samples = []
         for sample in pyd.sample:
             # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
-            if isinstance(sample, PydSample):
-                sample_sql = sample.to_sql()
-                if isinstance(sample_sql, tuple):
-                    sample_sql = sample_sql[0]
-            else:
-                sample_sql = sample
+            match sample:
+                case PydSample():
+                    sample_sql = sample.to_sql()
+                    if isinstance(sample_sql, tuple):
+                        sample_sql = sample_sql[0]
+                case Sample():
+                    sample_sql = sample
+                case _:
+                    logger.error(f"Unexpected sample object type: {type(sample)}. Skipping.")
+                    continue
             # Defensive checks
             if isinstance(sample_sql, PydSample):
                 logger.error("Expected SQL Sample object but got PydSample after to_sql(). Skipping.")
@@ -841,22 +586,27 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                     sid_str = str(sid).strip()
                 except Exception:
                     sid_str = ""
-                if not sid_str or sid_str.lower() in ("", "blank", "na", "n/a"):
+                if not sid_str or sid_str.lower() in ("", "blank", "na", "n/a", "none"):
+                    logger.warning(f"Sample with sample_id '{sid}' not found.")
+                else:
                     sample_sql.save()
                 # At this point the rank is correct
-            saved_samples.append(sample_sql)
-        logger.debug(f"Got pydantic run object from form: {pformat(pyd.run[0].__dict__)}")
-        # runs = []
-        # for run in pyd.run:
-        #     run = run.to_sql()
-        #     if isinstance(run, tuple):
-        #         run = run[0]
-        #     runs.append(run)
-        pyd.run = []
+            sample.sql_instance = sample_sql
+            # saved_samples.append(sample_sql)
+        # logger.debug(f"Got pydantic run object from form: {pformat(pyd.run[0].__dict__)}")
+        # NOTE: Can't append directly to pyd.run due to using setter.
+        runs = []
+        for run in pyd.run:
+            run = run.to_sql()
+            if isinstance(run, tuple):
+                run = run[0]
+            runs.append(run)
+        pyd.run = runs
         sql = pyd.to_sql()
         
         if isinstance(sql, tuple):
             sql = sql[0]
+        logger.debug(f"Got SQL submission object samples from pydantic: {pformat(sql.sample)}")
         # sql.run = runs
         # logger.debug(f"Got sqlalchemy run object from form: {pformat(sql.run[0].__dict__)}")
         # Remove any sample info accidentally left in misc_info by pyd.to_sql
@@ -867,15 +617,15 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         # Clear any pre-built association objects created by pyd.to_sql() so we can
         # re-create clean associations from the saved Sample SQL objects. This avoids
         # carrying over non-serializable _misc_info from pyd objects into the DB.
-        try:
-            if hasattr(sql, 'clientsubmissionsampleassociation'):
-                sql.clientsubmissionsampleassociation = []
-        except Exception as e:
-            logger.warning(f"Could not clear existing sample associations: {e}")
-        try:
-            sql.sample = saved_samples
-        except Exception as e:
-            logger.error(f"Couldn't set samples to {pyd.sample}\ndue to {e}")
+        # try:
+        #     if hasattr(sql, 'clientsubmissionsampleassociation'):
+        #         sql.clientsubmissionsampleassociation = []
+        # except Exception as e:
+        #     logger.warning(f"Could not clear existing sample associations: {e}")
+        # try:
+        #     sql.sample = saved_samples
+        # except Exception as e:
+        #     logger.error(f"Couldn't set samples to {pyd.sample}\ndue to {e}")
         sql.save()
         self.app.table_widget.sub_wid.set_data()
         self.setParent(None)
