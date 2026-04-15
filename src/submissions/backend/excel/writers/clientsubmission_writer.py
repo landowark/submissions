@@ -38,7 +38,7 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
 
     exclude = ['id', 'enabled', 'procedure_rank', "name", "clientsubmission", "is_control", "rank", "sample",
                "excluded", "procedure", "run", "sampleclientsubmissionassociation", "sampleprocedureassociation",
-               "samplerunassociation"]
+               "samplerunassociation", "results"]
     header_order = ["submission_rank", "sample_id"]
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):

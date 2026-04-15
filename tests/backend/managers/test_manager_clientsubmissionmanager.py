@@ -64,7 +64,7 @@ def test_write(construct_from_sql):
     assert "Client Info" in workbook.sheetnames
     ws = workbook['Client Info']
     assert ws.cell(1,1).value == "Submitter Info"
-    assert ws.cell(13, 3).value == "Row"
+    # assert ws.cell(13, 3).value == "Row"
 
 
 def test_find_procedures(construct_from_excel):

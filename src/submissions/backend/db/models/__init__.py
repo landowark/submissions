@@ -9,7 +9,7 @@ from jinja2 import Template, TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
 from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList, AssociationProxyExtensionType
+from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList
 from sqlalchemy.orm import DeclarativeMeta, declarative_base, Query, Session, ColumnProperty, RelationshipProperty, reconstructor
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
@@ -84,15 +84,26 @@ class BaseClass(Base):
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
     def _wrap_misc_info(self):
+        # try:
+        #     if self._misc_info is None:
+        #         self._misc_info = SafeMiscInfo(owner=self)
+        #     elif isinstance(self._misc_info, SafeMiscInfo):
+        #         self._misc_info._owner = self
+        #     else:
+        #         self._misc_info = SafeMiscInfo(self._misc_info, owner=self)
+        # except AttributeError:
+        #     self._misc_info = SafeMiscInfo(owner=self)
         try:
-            if self._misc_info is None:
-                self._misc_info = SafeMiscInfo(owner=self)
-            elif isinstance(self._misc_info, SafeMiscInfo):
-                self._misc_info._owner = self
-            else:
-                self._misc_info = SafeMiscInfo(self._misc_info, owner=self)
+            raw_misc = object.__getattribute__(self, "_misc_info")
         except AttributeError:
+            raw_misc = None
+
+        if raw_misc is None or isinstance(raw_misc, Column):
             self._misc_info = SafeMiscInfo(owner=self)
+        elif isinstance(raw_misc, SafeMiscInfo):
+            raw_misc._owner = self
+        else:
+            self._misc_info = SafeMiscInfo(raw_misc, owner=self)
 
     @reconstructor
     def init_on_load(self):

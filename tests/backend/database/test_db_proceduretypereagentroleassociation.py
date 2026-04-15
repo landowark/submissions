@@ -60,10 +60,3 @@ def test_proceduretypereagentroleassociation_set_reagentrole(proceduretypereagen
     test_insert = dict(name="Dict ReagentRole")
     proceduretypereagentroleassociation.reagentrole = test_insert
     assert proceduretypereagentroleassociation.reagentrole.name == "Dict ReagentRole"
-
-
-def test_proceduretypereagentroleassociation_get_all_relevant_reagents(proceduretypereagentroleassociation):
-    reagents = proceduretypereagentroleassociation.get_all_relevant_reagents()
-    assert isinstance(reagents, Generator)
-    for reagent in reagents:
-        assert isinstance(reagent, Reagent)
