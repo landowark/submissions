@@ -658,7 +658,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         # Build a new ordered list of samples matching the sample_list order.
         new_samples: List[PydSample] = []
         for iii, sample_dict in enumerate(sample_list, start=1):
-            logger.debug(f"Sample: {sample_dict}")
             sample_id = sample_dict.get('sample_id', '')
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
@@ -699,9 +698,9 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     def update_reagents(self, reagentrole: str, name: str, lot: str, checked:bool=True):
         from backend.db.models import ReagentLot
         try:
-            removable = next((item for item in self.reagentlot if reagentrole in (rr.name for rr in item.sql_instance.reagentlot.reagent.reagentrole)), None)
+            removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
         except AttributeError as e:
-            logger.error(self.reagentlot)
+            logger.error(e)
             removable = None
         if removable:
             idx = self.reagentlot.index(removable)
@@ -718,7 +717,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
-        # logger.info(f"Updated reagentlot to: {[item.name for item in self.reagentlot]}")
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
@@ -768,8 +766,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 if set(value.keys()) <= {"name", "missing"}:
                     return value["name"]
             return value
-
-        logger.debug(f"Coming into sql: {pformat(self.improved_dict['sample'])}")
         self.sql_instance.technician = normalize_dict_field("technician", self.technician)
         self.sql_instance.started_date = normalize_dict_field("started_date", self.started_date)
         self.sql_instance.completed_date = normalize_dict_field("completed_date", self.completed_date)
@@ -1426,14 +1422,11 @@ class PydRun(PydConcrete):  #, extra='allow'):
     def to_sql(self, update: bool = True):
         from backend.db.models import Run
         self.sql_instance: Run = super().to_sql(update=update)
-        logger.debug(f"Coming into sql: {pformat(self.__dict__)}")
         if not update:
             return self.sql_instance, None
-        
         self.sql_instance.clientsubmission = self.clientsubmission
         self.sql_instance.procedure = self.procedure
         self.sql_instance.sample = [sample for sample in self.sample if PydSample.is_sample_id_valid(sample)]
-        # print(f"Added samples: {self.sql_instance.sample}")
         return self.sql_instance, None
 
     @property

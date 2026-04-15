@@ -264,9 +264,7 @@ class ReagentRole(BaseClass):
         assoc = next((item for item in self.reagentroleproceduretypeassociation if item.proceduretype == proceduretype), None)
         reagents = [reagent for reagent in self.reagent]
         if assoc:
-            last_used = Reagent.query(name=assoc.last_used)
-            if isinstance(last_used, list):
-                last_used = None
+            last_used = assoc.last_used
             if last_used:
                 reagents.insert(0, reagents.pop(reagents.index(last_used)))
         return [reagent.to_pydantic() for reagent in reagents]
@@ -2141,7 +2139,8 @@ class Procedure(BaseClass):
         # procedure.sample = [assoc.to_pydantic() for assoc in self.proceduresampleassociation]
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
-            sql, _ = dlg.return_sql()
+            sql: Procedure = dlg.return_sql()
+            sql.update_last_useds()
             # NOTE: Print out all procedureequipmentassociation objects
             sql.save()
 
@@ -2309,6 +2308,19 @@ class Procedure(BaseClass):
         columns = set([assoc.row for assoc in self.proceduresampleassociation])
         return len(columns)
 
+    def update_last_useds(self):
+        for reagentlotassoc in self.procedurereagentlotassociation:
+            logger.debug(f"Updating last used for {reagentlotassoc}")
+            reagentrole = reagentlotassoc.reagentrole
+            proceduretype = self.proceduretype
+            assoc = ProcedureTypeReagentRoleAssociation.query(proceduretype=proceduretype, reagentrole=reagentrole, limit=1)
+            if assoc:
+                logger.debug(f"Found association {assoc} for proceduretype {proceduretype} and reagentrole {reagentrole}")
+                try:
+                    assoc.update_last_used(reagentlotassoc.reagentlot)
+                except Exception as e:
+                    logger.error(f"Error updating last used for {assoc}: {e}")
+                
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """
@@ -2320,7 +2332,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                             primary_key=True)  #: id of associated reagentrole
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"),
                               primary_key=True)  #: id of associated proceduretype
-    last_used = Column(String(32))  #: last used lot number of this type of reagent
+    # last_used = Column(String(32))  #: last used lot number of this type of reagent
     
     # NOTE: reference to the "ReagentType" object
     _reagentrole = relationship(ReagentRole,
@@ -2329,6 +2341,10 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     # NOTE: reference to the "SubmissionType" object
     _proceduretype = relationship(ProcedureType,
                                  back_populates="proceduretypereagentroleassociation")  #: relationship to associated SubmissionType
+    # NOTE: reference to the "ReagentLot" object for the last used lot of this type of reagent
+    _last_used = relationship(ReagentLot)
+    
+    last_used_lot = Column(String(64), ForeignKey("_reagentlot.lot"))  #: id of associated procedure
 
     @classproperty
     def aliases(cls) -> List[str]:
@@ -2475,7 +2491,7 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         query: Query = cls.__database_session__.query(cls)
         match reagentrole:
             case ReagentRole():
-                query = query.filter(cls.reagent_role == reagentrole)
+                query = query.filter(cls.reagentrole == reagentrole)
             case str():
                 query = query.join(ReagentRole).filter(ReagentRole.name == reagentrole)
             case _:
@@ -2495,14 +2511,10 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    def get_all_relevant_reagents(self) -> Generator[Reagent, None, None]:
-        """
-        Creates a generator that will resolve in to a list filling the reagentrole associated with this object.
-
-        Returns:
-            Generator: Generates of reagents.
-        """
-        return (reagent for reagent in self.reagentrole.reagent)
+    def update_last_used(self, reagentlot: ReagentLot):
+        # self.last_used_lot = reagentlot.lot
+        self._last_used = reagentlot
+        self.save()
 
 
 class ProcedureReagentLotAssociation(BaseClass):

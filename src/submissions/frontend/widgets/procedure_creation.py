@@ -2,7 +2,7 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
-import json, sys, logging, re, datetime, os
+import sys, logging, datetime, os
 from pprint import pformat
 from PyQt6.QtCore import pyqtSlot, Qt, QVariant
 from PyQt6.QtWebChannel import QWebChannel

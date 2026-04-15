@@ -498,12 +498,7 @@ class ClientSubmission(BaseClass, LogMixin):
                     continue
                 else:
                     sample = self.rank_sample(sample, iii)
-                    # output_sample = sample.to_sql(update=False)                    
-                    # if isinstance(output_sample, tuple):
-                        # output_sample = output_sample[0]
                     selected_samples.append(sample)
-            # logger.debug(f"Selected pydantic samples:\n{pformat(pyd_selected)}")
-            # run.sample = pyd_selected
             run.sample = selected_samples
             run.save()
         else:
@@ -1200,6 +1195,7 @@ class Run(BaseClass, LogMixin):
         dlg = ProcedureCreation(parent=obj, procedure=procedure)
         if dlg.exec():
             sql = dlg.return_sql(new=True)
+            sql.update_last_useds()
             sql.save()
         obj.set_data()
 

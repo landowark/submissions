@@ -332,6 +332,7 @@ class PydProcedureType(PydAbstract):
     def allowed_result_methods(self) -> List[str]:
         return self.sql_instance.allowed_result_methods
 
+
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 
     proceduretype: str = Field(default="NA")

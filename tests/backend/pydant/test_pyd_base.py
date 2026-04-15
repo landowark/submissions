@@ -102,6 +102,12 @@ def test_sql_classes(baseclass_instance):
     assert "configitem" in sql_classes
 
 
+def test_sqlalchemy_fields_includes_hybrid_properties():
+    hybrid_fields = models.ReagentRole.sqlalchemy_fields
+    assert "proceduretype" in hybrid_fields
+    assert "reagent" in hybrid_fields
+
+
 def test_clean_details_for_render(baseclass_instance):
     sql=models.Reagent(name="Test")
     sql.eol_ext=30

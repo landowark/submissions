@@ -546,14 +546,12 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
     @report_result
     def create_new_submission(self, *args) -> Report:
         from backend.validators.pydant import PydSample
-        from backend.db.models import Sample
+        from backend.db.models import Sample, Procedure
         pyd = self.to_pydantic()
         # NOTE: run is empty at this point.
-        # logger.debug(f"Got pydantic object from form: {pformat(pyd.__dict__)}")
         # Save samples individually and collect the saved SQL Sample objects.
         # Later, attach these saved Sample objects to the submission SQL object so
         # .save() does not attempt to INSERT duplicate Sample rows (same sample_id).
-        # saved_samples = []
         for sample in pyd.sample:
             # Normalize PydSample -> SQL Sample object first so we can inspect sample_id safely
             match sample:
@@ -573,7 +571,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             if not isinstance(sample_sql, Sample):
                 logger.error(f"Unexpected sample object type: {type(sample_sql)}. Skipping.")
                 continue
-
             sid = getattr(sample_sql, 'sample_id', None)
             # If a sample already exists in DB, query it and reuse that instance.
             existing = Sample.query(sample_id=sid)
@@ -602,13 +599,10 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                 run = run[0]
             runs.append(run)
         pyd.run = runs
-        sql = pyd.to_sql()
+        sql: Procedure = pyd.to_sql()
         
         if isinstance(sql, tuple):
             sql = sql[0]
-        logger.debug(f"Got SQL submission object samples from pydantic: {pformat(sql.sample)}")
-        # sql.run = runs
-        # logger.debug(f"Got sqlalchemy run object from form: {pformat(sql.run[0].__dict__)}")
         # Remove any sample info accidentally left in misc_info by pyd.to_sql
         try:
             del sql._misc_info['sample']
@@ -622,10 +616,7 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         #         sql.clientsubmissionsampleassociation = []
         # except Exception as e:
         #     logger.warning(f"Could not clear existing sample associations: {e}")
-        # try:
-        #     sql.sample = saved_samples
-        # except Exception as e:
-        #     logger.error(f"Couldn't set samples to {pyd.sample}\ndue to {e}")
+        # sql.update_last_useds()
         sql.save()
         self.app.table_widget.sub_wid.set_data()
         self.setParent(None)

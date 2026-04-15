@@ -234,13 +234,20 @@ class BaseClass(Base):
         Get list of SQLAlchemy mapped field names for this model.
 
         Returns:
-            List[str]: List of column and relationship attribute names
+            List[str]: List of column, relationship, and hybrid property names
         """
         try:
             mapper = sql_inspect(cls)
             column_names = [attr.key for attr in mapper.column_attrs]
             relationship_names = [rel.key for rel in mapper.relationships]
-            sqls = sorted(set(column_names + relationship_names))
+            hybrid_names = []
+            for base in cls.__mro__:
+                for name, attr in base.__dict__.items():
+                    if name == 'sqlalchemy_fields' or name.startswith("_"):
+                        continue
+                    if isinstance(attr, hybrid_property):
+                        hybrid_names.append(name)
+            sqls = sorted(set(column_names + relationship_names + hybrid_names))
             return [item.replace("_id", "").replace("_name", "").replace("_", "") for item in sqls]
         except Exception as e:
             if cls.__qualname__ != "BaseClass":
