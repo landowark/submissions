@@ -3,7 +3,7 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from getpass import getuser
-import json, logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
+import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
 from uuid import uuid4
 from inspect import isclass
 from zipfile import BadZipfile
@@ -12,8 +12,6 @@ from pprint import pformat
 from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
-from backend.db.models.procedures import ReagentLot
-from backend.validators.pydant.concrete import PydClientSubmissionSampleAssociation
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
 from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select
 from sqlalchemy.orm import relationship, Query, declared_attr
@@ -92,56 +90,36 @@ class ClientSubmission(BaseClass, LogMixin):
             try:
                 self.submitted_date = submitted_date
             except Exception:
-                try:
-                    self._misc_info.update({'submitted_date': submitted_date})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set submitted_date to {submitted_date} for {self.__class__.__qualname__} with name {self.name}")
         if clientlab is not None:
             try:
                 self.clientlab = clientlab
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'clientlab': clientlab})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set clientlab to {clientlab} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve run
         if run is not None:
             try:
                 self.run = run
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'run': run})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set run to {run} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve contact
         if contact is not None:
             try:
                 self.contact = contact
             except Exception:
-                try:
-                    self._misc_info.update({'contact': contact})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set contact to {contact} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve submissiontype
         if submissiontype is not None:
             try:
                 self.submissiontype = submissiontype
             except Exception:
-                try:
-                    self._misc_info.update({'submissiontype': submissiontype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set submissiontype to {submissiontype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
             except Exception:
-                try:
-                    self._misc_info.update({'sample': sample})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
     def submitter_plate_id(self):
@@ -588,11 +566,7 @@ class Run(BaseClass, LogMixin):
             try:
                 self.clientsubmission = clientsubmission
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'clientsubmission': clientsubmission})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set clientsubmission to {clientsubmission} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve proceduretype
         # If started_date not provided, try to default from associated clientsubmission.
         # If clientsubmission isn't set yet (e.g. when creating an empty instance to be
@@ -607,38 +581,25 @@ class Run(BaseClass, LogMixin):
         try:
             self.started_date = started_date
         except Exception:
-            try:
-                self._misc_info.update({'started_date': started_date})
-            except Exception:
-                pass
+            logger.error(f"Couldn't set started_date to {started_date} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve completed_date
         if completed_date is not None:
             try:
                 self.completed_date = completed_date
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'completed_date': completed_date})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set completed_date to {completed_date} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
             except Exception:
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
             except Exception:
-                try:
-                    self._misc_info.update({'sample': sample})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def rsl_plate_number(self):
@@ -1385,7 +1346,6 @@ class Run(BaseClass, LogMixin):
                          is_control=0, enabled=False, control_type='')
                      )
             padded_list.append(sample)
-        # logger.debug(f"Padded samples:\n{pformat(padded_list)}")
         return list(sorted(padded_list, key=itemgetter('procedure_rank')))
 
 # NOTE: Sample Classes
@@ -1441,30 +1401,19 @@ class Sample(BaseClass, LogMixin):
             try:
                 self.clientsubmission = clientsubmission
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'clientsubmission': clientsubmission})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set clientsubmission to {clientsubmission} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve run
         if run is not None:
             try:
                 self.run = run
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'run': run})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set run to {run} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
             except Exception:
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
     def clientsubmission(self):
@@ -1648,7 +1597,7 @@ class Sample(BaseClass, LogMixin):
         raise AttributeError(f"Delete not implemented for {self.__class__}")
 
     @classmethod
-    def samples_to_df(cls, sample_list: List[Sample], **kwargs) -> pd.DataFrame:
+    def samples_to_df(cls, sample_list: List[Sample], **kwargs) -> pd.DataFrame | None:
         """
         Runs a fuzzy search and converts into a dataframe.
 
@@ -1739,20 +1688,13 @@ class ClientSubmissionSampleAssociation(BaseClass):
             try:
                 self.clientsubmission = clientsubmission
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'clientsubmission': clientsubmission})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set clientsubmission to {clientsubmission} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if sample is not None:
             try:
                 self.sample = sample
             except Exception:
-                try:
-                    self._misc_info.update({'sample': sample})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
         self.submission_rank = submission_rank
     
     @hybrid_property
@@ -1972,6 +1914,9 @@ class ClientSubmissionSampleAssociation(BaseClass):
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
 
         Returns:
             List[str]: List of names
@@ -2015,22 +1960,13 @@ class RunSampleAssociation(BaseClass):
             try:
                 self.run = run
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    safe_run = self._serialize_misc_value(run)
-                    self._misc_info.update({'run': safe_run})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set run to {run} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
             except Exception:
-                try:
-                    safe_sample = self._serialize_misc_value(sample)
-                    self._misc_info.update({'sample': safe_sample})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
     def name(self):
@@ -2048,18 +1984,6 @@ class RunSampleAssociation(BaseClass):
             run_rank = "No Submission Rank"
         return f"{run}->{sample} (rank={run_rank})"
     
-    # @name.expression
-    # def name(cls):
-    #     return func.concat(
-    #         Run.name,
-    #         "->",
-    #         Sample.name,
-    #         " (rank=",
-    #         cast(cls.run_rank, String),
-    #         ")"
-    #     ).label("name")
-    
-
     @name.expression
     def name(cls):
         run_subquery = (
@@ -2394,29 +2318,19 @@ class ProcedureSampleAssociation(BaseClass):
             try:
                 self.procedure = procedure
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve sample
         if sample is not None:
             try:
                 self.sample = sample
             except Exception:
-                try:
-                    self._misc_info.update({'sample': sample})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve results
         if results is not None:
             try:
                 self.results = results
             except Exception:
-                try:
-                    self._misc_info.update({'results': results})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
         self.procedure_rank = procedure_rank
         if new_id:
             self.id = new_id
@@ -2577,14 +2491,10 @@ class ProcedureSampleAssociation(BaseClass):
         match self.sample._is_control:
             case 1:
                 output['control_type'] = 'positivecontrol'
-                
             case -1:
                 output['control_type'] = 'negativecontrol'
-                
             case _:
                 output['control_type'] = 'regular'
-                
-        # output['excluded'] += ["is_control", "well_id", "sample_location", "sample_type"]
         return output
 
     def to_pydantic(self, **kwargs):
@@ -2611,5 +2521,5 @@ class ProcedureSampleAssociation(BaseClass):
     def save(self):
         if self.sample_id in [None, ""]:
             return
+        super().save()
         
-        super().save()        

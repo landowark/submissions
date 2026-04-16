@@ -97,7 +97,6 @@ class BaseClass(Base):
             raw_misc = object.__getattribute__(self, "_misc_info")
         except AttributeError:
             raw_misc = None
-
         if raw_misc is None or isinstance(raw_misc, Column):
             self._misc_info = SafeMiscInfo(owner=self)
         elif isinstance(raw_misc, SafeMiscInfo):
@@ -119,7 +118,8 @@ class BaseClass(Base):
         if not isinstance(value, dict):
             logger.warning(f"Attempted to set misc_info to non-dict value: {value}. Ignoring.")
             return
-        self._misc_info = SafeMiscInfo(owner=self)
+        if not isinstance(self._misc_info, SafeMiscInfo):
+            self._misc_info = SafeMiscInfo(owner=self)
         self._misc_info.update(value)
 
     @classproperty
@@ -259,7 +259,7 @@ class BaseClass(Base):
                     if isinstance(attr, hybrid_property):
                         hybrid_names.append(name)
             sqls = sorted(set(column_names + relationship_names + hybrid_names))
-            return [item.replace("_id", "").replace("_name", "").replace("_", "") for item in sqls]
+            return list(set([item.replace("_id", "").replace("_name", "").strip("_") for item in sqls]))
         except Exception as e:
             if cls.__qualname__ != "BaseClass":
                 logger.debug(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
@@ -460,6 +460,7 @@ class BaseClass(Base):
             instance = cls()
             new = True
         for k, v in kwargs.items():
+            # Disallow setting 'id'.
             if k == "id":
                 continue
             # NOTE: Setattr used to make use of overridden method.
@@ -482,7 +483,7 @@ class BaseClass(Base):
         return cls.execute_query(**kwargs)
 
     @classmethod
-    def execute_query(cls, query: Query = None, model=None, limit: int = 0, offset: int | None = None,
+    def execute_query(cls, query: Query = None, limit: int = 0, offset: int | None = None,
                       **kwargs) -> Any | List[Any]:
         """
         Execute sqlalchemy query with relevant defaults.
@@ -682,6 +683,7 @@ class BaseClass(Base):
         if isinstance(css_in, str):
             css_in = [css_in]
         env = jinja_template_loading()
+        # Set up paths for css and js files based on the template environment's search path
         html_folder = Path(env.loader.__getattribute__("searchpath")[0])
         css_in = ["styles"] + css_in
         css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
@@ -690,13 +692,20 @@ class BaseClass(Base):
         js_in = ["details"] + js_in
         js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
         css_out = []
+        # Load all css and js files, skipping any that can't be loaded and logging an error.
         for css in css_in:
             with open(css, "r") as f:
-                css_out.append(f.read())
+                try:
+                    css_out.append(f.read())
+                except Exception as e:
+                    logger.error(f"Error reading CSS file {css}: {e}")
         js_out = []
         for js in js_in:
             with open(js, "r") as f:
-                js_out.append(f.read())
+                try:
+                    js_out.append(f.read())
+                except Exception as e:
+                    logger.error(f"Error reading JS file {js}: {e}")
         return self.details_template.render(css=css_out, js=js_out, **details)
 
     def __setattr__(self, key, value):
@@ -727,9 +736,9 @@ class BaseClass(Base):
                 try:
                     try:
                         if self._misc_info is None:
-                            super().__setattr__("_misc_info", {})
+                            self._wrap_misc_info()
                     except AttributeError:
-                        super().__setattr__("_misc_info", {})
+                        self._wrap_misc_info()
                     self._misc_info.update({key: safe_value})
                 except AttributeError:
                     super().__setattr__("_misc_info", {key: safe_value})
@@ -755,38 +764,6 @@ class BaseClass(Base):
             except AttributeError as e:
                 logger.error(f"{self.__class__.__qualname__} Can't set {key} to {value} due to: {e}")
                 
-    # @classmethod
-    # def get_association_proxy_details(cls, field_name):
-    #     """
-    #     Retrieves details of a specific association proxy field.
-    #     """
-    #     mapper = sql_inspect(cls)
-    #     descriptor = mapper.all_orm_descriptors.get(field_name)
-    #     if isinstance(descriptor, AssociationProxy):
-    #         # Initialize the descriptor
-    #         descriptor.__get__(None, cls)
-    #         return {
-    #             "name": field_name,
-    #             "target_attribute": descriptor.value_attr,
-    #             "info": descriptor.__dict__
-    #         }
-    #     else:
-    #         return None
-
-    # @classmethod
-    # def find_proxies_for_field(cls, field_name):
-    #     """Finds proxies targeting a specific relationship and field."""
-    #     mapper = sql_inspect(cls)
-    #     for _, desc in mapper.all_orm_descriptors.items():
-    #         descriptor = getattr(desc, "extension_type", None)
-    #         match descriptor:
-    #             case AssociationProxyExtensionType.ASSOCIATION_PROXY:
-    #                 if desc.target_collection == field_name:
-    #                     return desc.value_attr.strip("_")
-    #             case _:
-    #                 continue
-    #     return 
-    
     @classmethod
     def get_relationship_sqlclass(cls, key) -> BaseClass | None:
         """
@@ -884,8 +861,6 @@ class BaseClass(Base):
         for field in fields:
             match field:
                 case str():
-                    # NOTE: This is necessary... mostly because I'm too lazy to figure out how to simplify it.
-                    # key = field
                     try:
                         value = getattr(self, field)
                     except AttributeError as e:
@@ -1045,21 +1020,14 @@ class LogMixin(Base):
     """
     Mixin to add auditlog tracking to a BaseModel subclass
     """
-    tracking_exclusion: ClassVar = ['artic_technician', 'clientsubmissionsampleassociation',
-                                    'submission_reagent_associations', 'submission_equipment_associations',
-                                    'submission_tips_associations', 'contact_id', 'gel_info', 'gel_controls',
-                                    'source_plates']
+    tracking_exclusion: ClassVar = ['clientsubmissionsampleassociation',
+                                    'contact_id', 'clientlab_id', 'misc_info', '_misc_info']
 
     __abstract__ = True
 
     @property
     def truncated_name(self):
         name = str(self)
-        if len(name) > 64:
-            name = name.replace("<", "").replace(">", "")
-        if len(name) > 64:
-            # NOTE: As if re'agent'
-            name = name.replace("agent", "")
         if len(name) > 64:
             name = f"...{name[-61:]}"
         return name

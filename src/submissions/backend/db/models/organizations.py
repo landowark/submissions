@@ -297,7 +297,7 @@ class Contact(BaseClass):
               id: int | None = None,
               name: str | None = None,
               email: str | None = None,
-              tel: str | None = None,
+              tel: str | None = None, # Named tel to setup javascript compatibility, but this is the phone number of the contact
               limit: int = 0,
               ) -> Contact | List[Contact]:
         """

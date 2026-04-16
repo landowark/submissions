@@ -12,8 +12,9 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
+
 from tools import check_authorization, setup_lookup, flatten_list, timezone
-from typing import List, Generator, Any, Tuple, TYPE_CHECKING
+from typing import List, Any, Tuple, TYPE_CHECKING
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
@@ -85,16 +86,20 @@ class ReagentRole(BaseClass):
         "ProcedureTypeReagentRoleAssociation",
         cascade="all, delete-orphan",
     )  #: Relation to KitTypeReagentTypeAssociation
+
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    _proceduretype = association_proxy("reagentroleproceduretypeassociation", "_proceduretype")
+    _proceduretype = association_proxy("reagentroleproceduretypeassociation", "_proceduretype",
+                                       creator=lambda proceduretype: ProcedureTypeReagentRoleAssociation(proceduretype=proceduretype))  #: Association proxy to 
 
     reagentrolereagentassociation = relationship(
         "ReagentRoleReagentAssociation",
         back_populates="_reagentrole",
         cascade="all, delete-orphan",
     )  #: Relation to KitTypeReagentTypeAssociation
+
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
-    _reagent = association_proxy("reagentrolereagentassociation", "_reagent")
+    _reagent = association_proxy("reagentrolereagentassociation", "_reagent",
+                                 creator=lambda reagent: ReagentRoleReagentAssociation(reagent=reagent))  #: Association proxy to 
 
     def __init__(self, *args, **kwargs):
         """
@@ -112,20 +117,13 @@ class ReagentRole(BaseClass):
             try:
                 self.proceduretype = proceduretype
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if reagent is not None:
             try:
                 self.reagent = reagent
             except Exception:
-                try:
-                    self._misc_info.update({'reagent': reagent})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagent to {reagent} for {self.__class__.__qualname__} with name {self.name}")
         
     @hybrid_property
     def proceduretype(self) -> List[ProcedureType]:
@@ -281,6 +279,7 @@ class Reagent(BaseClass, LogMixin):
     manufacturer = Column(String(32))
     ref = Column(String(16))
     cost_per_ml = Column(FLOAT(2))  #: amount a millilitre of reagent costs
+
     _reagentlot = relationship("ReagentLot", back_populates="_reagent", cascade="all, delete-orphan")  #: joined parent reagent type
 
     reagentreagentroleassociation = relationship(
@@ -290,7 +289,8 @@ class Reagent(BaseClass, LogMixin):
     )  #: Relation to KitTypeReagentTypeAssociation
     # creator function: https://stackoverflow.com/questions/11091491/keyerror-when-adding-objects-to-sqlalchemy-association-object/11116291#11116291
     
-    _reagentrole = association_proxy("reagentreagentroleassociation", "_reagentrole")  #: Association proxy to KitTypeReagentTypeAssociation
+    _reagentrole = association_proxy("reagentreagentroleassociation", "_reagentrole",
+                                     creator=lambda reagentrole: ReagentRoleReagentAssociation(reagentrole=reagentrole))  #: Association proxy to KitTypeReagentTypeAssociation
 
     def __init__(self, *args, **kwargs):
         """
@@ -384,6 +384,8 @@ class Reagent(BaseClass, LogMixin):
         for item in value:
             match item:
                 case str():
+                    # If the string contains " - ", assume it's a name and not a lot number. 
+                    # This is admittedly a bit hacky, but it allows for more flexible input while still supporting simple lot number queries.
                     if " - " in item:
                         output = ReagentLot.query(name=item, limit=1)
                     else:
@@ -457,17 +459,7 @@ class Reagent(BaseClass, LogMixin):
                 pass
         return cls.execute_query(query=query, limit=limit, **kwargs)
 
-    # @property
-    # def lot_dicts(self) -> List[dict[str, Any]]:
-    #     """
-    #     Gets all lots available for this Reagent
-        
-    #     Returns: 
-    #         List[dict[str, Any]]: List of lot details. 
-    #     """
-    #     return [dict(name=self.name, lot=lot.lot, expiry=lot.expiry + self.eol_ext) for lot in self.reagentlot]
-
-
+    
 class ReagentLot(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -484,7 +476,8 @@ class ReagentLot(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to ClientSubmissionSampleAssociation
 
-    _procedure = association_proxy("reagentlotprocedureassociation", "procedure")  #: Association proxy to ClientSubmissionSampleAssociation
+    _procedure = association_proxy("reagentlotprocedureassociation", "procedure",
+                                   creator=lambda procedure: ProcedureReagentLotAssociation(procedure=procedure))  #: Association proxy to ClientSubmissionSampleAssociation
 
     def __init__(self, *args, **kwargs):
         """
@@ -504,40 +497,26 @@ class ReagentLot(BaseClass):
             try:
                 self.reagent = reagent
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'reagent': reagent})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagent to {reagent} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve procedure
         if procedure is not None:
             try:
                 self.procedure = procedure
             except Exception:
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         else:
             self._procedure = []
         if expiry is not None:
             try:
                 self.expiry = expiry
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'expiry': expiry})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set expiry to {expiry} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if active is not None:
             try:
                 self.active = active
             except Exception:
-                try:
-                    self._misc_info.update({'active': active})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set active to {active} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def procedure(self) -> List[Procedure]:
@@ -569,7 +548,6 @@ class ReagentLot(BaseClass):
                 case _:
                     logger.error(f"Unmatched value {item} for {self.__class__.__qualname__}.procedure")
                     continue
-            # logger.debug(f"Setting equipment with output: {output}")
             if isinstance(output, ProcedureReagentLotAssociation):
                 if output not in list_:
                     list_.append(output)
@@ -733,8 +711,7 @@ class Discount(BaseClass):
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id", ondelete='SET NULL',
                                                   name="fk_DIS_procedure_type_id"))  #: id of joined proceduretype
     _clientlab = relationship("ClientLab")  #: joined client lab
-    clientlab_id = Column(INTEGER,
-                          ForeignKey("_clientlab.id", ondelete='SET NULL',
+    clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete='SET NULL',
                                      name="fk_DIS_org_id"))  #: id of joined client
     description = Column(String(128))  #: Short description
     amount = Column(FLOAT(2))  #: Dollar amount of discount
@@ -755,20 +732,14 @@ class Discount(BaseClass):
             try:
                 self.proceduretype = proceduretype
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with description {self.description}")
+                
         # Resolve reagentrole
         if clientlab is not None:
             try:
                 self.clientlab = clientlab
             except Exception:
-                try:
-                    self._misc_info.update({'clientlab': clientlab})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set clientlab to {clientlab} for {self.__class__.__qualname__} with description {self.description}")
 
     @hybrid_property
     def name(self):
@@ -927,20 +898,13 @@ class SubmissionType(BaseClass):
             try:
                 self.proceduretype = proceduretype
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve clientsubmission
         if clientsubmission is not None:
             try:
                 self.clientsubmission = clientsubmission
             except Exception:
-                try:
-                    self._misc_info.update({'clientsubmission': clientsubmission})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set clientsubmission to {clientsubmission} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
     def file_name_template(self):
@@ -1047,16 +1011,6 @@ class SubmissionType(BaseClass):
         if not isinstance(value, str):
             value = str(value)
         self._abbreviation = value[0:4]
-
-    # @classproperty
-    # def aliases(cls) -> List[str]:
-    #     """
-    #     Gets other names the sql object of this class might go by.
-
-    #     Returns:
-    #         List[str]: List of names
-    #     """
-    #     return super().aliases + ["submissiontypes"]
 
     @classmethod
     @setup_lookup
@@ -1175,7 +1129,8 @@ class ProcedureType(BaseClass):
         cascade="all, delete-orphan"
     )  #: Association of equipmentroles
 
-    _equipmentrole = association_proxy("proceduretypeequipmentroleassociation", "_equipmentrole")  #: Proxy of equipmentrole associations
+    _equipmentrole = association_proxy("proceduretypeequipmentroleassociation", "_equipmentrole",
+                                       creator=lambda equipmentrole: ProcedureTypeEquipmentRoleAssociation(equipmentrole=equipmentrole))  #: Proxy of equipmentrole associations
 
     proceduretypereagentroleassociation = relationship(
         "ProcedureTypeReagentRoleAssociation",
@@ -1183,7 +1138,8 @@ class ProcedureType(BaseClass):
         cascade="all, delete-orphan"
     )  #: triple association of KitTypes, ReagentTypes, SubmissionTypes
 
-    _reagentrole = association_proxy("proceduretypereagentroleassociation", "_reagentrole")
+    _reagentrole = association_proxy("proceduretypereagentroleassociation", "_reagentrole",
+                                     creator=lambda reagentrole: ProcedureTypeReagentRoleAssociation(reagentrole=reagentrole))  #: Proxy of reagentrole associations
 
     def __init__(self, *args, **kwargs):
         """
@@ -1204,49 +1160,32 @@ class ProcedureType(BaseClass):
             try:
                 self.procedure = procedure
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve submissiontype
         if submissiontype is not None:
             try:
                 self.submissiontype = submissiontype
             except Exception:
-                try:
-                    self._misc_info.update({'submissiontype': submissiontype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set submissiontype to {submissiontype} for {self.__class__.__qualname__} with name {self.name}")
         else:
             self.submissiontype = ["Default SubmissionType"]
         if resultstype is not None:
             try:
                 self.resultstype = resultstype
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'resultstype': resultstype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set resultstype to {resultstype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipmentrole = equipmentrole
             except Exception:
-                try:
-                    self._misc_info.update({'equipmentrole': equipmentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipmentrole to {equipmentrole} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if reagentrole is not None:
             try:
                 self.reagentrole = reagentrole
             except Exception:
-                try:
-                    self._misc_info.update({'reagentrole': reagentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def equipmentrole(self):
@@ -1513,7 +1452,6 @@ class ProcedureType(BaseClass):
 class Procedure(BaseClass):
     
     id = Column(INTEGER, primary_key=True)  #: Primary key
-    # _name = Column(String, unique=True)  #: Name of the procedure (RSL number)
     repeat_of_id = Column(INTEGER, ForeignKey("_procedure.id", name="fk_repeat_id"))
     _cost = Column(FLOAT(2), default=0.00)
     _repeat_of = relationship("Procedure", remote_side=[id])
@@ -1534,7 +1472,8 @@ class Procedure(BaseClass):
         cascade="all, delete-orphan",
     )
 
-    _sample = association_proxy("proceduresampleassociation", "_sample")
+    _sample = association_proxy("proceduresampleassociation", "_sample",
+                                creator=lambda sample: ProcedureSampleAssociation(sample=sample))  #: Association proxy to Sample
 
     procedurereagentlotassociation = relationship(
         "ProcedureReagentLotAssociation",
@@ -1542,7 +1481,8 @@ class Procedure(BaseClass):
         cascade="all, delete-orphan",
     )  #: Relation to ProcedureReagentAssociation
 
-    _reagentlot = association_proxy("procedurereagentlotassociation", "_reagentlot")  #: Association proxy to ReagentLot
+    _reagentlot = association_proxy("procedurereagentlotassociation", "_reagentlot",
+                                    creator=lambda reagentlot: ProcedureReagentLotAssociation(reagentlot=reagentlot))  #: Association proxy to ReagentLot
 
     procedureequipmentassociation = relationship(
         "ProcedureEquipmentAssociation",
@@ -1575,83 +1515,54 @@ class Procedure(BaseClass):
             try:
                 self.repeat_of = repeat_of
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'repeat_of': repeat_of})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set repeat_of to {repeat_of} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve started_date
         if started_date is not None:
             try:
                 self.started_date = started_date
             except Exception:
-                try:
-                    self._misc_info.update({'started_date': started_date})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set started_date to {started_date} for {self.__class__.__qualname__} with name {self.name}")
         if completed_date is not None:
             try:
                 self.completed_date = completed_date
             except Exception:
                 # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'completed_date': completed_date})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set completed_date to {completed_date} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve proceduretype
         if proceduretype is not None:
             try:
                 self.proceduretype = proceduretype
             except Exception:
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve results
         if results is not None:
             try:
                 self.results = results
             except Exception:
-                try:
-                    self._misc_info.update({'results': results})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve run
         if run is not None:
             try:
                 self.run = run
             except Exception:
-                try:
-                    self._misc_info.update({'run': run})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set run to {run} for {self.__class__.__qualname__} with name {self.name}")
         if sample is not None:
             try:
                 self.sample = sample
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'sample': sample})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentlot
         if reagentlot is not None:
             try:
                 self.reagentlot = reagentlot
             except Exception:
-                try:
-                    self._misc_info.update({'reagentlot': reagentlot})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagentlot to {reagentlot} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipment
         if equipment is not None:
             try:
                 self.equipment = equipment
             except Exception:
-                try:
-                    self._misc_info.update({'equipment': equipment})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def name(self) -> str:
@@ -1680,13 +1591,11 @@ class Procedure(BaseClass):
         run_subquery = (
             select(Run.name)
             .where(Run.id==cls.run_id)
-            # .correlate(cls)
             .scalar_subquery()
         )
         proceduretype_subquery = (
             select(ProcedureType.name)
             .where(ProcedureType.id==cls.proceduretype_id)
-            # .correlate(cls)
             .scalar_subquery()
         )
         # Use func.concat or comma-separated args in func.concat to force the || operator
@@ -2136,7 +2045,6 @@ class Procedure(BaseClass):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()
-        # procedure.sample = [assoc.to_pydantic() for assoc in self.proceduresampleassociation]
         dlg = ProcedureCreation(parent=obj, procedure=procedure, edit=True)
         if dlg.exec():
             sql: Procedure = dlg.return_sql()
@@ -2310,12 +2218,10 @@ class Procedure(BaseClass):
 
     def update_last_useds(self):
         for reagentlotassoc in self.procedurereagentlotassociation:
-            logger.debug(f"Updating last used for {reagentlotassoc}")
             reagentrole = reagentlotassoc.reagentrole
             proceduretype = self.proceduretype
             assoc = ProcedureTypeReagentRoleAssociation.query(proceduretype=proceduretype, reagentrole=reagentrole, limit=1)
             if assoc:
-                logger.debug(f"Found association {assoc} for proceduretype {proceduretype} and reagentrole {reagentrole}")
                 try:
                     assoc.update_last_used(reagentlotassoc.reagentlot)
                 except Exception as e:
@@ -2350,6 +2256,9 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
 
         Returns:
             List[str]: List of names
@@ -2372,20 +2281,13 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
             try:
                 self.proceduretype = proceduretype
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if reagentrole is not None:
             try:
                 self.reagentrole = reagentrole
             except Exception:
-                try:
-                    self._misc_info.update({'reagentrole': reagentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def proceduretype(self):
@@ -2512,7 +2414,6 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     def update_last_used(self, reagentlot: ReagentLot):
-        # self.last_used_lot = reagentlot.lot
         self._last_used = reagentlot
         self.save()
 
@@ -2554,29 +2455,19 @@ class ProcedureReagentLotAssociation(BaseClass):
             try:
                 self.procedure = procedure
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentlot
         if reagentlot is not None:
             try:
                 self.reagentlot = reagentlot
             except Exception:
-                try:
-                    self._misc_info.update({'reagentlot': reagentlot})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagentlot to {reagentlot} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if reagentrole is not None:
             try:
                 self.reagentrole = reagentrole
             except Exception:
-                try:
-                    self._misc_info.update({'reagentrole': reagentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
     
     @hybrid_property
     def name(self):
@@ -2758,6 +2649,9 @@ class ProcedureReagentLotAssociation(BaseClass):
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
 
         Returns:
             List[str]: List of names
@@ -2791,20 +2685,13 @@ class ReagentRoleReagentAssociation(BaseClass):
             try:
                 self.reagent = reagent
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'reagent': reagent})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagent to {reagent} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if reagentrole is not None:
             try:
                 self.reagentrole = reagentrole
             except Exception:
-                try:
-                    self._misc_info.update({'reagentrole': reagentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set reagentrole to {reagentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def name(self):
@@ -2891,6 +2778,9 @@ class ReagentRoleReagentAssociation(BaseClass):
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
 
         Returns:
             List[str]: List of names
@@ -2912,7 +2802,8 @@ class EquipmentRole(BaseClass):
         cascade="all, delete-orphan",
     )  #: relation to SubmissionTypes
 
-    _proceduretype = association_proxy("equipmentroleproceduretypeassociation", "_proceduretype")
+    _proceduretype = association_proxy("equipmentroleproceduretypeassociation", "_proceduretype",
+                                       creator=lambda proceduretype: ProcedureTypeEquipmentRoleAssociation(proceduretype=proceduretype))
     
     equipmentroleequipmentassociation = relationship(
         "EquipmentRoleEquipmentAssociation",
@@ -2920,7 +2811,8 @@ class EquipmentRole(BaseClass):
         cascade="all, delete-orphan",
     )
 
-    _equipment = association_proxy("equipmentroleequipmentassociation", "_equipment")
+    _equipment = association_proxy("equipmentroleequipmentassociation", "_equipment",
+                                    creator=lambda equipment: EquipmentRoleEquipmentAssociation(equipment=equipment))
     
     def __init__(self, *args, **kwargs):
         """
@@ -2939,19 +2831,13 @@ class EquipmentRole(BaseClass):
                 self.proceduretype = proceduretype
             except Exception:
                 # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipment
         if equipment is not None:
             try:
                 self.equipment = equipment
             except Exception:
-                try:
-                    self._misc_info.update({'equipment': equipment})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def equipment(self) -> List[Equipment]:
@@ -3093,7 +2979,8 @@ class Equipment(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )  #: Association with BasicRun
 
-    _procedure = association_proxy("equipmentprocedureassociation", "_procedure")  #: proxy to equipmentprocedureassociation.procedure
+    _procedure = association_proxy("equipmentprocedureassociation", "_procedure",
+                                   creator=lambda procedure: ProcedureEquipmentAssociation(procedure=procedure))  #: proxy to equipmentprocedureassociation.procedure
 
     equipmentequipmentroleassociation = relationship(
         "EquipmentRoleEquipmentAssociation",
@@ -3101,7 +2988,8 @@ class Equipment(BaseClass, LogMixin):
         cascade="all, delete-orphan",
     )
 
-    _equipmentrole = association_proxy("equipmentequipmentroleassociation", "_equipmentrole")
+    _equipmentrole = association_proxy("equipmentequipmentroleassociation", "_equipmentrole",
+                                       creator=lambda equipmentrole: EquipmentRoleEquipmentAssociation(equipmentrole=equipmentrole))  #: proxy to equipmentroleassociation.equipmentrole
 
     def __init__(self, *args, **kwargs):
         """
@@ -3120,25 +3008,18 @@ class Equipment(BaseClass, LogMixin):
             try:
                 self.procedure = procedure
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipment = equipmentrole
             except Exception:
-                try:
-                    self._misc_info.update({'equipmentrole': equipmentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipmentrole to {equipmentrole} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve nickname
         try:
             self.nickname = nickname
         except Exception:
-            self._misc_info.update({'nickname': nickname})
+            logger.error(f"Couldn't set nickname to {nickname} for {self.__class__.__qualname__} with name {self.name}")
             
     @hybrid_property
     def equipmentrole(self) -> List[EquipmentRole]:
@@ -3214,7 +3095,7 @@ class Equipment(BaseClass, LogMixin):
                             
     @nickname.setter
     def nickname(self, value: str|None):
-        if value is None or value == "":
+        if value is None or value.lower() in ["", "na", "n/a"]:
             self._nickname = self.name
         else:
             self._nickname = value
@@ -3317,29 +3198,19 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
             try:
                 self.process = process
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'process': process})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set process to {process} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipmentrole = equipmentrole
             except Exception:
-                try:
-                    self._misc_info.update({'equipmentrole': equipmentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipmentrole to {equipmentrole} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipment
         if equipment is not None:
             try:
                 self.equipment = equipment
             except Exception:
-                try:
-                    self._misc_info.update({'equipment': equipment})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def name(self):
@@ -3459,6 +3330,9 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
 
         Returns:
             List[str]: List of names
@@ -3546,29 +3420,19 @@ class Process(BaseClass):
             try:
                 self.processversion = processversion
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'processversion': processversion})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set processversion to {processversion} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipmentroleequipmentassociation
         if equipmentroleequipmentassociation is not None:
             try:
                 self.equipmentroleequipmentassociation = equipmentroleequipmentassociation
             except Exception:
-                try:
-                    self._misc_info.update({'equipmentroleequipmentassociation': equipmentroleequipmentassociation})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipmentroleequipmentassociation to {equipmentroleequipmentassociation} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve tips
         if tips is not None:
             try:
                 self.tips = tips
             except Exception:
-                try:
-                    self._misc_info.update({'tips': tips})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set tips to {tips} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def equipmentroleequipmentassociation(self):
@@ -3755,29 +3619,19 @@ class ProcessVersion(BaseClass):
             try:
                 self.process = process
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'process': process})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set process to {process} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve active
         if active is not None:
             try:
                 self.active = active
             except Exception:
-                try:
-                    self._misc_info.update({'active': active})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set active to {active} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve date_verified
         if date_verified is not None:
             try:
                 self.date_verified = date_verified
             except Exception:
-                try:
-                    self._misc_info.update({'date_verified': date_verified})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set date_verified to {date_verified} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def date_verified(self):
@@ -3937,29 +3791,17 @@ class Tips(BaseClass):
             try:
                 self.process = process
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'process': process})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set process to {process} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve tipslot
         if tipslot is not None:
             try:
                 self.tipslot = tipslot
             except Exception:
-                try:
-                    self._misc_info.update({'tipslot': tipslot})
-                except Exception:
-                    pass
-
-        if cost_per_tip is not None:
-            try:
-                self.cost_per_tip = cost_per_tip
-            except Exception:
-                try:
-                    self._misc_info.update({'cost_per_tip': cost_per_tip})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set tipslot to {tipslot} for {self.__class__.__qualname__} with name {self.name}")
+        try:
+            self.cost_per_tip = cost_per_tip
+        except Exception:
+            logger.error(f"Couldn't set cost_per_tip to {cost_per_tip} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def cost_per_tip(self):
@@ -4128,36 +3970,23 @@ class TipsLot(BaseClass, LogMixin):
             try:
                 self.tips = tips
             except Exception:
-                try:
-                    self._misc_info.update({'tips': tips})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set tips to {tips} for {self.__class__.__qualname__} with name {self.name}")
         if procedureequipmenttipslotassociation is not None:
             try:
                 self.procedureequipmenttipslotassociation = procedureequipmenttipslotassociation
             except Exception:
-                try:
-                    self._misc_info.update({'procedureequipmenttipslotassociation': procedureequipmenttipslotassociation})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedureequipmenttipslotassociation to {procedureequipmenttipslotassociation} for {self.__class__.__qualname__} with name {self.name}")
         if expiry is not None:
             try:
                 self.expiry = expiry
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'expiry': expiry})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set expiry to {expiry} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve active
         if active is not None:
             try:
                 self.active = active
             except Exception:
-                try:
-                    self._misc_info.update({'active': active})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set active to {active} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def expiry(self) -> str:
@@ -4496,20 +4325,13 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
             try:
                 self.procedureequipmentassociation = procedureequipmentassociation
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedureequipmentassociation': procedureequipmentassociation})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedureequipmentassociation to {procedureequipmentassociation} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve tipslot
         if tipslot is not None:
             try:
                 self.tipslot = tipslot
             except Exception:
-                try:
-                    self._misc_info.update({'tipslot': tipslot})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set tipslot to {tipslot} for {self.__class__.__qualname__} with name {self.name}")
 
 
 class ProcedureEquipmentAssociation(BaseClass):
@@ -4571,52 +4393,38 @@ class ProcedureEquipmentAssociation(BaseClass):
             try:
                 self.procedure = procedure
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if equipment is not None:
             try:
                 self.equipment = equipment
             except Exception:
-                try:
-                    self._misc_info.update({'equipment': equipment})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
         if processversion is not None:
             try:
                 self.processversion = processversion
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'processversion': processversion})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set processversion to {processversion} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if equipmentrole is not None:
             try:
                 self.equipmentrole = equipmentrole
             except Exception:
-                try:
-                    self._misc_info.update({'equipmentrole': equipmentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve reagentrole
         if tipslot is not None:
             try:
                 self.tipslot = tipslot
             except Exception:
-                try:
-                    self._misc_info.update({'tipslot': tipslot})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set tipslot to {tipslot} for {self.__class__.__qualname__} with name {self.name}")
     
     @classproperty
     def aliases(cls) -> List[str]:
         """
         Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
 
         Returns:
             List[str]: List of names
@@ -4889,20 +4697,13 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             try:
                 self.proceduretype = proceduretype
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve equipmentrole
         if equipmentrole is not None:
             try:
                 self.equipmentrole = equipmentrole
             except Exception:
-                try:
-                    self._misc_info.update({'equipmentrole': equipmentrole})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set equipmentrole to {equipmentrole} for {self.__class__.__qualname__} with name {self.name}")
 
     @hybrid_property
     def static(self):
@@ -5008,6 +4809,15 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
             
     @classproperty
     def aliases(cls):
+        """
+        Gets other names the sql object of this class might go by.
+        Usually this is just the lowercase name of the class without "association", 
+        but this can be overridden for junction tables that might be referred 
+        to by the names of the two linked tables.
+
+        Returns:
+            List[str]: List of names
+        """
         return super().aliases + ['equipmentroleproceduretypeassociation']
     
     @check_authorization
@@ -5089,30 +4899,19 @@ class Results(BaseClass):
             try:
                 self.procedure = procedure
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'procedure': procedure})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve date_analyzed
         if date_analyzed is not None:
             try:
                 self.date_analyzed = date_analyzed
             except Exception:
-                try:
-                    self._misc_info.update({'date_analyzed': date_analyzed})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set date_analyzed to {date_analyzed} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve sampleprocedureassociation
         if sampleprocedureassociation is not None:
             try:
                 self.sampleprocedureassociation = sampleprocedureassociation
             except Exception:
-                # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'sampleprocedureassociation': sampleprocedureassociation})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set sampleprocedureassociation to {sampleprocedureassociation} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve image
         if image is not None:
             try:
@@ -5124,19 +4923,13 @@ class Results(BaseClass):
             try:
                 self.resultstype = resultstype
             except Exception:
-                try:
-                    self._misc_info.update({'resultstype': resultstype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set resultstype to {resultstype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve result
         if result is not None:
             try:
                 self.result = result
             except Exception:
-                try:
-                    self._misc_info.update({'result': result})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set result to {result} for {self.__class__.__qualname__} with name {self.name}")
 
     # TODO: Enable query from sample_association in addition to procedure
 
@@ -5172,7 +4965,6 @@ class Results(BaseClass):
     
     @name.expression
     def name(cls):
-
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)
@@ -5370,19 +5162,13 @@ class ResultsType(BaseClass):
                 self.proceduretype = proceduretype
             except Exception:
                 # fallback: store in misc_info if setter fails
-                try:
-                    self._misc_info.update({'proceduretype': proceduretype})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set proceduretype to {proceduretype} for {self.__class__.__qualname__} with name {self.name}")
         # Resolve results
         if results is not None:
             try:
                 self.results = results
             except Exception:
-                try:
-                    self._misc_info.update({'results': results})
-                except Exception:
-                    pass
+                logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
         self._info = info
         self._samples = samples
 

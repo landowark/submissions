@@ -3,7 +3,7 @@ from sqlalchemy.ext.associationproxy import _AssociationList
 from datetime import datetime, date, time, timedelta
 from tests.resources.custom_resources import DatabaseTestCase
 from pytz import timezone as tz
-from backend.db.models import ReagentLot, Equipment, Sample, ProcedureType, Run, Procedure
+from backend.db.models import ReagentLot, Equipment, Sample, ProcedureType, Run, Procedure, Results
 
 
 @pytest.fixture(scope="function")
@@ -204,3 +204,11 @@ def test_procedure_set_cost(procedure):
     procedure.set_cost()
     assert procedure.cost is not None
     assert procedure.cost == 1.27
+
+
+def test_procedure_grouped_results(procedure):
+    results = procedure.grouped_results
+    assert isinstance(results, dict)
+    assert results['Test ResultsType']['info'] is None
+    assert all([isinstance(r, Results) for r in results['Test ResultsType']['sample']])
+    
