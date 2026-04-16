@@ -461,7 +461,7 @@ def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts
                 return True
             else:
                 return False
-        case "contains":
+        case _:
             if any([item in target_str for item in list_]):
                 return True
             else:
@@ -855,7 +855,6 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
     """
     from backend.validators.pydant import PydBaseClass
     from backend.db.models import BaseClass
-    from unittest.mock import MagicMock
     for index, d in enumerate(list_of_dicts):
         match d:
             case dict():

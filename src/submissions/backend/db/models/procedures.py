@@ -2028,19 +2028,6 @@ class Procedure(BaseClass):
             sample_sql = sample.to_sql()
             sample_sql.save()
 
-    def add_equipment(self, obj):
-        """
-        Creates widget for adding equipment to this submission
-
-        Args:
-            obj (_type_): parent widget
-        """
-        logger.info(f"Add equipment")
-        from frontend.widgets.equipment_usage import EquipmentUsage
-        dlg = EquipmentUsage(parent=obj, procedure=self.to_pydantic())
-        if dlg.exec():
-            dlg.save_procedure()
-
     def edit(self, obj):
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")

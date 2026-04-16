@@ -150,7 +150,6 @@ class SubmissionFormContainer(QWidget):
         self.clientsubmission_manager = DefaultClientSubmissionManager(parent=self, input_object=fname)
         self.pydclientsubmission = self.clientsubmission_manager.to_pydantic()
         checker = SampleChecker(self, "Sample Checker", self.pydclientsubmission.sample)
-        # Samples are okay up to this point
         if checker.exec():
             try:
                 assert isinstance(self.pydclientsubmission, PydClientSubmission)
@@ -176,7 +175,6 @@ class SubmissionFormWidget(QWidget):
         self.app = get_application_from_parent(parent)
         self.pyd = pyd
         # NOTE: pyd contains run up to this point.
-        # logger.debug(pformat(self.pyd.__dict__))
         self.missing_info = []
         self.submissiontype = SubmissionType.query(name=self.pyd.submissiontype.get('value'))
         defaults = Run.get_default_info("form_recover", "form_ignore", submissiontype=self.pyd.submissiontype.get('value'))
@@ -276,7 +274,6 @@ class SubmissionFormWidget(QWidget):
                 info[item] = value
         for k, v in info.items():
             self.pyd.__setattr__(k, v)
-        logger.debug(f"Got info from form: {pformat(self.pyd.__dict__)}")
         report.add_result(report)
         return report
 
@@ -334,8 +331,7 @@ class SubmissionFormWidget(QWidget):
             return self.input.objectName(), dict(value=value, missing=self.missing, location=self.location)
 
         def set_widget(self, parent: QWidget, key: str, value: dict,
-                       submission_type: str | SubmissionType | None = None,
-                       sub_obj: ClientSubmission | None = None) -> QWidget:
+                       submission_type: str | SubmissionType | None = None) -> QWidget:
             """
             Creates form widget
 
@@ -353,7 +349,6 @@ class SubmissionFormWidget(QWidget):
                 submission_type = SubmissionType.query(name=submission_type)
             if isinstance(value, dict):
                 value = value.get('value', value)
-            obj = parent.parent().parent()
             match key:
                 case 'clientlab':
                     add_widget = MyQComboBox(scrollWidget=parent)
@@ -511,7 +506,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         report = Report()
         logger.info(f"Hello from client procedure form parser!")
         info = {}
-        # reagents = []
         for widget in self.findChildren(QWidget):
             match widget:
                 case self.InfoItem():
@@ -522,7 +516,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                 info[field] = value
         for item in self.recover:
             if hasattr(self, item):
-                logger.debug(f"Setting pyd {item} to {value}")
                 value = getattr(self, item)
                 info[item] = value
         for k, v in info.items():
@@ -530,10 +523,8 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                 continue
             if isinstance(v, dict):
                 v = v.get("value", None)
-            logger.debug(f"Setting pyd {k} to {v}")
             self.pyd.__setattr__(k, v)
         # NOTE: run is okay at this point.
-        # logger.debug(f"Got pydantic object from form: {pformat(self.pyd.__dict__)}")
         report.add_result(report)
         return report
 
@@ -600,7 +591,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
             runs.append(run)
         pyd.run = runs
         sql: Procedure = pyd.to_sql()
-        
         if isinstance(sql, tuple):
             sql = sql[0]
         # Remove any sample info accidentally left in misc_info by pyd.to_sql
@@ -611,12 +601,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
         # Clear any pre-built association objects created by pyd.to_sql() so we can
         # re-create clean associations from the saved Sample SQL objects. This avoids
         # carrying over non-serializable _misc_info from pyd objects into the DB.
-        # try:
-        #     if hasattr(sql, 'clientsubmissionsampleassociation'):
-        #         sql.clientsubmissionsampleassociation = []
-        # except Exception as e:
-        #     logger.warning(f"Could not clear existing sample associations: {e}")
-        # sql.update_last_useds()
         sql.save()
         self.app.table_widget.sub_wid.set_data()
         self.setParent(None)

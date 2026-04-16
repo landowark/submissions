@@ -5,7 +5,6 @@ from PyQt6.QtWidgets import QWidget, QDialog, QVBoxLayout
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebChannel import QWebChannel
 from backend.db.models import BaseClass
-from backend.validators.pydant import PydConcrete
 from . import CustomWebEnginePage
 from PyQt6.QtCore import pyqtSlot, QVariant
 from tools import jinja_template_loading, render_details_template
@@ -43,10 +42,6 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        logger.debug("Resetting form to initial state.")
-        # if issubclass(self.pydant.__class__, PydConcrete):
-        #     addendum = [""]
-        # else:
         addendum = ["", "--New--"]
         object_list = addendum + [item.name for item in self.sql_type.query() if item.name != "Default SubmissionType"]
         object_name = self.sql_type.__name__
@@ -64,7 +59,6 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        # logger.debug(f"Updating selection to: {selection}")
         if selection == "--New--":
             self.pydant = self.object_type()
             self.pydant.new = True
@@ -78,7 +72,6 @@ class OmniManager(QDialog):
                 return
             self.pydant = sql_instance.to_pydantic()
             self.pydant.new = False
-        logger.debug(f"Form data:\n{pformat([item for item in self.pydant.form_dictionary])}")
         html = self.pydant.html_form
         return html
     
@@ -91,10 +84,8 @@ class OmniManager(QDialog):
             field (str): The field name to update.
             value (str): The new value for the field.
         """
-        logger.debug(f"Updating instrumentedattribute '{field}' to value '{value}'")
         self.pydant.update_instrumentedattribute(field, value)
-        logger.debug(f"Updated : {pformat(self.pydant.__dict__)}")
-
+        
     @pyqtSlot(str, str, result=str)
     def get_association_form(self, field: str, value: str) -> str:
         """
@@ -104,9 +95,7 @@ class OmniManager(QDialog):
             field (str): The relationship field name.
             value (str): The selected value for the relationship.
         """
-        # logger.debug(f"Generating association form for field: {field}, value: {value}")
         blank_class = self.pydant.get_association_class(field)
-        # logger.debug(f"Found association class: {blank_class}")
         return blank_class().html_form
 
     @pyqtSlot(str, str, QVariant)
@@ -118,11 +107,8 @@ class OmniManager(QDialog):
             field (str): The relationship field name.
             value (str): The value to add to the relationship.
         """
-        logger.debug(f"data received in add_relationship: {data}")
-
         self.pydant.add_relationship(field, value, data)
-        logger.debug(f"Updated {self.pydant.__class__.__name__}: {pformat(self.pydant.__dict__)}")
-
+        
     @pyqtSlot(str, str)
     def remove_relationship(self, field: str, value: str) -> None:
         """
@@ -142,14 +128,10 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        logger.debug(f"Submitting pydantic object: {pformat(self.pydant.__dict__)}")
         sql_instance = self.pydant.to_sql()
         if isinstance(sql_instance, tuple):
             sql_instance = sql_instance[0]
-        logger.debug(f"Converted to SQL instance: {sql_instance.__dict__}")
-        # sys.exit(f"Converted to SQL instance: {sql_instance.__dict__}")
         sql_instance.save()
-        logger.info(f"Saved instance to database: {sql_instance}")
         self.reset_form()
 
     @pyqtSlot()
@@ -163,7 +145,6 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        logger.debug("Saving HTML from webview.")
         self.webview.page().toHtml(self.write_html)
 
     def write_html(self, html: str) -> None:
@@ -176,8 +157,6 @@ class OmniManager(QDialog):
         Returns:
             None
         """
-        # with open("omni_manager.html", "w", encoding="utf-8") as f:
-            # f.write(html)
         ...
 
 

@@ -47,7 +47,7 @@ class SubmissionsTree(QTreeView):
             }
         """)
 
-        # Note: Enable alternating row colors
+        # NOTE: Enable alternating row colors
         self.setAlternatingRowColors(True)
         self.setIndentation(20)
         self.setItemsExpandable(True)
@@ -104,7 +104,6 @@ class SubmissionsTree(QTreeView):
         from backend.db.models import Run, ClientSubmission, Procedure
         self.clear()
         self.data = sorted(
-            # [item.to_dict(full_data=True) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
             [item.details_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
             key=itemgetter('submitted_date'), reverse=True
         )
@@ -127,8 +126,6 @@ class SubmissionsTree(QTreeView):
                 ))
                 for procedure in run['procedure']:
                     procedure_item = self.model.add_child(parent=run_item, child=dict(
-                        # name=procedure['name'],
-                        # query_str=procedure['name'],
                         name=procedure,
                         query_str=procedure,
                         item_type=Procedure

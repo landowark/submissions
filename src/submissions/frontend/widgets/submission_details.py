@@ -3,7 +3,7 @@ Webview to show procedure and sample details.
 """
 from __future__ import annotations
 
-import json, sys, logging, os
+import sys, logging
 from PyQt6.QtWidgets import (QDialog, QPushButton, QVBoxLayout,
                              QDialogButtonBox, QTextEdit, QGridLayout)
 from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -66,8 +66,6 @@ class SubmissionDetails(QDialog):
         html = object_.to_html()
         self.webview.setHtml(html)
         self.setWindowTitle(f"{object_.__class__.__name__} Details - {object_.name}")
-        # with open(f"{object_.__class__.__name__}_submissiondetails.html", "w") as f:
-        #     f.write(html)
         
     def activate_export(self) -> None:
         """
@@ -123,11 +121,12 @@ class SubmissionDetails(QDialog):
         if isinstance(tips, str):
             tips = Tips.query(lot=tips)
         base_dict = tips.details_dict
-        template = tips.details_template
-        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        html = template.render(tips=base_dict, css=css)
+        # template = tips.details_template
+        # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
+        #     css = f.read()
+        # html = template.render(tips=base_dict, css=css)
+        html = render_details_template("tips_details", tips=base_dict)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Process Details - {tips.name}")
 
@@ -145,11 +144,12 @@ class SubmissionDetails(QDialog):
         base_dict = sample.details_dict
         exclude = ['procedure', 'excluded', 'colour', 'tooltip']
         base_dict['excluded'] = exclude
-        template = sample.details_template
-        template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        html = template.render(sample=base_dict, css=css)
+        # template = sample.details_template
+        # template_path = Path(template.environment.loader.__getattribute__("searchpath")[0])
+        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
+        #     css = f.read()
+        # html = template.render(sample=base_dict, css=css)
+        html = render_details_template("sample_details", sample=base_dict)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Sample Details - {sample.sample_id}")
 
@@ -166,20 +166,19 @@ class SubmissionDetails(QDialog):
             reagent = Reagent.query(lot=reagent)
         if isinstance(proceduretype, str):
             self.proceduretype = ProcedureType.query(name=proceduretype)
-        # base_dict = reagent.to_sub_dict(proceduretype=self.proceduretype, full_data=True)
-        # base_dict = reagent.details_dict(proceduretype=self.proceduretype, full_data=True)
         base_dict = reagent.details_dict
-        env = jinja_template_loading()
-        temp_name = "reagent_details.html"
-        try:
-            template = env.get_template(temp_name)
-        except TemplateNotFound as e:
-            logger.error(f"Couldn't find template due to {e}")
-            return
-        template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
-        with open(template_path.joinpath("css", "styles.css"), "r") as f:
-            css = f.read()
-        html = template.render(reagent=base_dict, permission=is_power_user(), css=css)
+        # env = jinja_template_loading()
+        # temp_name = "reagent_details.html"
+        # try:
+        #     template = env.get_template(temp_name)
+        # except TemplateNotFound as e:
+        #     logger.error(f"Couldn't find template due to {e}")
+        #     return
+        # template_path = Path(self.template.environment.loader.__getattribute__("searchpath")[0])
+        # with open(template_path.joinpath("css", "styles.css"), "r") as f:
+        #     css = f.read()
+        # html = template.render(reagent=base_dict, permission=is_power_user(), css=css)
+        html = render_details_template("reagent_details", reagent=base_dict)
         self.webview.setHtml(html)
         self.setWindowTitle(f"Reagent Details - {reagent.name} - {reagent.lot}")
 
@@ -228,7 +227,7 @@ class SubmissionDetails(QDialog):
         # with open(template_path.joinpath("css", "styles.css"), "r") as f:
         #     css = f.read()
         # self.html = self.template.render(sub=self.base_dict, permission=is_power_user(), css=css)
-        self.html = render_details_template("submission_details", run=self.base_dict)
+        self.html = render_details_template("run_details", run=self.base_dict)
         self.webview.setHtml(self.html)
 
 

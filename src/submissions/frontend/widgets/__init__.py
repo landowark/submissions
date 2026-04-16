@@ -73,7 +73,7 @@ from .app import App
 from .concentrations import Concentrations
 from .controls_chart import ControlsViewer
 from .date_type_picker import DateTypePicker
-from .equipment_usage import EquipmentUsage, RoleComboBox
+# from .equipment_usage import EquipmentUsage, RoleComboBox
 from .excel_sheet_selector import ExcelSheetSelector
 from .functions import select_open_file, select_save_file, save_pdf
 from .gel_checker import GelBox, ControlsForm

@@ -21,7 +21,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class ProcedureCreation(QDialog):
 
     def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
-        from backend.validators.pydant import PydProcedureType, PydProcedureSampleAssociation
+        from backend.validators.pydant import PydProcedureType
         super().__init__(parent)
         if 'QTWEBENGINE_REMOTE_DEBUGGING' not in os.environ:
             os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
@@ -41,16 +41,12 @@ class ProcedureCreation(QDialog):
         else:
             title = self.run.rsl_plate_number
         self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
-        # sample_dicts = [item.improved_dict for item in self.procedure.sample]
-        # self.plate_map = self.proceduretype.construct_plate_map(sample_dicts=self.procedure.sample)
         self.platemap = self.proceduretype_dict['platemap']
-        logger.debug(self.platemap)
         self.procedure.update_samples(sample_list=[sample for sample in self.constructed_sample_list])
         self.app = get_application_from_parent(parent)
         # Ensure remote debugging is enabled before the WebEngine is initialised.
         # This exposes the remote inspector on localhost:9222 so you can open
         # http://localhost:9222/ in a desktop browser and inspect console/network errors.
-        
         self.webview = QWebEngineView(parent=self)
         self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         self.webview.setMinimumSize(1200, 800)
@@ -78,7 +74,6 @@ class ProcedureCreation(QDialog):
     def constructed_sample_list(self):
         from backend.validators.pydant import PydSample, PydProcedureSampleAssociation
         for iii, sample in enumerate(self.procedure.sample, start=1):
-            # logger.debug(f"Constructing sample {iii} from {sample}")
             match sample:
                 case PydSample():
                     sample_id = sample.sample_id
@@ -104,7 +99,6 @@ class ProcedureCreation(QDialog):
         )
         self.webview.setHtml(html)
         
-
     @pyqtSlot(str, str, str, QVariant)
     @pyqtSlot(str, str, str, QVariant, bool)
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):

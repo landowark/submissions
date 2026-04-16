@@ -7,7 +7,7 @@ from .widgets import (
     Concentrations,
     ControlsViewer,
     DateTypePicker,
-    EquipmentUsage, RoleComboBox,
+    # EquipmentUsage, RoleComboBox,
     select_open_file, select_save_file, save_pdf,
     GelBox, ControlsForm,
     InfoPane,
