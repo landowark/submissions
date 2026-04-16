@@ -4,16 +4,13 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import List
 from backend.db.models import Procedure
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from frontend.widgets.results_sample_matcher import ResultsSampleMatcher
-from backend.validators.pydant.concrete import PydResults
 from tools import get_application_from_parent
 from frontend.widgets.functions import select_open_file
 from backend.excel.parsers.results_parsers.qubit_results_parser import QubitSampleParser, QubitInfoParser
-# from backend.excel.writers.results_writers.qubit_results_writer import QubitInfoWriter, QubitSampleWriter
 from . import DefaultResultsManager
 
 
@@ -58,5 +55,3 @@ class QubitManager(DefaultResultsManager):
         self.sample_parser = QubitSampleParser(worksheet=worksheet, procedure=self.procedure)
         self.info = {k:v for k, v in self.info_parser.parsed_info}
         self.samples = [item for item in self.sample_parser.parsed_info]
-
-    

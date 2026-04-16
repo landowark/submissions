@@ -5,9 +5,6 @@ from openpyxl import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 from backend.db.models import ProcedureType
 import logging
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from backend.validators.pydant import PydProcedureSampleAssociation
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -18,10 +15,8 @@ class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
 
     def __init__(self, pydant_obj, proceduretype: ProcedureType, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-        # self.procedure = self.pydant_obj.name
         self.sheet = f"{proceduretype.name[:10]} {pydant_obj.resultstype[:10]}"
-        # print(self.pydant_obj)
-
+        
     # NOTE: Required to pass self.sheet to function.
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
@@ -30,11 +25,6 @@ class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
 
 
 class DefaultResultsSampleWriter(DefaultTABLEWriter):
-
-    # def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
-    #     super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
-    #     self.proceduretype = proceduretype
-    #     self.worksheet = None
 
     exclude = ["excluded", "name", "procedure", "sample", "sampleprocedureassociation", "result", 
                "image", 'img', "plate_barcode", "resultstype", "reagent_lot#"]

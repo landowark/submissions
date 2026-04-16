@@ -5,12 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 import logging, sys, string, inspect
 from pprint import pformat
-from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator, computed_field
+from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
 from typing import Any, ClassVar, Generator, List
 from types import UnionType
-from tools import classproperty, jinja_template_loading, row_keys, sanitize_object_for_json
+from tools import classproperty, jinja_template_loading, row_keys
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
@@ -37,25 +37,28 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         # Get the default repr arguments first
         # This iterates over defined fields and computed fields
         args = super().__repr_args__()
-        
         # Filter out any arguments that correspond to extra fields
         # The 'name' attribute of ReprArgsElement is the field name
         extra_fields = getattr(self, '__pydantic_extra__', {})
         return [arg for arg in args if arg[0] not in extra_fields]
 
-    # name: str | dict = Field(default="NA", validate_default=True)
     sql_instance: BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
-
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
     
     @classproperty
     def aliases(cls) -> List[str]:
+        """
+        Gets other names this class may be known by, for lookup purposes.
+        """
         return [cls.__name__.replace("Pyd", "").lower()]
 
     @classproperty
     def _sql_name(cls) -> str:
+        """
+        Gets the name of the corresponding SQLAlchemy class, for lookup purposes.
+        """
         return cls.__name__.replace("Pyd", "")
 
     @classproperty
@@ -121,7 +124,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     except KeyError:
                         value = value
                 self.__setattr__(key, value)
-        # return data
         return self
 
     def filter_field(self, key: str, value: Any | None = None) -> Any:
@@ -201,7 +203,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                         continue
                     match value:
                         case _AssociationList():
-                            # output = []
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                             for item in value.col:
                                 dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
@@ -235,7 +236,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         fields = list(self.__class__.model_fields.keys()) + list(self.model_extra.keys())
         output = {k: self.filter_field(k) for k in fields if k not in ["sql_instance", "new"]}
-        # logger.debug(f"{self.__class__.__name__} output:\n{output}")
         if "misc_info" in output.keys():
             iterator = output['misc_info'] or {}
             for k, v in iterator.items():
@@ -278,7 +278,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         except AssertionError:
             raise AttributeError(f"Sql Instance for {self.__class__.__name__} is None, cannot save")
         for k, v in sanitized_dicto.items():
-            # print(f"Processing field {k} with value {v} on {self.sql_instance}, classtype: {getattr(self._sql_class, k, None)}")
             try:
                 class_attr = getattr(self._sql_class, k, None)
             except AttributeError as e:
@@ -295,7 +294,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     if getattr(self.sql_instance, k) == v:
                         continue
                     else:
-                        # logger.debug(f"New value for {k} on {self.sql_instance}: {v}")
                         try:
                             setattr(self.sql_instance, k, v)
                         except AttributeError as e:
@@ -304,7 +302,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case _:
                     pass
         for k, v in self.model_extra.items():
-            # self.sql_instance._misc_info[k] = sanitize_object_for_json(v)
             self.sql_instance ._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
         return self.sql_instance
     
@@ -329,7 +326,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     pass
                 case _:
                     continue
-            # k = self.__class__.replacement_matrix.get(k, k)
             output.append(k)
         return list(set(output))
     
@@ -354,7 +350,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return [class_[0].lower() for class_ in inspect.getmembers(models) if isinstance(class_[1], DeclarativeMeta) and issubclass(class_[1], models.BaseClass)]
     
     @classmethod
-    def determine_field_type(cls, field: str, is_new: bool = False) -> str:
+    def determine_field_type(cls, field: str, is_new: bool = False) -> str | None:
         """
         Determines which type of field to use in the form.
 
@@ -379,7 +375,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     except AttributeError as e:
                         type_ = getattr(cls._sql_class, field) # Dicey workaround for hybrid_property with underscore
                 type_name = type_.__class__.__name__
-                # logger.debug(f"Using type_name: {type_name}")
                 if type_name == "InstrumentedAttribute":
                     type_ = type_.property
                     type_name = type_.__class__.__name__
@@ -420,7 +415,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     IA = IA.__args__[0]
                 try:
                     type_name = IA.__name__
-
                 except AttributeError:
                     logger.warning(f"Could not determine type name for field {field} on {cls.__name__} with annotation {cls.model_fields[field].annotation}")
                     type_name = "Skipped"
@@ -628,7 +622,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
                             **kwargs) -> str:
         details = {self._sql_class.__name__.lower() : self.clean_details_for_render(kwargs)}
-        # template = self.details_template
         if isinstance(css_in, str):
             css_in = [css_in]
         env = jinja_template_loading()
@@ -639,9 +632,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             js_in = [js_in]
         js_in = ["details"] + js_in
         js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
-        # if isinstance(template, str):
-        #     template = f"{template}.html"
-        # template = env.get_template(self.details_template)
         css_out = []
         for css in css_in:
             with open(css, "r") as f:

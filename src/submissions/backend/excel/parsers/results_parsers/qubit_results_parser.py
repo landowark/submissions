@@ -5,13 +5,13 @@ from __future__ import annotations
 import logging
 from typing import Generator, TYPE_CHECKING
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
-from pathlib import Path
 if TYPE_CHECKING:
     from backend.db.models import Procedure
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 class QubitInfoParser(DefaultResultsInfoParser):
+    """Object to pull data from Design and Analysis PCR export file."""
 
     sheets = [ dict(
                 sheet = 1,
@@ -23,17 +23,7 @@ class QubitInfoParser(DefaultResultsInfoParser):
         self.procedure = procedure
         super().__init__(worksheet=worksheet, results_type=self.results_type, *args, **kwargs)
 
-    # def to_pydantic(self):
-    #     """
-    #     Since there is no overview generated, return blank PydResults object.
-
-    #     Returns:
-    #         None
-    #     """
-    #     from backend.validators.pydant import PydResults
-    #     return None
-
-
+    
 class QubitSampleParser(DefaultResultsSampleParser):
     """Object to pull data from Design and Analysis PCR export file."""
 

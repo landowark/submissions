@@ -5,15 +5,12 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pprint import pformat
-from typing import Generator, TYPE_CHECKING, List
+from typing import Generator, List
 from dateutil.parser import parse
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
 from backend.db.models.procedures import Procedure
 from openpyxl.worksheet.worksheet import Worksheet
-
 from tools import convert_well_to_row_column
-if TYPE_CHECKING:
-    from backend.validators.pydant import PydResults
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -29,9 +26,6 @@ class DiomniPCRInfoParser(DefaultResultsInfoParser):
         if not isinstance(date_analyzed, datetime):
             date_analyzed = parse(date_analyzed, tzinfos={"CDT":"America/Winnipeg"})
         self.date_analyzed = date_analyzed
-
-    # def to_pydantic(self):
-    #     return self._pyd_object(result={k: v for k, v in self.parsed_info}, resultstype=self.resultstype, date_analyzed=self.date_analyzed, parent=self.procedure)
 
 
 class DiomniPCRSampleParser(DefaultResultsSampleParser):
@@ -101,24 +95,3 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
             if entry not in output:
                 output.append(entry)
         return output
-
-    # def to_pydantic(self) -> Generator[PydResults, None, None]:
-    #     from backend.db.models import ProcedureSampleAssociation
-    #     for item in self.parsed_info:
-    #         # NOTE: Ensure that only samples associated with the procedure are used.
-    #         try:
-    #             sample_obj = next(
-    #                 (sample for sample in self.procedure.sample if sample.sample_id == list(item.keys())[0]))
-    #         except StopIteration:
-    #             continue
-    #         assoc = ProcedureSampleAssociation.query(sample=sample_obj, procedure=self.procedure)
-    #         if assoc and not isinstance(assoc, list):
-    #             output = self._pyd_object(result=list(item.values())[0], parent=assoc, date_analyzed=self.date_analyzed)
-    #             output.resultstype = "Diomni PCR"
-    #             try:
-    #                 del output.result['resultstype']
-    #             except KeyError:
-    #                 pass
-    #             yield output
-    #         else:
-    #             continue

@@ -73,12 +73,10 @@ class DefaultWriter(object):
             except AttributeError as e:
                 logger.error(f"Couldn't get start row due to {e}")
                 start_row = 1
-        print(f"{self.__class__.__qualname__} Starting row: {start_row}")
         if not sheet:
             sheet = self.__class__.sheet
         self.sheet = sheet
         sheetnames = workbook.sheetnames
-        print(f"{self.sheet} in {workbook.sheetnames}")
         if isinstance(sheetnames, property):
             try:
                 sheetnames = sheetnames.fget(workbook)
@@ -95,7 +93,6 @@ class DefaultWriter(object):
             self.worksheet = workbook[self.sheet]
         self.worksheet = self.prewrite(self.worksheet, start_row=start_row)
         self.start_row = self.delineate_start_row(start_row=start_row)
-        print(f"{self.__class__.__qualname__} post delineation Starting row: {start_row}")
         # NOTE: Declared in child classes
         self.end_row = self.delineate_end_row(start_row=start_row)
         return workbook
@@ -158,18 +155,12 @@ class DefaultKEYVALUEWriter(DefaultWriter):
                           start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row)
         dictionary = {k: v for k, v in self.fill_dictionary.items() if k not in self.__class__.exclude}
-        logger.debug(f"Starting dictionary:\n{pformat(dictionary)}")
         dictionary =  sort_dict_by_list(dictionary=dictionary, order_list=self.key_order)
-        logger.debug(f"Sorted dictionary:\n{pformat(dictionary)}")
         for ii, (k, v) in enumerate(dictionary.items(), start=self.start_row):
             value = self.stringify_value(value=v)
             if value is None:
                 continue
-            # try:
             self.worksheet.cell(column=1, row=ii, value=self.prettify_key(k))
-            # except ValueError:
-                # print(dictionary)
-                # break
             self.worksheet.cell(column=2, row=ii, value=self.stringify_value(value))
         self.worksheet = self.postwrite(self.worksheet)
         return workbook

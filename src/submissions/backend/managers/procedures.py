@@ -13,7 +13,7 @@ from backend.excel.parsers import procedure_parsers
 from backend.excel.writers import procedure_writers, results_writers
 if TYPE_CHECKING:
     from backend.db.models import ProcedureType
-    from backend.validators.pydant import PydProcedure, PydProcedureType
+    from backend.validators.pydant import PydProcedureType
     from backend.db.models import BaseClass
     from backend.validators.pydant import PydBaseClass
 
@@ -58,7 +58,6 @@ class DefaultProcedureManager(DefaultManager):
         except AttributeError:
             info_parser = procedure_parsers.ProcedureInfoParser
         self.info_parser = info_parser(worksheet=self.input_object)
-        
         try:
             reagent_parser = getattr(procedure_parsers, f"{self.proceduretype.name.replace(' ', '')}ReagentParser")
         except AttributeError:
@@ -74,12 +73,10 @@ class DefaultProcedureManager(DefaultManager):
         except AttributeError:
             sample_parser = procedure_parsers.ProcedureSampleParser
         self.sample_parser = sample_parser(worksheet=self.input_object, start_row=self.equipment_parser.end_row)
-        
         from backend.validators.pydant import PydProcedure, PydProcedureReagentLotAssociation, PydSample, PydProcedureEquipmentAssociation
         self.procedure = PydProcedure(**{k:v for k, v in self.info_parser.parsed_info})
         self.procedure.reagentlot = [PydProcedureReagentLotAssociation(procedure=self.procedure, **item) for item in self.reagent_parser.parsed_info]
         self.procedure.sample = [PydSample(**sample) for sample in self.sample_parser.parsed_info]
-        # self.procedure.sample
         self.procedure.equipment = [PydProcedureEquipmentAssociation(procedure=self.procedure, **item) for item in self.equipment_parser.parsed_info]
         return self.procedure
 
@@ -106,7 +103,6 @@ class DefaultProcedureManager(DefaultManager):
             sample_writer = getattr(procedure_writers, f"{self.proceduretype.name.replace(' ', '')}SampleWriter")
         except AttributeError:
             sample_writer = procedure_writers.ProcedureSampleWriter
-        # Set as self.pyd. At this point self.pyd are PydProcedureSampleAssociation objects.
         self.sample_writer = sample_writer(pydant_obj=self.pyd, proceduretype=self.proceduretype)
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.

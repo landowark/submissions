@@ -47,7 +47,6 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         self.pydant_obj = self.pad_submission_samples_to_length()
-        print(f"Here's the padded samples: {pformat(self.pydant_obj)}")
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.worksheet = self.postwrite(self.worksheet)
         return workbook

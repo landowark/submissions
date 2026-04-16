@@ -273,11 +273,8 @@ class PydProcedureType(PydAbstract):
         Returns:
             str: html output string.
         """
-        from .concrete import PydSample
         if self.plate_rows == 0 or self.plate_columns == 0:
             return "<br/>"
-        # assert all([isinstance(s, PydSample) for s in sample_dicts])
-        # samples are not PydSamples at this point
         sample_dicts = self.pad_sample_dicts(sample_dicts=sample_dicts)
         vw = round((-0.07 * len(sample_dicts)) + (12.2 * vw_modifier), 1)
         # NOTE: An overly complicated list comprehension create a list of sample locations
@@ -296,7 +293,6 @@ class PydProcedureType(PydAbstract):
             List[PydSample]: Padded list.
         """
         from backend.validators.pydant import PydSample
-        # logger.debug(f"Samples from construct_plate_map:\n{pformat(sample_dicts)}")
         output = []
         for row, column in self.ranked_plate.values():
 

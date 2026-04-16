@@ -75,8 +75,7 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
         self.procedure = self.pydant_obj.name
         self.sheet = f"{self.pydant_obj.proceduretype.name[:20]} Quality"
         self.pydant_obj = self.pad_procedure_samples_to_length()
-        # print(self.pydant_obj)
-
+        
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
@@ -113,4 +112,5 @@ class ProcedureSampleWriter(DefaultTABLEWriter):
                             sample = PydProcedureSampleAssociation(sample="", procedure=self.procedure, procedure_rank=iii, row=rrr, column=ccc)
                     output_samples.append(sample)
                     iii += 1
-            return sorted(output_samples, key=lambda x: (x.column, x.row))        
+            return sorted(output_samples, key=lambda x: (x.column, x.row))
+        

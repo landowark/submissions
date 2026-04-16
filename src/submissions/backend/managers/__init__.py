@@ -72,7 +72,6 @@ class DefaultManager(object):
         # NOTE: If input_object is a str or path, use parser to construct object
         match self.input_object:
             case Workbook() | Worksheet():
-                # self.input_object = input_object
                 self.pyd = self.parse()
             case x if issubclass(self.input_object.__class__, pydant.PydBaseClass):
                 self.pyd = self.input_object
@@ -89,12 +88,6 @@ class DefaultManager(object):
 
     def parse(self):
         raise NotImplementedError("Parse only implemented in subclasses.")
-
-    # if self.filepath.suffix == ".xlsx":
-        #     self.workbook = load_workbook(self.filepath, data_only=True)
-        # # NOTE: convert csv to xlsx for standardization purposes.
-        # elif self.filepath.suffix == ".csv":
-        #     self.workbook, _ = self.csv2xlsx(self.filepath)
 
     @property
     def _pyd_object(self):
@@ -120,10 +113,6 @@ class DefaultManager(object):
         return wb, ws
 
     def to_pydantic(self):
-        # data = self.parsed_info
-        # # logger.debug(f"Data for {self.__class__.__name__}: {pformat(data)}")
-        # data['filepath'] = self.filepath
-        # return self._pyd_object(**data)
         return self.pyd
 
 
@@ -137,12 +126,6 @@ class DefaultManager(object):
                 return self.input_object.worksheets[sheet - 1]
             case _:
                 raise TypeError(f"Invalid type for worksheet retrieval: {type(sheet)}")
-
-    # def to_pydantic(self):
-    #     """
-    #     To be implemented in subclasses only.
-    #     """
-    #     raise NotImplementedError("This method is defined in subclasses only.")
 
     def ratchet_start_row(self):
         """

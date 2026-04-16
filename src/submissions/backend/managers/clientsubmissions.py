@@ -6,9 +6,7 @@ from pprint import pformat
 import logging, sys
 from typing import TYPE_CHECKING, Generator
 from pathlib import Path
-from openpyxl import load_workbook
 from openpyxl.workbook import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
 from backend.validators import ClientSubmissionNamer
 from backend.managers import DefaultManager
 from backend.excel.parsers import clientsubmission_parser
@@ -64,20 +62,15 @@ class DefaultClientSubmissionManager(DefaultManager):
             for procedure in self.scraped_procedures:
                 run = next((item for item in self.clientsubmission.run if item.rsl_plate_number==procedure.run), None)
                 if run is None:
-                    # print("Constructing run...")
                     run = self.construct_run(procedure=procedure)
-                # else:
-                #     ("Using existing run")
                 run.add_samples(procedure.sample)
                 run.procedure.append(procedure)
-                # run.clientsubmission = run.clientsubmission.submitter_plate_id.get("value")
                 if run not in self.clientsubmission.run:
                     self.clientsubmission.run.append(run)
 
 
     def construct_run(self, procedure: PydProcedure) -> PydRun:
         from backend.validators.pydant import PydRun
-        
         return PydRun(
             rsl_plate_number = procedure.run,
             clientsubmission = self.clientsubmission,
@@ -85,16 +78,13 @@ class DefaultClientSubmissionManager(DefaultManager):
             completed_date = procedure.completed_date,
         )
 
-    
     @property
     def scraped_procedures(self) -> Generator[PydProcedure, None, None]:
         from backend.db.models import ProcedureType
         from backend.managers.procedures import DefaultProcedureManager
         for procedure in self.found_procedures:
-            logger.debug(f"Found procedure: {procedure}")
             proceduretype = procedure.strip(" Quality")
             proceduretype = ProcedureType.query(name=proceduretype)
-            logger.debug(f"Mapped procedure to procedure type: {proceduretype}")
             try:
                 worksheet = self.input_object[procedure]
             except KeyError:
@@ -115,12 +105,9 @@ class DefaultClientSubmissionManager(DefaultManager):
                 for pt in ptypes:
                     if pt.startswith(sheet.removesuffix(' Quality')):
                         yield sheet
-            
                 
     def parse(self):
         from backend.validators.pydant import PydSample
-        # workbook: Workbook = self.input_object
-        # workbook.file = self.input_object
         try:
             info_parser = getattr(clientsubmission_parser, f"{self.submissiontype.name}InfoParser")
         except AttributeError:
@@ -136,7 +123,6 @@ class DefaultClientSubmissionManager(DefaultManager):
                     s['start_row'] = self.info_parser.end_row + 1
         
         # NOTE: Alter sheets List[dict] so that the start_row sent to sample parser is the end row of the info parser
-        # sheets = self.ratchet_start_row()
         try:
             sample_parser = getattr(clientsubmission_parser, f"{self.submissiontype.name}InfoParser")
         except AttributeError:
@@ -148,10 +134,7 @@ class DefaultClientSubmissionManager(DefaultManager):
             self.sample_parser = sample_parser(worksheet=ws, start_row=start_row)
             for sample in self.sample_parser.parsed_info:
                 samples.append(sample)
-        # if self.info_parser._pyd_object is not None:
         self.clientsubmission = self._pyd_object(**info)
-        # else:
-        # self.clientsubmission = None
         for sample in samples:
             try:
                 self.clientsubmission.sample.append(PydSample(**sample))
@@ -160,8 +143,6 @@ class DefaultClientSubmissionManager(DefaultManager):
                 continue
         return self.clientsubmission
     
-    
-
     def write(self, workbook: Workbook) -> Workbook:
         self.info_writer = clientsubmission_writer.ClientSubmissionInfoWriter(pydant_obj=self.pyd)
         assert isinstance(self.info_writer, clientsubmission_writer.ClientSubmissionInfoWriter)

@@ -1,5 +1,8 @@
 """
 Handles display of control charts
+
+### Currently not implemented. Requires updating to models.Results ###
+
 """
 from pprint import pformat
 from PyQt6.QtWidgets import (

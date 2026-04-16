@@ -10,7 +10,6 @@ from frontend.widgets import ExcelSheetSelector
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from typing import Generator, List
-# if TYPE_CHECKING:
 from backend.validators.pydant import PydResults
 
 

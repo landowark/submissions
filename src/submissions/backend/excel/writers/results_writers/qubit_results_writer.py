@@ -13,8 +13,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class QubitInfoWriter(DefaultResultsInfoWriter):
 
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int = 1, *args, **kwargs) -> Workbook:
+    def write_to_workbook(self, workbook: Workbook, *args, **kwargs) -> Workbook:
         return workbook
 
 
@@ -27,7 +26,6 @@ class QubitSampleWriter(DefaultResultsSampleWriter):
         workbook = super().write_to_workbook(workbook=workbook, *args, **kwargs)
         resultstype = next((item for item in self.proceduretype.allowed_result_methods if item['name'] == "Qubit"), dict(header_row=1))
         header_row = resultstype.get('header_row', 1)
-        logger.debug(f"Column headers: {self.column_headers}")
         headers = self.sort_header_row(self.column_headers)
         for iii, header in enumerate(headers, start=1):
             self.worksheet.cell(row=header_row, column=iii, value=header.replace("_", " ").title())
@@ -49,7 +47,7 @@ class QubitSampleWriter(DefaultResultsSampleWriter):
     def column_headers(self):
         output = []
         for result in self.pydant_obj:
-            for k, value in result.improved_dict.items():
+            for k in result.improved_dict.keys():
                 if k not in self.exclude:
                     output.append(k)
         return sorted(list(set(output)))

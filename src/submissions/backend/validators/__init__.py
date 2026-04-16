@@ -39,7 +39,6 @@ class ClientSubmissionNamer(DefaultNamer):
                  data: dict | None = None, **kwargs):
         from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
-        
         if not submissiontype:
             self.submissiontype = self.retrieve_submissiontype()
         if isinstance(submissiontype, str):
@@ -118,7 +117,6 @@ class ClientSubmissionNamer(DefaultNamer):
             SubmissionType
         """
         from backend.db.models import SubmissionType
-        
         # NOTE: Gets first category in the metadata.
         try:
             categories = self.workbook.properties.category.split(";")
@@ -136,13 +134,9 @@ class RSLNamer(object):
     Object that will enforce proper formatting on RSL plate names.
     """
 
-    # def __init__(self, filename: str, submission_type: str | None = None, data: dict | None = None):
     def __init__(self, submission_type: str | SubmissionType | dict):
         from backend.db.models import SubmissionType
         # NOTE: Preferred method is path retrieval, but might also need validation for just string.
-        # filename = Path(filename) if Path(filename).exists() else filename
-        # if not submission_type:
-        #     submission_type = self.retrieve_submission_type(filename=filename)
         match submission_type:
             case str():
                 self.sub_object = SubmissionType.query(name=submission_type, limit=1)
@@ -156,105 +150,6 @@ class RSLNamer(object):
             case _:
                 raise TypeError(f"Unmatched type {type(submission_type)} for submission_type")
         
-        # self.parsed_name = self.retrieve_rsl_number(filename=filename, regex=self.sub_object.get_regex(
-        #     submission_type=self.submission_type))
-
-        # logger.info(f"Parsed name: {self.parsed_name}")
-
-    # @classmethod
-    # def retrieve_submission_type(cls, filename: str | Path) -> str:
-    #     """
-    #     Gets procedure type from excel file properties or sheet names or regex pattern match or user input
-
-    #     Args:
-    #         filename (str | Path): filename
-
-    #     Raises:
-    #         TypeError: Raised if unsupported variable type for filename given.
-
-    #     Returns:
-    #         str: parsed procedure type
-    #     """
-    #     from backend.db.models import SubmissionType
-    #     def st_from_path(filepath: Path) -> str:
-    #         """
-    #         Sub def to get proceduretype from a file path
-
-    #         Args:
-    #             filepath ():
-
-    #         Returns:
-
-    #         """
-    #         if filepath.exists():
-    #             wb = load_workbook(filepath)
-    #             try:
-    #                 # NOTE: Gets first category in the metadata.
-    #                 categories = wb.properties.category.split(";")
-    #                 submission_type = next(item.strip().title() for item in categories)
-    #             except (StopIteration, AttributeError):
-    #                 sts = {item.name: item.template_file_sheets for item in SubmissionType.query() if
-    #                        item.template_file}
-    #                 try:
-    #                     submission_type = next(k.title() for k, v in sts.items() if wb.sheetnames == v)
-    #                 except StopIteration:
-    #                     # NOTE: On failure recurse using filepath as string for string method
-    #                     submission_type = cls.retrieve_submission_type(filename=filepath.stem.__str__())
-    #         else:
-    #             submission_type = cls.retrieve_submission_type(filename=filepath.stem.__str__())
-    #         return submission_type
-
-    #     def st_from_str(file_name: str) -> str:
-    #         if file_name.startswith("tmp"):
-    #             return "Bacterial Culture"
-    #         regex = SubmissionType.regexes
-    #         m = regex.search(file_name)
-    #         try:
-    #             sub_type = m.lastgroup
-    #         except AttributeError as e:
-    #             sub_type = None
-    #             logger.critical(f"No procedure type found or procedure type found!: {e}")
-    #         return sub_type
-
-    #     match filename:
-    #         case Path():
-    #             submission_type = st_from_path(filepath=filename)
-    #         case str():
-    #             submission_type = st_from_str(file_name=filename)
-    #         case _:
-    #             raise TypeError(f"Unsupported filename type: {type(filename)}.")
-        
-    #     submission_type = submission_type.replace("_", " ")
-    #     return submission_type
-
-    # @classmethod
-    # def retrieve_rsl_number(cls, filename: str | Path, regex: re.Pattern | None = None):
-    #     """
-    #     Uses regex to retrieve the plate number and procedure type from an input string
-
-    #     Args:
-    #         regex (str): string to construct pattern
-    #         filename (str): string to be parsed
-    #     """
-    #     from backend.db.models import SubmissionType
-    #     if regex is None:
-    #         regex = SubmissionType.regexes
-    #     match filename:
-    #         case Path():
-    #             m = regex.search(filename.stem)
-    #         case str():
-    #             m = regex.search(filename)
-    #         case _:
-    #             m = None
-    #     if m is not None:
-    #         try:
-    #             parsed_name = m.group().upper().strip(".")
-    #         except AttributeError:
-    #             parsed_name = None
-    #     else:
-    #         parsed_name = None
-    #     return parsed_name
-
     @classmethod
     def construct_new_plate_name(cls, data: dict) -> str:
         """
@@ -309,21 +204,7 @@ class RSLNamer(object):
         environment = jinja_template_loading()
         template = environment.from_string(source=template)
         return template.render(**output)
-
-    # def calculate_repeat(self) -> str:
-    #     """
-    #     Determines what repeat number this plate is.
-
-    #     Returns:
-    #         str: Repeat number.
-    #     """
-    #     regex = re.compile(r"-\d(?P<repeat>R\d)")
-    #     m = regex.search(self.parsed_name)
-    #     if m is not None:
-    #         return m.group("repeat")
-    #     else:
-    #         return ""
-
+    
 
 from .pydant import (
     PydRun, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, PydEquipment, PydEquipmentRole, PydTips,

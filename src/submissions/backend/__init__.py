@@ -5,7 +5,6 @@ from .db import (
     set_sqlite_pragma,
     LogMixin, ConfigItem,
     AuditLog,
-    # ControlType, Control,
     ClientLab, Contact,
     ReagentRole, Reagent, ReagentLot, Discount, SubmissionType, ProcedureType, Procedure, ProcedureTypeReagentRoleAssociation,
     ProcedureReagentLotAssociation, EquipmentRole, Equipment, EquipmentRoleEquipmentAssociation, Process, ProcessVersion,

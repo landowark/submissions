@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import date
 from typing import Tuple, List, TYPE_CHECKING
 from backend.db.models import Procedure
-from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list, ctx
+from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 if TYPE_CHECKING:
@@ -180,20 +180,6 @@ class TurnaroundMaker(ReportArchetype):
         Returns:
 
         """
-        # days = sub.turnaround_time
-        # try:
-        #     tat = sub.get_default_info("turnaround_time")
-        # except (AttributeError, KeyError):
-        #     tat = None
-        # if not tat:
-        #     try:
-        #         tat = ctx.TaT_threshold
-        #     except AttributeError:
-        #         tat = 3
-        # try:
-        #     tat_ok = days <= tat
-        # except TypeError:
-        #     return {}
         return dict(name=str(sub.rsl_plate_number), days=sub.turnaround_time, submitted_date=sub.started_date,
                     completed_date=sub.completed_date, acceptable=sub.met_turnaround())
 

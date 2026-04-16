@@ -22,14 +22,7 @@ class CustomWebEnginePage(QWebEnginePage):
     # it may be exposed as a signal; instead we connect to the signal from
     # the code that creates the page (ProcedureCreation) to log terminations.
 
-    # def acceptNavigationRequest(self, url, _type, isMainFrame):
-    #     print(f"Navigation request to: {url.toString()}")
-    #     return super().acceptNavigationRequest(url, _type, isMainFrame)
     
-    # def navigationRequested(self, url, _type, isMainFrame):
-    #     print(f"Navigation requested to: {url.toString()}")
-    #     return super().navigationRequested(url, _type, isMainFrame)
-
 class pandasModel(QAbstractTableModel):
     """
     pandas model for inserting summary sheet into gui

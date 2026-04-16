@@ -14,7 +14,6 @@ class DefaultRunManager(DefaultManager):
     def write(self, workbook: Workbook | None = None) -> Workbook:
         from backend.managers import DefaultClientSubmissionManager, DefaultProcedureManager
         logger.info(f"Initializing write")
-        
         clientsubmission = self.pyd.sql_instance.clientsubmission
         # Question: what the hell is this even for?
         # Answer: It's to write all the client submission info apparently

@@ -70,7 +70,6 @@ class App(QMainWindow):
         """
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
-        editMenu = menuBar.addMenu("&Edit")
         # NOTE: Creating menus using a title
         methodsMenu = menuBar.addMenu("&Search")
         manageabstractsMenu = menuBar.addMenu("&Manage Abstracts")
@@ -119,7 +118,6 @@ class App(QMainWindow):
         connect menu and tool bar item to functions
         """
         self.importAction.triggered.connect(lambda fname: self.table_widget.formwidget.import_submission_function(fname=fname))
-        # self.addReagentAction.triggered.connect(self.table_widget.formwidget.add_reagent)
         self.helpAction.triggered.connect(self.showAbout)
         self.docsAction.triggered.connect(self.openDocs)
         self.searchSample.triggered.connect(self.runSampleSearch)

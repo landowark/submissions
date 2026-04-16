@@ -2,18 +2,12 @@
 Default Parser archetypes.
 """
 from __future__ import annotations
-import logging, re, csv
-from pathlib import Path
+import logging, re
 from pprint import pformat
-from typing import Generator, TYPE_CHECKING, List
+from typing import Generator
 from openpyxl.cell import MergedCell
-from openpyxl.reader.excel import load_workbook
-from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
-from backend.validators import pydant
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -24,8 +18,6 @@ class DefaultParser(object):
 
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.worksheet.title}>"
-
-    
 
     def __init__(self, worksheet: Worksheet, start_row: int = 1, end_row: int | None = None, *args, **kwargs):
         """
@@ -39,85 +31,13 @@ class DefaultParser(object):
         """
         logger.info(f"\n\nHello from {self.__class__.__name__}\n\n")
         self.worksheet = worksheet
-        # if isinstance(filepath, str):
-        #     filepath = Path(filepath)
-        # self.filepath = filepath
-        # self.proceduretype = proceduretype
-        # if self.filepath.suffix == ".xlsx":
-        #     self.workbook = load_workbook(self.filepath, data_only=True)
-        # # NOTE: convert csv to xlsx for standardization purposes.
-        # elif self.filepath.suffix == ".csv":
-        #     self.workbook, _ = self.csv2xlsx(self.filepath)
-        # # self.start_row = self.delineate_start_row(start_row=start_row)
-        # # self.end_row = self.delineate_end_row(start_row=self.start_row)
-        # # logger.debug(f"Parsing from {self.start_row} to {self.end_row}")
-        # if not sheets:
-        #     sheets = self.__class__.sheets
-        # logger.debug(f"Sheets before {self.__class__.__name__} set: {sheets}")
-        # for sheet in sheets:
-            # worksheet: Worksheet = self.get_worksheet(sheet=sheet.get('sheet', 0))
-        # print(f"Start row: {start_row}, end row: {end_row}")
         self.start_row = self.delineate_start_row(worksheet=worksheet, start_row=start_row)
         if end_row is None:
             self.end_row = self.delineate_end_row(worksheet=worksheet, start_row=self.start_row)
         else:
             self.end_row = self.delineate_end_row(worksheet=worksheet, start_row=end_row)
-        # print(f"self.Start row: {self.start_row}, self.end row: {self.end_row}")
         assert self.start_row <= self.end_row
-        # self.sheets = sheets
-        # logger.debug(f"Sheets after {self.__class__.__name__} set: {self.sheets}")
-        # try:
-        #     self._pyd_object = self.pydant_object
-        # except AttributeError:
-        #     self._pyd_object = None
-
-    # @property
-    # def _pyd_object(self):
-    #     try:
-    #         return getattr(pydant, f"Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}")
-    #     except AttributeError as e:
-    #         logger.error(
-    #             f"Couldn't get pyd object: Pyd{self.__class__.__name__.replace('Parser', '').replace('Info', '')}, using {self.__class__.pyd_name}")
-    #         try:
-    #             return getattr(pydant, self.__class__.pyd_name)
-    #         except AttributeError:
-    #             logger.error(f"Couldn't get pyd object using pyd_name. Returning None")
-    #             return None
         
-    
-
-    # @classmethod
-    # def csv2xlsx(cls, filepath):
-    #     wb = Workbook()
-    #     ws = wb.active
-    #     with open(filepath, "r") as f:
-    #         reader = csv.reader(f, delimiter=",")
-    #         for row in reader:
-    #             ws.append(row)
-    #     return wb, ws
-
-    # def to_pydantic(self):
-    #     data = self.parsed_info
-    #     # logger.debug(f"Data for {self.__class__.__name__}: {pformat(data)}")
-    #     data['filepath'] = self.filepath
-    #     return self._pyd_object(**data)
-
-    # @classmethod
-    # def correct_procedure_type(cls, proceduretype: str | ProcedureType) -> ProcedureType:
-    #     """
-    #     Attempts to get the correct proceduretype through query.
-        
-    #     Args:
-    #         proceduretype (str): Name of the desired proceduretype
-        
-    #     Returns: 
-    #         ProcedureType: The instance of the desired proceduretype
-    #     """
-    #     from backend.db.models import ProcedureType
-    #     if isinstance(proceduretype, str):
-    #         proceduretype = ProcedureType.query(name=proceduretype)
-    #     return proceduretype
-
     @classmethod
     def delineate_start_row(cls, worksheet: Worksheet, start_row: int = 1) -> int:
         """
@@ -185,14 +105,7 @@ class DefaultTABLEParser(DefaultParser):
             Generator[dict, None, None]: {column_header: row column value}
         """
         
-        # for iii, sheet in enumerate(self.sheets):
-        logger.debug(f"Parsing sheet: {self.worksheet.title}")
-        # worksheet: Worksheet = self.get_worksheet(sheet.get('sheet', 0))
-        # start_row = sheet.get('start_row', self.delineate_start_row(worksheet=worksheet))
-        # end_row = sheet.get('end_row', self.delineate_end_row(worksheet=worksheet, start_row=start_row))
-        # print(f"DF construction: start row: {self.start_row}, end row: {self.end_row}")
-        # self.sheets[iii]['start_row'] = start_row
-        # self.sheets[iii]['end_row'] = end_row
+        logger.info(f"Parsing sheet: {self.worksheet.title}")
         df = DataFrame(
             [item for item in self.worksheet.values][self.start_row - 1: self.end_row - 1])
         df.columns = df.iloc[0]
