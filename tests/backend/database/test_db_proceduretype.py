@@ -120,5 +120,3 @@ def test_proceduretype_allowed_result_method(proceduretype):
     assert proceduretype.allowed_result_methods[0]["name"] == "Test ResultsType"
 
 
-def test_proceduretype_to_html(proceduretype):
-    assert isinstance(proceduretype.to_html(), str)

@@ -138,6 +138,10 @@ def test_clientsubmission_get_custom_context_events(clientsubmission):
     assert all([callable(obj) for obj in clientsubmission.custom_context_events.values()])
 
 
+def test_clientsubmission_get_lab_submissions_by_day(clientsubmission):
+    x = ClientSubmission.get_lab_submissions_by_day(clientlab="Test Lab", search_date=date.today() - timedelta(days=1))
+    assert x == 1
+
 def test_tools_sanitize_object_for_json():
     
     # from backend.db.models import ClientSubmission

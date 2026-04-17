@@ -131,9 +131,9 @@ class PydProcess(PydAbstract):
     
 class PydResultsType(PydAbstract):
 
-    name: str = Field(default="NA")
+    name: str = Field(default="NA", description="Name of this resultstype.")
     results: List[str] | List[dict] = Field(default_factory=list, repr=False)
-    proceduretype: List[str] | List[dict] = Field(default_factory=list, repr=False)
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, repr=False, description="ProcedureTypes that will use this.")
 
     def to_sql(self, update: bool = True):
         self.sql_instance = super().to_sql(update)

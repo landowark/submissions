@@ -4,6 +4,7 @@ var backend;
 if (typeof QWebChannel !== 'undefined') {
     new QWebChannel(qt.webChannelTransport, function(channel) {
         backend = channel.objects.backend;
+        window.backend = backend;
         console.log('QWebChannel ready, backend:', backend);
     });
 } else {

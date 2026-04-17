@@ -2008,7 +2008,7 @@ class Procedure(BaseClass):
         Returns:
             dict: dictionary of functions
         """
-        names = ["Add Results", "Add Equipment", "Edit", "Add Comment", "Show Details", "Delete"]
+        names = ["Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
     def add_results(self, obj, resultstype_name: str):
@@ -2038,6 +2038,7 @@ class Procedure(BaseClass):
             sql.update_last_useds()
             # NOTE: Print out all procedureequipmentassociation objects
             sql.save()
+        obj.set_data()
 
     def add_comment(self, obj):
         logger.debug("Add Comment!")
@@ -2101,7 +2102,7 @@ class Procedure(BaseClass):
                 sample.column = assoc.column
                 sample.rank = assoc.procedure_rank
                 sample.enabled = getattr(assoc, "enabled", True)
-                sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
+                sample.sample_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
             sample_list.append(sample)
         output = dict(
             proceduretype=self.proceduretype,
@@ -2115,6 +2116,7 @@ class Procedure(BaseClass):
             results=[item.to_pydantic() for item in self.results],
             started_date=self.started_date,
             completed_date=self.completed_date,
+            sql_instance=self,
         )
         pyd = PydProcedure(**output)
         return pyd
@@ -2175,7 +2177,10 @@ class Procedure(BaseClass):
         from backend.db.models import RunSampleAssociation
         self.set_cost()
         super().save()
-        rank = max([item.run_rank for item in self.run.runsampleassociation])
+        try:
+            rank = max([item.run_rank for item in self.run.runsampleassociation])
+        except AttributeError:
+            rank = 0
         for iii, sampleassociation in enumerate(self.proceduresampleassociation, start=1):
             if sampleassociation.sample.sample_id not in [s.sample_id for s in self.run.sample]:
                 assoc = RunSampleAssociation(sample=sampleassociation.sample, run=self.run, rank=rank+iii)

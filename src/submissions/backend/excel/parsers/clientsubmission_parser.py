@@ -6,7 +6,7 @@ from pprint import pformat
 import logging, sys
 from datetime import datetime
 from string import ascii_lowercase
-from typing import Generator, TYPE_CHECKING
+from typing import Generator, TYPE_CHECKING, Tuple
 from openpyxl.worksheet.worksheet import Worksheet
 from tools import row_keys
 from . import DefaultKEYVALUEParser, DefaultTABLEParser
@@ -74,6 +74,7 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
 
     def __init__(self, worksheet: Worksheet, submissiontype: SubmissionType | None = None, *args, **kwargs):
         namer = ClientSubmissionNamer(filepath=worksheet._parent.file)
+        self.submitter_id = kwargs.get("submitter_id", datetime.now().date().strftime("%Y-%m-%d"))
         if not submissiontype:
             self.submissiontype = namer.submissiontype
         else:
@@ -90,22 +91,25 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
             except KeyError:
                 pass
             sample['rank'] = ii
-            sample['is_control'] = self.determine_control(sample.get("sample_id", None))
+            sample['sample_id'], sample['is_control'] = self.determine_control(sample.get("sample_id", None))
             yield sample
 
-    @classmethod
-    def determine_control(cls, sample_id: str | None) -> int:
+    def determine_control(self, sample_id: str | None) -> Tuple[str, int]:
         if sample_id is None:
-            return 0
+            return sample_id, 0
         if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
-            return 0
+            return "", 0
         if sample_id.lower().startswith(("atcc", "mcs", "pos", "positivecontrol", "poscontrol", "pc")):
-            return 1
+            return sample_id, 1
         if sample_id.lower().startswith(("en", "neg", "negcontrol", "negativecontrol", "nc")):
-            return -1
+            return sample_id, -1
         if "pbs" in sample_id.lower():
-            return -1
-        return 0
+            if sample_id.lower() == "pbs-":
+                output = f"PBS-{self.submitter_id}"
+            else:
+                output = sample_id
+            return output, -1
+        return sample_id, 0
         
     def to_pydantic(self):
         return [self._pyd_object(**sample) for sample in self.parsed_info if sample.get('sample_id', None)]

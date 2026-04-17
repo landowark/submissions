@@ -651,15 +651,19 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
+        logger.debug(f"Running equipment update for {equipmentrole} to {equipment}")
         equipment_of_interest: PydProcedureEquipmentAssociation = next((item for item in self.equipment if item.equipmentrole == equipmentrole), None)
+        logger.debug(f"equipment of interest: {equipment_of_interest}")
         equipment = Equipment.query(name=equipment)
         if equipment_of_interest:
             eoi = self.equipment.pop(self.equipment.index(equipment_of_interest))
+            eoi.equipment = equipment.to_pydantic()
         else:
             eoi = PydProcedureEquipmentAssociation(equipment=equipment.to_pydantic(), equipmentrole=equipmentrole, procedure=self)
         processversion = ProcessVersion.query(name=processversion, limit=1)
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
+        logger.debug(f"Assigning: {pformat(eoi.__dict__)}")
         # NOTE Correct pydprocessverion
         out_tips = []
         for tipslot in tips:
@@ -981,16 +985,19 @@ class PydClientSubmission(PydConcrete):
     def create_submitter_plate_num(cls, value, values):
         match value:
             case dict():
-                if value['value'] in [None, "None"]:
+                if value['value'] in [None, "None", "NA"]:
+                    from backend.db.models import ClientSubmission
                     match values.data['submitted_date']['value']:
                         case datetime():
-                            submitted_date = values.data['submitted_date']['value'].strftime("%Y-%m-%d %H:%M:%S")
+                            submitted_date = values.data['submitted_date']['value'].strftime("%Y-%m-%d")
                         case date():
-                            submitted_date = datetime.combine(values.data['submitted_date']['value'], datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S")
+                            submitted_date = datetime.combine(values.data['submitted_date']['value'], datetime.now().time()).strftime("%Y-%m-%d")
                         case _:
-                            submitted_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            submitted_date = datetime.now().strftime("%Y-%m-%d")
+                    cli_lab = values.data.get('clientlab', dict(value=""))['value']
+                    number = ClientSubmission.get_lab_submissions_by_day(clientlab=cli_lab) + 1
                     try:
-                        val = f"{values.data.get('clientlab', dict(value=""))['value']}-{values.data['submission_category']['value']}-{submitted_date}"
+                        val = f"{cli_lab}-{values.data['submission_category']['value']}-{submitted_date}-{number}"
                     except KeyError as e:
                         logger.error(values.data)
                         raise e
@@ -1421,6 +1428,8 @@ class PydProcedureSampleAssociation(PydConcrete):
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
     enabled: bool = Field(default=True)
 
+    renderclass: ClassVar[str] = "sample"
+
     @field_validator("row", mode="before")
     @classmethod
     def row_str_to_int(cls, value):
@@ -1457,9 +1466,11 @@ class PydProcedureSampleAssociation(PydConcrete):
         output = super().improved_dict
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
+        output['excluded'] += ['results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
+                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled']
         return output
 
-
+    
 class PydProcedureEquipmentAssociation(PydConcrete):
 
     start_time: datetime = Field(default_factory=datetime.now, description="Start time of equipment use", validate_default=True)

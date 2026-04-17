@@ -337,7 +337,7 @@ class ClientSubmission(BaseClass, LogMixin):
     @setup_lookup
     def query(cls,
               submissiontype: str | SubmissionType | None = None,
-              # submissiontype_name: str | None = None,
+              clientlab: str | ClientLab | None = None,
               id: int | str | None = None,
               submitter_plate_id: str | None = None,
               start_date: date | datetime | str | int | None = None,
@@ -390,6 +390,13 @@ class ClientSubmission(BaseClass, LogMixin):
                 query = query.filter(cls.submissiontype == submissiontype)
             case str():
                 query = query.filter(cls.submissiontype_name == submissiontype)
+            case _:
+                pass
+        match clientlab:
+            case ClientLab():
+                query = query.filter(cls.clientlab == clientlab)
+            case str():
+                query = query.join(ClientLab).filter(ClientLab.name == clientlab)
             case _:
                 pass
         # NOTE: by id (returns only a single value)
@@ -521,6 +528,16 @@ class ClientSubmission(BaseClass, LogMixin):
         output = super().to_html(**details)
         return output
 
+    @classmethod
+    def get_lab_submissions_by_day(cls, clientlab: ClientLab | None = None, search_date: date | None = None):
+        """
+        Gets number of submissions a client has made on a given day.
+        """
+        if search_date is None:
+            search_date = date.today()
+        results = cls.query(clientlab=clientlab, start_date=search_date)
+        return len(results)
+        
 
 class Run(BaseClass, LogMixin):
     """
@@ -1618,18 +1635,6 @@ class Sample(BaseClass, LogMixin):
                    'equipment', 'gel_info', 'gel_image', 'dna_core_submission_number', 'gel_controls']
         df = df.loc[:, ~df.columns.isin(exclude)]
         return df
-
-    def show_details(self, obj):
-        """
-        Creates Widget for showing procedure details.
-
-        Args:
-            obj (_type_): parent widget
-        """
-        from frontend.widgets.submission_details import SubmissionDetails
-        dlg = SubmissionDetails(parent=obj, object_=self)
-        if dlg.exec():
-            pass
 
     def edit_from_search(self, obj, **kwargs):
         """

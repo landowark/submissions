@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 import logging, sys, string, inspect
 from pprint import pformat
+from jinja2 import TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
@@ -46,6 +47,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     new: bool = Field(default=True, repr=False, validate_default=True)
     key_value_order: ClassVar[List] = []
     non_expandables: ClassVar[List] = ["procedure"]
+    renderclass: ClassVar[str] = "details"
     
     @classproperty
     def aliases(cls) -> List[str]:
@@ -619,28 +621,59 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         except ValidationError as e:
             raise e
         
+    @classproperty
+    def details_template(cls) -> Template:
+        """
+        Get the details jinja template for the correct class
+
+        Args:
+            base_dict (dict): incoming dictionary of Submission fields
+
+        Returns:
+            Template: Template to be rendered
+        """
+        env = jinja_template_loading()
+        temp_name = f"{cls._sql_name.lower()}_details.html"
+        try:
+            template = env.get_template(temp_name)
+        except TemplateNotFound as e:
+            try:
+                template = env.get_template(f"{cls.renderclass}_details.html")
+            except TemplateNotFound:
+                template = env.get_template("details.html")
+        return template
+        
     def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
                             **kwargs) -> str:
-        details = {self._sql_class.__name__.lower() : self.clean_details_for_render(kwargs)}
-        if isinstance(css_in, str):
+        details_name = self.details_template.name.lower().replace("_details.html", "")
+        details = {details_name: self.clean_details_for_render(self.improved_dict), **kwargs}
+        logger.debug(f"details:\n{pformat(details)}")
+        if isinstance(css_in, str | Path):
             css_in = [css_in]
         env = jinja_template_loading()
         html_folder = Path(env.loader.__getattribute__("searchpath")[0])
-        css_in = ["styles"] + css_in
+        css_in = ["styles", self._sql_name.lower()] + css_in
         css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
-        if isinstance(js_in, str):
+        if isinstance(js_in, str | Path):
             js_in = [js_in]
-        js_in = ["details"] + js_in
+        js_in = ["details", self._sql_name.lower()] + js_in
         js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
+        logger.debug(f"Loading js files from: {js_in}\nLoading css files from: {css_in}")
         css_out = []
         for css in css_in:
+            if not css.exists():
+                logger.warning(f"CSS file {css} does not exist; skipping.")
+                continue
             with open(css, "r") as f:
                 css_out.append(f.read())
         js_out = []
         for js in js_in:
+            if not js.exists():
+                logger.warning(f"JS file {js} does not exist; skipping.")
+                continue
             with open(js, "r") as f:
                 js_out.append(f.read())
-        return self.sql_instance.details_template.render(css=css_out, js=js_out, **details)
+        return self.details_template.render(css=css_out, js=js_out, **details)
     
     @classmethod
     def clean_details_for_render(cls, dictionary: dict) -> dict:

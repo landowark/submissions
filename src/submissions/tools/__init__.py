@@ -17,6 +17,7 @@ from logging import handlers, Logger
 from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text, MetaData
+from sqlalchemy.engine import Engine
 from pydantic import field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 from typing import Any, Tuple, Literal, List, Generator
@@ -914,6 +915,7 @@ class Settings(BaseSettings, extra="allow"):
     backup_path: Path | str | None = None
     submission_types: dict | None = None
     database_session: Session | None = None
+    database_engine: Engine | None = None
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
 
@@ -1114,6 +1116,7 @@ class Settings(BaseSettings, extra="allow"):
             database_path = template.render(values=values.data, value=value, db_name=db_name)
             print(f"Using {database_path} for database path")
             engine = create_engine(database_path)
+            values.data['database_engine'] = engine
             session = Session(engine)
             return session
 
@@ -1134,6 +1137,29 @@ class Settings(BaseSettings, extra="allow"):
         self.set_from_db()
         self.set_scripts()
         self.save()
+
+    def close_database(self):
+        """Close the active database session and dispose the engine."""
+        engine = self.database_engine
+        if engine is None and self.database_session is not None:
+            try:
+                engine = self.database_session.get_bind()
+            except Exception:
+                engine = None
+        if self.database_session is not None:
+            try:
+                self.database_session.close()
+            except Exception as e:
+                logger.error(f"Error closing database session: {e}")
+            finally:
+                self.database_session = None
+        if engine is not None:
+            try:
+                engine.dispose()
+            except Exception as e:
+                logger.error(f"Error disposing database engine: {e}")
+            finally:
+                self.database_engine = None
 
     def set_from_db(self):
         if 'pytest' in sys.modules:
@@ -1228,6 +1254,8 @@ class Settings(BaseSettings, extra="allow"):
                     logger.error(f"Couldn't run teardown script: {script}")
         except AttributeError:
             pass
+        finally:
+            self.close_database()
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:

@@ -647,67 +647,8 @@ class BaseClass(Base):
             return None
         return model
 
-    @classproperty
-    def details_template(cls) -> Template:
-        """
-        Get the details jinja template for the correct class
-
-        Args:
-            base_dict (dict): incoming dictionary of Submission fields
-
-        Returns:
-            Template: Template to be rendered
-        """
-        env = jinja_template_loading()
-        temp_name = f"{cls.query_alias}_details.html"
-        try:
-            template = env.get_template(temp_name)
-        except TemplateNotFound as e:
-            template = env.get_template("details.html")
-        return template
     
-    def to_html(self, css_in: List[str| Path] | str = [], js_in: List[str | Path] | str = [],
-                            **kwargs) -> str:
-        """
-        Creates an html string. Loads js and css files.
-
-        Args:
-            css_in (List[str| Path] | str): css files to be used. Default []
-            js_in (List[str| Path] | str): js files to be used. Default []
-
-        Returns:
-            str: html code
-
-        """
-        details = {self.__class__.__name__.lower() : self.sanitize_obj_for_json(kwargs)}
-        if isinstance(css_in, str):
-            css_in = [css_in]
-        env = jinja_template_loading()
-        # Set up paths for css and js files based on the template environment's search path
-        html_folder = Path(env.loader.__getattribute__("searchpath")[0])
-        css_in = ["styles"] + css_in
-        css_in = [html_folder.joinpath("css", f"{c}.css") for c in css_in]
-        if isinstance(js_in, str):
-            js_in = [js_in]
-        js_in = ["details"] + js_in
-        js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
-        css_out = []
-        # Load all css and js files, skipping any that can't be loaded and logging an error.
-        for css in css_in:
-            with open(css, "r") as f:
-                try:
-                    css_out.append(f.read())
-                except Exception as e:
-                    logger.error(f"Error reading CSS file {css}: {e}")
-        js_out = []
-        for js in js_in:
-            with open(js, "r") as f:
-                try:
-                    js_out.append(f.read())
-                except Exception as e:
-                    logger.error(f"Error reading JS file {js}: {e}")
-        return self.details_template.render(css=css_out, js=js_out, **details)
-
+    
     def __setattr__(self, key, value):
         """
         Custom dunder method to handle potential list relationship issues.

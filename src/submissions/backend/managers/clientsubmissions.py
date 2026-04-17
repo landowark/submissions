@@ -121,7 +121,7 @@ class DefaultClientSubmissionManager(DefaultManager):
             for s in self.sheets['sample']:
                 if s['sheet'] == sheet['sheet']:
                     s['start_row'] = self.info_parser.end_row + 1
-        
+        self.clientsubmission = self._pyd_object(**info)
         # NOTE: Alter sheets List[dict] so that the start_row sent to sample parser is the end row of the info parser
         try:
             sample_parser = getattr(clientsubmission_parser, f"{self.submissiontype.name}InfoParser")
@@ -131,10 +131,9 @@ class DefaultClientSubmissionManager(DefaultManager):
         for sheet in self.sheets['sample']:
             ws = self.get_worksheet(sheet.get("sheet", 1))
             start_row = sheet.get("start_row", 1)
-            self.sample_parser = sample_parser(worksheet=ws, start_row=start_row)
+            self.sample_parser = sample_parser(worksheet=ws, start_row=start_row, submitter_id=self.clientsubmission.submitter_plate_id['value'])
             for sample in self.sample_parser.parsed_info:
                 samples.append(sample)
-        self.clientsubmission = self._pyd_object(**info)
         for sample in samples:
             try:
                 self.clientsubmission.sample.append(PydSample(**sample))

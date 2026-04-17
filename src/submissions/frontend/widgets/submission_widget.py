@@ -331,7 +331,7 @@ class SubmissionFormWidget(QWidget):
             return self.input.objectName(), dict(value=value, missing=self.missing, location=self.location)
 
         def set_widget(self, parent: QWidget, key: str, value: dict,
-                       submission_type: str | SubmissionType | None = None) -> QWidget:
+                       submission_type: str | SubmissionType | None = None, **kwargs) -> QWidget:
             """
             Creates form widget
 

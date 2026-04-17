@@ -264,32 +264,20 @@ function insertEN( targetItem ) {
     // remove the target item (previous behavior: replace target with new element)
     // targetItem.remove();
 
-    // additionally: find and remove the next element (after the original target)
-    // that contains an empty <p> in its innerHTML
+    // additionally: find and remove the next bare placeholder well by searching from the end
     try {
         const children = Array.from(gridC.children);
-        // find the index where the new element currently sits
-        const startIndex = children.indexOf(elem);
-        if (startIndex !== -1) {
-            for (let i = startIndex + 1; i < children.length; i++) {
-                const child = children[i];
-                const p = child.querySelector && child.querySelector('p');
-                if (p) {
-                    // consider <p> empty if its innerHTML is empty or only whitespace, or contains &nbsp;
-                    if (p.innerHTML.trim() === '' || p.innerHTML === '&nbsp;') {
-                        gridC.removeChild(child);
-                        break;
-                    }
-                } else {
-                    console.log("P element not found.");
-                    gridC.removeChild(child);
-                    break;
-                }
+        // start searching from the end of the grid for a bare placeholder well
+        for (let i = children.length - 1; i >= 0; i--) {
+            const child = children[i];
+            if (child.classList.length === 1 && child.classList.contains('well') && !child.id) {
+                gridC.removeChild(child);
+                break;
             }
         }
     } catch (e) {
         // defensive: if anything goes wrong, don't block the rest of the UI
-        console.error('insertPositive: error while removing next empty <p> element', e);
+        console.error('insertEN: error while removing next bare well element', e);
     }
 }
 
@@ -309,32 +297,20 @@ function insertPositive( targetItem ) {
     // remove the target item (previous behavior: replace target with new element)
     // targetItem.remove();
 
-    // additionally: find and remove the next element (after the original target)
-    // that contains an empty <p> in its innerHTML
+    // additionally: find and remove the next bare placeholder well by searching from the end
     try {
         const children = Array.from(gridC.children);
-        // find the index where the new element currently sits
-        const startIndex = children.indexOf(elem);
-        if (startIndex !== -1) {
-            for (let i = startIndex + 1; i < children.length; i++) {
-                const child = children[i];
-                const p = child.querySelector && child.querySelector('p');
-                if (p) {
-                    // consider <p> empty if its innerHTML is empty or only whitespace, or contains &nbsp;
-                    if (p.innerHTML.trim() === '' || p.innerHTML === '&nbsp;') {
-                        gridC.removeChild(child);
-                        break;
-                    }
-                } else {
-                    console.log("P element not found.");
-                    gridC.removeChild(child);
-                    break;
-                }
+        // start searching from the end of the grid for a bare placeholder well
+        for (let i = children.length - 1; i >= 0; i--) {
+            const child = children[i];
+            if (child.classList.length === 1 && child.classList.contains('well') && !child.id) {
+                gridC.removeChild(child);
+                break;
             }
         }
     } catch (e) {
         // defensive: if anything goes wrong, don't block the rest of the UI
-        console.error('insertPositive: error while removing next empty <p> element', e);
+        console.error('insertPositive: error while removing next bare well element', e);
     }
 }
 
@@ -354,37 +330,20 @@ function insertNegative( targetItem ) {
     // remove the target item (previous behavior: replace target with new element)
     // targetItem.remove();
 
-    // additionally: find and remove the next element (after the original target)
-    // that contains an empty <p> in its innerHTML
+    // additionally: find and remove the next bare placeholder well by searching from the end
     try {
         const children = Array.from(gridC.children);
-        // find the index where the new element currently sits
-        const startIndex = children.indexOf(elem);
-        if (startIndex !== -1) {
-            for (let i = startIndex + 1; i < children.length; i++) {
-                const child = children[i];
-                const p = child.querySelector && child.querySelector('p');
-                if (p) {
-                    // consider <p> empty if its innerHTML is empty or only whitespace, or contains &nbsp;
-                    if (p.innerHTML.trim() === '' || p.innerHTML.trim() === '&nbsp;') {
-                        gridC.removeChild(child);
-                        break;
-                    } else {
-                        console.log("The p element has:", p.innerHTML)
-                    }
-
-                } else {
-                    console.log("P element not found.");
-                    gridC.removeChild(child);
-                    break;
-                }
+        // start searching from the end of the grid for a bare placeholder well
+        for (let i = children.length - 1; i >= 0; i--) {
+            const child = children[i];
+            if (child.classList.length === 1 && child.classList.contains('well') && !child.id) {
+                gridC.removeChild(child);
+                break;
             }
-        } else {
-            console.log("Unable to get start index:", startIndex);
         }
     } catch (e) {
         // defensive: if anything goes wrong, don't block the rest of the UI
-        console.error('insertNegative: error while removing next empty <p> element', e);
+        console.error('insertNegative: error while removing next bare well element', e);
     }
 }
 

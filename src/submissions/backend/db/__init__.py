@@ -84,7 +84,8 @@ def update_log(mapper, connection, target):
         table = AuditLog.__table__
         connection.execute(table.insert().values(**update))
     else:
-        logger.info(f"No changes detected, not updating logs.")
+        # logger.info(f"No changes detected, not updating logs.")
+        pass
 
 event.listen(LogMixin, 'after_update', update_log, propagate=True)
 event.listen(LogMixin, 'after_insert', update_log, propagate=True)
