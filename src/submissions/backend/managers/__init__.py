@@ -77,12 +77,14 @@ class DefaultManager(object):
                 self.pyd = self.input_object
             case x if issubclass(self.input_object.__class__, BaseClass):
                 self.pyd = self.input_object.to_pydantic()
+
             case _:
                 logger.warning(f"Unmatched input object: {type(self.input_object)}. Looking for file.")
                 if self.parent is not None:
                     # TODO: Allow for multiple filters. For now, just look for xlsx.
                     self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(self.parent))
-                    self.set_pyd()
+                    if self.input_object is not None:
+                        self.set_pyd()
                 else:
                     raise ValueError(f"No parent, cannot get user input.")
 

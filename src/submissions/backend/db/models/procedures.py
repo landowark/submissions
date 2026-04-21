@@ -2023,9 +2023,13 @@ class Procedure(BaseClass):
             procedure_sql = procedure_results.to_sql()
         else:
             return
+        if isinstance(procedure_sql, tuple):
+            procedure_sql = procedure_sql[0]
         procedure_sql.save()
         for sample in samples_results:
             sample_sql = sample.to_sql()
+            if isinstance(sample_sql, tuple):
+                sample_sql = sample_sql[0]
             sample_sql.save()
 
     def edit(self, obj):
@@ -5071,9 +5075,10 @@ class Results(BaseClass):
         except AttributeError as e:
             logger.critical(f"Could not get procedure for setting association.")
             raise e
+        logger.debug(f"Incoming: {value}")
         match value:
             case str():
-                output = ProcedureSampleAssociation.query(name=value, limit=1)
+                output = ProcedureSampleAssociation.query(sample=value, procedure=proc, limit=1)
             case dict():
                 output = ProcedureSampleAssociation.query_or_create(**value)
             case PydProcedureSampleAssociation():
@@ -5092,7 +5097,7 @@ class Results(BaseClass):
             except Exception as e:
                 logger.error(f"Problem setting procedure from sampleprocedureassociation: {e}")
         else:
-            logger.error(f"Could not set {self.__class__.__qualname__}._sampleprocedureassociation to {type(output)}")
+            logger.error(f"Could not set {self.__class__.__qualname__}._sampleprocedureassociation to {output} of type {type(output)}")
     
     @property
     def sample_id(self):

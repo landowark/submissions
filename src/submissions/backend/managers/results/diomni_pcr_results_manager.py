@@ -20,9 +20,9 @@ class DiomniPCRManager(DefaultResultsManager):
         self.info = {}
         samples = []
         for sheet in self.get_sheets_for_parsing(workbook=self.input_object):
-            info_parser = DiomniPCRInfoParser(worksheet=sheet, procedure=self.procedure)
-            self.info.update({k:v for k, v in info_parser.parsed_info})
-            self.sample_parser = DiomniPCRSampleParser(worksheet=sheet, procedure=self.procedure, start_row=info_parser.end_row, date_analyzed=info_parser.date_analyzed)
+            self.info_parser = DiomniPCRInfoParser(worksheet=sheet, procedure=self.procedure)
+            self.info.update({k:v for k, v in self.info_parser.parsed_info})
+            self.sample_parser = DiomniPCRSampleParser(worksheet=sheet, procedure=self.procedure, start_row=self.info_parser.end_row, date_analyzed=self.info_parser.date_analyzed)
             samples.extend([item for item in self.sample_parser.parsed_info])
         sample_names = list(set([list(item.keys())[0] for item in samples]))
         self.samples = []

@@ -3,6 +3,7 @@ Module for default results manager
 """
 from __future__ import annotations
 import logging
+from pprint import pformat
 from .. import DefaultManager
 from backend.db.models import Procedure
 from pathlib import Path
@@ -51,7 +52,7 @@ class DefaultResultsManager(DefaultManager):
         return result
 
     def procedure_to_pydantic(self) -> PydResults:
-        return self._pyd_object(result={k: v for k, v in self.info.items()}, resultstype=self.resultstype, date_analyzed=self.info_parser.date_analyzed, parent=self.procedure)
+        return self._pyd_object(result={k: v for k, v in self.info.items()}, resultstype=self.resultstype, date_analyzed=self.info_parser.date_analyzed, procedure=self.procedure.name)
 
     def samples_to_pydantic(self) -> Generator[PydResults, None, None]:
         """
@@ -61,12 +62,15 @@ class DefaultResultsManager(DefaultManager):
         """
         for sample in self.samples:
             for sample_name, sample_info in sample.items():
+                # logger.debug(f"{sample_name}, {pformat(sample_info)}")
+                # logger.debug(self._pyd_object)
                 try:
                     procedure_name = self.procedure.name
                 except AttributeError:
                     procedure_name = None
                 sample = dict(sample=sample_name, procedure=procedure_name, row=sample_info.get('row'), column=sample_info.get('column'))
-                yield self._pyd_object(sample=sample_name, resultstype=self.resultstype, parent=self.procedure, **sample_info)
+                
+                yield self._pyd_object(sample=sample_name, procedure=procedure_name, **sample_info)
     
 
 from .diomni_pcr_results_manager import DiomniPCRManager

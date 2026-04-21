@@ -647,7 +647,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             **kwargs) -> str:
         details_name = self.details_template.name.lower().replace("_details.html", "")
         details = {details_name: self.clean_details_for_render(self.improved_dict), **kwargs}
-        logger.debug(f"details:\n{pformat(details)}")
         if isinstance(css_in, str | Path):
             css_in = [css_in]
         env = jinja_template_loading()

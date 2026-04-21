@@ -50,8 +50,8 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
             multi = dict(resultstype="Diomni PCR", date_analyzed=self.date_analyzed, result={})
             samples_of_interest = [item for item in output if item['sample'] == sample.get('sample') and item.get("well_position") == sample.get("well_position")]
             for soi in samples_of_interest:
-                print(f"SOI: {soi}")
-                multi['result'][self.worksheet.title] = {}
+                if self.worksheet.title not in multi['result'].keys():
+                    multi['result'][self.worksheet.title] = {}
                 if "target" in soi:
                     multi['result'][self.worksheet.title][soi['target']] = {k: v for k, v in soi.items() if k != "target" and k != "sample"}
                 else:

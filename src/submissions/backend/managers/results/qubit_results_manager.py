@@ -23,7 +23,7 @@ class QubitManager(DefaultResultsManager):
             input_object = select_open_file(file_extension="csv", obj=get_application_from_parent(parent))
         self.resultstype = "Qubit"
         super().__init__(procedure=procedure, parent=parent, input_object=input_object)
-        self.parse()
+        # self.parse()
         self.sample_matcher()
 
     def sample_matcher(self):
