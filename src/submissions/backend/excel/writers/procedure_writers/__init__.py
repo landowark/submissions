@@ -48,7 +48,7 @@ class ProcedureEquipmentWriter(DefaultTABLEWriter):
 
     exclude = ['id', "equipment_role", "name", "nickname", "procedure", "equipmentequipmentroleassociation", 
                "equipmentprocedureassociation", "excluded", "procedureequipmenttipslotassociation", "asset_number",
-               "start_time", "end_time", "manufacturer", "ref"]
+               "start_time", "end_time", "manufacturer", "ref", "process", "serial_number"]
     header_order = ['equipmentrole', 'equipment', 'processversion', 'tipslot']
 
     def __init__(self, pydant_obj, *args, **kwargs):

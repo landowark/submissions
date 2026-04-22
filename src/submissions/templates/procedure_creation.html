@@ -95,6 +95,7 @@
     
     <script>
         var rsl_plate_num = "{{ run['plate_number'] }}";
+        var procedure_name = "{{ procedure['name']['value'] }}"
         function rearrange_plate() {
             output = [];
             fullGrid = [...gridContainer.children];

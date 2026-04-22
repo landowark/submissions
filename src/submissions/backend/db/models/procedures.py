@@ -2106,7 +2106,7 @@ class Procedure(BaseClass):
                 sample.column = assoc.column
                 sample.rank = assoc.procedure_rank
                 sample.enabled = getattr(assoc, "enabled", True)
-                sample.sample_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
+                sample.control_type = ('positivecontrol' if sample.is_control == 1 else 'negativecontrol' if sample.is_control == -1 else 'regular')
             sample_list.append(sample)
         output = dict(
             proceduretype=self.proceduretype,
@@ -2217,11 +2217,14 @@ class Procedure(BaseClass):
             reagentrole = reagentlotassoc.reagentrole
             proceduretype = self.proceduretype
             assoc = ProcedureTypeReagentRoleAssociation.query(proceduretype=proceduretype, reagentrole=reagentrole, limit=1)
+            logger.debug(f"Found association: {assoc}")
             if assoc:
                 try:
                     assoc.update_last_used(reagentlotassoc.reagentlot)
                 except Exception as e:
                     logger.error(f"Error updating last used for {assoc}: {e}")
+            else:
+                logger.error(f"Association not found for {reagentrole} and {proceduretype}")
                 
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
@@ -2966,6 +2969,7 @@ class Equipment(BaseClass, LogMixin):
     name = Column(String(64))  #: equipment name
     manufacturer = Column(String(32))
     ref = Column(String(16))
+    serial_number = Column(String(16))
     _nickname = Column(String(64))  #: equipment nickname
     asset_number = Column(String(16))  #: Given asset number (corpo nickname if you will)
 

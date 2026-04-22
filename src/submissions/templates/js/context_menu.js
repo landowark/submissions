@@ -253,7 +253,7 @@ function insertEN( targetItem ) {
     const gridC = document.getElementById("plate-container");
     var existing_ens = document.getElementsByClassName("EN");
     var en_num = existing_ens.length + 1;
-    const en_name = "EN" + en_num + "-" + rsl_plate_num;
+    const en_name = "EN" + en_num + "-" + procedure_name;
     var elem = document.createElement("div");
     elem.setAttribute("id", en_name);
     elem.setAttribute("class", "well negativecontrol EN");
@@ -286,7 +286,7 @@ function insertPositive( targetItem ) {
     const gridC = document.getElementById("plate-container");
     var existing_pos = document.getElementsByClassName("positivecontrol");
     var pos_num = existing_pos.length + 1;
-    const pos_name = "PC" + pos_num + "-" + rsl_plate_num;
+    const pos_name = "PC" + pos_num + "-" + procedure_name;
     var elem = document.createElement("div");
     elem.setAttribute("id", pos_name);
     elem.setAttribute("class", "well positivecontrol");
@@ -319,7 +319,7 @@ function insertNegative( targetItem ) {
     const gridC = document.getElementById("plate-container");
     var existing_neg = document.getElementsByClassName("negativecontrol");
     var neg_num = existing_neg.length + 1;
-    const neg_name = "NC" + neg_num + "-" + rsl_plate_num;
+    const neg_name = "NC" + neg_num + "-" + procedure_name;
     var elem = document.createElement("div");
     elem.setAttribute("id", neg_name);
     elem.setAttribute("class", "well negativecontrol");

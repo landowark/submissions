@@ -300,6 +300,7 @@ class PydEquipment(PydConcrete):
     nickname: str = Field(default="NA", description="Nickname of this equipment.", validate_default=True)
     manufacturer: str | None = Field(default="NA", description="Company that makes this equipment")
     ref: str = Field(default="NA", description="Manufacturer's reference number")
+    serial_number: str = Field(default="NA", description="Manufacturer's serial number")
     procedure: List[str] = Field(default_factory=list, repr=False)
     equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
     
@@ -628,6 +629,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         remaining = []#[s for s in self.sample if s not in new_samples]
         self.sample = sorted(new_samples + remaining, key=lambda x: (x.column, x.row))
     
+    def get_last_used(self, reagentrole: str):
+        from backend.db.models import ProcedureTypeReagentRoleAssociation
+        q = ProcedureTypeReagentRoleAssociation.query(proceduretype=self.proceduretype, reagentrole=reagentrole, limit=1)
+        return q._last_used
+
     def update_reagents(self, reagentrole: str, name: str, lot: str, checked:bool=True):
         from backend.db.models import ReagentLot
         try:
@@ -635,25 +641,29 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         except AttributeError as e:
             logger.error(e)
             removable = None
+        logger.debug(f"Removeable: {removable}")
         if removable:
             idx = self.reagentlot.index(removable)
             self.reagentlot.remove(removable)
         else:
             idx = 0
+        logger.debug(f"Index: {idx}")
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
+        
         if not reagentlot:
             logger.warning(f"Could not find reagentlot {name} to update.")
             return
         reagentlot = reagentlot.to_pydantic()
+        logger.debug(f"ReagentLot: {reagentlot}")
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
-        logger.debug(f"Running equipment update for {equipmentrole} to {equipment}")
+        # logger.debug(f"Running equipment update for {equipmentrole} to {equipment}")
         equipment_of_interest: PydProcedureEquipmentAssociation = next((item for item in self.equipment if item.equipmentrole == equipmentrole), None)
-        logger.debug(f"equipment of interest: {equipment_of_interest}")
+        # logger.debug(f"equipment of interest: {equipment_of_interest}")
         equipment = Equipment.query(name=equipment)
         if equipment_of_interest:
             eoi = self.equipment.pop(self.equipment.index(equipment_of_interest))
@@ -663,7 +673,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         processversion = ProcessVersion.query(name=processversion, limit=1)
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
-        logger.debug(f"Assigning: {pformat(eoi.__dict__)}")
+        # logger.debug(f"Assigning: {pformat(eoi.__dict__)}")
         # NOTE Correct pydprocessverion
         out_tips = []
         for tipslot in tips:
@@ -742,8 +752,12 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
         self.sql_instance.sample = samples_sql
         self.sql_instance.equipment = self.equipment
-        # NOTE: At this point, results will likely be an empty list.
-        self.sql_instance.results = self.results
+        # NOTE: Preserve existing Results when editing to avoid triggering delete-orphan cascade.
+        # Only update results if this is a new procedure (no id yet) or if results were explicitly modified.
+        if self.sql_instance.id is None:
+            # New procedure: assign the results as provided
+            self.sql_instance.results = self.results
+        # else: Existing procedure - preserve original Results instances to prevent orphan deletion
         return self.sql_instance, None
     
     def check_reagent_expiries(self, exempt: List[str] = []) -> Report:
@@ -789,6 +803,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         return output
 
     def reorder_proceduretype_by_procedure(self):
+        from backend.db.models import ProcedureTypeReagentRoleAssociation
         proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
             {
                 "reagentrole":[
@@ -813,6 +828,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 pt_reagent = next(item['reagent'] for item in proceduretype_dict['reagentrole'] if item['name'] == reagentrole)
             except StopIteration:
                 continue
+            # Pull any existing reagentlots
             try:
                 pt_reagentlots = next(item['reagentlot'] for item in pt_reagent if item['name'] == reagent)
             except StopIteration:
@@ -843,11 +859,23 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                     check = True
                 if not check:
                     reagent['reagentlot'].append(dict(name="--New--", active=True))
-        regex = re.compile(r".*R\d$")
+                # Try to move last used to top of the list.
+                last_used = self.get_last_used(reagentrole=reagentrole['name'])
+                if last_used:
+                    last_used = last_used.name
+                else:
+                    continue
+                try:
+                    removable = next((item for item in reagent['reagentlot'] if item['name'] == last_used))
+                except StopIteration:
+                    continue
+                idx = reagent['reagentlot'].index(removable)
+                reagent['reagentlot'].insert(0, reagent['reagentlot'].pop(idx))
+        repeat_regex = re.compile(r".*R\d$")
         proceduretype_dict['previous'] = [""] + [
             item.name for item in self.run.sql_instance.procedure if 
             item.proceduretype.name == self.proceduretype.sql_instance.name 
-            and not bool(regex.match(item.name))
+            and not bool(repeat_regex.match(item.name))
         ]
         proceduretype_dict['platemap'] = procedure_dict['platemap']
         return proceduretype_dict
@@ -1466,7 +1494,7 @@ class PydProcedureSampleAssociation(PydConcrete):
         output = super().improved_dict
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
-        output['excluded'] += ['results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
+        output['excluded'] = ['results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
                                'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled']
         return output
 
