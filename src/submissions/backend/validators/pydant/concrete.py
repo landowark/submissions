@@ -641,20 +641,16 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         except AttributeError as e:
             logger.error(e)
             removable = None
-        logger.debug(f"Removeable: {removable}")
         if removable:
             idx = self.reagentlot.index(removable)
             self.reagentlot.remove(removable)
         else:
             idx = 0
-        logger.debug(f"Index: {idx}")
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
-        
         if not reagentlot:
             logger.warning(f"Could not find reagentlot {name} to update.")
             return
         reagentlot = reagentlot.to_pydantic()
-        logger.debug(f"ReagentLot: {reagentlot}")
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
             self.reagentlot.insert(idx, insertable)

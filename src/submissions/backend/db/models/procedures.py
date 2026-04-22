@@ -2047,8 +2047,26 @@ class Procedure(BaseClass):
     def add_comment(self, obj):
         logger.debug("Add Comment!")
 
+    @check_authorization
     def delete(self, obj):
-        logger.debug("Delete!")
+        from frontend.widgets.pop_ups import QuestionAsker
+        # fname = self.__backup_path__.joinpath(f"{self.name}-backup({date.today().strftime('%Y%m%d')})")
+        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.name}?\n")
+        if msg.exec():
+            self.procedureequipmentassociation = []
+            self.procedurereagentlotassociation = []
+            self.proceduresampleassociation = []
+            self.__database_session__.delete(self)
+            try:
+                self.__database_session__.commit()
+            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+                self.__database_session__.rollback()
+                raise e
+            try:
+                obj.set_data()
+            except AttributeError:
+                logger.error("App will not refresh data at this time.")
+        
 
     # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property

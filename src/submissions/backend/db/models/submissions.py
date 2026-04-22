@@ -18,7 +18,7 @@ from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
-from tools import (flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
+from tools import (check_authorization, flatten_list, setup_lookup, jinja_template_loading, create_holidays_for_year,
                    is_power_user, row_map, timezone, Report)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
@@ -538,6 +538,31 @@ class ClientSubmission(BaseClass, LogMixin):
         results = cls.query(clientlab=clientlab, start_date=search_date)
         return len(results)
         
+    @check_authorization
+    def delete(self, obj=None):
+        """
+        Performs backup and deletes this instance from database.
+
+        Args:
+            obj (_type_, optional): Parent widget. Defaults to None.
+
+        Raises:
+            e: SQLIntegrityError or SQLOperationalError if problem with commit.
+        """
+        from frontend.widgets.pop_ups import QuestionAsker
+        msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.submitter_plate_id}?\n")
+        if msg.exec():
+            self.__database_session__.delete(self)
+            try:
+                self.__database_session__.commit()
+            except (SQLIntegrityError, SQLOperationalError, AlcIntegrityError, AlcOperationalError) as e:
+                self.__database_session__.rollback()
+                raise e
+            try:
+                obj.set_data()
+            except AttributeError:
+                logger.error("App will not refresh data at this time.")
+
 
 class Run(BaseClass, LogMixin):
     """
@@ -1177,6 +1202,7 @@ class Run(BaseClass, LogMixin):
             sql.save()
         obj.set_data()
 
+    @check_authorization
     def delete(self, obj=None):
         """
         Performs backup and deletes this instance from database.
@@ -1188,14 +1214,8 @@ class Run(BaseClass, LogMixin):
             e: SQLIntegrityError or SQLOperationalError if problem with commit.
         """
         from frontend.widgets.pop_ups import QuestionAsker
-        fname = self.__backup_path__.joinpath(f"{self.rsl_plate_number}-backup({date.today().strftime('%Y%m%d')})")
         msg = QuestionAsker(title="Delete?", message=f"Are you sure you want to delete {self.rsl_plate_number}?\n")
         if msg.exec():
-            try:
-                # NOTE: backs up file as xlsx, same as export.
-                self.backup(fname=fname, full_backup=True)
-            except BadZipfile:
-                logger.error("Couldn't open zipfile for writing.")
             self.__database_session__.delete(self)
             try:
                 self.__database_session__.commit()
