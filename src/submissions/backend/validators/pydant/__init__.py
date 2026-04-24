@@ -6,7 +6,7 @@ from pathlib import Path
 import logging, sys, string, inspect
 from pprint import pformat
 from jinja2 import TemplateNotFound
-from pydantic import BaseModel, Field, ValidationError, model_validator, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
 from typing import Any, ClassVar, Generator, List
@@ -89,6 +89,19 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             value = cls._sql_class()
         return value
     
+    @field_validator('*', mode="before")
+    @classmethod
+    def use_default_if_none(cls, v, info: ValidationInfo):
+        # Skip validation for specific fields
+        if info.field_name in {"sql_instance"}:
+            return v
+        if v is None:
+            # Dynamically fetch the default value for the field being validated
+            field = cls.model_fields.get(info.field_name)
+            if field and field.default is not ...: # Check if a default exists
+                return field.get_default()
+        return v
+    
     @model_validator(mode="before")
     @classmethod
     def prevalidate(cls, data):
@@ -140,7 +153,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         if not value:
             value = getattr(self, key)
-        
         match value:
             case dict():
                 if self.determine_field_type(key) != "dict":
@@ -160,6 +172,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             dict: Expanded dictionary.
         """
         # Allow callers to pass a single dict or string instead of a list
+        
         if isinstance(fields, dict):
             fields = [fields]
         elif isinstance(fields, str):
@@ -198,21 +211,24 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case dict():
                     key = list(field.keys())[0]
                     new_fields = list(field.values())[0]
-                    try:
-                        value = getattr(self.sql_instance, key)
-                    except AttributeError as e:
-                        logger.error(f"Skipping {key} in {self.sql_instance} due to {e}")
-                        continue
+                    
+                    # try:
+                    value = getattr(self.sql_instance, key)
+                    # except AttributeError as e:
+                        # logger.error(f"Skipping {key} in {self.sql_instance} due to {e}")
+                        # continue
+                    logger.debug(value)
                     match value:
                         case _AssociationList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
-                            for item in value.col:
-                                dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
-                                target = getattr(item, key)
-                                new = target.to_pydantic().improved_dict_expand_fields(new_fields)
-                                new.update({k:v for k, v in dicto.items() if k !="name"})
-                                if new['name'] not in [thing['name'] for thing in output]:
-                                    output.append(new)
+                            # for item in value.col:
+                            #     dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
+                            #     target = getattr(item, key)
+                            #     new = target.to_pydantic().improved_dict_expand_fields(new_fields)
+                            #     new.update({k:v for k, v in dicto.items() if k !="name"})
+                            #     if new['name'] not in [thing['name'] for thing in output]:
+                            #         output.append(new)
+                            # logger.debug(output)
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
@@ -304,7 +320,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case _:
                     pass
         for k, v in self.model_extra.items():
-            self.sql_instance ._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
+            self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
         return self.sql_instance
     
     @property

@@ -2,34 +2,28 @@
 Main module to construct the procedure form
 """
 from __future__ import annotations
-import sys, logging, datetime, os
+import sys, logging, datetime
 from pprint import pformat
-from PyQt6.QtCore import pyqtSlot, Qt, QVariant
-from PyQt6.QtWebChannel import QWebChannel
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QDialog, QGridLayout, QDialogButtonBox
+from PyQt6.QtCore import pyqtSlot, QVariant
 from typing import TYPE_CHECKING, List
-from . import CustomWebEnginePage
 if TYPE_CHECKING:
     from backend.validators import PydProcedure
-from frontend.widgets import CustomWebEnginePage
-from tools import get_application_from_parent, render_details_template, find_first_matching_dict
+from . import DefaultWebDialog
+from tools import render_details_template, find_first_matching_dict
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class ProcedureCreation(QDialog):
+class ProcedureCreation(DefaultWebDialog):
 
     def __init__(self, parent, procedure: PydProcedure, edit: bool = False):
         from backend.validators.pydant import PydProcedureType
         super().__init__(parent)
-        if 'QTWEBENGINE_REMOTE_DEBUGGING' not in os.environ:
-            os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = '9222'
-            logger.info('Enabled QTWEBENGINE_REMOTE_DEBUGGING=9222 for remote inspection')
         self.edit = edit
         self.run = procedure.run
         self.procedure = procedure
         self.proceduretype = procedure.proceduretype
+        self.preprocessing_functions = {i[0]: {"function": i[1], "resultstype": i[2]} for i in self.proceduretype.preprocessing_methods}
         try:
             assert isinstance(self.proceduretype, PydProcedureType)
         except AssertionError:
@@ -43,31 +37,6 @@ class ProcedureCreation(QDialog):
         self.setWindowTitle(f"New {self.proceduretype.name} for {title}")
         self.platemap = self.proceduretype_dict['platemap']
         self.procedure.update_samples(sample_list=[sample for sample in self.constructed_sample_list])
-        self.app = get_application_from_parent(parent)
-        # Ensure remote debugging is enabled before the WebEngine is initialised.
-        # This exposes the remote inspector on localhost:9222 so you can open
-        # http://localhost:9222/ in a desktop browser and inspect console/network errors.
-        self.webview = QWebEngineView(parent=self)
-        self.webview.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        self.webview.setMinimumSize(1200, 800)
-        custom_page = CustomWebEnginePage(self.webview)
-        self.webview.setPage(custom_page)
-        # NOTE: Decide if exporting should be allowed.
-        self.layout = QGridLayout()
-        # NOTE: button to export a pdf version
-        self.layout.addWidget(self.webview, 1, 0, 10, 10)
-        self.setLayout(self.layout)
-        # NOTE: setup channel
-        self.channel = QWebChannel()
-        self.channel.registerObject('backend', self)
-        self.webview.page().setWebChannel(self.channel)
-        QBtn = QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        self.layout.addWidget(self.buttonBox, 11, 1, 1, 1)
-        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
-        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
         self.set_html()
 
     @property
@@ -95,7 +64,8 @@ class ProcedureCreation(QDialog):
             run=self.run.improved_dict,
             procedure=self.procedure,
             platemap=self.platemap,
-            now = datetime.datetime.now()
+            now = datetime.datetime.now(),
+            preprocessing_buttons = [item for item in self.preprocessing_functions.keys()]
         )
         self.webview.setHtml(html)
         
@@ -159,6 +129,16 @@ class ProcedureCreation(QDialog):
         from backend.db.models import ReagentRole
         reagentrole = ReagentRole.query(name=reagentrole_name)
         return [item.name for item in reagentrole.get_reagents(proceduretype=self.procedure.proceduretype)]
+    
+    @pyqtSlot(str)
+    def run_preprocess_function(self, function_name):
+        over = self.preprocessing_functions.get(function_name, None)
+        if over:
+            func = over['function']
+            resultstype = over['resultstype']
+        else:
+            raise ValueError(f"Function group for {function_name} not found.")
+        settings_dlg = func(parent=self, resultstype=resultstype, procedure=self.procedure)
 
     def return_sql(self, new: bool = False):
         output = self.procedure.to_sql()

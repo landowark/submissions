@@ -303,7 +303,16 @@ class PydEquipment(PydConcrete):
     serial_number: str = Field(default="NA", description="Manufacturer's serial number")
     procedure: List[str] = Field(default_factory=list, repr=False)
     equipmentrole: List[str] | List[dict] = Field(default_factory=list, description="Roles this equipment can fill.", repr=False)
+    calibration_date: datetime = Field(default = datetime.combine(date=datetime(year=2000, month=1, day=1), time=datetime.min.time()), 
+                                       description="Date of last calibration.", validate_default=True, repr=False)
     
+    # @field_validator("calibration_date")
+    # @classmethod
+    # def validate_calibration(cls, value):
+    #     if value is None:
+    #         value = datetime(year=2000, month=1, day=1)
+    #     return value
+
     @field_validator("manufacturer", "ref", mode="before")
     @classmethod
     def validate_optional_strings(cls, value):
@@ -669,7 +678,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         processversion = ProcessVersion.query(name=processversion, limit=1)
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
-        # logger.debug(f"Assigning: {pformat(eoi.__dict__)}")
+        logger.debug(f"Assigning: {pformat(eoi.__dict__)}")
         # NOTE Correct pydprocessverion
         out_tips = []
         for tipslot in tips:
@@ -799,7 +808,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         return output
 
     def reorder_proceduretype_by_procedure(self):
-        from backend.db.models import ProcedureTypeReagentRoleAssociation
+        logger.debug(self.proceduretype)
         proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
             {
                 "reagentrole":[
@@ -831,6 +840,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
             rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
             pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
+        
         for assoc in procedure_dict["procedureequipmentassociation"]:
             equipmentrole = assoc['equipmentrole']
             equipment = assoc['equipment']
@@ -840,6 +850,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
             eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
             pt_equipment.insert(0, pt_equipment.pop(eq_index))
+        logger.debug(pformat([k for k in proceduretype_dict['equipmentrole']]))
         for reagentrole in proceduretype_dict.get("reagentrole", []):
             for reagent in reagentrole['reagent']:
                 if len(reagent['reagentlot']) < 1:
@@ -1490,7 +1501,7 @@ class PydProcedureSampleAssociation(PydConcrete):
         output = super().improved_dict
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
-        output['excluded'] = ['results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
+        output['excluded'] = ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
                                'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled']
         return output
 
@@ -1504,6 +1515,8 @@ class PydProcedureEquipmentAssociation(PydConcrete):
     equipmentrole: str | dict | PydEquipmentRole = Field(default="NA")
     processversion: str | dict | PydProcessVersion | None = Field(default=None)
     tipslot: List[str] | List[dict] | List[PydTipsLot] = Field(default_factory=list)
+    calibration_date: datetime = Field(default = datetime.combine(date=datetime(year=2000, month=1, day=1), time=datetime.min.time()), 
+                                       description="Calibration date previous to use.", repr=False)
 
     @field_validator("start_time", "end_time", mode="before")
     @classmethod

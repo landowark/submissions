@@ -25,6 +25,7 @@ function startup(equipmentrole) {
 function updateEquipmentChoices(equipmentrole) {
     console.log("Updating equipment choices.");
     var dropdown_oi = document.getElementById(equipmentrole.name);
+    // remove old options
     while (dropdown_oi.options.length > 0) {
         dropdown_oi.remove(0);
     }

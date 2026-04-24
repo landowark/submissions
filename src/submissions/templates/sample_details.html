@@ -12,7 +12,7 @@
         <h2><u>Sample Details for {{ sample['sample_id'] }}</u></h2>
         {{ super() }}
         <p>{% for key, value in sample.items() if key not in sample['excluded'] %}
-            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title }}: </b>{% if key == "sample_type" %}{{ value | replace("control", " control") | title }} {% else %}{{ value }}{% endif %}<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}: </b>{% if key == "sample_type" %}{{ value | replace("control", " control") | title }} {% else %}{{ value }}{% endif %}<br>
         {% endfor %}</p>
         {% if sample['submissions'] %}<h2>Submissions:</h2>
             {% for submission in sample['submissions'] %}
@@ -22,7 +22,7 @@
         {% if sample['results'] %}<h2>Results:</h2>
             {% for result in sample['results'] %}
             <p>{% for key, value in result['result'].items() %}
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Rsl", "RSL") }}:</b> {{ value }}<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value }}<br>
             {% endfor %}</p>
             {% endfor %}
         {% endif %}

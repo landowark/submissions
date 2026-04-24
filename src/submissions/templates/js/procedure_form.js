@@ -279,7 +279,9 @@ function updateBackend(equipmentrole) {
     backend.update_equipment(equipmentrole_name, equipment_name, process_name, tips_names)
 }
 
-
+function runPreprocessFunction(element) {
+    backend.run_preprocess_function(element.innerText);
+}
 
 // window.onload = function() {
 //     for(let i = 0; i < reagentRoles.length; i++) {

@@ -84,6 +84,9 @@
             </div>
             <br>
         {% endfor %}
+        {% for button in preprocessing_buttons %}
+            <button onclick="runPreprocessFunction(this)">{{ button }}</button>
+        {% endfor %}
 
         {% include 'support/context_menu.html' %}
         {% endblock %}
@@ -91,7 +94,7 @@
     </body>
 
     {% block script %}
-    <script>const equipment_json = {{ proceduretype['equipmentrole'] }};</script>
+    <script>const equipment_json = {{ proceduretype['equipmentrole'] | sanitize }};</script>
     
     <script>
         var rsl_plate_num = "{{ run['plate_number'] }}";

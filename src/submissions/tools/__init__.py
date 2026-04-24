@@ -316,6 +316,8 @@ def jinja_template_loading() -> Environment:
     env.globals['STATIC_PREFIX'] = loader_path.joinpath("static", "css")
     env.filters['get_type'] = get_type
     env.filters['extract_value'] = get_value
+    env.filters['sanitize'] = sanitize_object_for_json
+    env.filters['handle_key'] = handle_keys
     return env
 
 
@@ -823,6 +825,15 @@ def flatten_list(input_list: list) -> list:
         list:
     """
     return list(itertools.chain.from_iterable(input_list))
+
+
+def handle_keys(input_key:str) -> str:
+    output = input_key.replace("_", " ")
+    output = output.title()
+    output = output.replace("Ww", "WW")
+    output = output.replace(" Id", " ID")
+    output = output.replace("Rsl", "RSL")
+    return output
 
 
 def sanitize_object_for_json(input_obj):

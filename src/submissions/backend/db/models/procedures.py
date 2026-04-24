@@ -1447,7 +1447,24 @@ class ProcedureType(BaseClass):
     @property
     def allowed_result_methods(self):
         return [item.details_dict for item in self.resultstype]
-
+    
+    @property
+    def preprocessing_methods(self):
+        from backend.excel.writers import results_settings
+        for method in self.allowed_result_methods:
+            settings_name = f"{method['name'].replace(' ', '')}Settings"
+            results_type = next((item for item in self.resultstype if item.name == method['name']), None)
+            if not results_type:
+                continue
+            try:
+                func = getattr(results_settings, settings_name, None)
+            except AttributeError:
+                continue
+            if not func:
+                continue
+            if func:
+                yield func.label, func, results_type
+            
 
 class Procedure(BaseClass):
     
@@ -2990,6 +3007,7 @@ class Equipment(BaseClass, LogMixin):
     serial_number = Column(String(16))
     _nickname = Column(String(64))  #: equipment nickname
     asset_number = Column(String(16))  #: Given asset number (corpo nickname if you will)
+    _calibration_date = Column(TIMESTAMP)
 
     equipmentprocedureassociation = relationship(
         "ProcedureEquipmentAssociation",
@@ -3117,6 +3135,34 @@ class Equipment(BaseClass, LogMixin):
             self._nickname = self.name
         else:
             self._nickname = value
+
+    @hybrid_property
+    def calibration_date(self):
+        return self._calibration_date or datetime.combine(date=datetime(year=2000, month=1, day=1), time=datetime.min.time())
+    
+    @calibration_date.setter
+    def calibration_date(self, value):
+        match value:
+            case datetime() | date():
+                output = value
+            case int():
+                output = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + value - 2)
+            case str():
+                string = re.sub(r"(_|-)\d(R\d)?$", "", value)
+                try:
+                    output = dateparse(string)
+                except ParserError as e:
+                    logger.error(f"Problem parsing date: {e}")
+                    try:
+                        output = dateparse(string.replace("-", ""))
+                    except Exception as e:
+                        logger.error(f"Problem with parse fallback: {e}")
+                        return value
+            case _:
+                raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
+        output = datetime.combine(output, datetime.min.time())
+        value = output.replace(tzinfo=timezone)
+        self._expiry = value
 
     @classmethod
     @setup_lookup
@@ -4365,6 +4411,7 @@ class ProcedureEquipmentAssociation(BaseClass):
     _start_time = Column(TIMESTAMP)  #: start time of equipment use
     _end_time = Column(TIMESTAMP)  #: end time of equipment use
     _comment = Column(String(1024))  #: comments about equipment
+    _calibration_date = Column(TIMESTAMP)
 
     _procedure = relationship(Procedure,
                              back_populates="procedureequipmentassociation")  #: associated procedure
@@ -5161,6 +5208,7 @@ class ResultsType(BaseClass):
     _samples = Column(JSON) # where to look for sample information
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")
     _proceduretype = relationship(ProcedureType, back_populates="_resultstype", secondary=proceduretype_resulttype)
+    _saved_settings = Column(JSON)
 
     def __init__(self, *args, **kwargs):
         """
@@ -5173,6 +5221,7 @@ class ResultsType(BaseClass):
         proceduretype = kwargs.pop('proceduretype', None)
         info = kwargs.pop("info", {})
         samples = kwargs.pop("samples", {})
+        saved_settings = kwargs.pop("saved_settings", [])
         # Call SQLAlchemy/dataclass init first to avoid missing internal setup
         super().__init__(*args, **kwargs)
         # Resolve proceduretype
@@ -5188,8 +5237,9 @@ class ResultsType(BaseClass):
                 self.results = results
             except Exception:
                 logger.error(f"Couldn't set results to {results} for {self.__class__.__qualname__} with name {self.name}")
-        self._info = info
-        self._samples = samples
+        self.info = info
+        self.samples = samples
+        self.saved_settings = saved_settings
 
     @hybrid_property
     def proceduretype(self):
@@ -5280,6 +5330,18 @@ class ResultsType(BaseClass):
             self._samples = value
         else:
             raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._samples")
+
+    @hybrid_property
+    def saved_settings(self):
+        return self._saved_settings or []
+    
+    @saved_settings.setter
+    def saved_settings(self, value):
+        if isinstance(value, dict):
+            self._saved_settings = value
+        else:
+            raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._saved_settings")
+
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         return super().to_pydantic(pyd_model_name, **kwargs)

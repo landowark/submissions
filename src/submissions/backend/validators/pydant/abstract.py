@@ -131,9 +131,9 @@ class PydProcess(PydAbstract):
     
 class PydResultsType(PydAbstract):
 
-    name: str = Field(default="NA", description="Name of this resultstype.")
+    name: str = Field(default="NA")
     results: List[str] | List[dict] = Field(default_factory=list, repr=False)
-    proceduretype: List[str] | List[dict] = Field(default_factory=list, repr=False, description="ProcedureTypes that will use this.")
+    proceduretype: List[str] | List[dict] = Field(default_factory=list, repr=False)
 
     def to_sql(self, update: bool = True):
         self.sql_instance = super().to_sql(update)
@@ -327,6 +327,10 @@ class PydProcedureType(PydAbstract):
     @property
     def allowed_result_methods(self) -> List[str]:
         return self.sql_instance.allowed_result_methods
+    
+    @property
+    def preprocessing_methods(self):
+        return self.sql_instance.preprocessing_methods
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
