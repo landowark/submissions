@@ -171,7 +171,7 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions directory in Settings object
         """
-        return ctx.directory_path
+        return ctx.directories.main
 
     @classproperty
     def __backup_path__(cls) -> Path:
@@ -181,7 +181,7 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions backup directory in Settings object
         """
-        return ctx.backup_path
+        return ctx.directories.backup
 
     def __init__(self, *args, **kwargs):
         # Filter kwargs into those that map to SQLAlchemy-mapped attributes

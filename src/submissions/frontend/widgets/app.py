@@ -39,7 +39,7 @@ class App(QMainWindow):
         super().__init__()
         qInstallMessageHandler(lambda x, y, z: None)
         self.ctx = ctx
-        self.last_dir = ctx.directory_path
+        self.last_dir = ctx.directories.main
         self.report = Report()
         # NOTE: indicate version and connected database in title bar
         try:

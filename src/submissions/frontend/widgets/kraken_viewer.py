@@ -35,11 +35,11 @@ class KrakenViewer(InfoPane):
         results_type = ResultsType.query(name="Irida Kraken", limit=1)
         if not results_type:
             raise ValueError("Could not find results type Irida Kraken")
-        projects = [""] + results_type.saved_settings['projects']
+        self.projects = results_type.saved_settings['projects']
         # NOTE: set tab2 layout
         self.project_box = QComboBox()
         # NOTE: fetch types of control
-        self.project_box.addItems(projects)
+        self.project_box.addItems([""] + [key for key in self.projects.keys()])
         # NOTE: create custom widget to get types of analysis -- disabled by PCR control
         # NOTE: create check box to indicate 'metadata only'
         self.metadata_box = QCheckBox()
@@ -288,8 +288,9 @@ class KrakenViewer(InfoPane):
         """
         super().update_data()
         # NOTE: mode_sub_type defaults to disabled
-        self.project = self.project_box.currentText()
+        self.project = self.projects.get(self.project_box.currentText(), None)
         if not self.project:
+            self.webview.setHtml("<html></html>")
             return
         start_date = datetime.combine(self.start_date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
         end_date = datetime.combine(self.end_date, datetime.max.time()).strftime("%Y-%m-%dT%H:%M:%SZ")

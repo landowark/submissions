@@ -21,7 +21,7 @@ def import_irida(ctx: Settings):
     ct = new_session.query(ControlType).filter(ControlType.name == "Irida Control").first()
     existing_controls = [item.name for item in new_session.query(IridaControl)]
     prm_list = ", ".join([f"'{thing}'" for thing in existing_controls])
-    ctrl_db_path = ctx.directory_path.joinpath("submissions_parser_output", "procedure.db")
+    ctrl_db_path = ctx.directories.main.joinpath("submissions_parser_output", "procedure.db")
     try:
         conn = sqlite3.connect(ctrl_db_path)
     except AttributeError as e:

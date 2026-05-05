@@ -994,8 +994,9 @@ class Settings(BaseSettings, extra="allow"):
 
     """
     database: DotDict = Field(default_factory=DotDict)
-    directory_path: Path | None = None
-    backup_path: Path | str | None = None
+    directories: DotDict = Field(default_factory=DotDict)
+    # directory_path: Path | None = None
+    # backup_path: Path | str | None = None
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
     
@@ -1075,6 +1076,17 @@ class Settings(BaseSettings, extra="allow"):
             dotenv_settings,
             file_secret_settings,
         )
+    
+    @field_validator("directories", mode="before")
+    @classmethod
+    def enforce_directory_settings(cls, value):
+        if isinstance(value, dict):
+            directories = DotDict(value)
+        elif isinstance(value, DotDict):
+            directories = value
+        else:
+            raise ValidationError(f"Unsupported database model: {value}")
+        return directories
 
     @field_validator("database", mode="before")
     @classmethod
@@ -1109,46 +1121,46 @@ class Settings(BaseSettings, extra="allow"):
         database.session = Session(engine)
         return database
         
-    @field_validator('backup_path', mode="before")
-    @classmethod
-    def set_backup_path(cls, value, values):
-        match value:
-            case str():
-                value = Path(value)
-            case None:
-                value = values.data['directory_path'].joinpath("Database backups")
-        if not value.exists():
-            try:
-                value.mkdir(parents=True)
-            except OSError:
-                value = Path(askdirectory(title="Directory for backups."))
-        return value
+    # @field_validator('backup_path', mode="before")
+    # @classmethod
+    # def set_backup_path(cls, value, values):
+    #     match value:
+    #         case str():
+    #             value = Path(value)
+    #         case None:
+    #             value = values.data['directory_path'].joinpath("Database backups")
+    #     if not value.exists():
+    #         try:
+    #             value.mkdir(parents=True)
+    #         except OSError:
+    #             value = Path(askdirectory(title="Directory for backups."))
+    #     return value
 
-    @field_validator('directory_path', mode="before")
-    @classmethod
-    def ensure_directory_exists(cls, value, values):
-        database = values.data['database'] 
-        if value is None:
-            match database.schema:
-                case "sqlite":
-                    if check_if_app():
-                        alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-                    else:
-                        alembic_path = project_path.joinpath("alembic.ini")
-                    value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
-                case _:
-                    Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
-                    value = Path(askdirectory(
-                        title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
-        if isinstance(value, str):
-            value = Path(value)
-        try:
-            check = value.exists()
-        except AttributeError:
-            check = False
-        if not check:
-            value.mkdir(exist_ok=True, parents=True)
-        return value
+    # @field_validator('directory_path', mode="before")
+    # @classmethod
+    # def ensure_directory_exists(cls, value, values):
+    #     database = values.data['database'] 
+    #     if value is None:
+    #         match database.schema:
+    #             case "sqlite":
+    #                 if check_if_app():
+    #                     alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
+    #                 else:
+    #                     alembic_path = project_path.joinpath("alembic.ini")
+    #                 value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
+    #             case _:
+    #                 Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
+    #                 value = Path(askdirectory(
+    #                     title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
+    #     if isinstance(value, str):
+    #         value = Path(value)
+    #     try:
+    #         check = value.exists()
+    #     except AttributeError:
+    #         check = False
+    #     if not check:
+    #         value.mkdir(exist_ok=True, parents=True)
+    #     return value
     
     @field_validator('package', mode="before")
     @classmethod

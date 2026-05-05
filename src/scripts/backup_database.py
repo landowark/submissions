@@ -13,7 +13,7 @@ def backup_database(ctx: Settings):
     Copies the database into the backup directory the first time it is opened every month.
     """
     month = date.today().strftime("%Y-%m")
-    current_month_bak = Path(ctx.backup_path).joinpath(f"submissions_backup-{month}").resolve()
+    current_month_bak = Path(ctx.directories.backup).joinpath(f"submissions_backup-{month}").resolve()
     logger.info(f"Here is the db directory: {ctx.database.path}")
     logger.info(f"Here is the backup directory: {ctx.backup.path}")
     match ctx.database.schema:
