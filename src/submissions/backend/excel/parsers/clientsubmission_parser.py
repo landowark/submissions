@@ -56,6 +56,7 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
         if check:
             output['submitted_date']['value'] = output['submitted_date']['value'].date()
         output['endrow'] = self.end_row
+        logger.debug(f"ClientSubmission parsed output: {pformat(output)}")
         return output
 
 

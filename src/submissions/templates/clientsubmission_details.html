@@ -17,7 +17,7 @@
     {% if clientsubmission['sample'] %}
     <button type="button"><h3><u>Client Submitted Samples:</u></h3></button>
     <p>{% for sample in clientsubmission['sample'] %}
-        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="{{ sample['sample_id'] }}">{{ sample['sample_id'] }}</a><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<a class="data-link sample" id="{{ sample }}">{{ sample }}</a><br>
     {% endfor %}</p>
     {% endif %}
     {% if clientsubmission['run'] %}

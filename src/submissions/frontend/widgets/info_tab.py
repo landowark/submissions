@@ -1,7 +1,7 @@
 """
 A pane to show info e.g. cost reports and turnaround times.
 """
-from datetime import date
+from datetime import date, datetime
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout
@@ -32,8 +32,6 @@ class InfoPane(QWidget):
     @report_result
     def update_data(self, *args, **kwargs) -> Report | None:
         report = Report()
-        self.start_date = self.datepicker.start_date.date().toPyDate()
-        self.end_date = self.datepicker.end_date.date().toPyDate()
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():
             lastmonth = self.datepicker.end_date.date().addDays(-31)
             msg = f"Start date after end date is not allowed! Setting to {lastmonth.toString()}."
@@ -41,9 +39,12 @@ class InfoPane(QWidget):
             # NOTE: block signal that will rerun control getter and set start date without triggering this function again
             with QSignalBlocker(self.datepicker.start_date) as blocker:
                 self.datepicker.start_date.setDate(lastmonth)
-            self.update_data()
             report.add_result(Alert(owner=self.__str__(), msg=msg, status="Warning"))
-            return report
+            # self.update_data()
+        self.start_date = datetime.combine(self.datepicker.start_date.date().toPyDate(), datetime.min.time())
+        self.end_date = datetime.combine(self.datepicker.end_date.date().toPyDate(), datetime.max.time())
+        
+        return report
 
     @classmethod
     def diff_month(self, d1: date, d2: date) -> float:
@@ -61,6 +62,7 @@ class InfoPane(QWidget):
 
     def save_excel(self):
         fname = select_save_file(self, default_name=f"{self.__class__.__name__} Report {self.start_date.strftime('%Y%m%d')} - {self.end_date.strftime('%Y%m%d')}", extension="xlsx")
+        print(self.report_obj)
         self.report_obj.write_report(fname, obj=self)
 
     def save_pdf(self):

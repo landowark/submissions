@@ -13,32 +13,33 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class CustomFigure(Figure):
 
-    def __init__(self, df: pd.DataFrame, settings: dict, modes: list, ytitle: str | None = None, **kwargs):
+    def __init__(self, df: pd.DataFrame, settings: dict, ytitle: str | None = None, **kwargs):
         super().__init__()
+        for k, v in settings.items():
+            object.__setattr__(self, k, v)
         months = int(settings.get('months', 6))
+        
         # Set dataframe on the instance using object.__setattr__ because
         # plotly.graph_objects.Figure implements a custom __setattr__ which
         # can raise AttributeError for arbitrary attribute names. Using the
         # base object setattr bypasses that and stores the dataframe safely.
         object.__setattr__(self, 'df', df)
+        
         self.data = []
-        self.update_xaxes(range=[settings['start_date'] - timedelta(days=1), settings['end_date']])
-        self.generic_figure_markers(modes=modes, ytitle=ytitle, months=months)
+        # self.update_xaxes(range=[settings['start_date'] - timedelta(days=1), settings['end_date']])
+        self.generic_figure_markers(ytitle=ytitle, months=months)
 
-    def generic_figure_markers(self, modes: list = [], ytitle: str | None = None, months: int = 6):
+    def generic_figure_markers(self, ytitle: str | None = None, months: int = 6):
         """
         Adds standard layout to figure.
 
         Args:
             fig (Figure): Input figure.
-            modes (list, optional): List of modes included in figure. Defaults to [].
             ytitle (str, optional): Title for the y-axis. Defaults to None.
 
         Returns:
             Figure: Output figure with updated titles, rangeslider, buttons.
         """
-        if modes:
-            ytitle = modes[0]
         self.update_layout(
             xaxis_title="Submitted Date (* - Date parsed from fastq file creation date)",
             yaxis_title=ytitle,
@@ -51,16 +52,20 @@ class CustomFigure(Figure):
                     x=0.7,
                     y=1.2,
                     showactive=True,
-                    buttons=[button for button in self.make_pyqt_buttons(modes=modes)],
+                    buttons=[button for button in self.make_pyqt_buttons()],
                 )
             ]
         )
         self.update_xaxes(
+            type='category',
+            tickmode='array',
             rangeslider_visible=True,
+            range=[self.df['dt_internal'].min(), self.df['dt_internal'].max()],
             rangeselector=dict(
                 buttons = [button for button in self.make_plotly_buttons(months=months)]
             )
         )
+        self.update_yaxes(autorange=True)
         assert isinstance(self, CustomFigure)
 
     @classmethod
@@ -84,7 +89,7 @@ class CustomFigure(Figure):
         for button in buttons:
             yield button
 
-    def make_pyqt_buttons(self, modes: list) -> Generator[dict, None, None]:
+    def make_pyqt_buttons(self, modes: list=[]) -> Generator[dict, None, None]:
         """
         Creates list of buttons with one for each mode to be used in showing/hiding mode traces.
 
@@ -133,7 +138,7 @@ class CustomFigure(Figure):
         return html
 
 
-from .irida_charts import IridaFigure
+from .kraken_charts import KrakenFigure
 from .pcr_charts import PCRFigure
 from .concentrations_chart import ConcentrationsChart
 from .turnaround_chart import TurnaroundChart

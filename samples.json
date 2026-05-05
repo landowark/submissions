@@ -1,0 +1,527 @@
+[
+    {
+        "createdAt": "2026-04-23T14:58:37Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.985351,
+                "kraken_assigned_reads": 183027,
+                "meta.id": "ATCC49226-745-20260414",
+                "name": "Neisseria gonorrhoeae",
+                "new_est_reads": 183027,
+                "taxonomy_id": "485",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.005529,
+                "kraken_assigned_reads": 1027,
+                "meta.id": "ATCC49226-745-20260414",
+                "name": "Neisseria meningitidis",
+                "new_est_reads": 1027,
+                "taxonomy_id": "487",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.004888,
+                "kraken_assigned_reads": 908,
+                "meta.id": "ATCC49226-745-20260414",
+                "name": "Homo sapiens",
+                "new_est_reads": 908,
+                "taxonomy_id": "9606",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.000808,
+                "kraken_assigned_reads": 150,
+                "meta.id": "ATCC49226-745-20260414",
+                "name": "Neisseria lactamica",
+                "new_est_reads": 150,
+                "taxonomy_id": "486",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.000468,
+                "kraken_assigned_reads": 87,
+                "meta.id": "ATCC49226-745-20260414",
+                "name": "Neisseria polysaccharea",
+                "new_est_reads": 87,
+                "taxonomy_id": "489",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.000738,
+                "kraken_assigned_reads": 137,
+                "meta.id": "ATCC49226-745-20260414",
+                "name": "unclassified",
+                "new_est_reads": 137,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/048acf74-a2ce-43f7-9dd1-17b2e06a4da1",
+        "name": "ATCC49226-745-20260414",
+        "updatedAt": "2026-04-23T15:58:02Z"
+    },
+    {
+        "createdAt": "2026-04-23T14:58:37Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.987565,
+                "kraken_assigned_reads": 148430,
+                "meta.id": "ATCC49619-745-20260414",
+                "name": "Streptococcus pneumoniae",
+                "new_est_reads": 148430,
+                "taxonomy_id": "1313",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.002954,
+                "kraken_assigned_reads": 444,
+                "meta.id": "ATCC49619-745-20260414",
+                "name": "Streptococcus mitis",
+                "new_est_reads": 444,
+                "taxonomy_id": "28037",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.002029,
+                "kraken_assigned_reads": 305,
+                "meta.id": "ATCC49619-745-20260414",
+                "name": "Homo sapiens",
+                "new_est_reads": 305,
+                "taxonomy_id": "9606",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.001337,
+                "kraken_assigned_reads": 201,
+                "meta.id": "ATCC49619-745-20260414",
+                "name": "Streptococcus oralis",
+                "new_est_reads": 201,
+                "taxonomy_id": "1303",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.001045,
+                "kraken_assigned_reads": 157,
+                "meta.id": "ATCC49619-745-20260414",
+                "name": "Streptococcus pyogenes",
+                "new_est_reads": 157,
+                "taxonomy_id": "1314",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.000326,
+                "kraken_assigned_reads": 49,
+                "meta.id": "ATCC49619-745-20260414",
+                "name": "unclassified",
+                "new_est_reads": 49,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/2d574703-34bc-43df-940f-7abd366c60af",
+        "name": "ATCC49619-745-20260414",
+        "updatedAt": "2026-04-23T15:58:02Z"
+    },
+    {
+        "createdAt": "2026-04-23T14:58:37Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.925595,
+                "kraken_assigned_reads": 151470,
+                "meta.id": "EN1-745-20260414",
+                "name": "Streptococcus pyogenes",
+                "new_est_reads": 151470,
+                "taxonomy_id": "1314",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.052296,
+                "kraken_assigned_reads": 8558,
+                "meta.id": "EN1-745-20260414",
+                "name": "Streptococcus pneumoniae",
+                "new_est_reads": 8558,
+                "taxonomy_id": "1313",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.006777,
+                "kraken_assigned_reads": 1109,
+                "meta.id": "EN1-745-20260414",
+                "name": "Streptococcus dysgalactiae",
+                "new_est_reads": 1109,
+                "taxonomy_id": "1334",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.004901,
+                "kraken_assigned_reads": 802,
+                "meta.id": "EN1-745-20260414",
+                "name": "Homo sapiens",
+                "new_est_reads": 802,
+                "taxonomy_id": "9606",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.003905,
+                "kraken_assigned_reads": 639,
+                "meta.id": "EN1-745-20260414",
+                "name": "Streptococcus agalactiae",
+                "new_est_reads": 639,
+                "taxonomy_id": "1311",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.00176,
+                "kraken_assigned_reads": 288,
+                "meta.id": "EN1-745-20260414",
+                "name": "unclassified",
+                "new_est_reads": 288,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/d47660f7-c0e5-46ae-bd72-4e022a812d87",
+        "name": "EN1-745-20260414",
+        "updatedAt": "2026-04-23T15:58:02Z"
+    },
+    {
+        "createdAt": "2026-04-23T14:58:37Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.474348,
+                "kraken_assigned_reads": 564,
+                "meta.id": "EN2-745-20260414",
+                "name": "Homo sapiens",
+                "new_est_reads": 564,
+                "taxonomy_id": "9606",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.047939,
+                "kraken_assigned_reads": 57,
+                "meta.id": "EN2-745-20260414",
+                "name": "Streptococcus pneumoniae",
+                "new_est_reads": 57,
+                "taxonomy_id": "1313",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.038688,
+                "kraken_assigned_reads": 46,
+                "meta.id": "EN2-745-20260414",
+                "name": "Cutibacterium acnes",
+                "new_est_reads": 46,
+                "taxonomy_id": "1747",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.021867,
+                "kraken_assigned_reads": 26,
+                "meta.id": "EN2-745-20260414",
+                "name": "Janibacter indicus",
+                "new_est_reads": 26,
+                "taxonomy_id": "857417",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.018503,
+                "kraken_assigned_reads": 22,
+                "meta.id": "EN2-745-20260414",
+                "name": "Nocardia farcinica",
+                "new_est_reads": 22,
+                "taxonomy_id": "37329",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.365013,
+                "kraken_assigned_reads": 434,
+                "meta.id": "EN2-745-20260414",
+                "name": "unclassified",
+                "new_est_reads": 434,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/8d2dba84-1144-43ce-b712-d40dd7ce5c97",
+        "name": "EN2-745-20260414",
+        "updatedAt": "2026-04-23T15:58:02Z"
+    },
+    {
+        "createdAt": "2026-04-23T14:58:37Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.28411,
+                "kraken_assigned_reads": 274253,
+                "meta.id": "MCS-Apr2026P2-20260414",
+                "name": "Salmonella enterica",
+                "new_est_reads": 274253,
+                "taxonomy_id": "28901",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.243494,
+                "kraken_assigned_reads": 235046,
+                "meta.id": "MCS-Apr2026P2-20260414",
+                "name": "Limosilactobacillus fermentum",
+                "new_est_reads": 235046,
+                "taxonomy_id": "1613",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.182899,
+                "kraken_assigned_reads": 176553,
+                "meta.id": "MCS-Apr2026P2-20260414",
+                "name": "Escherichia coli",
+                "new_est_reads": 176553,
+                "taxonomy_id": "562",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.10091,
+                "kraken_assigned_reads": 97409,
+                "meta.id": "MCS-Apr2026P2-20260414",
+                "name": "Pseudomonas aeruginosa",
+                "new_est_reads": 97409,
+                "taxonomy_id": "287",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.070209,
+                "kraken_assigned_reads": 67773,
+                "meta.id": "MCS-Apr2026P2-20260414",
+                "name": "Bacillus spizizenii",
+                "new_est_reads": 67773,
+                "taxonomy_id": "96241",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T14:58:37Z",
+                "fraction_total_reads": 0.000205,
+                "kraken_assigned_reads": 198,
+                "meta.id": "MCS-Apr2026P2-20260414",
+                "name": "unclassified",
+                "new_est_reads": 198,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/4600b271-3c0c-43aa-89d0-2b8b0af82e68",
+        "name": "MCS-Apr2026P2-20260414",
+        "updatedAt": "2026-04-23T15:58:02Z"
+    },
+    {
+        "createdAt": "2026-04-23T17:57:57Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:57:57Z",
+                "fraction_total_reads": 0.217654,
+                "kraken_assigned_reads": 397,
+                "meta.id": "EN1-Apr2026P2-20260414",
+                "name": "Homo sapiens",
+                "new_est_reads": 397,
+                "taxonomy_id": "9606",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:57:57Z",
+                "fraction_total_reads": 0.053728,
+                "kraken_assigned_reads": 98,
+                "meta.id": "EN1-Apr2026P2-20260414",
+                "name": "Bradyrhizobium sp. SK17",
+                "new_est_reads": 98,
+                "taxonomy_id": "2057741",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:57:57Z",
+                "fraction_total_reads": 0.043311,
+                "kraken_assigned_reads": 79,
+                "meta.id": "EN1-Apr2026P2-20260414",
+                "name": "Cutibacterium acnes",
+                "new_est_reads": 79,
+                "taxonomy_id": "1747",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:57:57Z",
+                "fraction_total_reads": 0.025768,
+                "kraken_assigned_reads": 47,
+                "meta.id": "EN1-Apr2026P2-20260414",
+                "name": "Corynebacterium amycolatum",
+                "new_est_reads": 47,
+                "taxonomy_id": "43765",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:57:57Z",
+                "fraction_total_reads": 0.018092,
+                "kraken_assigned_reads": 33,
+                "meta.id": "EN1-Apr2026P2-20260414",
+                "name": "Citrobacter portucalensis",
+                "new_est_reads": 33,
+                "taxonomy_id": "1639133",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:57:57Z",
+                "fraction_total_reads": 0.586075,
+                "kraken_assigned_reads": 1069,
+                "meta.id": "EN1-Apr2026P2-20260414",
+                "name": "unclassified",
+                "new_est_reads": 1069,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/a67df144-49a2-46e9-bf5f-a75e73b4c240",
+        "name": "EN1-Apr2026P2-20260414",
+        "updatedAt": "2026-04-23T18:52:30Z"
+    },
+    {
+        "createdAt": "2026-04-23T17:58:14Z",
+        "data": [
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:58:14Z",
+                "fraction_total_reads": 0.278457,
+                "kraken_assigned_reads": 205684,
+                "meta.id": "MCS-Mar2026P6-20260331",
+                "name": "Limosilactobacillus fermentum",
+                "new_est_reads": 205684,
+                "taxonomy_id": "1613",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:58:14Z",
+                "fraction_total_reads": 0.276967,
+                "kraken_assigned_reads": 204583,
+                "meta.id": "MCS-Mar2026P6-20260331",
+                "name": "Salmonella enterica",
+                "new_est_reads": 204583,
+                "taxonomy_id": "28901",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:58:14Z",
+                "fraction_total_reads": 0.158181,
+                "kraken_assigned_reads": 116841,
+                "meta.id": "MCS-Mar2026P6-20260331",
+                "name": "Escherichia coli",
+                "new_est_reads": 116841,
+                "taxonomy_id": "562",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:58:14Z",
+                "fraction_total_reads": 0.105404,
+                "kraken_assigned_reads": 77857,
+                "meta.id": "MCS-Mar2026P6-20260331",
+                "name": "Pseudomonas aeruginosa",
+                "new_est_reads": 77857,
+                "taxonomy_id": "287",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:58:14Z",
+                "fraction_total_reads": 0.063697,
+                "kraken_assigned_reads": 47050,
+                "meta.id": "MCS-Mar2026P6-20260331",
+                "name": "Bacillus spizizenii",
+                "new_est_reads": 47050,
+                "taxonomy_id": "96241",
+                "taxonomy_lvl": "S"
+            },
+            {
+                "added_reads": 0,
+                "createdAt": "2026-04-23T17:58:14Z",
+                "fraction_total_reads": 0.000188,
+                "kraken_assigned_reads": 139,
+                "meta.id": "MCS-Mar2026P6-20260331",
+                "name": "unclassified",
+                "new_est_reads": 139,
+                "taxonomy_id": "0",
+                "taxonomy_lvl": "S"
+            }
+        ],
+        "filename": "metadata",
+        "id": "gid://irida/Sample/b077f75b-0b06-4c1d-94b1-51a6a98e1510",
+        "name": "MCS-Mar2026P6-20260331",
+        "updatedAt": "2026-04-23T18:52:30Z"
+    }
+]

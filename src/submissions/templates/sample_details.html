@@ -22,7 +22,7 @@
         {% if sample['results'] %}<h2>Results:</h2>
             {% for result in sample['results'] %}
             <p>{% for key, value in result['result'].items() %}
-                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value }}<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | handle_key }}:</b> {{ value | handle_results }}<br>
             {% endfor %}</p>
             {% endfor %}
         {% endif %}

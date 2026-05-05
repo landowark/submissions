@@ -2,10 +2,11 @@
 All abstract pyd models and associations between abstracts.
 """
 from __future__ import annotations
+import re
 import logging, sys, numpy as np
 from pprint import pformat
 from datetime import timedelta
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Literal
 from pydantic import computed_field, field_validator, Field
 from backend.validators.pydant import PydAbstract
 from tools import jinja_template_loading
@@ -294,22 +295,24 @@ class PydProcedureType(PydAbstract):
         """
         from backend.validators.pydant import PydSample
         output = []
-        for row, column in self.ranked_plate.values():
+        for row, column in self.make_ranked_plate().values():
 
             sample = next((sample for sample in sample_dicts if sample.row == row and sample.column == column),
                           PydSample(sample_id="", row=row, column=column, enabled=False, background_color="white"))
             output.append(sample)
         return output
     
-    @property
-    def ranked_plate(self) -> dict:
+    def make_ranked_plate(self, direction: Literal["row", "col"] = "row") -> dict:
         """
         Creates a dictionary of rows and columns for an associated plate.
 
         Returns:
             dict: (rank: {row: value, column: value})
         """
-        matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
+        if direction == "row":
+            matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
+        else:
+            matrix = np.array([[0 for xxx in range(1, self.plate_columns + 1 )] for yyy in range(1, self.plate_rows + 1 )])
         return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
     def to_sql(self, update: bool = True):
@@ -331,6 +334,47 @@ class PydProcedureType(PydAbstract):
     @property
     def preprocessing_methods(self):
         return self.sql_instance.preprocessing_methods
+    
+    def get_well_index(self, cell_id: str = None, row_idx: int = None, col_idx: int = None, direction: Literal['col', 'row'] = 'col'):
+        """
+        Finds the 1-based index of a cell.
+        direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)
+        direction='row': Left-to-right, then top-to-bottom (A1, A2, A3...)
+        """
+        if row_idx is None or col_idx is None:
+            if not cell_id:
+                raise ValueError("Either cell_id or both row_idx and col_idx must be provided.")
+                
+            match = re.match(r"([A-Z]+)([0-9]+)", cell_id, re.I)
+            if not match:
+                raise ValueError("Invalid cell ID format.")
+            
+            row_str, col_str = match.groups()
+            
+            # Convert Row Letter to 0-based index
+            row_idx = 0
+            for char in row_str.upper():
+                row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
+            row_idx -= 1 
+            
+            # Convert Column to 0-based index
+            col_idx = int(col_str) - 1
+
+        else:
+            row_idx -= 1
+            col_idx -= 1
+        
+        # Validation
+        if row_idx >= self.plate_rows or col_idx >= self.plate_columns:
+            raise IndexError(f"Indices ({row_idx}, {col_idx}) are outside the {self.plate_rows}x{self.plate_columns} grid.")
+
+        if direction.lower() == 'col':
+            # Vertical: (Columns passed * rows per column) + current row
+            return (col_idx * self.plate_rows) + (row_idx + 1)
+        else:
+            # Horizontal: (Rows passed * columns per row) + current column
+            return (row_idx * self.plate_columns) + (col_idx + 1)
+
 
 
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):

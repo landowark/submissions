@@ -711,12 +711,15 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     continue
                 case dict():
                     try:
-                        value = value['name']
+                        value = value['value']
                     except KeyError:
-                        if k == "_misc_info" or k == "misc_info":
-                            value = value
-                        else:
-                            continue
+                        try:
+                            value = value['name']
+                        except KeyError:
+                            if k == "_misc_info" or k == "misc_info":
+                                value = value
+                            else:
+                                continue
                 case x if issubclass(value.__class__, BaseClass): 
                     try:
                         value = value.name

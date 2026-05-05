@@ -1,5 +1,9 @@
 from . import DefaultSettings
+import csv, logging
+from frontend.widgets.functions import select_save_file
+from tools import row_map
 
+logger = logging.getLogger(f"submissions.{__name__}")
 
 class DiomniPCRSettings(DefaultSettings):
 
@@ -7,7 +11,8 @@ class DiomniPCRSettings(DefaultSettings):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-
+        logger.debug(self.procedure.sample)
+        # At this point samples are PydSample but is_control are all 0.
 
     def hex_to_rgb(self, hex_string):
         """
@@ -34,5 +39,37 @@ class DiomniPCRSettings(DefaultSettings):
         # Return formatted hex string
         return f"#{r:02x}{g:02x}{b:02x}"
 
-
-
+    def write_output(self):
+        filepath = select_save_file(obj=self.parent, default_name=self.procedure.name.get("value").replace(":", ""), extension="csv")
+        toplines  = [
+            ['*All Inputs are case sensitive.  For Example:  FAM is different from Fam', '', '', '', '', '', '', '', '', '', '', ''],
+            ['*Do not change column header names and do not delete [Sample Setup]. Minimal columns needed are:  Well and Well Position', '', '', '', '', '', '', '', '', '', '', ''],
+            ['*Passive Reference = ROX', '', '', '', '', '', '', '', '', '', '', ''],
+            ['[Sample Setup]', '', '', '', '', '', '', '', '', '', '', ''],
+            ['Well', 'Well Position', 'Sample Name', 'Biogroup Name', 'Biogroup Color', 'Target Name', 'Task', 'Reporter', 'Quencher', 'Quantity', 'Target Color', 'Comments']
+        ]
+        samples = []
+        for sample in self.procedure.sample:
+            logger.debug(f"Running sample {sample.sample_id}, Row {sample.row}, Column {sample.column}, {sample.is_control}")
+            for setting in self.settings:
+                output = [
+                    self.proceduretype.get_well_index(row_idx=sample.row, col_idx=sample.column, direction="col"),
+                    f"{row_map[sample.row]}{sample.column}",
+                    sample.sample_id,
+                    "",
+                    "",
+                    setting.get("Target Name", ""),
+                    "STANDARD" if sample.is_control > 0 else "UNKNOWN",
+                    setting.get("Reporter", "").upper(),
+                    "None",
+                    "1" if sample.is_control == 1 else "",
+                    setting.get("Target Color", ""),
+                    ""
+                ]
+                samples.append(output)
+        with open(filepath, "w", newline='', encoding='utf-8') as f:
+            writer = csv.writer(f, delimiter=",")
+            writer.writerows(toplines)
+            writer.writerows(samples)
+            
+            

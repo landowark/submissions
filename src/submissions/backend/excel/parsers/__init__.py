@@ -82,12 +82,13 @@ class DefaultKEYVALUEParser(DefaultParser):
                 continue
             key = self.worksheet.cell(row, 1).value
             if key:
-                # NOTE: If there are more than 3 spaces in the key, continue
-                if key.count(" ") > 3:
-                    continue
                 # NOTE: Remove anything in brackets.
                 key = re.sub(r"\(.*\)", "", key)
                 key = re.sub(r"\s+", "_", key.lower().replace(":", "").strip())
+                # NOTE: If there are more than 3 spaces in the key, continue
+                if key.count(" ") > 3:
+                    logger.warning(f"There are more than 3 spaces in {key}, skipping")
+                    continue
                 value = self.worksheet.cell(row, 2).value
                 missing = False if value else True
                 value = dict(value=value, missing=missing)

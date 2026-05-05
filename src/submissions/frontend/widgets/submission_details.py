@@ -44,7 +44,7 @@ class SubmissionDetails(QDialog):
         custom_page = CustomWebEnginePage(self.webview)
         self.webview.setPage(custom_page)
         self.webview.setMinimumSize(900, 500)
-        self.webview.setMaximumWidth(900)
+        # self.webview.setMaximumWidth(900)
         # NOTE: Decide if exporting should be allowed.
         self.webview.loadFinished.connect(self.activate_export)
         self.layout = QGridLayout()
@@ -118,7 +118,7 @@ class SubmissionDetails(QDialog):
             logger.error(f"Reagent with lot {old_lot} not found.")
 
     @pyqtSlot(str)
-    def sign_off(self, run: str | Run) -> None:
+    def sign_off(self, run: str | models.Run) -> None:
         """
         Allows power user to signify a procedure is complete.
 
@@ -128,15 +128,15 @@ class SubmissionDetails(QDialog):
         Returns:
             None
         """
-        from backend.db.models import Run
+        # from backend.db.models import Run
         logger.info(f"Signing off on {run} - ({getuser()})")
         if isinstance(run, str):
-            run = Run.query(name=run)
+            run = models.Run.query(name=run)
         run.signed_by = getuser()
         run.completed_date = datetime.now()
         run.completed_date.replace(tzinfo=timezone)
         run.save()
-        self.object_details(object_=run)
+        self.object_details(object_=run.to_pydantic())
 
     @pyqtSlot(str, str)
     def show_sub_details(self, sub_name: str, sub_type: str) -> None:
@@ -162,7 +162,6 @@ class SubmissionDetails(QDialog):
                 self.object_details(object_=pyd)
             else:
                 logger.error(f"{sub_type} with name {sub_name} not found.")
-
 
     def save_pdf(self):
         """

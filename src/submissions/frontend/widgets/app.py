@@ -14,6 +14,7 @@ from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
 from backend.validators.pydant import PydAbstract, PydConcrete
+from frontend.widgets.kraken_viewer import KrakenViewer
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development
@@ -42,7 +43,7 @@ class App(QMainWindow):
         self.report = Report()
         # NOTE: indicate version and connected database in title bar
         try:
-            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database_path}/{ctx.database_name}"
+            self.title = f"Submissions App (v{ctx.package.__version__}) - {ctx.database.path}/{ctx.database.name}"
         except (AttributeError, KeyError):
             self.title = f"Submissions App"
         # NOTE: set initial app position and size
@@ -254,7 +255,7 @@ class AddSubForm(QWidget):
         self.tab1.layout.addWidget(self.interior)
         self.tab1.layout.addWidget(self.sheetwidget)
         self.tab2.layout = QVBoxLayout(self)
-        self.irida_viewer = None
+        self.irida_viewer = KrakenViewer(self)
         self.tab2.layout.addWidget(self.irida_viewer)
         self.tab2.setLayout(self.tab2.layout)
         self.tab3.layout = QVBoxLayout(self)

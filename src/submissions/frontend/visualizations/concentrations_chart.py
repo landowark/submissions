@@ -13,6 +13,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class ConcentrationsChart(CustomFigure):
 
     def __init__(self, df: pd.DataFrame, modes: list, settings: dict, **kwargs):
+        df['dt_internal'] = ""
         super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         self.df = df
         self.construct_chart()

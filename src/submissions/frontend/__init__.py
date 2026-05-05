@@ -24,7 +24,7 @@ from .widgets import (
 )
 from .visualizations import (
     CustomFigure,
-    IridaFigure,
+    KrakenFigure,
     PCRFigure,
     ConcentrationsChart,
     TurnaroundChart

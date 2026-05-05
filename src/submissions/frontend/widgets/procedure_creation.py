@@ -46,15 +46,32 @@ class ProcedureCreation(DefaultWebDialog):
             match sample:
                 case PydSample():
                     sample_id = sample.sample_id
+                    row = getattr(sample, "row", 0)
+                    column = getattr(sample, "column", 0)
+                    is_control = getattr(sample, "is_control", 0)
                 case PydProcedureSampleAssociation():
                     sample_id = sample.sample
+                    row = getattr(sample, "row", 0)
+                    column = getattr(sample, "column", 0)
+                    is_control = getattr(sample, "is_control", 0)
                 case str():
                     sample_id = sample
+                    row = 0
+                    column = 0
+                    is_control = 0
                 case dict():
                     sample_id = sample.get("sample_id", f"Unknown Sample {iii}")
+                    row = sample.get("row", 0)
+                    column = sample.get("column", 0)
+                    is_control = sample.get("is_control", 0)
                 case _:
                     sample_id = f"Unknown Sample {iii}"
-            yield dict(sample_id=sample_id, index=iii)
+                    row = 0
+                    column = 0
+                    is_control = 0
+            output = dict(sample_id=sample_id, index=iii, row=row, column=column, is_control=is_control)
+            logger.debug(f"Yielding: {output}")
+            yield output
 
     def set_html(self):
         html = render_details_template(
@@ -138,7 +155,7 @@ class ProcedureCreation(DefaultWebDialog):
             resultstype = over['resultstype']
         else:
             raise ValueError(f"Function group for {function_name} not found.")
-        settings_dlg = func(parent=self, resultstype=resultstype, procedure=self.procedure)
+        self.dlg = func(parent=self.app, resultstype=resultstype, procedure=self.procedure)
 
     def return_sql(self, new: bool = False):
         output = self.procedure.to_sql()

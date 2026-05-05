@@ -38,6 +38,8 @@ class ReportArchetype(object):
         filename = filename.absolute()
         self.writer = ExcelWriter(filename.with_suffix(".xlsx"), engine='openpyxl')
         self.df.index += 1
+        if not getattr(self, "sheet_name", None):
+            self.sheet_name = filename.stem
         self.df.to_excel(self.writer, sheet_name=self.sheet_name)
         self.writer.close()
 
@@ -222,6 +224,5 @@ class ConcentrationMaker(ReportArchetype):
 
 class ChartReportMaker(ReportArchetype):
 
-    def __init__(self, df: DataFrame, sheet_name):
+    def __init__(self, df: DataFrame):
         self.df = df
-        self.sheet_name = sheet_name

@@ -3,7 +3,7 @@ Contains miscellaenous functions used by both frontend and backend.
 """
 from __future__ import annotations
 import builtins, importlib, time, logging, re, yaml, sys, os, stat, platform, getpass, json, numpy as np, pandas as pd, \
-    itertools, openpyxl, string
+    itertools, openpyxl, string, html
 from copy import copy
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
@@ -17,8 +17,7 @@ from logging import handlers, Logger
 from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text, MetaData
-from sqlalchemy.engine import Engine
-from pydantic import field_validator, BaseModel, Field
+from pydantic import ValidationError, field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
 from typing import Any, Tuple, Literal, List, Generator
 from __init__ import project_path
@@ -47,7 +46,15 @@ main_aux_dir = Path.home().joinpath(f"{os_config_dir}/procedure")
 CONFIGDIR = main_aux_dir.joinpath("config")
 LOGDIR = main_aux_dir.joinpath("logs")
 
-row_map = dict(enumerate(string.ascii_uppercase, start=1))
+# 1. Generate single letters: ['A', 'B', ..., 'Z']
+single = list(string.ascii_uppercase)
+
+# 2. Generate double letters: ['AA', 'AB', ..., 'ZZ']
+double = [''.join(p) for p in itertools.product(string.ascii_uppercase, repeat=2)]
+
+# 3. Combine and enumerate starting from index 1
+row_map = dict(enumerate(single + double, start=1))
+# 4. Reverse lookup. 
 row_keys = {v: k for k, v in row_map.items()}
 
 # NOTE: Sets background for uneditable comboboxes and date edits.
@@ -186,6 +193,14 @@ def check_if_app() -> bool:
     else:
         return False
 
+def clean_string(text):
+    """
+    Strips out whitespace and all non-alphanumeric symbols.
+    """
+    if not isinstance(text, str):
+        return text
+    # Replaces any non-letter and non-number character with an empty string
+    return re.sub(r'[^a-zA-Z0-9]', '', text)
 
 # Logging formatters
 
@@ -318,6 +333,7 @@ def jinja_template_loading() -> Environment:
     env.filters['extract_value'] = get_value
     env.filters['sanitize'] = sanitize_object_for_json
     env.filters['handle_key'] = handle_keys
+    env.filters['handle_results'] = handle_results
     return env
 
 
@@ -835,6 +851,11 @@ def handle_keys(input_key:str) -> str:
     output = output.replace("Rsl", "RSL")
     return output
 
+def handle_results(input_value:dict) -> str:
+    output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
+    output = re.sub(r'[{}]|&quot;|,', '', output)
+    return output
+    
 
 def sanitize_object_for_json(input_obj):
 
@@ -893,6 +914,39 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
     raise StopIteration(f"Could not find {key} value")
 
 
+def get_well_index(cell_id:str, grid_height:int=8, grid_width:int=12, direction:Literal['col', 'row'] = 'col'):
+    """
+    Finds the 1-based index of a cell.
+    direction='col': Top-to-bottom, then left-to-right (A1, B1, C1...)
+    direction='row': Left-to-right, then top-to-bottom (A1, A2, A3...)
+    """
+    match = re.match(r"([A-Z]+)([0-9]+)", cell_id, re.I)
+    if not match:
+        raise ValueError("Invalid cell ID format.")
+    
+    row_str, col_str = match.groups()
+    
+    # Convert Row Letter to 0-based index
+    row_idx = 0
+    for char in row_str.upper():
+        row_idx = row_idx * 26 + (ord(char) - ord('A') + 1)
+    row_idx -= 1 
+    
+    # Convert Column to 0-based index
+    col_idx = int(col_str) - 1
+    
+    # Validation
+    if row_idx >= grid_height or col_idx >= grid_width:
+        raise IndexError(f"Cell {cell_id} is outside the {grid_height}x{grid_width} grid.")
+
+    if direction.lower() == 'col':
+        # Vertical: (Columns passed * rows per column) + current row
+        return (col_idx * grid_height) + (row_idx + 1)
+    else:
+        # Horizontal: (Rows passed * columns per row) + current column
+        return (row_idx * grid_width) + (col_idx + 1)
+
+
 class classproperty(property):
     """
     Allows for properties on classes as well as objects.
@@ -908,6 +962,28 @@ class classproperty(property):
 # NOTE: Monkey patching... hooray!
 builtins.classproperty = classproperty
 
+class DotDict(dict):
+    """A helper to allow dot notation on dictionaries while supporting standard dict syntax."""
+    
+    def __getattr__(self, name: str) -> Any:
+        try:
+            value = self[name]
+            # Recursively wrap nested dicts so they also support dot notation
+            return DotDict(value) if isinstance(value, dict) else value
+        except KeyError:
+            raise AttributeError(f"No attribute named '{name}'")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Allows setting values via dot notation: d.key = value
+        self[name] = value
+
+    def __delattr__(self, name: str) -> None:
+        # Allows deleting values via dot notation: del d.key
+        try:
+            del self[name]
+        except KeyError:
+            raise AttributeError(f"No attribute named '{name}'")
+
 
 class Settings(BaseSettings, extra="allow"):
     """
@@ -917,18 +993,22 @@ class Settings(BaseSettings, extra="allow"):
         FileNotFoundError: Error if database not found.
 
     """
-    database_schema: str | None = None
+    database: DotDict = Field(default_factory=DotDict)
     directory_path: Path | None = None
-    database_user: str | None = None
-    database_password: str | None = None
-    database_name: str | None = None
-    database_path: Path | str | None = None
     backup_path: Path | str | None = None
-    submission_types: dict | None = None
-    database_session: Session | None = None
-    database_engine: Engine | None = None
     package: Any | None = None
     logging_enabled: bool = Field(default=False)
+    
+
+    def __getattr__(self, name: str) -> Any:
+        # Use the public model_extra API
+        extra = self.model_extra
+        if extra and name in extra:
+            value = extra[name]
+            # Wrap dictionaries so something like user_data.email works
+            return DotDict(value) if isinstance(value, dict) else value
+        
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     @classproperty
     def main_aux_dir(cls):
@@ -936,7 +1016,7 @@ class Settings(BaseSettings, extra="allow"):
             os_config_dir = "AppData/local"
         else:
             os_config_dir = ".config"
-        return Path.home().joinpath(f"{os_config_dir}/procedure")
+        return Path.home().joinpath(f"{os_config_dir}/submissions_tng")
 
     @classproperty
     def configdir(cls):
@@ -947,19 +1027,18 @@ class Settings(BaseSettings, extra="allow"):
         return cls.main_aux_dir.joinpath("logs")
 
     def __new__(cls, *args, **kwargs):
-        if "settings_path" in kwargs.keys():
-            settings_path = kwargs['settings_path']
-            if isinstance(settings_path, str):
+        
+        settings_path = kwargs.get("settings_path", None)
+        if isinstance(settings_path, str):
                 settings_path = Path(settings_path)
-        else:
-            settings_path = None
+
         if settings_path is None:
             # NOTE: Check user .config/procedure directory
             if cls.configdir.joinpath("config.yml").exists():
                 settings_path = cls.configdir.joinpath("config.yml")
             # NOTE: Check user .procedure directory
-            elif Path.home().joinpath(".submissions", "config.yml").exists():
-                settings_path = Path.home().joinpath(".submissions", "config.yml")
+            elif Path.home().joinpath(".submissions_tng", "config.yml").exists():
+                settings_path = Path.home().joinpath(".submissions_tng", "config.yml")
             # NOTE: finally look in the local config
             else:
                 if check_if_app():
@@ -997,19 +1076,39 @@ class Settings(BaseSettings, extra="allow"):
             file_secret_settings,
         )
 
-    @field_validator('database_schema', mode="before")
+    @field_validator("database", mode="before")
     @classmethod
-    def set_schema(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='schema')
-        if value is None:
-            value = "sqlite"
-        return value
-
+    def enforce_database_settings(cls, value):
+        if isinstance(value, dict):
+            database = DotDict(value)
+        elif isinstance(value, DotDict):
+            database = value
+        else:
+            raise ValidationError(f"Unsupported database model: {value}")
+        match database.schema:
+            case "sqlite":
+                value = f"/{database.path}"
+                db_name = f"{database.name}.db"
+                template = jinja_template_loading().from_string(
+                    "{{ database.schema }}://{{ value }}/{{ db_name }}")
+            case "mssql+pyodbc":
+                value = database.path
+                db_name = database.name
+                template = jinja_template_loading().from_string(
+                    "{{ database.schema }}://{{ value }}/{{ db_name }}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Trusted_Connection=yes"
+                )
+            case _:
+                tmp = jinja_template_loading().from_string(
+                    "{% if database.user %}{{ database.user }}{% if database.password %}:{{ database.password }}{% endif %}{% endif %}@{{ database.path }}")
+                value = tmp.render(values=values.data)
+                db_name = database.name
+        database_path = template.render(database=database, value=value, db_name=db_name)
+        print(f"Using {database_path} for database path")
+        engine = create_engine(database_path)
+        database.engine = engine
+        database.session = Session(engine)
+        return database
+        
     @field_validator('backup_path', mode="before")
     @classmethod
     def set_backup_path(cls, value, values):
@@ -1028,8 +1127,9 @@ class Settings(BaseSettings, extra="allow"):
     @field_validator('directory_path', mode="before")
     @classmethod
     def ensure_directory_exists(cls, value, values):
+        database = values.data['database'] 
         if value is None:
-            match values.data['database_schema']:
+            match database.schema:
                 case "sqlite":
                     if check_if_app():
                         alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
@@ -1049,88 +1149,7 @@ class Settings(BaseSettings, extra="allow"):
         if not check:
             value.mkdir(exist_ok=True, parents=True)
         return value
-
-    @field_validator('database_path', mode="before")
-    @classmethod
-    def ensure_database_exists(cls, value, values):
-        match values.data['database_schema']:
-            case "sqlite":
-                if value is None:
-                    value = values.data['directory_path']
-                if isinstance(value, str):
-                    value = Path(value)
-            case _:
-                if value is None:
-                    if check_if_app():
-                        alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-                    else:
-                        alembic_path = project_path.joinpath("alembic.ini")
-                    value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
-        return value
-
-    @field_validator('database_name', mode='before')
-    @classmethod
-    def get_database_name(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').stem
-        return value
-
-    @field_validator("database_user", mode='before')
-    @classmethod
-    def get_user(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='user')
-        return value
-
-    @field_validator("database_password", mode='before')
-    @classmethod
-    def get_pass(cls, value):
-        if value is None:
-            if check_if_app():
-                alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-            else:
-                alembic_path = project_path.joinpath("alembic.ini")
-            value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='pass')
-        return value
-
-    @field_validator('database_session', mode="before")
-    @classmethod
-    def create_database_session(cls, value, values):
-        if value is not None:
-            return value
-        else:
-            match values.data['database_schema']:
-                case "sqlite":
-                    value = f"/{values.data['database_path']}"
-                    db_name = f"{values.data['database_name']}.db"
-                    template = jinja_template_loading().from_string(
-                        "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}")
-                case "mssql+pyodbc":
-                    value = values.data['database_path']
-                    db_name = values.data['database_name']
-                    template = jinja_template_loading().from_string(
-                        "{{ values['database_schema'] }}://{{ value }}/{{ db_name }}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Trusted_Connection=yes"
-                    )
-                case _:
-                    tmp = jinja_template_loading().from_string(
-                        "{% if values['database_user'] %}{{ values['database_user'] }}{% if values['database_password'] %}:{{ values['database_password'] }}{% endif %}{% endif %}@{{ values['database_path'] }}")
-                    value = tmp.render(values=values.data)
-                    db_name = values.data['database_name']
-            database_path = template.render(values=values.data, value=value, db_name=db_name)
-            print(f"Using {database_path} for database path")
-            engine = create_engine(database_path)
-            values.data['database_engine'] = engine
-            session = Session(engine)
-            return session
-
+    
     @field_validator('package', mode="before")
     @classmethod
     def import_package(cls, value):
@@ -1151,26 +1170,26 @@ class Settings(BaseSettings, extra="allow"):
 
     def close_database(self):
         """Close the active database session and dispose the engine."""
-        engine = self.database_engine
-        if engine is None and self.database_session is not None:
+        engine = self.database.engine
+        if engine is None and self.database.session is not None:
             try:
-                engine = self.database_session.get_bind()
+                engine = self.database.session.get_bind()
             except Exception:
                 engine = None
-        if self.database_session is not None:
+        if self.database.session is not None:
             try:
-                self.database_session.close()
+                self.database.session.close()
             except Exception as e:
                 logger.error(f"Error closing database session: {e}")
             finally:
-                self.database_session = None
+                self.database.session = None
         if engine is not None:
             try:
                 engine.dispose()
             except Exception as e:
                 logger.error(f"Error disposing database engine: {e}")
             finally:
-                self.database_engine = None
+                self.database.engine = None
 
     def set_from_db(self):
         if 'pytest' in sys.modules:
@@ -1180,7 +1199,7 @@ class Settings(BaseSettings, extra="allow"):
                           teardown_scripts=dict(goodbye=None)
                           )
         else:
-            session = self.database_session
+            session = self.database.session
             metadata = MetaData()
             try:
                 metadata.reflect(bind=session.get_bind())
@@ -1205,6 +1224,7 @@ class Settings(BaseSettings, extra="allow"):
         """
         Imports all functions from "scripts" folder, adding them to ctx scripts
         """
+        
         if check_if_app():
             p = Path(sys._MEIPASS).joinpath("files", "scripts")
         else:
@@ -1216,7 +1236,8 @@ class Settings(BaseSettings, extra="allow"):
         for module in modules:
             try:
                 mod = importlib.import_module(module.stem)
-            except ImportError:
+            except ImportError as e:
+                logger.error(f"Error loading module: {e}")
                 continue
             for function in getmembers(mod, isfunction):
                 name = function[0]
@@ -1225,14 +1246,25 @@ class Settings(BaseSettings, extra="allow"):
                 # NOTE: scripts must be registered using {name: Null} in the database
                 try:
                     if name in self.startup_scripts.keys():
-                        self.startup_scripts[name] = func
-                except AttributeError:
+                        self.model_extra['startup_scripts'][name] = func
+                except AttributeError as e:
+                    print(f"Couldn't set startup function due to {e}")
                     pass
                 try:
                     if name in self.teardown_scripts.keys():
-                        self.teardown_scripts[name] = func
+                        self.model_extra['teardown_scripts'][name] = func
                 except AttributeError:
+                    print(f"Couldn't set teardown function due to {e}")
                     pass
+        # NOTE: because Pydantic's model_extra is designed to be read-only by default during the serialization process. When you mutate the contents of model_extra 
+        # (or a DotDict inside it), you are changing the values inside the dictionary, but you aren't changing the reference that Pydantic's internal state tracker is watching.
+        # Since you didn't explicitly define d in the model, Pydantic doesn't "know" it needs to re-scan that object for changes when you call model_dump()
+        # Update the values in the internal storage directly
+        # if self.model_extra:
+        #     if 'startup_scripts' in self.model_extra:
+        #         self.model_extra['startup_scripts'] = self.startup_scripts
+        #     if 'teardown_scripts' in self.model_extra:
+        #         self.model_extra['teardown_scripts'] = self.teardown_scripts
 
     @timer
     def run_startup(self):
@@ -1315,7 +1347,7 @@ class Settings(BaseSettings, extra="allow"):
                 logger.warning(f"Logging directory {self.configdir} already exists.")
             dicto = {}
             for k, v in self.__dict__.items():
-                if k in ['package', 'database_session', 'proceduretype']:
+                if k in ['package']:
                     continue
                 match v:
                     case Path():

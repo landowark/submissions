@@ -23,7 +23,7 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         connection_record (_type_): _description_
     """
     cursor = dbapi_connection.cursor()
-    if ctx.database_schema == "sqlite":
+    if ctx.database.schema == "sqlite":
         execution_phrase = "PRAGMA foreign_keys=ON"
     else:
         cursor.close()

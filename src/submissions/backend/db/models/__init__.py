@@ -161,7 +161,7 @@ class BaseClass(Base):
         Returns:
             Session: DB session from ctx settings.
         """
-        return ctx.database_session
+        return ctx.database.session
 
     @classproperty
     def __directory_path__(cls) -> Path:

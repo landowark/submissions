@@ -11,6 +11,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 class TurnaroundChart(CustomFigure):
 
     def __init__(self, df: pd.DataFrame, modes: list, settings: dict, threshold: float | None = None, **kwargs):
+        df['dt_internal'] = None
         super().__init__(df=df, modes=modes, settings=settings, **kwargs)
         
         self.construct_chart()

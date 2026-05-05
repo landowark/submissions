@@ -213,7 +213,7 @@ def import_irida2(ctx: Settings):
     # Note: Does not seem to work.
     from backend.db import IridaControl, ControlType
     # new_session = Session(ctx.database_session.get_bind())
-    new_session = ctx.database_session
+    new_session = ctx.database.session
     folders = check_folders_against_database(ctx=ctx, session=new_session, mode="kraken")
     for folder in folders:
         # logger.debug(folder)

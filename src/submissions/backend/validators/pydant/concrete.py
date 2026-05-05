@@ -292,6 +292,7 @@ class PydSample(PydConcrete):
             return False
         return True
 
+    
 
 class PydEquipment(PydConcrete):
 
@@ -604,17 +605,29 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def update_samples(self, sample_list: List[dict]):
         from backend.db.models import Sample
+        # Coming into this method, samples are dicts and 'is_control' is intact.
         # Build a new ordered list of samples matching the sample_list order.
+        ranked_plate = self.proceduretype.make_ranked_plate()
         new_samples: List[PydSample] = []
         for iii, sample_dict in enumerate(sample_list, start=1):
             sample_id = sample_dict.get('sample_id', '')
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
+            logger.debug(f"Sample id: {sample_id}")
             try:
-                row, column = self.proceduretype.ranked_plate[sample_dict['index']]
+                row, column = ranked_plate.get(sample_dict['index'], (0, 0))
             except KeyError:
-                continue
+                row = 0
+                column = 0
+            try:
+                row = sample_dict.get("row", row)
+            except AttributeError:
+                row = 0
+            try:
+                column = sample_dict.get("column", column)
+            except AttributeError:
+                column = 0    
             try:
                 sample = find_first_matching_dict(self.sample, "sample_id", sample_dict['sample_id'])
             except StopIteration:
@@ -631,7 +644,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 case "positivecontrol":
                     sample.is_control = 1
                 case _:
-                    sample.is_control = 0
+                    sample.is_control = sample_dict.get('is_control', 0)
             new_samples.append(sample)
         # Replace the sample list with the reordered list. Preserve any samples not present in
         # sample_list by appending them after the ordered ones (so they are not lost).
@@ -726,7 +739,15 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         samples_sql = []
         from backend.db.models import Sample as SQLSample, ProcedureSampleAssociation
         for sample in self.sample:
-            row, column = self.proceduretype.ranked_plate[sample.rank]
+            row, column = self.proceduretype.make_ranked_plate()[sample.rank]
+            try:
+                row = sample.row or row
+            except AttributeError:
+                row = 0
+            try:
+                column = sample.column or column
+            except AttributeError:
+                column = 0
             # Skip invalid/sample placeholders
             if not PydSample.is_sample_id_valid(sample):
                 continue
@@ -850,7 +871,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
             eq_index = next((iii for iii, item in enumerate(pt_equipment) if item['equipment'] == equipment), 0)
             pt_equipment.insert(0, pt_equipment.pop(eq_index))
-        logger.debug(pformat([k for k in proceduretype_dict['equipmentrole']]))
         for reagentrole in proceduretype_dict.get("reagentrole", []):
             for reagent in reagentrole['reagent']:
                 if len(reagent['reagentlot']) < 1:
@@ -1191,6 +1211,9 @@ class PydClientSubmission(PydConcrete):
 
     def to_html(self, **kwargs):
         details = self.improved_dict_expand_fields(fields=[{"run":['procedure', 'sample']}, "sample"])
+        details['sample'] = [sample.sample_id for sample in self.sql_instance.sample]
+        logger.debug(pformat(details['sample']))
+        # Up to this point, the samples are fine.
         output = super().to_html(**details)
         return output
 
@@ -1462,6 +1485,7 @@ class PydProcedureSampleAssociation(PydConcrete):
     sample: str | PydSample = Field(default="NA")
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
     enabled: bool = Field(default=True)
+    is_control: int = Field(default=0, repr=False)
 
     renderclass: ClassVar[str] = "sample"
 
@@ -1504,6 +1528,10 @@ class PydProcedureSampleAssociation(PydConcrete):
         output['excluded'] = ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
                                'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled']
         return output
+    
+    def to_html(self, css_in: List[str | Path] | str = [], js_in: List[str | Path] | str = [], **kwargs) -> str:
+        logger.debug(self.improved_dict['results'])
+        return super().to_html(css_in, js_in, **kwargs)
 
     
 class PydProcedureEquipmentAssociation(PydConcrete):
