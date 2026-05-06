@@ -1,5 +1,8 @@
 """
-Contains the audit log class and functions.
+Audit logging model for database transaction tracking.
+
+Provides the :class:`AuditLog` model and related functionality for tracking
+and querying database changes by user and date range.
 """
 from __future__ import annotations
 from typing import List
@@ -17,6 +20,24 @@ Base: DeclarativeMeta = declarative_base()
 
 # NOTE: When rebuilding db, change this to baseclass for alembic  
 class AuditLog(Base):
+    """
+    Audit log model for tracking database transactions and changes.
+    
+    Records all modifications made to the database, including information about
+    what was changed, who made the change, and when it occurred. Supports querying
+    by date range to retrieve historical transaction data.
+    
+    :ivar id: Primary key auto-incremented identifier.
+    :vartype id: int
+    :ivar user: The user who made the database change.
+    :vartype user: str
+    :ivar time: Timestamp of when the change was made.
+    :vartype time: datetime
+    :ivar object: Name of the database object that was changed.
+    :vartype object: str
+    :ivar changes: JSON structure containing the details of what was changed.
+    :vartype changes: dict
+    """
 
     __tablename__ = "_auditlog"
 
@@ -26,20 +47,50 @@ class AuditLog(Base):
     object = Column(String(64)) #: What was changed
     changes = Column(JSON) #: List of changes that were made
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Return string representation of this audit log entry.
+        
+        :return: String representation in format ``<object_name: username @ timestamp>``.
+        :rtype: str
+        """
         return f"<{self.object}: {self.user} @ {self.time}>"
 
     @classmethod
     def query(cls, start_date: date | str | int | None = None, end_date: date | str | int | None = None) -> List[AuditLog]:
         """
-        Searches for database transactions by date.
+        Search for audit log entries within an optional date range.
+        
+        Queries the audit log database table and returns all transactions within an optional
+        start and end date range. If only one date is provided, sensible defaults are applied.
+        Supports multiple input date formats for flexibility.
 
-        Args:
-            start_date (date | str | int | None, Optional): Earliest date sought. Defaults to None
-            end_date (date | str | int | None, Optional): Latest date sought. Defaults to None
-
-        Returns:
-            List[AuditLog]: List of transactions made to the database.
+        :param start_date: Earliest date to search from. Can be:
+        
+                           - :class:`date` object
+                           - :class:`datetime` object
+                           - ``int`` (Excel ordinal format)
+                           - ``str`` (parsed by dateutil.parser)
+                           - ``None`` (defaults to minimum recorded date)
+        :type start_date: date | str | int | None
+        :param end_date: Latest date to search to (inclusive). Can be:
+        
+                         - :class:`date` object
+                         - :class:`datetime` object
+                         - ``int`` (Excel ordinal format)
+                         - ``str`` (parsed by dateutil.parser)
+                         - ``None`` (defaults to today)
+        :type end_date: date | str | int | None
+        :return: List of audit log entries matching the date criteria.
+        :rtype: list[:class:`AuditLog`]
+        
+        :raises TypeError: If start_date or end_date are in an unsupported type.
+        
+        .. note::
+           If start_date is provided without end_date, end_date defaults to today.
+           If end_date is provided without start_date, start_date defaults to the
+           earliest recorded transaction date.
+           If both dates are None, returns all audit log entries.
         """
         session = BaseClass.__database_session__
         query: Query = session.query(cls)
