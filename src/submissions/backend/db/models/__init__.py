@@ -5,7 +5,6 @@ from __future__ import annotations
 import re, sys, logging, json, inspect
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
-from jinja2 import Template, TemplateNotFound
 from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
 from sqlalchemy.ext.mutable import MutableDict
@@ -18,7 +17,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.exc import ArgumentError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
-from tools import report_result, jinja_template_loading, Report, Alert, ctx
+from tools import report_result, Report, Alert, ctx
 if TYPE_CHECKING:
     from pydantic import BaseModel
     from backend.validators import PydSample
@@ -84,15 +83,6 @@ class BaseClass(Base):
             return f"<{self.__class__.__name__}(Name Unavailable)>"
 
     def _wrap_misc_info(self):
-        # try:
-        #     if self._misc_info is None:
-        #         self._misc_info = SafeMiscInfo(owner=self)
-        #     elif isinstance(self._misc_info, SafeMiscInfo):
-        #         self._misc_info._owner = self
-        #     else:
-        #         self._misc_info = SafeMiscInfo(self._misc_info, owner=self)
-        # except AttributeError:
-        #     self._misc_info = SafeMiscInfo(owner=self)
         try:
             raw_misc = object.__getattribute__(self, "_misc_info")
         except AttributeError:
@@ -171,7 +161,7 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions directory in Settings object
         """
-        return ctx.directories.main
+        return Path(ctx.directories.main)
 
     @classproperty
     def __backup_path__(cls) -> Path:
@@ -181,7 +171,7 @@ class BaseClass(Base):
         Returns:
             Path: Location of the Submissions backup directory in Settings object
         """
-        return ctx.directories.backup
+        return Path(ctx.directories.backup)
 
     def __init__(self, *args, **kwargs):
         # Filter kwargs into those that map to SQLAlchemy-mapped attributes

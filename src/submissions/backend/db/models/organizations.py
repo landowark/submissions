@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.hybrid import hybrid_property
 from . import BaseClass
 from tools import check_authorization, setup_lookup
-from typing import List, TYPE_CHECKING
+from typing import List
 
 logger = logging.getLogger(f"submissions.{__name__}")
 

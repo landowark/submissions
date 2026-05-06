@@ -5178,6 +5178,8 @@ class Results(BaseClass):
     @property
     def image(self) -> bytes | None:
         dir = self.__directory_path__.joinpath("submission_imgs.zip")
+        if not self._img:
+            return None
         try:
             assert dir.exists()
         except AssertionError:
