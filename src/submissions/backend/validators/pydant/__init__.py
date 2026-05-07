@@ -212,23 +212,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     key = list(field.keys())[0]
                     new_fields = list(field.values())[0]
                     
-                    # try:
                     value = getattr(self.sql_instance, key)
-                    # except AttributeError as e:
-                        # logger.error(f"Skipping {key} in {self.sql_instance} due to {e}")
-                        # continue
-                    logger.debug(value)
                     match value:
                         case _AssociationList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
-                            # for item in value.col:
-                            #     dicto: dict = item.to_pydantic().improved_dict_expand_fields(new_fields)
-                            #     target = getattr(item, key)
-                            #     new = target.to_pydantic().improved_dict_expand_fields(new_fields)
-                            #     new.update({k:v for k, v in dicto.items() if k !="name"})
-                            #     if new['name'] not in [thing['name'] for thing in output]:
-                            #         output.append(new)
-                            # logger.debug(output)
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
@@ -267,6 +254,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 output['name'] = self.sql_instance.name
             except AttributeError:
                 logger.error(f"Cannot set name for {self.__class__.__name__}")
+        output['excluded'] = self.model_config.get("json_schema_extra", {}).get("excluded", [])
         return output
 
     def to_sql(self, update: bool = True) -> models.BaseClass:
@@ -673,7 +661,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             js_in = [js_in]
         js_in = ["details", self._sql_name.lower()] + js_in
         js_in = [html_folder.joinpath("js", f"{j}.js") for j in js_in]
-        logger.debug(f"Loading js files from: {js_in}\nLoading css files from: {css_in}")
         css_out = []
         for css in css_in:
             if not css.exists():

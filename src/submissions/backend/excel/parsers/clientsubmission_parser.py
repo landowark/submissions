@@ -56,7 +56,6 @@ class ClientSubmissionInfoParser(DefaultKEYVALUEParser):#, SubmissionTyperMixin)
         if check:
             output['submitted_date']['value'] = output['submitted_date']['value'].date()
         output['endrow'] = self.end_row
-        logger.debug(f"ClientSubmission parsed output: {pformat(output)}")
         return output
 
 
@@ -64,12 +63,6 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
     """
     Object for retrieving submitter samples from "sample list" sheet
     """
-
-    sheets = [ dict(
-                sheet = "Client Info",
-                start_row = 18) 
-            ]
-    
 
     pyd_name = "PydSample"
 

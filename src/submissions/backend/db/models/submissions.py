@@ -43,7 +43,6 @@ class ClientSubmission(BaseClass, LogMixin):
     clientlab_id = Column(INTEGER, ForeignKey("_clientlab.id", ondelete="SET NULL",
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
-    # sample_count = Column(INTEGER)  #: Number of sample in the procedure
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
     comments = Column(JSON)  #: comment objects from users.
     _run = relationship("Run", back_populates="_clientsubmission")  #: many-to-one relationship
@@ -153,7 +152,6 @@ class ClientSubmission(BaseClass, LogMixin):
         if isinstance(output, tuple):
                     output = output[0]
         if isinstance(output, SubmissionType):
-            logger.debug(f"Saving submissiontype: {output}")
             self._submissiontype = output
         else:
             logger.error(f"Could not set _submissiontype to {type(output)}")
@@ -204,7 +202,6 @@ class ClientSubmission(BaseClass, LogMixin):
                 case dict():
                     output = Run.query_or_create(**item)
                 case PydRun():
-                    logger.debug(f"Converting PydRun to SQL: {pformat(item.__dict__)}")
                     output = item.to_sql(update=False)
                 case Run():
                     output = item
@@ -417,6 +414,8 @@ class ClientSubmission(BaseClass, LogMixin):
             offset = page * page_size
         else:
             offset = None
+        if chronologic:
+            query = query.order_by(cls.submitted_date.desc())
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     @classmethod
@@ -474,12 +473,11 @@ class ClientSubmission(BaseClass, LogMixin):
         checker = SampleChecker(parent=None, title="Create Run", samples=samples, clientsubmission=self)
         if checker.exec():
             run = Run(clientsubmission=self, rsl_plate_number=checker.rsl_plate_number)
-            logger.debug(f"Created run: {pformat(run.__dict__)}")
             # Rank the selected pydantic samples, then convert them back to SQL Sample
             selected_samples = []
             for iii, sample in enumerate(samples, start=1):
                 if not sample.enabled:
-                    logger.debug(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
+                    logger.info(f"Skipping disabled sample {sample.sample_id} at rank {iii}")
                     continue
                 else:
                     sample = self.rank_sample(sample, iii)
@@ -522,11 +520,11 @@ class ClientSubmission(BaseClass, LogMixin):
         output = super().to_pydantic(filepath=filepath, **kwargs)
         return output
 
-    def to_html(self, **kwargs):
-        details = self.details_dict_expand_fields(fields=[{"run":['procedure']}, "sample"])
-        details['excluded'] = ["comment"]
-        output = super().to_html(**details)
-        return output
+    # def to_html(self, **kwargs):
+    #     details = self.details_dict_expand_fields(fields=[{"run":['procedure']}, "sample"])
+    #     details['excluded'] = ["comment"]
+    #     output = super().to_html(**details)
+    #     return output
 
     @classmethod
     def get_lab_submissions_by_day(cls, clientlab: ClientLab | None = None, search_date: date | None = None):
@@ -724,7 +722,6 @@ class Run(BaseClass, LogMixin):
             value = [value]
         list_ = []
         for iii, item in enumerate(value):
-            logger.debug(f"Incoming sample: {type(item)} - {item}")
             match item:
                 case str():
                     try:
@@ -1030,7 +1027,7 @@ class Run(BaseClass, LogMixin):
         html = template.render(samples=output_samples, PLATE_ROWS=plate_rows, PLATE_COLUMNS=plate_columns)
         return html + "<br/>"
 
-    def to_pydantic(self, backup: bool = False) -> PydRun:
+    def to_pydantic(self) -> PydRun:
         """
         Converts this instance into a PydSubmission
 
@@ -1172,6 +1169,8 @@ class Run(BaseClass, LogMixin):
                 limit = page_size
         else:
             offset = None
+        if chronologic:
+            query = query.order_by(cls.started_date.desc)
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
     # NOTE: Custom context events for the ui

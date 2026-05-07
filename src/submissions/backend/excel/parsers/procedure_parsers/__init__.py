@@ -2,13 +2,10 @@
 Default procedure parsers (currently unused).
 """
 from __future__ import annotations
-from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import Generator
 from backend.excel.parsers import DefaultTABLEParser, DefaultKEYVALUEParser
 import logging
 from openpyxl.worksheet.worksheet import Worksheet
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -32,7 +29,7 @@ class ProcedureInfoParser(DefaultKEYVALUEParser):
             if item[0] == "procedure_type":
                 yield ("proceduretype", item[1])
             else:
-                yield item        
+                yield item
 
 
 class ProcedureSampleParser(DefaultTABLEParser):
@@ -45,7 +42,6 @@ class ProcedureSampleParser(DefaultTABLEParser):
     @property
     def parsed_info(self) -> Generator[dict, None, None]:
         for ii, sample in enumerate(super().parsed_info, start=1):
-            logger.debug(f"Parsed sample: {sample}")
             sample['rank'] = ii
             yield sample
 

@@ -154,8 +154,6 @@ class KrakenViewer(InfoPane):
         client = Client(transport=transport, fetch_schema_from_transport=False)
 
         output = []
-
-        logger.debug(f"Querying GraphQL from start {start_date} to {end_date}")
         
         # Query 1: Get basic sample info (Low complexity)
         list_samples_query = gql("""
@@ -238,15 +236,18 @@ class KrakenViewer(InfoPane):
 
         # Step 2: Get attachments and process CSVs
         for sample in all_samples:
-            regex = r"([0-9]{4}[-]?[0-9]{2}[-]?[0-9]{2})"
-
+            # regex = r"([0-9]{4}[-]?[0-9]{2}[-]?[0-9]{2})(?=-\d+$)"
+            regex = r"(20\d{2}-?\d{2}-?\d{2})(?:-\d+)?$"
             match = re.search(regex, sample['name'])
-
             if match:
                 raw_date = match.group(1)
                 # Remove dashes if present so we have a consistent format for strptime
                 clean_date = raw_date.replace("-", "")
-                date_obj = datetime.strptime(clean_date, "%Y%m%d")
+                try:
+                    date_obj = datetime.strptime(clean_date, "%Y%m%d")
+                except ValueError as e:
+                    print(f"Date format {clean_date} in sample name '{sample['name']}' is not recognized. Expected format YYYYMMDD or YYYY-MM-DD.")
+                    raise e
             else:
                 date_obj = datetime.strptime(sample['createdAt'], "%Y-%m-%dT%H:%M:%SZ")
             if metadata_only:
@@ -255,7 +256,6 @@ class KrakenViewer(InfoPane):
             else:    
                 details = client.execute(sample_details_query, variable_values={"sampleId": sample["id"]})
                 attachments = details["node"]["attachments"]["edges"]    
-                # sample["processed_files"] = []
                 for edge in attachments:
                     file_node = edge["node"]
                     filename = file_node["filename"]
@@ -274,10 +274,14 @@ class KrakenViewer(InfoPane):
                 del sample['metadata']
             except KeyError:
                 pass
-            for item in sample['data']:
-                item['submitted_date'] = date_obj
+            try:
+                for item in sample['data']:
+                    item['submitted_date'] = date_obj
+            except KeyError:
+                pass
             if date_obj >= self.start_date and date_obj <= self.end_date:
                 output.append(sample)
+        logger.debug(f"Final output data: {pformat(output)}")
         return output
             
 
@@ -294,10 +298,8 @@ class KrakenViewer(InfoPane):
             return
         start_date = datetime.combine(self.start_date, datetime.min.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
         end_date = datetime.combine(self.end_date, datetime.max.time()).strftime("%Y-%m-%dT%H:%M:%SZ")
-        logger.debug(f"Start: {self.start_date}, End: {self.end_date}")
         try:
             self.data = self.grab_data(project=self.project, start_date=start_date, end_date=end_date, metadata_only=self.metadata_box.isChecked())
-            # logger.debug(pformat(self.data))
         except TransportConnectionFailed:
             pass
         # NOTE: added in allowed to have subtypes in case additions made in future.

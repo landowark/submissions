@@ -70,7 +70,6 @@ class ProcedureCreation(DefaultWebDialog):
                     column = 0
                     is_control = 0
             output = dict(sample_id=sample_id, index=iii, row=row, column=column, is_control=is_control)
-            logger.debug(f"Yielding: {output}")
             yield output
 
     def set_html(self):

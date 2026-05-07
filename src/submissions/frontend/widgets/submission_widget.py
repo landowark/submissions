@@ -581,7 +581,6 @@ class ClientSubmissionFormWidget(SubmissionFormWidget):
                 # At this point the rank is correct
             sample.sql_instance = sample_sql
             # saved_samples.append(sample_sql)
-        # logger.debug(f"Got pydantic run object from form: {pformat(pyd.run[0].__dict__)}")
         # NOTE: Can't append directly to pyd.run due to using setter.
         runs = []
         for run in pyd.run:

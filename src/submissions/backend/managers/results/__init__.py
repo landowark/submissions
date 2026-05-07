@@ -62,14 +62,11 @@ class DefaultResultsManager(DefaultManager):
         """
         for sample in self.samples:
             for sample_name, sample_info in sample.items():
-                # logger.debug(f"{sample_name}, {pformat(sample_info)}")
-                # logger.debug(self._pyd_object)
                 try:
                     procedure_name = self.procedure.name
                 except AttributeError:
                     procedure_name = None
                 sample = dict(sample=sample_name, procedure=procedure_name, row=sample_info.get('row'), column=sample_info.get('column'))
-                
                 yield self._pyd_object(sample=sample_name, procedure=procedure_name, **sample_info)
     
 

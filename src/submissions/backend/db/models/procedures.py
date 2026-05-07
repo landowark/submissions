@@ -1,5 +1,9 @@
 """
-All kittype and reagent related models
+All reagent, procedure, equipment, and process models.
+
+This module defines the SQLAlchemy models used for procedure management, reagent tracking, equipment assignment,
+process versions, tips, and related associations. It includes rich association tables and custom property handling
+for flexible input types.
 """
 from __future__ import annotations
 from pprint import pformat
@@ -12,9 +16,8 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
-
 from tools import check_authorization, setup_lookup, flatten_list, timezone
-from typing import List, Any, Tuple, TYPE_CHECKING
+from typing import Iterator, List, Any, Tuple, TYPE_CHECKING, Callable
 from . import BaseClass, ClientLab, LogMixin
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError
 from sqlite3 import OperationalError as SQLOperationalError, IntegrityError as SQLIntegrityError
@@ -76,7 +79,20 @@ submissiontype_proceduretype = Table(
 
 class ReagentRole(BaseClass):
     """
-    Base of reagent type abstract
+    Represents the relationship between reagents and the roles they play in a procedure.
+
+    :ivar id: Primary key identifier for the reagent role
+    :vartype id: int
+    :ivar name: Unique role name
+    :vartype name: str
+    :ivar reagentroleproceduretypeassociation: Associations to procedure types
+    :vartype reagentroleproceduretypeassociation: list[ProcedureTypeReagentRoleAssociation]
+    :ivar _proceduretype: Association proxy to related procedure types
+    :vartype _proceduretype: list[ProcedureType]
+    :ivar reagentrolereagentassociation: Associations to reagents
+    :vartype reagentrolereagentassociation: list[ReagentRoleReagentAssociation]
+    :ivar _reagent: Association proxy to related reagents
+    :vartype _reagent: list[Reagent]
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -206,18 +222,20 @@ class ReagentRole(BaseClass):
         """
         Lookup reagent types in the database.
 
-        Args:
-            id (id | None, optional): Id of the object. Defaults to None.
-            name (str | None, optional): Reagent type name. Defaults to None.
-            proceduretype (ProcedureType | None, optional): Procedure the type of interest belongs to. Defaults to None.
-            reagent (Reagent | str | None, optional): Concrete instance of the type of interest. Defaults to None.
-            limit (int, optional): maxmimum number of results to return (0 = all). Defaults to 0.
+        :param id: Id of the object. Defaults to None.
+        :type id: int | None
+        :param name: Reagent type name. Defaults to None.
+        :type name: str | None
+        :param proceduretype: Procedure the type of interest belongs to. Defaults to None.
+        :type proceduretype: ProcedureType | str | None
+        :param reagent: Concrete instance of the type of interest. Defaults to None.
+        :type reagent: Reagent | str | None
+        :param limit: maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
 
-        Raises:
-            ValueError: Raised if only kittype or reagent, not both, given.
-
-        Returns:
-            ReagentRole|List[ReagentRole]: ReagentRole or list of ReagentRoles matching filter.
+        :raises ValueError: Raised if only proceduretype or reagent is provided incorrectly.
+        :return: ReagentRole or list of ReagentRoles matching filter.
+        :rtype: ReagentRole | List[ReagentRole]
         """
         query: Query = cls.__database_session__.query(cls)
         match proceduretype:
@@ -252,9 +270,22 @@ class ReagentRole(BaseClass):
 
     @check_authorization
     def save(self):
+        """
+        Persist this object with authorization enforcement.
+
+        Calls the base class save implementation after authorization succeeds.
+        """
         super().save()
 
     def get_reagents(self, proceduretype: str | ProcedureType | None = None):
+        """
+        Return reagent details for this role, optionally prioritising a specific procedure type.
+
+        :param proceduretype: Procedure type to prioritise. Defaults to None.
+        :type proceduretype: str | ProcedureType | None
+        :return: List of reagent pydantic objects for this role.
+        :rtype: list
+        """
         if not proceduretype:
             return [reagent.to_pydantic() for reagent in self.reagent]
         if isinstance(proceduretype, str):
@@ -270,7 +301,26 @@ class ReagentRole(BaseClass):
     
 class Reagent(BaseClass, LogMixin):
     """
-    Concrete reagent instance
+    Represents a concrete reagent inventory item.
+
+    :ivar id: Primary key identifier for the reagent
+    :vartype id: int
+    :ivar _eol_ext: Extended life interval for expiry
+    :vartype _eol_ext: Interval|timedelta
+    :ivar name: Unique reagent name
+    :vartype name: str
+    :ivar manufacturer: Manufacturer of the reagent
+    :vartype manufacturer: str
+    :ivar ref: Vendor reference code
+    :vartype ref: str
+    :ivar cost_per_ml: Cost in currency per millilitre
+    :vartype cost_per_ml: float
+    :ivar _reagentlot: Related reagent lots
+    :vartype _reagentlot: list[ReagentLot]
+    :ivar reagentreagentroleassociation: Reagent-role associations
+    :vartype reagentreagentroleassociation: list[ReagentRoleReagentAssociation]
+    :ivar _reagentrole: Association proxy to reagent roles
+    :vartype _reagentrole: list[ReagentRole]
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -420,16 +470,18 @@ class Reagent(BaseClass, LogMixin):
         """
         Lookup a list of reagents from the database.
 
-        Args:
-            id (int | None, optional): reagent id number
-            reagentrole (str | models.ReagentType | None, optional): Reagent type. Defaults to None.
-            lot (str | None, optional): Reagent lot number. Defaults to None.
-            name (str | None, optional): Reagent name. Defaults to None.
-            limit (int, optional): limit of results returned. Defaults to 0.
-
-        Returns:
-            models.Reagent | List[models.Reagent]: reagent or list of reagents matching filter.
-        """
+        :param id: reagent id number
+        :type id: int | None, optional
+        :param reagentrole: Reagent type. Defaults to None.
+        :type reagentrole: str | models.ReagentType | None, optional
+        :param lot: Reagent lot number. Defaults to None.
+        :type lot: str | None, optional
+        :param name: Reagent name. Defaults to None.
+        :type name: str | None, optional
+        :param limit: limit of results returned. Defaults to 0.
+        :type limit: int, optional 
+        :return: models.Reagent | List[models.Reagent]: reagent or list of reagents matching filter.
+        """        
         query: Query = cls.__database_session__.query(cls)
         match id:
             case int():
@@ -461,6 +513,26 @@ class Reagent(BaseClass, LogMixin):
 
     
 class ReagentLot(BaseClass):
+    """
+    Tracks a specific reagent lot and its expiry information.
+
+    :ivar id: Primary key for reagent lot
+    :vartype id: int
+    :ivar lot: Unique lot number
+    :vartype lot: str
+    :ivar _expiry: Expiry timestamp for this lot
+    :vartype _expiry: datetime|None
+    :ivar _active: Active status flag stored as integer
+    :vartype _active: int
+    :ivar reagent_id: Foreign key to the parent reagent
+    :vartype reagent_id: int
+    :ivar _reagent: Related parent reagent
+    :vartype _reagent: Reagent
+    :ivar reagentlotprocedureassociation: Procedure associations for this reagent lot
+    :vartype reagentlotprocedureassociation: list[ProcedureReagentLotAssociation]
+    :ivar _procedure: Association proxy to Procedure objects
+    :vartype _procedure: list[Procedure]
+    """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     lot = Column(String(64), unique=True)  #: lot number of reagent
@@ -660,16 +732,18 @@ class ReagentLot(BaseClass):
               limit: int = 0,
               **kwargs) -> ReagentLot | List[ReagentLot]:
         """
+        Lookup reagent lots by lot number, reagent name, or display name.
 
-        Args:
-            lot ( str | None, optional): Lot number of this reagent instance. Defaults to None.
-            name ( str | None, optional): Name of this reagent instance. Defaults to None.
-            limit ( int ): Limit of number of query results.
-            **kwargs ():
-
-        Returns:
-            ReagentLot | List[ReagentLot]
-
+        :param lot: Lot number of this reagent instance. Defaults to None.
+        :type lot: str | None
+        :param name: Display name of this reagent lot. Defaults to None.
+        :type name: str | None
+        :param reagent: Parent reagent or reagent name. Defaults to None.
+        :type reagent: Reagent | str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ReagentLot or list of ReagentLots matching filter.
+        :rtype: ReagentLot | List[ReagentLot]
         """
         query: Query = cls.__database_session__.query(cls)
         match lot:
@@ -703,7 +777,22 @@ class ReagentLot(BaseClass):
 
 class Discount(BaseClass):
     """
-    Relationship table for client labs for certain kits.
+    Represents a discount applied to a procedure type for a client lab.
+
+    :ivar id: Primary key identifier for the discount
+    :vartype id: int
+    :ivar _proceduretype: Related procedure type
+    :vartype _proceduretype: ProcedureType
+    :ivar proceduretype_id: Foreign key to procedure type
+    :vartype proceduretype_id: int
+    :ivar _clientlab: Related client lab
+    :vartype _clientlab: ClientLab
+    :ivar clientlab_id: Foreign key to client lab
+    :vartype clientlab_id: int
+    :ivar description: Discount description
+    :vartype description: str
+    :ivar amount: Discount amount
+    :vartype amount: float
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -830,14 +919,14 @@ class Discount(BaseClass):
               proceduretype: ProcedureType | str | int | None = None,
               ) -> Discount | List[Discount]:
         """
-        Lookup discount objects (union of kittype and clientlab)
+        Lookup discount objects by client lab and procedure type.
 
-        Args:
-            clientlab (models.ClientLab | str | int): ClientLab receiving discount.
-            proceduretype (models.ProcedureType | str | int): Kit discount received on.
-
-        Returns:
-            models.Discount|List[models.Discount]: Discount(s) of interest.
+        :param clientlab: ClientLab receiving discount.
+        :type clientlab: ClientLab | str | int | None
+        :param proceduretype: Procedure type receiving discount.
+        :type proceduretype: ProcedureType | str | int | None
+        :return: Discount or list of Discounts matching criteria.
+        :rtype: Discount | List[Discount]
         """
         query: Query = cls.__database_session__.query(cls)
         match clientlab:
@@ -862,12 +951,36 @@ class Discount(BaseClass):
 
     @check_authorization
     def save(self):
+        """
+        Persist this object with authorization enforcement.
+
+        Calls the base class save implementation after authorization succeeds.
+        """
         super().save()
 
 
 class SubmissionType(BaseClass):
     """
-    Abstract of types of procedure.
+    Represents a submission type and its default metadata.
+
+    :ivar id: Primary key identifier for the submission type
+    :vartype id: int
+    :ivar name: Unique submission type name
+    :vartype name: str
+    :ivar defaults: Default JSON metadata for this type
+    :vartype defaults: dict
+    :ivar _file_name_template: Jinja2 filename template
+    :vartype _file_name_template: str
+    :ivar regex: Regex used to identify filenames of this submission type
+    :vartype regex: str
+    :ivar _turnaround_time: Turnaround interval for this type
+    :vartype _turnaround_time: Interval|timedelta
+    :ivar _abbreviation: Short abbreviation
+    :vartype _abbreviation: str
+    :ivar _clientsubmission: Related client submissions
+    :vartype _clientsubmission: list[ClientSubmission]
+    :ivar _proceduretype: Related procedure types
+    :vartype _proceduretype: list[ProcedureType]
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -1021,15 +1134,16 @@ class SubmissionType(BaseClass):
               **kwargs
               ) -> SubmissionType | List[SubmissionType]:
         """
-        Lookup procedure type in the database by a number of parameters
+        Lookup submission types by name or key.
 
-        Args:
-            name (str | None, optional): Name of procedure type. Defaults to None.
-            key (str | None, optional): A key present in the info-map to lookup. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            models.SubmissionType|List[models.SubmissionType]: SubmissionType(s) of interest.
+        :param name: Name of submission type. Defaults to None.
+        :type name: str | None
+        :param key: A key present in the info-map to lookup. Defaults to None.
+        :type key: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: SubmissionType or list of SubmissionType objects matching filter.
+        :rtype: SubmissionType | List[SubmissionType]
         """
         query: Query = cls.__database_session__.query(cls)
         match name:
@@ -1055,30 +1169,28 @@ class SubmissionType(BaseClass):
     @classproperty
     def regexes(cls) -> re.Pattern:
         """
-        Constructs catchall regex.
+        Construct a catchall regular expression for all submission type regexes.
 
-        Returns:
-            re.Pattern: Regular expression pattern to discriminate between procedure types.
+        :return: compiled regular expression covering all submission types.
+        :rtype: re.Pattern
         """
         res = [st.regex for st in cls.query() if st.regex]
         rstring = rf'{"|".join(res)}'
         regex = re.compile(rstring, flags=re.IGNORECASE | re.VERBOSE)
         return regex
-
+    
     @classmethod
     def get_regex(cls, submission_type: SubmissionType | str | dict | None = None) -> re.Pattern | None:
         """
-        Gets the regex string for identifying a certain class of procedure.
+        Get a compiled regex for a submission type or submission type list.
 
-        Args:
-            submission_type (SubmissionType | str | None, optional): procedure type of interest. Defaults to None.
-
-        Returns:
-            str: String from which regex will be compiled.
+        :param submission_type: procedure type of interest. Defaults to None.
+        :type submission_type: SubmissionType | str | dict | None
+        :return: compiled regular expression for the submission type, or None.
+        :rtype: re.Pattern | None
         """
         if isinstance(submission_type, dict):
             submission_type = submission_type.get('value', None)
-            
         if not isinstance(submission_type, SubmissionType):
             submission_type = cls.query(name=submission_type)
         if isinstance(submission_type, list):
@@ -1105,7 +1217,36 @@ class SubmissionType(BaseClass):
 
 
 class ProcedureType(BaseClass):
-    
+    """
+    Represents a category of procedure and its permitted reagents, equipment, results, and submission types.
+
+    :ivar id: Primary key identifier for the procedure type
+    :vartype id: int
+    :ivar name: Unique procedure type name
+    :vartype name: str
+    :ivar plate_columns: Number of plate columns
+    :vartype plate_columns: int
+    :ivar plate_rows: Number of plate rows
+    :vartype plate_rows: int
+    :ivar plate_cost: Cost per procedure plate
+    :vartype plate_cost: float
+    :ivar _procedure: Related Procedure instances
+    :vartype _procedure: list[Procedure]
+    :ivar _submissiontype: Related SubmissionType objects
+    :vartype _submissiontype: list[SubmissionType]
+    :ivar _resultstype: Related ResultsType objects
+    :vartype _resultstype: list[ResultsType]
+    :ivar _discount: Related Discount objects
+    :vartype _discount: list[Discount]
+    :ivar proceduretypeequipmentroleassociation: Equipment role associations
+    :vartype proceduretypeequipmentroleassociation: list[ProcedureTypeEquipmentRoleAssociation]
+    :ivar _equipmentrole: Association proxy to EquipmentRole
+    :vartype _equipmentrole: list[EquipmentRole]
+    :ivar proceduretypereagentroleassociation: Reagent role associations
+    :vartype proceduretypereagentroleassociation: list[ProcedureTypeReagentRoleAssociation]
+    :ivar _reagentrole: Association proxy to ReagentRole
+    :vartype _reagentrole: list[ReagentRole]
+    """
     id = Column(INTEGER, primary_key=True)
     name = Column(String(64), unique=True)
     plate_columns = Column(INTEGER, default=0)
@@ -1396,6 +1537,18 @@ class ProcedureType(BaseClass):
     def query(cls, id: int | None = None, name: str | None = None, limit: int = 0,
               **kwargs) -> Procedure | List[
         Procedure]:
+        """
+        Lookup procedure types by id or name.
+
+        :param id: Procedure type id. Defaults to None.
+        :type id: int | None
+        :param name: Procedure type name or prefix. Defaults to None.
+        :type name: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureType or list of ProcedureTypes matching filter.
+        :rtype: ProcedureType | List[ProcedureType]
+        """
         query: Query = cls.__database_session__.query(cls)
         match id:
             case int():
@@ -1414,6 +1567,14 @@ class ProcedureType(BaseClass):
         return cls.execute_query(query=query, limit=limit)
 
     def construct_dummy_procedure(self, run: Run | None = None) -> PydProcedure:
+        """
+        Build a PydProcedure with empty sample data for this procedure type.
+
+        :param run: Optional Run to attach to the dummy procedure.
+        :type run: Run | None
+        :return: Constructed PydProcedure instance.
+        :rtype: PydProcedure
+        """
         from backend.validators.pydant import PydProcedure
         if run:
             samples = run.constuct_sample_dicts_for_proceduretype(proceduretype=self)
@@ -1431,25 +1592,37 @@ class ProcedureType(BaseClass):
     @property
     def ranked_plate(self):
         """
-        Makes an x by y array of zeros to represent a plate.
+        Create a ranked plate mapping from plate coordinates.
 
-        Returns:
-            dict: cell number : (row, column)
+        :return: dictionary mapping rank to (row, column) coordinates.
+        :rtype: dict[int, tuple[int, int]]
         """
         # NOTE: rows/columns
         matrix = np.array([[0 for yyy in range(1, self.plate_rows + 1)] for xxx in range(1, self.plate_columns + 1)])
         return {iii: (item[0][1] + 1, item[0][0] + 1) for iii, item in enumerate(np.ndenumerate(matrix), start=1)}
 
     @property
-    def total_wells(self):
+    def total_wells(self) -> int:
         return self.plate_rows * self.plate_columns
 
     @property
-    def allowed_result_methods(self):
+    def allowed_result_methods(self) -> List[dict]:
+        """
+        Return metadata dictionaries for all result methods allowed by this procedure type.
+
+        :return: List of result method details dictionaries.
+        :rtype: list[dict]
+        """
         return [item.details_dict for item in self.resultstype]
     
     @property
-    def preprocessing_methods(self):
+    def preprocessing_methods(self) -> Iterator[tuple[str, callable, ResultsType]]:
+        """
+        Yield preprocessing controls for each allowed result method.
+
+        :return: Generator yielding tuples of (label, function, ResultsType).
+        :rtype: Iterator[tuple[str, callable, ResultsType]]
+        """
         from backend.excel.writers import results_settings
         for method in self.allowed_result_methods:
             settings_name = f"{method['name'].replace(' ', '')}Settings"
@@ -1467,7 +1640,46 @@ class ProcedureType(BaseClass):
             
 
 class Procedure(BaseClass):
-    
+    """
+    Represents an executed procedure within a run.
+
+    :ivar id: Primary key identifier for the procedure
+    :vartype id: int
+    :ivar repeat_of_id: Foreign key to a repeated procedure
+    :vartype repeat_of_id: int
+    :ivar _cost: Calculated cost for the procedure
+    :vartype _cost: float
+    :ivar _repeat_of: Reference to the repeated procedure
+    :vartype _repeat_of: Procedure|None
+    :ivar _started_date: Procedure start timestamp
+    :vartype _started_date: datetime|None
+    :ivar _completed_date: Procedure completion timestamp
+    :vartype _completed_date: datetime|None
+    :ivar technician: Technician name
+    :vartype technician: str
+    :ivar _results: Associated results records
+    :vartype _results: list[Results]
+    :ivar proceduretype_id: Foreign key to the procedure type
+    :vartype proceduretype_id: int
+    :ivar _proceduretype: Related ProcedureType object
+    :vartype _proceduretype: ProcedureType|None
+    :ivar run_id: Foreign key to the parent run
+    :vartype run_id: int
+    :ivar _run: Related Run object
+    :vartype _run: Run|None
+    :ivar proceduresampleassociation: Sample associations for this procedure
+    :vartype proceduresampleassociation: list[ProcedureSampleAssociation]
+    :ivar _sample: Association proxy to sample objects
+    :vartype _sample: list[Sample]
+    :ivar procedurereagentlotassociation: Reagent lot associations for this procedure
+    :vartype procedurereagentlotassociation: list[ProcedureReagentLotAssociation]
+    :ivar _reagentlot: Association proxy to reagent lots
+    :vartype _reagentlot: list[ReagentLot]
+    :ivar procedureequipmentassociation: Equipment associations for this procedure
+    :vartype procedureequipmentassociation: list[ProcedureEquipmentAssociation]
+    :ivar _equipment: Association proxy to equipment objects
+    :vartype _equipment: list[Equipment]
+    """
     id = Column(INTEGER, primary_key=True)  #: Primary key
     repeat_of_id = Column(INTEGER, ForeignKey("_procedure.id", name="fk_repeat_id"))
     _cost = Column(FLOAT(2), default=0.00)
@@ -1989,6 +2201,22 @@ class Procedure(BaseClass):
               start_date: date | datetime | str | int | None = None,
               end_date: date | datetime | str | int | None = None, limit: int = 0, **kwargs) -> Procedure | List[
         Procedure]:
+        """
+        Lookup procedures by id, name, or date range.
+
+        :param id: Procedure id. Defaults to None.
+        :type id: int | None
+        :param name: Procedure name or prefix. Defaults to None.
+        :type name: str | None
+        :param start_date: Start date for procedure start time. Defaults to None.
+        :type start_date: date | datetime | str | int | None
+        :param end_date: End date for procedure start time. Defaults to None.
+        :type end_date: date | datetime | str | int | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: Procedure or list of Procedure objects matching filter.
+        :rtype: Procedure | List[Procedure]
+        """
         query: Query = cls.__database_session__.query(cls)
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")
@@ -2020,15 +2248,24 @@ class Procedure(BaseClass):
     @property
     def custom_context_events(self) -> dict:
         """
-        Creates dictionary of str:function to be passed to context menu
+        Create a mapping of event names to handler methods for context menus.
 
-        Returns:
-            dict: dictionary of functions
+        :return: mapping of context menu labels to callable methods.
+        :rtype: dict[str, callable]
         """
         names = ["Add Results", "Edit", "Add Comment", "Show Details", "Delete"]
         return {item: self.__getattribute__(item.lower().replace(" ", "_")) for item in names}
 
     def add_results(self, obj, resultstype_name: str):
+        """
+        Add results for this procedure using a manager determined by resultstype_name.
+
+        :param obj: Parent object owning the procedure UI.
+        :type obj: Any
+        :param resultstype_name: Name of the result type to add.
+        :type resultstype_name: str
+        :return: None
+        """
         resultstype = resultstype_name.replace(" ", "")
         logger.info(f"Add Results! {resultstype_name}")
         from backend.managers import results
@@ -2050,6 +2287,13 @@ class Procedure(BaseClass):
             sample_sql.save()
 
     def edit(self, obj):
+        """
+        Launch the procedure edit dialog and persist updated procedure details.
+
+        :param obj: Parent UI object used for dialog control.
+        :type obj: Any
+        :return: None
+        """
         from frontend.widgets.procedure_creation import ProcedureCreation
         logger.debug("Edit!")
         procedure = self.construct_pyd_procedure_for_creation()
@@ -2062,6 +2306,15 @@ class Procedure(BaseClass):
         obj.set_data()
 
     def add_comment(self, obj):
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
         logger.debug("Add Comment!")
 
     @check_authorization
@@ -2088,6 +2341,12 @@ class Procedure(BaseClass):
     # TODO: Convert references to details_dict_expand_fields calls so I can trim this down.
     @property
     def details_dict(self) -> dict:
+        """
+        Produce a JSON-serializable details dictionary for this procedure.
+
+        :return: Detailed procedure metadata for serialization and UI display.
+        :rtype: dict
+        """
         output = super().details_dict
         try:
             output['proceduretype'] = output['proceduretype'].details_dict['name']
@@ -2119,6 +2378,14 @@ class Procedure(BaseClass):
         return output
 
     def to_pydantic(self, **kwargs):
+        """
+        Convert this Procedure into its pydantic representation.
+
+        :param kwargs: Additional keyword arguments for serialization.
+        :type kwargs: dict
+        :return: Pydantic procedure model representing this SQL object.
+        :rtype: BaseModel
+        """
         output = super().to_pydantic()
         output.sample = [item.to_pydantic() for item in self.proceduresampleassociation]
         output.run = self.run.to_pydantic()
@@ -2162,6 +2429,14 @@ class Procedure(BaseClass):
 
     @classmethod
     def get_default_info(cls, *args) -> dict | list | str:
+        """
+        Return default field visibility and serialization settings.
+
+        :param args: Specific keys to filter in the returned dictionary.
+        :type args: tuple
+        :return: Default metadata configuration for this class.
+        :rtype: dict | list | str
+        """
         dicto = super().get_default_info()
         recover = ['filepath', 'sample', 'csv', 'comment', 'equipment']
         dicto.update(dict(
@@ -2192,6 +2467,13 @@ class Procedure(BaseClass):
         return self.run.clientsubmission.submissiontype
 
     def set_cost(self):
+        """
+        Calculate and store the total cost of this procedure.
+
+        The cost includes reagent volumes, tip usage, and plate cost.
+
+        :return: None
+        """
         numbers_array = []
         for reagentlotassoc in self.procedurereagentlotassociation:
             reagent = reagentlotassoc.reagentlot.reagent
@@ -2213,6 +2495,11 @@ class Procedure(BaseClass):
         self._cost = plate_cost + samples_cost
 
     def save(self):
+        """
+        Persist this procedure after recalculating cost and sample associations.
+
+        :return: None
+        """
         from backend.db.models import RunSampleAssociation
         self.set_cost()
         super().save()
@@ -2228,31 +2515,34 @@ class Procedure(BaseClass):
     @property
     def column_count(self) -> int:
         """
-        Calculate the number of columns in this procedure
+        Calculate the number of unique columns in this procedure.
 
-        Returns:
-            int: Number of unique columns.
+        :return: number of unique columns.
+        :rtype: int
         """
         columns = set([assoc.column for assoc in self.proceduresampleassociation])
         return len(columns)
-
     @property
     def row_count(self) -> int:
         """
-        Calculate the number of columns in this procedure
+        Calculate the number of unique rows in this procedure.
 
-        Returns:
-            int: Number of unique columns.
+        :return: number of unique rows.
+        :rtype: int
         """
         columns = set([assoc.row for assoc in self.proceduresampleassociation])
         return len(columns)
-
+    
     def update_last_useds(self):
+        """
+        Update 'last used' reagent lot metadata for each reagent role in this procedure.
+
+        :return: None
+        """
         for reagentlotassoc in self.procedurereagentlotassociation:
             reagentrole = reagentlotassoc.reagentrole
             proceduretype = self.proceduretype
             assoc = ProcedureTypeReagentRoleAssociation.query(proceduretype=proceduretype, reagentrole=reagentrole, limit=1)
-            logger.debug(f"Found association: {assoc}")
             if assoc:
                 try:
                     assoc.update_last_used(reagentlotassoc.reagentlot)
@@ -2264,8 +2554,20 @@ class Procedure(BaseClass):
 
 class ProcedureTypeReagentRoleAssociation(BaseClass):
     """
-    table containing reagenttype/kittype associations
-    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    Junction model associating procedure types with reagent roles.
+
+    :ivar reagentrole_id: Foreign key to the reagent role
+    :vartype reagentrole_id: int
+    :ivar proceduretype_id: Foreign key to the procedure type
+    :vartype proceduretype_id: int
+    :ivar _reagentrole: Related ReagentRole object
+    :vartype _reagentrole: ReagentRole
+    :ivar _proceduretype: Related ProcedureType object
+    :vartype _proceduretype: ProcedureType
+    :ivar _last_used: Last used reagent lot association
+    :vartype _last_used: ReagentLot|None
+    :ivar last_used_lot: Lot number of the last used reagent
+    :vartype last_used_lot: str|None
     """
 
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"),
@@ -2289,16 +2591,12 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
     @classproperty
     def aliases(cls) -> List[str]:
         """
-        Gets other names the sql object of this class might go by.
-        Usually this is just the lowercase name of the class without "association", 
-        but this can be overridden for junction tables that might be referred 
-        to by the names of the two linked tables.
+        Gets other names the SQL object of this class might go by.
 
-        Returns:
-            List[str]: List of names
+        :return: list of alias names for this junction model.
+        :rtype: List[str]
         """
         return super().aliases + ["reagentroleproceduretypeassociation"]
-
     def __init__(self, *args, **kwargs):
         """
         Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
@@ -2325,10 +2623,20 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @hybrid_property
     def proceduretype(self):
+        """Return the resolved ProcedureType linked to this association."""
         return self._proceduretype
 
     @proceduretype.setter
     def proceduretype(self, value):
+        """Resolve and set the associated ProcedureType from flexible inputs.
+
+        Accepts a ProcedureType instance, PydProcedureType, dict payload, or
+        procedure type name string.
+
+        :param value: Input representing the procedure type.
+        :type value: ProcedureType | PydProcedureType | dict | str
+        :return: None
+        """
         from backend.validators.pydant import PydProcedureType
         match value:
             case str():
@@ -2351,10 +2659,20 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
     @hybrid_property
     def reagentrole(self):
+        """Return the resolved ReagentRole linked to this association."""
         return self._reagentrole
 
     @reagentrole.setter
     def reagentrole(self, value):
+        """Resolve and set the associated ReagentRole from flexible inputs.
+
+        Accepts a ReagentRole instance, PydReagentRole, dict payload, or role
+        name string.
+
+        :param value: Input representing the reagent role.
+        :type value: ReagentRole | PydReagentRole | dict | str
+        :return: None
+        """
         from backend.validators.pydant import PydReagentRole
         match value:
             case str():
@@ -2414,15 +2732,18 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
               **kwargs
               ) -> ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]:
         """
-        Lookup junction of ReagentType and KitType
+        Lookup procedure type / reagent role associations.
 
-        Args:
-            proceduretype (models.ProcedureType | str | None, optional): KitType of interest. Defaults to None.
-            reagentrole (models.ReagentRole | str | None, optional): ReagentRole of interest. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            models.KitTypeReagentTypeAssociation|List[models.KitTypeReagentTypeAssociation]: Junction of interest.
+        :param reagentrole: ReagentRole of interest. Defaults to None.
+        :type reagentrole: ReagentRole | str | None
+        :param proceduretype: ProcedureType of interest. Defaults to None.
+        :type proceduretype: ProcedureType | str | None
+        :param name: Association name. Defaults to None.
+        :type name: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureTypeReagentRoleAssociation or list matching filter.
+        :rtype: ProcedureTypeReagentRoleAssociation | List[ProcedureTypeReagentRoleAssociation]
         """
         query: Query = cls.__database_session__.query(cls)
         match reagentrole:
@@ -2454,8 +2775,22 @@ class ProcedureTypeReagentRoleAssociation(BaseClass):
 
 class ProcedureReagentLotAssociation(BaseClass):
     """
-    table containing procedure/reagent associations
-    DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
+    Represents the association between a procedure and a reagent lot, including reagent role details.
+
+    :ivar reagentlot_id: Foreign key to the reagent lot
+    :vartype reagentlot_id: int
+    :ivar procedure_id: Foreign key to the procedure
+    :vartype procedure_id: int
+    :ivar reagentrole_id: Foreign key to the reagent role
+    :vartype reagentrole_id: int
+    :ivar _comment: Optional comment for the reagent lot usage
+    :vartype _comment: str
+    :ivar _procedure: Related Procedure object
+    :vartype _procedure: Procedure
+    :ivar _reagentlot: Related ReagentLot object
+    :vartype _reagentlot: ReagentLot
+    :ivar _reagentrole: Related ReagentRole object
+    :vartype _reagentrole: ReagentRole
     """
 
     skip_on_edit = True
@@ -2534,10 +2869,12 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @hybrid_property
     def reagentlot(self):
+        """Return the resolved ReagentLot associated with this procedure association."""
         return self._reagentlot
 
     @reagentlot.setter
     def reagentlot(self, value):
+        """Resolve and attach the related ReagentLot from a flexible input."""
         from backend.validators.pydant import PydReagentLot
         match value:
             case str():
@@ -2560,10 +2897,12 @@ class ProcedureReagentLotAssociation(BaseClass):
     
     @hybrid_property
     def procedure(self):
+        """Return the linked Procedure object for this reagent lot association."""
         return self._procedure
 
     @procedure.setter
     def procedure(self, value):
+        """Resolve and attach the related Procedure from a flexible input."""
         from backend.validators.pydant import PydProcedure
         match value:
             case str():
@@ -2586,10 +2925,12 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @hybrid_property
     def reagentrole(self):
+        """Return the resolved ReagentRole for this procedure/reagent lot association."""
         return self._reagentrole
 
     @reagentrole.setter
     def reagentrole(self, value):
+        """Resolve and attach the related ReagentRole from flexible input."""
         from backend.validators.pydant import PydReagentRole
         match value:
             case str():
@@ -2615,20 +2956,24 @@ class ProcedureReagentLotAssociation(BaseClass):
     def query(cls,
               name: str | None = None,
               procedure: Procedure | str | int | None = None,
-              reagentlot: Reagent | str | None = None,
+              reagentlot: ReagentLot | str | None = None,
               reagentrole: str | ReagentRole | None = None,
               limit: int = 0) -> ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]:
         """
-        Lookup SubmissionReagentAssociations of interest.
+        Lookup procedure/reagent lot associations.
 
-        Args:
-            procedure (Procedure | str | int | None, optional): Identifier of joined procedure. Defaults to None.
-            reagentlot (ReagentLot | str | None, optional): Identifier of joined reagent. Defaults to None.
-            reagent (Reagent | str | None, optional): Identifier of joined reagent. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            RunReagentAssociation|List[RunReagentAssociation]: SubmissionReagentAssociation(s) of interest
+        :param name: Association name. Defaults to None.
+        :type name: str | None
+        :param procedure: Identifier of joined procedure. Defaults to None.
+        :type procedure: Procedure | str | int | None
+        :param reagentlot: Identifier of joined reagent lot. Defaults to None.
+        :type reagentlot: ReagentLot | str | None
+        :param reagentrole: Identifier of joined reagent role. Defaults to None.
+        :type reagentrole: ReagentRole | str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureReagentLotAssociation or list matching filter.
+        :rtype: ProcedureReagentLotAssociation | List[ProcedureReagentLotAssociation]
         """
         query: Query = cls.__database_session__.query(cls)
         match name:
@@ -2660,6 +3005,12 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Return a merged details dictionary for this procedure/reagent lot association.
+
+        :return: Serialized details for this association.
+        :rtype: dict
+        """
         output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['reagent']}
@@ -2672,6 +3023,11 @@ class ProcedureReagentLotAssociation(BaseClass):
         return output
 
     def delete(self, **kwargs):
+        """
+        Remove this association record from the database.
+
+        :return: None
+        """
         self.__database_session__.delete(self)
         try:
             self.__database_session__.commit()
@@ -2682,19 +3038,29 @@ class ProcedureReagentLotAssociation(BaseClass):
     @classproperty
     def aliases(cls) -> List[str]:
         """
-        Gets other names the sql object of this class might go by.
-        Usually this is just the lowercase name of the class without "association", 
-        but this can be overridden for junction tables that might be referred 
-        to by the names of the two linked tables.
+        Gets other names the SQL object of this class might go by.
 
-        Returns:
-            List[str]: List of names
+        :return: list of alias names for this junction model.
+        :rtype: List[str]
         """
         return super().aliases + ["reagentlotprocedureassociation"]
 
 
 class ReagentRoleReagentAssociation(BaseClass):
+    """
+    Junction model associating reagents with their roles.
 
+    :ivar reagentrole_id: Foreign key to the reagent role
+    :vartype reagentrole_id: int
+    :ivar reagent_id: Foreign key to the reagent
+    :vartype reagent_id: int
+    :ivar ml_used_per_sample: Volume used per sample for this role
+    :vartype ml_used_per_sample: float|None
+    :ivar _reagent: Related reagent object
+    :vartype _reagent: Reagent
+    :ivar _reagentrole: Related reagent role object
+    :vartype _reagentrole: ReagentRole
+    """
     reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)  #: id of associated reagent
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated procedure
     ml_used_per_sample = Column(FLOAT(3))  #: amount of reagent used for this role.
@@ -2811,20 +3177,30 @@ class ReagentRoleReagentAssociation(BaseClass):
     @classproperty
     def aliases(cls) -> List[str]:
         """
-        Gets other names the sql object of this class might go by.
-        Usually this is just the lowercase name of the class without "association", 
-        but this can be overridden for junction tables that might be referred 
-        to by the names of the two linked tables.
+        Gets other names the SQL object of this class might go by.
 
-        Returns:
-            List[str]: List of names
+        :return: list of alias names for this junction model.
+        :rtype: List[str]
         """
         return super().aliases + ["reagentreagentroleassociation"]
 
 
 class EquipmentRole(BaseClass):
     """
-    Abstract roles for equipment
+    Represents an equipment role that can be associated with procedure types and equipment instances.
+
+    :ivar id: Primary key identifier for the equipment role
+    :vartype id: int
+    :ivar name: Name of the role
+    :vartype name: str
+    :ivar equipmentroleproceduretypeassociation: Associations to procedure types
+    :vartype equipmentroleproceduretypeassociation: list[ProcedureTypeEquipmentRoleAssociation]
+    :ivar _proceduretype: Association proxy to procedure types
+    :vartype _proceduretype: list[ProcedureType]
+    :ivar equipmentroleequipmentassociation: Associations to equipment instances
+    :vartype equipmentroleequipmentassociation: list[EquipmentRoleEquipmentAssociation]
+    :ivar _equipment: Association proxy to equipment objects
+    :vartype _equipment: list[Equipment]
     """
 
     id = Column(INTEGER, primary_key=True)  #: Role id, primary key
@@ -2949,6 +3325,14 @@ class EquipmentRole(BaseClass):
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[EquipmentRole, bool]:
+        """
+        Find an EquipmentRole by kwargs or create a new one.
+
+        :param kwargs: Attributes used to query or set on the EquipmentRole.
+        :type kwargs: dict
+        :return: Tuple of (EquipmentRole instance, created flag).
+        :rtype: Tuple[EquipmentRole, bool]
+        """
         new = False
         disallowed = ['expiry']
         sanitized_kwargs = {k: v for k, v in kwargs.items() if k not in disallowed}
@@ -2969,15 +3353,16 @@ class EquipmentRole(BaseClass):
               **kwargs
               ) -> EquipmentRole | List[EquipmentRole]:
         """
-        Lookup Equipment roles.
+        Lookup equipment roles.
 
-        Args:
-            name (str | None, optional): EquipmentRole name. Defaults to None.
-            id (int | None, optional): EquipmentRole id. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            EquipmentRole|List[EquipmentRole]: List of EquipmentRoles matching criteria
+        :param name: EquipmentRole name. Defaults to None.
+        :type name: str | None
+        :param id: EquipmentRole id. Defaults to None.
+        :type id: int | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: EquipmentRole or list of EquipmentRole objects matching filter.
+        :rtype: EquipmentRole | List[EquipmentRole]
         """
         query = cls.__database_session__.query(cls)
         match id:
@@ -2994,10 +3379,35 @@ class EquipmentRole(BaseClass):
                 pass
         return cls.execute_query(query=query, limit=limit)
 
-    
+
 class Equipment(BaseClass, LogMixin):
     """
-    A concrete instance of equipment
+    Represents a concrete equipment asset.
+
+    :ivar id: Primary key identifier for equipment
+    :vartype id: int
+    :ivar name: Equipment name
+    :vartype name: str
+    :ivar manufacturer: Manufacturer name
+    :vartype manufacturer: str
+    :ivar ref: Reference code
+    :vartype ref: str
+    :ivar serial_number: Serial number
+    :vartype serial_number: str
+    :ivar _nickname: Equipment nickname
+    :vartype _nickname: str
+    :ivar asset_number: Asset number identifier
+    :vartype asset_number: str
+    :ivar _calibration_date: Date of last calibration
+    :vartype _calibration_date: datetime|None
+    :ivar equipmentprocedureassociation: Procedure associations
+    :vartype equipmentprocedureassociation: list[ProcedureEquipmentAssociation]
+    :ivar _procedure: Association proxy to Procedure objects
+    :vartype _procedure: list[Procedure]
+    :ivar equipmentequipmentroleassociation: Role associations for this equipment
+    :vartype equipmentequipmentroleassociation: list[EquipmentRoleEquipmentAssociation]
+    :ivar _equipmentrole: Association proxy to EquipmentRole objects
+    :vartype _equipmentrole: list[EquipmentRole]
     """
 
     id = Column(INTEGER, primary_key=True)  #: id, primary key
@@ -3175,16 +3585,20 @@ class Equipment(BaseClass, LogMixin):
               **kwargs
               ) -> Equipment | List[Equipment]:
         """
-        Lookup a list of or single Equipment.
+        Lookup equipment by id, name, nickname, or asset number.
 
-        Args:
-            name (str | None, optional): Equipment name. Defaults to None.
-            nickname (str | None, optional): Equipment nickname. Defaults to None.
-            asset_number (str | None, optional): Equipment asset number. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            Equipment|List[Equipment]: Equipment or list of equipment matching query parameters.
+        :param id: Equipment id. Defaults to None.
+        :type id: int | None
+        :param name: Equipment name. Defaults to None.
+        :type name: str | None
+        :param nickname: Equipment nickname. Defaults to None.
+        :type nickname: str | None
+        :param asset_number: Equipment asset number. Defaults to None.
+        :type asset_number: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: Equipment or list of Equipment matching filter.
+        :rtype: Equipment | List[Equipment]
         """
         query = cls.__database_session__.query(cls)
         match id:
@@ -3212,15 +3626,14 @@ class Equipment(BaseClass, LogMixin):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-
     
     @classmethod
     def manufacturer_regex(cls) -> re.Pattern:
         """
-        Creates regex to determine tip manufacturer
+        Create a regex to determine tip manufacturer from a reference string.
 
-        Returns:
-            re.Pattern: regex
+        :return: compiled regular expression for tip manufacturers.
+        :rtype: re.Pattern
         """
         return re.compile(r"""
                           (?P<PHAC>50\d{5}$)|
@@ -3232,6 +3645,20 @@ class Equipment(BaseClass, LogMixin):
 
 
 class EquipmentRoleEquipmentAssociation(BaseClass):
+    """
+    Junction table linking equipment roles, equipment assets, and processes.
+
+    :ivar equipmentrole_id: Foreign key to EquipmentRole
+    :vartype equipmentrole_id: int
+    :ivar equipment_id: Foreign key to Equipment
+    :vartype equipment_id: int
+    :ivar _equipmentrole: Related EquipmentRole object
+    :vartype _equipmentrole: EquipmentRole
+    :ivar _equipment: Related Equipment object
+    :vartype _equipment: Equipment
+    :ivar _process: Related Process objects
+    :vartype _process: list[Process]
+    """
     
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated reagent
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated procedure
@@ -3393,16 +3820,13 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     @classproperty
     def aliases(cls) -> List[str]:
         """
-        Gets other names the sql object of this class might go by.
-        Usually this is just the lowercase name of the class without "association", 
-        but this can be overridden for junction tables that might be referred 
-        to by the names of the two linked tables.
+        Gets other names the SQL object of this class might go by.
 
-        Returns:
-            List[str]: List of names
+        :return: list of alias names for this junction model.
+        :rtype: List[str]
         """
         return super().aliases + ["equipmentequipmentroleassociation"]
-
+    
     @classmethod
     @setup_lookup
     def query(cls,
@@ -3412,15 +3836,18 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
               limit: int = 0,
               **kwargs) -> EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]:
         """
-        Lookup Processes
+        Lookup equipment role associations by equipment, role, or process.
 
-        Args:
-            id (int | None, optional): Process id. Defaults to None.
-            name (str | None, optional): Process name. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
-
-        Returns:
-            Process|List[Process]: Process(es) matching criteria
+        :param equipment: Equipment name or object. Defaults to None.
+        :type equipment: str | Equipment | None
+        :param equipmentrole: EquipmentRole name or object. Defaults to None.
+        :type equipmentrole: str | EquipmentRole | None
+        :param process: Process name or object. Defaults to None.
+        :type process: str | Process | None
+        :param limit: Maximum number of results to return (0=all). Defaults to 0.
+        :type limit: int
+        :return: EquipmentRoleEquipmentAssociation or list matching filter.
+        :rtype: EquipmentRoleEquipmentAssociation | List[EquipmentRoleEquipmentAssociation]
         """
         query = cls.__database_session__.query(cls)
         match equipment:
@@ -3452,7 +3879,18 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
 
 class Process(BaseClass):
     """
-    A Process is a method used by a piece of equipment.
+    Represents a method that can be performed by equipment during a procedure.
+
+    :ivar id: Primary key identifier for the process
+    :vartype id: int
+    :ivar name: Unique process name
+    :vartype name: str
+    :ivar _tips: Related tips for the process
+    :vartype _tips: list[Tips]
+    :ivar _processversion: Related process versions
+    :vartype _processversion: list[ProcessVersion]
+    :ivar _equipmentroleequipmentassociation: Equipment-role associations for this process
+    :vartype _equipmentroleequipmentassociation: list[EquipmentRoleEquipmentAssociation]
     """
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
@@ -3599,15 +4037,20 @@ class Process(BaseClass):
               limit: int = 0,
               **kwargs) -> Process | List[Process]:
         """
-        Lookup Processes
+        Lookup processes by name, ID, procedure type, or equipment role.
 
-        Args:
-            id (int | None, optional): Process id. Defaults to None.
-            name (str | None, optional): Process name. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
-
-        Returns:
-            Process|List[Process]: Process(es) matching criteria
+        :param name: Process name. Defaults to None.
+        :type name: str | None
+        :param id: Process id. Defaults to None.
+        :type id: int | None
+        :param proceduretype: ProcedureType name or object. Defaults to None.
+        :type proceduretype: str | ProcedureType | None
+        :param equipmentrole: EquipmentRole name or object. Defaults to None.
+        :type equipmentrole: str | EquipmentRole | None
+        :param limit: Maximum number of results to return (0=all). Defaults to 0.
+        :type limit: int
+        :return: Process or list of processes matching filter.
+        :rtype: Process | List[Process]
         """
         query = cls.__database_session__.query(cls)
         match proceduretype:
@@ -3639,9 +4082,14 @@ class Process(BaseClass):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-
+    
     @check_authorization
     def save(self):
+        """
+        Persist this object with authorization enforcement.
+
+        Calls the base class save implementation after authorization succeeds.
+        """
         super().save()
 
     @property
@@ -3654,6 +4102,26 @@ class Process(BaseClass):
 
 
 class ProcessVersion(BaseClass):
+    """
+    Represents a version of a process, including verification date and active status.
+
+    :ivar id: Primary key identifier for the process version
+    :vartype id: int
+    :ivar version: Numeric version value
+    :vartype version: float
+    :ivar _date_verified: Timestamp when this version was verified
+    :vartype _date_verified: datetime|None
+    :ivar project: Project associated with this version
+    :vartype project: str
+    :ivar _active: Active flag stored as an integer
+    :vartype _active: int
+    :ivar _process: Related Process object
+    :vartype _process: Process
+    :ivar process_id: Foreign key to Process
+    :vartype process_id: int
+    :ivar procedureequipmentassociation: Equipment usage associations
+    :vartype procedureequipmentassociation: list[ProcedureEquipmentAssociation]
+    """
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
     version = Column(FLOAT(2), default=1.00)  #: Version number
@@ -3810,6 +4278,20 @@ class ProcessVersion(BaseClass):
               limit: int = 0,
               active: bool | int | None = None,
               **kwargs) -> ProcessVersion | List[ProcessVersion]:
+        """
+        Lookup process versions by version, name, or active status.
+
+        :param version: Process version number or string. Defaults to None.
+        :type version: str | float | None
+        :param name: Process version name. Defaults to None.
+        :type name: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :param active: Active flag to filter versions. Defaults to None.
+        :type active: bool | int | None
+        :return: ProcessVersion or list of ProcessVersion objects matching filter.
+        :rtype: ProcessVersion | List[ProcessVersion]
+        """
         query: Query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -3828,7 +4310,22 @@ class ProcessVersion(BaseClass):
     
 class Tips(BaseClass):
     """
-    An abstract reagentrole that a tip fills during a process
+    Represents a tip type used during a process.
+
+    :ivar id: Primary key identifier for tip type
+    :vartype id: int
+    :ivar _tipslot: Related tip lots
+    :vartype _tipslot: list[TipsLot]
+    :ivar manufacturer: Tip manufacturer name
+    :vartype manufacturer: str
+    :ivar capacity: Volume capacity in microliters
+    :vartype capacity: int
+    :ivar ref: Tip reference code
+    :vartype ref: str
+    :ivar _cost_per_tip: Cost per tip
+    :vartype _cost_per_tip: float
+    :ivar _process: Related Process objects
+    :vartype _process: list[Process]
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
     _tipslot = relationship("TipsLot", back_populates="_tips", cascade="all, delete-orphan")  #: concrete instance of this tip type
@@ -3970,6 +4467,22 @@ class Tips(BaseClass):
               ref: str | None = None,
               limit: int = 0,
               **kwargs) -> Tips | List[Tips]:
+        """
+        Lookup tip types by name, manufacturer, capacity, or reference.
+
+        :param name: Tip type display name. Defaults to None.
+        :type name: str | None
+        :param manufacturer: Tip manufacturer name. Defaults to None.
+        :type manufacturer: str | None
+        :param capacity: Tip capacity string. Defaults to None.
+        :type capacity: str | None
+        :param ref: Tip reference code. Defaults to None.
+        :type ref: str | None
+        :param limit: Maximum number of results to return (0 = all). Defaults to 0.
+        :type limit: int
+        :return: Tips or list of Tips matching filter.
+        :rtype: Tips | List[Tips]
+        """
         query = cls.__database_session__.query(cls)
         match name:
             case str():
@@ -3997,12 +4510,32 @@ class Tips(BaseClass):
 
     @check_authorization
     def save(self):
+        """
+        Persist this object with authorization enforcement.
+
+        Calls the base class save implementation after authorization succeeds.
+        """
         super().save()
 
     
 class TipsLot(BaseClass, LogMixin):
     """
-    A concrete instance of tips.
+    Represents a specific lot of tips with expiry and active state.
+
+    :ivar id: Primary key identifier for the tip lot
+    :vartype id: int
+    :ivar _tips: Parent tip type
+    :vartype _tips: Tips
+    :ivar tips_id: Foreign key to parent tips
+    :vartype tips_id: int
+    :ivar lot: Unique lot number
+    :vartype lot: str
+    :ivar _expiry: Expiry timestamp for this lot
+    :vartype _expiry: datetime|None
+    :ivar _active: Active state flag stored as integer
+    :vartype _active: int
+    :ivar _procedureequipmenttipslotassociation: Related procedure-equipment-tipslot associations
+    :vartype _procedureequipmenttipslotassociation: list[ProcedureEquipmentTipslotAssociation]
     """
     id = Column(INTEGER, primary_key=True)  #: primary key
     _tips = relationship("Tips", back_populates="_tipslot")  #: joined parent tip type
@@ -4204,16 +4737,20 @@ class TipsLot(BaseClass, LogMixin):
               limit: int = 0,
               **kwargs) -> Tips | List[Tips]:
         """
-        Lookup tips
+        Lookup tips by name, manufacturer, reference, or lot.
 
-        Args:
-            manufacturer (str | None, optional): Name of parent tip manufacturer. Defaults to None.
-            ref (str | None, optional): Name of parent tip reference number. Defaults to None.
-            lot (str | None, optional): Lot number. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
-
-        Returns:
-            Tips | List[Tips]: Tips matching criteria
+        :param name: Tips name. Defaults to None.
+        :type name: str | None
+        :param manufacturer: Tips manufacturer. Defaults to None.
+        :type manufacturer: str | None
+        :param ref: Tips reference. Defaults to None.
+        :type ref: str | None
+        :param lot: Tips lot number. Defaults to None.
+        :type lot: str | None
+        :param limit: Maximum number of results to return (0=all). Defaults to 0.
+        :type limit: int
+        :return: Tips or list of Tips matching filter.
+        :rtype: Tips | List[Tips]
         """
         query = cls.__database_session__.query(cls)
         match name:
@@ -4241,9 +4778,13 @@ class TipsLot(BaseClass, LogMixin):
             case _:
                 pass
         return cls.execute_query(query=query, limit=limit)
-
     @check_authorization
     def save(self):
+        """
+        Persist this object with authorization enforcement.
+
+        Calls the base class save implementation after authorization succeeds.
+        """
         super().save()
 
     @property
@@ -4254,6 +4795,22 @@ class TipsLot(BaseClass, LogMixin):
 
 
 class ProcedureEquipmentTipslotAssociation(BaseClass):
+    """
+    Junction model linking a procedure-equipment association to a specific tipslot.
+
+    :ivar procedure_id: Foreign key to procedure.
+    :vartype procedure_id: int
+    :ivar equipment_id: Foreign key to equipment.
+    :vartype equipment_id: int
+    :ivar equipmentrole_id: Foreign key to equipment role.
+    :vartype equipmentrole_id: int
+    :ivar tipslot_id: Foreign key to tip lot.
+    :vartype tipslot_id: int
+    :ivar _procedureequipmentassociation: Related ProcedureEquipmentAssociation object.
+    :vartype _procedureequipmentassociation: ProcedureEquipmentAssociation
+    :ivar _tipslot: Related TipsLot object.
+    :vartype _tipslot: TipsLot
+    """
 
     procedure_id = Column(
         INTEGER,
@@ -4315,6 +4872,13 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     @procedureequipmentassociation.setter
     def procedureequipmentassociation(self, value):
+        """
+        Assign the related ProcedureEquipmentAssociation for this tipslot binding.
+
+        :param value: ProcedureEquipmentAssociation data or instance.
+        :type value: dict | ProcedureEquipmentAssociation
+        :return: None
+        """
         match value:
             case dict():
                 output = ProcedureEquipmentAssociation.query_or_create(**value)
@@ -4400,7 +4964,36 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
 class ProcedureEquipmentAssociation(BaseClass):
     """
-    Abstract association between BasicRun and Equipment
+    Represents equipment usage for a specific procedure, including process version and calibration details.
+
+    :ivar equipment_id: Foreign key to equipment
+    :vartype equipment_id: int
+    :ivar procedure_id: Foreign key to procedure
+    :vartype procedure_id: int
+    :ivar equipmentrole_id: Foreign key to equipment role
+    :vartype equipmentrole_id: int
+    :ivar processversion_id: Foreign key to process version
+    :vartype processversion_id: int
+    :ivar _start_time: Use start timestamp
+    :vartype _start_time: datetime|None
+    :ivar _end_time: Use end timestamp
+    :vartype _end_time: datetime|None
+    :ivar _comment: Optional usage comment
+    :vartype _comment: str|None
+    :ivar _calibration_date: Calibration timestamp
+    :vartype _calibration_date: datetime|None
+    :ivar _procedure: Related Procedure object
+    :vartype _procedure: Procedure
+    :ivar _equipment: Related Equipment object
+    :vartype _equipment: Equipment
+    :ivar _equipmentrole: Related EquipmentRole object
+    :vartype _equipmentrole: EquipmentRole
+    :ivar _processversion: Related ProcessVersion object
+    :vartype _processversion: ProcessVersion|None
+    :ivar _procedureequipmenttipslotassociation: Related ProcedureEquipmentTipslotAssociation objects
+    :vartype _procedureequipmenttipslotassociation: list[ProcedureEquipmentTipslotAssociation]
+    :ivar _tipslot: Association proxy to tipslot objects
+    :vartype _tipslot: list[TipsLot]
     """
 
     equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
@@ -4486,16 +5079,12 @@ class ProcedureEquipmentAssociation(BaseClass):
     @classproperty
     def aliases(cls) -> List[str]:
         """
-        Gets other names the sql object of this class might go by.
-        Usually this is just the lowercase name of the class without "association", 
-        but this can be overridden for junction tables that might be referred 
-        to by the names of the two linked tables.
+        Gets other names the SQL object of this class might go by.
 
-        Returns:
-            List[str]: List of names
+        :return: list of alias names for this junction model.
+        :rtype: List[str]
         """
         return super().aliases + ["equipmentprocedureassociation"]
-
     @hybrid_property
     def tipslot(self):
         return self._tipslot
@@ -4666,16 +5255,16 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     def to_pydantic(self) -> PydProcedureEquipmentAssociation:
         """
-        Returns a pydantic model based on this object.
+        Return a pydantic model representation for this association.
 
-        Returns:
-            PydEquipment: pydantic equipment model
+        :return: pydantic model representing this procedure-equipment association.
+        :rtype: PydProcedureEquipmentAssociation
         """
         from backend.validators.pydant import PydProcedureEquipmentAssociation
         
         output = PydProcedureEquipmentAssociation(**self.details_dict)
         return output
-
+    
     @classmethod
     @setup_lookup
     def query(cls,
@@ -4685,16 +5274,18 @@ class ProcedureEquipmentAssociation(BaseClass):
               limit: int = 0, **kwargs) \
             -> Any | List[Any]:
         """
+        Lookup procedure-equipment association records.
 
-        Args:
-            equipment ( int | Equipment | None, optional): The associated equipment of interest. Defaults to None.
-            procedure ( int | Procedure | None, optional): The associated procedure of interest. Defaults to None.
-            equipmentrole ( str | None, optional): The associated equipmentrole. Defaults to None.
-            limit ( int ): Maximum number of results to return (0=all). Defaults to 0.
-            **kwargs ():
-
-        Returns:
-            Any | List[Any]
+        :param equipment: The associated equipment of interest. Defaults to None.
+        :type equipment: int | Equipment | None
+        :param procedure: The associated procedure of interest. Defaults to None.
+        :type procedure: int | Procedure | None
+        :param equipmentrole: The associated equipment role. Defaults to None.
+        :type equipmentrole: str | None
+        :param limit: Maximum number of results to return (0=all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureEquipmentAssociation or list matching filter.
+        :rtype: Any | List[Any]
         """
         query: Query = cls.__database_session__.query(cls)
         match equipment:
@@ -4717,6 +5308,12 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @property
     def details_dict(self) -> dict:
+        """
+        Produce a detailed dictionary representation of this procedure equipment association.
+
+        :return: Details dictionary containing equipment, role, process version and tipslot metadata.
+        :rtype: dict
+        """
         output = super().details_dict
         # NOTE: Figure out how to merge the misc_info if doing .update instead.
         relevant = {k: v for k, v in output.items() if k not in ['equipment']}
@@ -4734,7 +5331,18 @@ class ProcedureEquipmentAssociation(BaseClass):
 
 class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     """
-    Abstract association between SubmissionType and EquipmentRole
+    Junction table linking procedure types with equipment roles.
+
+    :ivar equipmentrole_id: Foreign key to equipment role
+    :vartype equipmentrole_id: int
+    :ivar proceduretype_id: Foreign key to procedure type
+    :vartype proceduretype_id: int
+    :ivar _static: Static usage flag
+    :vartype _static: int
+    :ivar _proceduretype: Related ProcedureType object
+    :vartype _proceduretype: ProcedureType
+    :ivar _equipmentrole: Related EquipmentRole object
+    :vartype _equipmentrole: EquipmentRole
     """
     equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated equipment
     proceduretype_id = Column(INTEGER, ForeignKey("_proceduretype.id"), primary_key=True)  #: id of associated procedure
@@ -4875,20 +5483,22 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
     @classproperty
     def aliases(cls):
         """
-        Gets other names the sql object of this class might go by.
-        Usually this is just the lowercase name of the class without "association", 
-        but this can be overridden for junction tables that might be referred 
-        to by the names of the two linked tables.
+        Gets other names the SQL object of this class might go by.
 
-        Returns:
-            List[str]: List of names
+        :return: list of alias names for this association model.
+        :rtype: list[str]
         """
         return super().aliases + ['equipmentroleproceduretypeassociation']
     
     @check_authorization
     def save(self):
-        super().save()
+        """
+        Persist this object with authorization enforcement.
 
+        Calls the base class save implementation after authorization succeeds.
+        :return: None
+        """
+        super().save()
     @classmethod
     @setup_lookup
     def query(cls,
@@ -4897,15 +5507,16 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
               limit: int = 0,
               **kwargs) -> ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]:
         """
-        Lookup Processes
+        Lookup procedure type / equipment role associations.
 
-        Args:
-            id (int | None, optional): Process id. Defaults to None.
-            name (str | None, optional): Process name. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0=all). Defaults to 0.
-
-        Returns:
-            Process|List[Process]: Process(es) matching criteria
+        :param proceduretype: ProcedureType name or object. Defaults to None.
+        :type proceduretype: str | ProcedureType | None
+        :param equipmentrole: EquipmentRole name or object. Defaults to None.
+        :type equipmentrole: str | EquipmentRole | None
+        :param limit: Maximum number of results to return (0=all). Defaults to 0.
+        :type limit: int
+        :return: ProcedureTypeEquipmentRoleAssociation or list matching filter.
+        :rtype: ProcedureTypeEquipmentRoleAssociation | List[ProcedureTypeEquipmentRoleAssociation]
         """
         query = cls.__database_session__.query(cls)
         match proceduretype:
@@ -4928,7 +5539,30 @@ class ProcedureTypeEquipmentRoleAssociation(BaseClass):
 
 
 class Results(BaseClass):
+    """
+    Represents result metadata and values for a procedure or sample.
 
+    :ivar id: Primary key identifier for the result
+    :vartype id: int
+    :ivar _result: JSON payload containing result values
+    :vartype _result: dict
+    :ivar _date_analyzed: Timestamp when the result was analyzed
+    :vartype _date_analyzed: datetime|None
+    :ivar procedure_id: Foreign key to parent procedure
+    :vartype procedure_id: int
+    :ivar _procedure: Parent Procedure object
+    :vartype _procedure: Procedure
+    :ivar assoc_id: Foreign key to sample association
+    :vartype assoc_id: int|None
+    :ivar _sampleprocedureassociation: Related ProcedureSampleAssociation object
+    :vartype _sampleprocedureassociation: ProcedureSampleAssociation|None
+    :ivar _img: Zip archive filename for image storage
+    :vartype _img: str|None
+    :ivar resultstype_id: Foreign key to ResultsType
+    :vartype resultstype_id: int
+    :ivar _resultstype: Related ResultsType object
+    :vartype _resultstype: ResultsType
+    """
     id = Column(INTEGER, primary_key=True)  #: primary key
     _result = Column(JSON)  #:
     _date_analyzed = Column(TIMESTAMP)

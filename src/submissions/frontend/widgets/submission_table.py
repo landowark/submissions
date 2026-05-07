@@ -103,10 +103,13 @@ class SubmissionsTree(QTreeView):
         """
         from backend.db.models import Run, ClientSubmission, Procedure
         self.clear()
+        # self.data = sorted(
+        #     [item.details_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
+        #     key=itemgetter('submitted_date'), reverse=True
+        # )
         self.data = sorted(
-            [item.details_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
-            key=itemgetter('submitted_date'), reverse=True
-        )
+            [item.to_pydantic().improved_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)], 
+            key=itemgetter('submitted_date'), reverse=True)
         root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"

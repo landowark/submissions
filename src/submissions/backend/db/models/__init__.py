@@ -373,7 +373,7 @@ class BaseClass(Base):
             return list(set([item.replace("_id", "").replace("_name", "").strip("_") for item in sqls]))
         except Exception as e:
             if cls.__qualname__ != "BaseClass":
-                logger.debug(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
+                logger.error(f"Could not inspect SQLAlchemy fields for {cls.__name__}: {e}")
             return []
 
     def _serialize_misc_value(self, value):
@@ -540,32 +540,6 @@ class BaseClass(Base):
             except (ArgumentError, AttributeError) as e:
                 logger.error(f"Attribute {k} unavailable due to:\n\t{e}\nSkipping.")
         return query.limit(50).all()
-
-    @classmethod
-    def results_to_df(cls, objects: list | None = None) -> DataFrame:
-        """
-        Convert model objects to a Pandas DataFrame for data analysis.
-
-        Converts a list of model instances (or all instances if not provided) to a 
-        DataFrame using their details_dict representation, excluding internal fields.
-
-        :param objects: Objects to convert. If None, queries all objects.
-        :type objects: list or None
-        :return: Pandas DataFrame with one row per object and columns from details_dict.
-        :rtype: :class:`pandas.DataFrame`
-        """
-        if not objects:
-            try:
-                q = cls.query()
-            except AttributeError:
-                q = cls.query(page_size=0)
-        else:
-            q = objects
-        records = []
-        for obj in q:
-            dicto = obj.details_dict
-            records.append({key: value for key, value in dicto.items() if key not in dicto['excluded']})
-        return DataFrame.from_records(records)
 
     @classmethod
     def query_or_create(cls, **kwargs) -> Tuple[Any, bool]:

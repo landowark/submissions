@@ -52,7 +52,7 @@ class DefaultParser(object):
         return worksheet.min_row
 
     @classmethod
-    def delineate_end_row(cls, worksheet: Worksheet, start_row: int = 1):
+    def delineate_end_row(cls, worksheet: Worksheet, start_row: int = 1) -> int:
         """
         Determines the end row by finding the first empty row.
 
@@ -105,14 +105,12 @@ class DefaultTABLEParser(DefaultParser):
         Returns:
             Generator[dict, None, None]: {column_header: row column value}
         """
-        
-        logger.info(f"Parsing sheet: {self.worksheet.title}")
         df = DataFrame(
             [item for item in self.worksheet.values][self.start_row - 1: self.end_row - 1])
         df.columns = df.iloc[0]
         df = df[1:]
         df = df.dropna(axis=1, how='all')
-        for ii, row in enumerate(df.iterrows()):
+        for row in df.iterrows():
             output = {}
             for key, value in row[1].to_dict().items():
                 if isinstance(key, str):

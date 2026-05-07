@@ -148,9 +148,7 @@ class SubmissionDetails(QDialog):
             sub_name (str): Name to query for object to show
         """
         
-        logger.debug(f"Showing details for {sub_type} - {sub_name}")
         clss = models.BaseClass.find_subclasses(class_name=sub_type)
-        logger.debug(f"Found class {clss} for type {sub_type}")
         if clss:
             if isinstance(clss, list):
                 clss = clss[0]

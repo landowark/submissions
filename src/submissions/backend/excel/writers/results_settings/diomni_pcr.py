@@ -9,11 +9,6 @@ class DiomniPCRSettings(DefaultSettings):
 
     label = "Export Diomni Plate"
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        logger.debug(self.procedure.sample)
-        # At this point samples are PydSample but is_control are all 0.
-
     def hex_to_rgb(self, hex_string):
         """
         Converts a hex color string to RGB(RR,GG,BB) format.
@@ -50,7 +45,6 @@ class DiomniPCRSettings(DefaultSettings):
         ]
         samples = []
         for sample in self.procedure.sample:
-            logger.debug(f"Running sample {sample.sample_id}, Row {sample.row}, Column {sample.column}, {sample.is_control}")
             for setting in self.settings:
                 output = [
                     self.proceduretype.get_well_index(row_idx=sample.row, col_idx=sample.column, direction="col"),
@@ -71,5 +65,4 @@ class DiomniPCRSettings(DefaultSettings):
             writer = csv.writer(f, delimiter=",")
             writer.writerows(toplines)
             writer.writerows(samples)
-            
             

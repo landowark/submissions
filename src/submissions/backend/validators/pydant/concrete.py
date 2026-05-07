@@ -446,6 +446,19 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     started_date: datetime = Field(default_factory=datetime.now, repr=False)
     completed_date: datetime | None = Field(default_factory=datetime.now, repr=False)
 
+    model_config = {
+        "json_schema_extra": {
+            # "info_writer_excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
+            #    'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
+            #    'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"],
+            # "improved_dict_excluded": ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
+            #                   "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
+            "excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
+               'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]
+        }
+    }
+
     @field_validator("technician", mode="before")
     @classmethod
     def convert_to_dict(cls, value):
@@ -614,7 +627,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             # normalize blank markers
             if isinstance(sample_id, str) and sample_id.startswith("blank_"):
                 sample_id = ""
-            logger.debug(f"Sample id: {sample_id}")
             try:
                 row, column = ranked_plate.get(sample_dict['index'], (0, 0))
             except KeyError:
@@ -679,9 +691,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 
     def update_equipment(self, equipmentrole: str, equipment: str, processversion: str, tips: str, checked: bool=True):
         from backend.db.models import Equipment, ProcessVersion, TipsLot
-        # logger.debug(f"Running equipment update for {equipmentrole} to {equipment}")
         equipment_of_interest: PydProcedureEquipmentAssociation = next((item for item in self.equipment if item.equipmentrole == equipmentrole), None)
-        # logger.debug(f"equipment of interest: {equipment_of_interest}")
         equipment = Equipment.query(name=equipment)
         if equipment_of_interest:
             eoi = self.equipment.pop(self.equipment.index(equipment_of_interest))
@@ -691,7 +701,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         processversion = ProcessVersion.query(name=processversion, limit=1)
         # NOTE Retrieves correct instance.
         eoi.processversion = processversion.to_pydantic()
-        logger.debug(f"Assigning: {pformat(eoi.__dict__)}")
         # NOTE Correct pydprocessverion
         out_tips = []
         for tipslot in tips:
@@ -819,8 +828,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
-        output['excluded'] = ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
-                              "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
+        # output['excluded'] = ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
+        #                       "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
         if isinstance(output['proceduretype'], PydProcedureType):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
@@ -829,7 +838,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         return output
 
     def reorder_proceduretype_by_procedure(self):
-        logger.debug(self.proceduretype)
         proceduretype_dict = self.proceduretype.improved_dict_expand_fields([
             {
                 "reagentrole":[
@@ -861,7 +869,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
                 continue
             rl_index = next((iii for iii, item in enumerate(pt_reagentlots) if item['name'] == reagentlot), 0)
             pt_reagentlots.insert(0, pt_reagentlots.pop(rl_index))
-        
         for assoc in procedure_dict["procedureequipmentassociation"]:
             equipmentrole = assoc['equipmentrole']
             equipment = assoc['equipment']
@@ -1212,7 +1219,6 @@ class PydClientSubmission(PydConcrete):
     def to_html(self, **kwargs):
         details = self.improved_dict_expand_fields(fields=[{"run":['procedure', 'sample']}, "sample"])
         details['sample'] = [sample.sample_id for sample in self.sql_instance.sample]
-        logger.debug(pformat(details['sample']))
         # Up to this point, the samples are fine.
         output = super().to_html(**details)
         return output
@@ -1529,10 +1535,6 @@ class PydProcedureSampleAssociation(PydConcrete):
                                'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled']
         return output
     
-    def to_html(self, css_in: List[str | Path] | str = [], js_in: List[str | Path] | str = [], **kwargs) -> str:
-        logger.debug(self.improved_dict['results'])
-        return super().to_html(css_in, js_in, **kwargs)
-
     
 class PydProcedureEquipmentAssociation(PydConcrete):
 

@@ -48,7 +48,6 @@ class DefaultSettingsDialog(DefaultWebDialog):
         super().__init__(parent)
         self.settings = settings
         self.setWindowTitle("Settings")
-        logger.debug(f"Settings:\n{pformat(self.settings)}")
         self.template_name = template_name
         self.set_html()
 
@@ -71,7 +70,6 @@ class DefaultSettingsDialog(DefaultWebDialog):
 
     @pyqtSlot(QVariant)
     def update_settings(self, settings:dict):
-        logger.debug(pformat(settings))
         self.settings = settings
 
 from .diomni_pcr import DiomniPCRSettings

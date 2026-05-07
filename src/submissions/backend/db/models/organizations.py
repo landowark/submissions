@@ -1,5 +1,13 @@
 """
 All client organization related models.
+
+This module contains SQLAlchemy models for managing client organizations and their contacts.
+It provides the ClientLab and Contact classes which handle relationships between
+organizations, their contacts, and submitted samples.
+
+Classes:
+    ClientLab: Represents a client laboratory organization
+    Contact: Represents a contact person associated with client labs
 """
 from __future__ import annotations
 import logging
@@ -24,7 +32,24 @@ clientlab_contact = Table(
 
 class ClientLab(BaseClass):
     """
-    Base of clientlab
+    Represents a client laboratory organization.
+
+    This class manages client lab information including name, cost center,
+    associated contacts, and submitted samples. It provides methods for
+    querying and managing client lab data.
+
+    :ivar id: Primary key identifier for the client lab
+    :vartype id: int
+    :ivar name: Name of the client laboratory
+    :vartype name: str
+    :ivar cost_centre: Cost center code used by the organization for payment
+    :vartype cost_centre: str
+    :ivar _clientsubmission: Relationship to ClientSubmission objects
+    :vartype _clientsubmission: list[ClientSubmission]
+    :ivar _contact: Relationship to Contact objects via many-to-many association
+    :vartype _contact: list[Contact]
+    :ivar discount: Relationship to Discount objects
+    :vartype discount: list[Discount]
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -37,10 +62,18 @@ class ClientLab(BaseClass):
 
     def __init__(self, *args, **kwargs):
         """
-        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        Initialize a ClientLab instance.
+
+        Resolves shorthand inputs (strings/dicts) for clientsubmission and contact
         into actual model instances before setting attributes. This allows callers
-        to pass names like 'Omega Bacterial Extraction' and have the association
-        properly wired.
+        to pass names and have the associations properly wired.
+
+        :param clientsubmission: Client submission data (string name, dict, or PydClientSubmission)
+        :type clientsubmission: str | dict | PydClientSubmission | None
+        :param contact: Contact data (string name, dict, or PydContact)
+        :type contact: str | dict | PydContact | None
+        :param args: Positional arguments passed to parent class
+        :param kwargs: Keyword arguments passed to parent class
         """
         clientsubmission = kwargs.pop('clientsubmission', None)
         contact = kwargs.pop('contact', None)
@@ -70,10 +103,25 @@ class ClientLab(BaseClass):
     
     @hybrid_property
     def clientsubmission(self):
+        """
+        Get the list of client submissions associated with this client lab.
+
+        :return: List of ClientSubmission objects
+        :rtype: list[ClientSubmission]
+        """
         return self._clientsubmission
 
     @clientsubmission.setter
     def clientsubmission(self, value):
+        """
+        Set client submissions for this client lab.
+
+        Accepts various input formats and resolves them to ClientSubmission instances.
+
+        :param value: Client submission data to associate (string, dict, PydClientSubmission, or ClientSubmission)
+        :type value: str | dict | PydClientSubmission | ClientSubmission | list | None
+        :raises ValueError: If value cannot be resolved to a valid ClientSubmission
+        """
         from backend.validators.pydant import PydClientSubmission
         from backend.db.models import ClientSubmission
         if value is None:
@@ -102,10 +150,25 @@ class ClientLab(BaseClass):
 
     @hybrid_property
     def contact(self):
+        """
+        Get the list of contacts associated with this client lab.
+
+        :return: List of Contact objects
+        :rtype: list[Contact]
+        """
         return self._contact
 
     @contact.setter
     def contact(self, value):
+        """
+        Set contacts for this client lab.
+
+        Accepts various input formats and resolves them to Contact instances.
+
+        :param value: Contact data to associate (string, dict, PydContact, or Contact)
+        :type value: str | dict | PydContact | Contact | list | None
+        :raises ValueError: If value cannot be resolved to a valid Contact
+        """
         from backend.validators.pydant import PydContact
         if value is None:
             value = []
@@ -144,15 +207,17 @@ class ClientLab(BaseClass):
               limit: int = 0,
               **kwargs) -> ClientLab | List[ClientLab]:
         """
-        Lookup clientlabs in the database by a number of parameters.
+        Lookup client labs in the database by various parameters.
 
-        Args:
-            id (int | None, optional): id integer of the clientlab. Defaults to None.
-            name (str | None, optional): Name of the clientlab. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            ClientLab|List[ClientLab]:
+        :param id: ID integer of the client lab
+        :type id: int | None
+        :param name: Name of the client lab (partial match)
+        :type name: str | None
+        :param limit: Maximum number of results to return (0 = all)
+        :type limit: int
+        :param kwargs: Additional keyword arguments
+        :return: Single ClientLab if id/name specified, otherwise list of ClientLab objects
+        :rtype: ClientLab | List[ClientLab]
         """
         query: Query = cls.__database_session__.query(cls)
         match id:
@@ -171,12 +236,35 @@ class ClientLab(BaseClass):
 
     @check_authorization
     def save(self):
+        """
+        Save the client lab to the database with authorization check.
+
+        Calls the parent class save method after performing authorization validation.
+        """
         super().save()
+        
 
 
 class Contact(BaseClass):
     """
-    Base of Contact
+    Represents a contact person associated with client laboratories.
+
+    This class manages contact information including name, email, phone number,
+    and relationships to client labs and submissions. It provides methods for
+    querying and managing contact data.
+
+    :ivar id: Primary key identifier for the contact
+    :vartype id: int
+    :ivar name: Full name of the contact person
+    :vartype name: str
+    :ivar email: Email address of the contact
+    :vartype name: str
+    :ivar tel: Telephone number of the contact
+    :vartype tel: str
+    :ivar _clientlab: Relationship to ClientLab objects via many-to-many association
+    :vartype _clientlab: list[ClientLab]
+    :ivar _clientsubmission: Relationship to ClientSubmission objects
+    :vartype _clientsubmission: list[ClientSubmission]
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
@@ -189,10 +277,18 @@ class Contact(BaseClass):
 
     def __init__(self, *args, **kwargs):
         """
-        Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
+        Initialize a Contact instance.
+
+        Resolves shorthand inputs (strings/dicts) for clientsubmission and clientlab
         into actual model instances before setting attributes. This allows callers
-        to pass names like 'Omega Bacterial Extraction' and have the association
-        properly wired.
+        to pass names and have the associations properly wired.
+
+        :param clientsubmission: Client submission data (string name, dict, or PydClientSubmission)
+        :type clientsubmission: str | dict | PydClientSubmission | None
+        :param clientlab: Client lab data (string name, dict, or PydClientLab)
+        :type clientlab: str | dict | PydClientLab | None
+        :param args: Positional arguments passed to parent class
+        :param kwargs: Keyword arguments passed to parent class
         """
         clientsubmission = kwargs.pop('clientsubmission', None)
         clientlab = kwargs.pop('clientlab', None)
@@ -223,10 +319,25 @@ class Contact(BaseClass):
     
     @hybrid_property
     def clientlab(self):
+        """
+        Get the list of client labs associated with this contact.
+
+        :return: List of ClientLab objects
+        :rtype: list[ClientLab]
+        """
         return self._clientlab
 
     @clientlab.setter
     def clientlab(self, value):
+        """
+        Set client labs for this contact.
+
+        Accepts various input formats and resolves them to ClientLab instances.
+
+        :param value: Client lab data to associate (string, dict, PydClientLab, or ClientLab)
+        :type value: str | dict | PydClientLab | ClientLab | list | None
+        :raises ValueError: If value cannot be resolved to a valid ClientLab
+        """
         from backend.validators.pydant import PydClientLab
         if value is None:
             value = []
@@ -259,10 +370,25 @@ class Contact(BaseClass):
 
     @hybrid_property
     def clientsubmission(self):
+        """
+        Get the list of client submissions associated with this contact.
+
+        :return: List of ClientSubmission objects
+        :rtype: list[ClientSubmission]
+        """
         return self._clientsubmission
 
     @clientsubmission.setter
     def clientsubmission(self, value):
+        """
+        Set client submissions for this contact.
+
+        Accepts various input formats and resolves them to ClientSubmission instances.
+
+        :param value: Client submission data to associate (string, dict, PydClientSubmission, or ClientSubmission)
+        :type value: str | dict | PydClientSubmission | ClientSubmission | list | None
+        :raises ValueError: If value cannot be resolved to a valid ClientSubmission
+        """
         from backend.validators.pydant import PydClientSubmission
         from backend.db.models import ClientSubmission
         if value is None:
@@ -301,17 +427,20 @@ class Contact(BaseClass):
               limit: int = 0,
               ) -> Contact | List[Contact]:
         """
-        Lookup contact in the database by a number of parameters.
+        Lookup contacts in the database by various parameters.
 
-        Args:
-            id (int | None, optional): id integer of the contact. Defaults to None.
-            name (str | None, optional): Name of the contact. Defaults to None.
-            email (str | None, optional): Email of the contact. Defaults to None.
-            tel (str | None, optional): Phone number of the contact. Defaults to None.
-            limit (int, optional): Maximum number of results to return (0 = all). Defaults to 0.
-
-        Returns:
-            Contact|List[Contact]: Contact(s) of interest.
+        :param id: ID integer of the contact
+        :type id: int | None
+        :param name: Name of the contact (exact match, title case)
+        :type name: str | None
+        :param email: Email address of the contact (exact match)
+        :type email: str | None
+        :param tel: Phone number of the contact (exact match)
+        :type tel: str | None
+        :param limit: Maximum number of results to return (0 = all)
+        :type limit: int
+        :return: Single Contact if specific parameters match, otherwise list of Contact objects
+        :rtype: Contact | List[Contact]
         """
         query: Query = cls.__database_session__.query(cls)
         match id:
