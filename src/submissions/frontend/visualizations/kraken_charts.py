@@ -33,33 +33,11 @@ class KrakenFigure(CustomFigure):
         # This is our new numeric X-axis
         df['x_pos'] = df['day_num'] + df['jitter']
 
-        # Calculate the total reads for each specific sample (meta.id)
-        # This creates a divisor specific to each bar
-        # sample_totals = df.groupby('meta.id')['kraken_assigned_reads'].transform('sum')
-        
-        # # Create the relative fraction (0.0 to 1.0)
-        # try:
-        #     # Convert to float to handle large numbers and ensure accurate division
-        #     reads = pd.to_numeric(df['kraken_assigned_reads'], errors='coerce').fillna(0).astype(float)
-        #     totals = sample_totals.astype(float)
-
-        #     # Perform division safely
-        #     df['relative_fraction'] = (reads / totals).fillna(0)
-        # except TypeError as e:
-        #     logger.error(e)
-        #     df['relative_fraction'] = 0.0
-        # except OverflowError as e:
-        #     logger.error(sample_totals)
-
-        # 3. Safe Relative Fraction calculation
-        # Use new_est_reads if available, otherwise fallback to kraken_assigned_reads
-        
-        
         sample_totals = df.groupby('meta.id')[target_col].transform('sum')
         df['relative_fraction'] = (df[target_col] / sample_totals).fillna(0)
-        object.__setattr__(self, 'df', df)
+        
         super().__init__(df=df, settings=settings, **kwargs)
-        self.df = df
+        object.__setattr__(self, 'df', df)
         self.construct_chart(df=df, start_date=start, end_date=end)
 
     def construct_datasets_and_hovers(self, mode: Literal["count", "percent"]):
@@ -71,8 +49,6 @@ class KrakenFigure(CustomFigure):
 
             hover_str = (
                 f"<b>{self.species_or_genus}: {s}</b><br>"
-                # f"Sample: %{{customdata[1]}}<br>"
-                # f"Date: %{{customdata[0]}}<br>"
                 f"Reads: %{{customdata[2]:,.0f}}<br>"
                 f"Share: %{{customdata[3]:.1%}}"
                 "<extra></extra>"

@@ -3,11 +3,11 @@ Constructs main application.
 """
 import logging, webbrowser, sys
 from pprint import pformat
-from PyQt6.QtCore import qInstallMessageHandler
+from PyQt6.QtCore import QEvent, QTimer, qInstallMessageHandler
 from PyQt6.QtWidgets import (
     QTabWidget, QWidget, QVBoxLayout,
     QHBoxLayout, QScrollArea, QMainWindow,
-    QToolBar
+    QToolBar, QApplication
 )
 from PyQt6.QtGui import QAction
 from pathlib import Path
@@ -17,7 +17,7 @@ from backend.validators.pydant import PydAbstract, PydConcrete
 from frontend.widgets.kraken_viewer import KrakenViewer
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
-    under_development
+    under_development, ctx
 )
 from .date_type_picker import DateTypePicker
 from .functions import select_save_file
@@ -27,7 +27,7 @@ from .submission_table import SubmissionsTree, ClientSubmissionRunModel
 from .submission_widget import SubmissionFormContainer
 from .summary import Summary
 from .turnaround import TurnaroundTime
-from .concentrations import Concentrations
+from .concentration_viewer import ConcentrationViewer
 from .omni_search import SearchBox
 
 logger = logging.getLogger(f'submissions.{__name__}')
@@ -64,6 +64,36 @@ class App(QMainWindow):
         self._connectActions()
         self.show()
         self.statusBar().showMessage('Ready', 5000)
+        # 1. Define the timeout in milliseconds (e.g., 5 minutes)
+        self.timeout_limit = 5 * 60 * 1000 
+        
+        # 2. Setup the idle timer
+        self.idle_timer = QTimer(self)
+        self.idle_timer.setInterval(self.timeout_limit)
+        self.idle_timer.setSingleShot(True)  # Only fire once per cycle
+        self.idle_timer.timeout.connect(self.handle_timeout)
+        self.idle_timer.start()
+
+        # 3. Monitor global events by installing a filter on the app instance
+        QApplication.instance().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        # Define events that count as "activity"
+        activity_events = {QEvent.Type.MouseMove, QEvent.Type.MouseButtonPress, 
+                           QEvent.Type.KeyPress, QEvent.Type.Wheel}
+        
+        if event.type() in activity_events:
+            self.reset_timer()
+            
+        return super().eventFilter(obj, event)
+
+    def reset_timer(self):
+        # Restarting the timer resets the countdown
+        self.idle_timer.start()
+
+    def handle_timeout(self):
+        sys.exit(ctx.run_teardown()) # Standard way to exit a PyQt6 application
+
 
     def _createMenuBar(self):
         """
@@ -270,7 +300,7 @@ class AddSubForm(QWidget):
         self.tab5.layout = QVBoxLayout(self)
         self.tab5.layout.addWidget(turnaround)
         self.tab5.setLayout(self.tab5.layout)
-        concentration = Concentrations(self)
+        concentration = ConcentrationViewer(self)
         self.tab6.layout = QVBoxLayout(self)
         self.tab6.layout.addWidget(concentration)
         self.tab6.setLayout(self.tab6.layout)

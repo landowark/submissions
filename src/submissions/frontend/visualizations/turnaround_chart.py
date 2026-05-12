@@ -19,6 +19,7 @@ class TurnaroundChart(CustomFigure):
             self.add_hline(y=threshold)
         self.update_layout(showlegend=False)
 
+    
     def construct_chart(self, df: pd.DataFrame | None = None):
         if df:
             self.df = df

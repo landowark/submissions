@@ -4,14 +4,14 @@ from pprint import pformat
 import csv, logging, re, sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Annotated, ClassVar, Generator, List, Tuple, TYPE_CHECKING
-from pydantic import AfterValidator, Field, field_validator, computed_field
+from typing import Annotated, Any, Generator, List, Tuple, TYPE_CHECKING
+from pydantic import AfterValidator, ConfigDict, Field, field_validator, computed_field
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
 from backend.validators import RSLNamer
 from backend.validators.pydant import PydConcrete
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
-from tools import Alert, Report, check_not_nan, find_first_matching_dict, report_result, row_keys, sort_dict_by_list, timezone
+from tools import Alert, Report, check_not_nan, find_first_matching_dict, row_keys, sort_dict_by_list, timezone
 if TYPE_CHECKING:
     from backend.db.models.submissions import Run
 
@@ -21,6 +21,7 @@ def ensure_list(v: Any) -> List:
     if isinstance(v, (Generator, filter, map)):
         return list(v)
     return v
+
 
 class PydResults(PydConcrete, arbitrary_types_allowed=True):
 
@@ -292,7 +293,6 @@ class PydSample(PydConcrete):
             return False
         return True
 
-    
 
 class PydEquipment(PydConcrete):
 
@@ -307,13 +307,6 @@ class PydEquipment(PydConcrete):
     calibration_date: datetime = Field(default = datetime.combine(date=datetime(year=2000, month=1, day=1), time=datetime.min.time()), 
                                        description="Date of last calibration.", validate_default=True, repr=False)
     
-    # @field_validator("calibration_date")
-    # @classmethod
-    # def validate_calibration(cls, value):
-    #     if value is None:
-    #         value = datetime(year=2000, month=1, day=1)
-    #     return value
-
     @field_validator("manufacturer", "ref", mode="before")
     @classmethod
     def validate_optional_strings(cls, value):
@@ -446,18 +439,11 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     started_date: datetime = Field(default_factory=datetime.now, repr=False)
     completed_date: datetime | None = Field(default_factory=datetime.now, repr=False)
 
-    model_config = {
-        "json_schema_extra": {
-            # "info_writer_excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
-            #    'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-            #    'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"],
-            # "improved_dict_excluded": ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
-            #                   "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
-            "excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
+    model_config = ConfigDict(
+        json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
-               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]
-        }
-    }
+               'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]}
+    )
 
     @field_validator("technician", mode="before")
     @classmethod
@@ -668,7 +654,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         q = ProcedureTypeReagentRoleAssociation.query(proceduretype=self.proceduretype, reagentrole=reagentrole, limit=1)
         return q._last_used
 
-    def update_reagents(self, reagentrole: str, name: str, lot: str, checked:bool=True):
+    def update_reagents(self, reagentrole: str, name: str, lot: str, expiry: str | None = None, checked:bool=True):
         from backend.db.models import ReagentLot
         try:
             removable = next((item for item in self.reagentlot if reagentrole == item.reagentrole), None)
@@ -682,8 +668,8 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
             idx = 0
         reagentlot = ReagentLot.query(reagent=name, lot=lot, limit=1)
         if not reagentlot:
-            logger.warning(f"Could not find reagentlot {name} to update.")
-            return
+            logger.warning(f"Could not find reagentlot {name} to update. Creating new reagentlot.")
+            reagentlot = ReagentLot(reagent=name, lot=lot, active=True)
         reagentlot = reagentlot.to_pydantic()
         insertable = PydProcedureReagentLotAssociation(reagentlot=reagentlot, procedure=self, reagentrole=reagentrole)
         if checked:
@@ -805,7 +791,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         Returns:
             Report: A Report instance.
         """
-        from backend.db.models import Reagent, ProcedureReagentLotAssociation
+        from backend.db.models import ProcedureReagentLotAssociation
         report = Report()
         expired = []
         for procedurereagentlotassociation in self.reagentlot:
@@ -828,8 +814,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     @property
     def improved_dict(self) -> dict:
         output = super().improved_dict
-        # output['excluded'] = ["excluded", "results", "sample_results", "reagentlot", "proceduresampleassociation", "procedurereagentlotassociation", "reagent",
-        #                       "procedureequipmentassociation", "platemap", "sample", "result", "equipment"]
         if isinstance(output['proceduretype'], PydProcedureType):
             output['proceduretype'] = output['proceduretype'].name
         if isinstance(output['run'], PydRun):
@@ -915,12 +899,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         return proceduretype_dict
     
     def make_procedure_platemap(self):
-        from backend.validators.pydant import PydProcedureType
         try:
             assert all([isinstance(s, PydSample) for s in self.sample])
             sample_dicts = self.sample
         except AssertionError:
-            logger.warning("Not all samples are PydSample instances; attempting to convert from SQL Sample instances.")
             sample_dicts = [s.to_pydantic() for s in self.sql_instance.proceduresampleassociation]
         html = self.proceduretype.construct_plate_map(sample_dicts=sample_dicts, creation=False, vw_modifier=1.15)
         return html
@@ -933,16 +915,6 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
  
 
 class PydClientSubmission(PydConcrete):
-
-    key_value_order: ClassVar = ["submitter_plate_id",
-                       "submitted_date",
-                       "clientlab",
-                       "contact",
-                       "contact_email",
-                       "cost_centre",
-                       "submissiontype",
-                       "sample_count",
-                       "submission_category"]
 
     filepath: Path | None = Field(default=None)
     submissiontype: dict | None
@@ -957,6 +929,26 @@ class PydClientSubmission(PydConcrete):
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
     run: List[str | PydRun | dict ] = Field(default_factory=list, repr=False)
+
+    model_config = ConfigDict(
+        json_schema_extra = {
+            "excluded": ['filepath', 
+                         'sample', 
+                         'run', 
+                         'clientsubmissionsampleassociation',
+                         'endrow', 
+                         "abbreviation"],
+            "key_value_order": ["submitter_plate_id",
+                       "submitted_date",
+                       "clientlab",
+                       "contact",
+                       "contact_email",
+                       "cost_centre",
+                       "submissiontype",
+                       "sample_count",
+                       "submission_category"]
+        }
+    )
     
     @field_validator("run", mode="before")
     @classmethod
@@ -1197,7 +1189,7 @@ class PydClientSubmission(PydConcrete):
             output['contact_email'] = output['contact']['email']
         except TypeError:
             pass
-        return sort_dict_by_list(output, self.key_value_order)
+        return sort_dict_by_list(output, self.class_config.key_value_order)
 
     @property
     def filename_template(self):
@@ -1235,6 +1227,12 @@ class PydRun(PydConcrete):
     run_cost: float | dict = Field(default=dict(value=0.0, missing=True), repr=False)
     signed_by: str | dict = Field(default="", validate_default=True, repr=False)
     procedure: List[PydProcedure] | Generator = Field(default=[], repr=False)
+
+    model_config = ConfigDict(
+        json_schema_extra = {
+            "excluded": ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath"]
+        }
+    )
 
     @property
     def sample_count(self):
@@ -1406,7 +1404,6 @@ class PydRun(PydConcrete):
     def improved_dict(self) -> dict:
         output = super().improved_dict
         output['procedure'] = [item.to_pydantic().improved_dict for item in self.sql_instance.procedure]
-        output['excluded'] = ["excluded", "sample", "procedure", "runsampleassociation", "permission", "namer", "filepath"]
         output['sample_count'] = self.sample_count
         return output
 
@@ -1493,7 +1490,13 @@ class PydProcedureSampleAssociation(PydConcrete):
     enabled: bool = Field(default=True)
     is_control: int = Field(default=0, repr=False)
 
-    renderclass: ClassVar[str] = "sample"
+    model_config = ConfigDict(
+        json_schema_extra = {
+            'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
+                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled'],
+            "renderclass": "sample"
+        }
+    )
 
     @field_validator("row", mode="before")
     @classmethod
@@ -1531,8 +1534,7 @@ class PydProcedureSampleAssociation(PydConcrete):
         output = super().improved_dict
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
-        output['excluded'] = ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
-                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled']
+        
         return output
     
     

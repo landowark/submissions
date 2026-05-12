@@ -1,14 +1,15 @@
 """
 Contains widgets specific to the procedure summary and procedure details.
 """
-import sys, logging
+from datetime import date
+import sys, logging, asyncio
 from operator import itemgetter
 from pprint import pformat
 from PyQt6.QtWidgets import QMenu, QTreeView, QAbstractItemView
-from PyQt6.QtCore import QModelIndex, Qt
+from PyQt6.QtCore import QModelIndex, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QCursor, QStandardItemModel, QStandardItem, QContextMenuEvent
-from typing import List
-from tools import get_application_from_parent
+from typing import List, Dict, Any
+from tools import datetime, get_application_from_parent
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -17,6 +18,9 @@ class SubmissionsTree(QTreeView):
     """
     https://stackoverflow.com/questions/54385437/how-can-i-make-a-table-that-can-collapse-its-rows-into-categories-in-qt
     """
+
+    clientsubmissionExpanded = pyqtSignal(QModelIndex)
+    runExpanded = pyqtSignal(QModelIndex)
 
     def __init__(self, model, parent=None):
         super(SubmissionsTree, self).__init__(parent)
@@ -55,6 +59,18 @@ class SubmissionsTree(QTreeView):
         for ii, _ in enumerate(header_labels):
             self.resizeColumnToContents(ii)
         self.sortByColumn(3, Qt.SortOrder.DescendingOrder)
+        self.expanded.connect(self._route_expansion)
+
+    def _route_expansion(self, index: QModelIndex):
+        item_type = index.data(1).get("item_type")
+        print(f"Class: {item_type.__name__} at row {index.row()} with parent {index.parent().data()}")
+        match item_type.__name__:
+            case "ClientSubmission":
+                self.clientsubmissionExpanded.emit(index)
+            case "Run":
+                self.runExpanded.emit(index)
+            case _:
+                logger.warning(f"Unknown item type expanded: {item_type.__name__}")
 
     def contextMenuEvent(self, event: QContextMenuEvent):
         """
@@ -107,9 +123,9 @@ class SubmissionsTree(QTreeView):
         #     [item.details_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
         #     key=itemgetter('submitted_date'), reverse=True
         # )
-        self.data = sorted(
-            [item.to_pydantic().improved_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)], 
-            key=itemgetter('submitted_date'), reverse=True)
+        subs = [item.to_pydantic().improved_dict
+                for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
+        self.data = sorted(subs, key=itemgetter('submitted_date'), reverse=True)
         root = self.model.invisibleRootItem()
         for submission in self.data:
             group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
@@ -121,18 +137,44 @@ class SubmissionsTree(QTreeView):
                 query_str=submission['submitter_plate_id'],
                 item_type=ClientSubmission
             ), additions=True)
-            for run in submission['run']:
-                run_item = self.model.add_child(parent=submission_item, child=dict(
-                    name=run['plate_number'],
-                    query_str=run['plate_number'],
-                    item_type=Run
-                ))
-                for procedure in run['procedure']:
-                    procedure_item = self.model.add_child(parent=run_item, child=dict(
-                        name=procedure,
-                        query_str=procedure,
-                        item_type=Procedure
-                    ))
+            asyncio.run(self._process_runs_async(submission['run'], submission_item, Run, Procedure))
+
+    async def _process_runs_async(self, runs: List[Dict[str, Any]], submission_item: QStandardItem, run_type: type, procedure_type: type) -> None:
+        """
+        Asynchronously process all runs for a submission.
+        
+        Args:
+            runs: List of run dictionaries
+            submission_item: The parent QStandardItem for the submission
+            run_type: The type of run to process
+            procedure_type: The type of procedure to process
+        """
+        for run in runs:
+            run_item = self.model.add_child(parent=submission_item, child=dict(
+                name=run['plate_number'],
+                query_str=run['plate_number'],
+                item_type=run_type
+            ))
+            await self._process_procedures_async(run['procedure'], run_item, procedure_type)
+            await asyncio.sleep(0)  # Allow other tasks to run
+
+    async def _process_procedures_async(self, procedures: List[Any], run_item: QStandardItem, procedure_type: type) -> None:
+        """
+        Asynchronously process all procedures for a run.
+        
+        Args:
+            procedures: List of procedure dictionaries or names
+            run_item: The parent QStandardItem for the run
+            procedure_type: The type of procedure to process
+        """
+        for procedure in procedures:
+            procedure_item = self.model.add_child(parent=run_item, child=dict(
+                name=procedure['name'] if isinstance(procedure, dict) else procedure,
+                query_str=procedure['name'] if isinstance(procedure, dict) else procedure,
+                item_type=procedure_type
+            ))
+            await asyncio.sleep(0)  # Allow other tasks to run
+
 
     def _populateTree(self, children, parent):
         for child in children:
@@ -159,11 +201,20 @@ class ClientSubmissionRunModel(QStandardItemModel):
         super().__init__(parent)
 
     def add_child(self, parent: QStandardItem, child:dict, additions:bool=False) -> QStandardItem:
-        item = QStandardItem(child['name'])
+        # logger.debug(f"Adding child with data: {pformat(child['name'])}")
+        try:
+            item = QStandardItem(child['name'])
+        except Exception as e:
+            logger.error(f"Error creating QStandardItem:{child['name']}")
+            # raise e
+            item = QStandardItem("Unknown")
         item.setData(dict(item_type=child['item_type'], query_str=child['query_str']), 1)
         if additions:
             item_client = QStandardItem(child['client'])
-            item_date = QStandardItem(child['date'])
+            if isinstance(child['date'], str):
+                item_date = QStandardItem(child['date'])
+            elif isinstance(child['date'], (date, datetime)):
+                item_date = QStandardItem(child['date'].strftime("%Y-%m-%d"))
             item_type = QStandardItem(child['type'])
             parent.appendRow([item, item_type, item_client, item_date])
         else:

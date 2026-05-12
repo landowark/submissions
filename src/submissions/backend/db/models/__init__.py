@@ -972,7 +972,7 @@ class BaseClass(Base):
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)
                 else:
-                    return cls.sanitize_obj_for_json(obj_.details_dict, expand=expand)
+                    return cls.sanitize_obj_for_json(obj_.to_pydantic().improved_dict, expand=expand)
             case x if issubclass(obj_.__class__, PydBaseClass):
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)

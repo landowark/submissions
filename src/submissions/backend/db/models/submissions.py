@@ -3,6 +3,7 @@ Models for the main procedure and sample types.
 """
 from __future__ import annotations
 from getpass import getuser
+from random import sample
 import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
 from uuid import uuid4
 from inspect import isclass
@@ -22,10 +23,10 @@ from tools import (check_authorization, flatten_list, setup_lookup, jinja_templa
                    is_power_user, row_map, timezone, Report)
 from datetime import datetime, date
 from dateutil.parser import parse as dateparse, ParserError
-from typing import List, TYPE_CHECKING
+from typing import Generator, List, TYPE_CHECKING, Literal, Set
 from pathlib import Path
 if TYPE_CHECKING:
-    from backend.db.models.procedures import ProcedureType, Procedure
+    from backend.db.models.procedures import ProcedureType, Procedure, Results
     from backend.validators.pydant import PydSample
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -513,18 +514,56 @@ class ClientSubmission(BaseClass, LogMixin):
             output['excluded'] += excl
         except KeyError:
             output['excluded'] = excl
-        output['expanded'] = ["clientlab", "contact", "submission_type"]
+        # output['expanded'] = ["clientlab", "contact", "submission_type"]
         return output
 
     def to_pydantic(self, filepath: Path | str | None = None, **kwargs):
         output = super().to_pydantic(filepath=filepath, **kwargs)
         return output
+    
+    def completed_runs(self) -> Generator[Run, None, None]:
+        """
+        Gets list of runs associated with this submission that have a completed date.
 
-    # def to_html(self, **kwargs):
-    #     details = self.details_dict_expand_fields(fields=[{"run":['procedure']}, "sample"])
-    #     details['excluded'] = ["comment"]
-    #     output = super().to_html(**details)
-    #     return output
+        Returns:
+            List[Run]: List of completed runs
+        """
+        return (run for run in self.run if run.completed_date is not None)
+
+    @property
+    def completed_date(self) -> datetime | None:
+        """
+        Gets the completed date of the run associated with this submission. If no run or completed_date, returns None.
+
+        Returns:
+            datetime | None: Completed date of the run or None if no run or completed_date
+        """
+        try:
+            run = next(self.completed_runs())
+            return run.completed_date
+        except (StopIteration, AttributeError):
+            logger.warning("No run associated with this submission, cannot get completed date.")
+            return None
+
+    @property
+    def turnaround_time(self) -> int | None:
+        """
+        Calculates turnaround time in days from submitted_date to completed_date of the run. If no run or completed_date, returns None.
+
+        Returns:
+            int | None: Turnaround time in days or None if no run or completed_date
+        """
+        try:
+            if self.completed_date is None:
+                return None
+            return (self.completed_date - self.submitted_date).days
+        except IndexError:
+            logger.warning("No run associated with this submission, cannot calculate turnaround time.")
+            return None
+    
+    @property
+    def met_turnaround_time(self):
+        return self.turnaround_time < self.submissiontype.turnaround_time.days if self.turnaround_time is not None and self.submissiontype.turnaround_time is not None else False
 
     @classmethod
     def get_lab_submissions_by_day(cls, clientlab: ClientLab | None = None, search_date: date | None = None):
@@ -560,6 +599,32 @@ class ClientSubmission(BaseClass, LogMixin):
                 obj.set_data()
             except AttributeError:
                 logger.error("App will not refresh data at this time.")
+
+    def get_procedure_sample_results(self, include=Set[Literal['positive', 'negative', 'samples']]) -> Generator[Results, None, None]:
+        """
+        Gets samples associated with this submission that are controls based on their sample_id starting with "blank", "na", "none", or being empty.
+
+        Returns:
+            list: List of control samples
+        """
+        for run in self.run:
+            if run.completed_date is None:
+                logger.warning(f"Run {run.name} has no completed date, skipping.")
+                continue
+            for procedure in run.procedure:
+                logger.debug(f"Checking procedure {procedure.name} for samples.")
+                for proceduresampleassociation in procedure.proceduresampleassociation:
+                    logger.debug(f"Checking sample {proceduresampleassociation.sample.sample_id} with control status {proceduresampleassociation.sample.is_control}.")
+                    if proceduresampleassociation.sample.is_control == 1 and "positive" not in include:
+                        continue
+                    elif proceduresampleassociation.sample.is_control == 0 and "samples" not in include:
+                        continue
+                    elif proceduresampleassociation.sample.is_control == -1 and "negative" not in include:
+                        continue
+                    else:
+                        for result in proceduresampleassociation.results:
+                            yield result
+                            
 
 
 class Run(BaseClass, LogMixin):
@@ -1059,7 +1124,6 @@ class Run(BaseClass, LogMixin):
                         else:
                             field_value = dict(value=self.__getattribute__(key), missing=missing)
                     except AttributeError:
-                        logger.warning(f"{key} is not available in {self}")
                         field_value = dict(value="NA", missing=True)
             new_dict[key] = field_value
         new_dict['filepath'] = Path(tempfile.TemporaryFile().name)
@@ -1237,7 +1301,7 @@ class Run(BaseClass, LogMixin):
         for widget in obj.app.table_widget.formwidget.findChildren(SubmissionFormWidget):
             widget.setParent(None)
         pyd = self.to_pydantic()
-        form = pyd.to_form(parent=obj, disable=['name'])
+        form = pyd.html_form(parent=obj, disable=['name'])
         obj.app.table_widget.formwidget.layout().addWidget(form)
 
     def add_comment(self, obj):

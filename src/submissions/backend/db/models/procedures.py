@@ -628,8 +628,8 @@ class ReagentLot(BaseClass):
         self.procedurereagentlotassociation = list_
 
     @hybrid_property
-    def expiry(self):
-        return self._expiry if self._expiry else None
+    def expiry(self) -> datetime:
+        return self._expiry if self._expiry else datetime(year=2099, month=12, day=31, hour=23, minute=59, second=59, tzinfo=timezone)
 
     @expiry.setter
     def expiry(self, value):
@@ -649,8 +649,7 @@ class ReagentLot(BaseClass):
                     try:
                         output = dateparse(string.replace("-", ""))
                     except Exception as e:
-                        logger.error(f"Problem with parse fallback: {e}")
-                        return value
+                        raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
             case _:
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
         output = datetime.combine(output, datetime.max.time())
@@ -3548,7 +3547,7 @@ class Equipment(BaseClass, LogMixin):
 
     @hybrid_property
     def calibration_date(self):
-        return self._calibration_date or datetime.combine(date=datetime(year=2000, month=1, day=1), time=datetime.min.time())
+        return self._calibration_date or datetime(year=2000, month=1, day=1, hour=0, minute=0, second=0, tzinfo=timezone)
     
     @calibration_date.setter
     def calibration_date(self, value):
@@ -3572,7 +3571,7 @@ class Equipment(BaseClass, LogMixin):
                 raise ValueError(f"Unmatched value {value['value']} for {self.__class__.__qualname__}.expiry")
         output = datetime.combine(output, datetime.min.time())
         value = output.replace(tzinfo=timezone)
-        self._expiry = value
+        self._calibration_date = value
 
     @classmethod
     @setup_lookup
@@ -3760,10 +3759,25 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def equipmentrole(self):
+        """
+        Return the equipment roles assigned to this equipment.
+
+        :return: list of EquipmentRole objects associated with this equipment.
+        :rtype: List[EquipmentRole]
+        """
         return self._equipmentrole
 
     @equipmentrole.setter
     def equipmentrole(self, value):
+        """
+        Set equipment roles for this equipment from flexible input types.
+
+        Accepts string names, dictionaries, Pydantic models, or EquipmentRole instances.
+
+        :param value: Equipment role data or instance to assign.
+        :type value: str | dict | PydEquipmentRole | EquipmentRole | list
+        :return: None
+        """
         from backend.validators.pydant import PydEquipmentRole
         match value:
             case str():
@@ -3963,10 +3977,25 @@ class Process(BaseClass):
     
     @hybrid_property
     def processversion(self):
+        """
+        Return the list of process versions associated with this process.
+
+        :return: list of ProcessVersion objects for this process.
+        :rtype: list[ProcessVersion]
+        """
         return self._processversion
 
     @processversion.setter
     def processversion(self, value):
+        """
+        Set process versions for this process from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or ProcessVersion instances.
+
+        :param value: Process version data or instance to assign.
+        :type value: str | dict | PydProcessVersion | ProcessVersion | list | None
+        :return: None
+        """
         from backend.validators.pydant import PydProcessVersion
         if value is None:
             value = []
@@ -3996,10 +4025,25 @@ class Process(BaseClass):
 
     @hybrid_property
     def tips(self):
+        """
+        Return the list of tip types used in this process.
+
+        :return: list of Tips objects for this process.
+        :rtype: list[Tips]
+        """
         return self._tips
 
     @tips.setter
     def tips(self, value):
+        """
+        Set tip types for this process from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or Tips instances.
+
+        :param value: Tips data or instance to assign.
+        :type value: str | dict | PydTips | Tips | list | None
+        :return: None
+        """
         from backend.validators.pydant import PydTips
         if value is None:
             value = []
@@ -4198,10 +4242,25 @@ class ProcessVersion(BaseClass):
 
     @hybrid_property
     def process(self):
+        """
+        Return the parent process for this version.
+
+        :return: Process object associated with this version.
+        :rtype: Process
+        """
         return self._process
 
     @process.setter
     def process(self, value):
+        """
+        Set the parent process for this version from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or Process instances.
+
+        :param value: Process data or instance to assign.
+        :type value: str | dict | PydProcess | Process | None
+        :return: None
+        """
         from backend.validators.pydant import PydProcess
         match value:
             case str():
@@ -4366,10 +4425,27 @@ class Tips(BaseClass):
 
     @hybrid_property
     def cost_per_tip(self):
+        """
+        Get the cost per individual tip.
+
+        Returns 0.00 if cost is not set or is negative.
+
+        :return: Cost per tip in currency units.
+        :rtype: float
+        """
         return self._cost_per_tip if self._cost_per_tip else 0.00
     
     @cost_per_tip.setter
     def cost_per_tip(self, value):
+        """
+        Set the cost per individual tip from flexible input types.
+
+        Accepts int, float, or string representations of numeric cost values.
+
+        :param value: Cost per tip, negative values converted to 0.00.
+        :type value: int | float | str | None
+        :return: None
+        """
         if value is None or value < 0:
             value = 0.00
         match value:
@@ -4388,10 +4464,25 @@ class Tips(BaseClass):
 
     @hybrid_property
     def process(self):
+        """
+        Get the processes associated with these tips.
+
+        :return: list of Process objects using these tips.
+        :rtype: list[Process]
+        """
         return self._process
 
     @process.setter
     def process(self, value):
+        """
+        Set processes for these tips from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or Process instances.
+
+        :param value: Process data or instance to assign.
+        :type value: str | dict | PydProcess | Process | list | None
+        :return: None
+        """
         from backend.validators.pydant import PydProcess
         if value is None:
             value = []
@@ -4421,10 +4512,25 @@ class Tips(BaseClass):
     
     @hybrid_property
     def tipslot(self):
+        """
+        Get the tip lots available for this tip type.
+
+        :return: list of TipsLot objects representing specific lots of these tips.
+        :rtype: list[TipsLot]
+        """
         return self._tipslot
 
     @tipslot.setter
     def tipslot(self, value):
+        """
+        Set tip lots for this tip type from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or TipsLot instances.
+
+        :param value: TipsLot data or instance to assign.
+        :type value: str | dict | PydTipsLot | TipsLot | list
+        :return: None
+        """
         from backend.validators.pydant import PydTipsLot
         if not isinstance(value, list):
             value = [value]
@@ -4587,10 +4693,25 @@ class TipsLot(BaseClass, LogMixin):
 
     @hybrid_property
     def expiry(self) -> str:
-        return self._expiry if self._expiry else None
+        """
+        Get the expiry date for this tip lot.
+
+        :return: expiry timestamp, or None if not set.
+        :rtype: datetime | None
+        """
+        return self._expiry if self._expiry else datetime(year=2099, month=12, day=31, hour=23, minute=59, second=59, tzinfo=timezone)
 
     @expiry.setter
     def expiry(self, value):
+        """
+        Set the expiry date for this tip lot from various input formats.
+
+        Accepts datetime, date, timestamp integer, or date string.
+
+        :param value: Expiry date value in various formats.
+        :type value: datetime | date | int | str
+        :return: None
+        """
         match value:
             case datetime():
                 output = value
@@ -4616,10 +4737,25 @@ class TipsLot(BaseClass, LogMixin):
     
     @hybrid_property
     def tips(self):
+        """
+        Get the tip type for this lot of tips.
+
+        :return: Tips object representing the tip type.
+        :rtype: Tips
+        """
         return self._tips
 
     @tips.setter
     def tips(self, value):
+        """
+        Set the tip type for this lot from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or Tips instances.
+
+        :param value: Tips data or instance to assign.
+        :type value: str | dict | PydTips | Tips | None
+        :return: None
+        """
         from backend.validators.pydant import PydTips
         match value:
             case str():
@@ -4642,10 +4778,25 @@ class TipsLot(BaseClass, LogMixin):
     
     @hybrid_property
     def procedureequipmenttipslotassociation(self):
+        """
+        Get the procedure-equipment-tipslot associations for this tip lot.
+
+        :return: list of ProcedureEquipmentTipslotAssociation objects.
+        :rtype: list[ProcedureEquipmentTipslotAssociation]
+        """
         return self._procedureequipmenttipslotassociation
 
     @procedureequipmenttipslotassociation.setter
     def procedureequipmenttipslotassociation(self, value):
+        """
+        Set procedure-equipment-tipslot associations for this tip lot.
+
+        Accepts dict or ProcedureEquipmentTipslotAssociation instances.
+
+        :param value: Association data or instance to assign.
+        :type value: dict | ProcedureEquipmentTipslotAssociation | ProcedureEquipmentAssociation | list | None
+        :return: None
+        """
         if value is None:
             value = []
         if not isinstance(value, list):
@@ -4708,10 +4859,27 @@ class TipsLot(BaseClass, LogMixin):
 
     @hybrid_property
     def active(self):
+        """
+        Get the active status flag for this tip lot.
+
+        :return: True if tips are active, False otherwise.
+        :rtype: bool
+        """
         return bool(self._active)
 
     @active.setter
     def active(self, value):
+        """
+        Set the active status flag for this tip lot from flexible input types.
+
+        Accepts int, bool, or string representations of boolean values.
+
+        :param value: Active status value.
+        :type value: int | bool | str
+        :return: None
+        :raises ValueError: If string value cannot be converted to boolean.
+        :raises TypeError: If type is not supported.
+        """
         match value:
             case int():
                 output = value
@@ -4868,6 +5036,12 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     @hybrid_property
     def procedureequipmentassociation(self):
+        """
+        Get the parent procedure-equipment association for this tipslot binding.
+
+        :return: ProcedureEquipmentAssociation object linking procedure and equipment.
+        :rtype: ProcedureEquipmentAssociation
+        """
         return self._procedureequipmentassociation
 
     @procedureequipmentassociation.setter
@@ -4896,10 +5070,25 @@ class ProcedureEquipmentTipslotAssociation(BaseClass):
 
     @hybrid_property
     def tipslot(self):
+        """
+        Get the tip lot assigned to this procedure-equipment association.
+
+        :return: TipsLot object representing specific tip lot.
+        :rtype: TipsLot
+        """
         return self._tipslot
 
     @tipslot.setter
     def tipslot(self, value):
+        """
+        Set the tip lot for this procedure-equipment association from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or TipsLot instances.
+
+        :param value: TipsLot data or instance to assign.
+        :type value: str | dict | PydTipsLot | TipsLot | None
+        :return: None
+        """
         from backend.validators.pydant.concrete import PydTipsLot
         match value:
             case str():
@@ -5085,12 +5274,28 @@ class ProcedureEquipmentAssociation(BaseClass):
         :rtype: List[str]
         """
         return super().aliases + ["equipmentprocedureassociation"]
+    
     @hybrid_property
     def tipslot(self):
+        """
+        Get the tip lots associated with this procedure-equipment use.
+
+        :return: list of TipsLot objects used during this procedure.
+        :rtype: list[TipsLot]
+        """
         return self._tipslot
 
     @tipslot.setter
     def tipslot(self, value):
+        """
+        Set tip lots for this procedure-equipment association from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or TipsLot instances.
+
+        :param value: TipsLot data or instances to assign.
+        :type value: str | dict | PydTipsLot | TipsLot | list
+        :return: None
+        """
         from backend.validators.pydant.concrete import PydTipsLot
         if not isinstance(value, list):
             value = [value]
@@ -5119,10 +5324,25 @@ class ProcedureEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def equipmentrole(self):
+        """
+        Get the equipment role used for this procedure-equipment association.
+
+        :return: EquipmentRole object defining the role of the equipment.
+        :rtype: EquipmentRole
+        """
         return self._equipmentrole
 
     @equipmentrole.setter
     def equipmentrole(self, value):
+        """
+        Set the equipment role for this procedure-equipment association from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or EquipmentRole instances.
+
+        :param value: EquipmentRole data or instance to assign.
+        :type value: str | dict | PydEquipmentRole | EquipmentRole
+        :return: None
+        """
         from backend.validators.pydant import PydEquipmentRole
         match value:
             case str():
@@ -5145,10 +5365,25 @@ class ProcedureEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def equipment(self):
+        """
+        Get the equipment used for this procedure-equipment association.
+
+        :return: Equipment object used during this procedure.
+        :rtype: Equipment
+        """
         return self._equipment
 
     @equipment.setter
     def equipment(self, value):
+        """
+        Set the equipment for this procedure-equipment association from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or Equipment instances.
+
+        :param value: Equipment data or instance to assign.
+        :type value: str | dict | PydEquipment | Equipment
+        :return: None
+        """
         from backend.validators.pydant import PydEquipment
         match value:
             case str():
@@ -5171,10 +5406,25 @@ class ProcedureEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def procedure(self):
+        """
+        Get the procedure for this equipment-procedure association.
+
+        :return: Procedure object using this equipment.
+        :rtype: Procedure
+        """
         return self._procedure
 
     @procedure.setter
     def procedure(self, value):
+        """
+        Set the procedure for this equipment association from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or Procedure instances.
+
+        :param value: Procedure data or instance to assign.
+        :type value: str | dict | PydProcedure | Procedure
+        :return: None
+        """
         from backend.validators.pydant import PydProcedure
         match value:
             case str():
@@ -5197,10 +5447,25 @@ class ProcedureEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def processversion(self):
+        """
+        Get the process version used for this equipment-procedure activity.
+
+        :return: ProcessVersion object describing the process method used.
+        :rtype: ProcessVersion | None
+        """
         return self._processversion
 
     @processversion.setter
     def processversion(self, value):
+        """
+        Set the process version for this equipment association from flexible input types.
+
+        Accepts string names, dicts, Pydantic models, or ProcessVersion instances.
+
+        :param value: ProcessVersion data or instance to assign.
+        :type value: str | dict | PydProcessVersion | ProcessVersion | None
+        :return: None
+        """
         from backend.validators.pydant import PydProcessVersion
         match value:
             case str():
@@ -5222,6 +5487,12 @@ class ProcedureEquipmentAssociation(BaseClass):
     
     @hybrid_property
     def name(self):
+        """
+        Get the display name for this equipment-procedure association.
+
+        :return: Formatted name combining procedure and equipment names.
+        :rtype: str
+        """
         try:
             equipment = self.equipment.name
         except AttributeError:
@@ -5234,6 +5505,12 @@ class ProcedureEquipmentAssociation(BaseClass):
 
     @name.expression
     def name(cls):
+        """
+        SQL expression for computing the name in database queries.
+
+        :return: SQLAlchemy expression for concatenating procedure and equipment names.
+        :rtype: sqlalchemy.sql.elements.BinaryExpression
+        """
         procedure_subquery = (
             select(Procedure.name)
             .where(Procedure.id==cls.procedure_id)

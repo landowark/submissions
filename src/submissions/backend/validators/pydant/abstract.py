@@ -376,7 +376,6 @@ class PydProcedureType(PydAbstract):
             return (row_idx * self.plate_columns) + (col_idx + 1)
 
 
-
 class PydProcedureTypeReagentRoleAssociation(PydAbstract):
 
     proceduretype: str = Field(default="NA")

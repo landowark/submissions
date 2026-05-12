@@ -487,6 +487,30 @@ def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts
                 return False
 
 
+def find_paths_to_value(data, target_value, current_path=None, results=None):
+    """
+    Iterates through a nested dictionary and returns a list of paths 
+    (as lists of keys) that lead to the specified target_value.
+    """
+    if current_path is None:
+        current_path = []
+    if results is None:
+        results = []
+
+    for key, value in data.items():
+        # Add the current key to the path for this branch
+        new_path = current_path + [key]
+        
+        # Check if we've found the value
+        if value == target_value:
+            results.append(new_path)
+        
+        # If the value is another dictionary, recurse deeper
+        if isinstance(value, dict):
+            find_paths_to_value(value, target_value, new_path, results)
+    return results
+
+
 def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:
     output = OrderedDict()
     for item in order_list:

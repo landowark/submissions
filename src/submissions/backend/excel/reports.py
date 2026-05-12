@@ -8,12 +8,12 @@ from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
 from typing import Tuple, List, TYPE_CHECKING
-from backend.db.models import Procedure
+from backend.db.models import Procedure 
 from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 if TYPE_CHECKING:
-    from backend.db.models import Run
+    from backend.db.models import ClientSubmission, Results
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -161,66 +161,66 @@ class ReportMaker(object):
 class TurnaroundMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type: str):
-        from backend.db.models import Run
+        from backend.db.models import ClientSubmission
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = Run.query(start_date=start_date, end_date=end_date,
-                                   submissiontype_name=submission_type, page_size=0)
+        self.subs = ClientSubmission.query(start_date=start_date, end_date=end_date,
+                                   submissiontype=submission_type, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
         self.sheet_name = "Turnaround"
 
     @classmethod
-    def build_record(cls, sub: Run) -> dict:
+    def build_record(cls, sub: ClientSubmission) -> dict:
         """
         Build a turnaround dictionary from a procedure
 
         Args:
-            sub (BasicRun): The procedure to be processed.
+            sub (ClientSubmission): The procedure to be processed.
 
         Returns:
 
         """
-        return dict(name=str(sub.rsl_plate_number), days=sub.turnaround_time, submitted_date=sub.started_date,
-                    completed_date=sub.completed_date, acceptable=sub.met_turnaround())
+        return dict(name=str(sub.submitter_plate_id), days=sub.turnaround_time, submitted_date=sub.submitted_date,
+                    completed_date=sub.completed_date, acceptable=sub.met_turnaround_time)
 
 
 class ConcentrationMaker(ReportArchetype):
 
     def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture",
                  include: List[str] = []):
-        from backend.db.models import Run
+        from backend.db.models import ClientSubmission
+        logger.debug(f"Initializing ConcentrationMaker with start_date={start_date}, end_date={end_date}, submission_type={submission_type}, include={include}")
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
-        self.subs = Run.query(start_date=start_date, end_date=end_date,
-                                   submissiontype_name=submission_type, page_size=0)
-        try:
-            self.samples = flatten_list([sub.get_provisional_controls(include=include) for sub in self.subs])
-        except AttributeError:
-            self.samples = []
-        self.records = [self.build_record(sample) for sample in self.samples]
-        self.df = DataFrame.from_records(self.records)
+        self.subs = ClientSubmission.query(start_date=start_date, end_date=end_date,
+                                   submissiontype=submission_type, page_size=0)
+        
+        self.results = []
+        for clientsubmission in self.subs:
+            for result in clientsubmission.get_procedure_sample_results(include=[s.lower() for s in include]):
+                output = self.build_record(result)
+                self.results.append(output)
+        self.df = DataFrame.from_records(self.results)
+        logger.debug(self.df)
         self.sheet_name = "Concentration"
 
     @classmethod
-    def build_record(cls, control) -> dict:
-        regex = re.compile(r"^(ATCC)|(MCS)", flags=re.IGNORECASE)
-        if bool(regex.match(control.sample_id)):
-            positive = "positive"
-        elif control.sample_id.lower().startswith("en"):
-            positive = "negative"
-        else:
-            positive = "sample"
-        try:
-            concentration = float(control.concentration)
-        except (TypeError, ValueError):
-            concentration = 0.0
-        return dict(name=control.sample_id,
-                    submission=str(control.clientsubmission), concentration=concentration,
-                    submitted_date=control.submitted_date, positive=positive)
-
+    def build_record(cls, results: Results) -> dict:
+        sample = results.sampleprocedureassociation.sample
+        match sample.is_control:
+            case 1:
+                control_type = "Positive Control"
+            case -1:
+                control_type = "Negative Control"
+            case _:
+                control_type = "Sample"
+        procedure = results.procedure.name
+        output = results.result
+        output.update(dict(control_type=control_type, procedure=procedure, sample_id=sample.sample_id, submitted_date=results.procedure.run.clientsubmission.submitted_date))
+        return output
 
 class ChartReportMaker(ReportArchetype):
 

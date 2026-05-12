@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class Concentrations(InfoPane):
+class ConcentrationViewer(InfoPane):
 
     def __init__(self, parent: QWidget):
         from .. import CheckableComboBox
@@ -48,5 +48,10 @@ class Concentrations(InfoPane):
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date,
                               include=include)
         self.report_obj = ConcentrationMaker(**chart_settings)
+        logger.debug(f"Report DataFrame:\n{self.report_obj.df}")
+        if self.report_obj.df.empty:
+            logger.warning("No data available for the selected date range and control types.")
+            self.webview.setHtml("<h3>No data available for the selected date range and control types.</h3>")
+            return
         self.fig = ConcentrationsChart(df=self.report_obj.df, settings=chart_settings, modes=[], months=months)
         self.webview.setHtml(self.fig.html)

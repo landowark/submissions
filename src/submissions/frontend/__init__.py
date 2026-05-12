@@ -4,7 +4,7 @@ Constructs main application.
 from .widgets import (
     pandasModel,
     App,
-    Concentrations,
+    ConcentrationViewer,
     ControlsViewer,
     DateTypePicker,
     # EquipmentUsage, RoleComboBox,

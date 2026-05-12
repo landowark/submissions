@@ -7,6 +7,7 @@ from PyQt6.QtCore import QMarginsF
 from PyQt6.QtGui import QPageLayout, QPageSize
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QMainWindow, QFileDialog
+from tools import get_application_from_parent
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -62,15 +63,14 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
     Returns:
         Path: Path of file to be opened
     """
+    app = get_application_from_parent(obj)
     try:
-        home_dir = obj.last_dir.joinpath(default_name).resolve().__str__()
+        home_dir = app.last_dir.joinpath(default_name).resolve().__str__()
     except FileNotFoundError:
         home_dir = Path.home().joinpath(default_name).resolve().__str__()
-    except AttributeError:
-        home_dir = obj.app.last_dir.joinpath(default_name).resolve().__str__()
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])
-    if obj:
-        obj.last_dir = fname.parent
+    if app:
+        app.last_dir = fname.parent
     return fname
 
 

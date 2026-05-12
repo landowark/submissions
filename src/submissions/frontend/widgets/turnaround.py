@@ -49,7 +49,7 @@ class TurnaroundTime(InfoPane):
             subtype_obj = SubmissionType.query(name = submission_type)
         self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date, submission_type=submission_type)
         if subtype_obj:
-            threshold = subtype_obj.defaults['turnaround_time'] + 0.5
+            threshold = subtype_obj.turnaround_time.days + 0.5
         else:
             threshold = None
         self.fig = TurnaroundChart(df=self.report_obj.df, settings=chart_settings, modes=[], threshold=threshold, months=months)

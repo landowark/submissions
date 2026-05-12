@@ -250,6 +250,8 @@ class KrakenViewer(InfoPane):
                     raise e
             else:
                 date_obj = datetime.strptime(sample['createdAt'], "%Y-%m-%dT%H:%M:%SZ")
+            if date_obj < self.start_date and date_obj > self.end_date:
+                continue
             if metadata_only:
                 sample['data'] = self.read_metadata(sample['metadata'])
                 sample['filename'] = "metadata"
@@ -269,7 +271,6 @@ class KrakenViewer(InfoPane):
                                 item['name'] = clean_string(item['name'].split(" ")[0])
                             sample["filename"] = filename,
                             sample["data"] = csv_data
-                            
             try:
                 del sample['metadata']
             except KeyError:
@@ -278,10 +279,8 @@ class KrakenViewer(InfoPane):
                 for item in sample['data']:
                     item['submitted_date'] = date_obj
             except KeyError:
-                pass
-            if date_obj >= self.start_date and date_obj <= self.end_date:
-                output.append(sample)
-        logger.debug(f"Final output data: {pformat(output)}")
+                continue
+            output.append(sample)
         return output
             
 
@@ -363,10 +362,15 @@ class KrakenViewer(InfoPane):
             months=months,
             species_or_genus = "Species" if self.metadata_box.isChecked() else "Genus"
         )
-        df = pd.json_normalize(
-            self.data, 
-            record_path=['data']
-        )
+        try:
+            df = pd.json_normalize(
+                self.data, 
+                record_path=['data']
+            )
+        except KeyError as e:
+            
+            logger.error(f"Data structure: {pformat([item.keys() for item in self.data])}")
+            raise e
         if not self.metadata_box.isChecked():
             df = self.merge_genera(df)
         self.fig = KrakenFigure(df=df, settings=chart_settings)
@@ -374,14 +378,14 @@ class KrakenViewer(InfoPane):
         if issubclass(self.fig.__class__, KrakenFigure):
             self.save_button.setEnabled(True)
         # NOTE: construct html for webview
-        if self.metadata_box.isChecked():
-            name = "metadata"
-        else:
-            name = "fulldata"
-        try:
-            self.fig.df.to_csv(f"{name}_test.csv")
-        except PermissionError:
-            pass
+        # if self.metadata_box.isChecked():
+        #     name = "metadata"
+        # else:
+        #     name = "fulldata"
+        # try:
+        #     self.fig.df.to_csv(f"{name}_test.csv")
+        # except PermissionError:
+        #     pass
         self.webview.setHtml(self.fig.html)
         self.webview.update()
         return report

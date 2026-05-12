@@ -5,13 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 import logging, sys, string, inspect
 from pprint import pformat
-from jinja2 import TemplateNotFound
+from jinja2 import Template, TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
-from typing import Any, ClassVar, Generator, List
+from typing import Any, Generator, List
 from types import UnionType
-from tools import classproperty, jinja_template_loading, row_keys
+from tools import classproperty, jinja_template_loading, row_keys, DotDict
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
@@ -31,7 +31,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     model_config = ConfigDict(
         extra="allow",
         arbitrary_types_allowed=True,
-        validate_assignment=True
+        validate_assignment=True,
+        json_schema_extra= {
+            "key_value_order": [],
+            "excluded": ["excluded"],
+            "renderclass": "details"
+        }
     )
 
     def __repr_args__(self) -> core_schema.ReprArgs:
@@ -45,9 +50,6 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
 
     sql_instance: BaseClass | None = Field(default=None, validate_default=True, repr=False)
     new: bool = Field(default=True, repr=False, validate_default=True)
-    key_value_order: ClassVar[List] = []
-    non_expandables: ClassVar[List] = ["procedure"]
-    renderclass: ClassVar[str] = "details"
     
     @classproperty
     def aliases(cls) -> List[str]:
@@ -151,17 +153,18 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         Returns:
             Any (): Value found.
         """
-        if not value:
+        if value is None:
             value = getattr(self, key)
         match value:
             case dict():
-                if self.determine_field_type(key) != "dict":
+                # Extract value from wrapper dicts like {"value": ..., "missing": ...}
+                if set(value.keys()) <= {"value", "missing"}:
                     value = value.get('value', None)
             case _:
                 pass
         return value
 
-    def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str) -> dict:
+    def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str, **kwargs) -> dict:
         """
         Expands fields in the improved dict for use in forms.
 
@@ -172,7 +175,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             dict: Expanded dictionary.
         """
         # Allow callers to pass a single dict or string instead of a list
-        
+        condense = kwargs.get("condense", False)
         if isinstance(fields, dict):
             fields = [fields]
         elif isinstance(fields, str):
@@ -215,11 +218,11 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     value = getattr(self.sql_instance, key)
                     match value:
                         case _AssociationList():
-                            output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
+                            output = [item.to_pydantic().improved_dict_expand_fields(new_fields, **kwargs) for item in value]
                         case InstrumentedList():
-                            output = [item.to_pydantic().improved_dict_expand_fields(new_fields) for item in value]
+                            output = [item.to_pydantic().improved_dict_expand_fields(new_fields, **kwargs) for item in value]
                         case x if issubclass(value.__class__, models.BaseClass):
-                            output = value.to_pydantic().improved_dict_expand_fields(new_fields)
+                            output = value.to_pydantic().improved_dict_expand_fields(new_fields, **kwargs)
                         case _:
                             logger.warning(f"Got unmatched type during expand_fields: {value.__class__.__name__}")
                             continue
@@ -255,6 +258,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             except AttributeError:
                 logger.error(f"Cannot set name for {self.__class__.__name__}")
         output['excluded'] = self.model_config.get("json_schema_extra", {}).get("excluded", [])
+        
         return output
 
     def to_sql(self, update: bool = True) -> models.BaseClass:
@@ -642,7 +646,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             template = env.get_template(temp_name)
         except TemplateNotFound as e:
             try:
-                template = env.get_template(f"{cls.renderclass}_details.html")
+                template = env.get_template(f"{cls.class_config.renderclass}_details.html")
             except TemplateNotFound:
                 template = env.get_template("details.html")
         return template
@@ -730,6 +734,17 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             output[k] = value
         return output
 
+    @classproperty
+    def class_config(cls) -> DotDict:
+
+        """
+        Gets class configuration for use in templates.
+
+        Returns:
+            DotDict: Class configuration.
+        """
+        config = cls.model_config.get("json_schema_extra", {})
+        return DotDict(config)
 
 class PydAbstract(PydBaseClass):
 

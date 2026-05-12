@@ -109,7 +109,7 @@ class pandasModel(QAbstractTableModel):
 
 
 from .app import App
-from .concentrations import Concentrations
+from .concentration_viewer import ConcentrationViewer
 from .controls_chart import ControlsViewer
 from .date_type_picker import DateTypePicker
 # from .equipment_usage import EquipmentUsage, RoleComboBox
