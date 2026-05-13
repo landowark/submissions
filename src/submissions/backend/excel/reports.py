@@ -224,17 +224,23 @@ class ConcentrationMaker(ResultsMaker):
 
     def __init__(self, start_date: date, end_date: date, submission_types: str, include: List[str] = [], **kwargs):
         super().__init__(start_date, end_date, submission_types, include, **kwargs)
-        self.df = self.df[self.df["original_sample_conc."].notnull()]
-        self.df["original_sample_conc."] = pd.to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
+        try:
+            self.df = self.df[self.df["original_sample_conc."].notnull()]
+            self.df["original_sample_conc."] = pd.to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
+        except KeyError:
+            logger.warning("No 'original_sample_conc.' column found in the dataframe. ConcentrationMaker may not function as intended.")
 
 class PCRMaker(ResultsMaker):
 
     def __init__(self, start_date: date, end_date: date, submission_types: str, include: List[str] = [], **kwargs):
         super().__init__(start_date, end_date, submission_types, include, **kwargs)
-        # 1. Convert non-numbers to NaN (Not a Number)
-        self.df['cq'] = pd.to_numeric(self.df['cq'], errors='coerce')
-        # 2. Fill all NaN values with -1.0
-        self.df['cq'] = self.df['cq'].fillna(-1.0)
+        try:
+            # 1. Convert non-numbers to NaN (Not a Number)
+            self.df['cq'] = pd.to_numeric(self.df['cq'], errors='coerce')
+            # 2. Fill all NaN values with -1.0
+            self.df['cq'] = self.df['cq'].fillna(-1.0)
+        except KeyError:
+            logger.warning("No 'cq' column found in the dataframe. PCRMaker may not function as intended.")
     
     @classmethod
     def build_record(cls, results: Results, target_key: str="cq") -> Generator[dict, None, None]:

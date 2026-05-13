@@ -123,7 +123,10 @@ class PosNegPane(InfoPane):
             None
         """
         super().update_data()
-        include = self.pos_neg.get_checked()
+        try:
+            include = self.pos_neg.get_checked()
+        except AttributeError:
+            include = []
         submission_types = self.submission_type.get_checked() if hasattr(self, 'submission_type') else []
         months = self.diff_month(self.start_date, self.end_date)
         chart_settings = dict(start_date=self.start_date, end_date=self.end_date,

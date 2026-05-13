@@ -4,7 +4,7 @@ Contains miscellaneous widgets for frontend functions
 import math, logging
 from PyQt6.QtGui import QPainter, QStandardItem, QIcon
 from PyQt6.QtWidgets import (
-    QLabel, QLineEdit, QComboBox, QDateEdit, QPushButton, QStyle, QStyleOptionComboBox, QStyledItemDelegate, QWidget,
+    QApplication, QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QStyle, QStyleOptionComboBox, QStyledItemDelegate, QWidget,
     QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize
@@ -40,22 +40,13 @@ class StartEndDatePicker(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(80, 20)
 
-class CheckableDelegate(QStyledItemDelegate):
-    def sizeHint(self, option, index):
-        size = super().sizeHint(option, index)
-        # Add width to prevent text clipping
-        return QSize(size.width() + 24, size.height())
-
 class CheckableComboBox(QComboBox):
     # once there is a checkState set, it is rendered
     # here we assume default checked
-
-    def __init__(self, parent: QWidget | None = ...) -> None:
-        super().__init__(parent)
-        self.setItemDelegate(CheckableDelegate(self))
     
     def addItem(self, item, header: bool = False, start_checked: bool = True):
-        super(CheckableComboBox, self).addItem(item)
+        # super(CheckableComboBox, self).addItem(item)
+        super().addItem(item)
         item: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
             item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
