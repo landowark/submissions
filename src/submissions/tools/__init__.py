@@ -487,28 +487,55 @@ def list_str_comparator(target_str: str, list_: List[str], mode: Literal["starts
                 return False
 
 
-def find_paths_to_value(data, target_value, current_path=None, results=None):
+def find_paths_to_value(target_key, data: dict) -> Generator[Tuple[dict, list], None, None]:
+        
+    """Iterates through a nested dictionary.
+    
+    Once a match is found, the function locks into that top-level key
+    and yields the entire dictionary container that holds the target_key,
+    along with the path leading to that container.
     """
-    Iterates through a nested dictionary and returns a list of paths 
-    (as lists of keys) that lead to the specified target_value.
-    """
-    if current_path is None:
-        current_path = []
-    if results is None:
-        results = []
+    for top_key, top_value in data.items():
+        # Inner helper to perform standard recursive search
+        def _search(current_data, current_path):
+            if isinstance(current_data, dict):
+                for k, v in current_data.items():
+                    # If target is found, yield the current parent dictionary
+                    if k == target_key:
+                        yield current_data, current_path
+                    
+                    next_path = current_path + [k]
+                    yield from _search(v, next_path)
 
-    for key, value in data.items():
-        # Add the current key to the path for this branch
-        new_path = current_path + [key]
+        # Initialize the generator for the current top-level branch
+        branch_generator = _search(top_value, [top_key])
         
-        # Check if we've found the value
-        if value == target_value:
-            results.append(new_path)
-        
-        # If the value is another dictionary, recurse deeper
-        if isinstance(value, dict):
-            find_paths_to_value(value, target_value, new_path, results)
-    return results
+        try:
+            # Check if the branch contains at least one match
+            first_match = next(branch_generator)
+            yield first_match
+            # Yield all remaining containers matching the target in this branch
+            yield from branch_generator
+            # Stop searching any other top-level keys
+            break 
+        except StopIteration:
+            # No match in this branch, move to the next top-level key
+            continue
+
+def convert_strings(data):
+    if isinstance(data, dict):
+        return {k: convert_strings(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_strings(item) for item in data]
+    elif isinstance(data, str):
+        try:
+            if "." in data:
+                return float(data)
+            return int(data)
+        except ValueError:
+            return data
+    return data
+
 
 
 def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:

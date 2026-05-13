@@ -4,13 +4,11 @@ Handles display of control charts
 ### Currently not implemented. Requires updating to models.Results ###
 
 """
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pprint import pformat
-import re
 from PyQt6.QtWidgets import (
     QCheckBox, QLabel, QWidget, QComboBox, QPushButton
 )
-from PyQt6.QtCore import QSignalBlocker
 from gql import gql, Client
 from gql.transport.exceptions import TransportConnectionFailed
 from backend.excel.reports import ChartReportMaker
@@ -19,8 +17,7 @@ from frontend.visualizations import KrakenFigure
 from .info_tab import InfoPane
 from gql.transport.requests import RequestsHTTPTransport
 from base64 import b64encode
-from pathlib import Path
-import requests, io, csv, sys, logging, pandas as pd
+import requests, io, csv, sys, logging, pandas as pd, re
 
 from decimal import Decimal
 

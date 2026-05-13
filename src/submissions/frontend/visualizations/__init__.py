@@ -3,6 +3,7 @@ Contains all operations for creating charts, graphs and visual effects.
 """
 from datetime import timedelta, date
 from typing import Generator
+from pandas import DataFrame
 import plotly
 import pandas as pd, logging
 from plotly.graph_objects import Figure
@@ -18,7 +19,7 @@ class CustomFigure(Figure):
         for k, v in settings.items():
             object.__setattr__(self, k, v)
         months = int(settings.get('months', 6))
-        
+        df['dt_internal'] = pd.to_datetime(df["submitted_date"]).dt.normalize()
         # Set dataframe on the instance using object.__setattr__ because
         # plotly.graph_objects.Figure implements a custom __setattr__ which
         # can raise AttributeError for arbitrary attribute names. Using the
@@ -26,6 +27,7 @@ class CustomFigure(Figure):
         object.__setattr__(self, 'df', df)
         
         self.data = []
+        
         # self.update_xaxes(range=[settings['start_date'] - timedelta(days=1), settings['end_date']])
         self.generic_figure_markers(ytitle=ytitle, months=months)
 
@@ -136,6 +138,49 @@ class CustomFigure(Figure):
             html += "<h1>No data was retrieved for the given parameters.</h1>"
         html += '</body></html>'
         return html
+    
+class ResultsFigure(CustomFigure):
+    
+    def __init__(self, df: pd.DataFrame, settings: dict, **kwargs):
+        
+        super().__init__(df, settings, **kwargs)
+        object.__setattr__(self, 'start', pd.to_datetime(settings['start_date']).normalize())
+        object.__setattr__(self, 'end', pd.to_datetime(settings['end_date']).normalize())
+        # self.start = pd.to_datetime(settings['start_date']).normalize()
+        # self.end = pd.to_datetime(settings['end_date']).normalize()
+        self.df['day_num'] = (self.df['dt_internal'] - self.start).dt.days
+        sample_ranks = df.groupby('dt_internal')['procedure'].transform(lambda x: x.astype('category').cat.codes)
+        
+        # Multiply by a fixed spacing factor (4.5 as per your previous logic)
+        self.df['jitter'] = sample_ranks * 4.5
+
+        # This is our new numeric X-axis
+        self.df['x_pos'] = self.df['day_num'] + self.df['jitter']
+        self.construct_chart(df=self.df, **kwargs)
+        self.update_layout(showlegend=False)
+
+    def construct_chart(self, df: pd.DataFrame | None = None,  **kwargs):
+        """
+        Constructs the chart by adding traces to the figure. To be implemented by child classes.
+
+        Args:
+            df (pd.DataFrame | None, optional): Dataframe to use in constructing chart. Defaults to None.
+            **kwargs: Additional arguments for constructing chart.
+
+        Returns:
+            None
+        """
+        if df is not None:
+            object.__setattr__(self, 'df', df)
+        try:
+            self.df = self.df[self.df["sample_id"].notnull()]
+            self.df = self.df.sort_values(['submitted_date', 'procedure'], ascending=[True, True]).reset_index(
+                drop=True)
+            self.df = self.df.reset_index().rename(columns={"index": "idx"})
+            return True
+        except (ValueError, AttributeError, KeyError) as e:
+            logger.error(f"Error creating scatter plot: {e}")
+            return False
 
 
 from .kraken_charts import KrakenFigure

@@ -14,7 +14,7 @@ from pandas import DataFrame
 from sqlalchemy.ext.hybrid import hybrid_property
 from frontend.widgets.functions import select_save_file
 from . import BaseClass, SubmissionType, ClientLab, Contact, LogMixin, Procedure
-from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select
+from sqlalchemy import Column, String, TIMESTAMP, INTEGER, ForeignKey, JSON, FLOAT, cast, func, select, or_
 from sqlalchemy.orm import relationship, Query, declared_attr
 from sqlalchemy.ext.associationproxy import association_proxy, _AssociationList
 from sqlalchemy.exc import OperationalError as AlcOperationalError, IntegrityError as AlcIntegrityError, StatementError
@@ -334,7 +334,7 @@ class ClientSubmission(BaseClass, LogMixin):
     @classmethod
     @setup_lookup
     def query(cls,
-              submissiontype: str | SubmissionType | None = None,
+              submissiontype: str | SubmissionType | list[str | SubmissionType] | None = None,
               clientlab: str | ClientLab | None = None,
               id: int | str | None = None,
               submitter_plate_id: str | None = None,
@@ -350,7 +350,7 @@ class ClientSubmission(BaseClass, LogMixin):
         Lookup procedure based on a number of parameters. Overrides parent.
 
         Args:
-            submissiontype (str | models.SubmissionType | None, optional): Submission type of interest. Defaults to None.
+            submissiontype (str | SubmissionType | list[str | SubmissionType] | None, optional): Submission type(s) of interest. Defaults to None.
             id (int | str | None, optional): Submission id in the database (limits results to 1). Defaults to None.
             rsl_plate_number (str | None, optional): Submission name in the database (limits results to 1). Defaults to None.
             start_date (date | str | int | None, optional): Beginning date to search by. Defaults to None.
@@ -384,6 +384,15 @@ class ClientSubmission(BaseClass, LogMixin):
             case _:
                 pass
         match submissiontype:
+            case list():
+                submission_filters = []
+                for st in submissiontype:
+                    if isinstance(st, SubmissionType):
+                        submission_filters.append(cls.submissiontype == st)
+                    elif isinstance(st, str):
+                        submission_filters.append(cls.submissiontype_name == st)
+                if submission_filters:
+                    query = query.filter(or_(*submission_filters))
             case SubmissionType():
                 query = query.filter(cls.submissiontype == submissiontype)
             case str():
@@ -418,6 +427,7 @@ class ClientSubmission(BaseClass, LogMixin):
         if chronologic:
             query = query.order_by(cls.submitted_date.desc())
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
+
 
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
@@ -542,7 +552,6 @@ class ClientSubmission(BaseClass, LogMixin):
             run = next(self.completed_runs())
             return run.completed_date
         except (StopIteration, AttributeError):
-            logger.warning("No run associated with this submission, cannot get completed date.")
             return None
 
     @property
@@ -609,12 +618,9 @@ class ClientSubmission(BaseClass, LogMixin):
         """
         for run in self.run:
             if run.completed_date is None:
-                logger.warning(f"Run {run.name} has no completed date, skipping.")
                 continue
             for procedure in run.procedure:
-                logger.debug(f"Checking procedure {procedure.name} for samples.")
                 for proceduresampleassociation in procedure.proceduresampleassociation:
-                    logger.debug(f"Checking sample {proceduresampleassociation.sample.sample_id} with control status {proceduresampleassociation.sample.is_control}.")
                     if proceduresampleassociation.sample.is_control == 1 and "positive" not in include:
                         continue
                     elif proceduresampleassociation.sample.is_control == 0 and "samples" not in include:
@@ -624,7 +630,6 @@ class ClientSubmission(BaseClass, LogMixin):
                     else:
                         for result in proceduresampleassociation.results:
                             yield result
-                            
 
 
 class Run(BaseClass, LogMixin):

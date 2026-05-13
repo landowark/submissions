@@ -47,7 +47,7 @@ class TurnaroundTime(InfoPane):
         else:
             submission_type = self.submission_typer.currentText()
             subtype_obj = SubmissionType.query(name = submission_type)
-        self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date, submission_type=submission_type)
+        self.report_obj = TurnaroundMaker(start_date=self.start_date, end_date=self.end_date, submission_types=submission_type)
         if subtype_obj:
             threshold = subtype_obj.turnaround_time.days + 0.5
         else:

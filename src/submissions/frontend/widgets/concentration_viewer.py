@@ -1,8 +1,7 @@
 """
 Pane showing BC control concentrations summary.
 """
-from PyQt6.QtWidgets import QWidget, QPushButton, QLabel
-from .info_tab import InfoPane
+from .info_tab import PosNegPane
 from backend.excel.reports import ConcentrationMaker
 from frontend.visualizations.concentrations_chart import ConcentrationsChart
 import logging
@@ -11,29 +10,9 @@ import logging
 logger = logging.getLogger(f"submissions.{__name__}")
 
 
-class ConcentrationViewer(InfoPane):
+class ConcentrationViewer(PosNegPane):
 
-    def __init__(self, parent: QWidget):
-        from .. import CheckableComboBox
-        super().__init__(parent)
-        self.save_button = QPushButton("Save Chart", parent=self)
-        self.save_button.pressed.connect(self.save_png)
-        self.layout.addWidget(self.save_button, 0, 2, 1, 1)
-        self.export_button = QPushButton("Save Data", parent=self)
-        self.export_button.pressed.connect(self.save_excel)
-        self.layout.addWidget(self.export_button, 0, 3, 1, 1)
-        self.pos_neg = CheckableComboBox(parent=self)
-        self.pos_neg.model().itemChanged.connect(self.update_data)
-        self.pos_neg.setEditable(False)
-        self.pos_neg.addItem("Select", header=True)
-        self.pos_neg.addItem("Positive")
-        self.pos_neg.addItem("Negative")
-        self.pos_neg.addItem("Samples", start_checked=False)
-        self.layout.addWidget(QLabel("Control Types"), 1, 0, 1, 1)
-        self.layout.addWidget(self.pos_neg, 1, 1, 1, 1)
-        self.fig = None
-        self.report_object = None
-        self.update_data()
+    results_type = "Qubit"
 
     def update_data(self) -> None:
         """
@@ -42,16 +21,14 @@ class ConcentrationViewer(InfoPane):
         Returns:
             None
         """
-        include = self.pos_neg.get_checked()
-        super().update_data()
-        months = self.diff_month(self.start_date, self.end_date)
-        chart_settings = dict(start_date=self.start_date, end_date=self.end_date,
-                              include=include)
+        # include = self.pos_neg.get_checked()
+        # submission_types = self.submission_type.get_checked() if hasattr(self, 'submission_type') else []
+        chart_settings = super().update_data()
+        
         self.report_obj = ConcentrationMaker(**chart_settings)
-        logger.debug(f"Report DataFrame:\n{self.report_obj.df}")
         if self.report_obj.df.empty:
             logger.warning("No data available for the selected date range and control types.")
             self.webview.setHtml("<h3>No data available for the selected date range and control types.</h3>")
             return
-        self.fig = ConcentrationsChart(df=self.report_obj.df, settings=chart_settings, modes=[], months=months)
+        self.fig = ConcentrationsChart(df=self.report_obj.df, settings=chart_settings)
         self.webview.setHtml(self.fig.html)

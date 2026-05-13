@@ -14,7 +14,6 @@ from pathlib import Path
 from markdown import markdown
 from pandas import ExcelWriter
 from backend.validators.pydant import PydAbstract, PydConcrete
-from frontend.widgets.kraken_viewer import KrakenViewer
 from tools import (
     check_if_app, Settings, Report, jinja_template_loading, check_authorization, page_size, is_power_user,
     under_development, ctx
@@ -29,6 +28,8 @@ from .summary import Summary
 from .turnaround import TurnaroundTime
 from .concentration_viewer import ConcentrationViewer
 from .omni_search import SearchBox
+from .kraken_viewer import KrakenViewer
+from .pcr_viewer import PCRViewer
 
 logger = logging.getLogger(f'submissions.{__name__}')
 
@@ -81,10 +82,8 @@ class App(QMainWindow):
         # Define events that count as "activity"
         activity_events = {QEvent.Type.MouseMove, QEvent.Type.MouseButtonPress, 
                            QEvent.Type.KeyPress, QEvent.Type.Wheel}
-        
         if event.type() in activity_events:
             self.reset_timer()
-            
         return super().eventFilter(obj, event)
 
     def reset_timer(self):
@@ -289,7 +288,7 @@ class AddSubForm(QWidget):
         self.tab2.layout.addWidget(self.irida_viewer)
         self.tab2.setLayout(self.tab2.layout)
         self.tab3.layout = QVBoxLayout(self)
-        self.pcr_viewer = None
+        self.pcr_viewer = PCRViewer(self)
         self.tab3.layout.addWidget(self.pcr_viewer)
         self.tab3.setLayout(self.tab3.layout)
         summary_report = Summary(self)

@@ -2,14 +2,14 @@
 Contains functions for generating summary reports
 """
 from __future__ import annotations
-import re, sys, logging
+import re, sys, logging, pandas as pd
 from pprint import pformat
 from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
-from typing import Tuple, List, TYPE_CHECKING
+from typing import Generator, Tuple, List, TYPE_CHECKING
 from backend.db.models import Procedure 
-from tools import jinja_template_loading, get_first_blank_df_row, row_map, flatten_list
+from tools import find_paths_to_value, jinja_template_loading, get_first_blank_df_row, row_map, convert_strings
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
 if TYPE_CHECKING:
@@ -160,13 +160,13 @@ class ReportMaker(object):
 
 class TurnaroundMaker(ReportArchetype):
 
-    def __init__(self, start_date: date, end_date: date, submission_type: str):
+    def __init__(self, start_date: date, end_date: date, submission_types: str):
         from backend.db.models import ClientSubmission
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = ClientSubmission.query(start_date=start_date, end_date=end_date,
-                                   submissiontype=submission_type, page_size=0)
+                                   submissiontype=submission_types, page_size=0)
         records = [self.build_record(sub) for sub in self.subs]
         self.df = DataFrame.from_records(records)
         self.sheet_name = "Turnaround"
@@ -184,31 +184,28 @@ class TurnaroundMaker(ReportArchetype):
         """
         return dict(name=str(sub.submitter_plate_id), days=sub.turnaround_time, submitted_date=sub.submitted_date,
                     completed_date=sub.completed_date, acceptable=sub.met_turnaround_time)
+    
 
+class ResultsMaker(ReportArchetype):
 
-class ConcentrationMaker(ReportArchetype):
-
-    def __init__(self, start_date: date, end_date: date, submission_type: str = "Bacterial Culture",
-                 include: List[str] = []):
+    def __init__(self, start_date: date, end_date: date, submission_types: str, include: List[str] = [], **kwargs):
         from backend.db.models import ClientSubmission
-        logger.debug(f"Initializing ConcentrationMaker with start_date={start_date}, end_date={end_date}, submission_type={submission_type}, include={include}")
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.
         self.subs = ClientSubmission.query(start_date=start_date, end_date=end_date,
-                                   submissiontype=submission_type, page_size=0)
-        
-        self.results = []
+                                   submissiontype=submission_types, page_size=0)
+        records = []
         for clientsubmission in self.subs:
             for result in clientsubmission.get_procedure_sample_results(include=[s.lower() for s in include]):
                 output = self.build_record(result)
-                self.results.append(output)
-        self.df = DataFrame.from_records(self.results)
-        logger.debug(self.df)
-        self.sheet_name = "Concentration"
+                for item in output:
+                    records.append(item)
+        self.df = DataFrame.from_records(records)
+        self.sheet_name = self.__class__.__name__.replace("Maker", "")
 
     @classmethod
-    def build_record(cls, results: Results) -> dict:
+    def build_record(cls, results: Results) -> Generator[dict, None, None]:
         sample = results.sampleprocedureassociation.sample
         match sample.is_control:
             case 1:
@@ -220,7 +217,37 @@ class ConcentrationMaker(ReportArchetype):
         procedure = results.procedure.name
         output = results.result
         output.update(dict(control_type=control_type, procedure=procedure, sample_id=sample.sample_id, submitted_date=results.procedure.run.clientsubmission.submitted_date))
-        return output
+        yield output
+
+
+class ConcentrationMaker(ResultsMaker):
+
+    def __init__(self, start_date: date, end_date: date, submission_types: str, include: List[str] = [], **kwargs):
+        super().__init__(start_date, end_date, submission_types, include, **kwargs)
+        self.df = self.df[self.df["original_sample_conc."].notnull()]
+        self.df["original_sample_conc."] = pd.to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
+
+class PCRMaker(ResultsMaker):
+
+    def __init__(self, start_date: date, end_date: date, submission_types: str, include: List[str] = [], **kwargs):
+        super().__init__(start_date, end_date, submission_types, include, **kwargs)
+        # 1. Convert non-numbers to NaN (Not a Number)
+        self.df['cq'] = pd.to_numeric(self.df['cq'], errors='coerce')
+        # 2. Fill all NaN values with -1.0
+        self.df['cq'] = self.df['cq'].fillna(-1.0)
+    
+    @classmethod
+    def build_record(cls, results: Results, target_key: str="cq") -> Generator[dict, None, None]:
+        output = super().build_record(results)
+        for item in output:
+            targets = find_paths_to_value(target_key=target_key, data=item)
+            for target in targets:
+                path = "-".join(target[1])
+                target = convert_strings(target[0])
+                new_item = {k: v for k, v in item.items() if not isinstance(v, dict)}  # NOTE: keep all non-dict items
+                new_item['path'] = path
+                new_item.update(target)  # NOTE: add target key-values to the new item
+                yield new_item
 
 class ChartReportMaker(ReportArchetype):
 

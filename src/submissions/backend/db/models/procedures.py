@@ -1214,6 +1214,30 @@ class SubmissionType(BaseClass):
     def template(self) -> Template:
         return Template(str(self.file_name_template))
 
+    @classmethod
+    def find_by_resultstype(cls, resultstype: ResultsType | str) -> list[SubmissionType]:
+        """
+        Find submission types associated with a given results type.
+
+        :param resultstype: ResultsType or name of results type to find associated submission types for.
+        :type resultstype: ResultsType | str
+        :return: List of SubmissionType objects associated with the given results type.
+        :rtype: list[SubmissionType]
+        """
+        if not resultstype:
+            logger.error("No results type provided for find_by_resultstype")
+            return []
+        if isinstance(resultstype, str):
+            resultstype = ResultsType.query(name=resultstype, limit=1)
+        if isinstance(resultstype, list):
+            if len(resultstype) > 1:
+                logger.warning(f"Multiple results types found for {resultstype}. Using first match.")
+            resultstype = resultstype[0]
+        if not isinstance(resultstype, ResultsType):
+            logger.error(f"Could not find results type for {resultstype}")
+            return []
+        submissiontypes = cls.__database_session__.query(cls).join(cls._proceduretype).join(ProcedureType._resultstype).filter(ResultsType.id == resultstype.id).all()
+        return submissiontypes
 
 class ProcedureType(BaseClass):
     """
