@@ -224,8 +224,12 @@ class ConcentrationMaker(ResultsMaker):
 
     def __init__(self, start_date: date, end_date: date, submission_types: str, include: List[str] = [], **kwargs):
         super().__init__(start_date, end_date, submission_types, include, **kwargs)
-        self.df = self.df[self.df["original_sample_conc."].notnull()]
-        self.df["original_sample_conc."] = pd.to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
+        if "original_sample_conc." in self.df.columns:
+            self.df = self.df[self.df["original_sample_conc."].notnull()]
+            self.df["original_sample_conc."] = pd.to_numeric(self.df["original_sample_conc."], errors='coerce').fillna(0)
+        else:
+            logger.warning("ConcentrationMaker: no original_sample_conc. field found; returning empty dataframe")
+            self.df = self.df.iloc[0:0]
 
 class PCRMaker(ResultsMaker):
 

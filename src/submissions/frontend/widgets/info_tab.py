@@ -5,6 +5,7 @@ from datetime import date, datetime
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
+from backend.db import SubmissionType
 from tools import Report, report_result, Alert
 from .misc import CheckableComboBox, StartEndDatePicker
 from .functions import select_save_file, save_pdf
@@ -49,6 +50,7 @@ class InfoPane(QWidget):
         self.setLayout(self.layout)
         self.fig = None
         self.report_object = None
+        self.chart_settings = {}
 
     @report_result
     def update_data(self, *args, **kwargs) -> Report | None:
@@ -64,11 +66,15 @@ class InfoPane(QWidget):
             # self.update_data()
         self.start_date = datetime.combine(self.datepicker.start_date.date().toPyDate(), datetime.min.time())
         self.end_date = datetime.combine(self.datepicker.end_date.date().toPyDate(), datetime.max.time())
+        if hasattr(self, "submission_type"):
+            self.submission_types = self.submission_type.get_checked()
+        else:
+            self.submission_types = [item.name for item in SubmissionType.query()]
         
         return report
 
     @classmethod
-    def diff_month(self, d1: date, d2: date) -> float:
+    def diff_month(cls, d1: date, d2: date) -> float:
         """
         Gets the number of months difference between two different dates
 
@@ -102,30 +108,45 @@ class InfoPane(QWidget):
 class PosNegPane(InfoPane):
 
     def __init__(self, parent: QWidget = None):
+        # 1. Block parent signals temporarily during setup to prevent premature execution
         super().__init__(parent)
         self.pos_neg = CheckableComboBox(parent=self)
-        self.pos_neg.model().itemChanged.connect(self.update_data)
         self.pos_neg.setEditable(False)
-        self.pos_neg.addItem("Select", header=True)
-        self.pos_neg.addItem("Positive")
-        self.pos_neg.addItem("Negative")
-        self.pos_neg.addItem("Samples", start_checked=False)
+        with QSignalBlocker(self.pos_neg.model()) as blocker:
+            self.pos_neg.addItem("Select", header=True)
+            self.pos_neg.addItem("Positive")
+            self.pos_neg.addItem("Negative")
+            self.pos_neg.addItem("Samples", start_checked=False)
+        # 2. Connect the change signal safely after object exists
+        self.pos_neg.model().itemChanged.connect(self.update_data)
+        # 3. Explicitly trigger initial load once fully constructed
         self.layout.addWidget(QLabel("Filter by Control Type"), 2, 0, 1, 1)
         self.layout.addWidget(self.pos_neg, 2, 1, 1, 1)
         self.update_data()
         
-
-    def update_data(self) -> None:
+    @report_result
+    def update_data(self, *args, **kwargs) -> None:
         """
         Sets data in the info pane
 
         Returns:
             None
         """
-        super().update_data()
+        # 5. Call parent to build start_date, end_date, and submission_types safely
+        report = super().update_data(*args, **kwargs)
+        
+        # 6. Guard clause to handle early initialization safely if signals bypass blockers
+        if not hasattr(self, "pos_neg"):
+            return report
+
         include = self.pos_neg.get_checked()
-        submission_types = self.submission_type.get_checked() if hasattr(self, 'submission_type') else []
         months = self.diff_month(self.start_date, self.end_date)
-        chart_settings = dict(start_date=self.start_date, end_date=self.end_date,
-                              include=include, submission_types=submission_types, months=months)
-        return chart_settings
+        # 7. Store the settings as an instance attribute rather than breaking the return type
+        self.chart_settings = dict(
+            start_date=self.start_date, 
+            end_date=self.end_date,
+            include=include, 
+            submission_types=self.submission_types, 
+            months=months
+        )
+        return report

@@ -16,12 +16,12 @@ class PCRViewer(PosNegPane):
         
         """
 
-        chart_settings = super().update_data()
-        self.report_obj = PCRMaker(**chart_settings)
+        super().update_data()
+        self.report_obj = PCRMaker(**self.chart_settings)
         if self.report_obj.df.empty:
             logger.warning("No data available for the selected date range and control types.")
             self.webview.setHtml("<h3>No data available for the selected date range and control types.</h3>")
             return
-        self.fig = PCRFigure(df=self.report_obj.df, settings=chart_settings)
+        self.fig = PCRFigure(df=self.report_obj.df, settings=self.chart_settings)
 
         self.webview.setHtml(self.fig.html)   

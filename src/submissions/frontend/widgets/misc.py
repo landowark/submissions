@@ -47,15 +47,10 @@ class CheckableDelegate(QStyledItemDelegate):
         return QSize(size.width() + 24, size.height())
 
 class CheckableComboBox(QComboBox):
-    # once there is a checkState set, it is rendered
-    # here we assume default checked
-
-    def __init__(self, parent: QWidget | None = ...) -> None:
-        super().__init__(parent)
-        self.setItemDelegate(CheckableDelegate(self))
     
     def addItem(self, item, header: bool = False, start_checked: bool = True):
-        super(CheckableComboBox, self).addItem(item)
+        # super(CheckableComboBox, self).addItem(item)
+        super().addItem(item)
         item: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
             item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
@@ -65,8 +60,12 @@ class CheckableComboBox(QComboBox):
                 item.setCheckState(Qt.CheckState.Unchecked)
 
     def itemChecked(self, index):
-        item = self.model().item(index, 0)
-        return item.checkState() == Qt.CheckState.Checked
+        item_obj = self.model().item(index, 0)
+        # return item.checkState() == Qt.CheckState.Checked
+        # FIX: Check if item_obj exists and has a checkState before comparing
+        if item_obj and item_obj.isCheckable():
+            return item_obj.checkState() == Qt.CheckState.Checked
+        return False  # Non-checkable headers are never checked
 
     def changed(self):
         self.updated.emit()
