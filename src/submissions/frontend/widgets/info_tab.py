@@ -52,7 +52,6 @@ class InfoPane(QWidget):
         self.report_object = None
         self.chart_settings = {}
 
-    @report_result
     def update_data(self, *args, **kwargs) -> Report | None:
         report = Report()
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():
@@ -71,8 +70,6 @@ class InfoPane(QWidget):
         else:
             self.submission_types = [item.name for item in SubmissionType.query()]
         
-        return report
-
     @classmethod
     def diff_month(cls, d1: date, d2: date) -> float:
         """
@@ -111,20 +108,21 @@ class PosNegPane(InfoPane):
         # 1. Block parent signals temporarily during setup to prevent premature execution
         super().__init__(parent)
         self.pos_neg = CheckableComboBox(parent=self)
-        self.pos_neg.setEditable(False)
-        with QSignalBlocker(self.pos_neg.model()) as blocker:
-            self.pos_neg.addItem("Select", header=True)
-            self.pos_neg.addItem("Positive")
-            self.pos_neg.addItem("Negative")
-            self.pos_neg.addItem("Samples", start_checked=False)
-        # 2. Connect the change signal safely after object exists
         self.pos_neg.model().itemChanged.connect(self.update_data)
+        self.pos_neg.setEditable(False)
+        # with QSignalBlocker(self.pos_neg.model()) as blocker:
+        self.pos_neg.addItem("Select", header=True)
+        self.pos_neg.addItem("Positive")
+        self.pos_neg.addItem("Negative")
+        self.pos_neg.addItem("Samples", start_checked=False)
+        # 2. Connect the change signal safely after object exists
+        
         # 3. Explicitly trigger initial load once fully constructed
         self.layout.addWidget(QLabel("Filter by Control Type"), 2, 0, 1, 1)
         self.layout.addWidget(self.pos_neg, 2, 1, 1, 1)
+        self._initialized = True
         self.update_data()
         
-    @report_result
     def update_data(self, *args, **kwargs) -> None:
         """
         Sets data in the info pane
@@ -132,13 +130,14 @@ class PosNegPane(InfoPane):
         Returns:
             None
         """
+        if not getattr(self, "_initialized", False):
+            return super().update_data(*args, **kwargs)
         # 5. Call parent to build start_date, end_date, and submission_types safely
-        report = super().update_data(*args, **kwargs)
+        super().update_data(*args, **kwargs)
         
         # 6. Guard clause to handle early initialization safely if signals bypass blockers
         if not hasattr(self, "pos_neg"):
-            return report
-
+            return 
         include = self.pos_neg.get_checked()
         months = self.diff_month(self.start_date, self.end_date)
         # 7. Store the settings as an instance attribute rather than breaking the return type
@@ -149,4 +148,3 @@ class PosNegPane(InfoPane):
             submission_types=self.submission_types, 
             months=months
         )
-        return report

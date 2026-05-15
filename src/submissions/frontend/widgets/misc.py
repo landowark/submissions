@@ -4,7 +4,7 @@ Contains miscellaneous widgets for frontend functions
 import math, logging
 from PyQt6.QtGui import QPainter, QStandardItem, QIcon
 from PyQt6.QtWidgets import (
-    QLabel, QLineEdit, QComboBox, QDateEdit, QPushButton, QStyle, QStyleOptionComboBox, QStyledItemDelegate, QWidget,
+    QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QStyle, QStyleOptionComboBox, QStyledItemDelegate, QWidget,
     QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize
@@ -40,38 +40,44 @@ class StartEndDatePicker(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(80, 20)
 
-class CheckableDelegate(QStyledItemDelegate):
-    def sizeHint(self, option, index):
-        size = super().sizeHint(option, index)
-        # Add width to prevent text clipping
-        return QSize(size.width() + 24, size.height())
 
 class CheckableComboBox(QComboBox):
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # CRITICAL: Forces the popup view to use a list container 
+        # that allows interactive item checkboxes to register clicks.
+        self.setView(QListView(self))
+
     
-    def addItem(self, item, header: bool = False, start_checked: bool = True):
+    def addItem(self, item_obj, header: bool = False, start_checked: bool = True):
         # super(CheckableComboBox, self).addItem(item)
-        super().addItem(item)
-        item: QStandardItem = self.model().item(self.count() - 1, 0)
+        super().addItem(item_obj)
+        item_obj: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
-            item.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
+            item_obj.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
             if start_checked:
-                item.setCheckState(Qt.CheckState.Checked)
+                item_obj.setCheckState(Qt.CheckState.Checked)
             else:
-                item.setCheckState(Qt.CheckState.Unchecked)
+                item_obj.setCheckState(Qt.CheckState.Unchecked)
+        else:
+            # Headers should not be checkable or selectable
+            item_obj.setFlags(Qt.ItemFlag.ItemIsEnabled)
 
     def itemChecked(self, index):
         item_obj = self.model().item(index, 0)
         # return item.checkState() == Qt.CheckState.Checked
-        # FIX: Check if item_obj exists and has a checkState before comparing
-        if item_obj and item_obj.isCheckable():
+         # Check if the item actually has check state flags allocated
+        if item_obj and item_obj.flags() & Qt.ItemFlag.ItemIsUserCheckable:
             return item_obj.checkState() == Qt.CheckState.Checked
-        return False  # Non-checkable headers are never checked
+        return False
 
     def changed(self):
         self.updated.emit()
 
     def get_checked(self):
         return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i)]
+        # return [self.itemText(i) for i in range(self.count()) if self.itemChecked(i) and self.itemText(i) != "Select"]
 
 
 class Pagifier(QWidget):
