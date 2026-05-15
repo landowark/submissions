@@ -2,13 +2,9 @@
 Contains miscellaneous widgets for frontend functions
 """
 import math, logging
-from PyQt6.QtGui import QPainter, QStandardItem, QIcon
+from PyQt6.QtGui import QStandardItem, QIcon
 from PyQt6.QtWidgets import (
-<<<<<<< HEAD
-    QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QStyle, QStyleOptionComboBox, QStyledItemDelegate, QWidget,
-=======
-    QApplication, QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QStyle, QStyleOptionComboBox, QStyledItemDelegate, QWidget,
->>>>>>> b734f605ac9afa15a391470fa1b8921a92ceafc0
+    QLabel, QLineEdit, QComboBox, QDateEdit, QListView, QPushButton, QWidget,
     QHBoxLayout, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QDate, QSize
@@ -44,22 +40,6 @@ class StartEndDatePicker(QWidget):
     def sizeHint(self) -> QSize:
         return QSize(80, 20)
 
-<<<<<<< HEAD
-
-class CheckableComboBox(QComboBox):
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        # CRITICAL: Forces the popup view to use a list container 
-        # that allows interactive item checkboxes to register clicks.
-        self.setView(QListView(self))
-
-    
-    def addItem(self, item_obj, header: bool = False, start_checked: bool = True):
-        # super(CheckableComboBox, self).addItem(item)
-        super().addItem(item_obj)
-        item_obj: QStandardItem = self.model().item(self.count() - 1, 0)
-=======
 class CheckableComboBox(QComboBox):
     # once there is a checkState set, it is rendered
     # here we assume default checked
@@ -67,8 +47,7 @@ class CheckableComboBox(QComboBox):
     def addItem(self, item, header: bool = False, start_checked: bool = True):
         # super(CheckableComboBox, self).addItem(item)
         super().addItem(item)
-        item: QStandardItem = self.model().item(self.count() - 1, 0)
->>>>>>> b734f605ac9afa15a391470fa1b8921a92ceafc0
+        item_obj: QStandardItem = self.model().item(self.count() - 1, 0)
         if not header:
             item_obj.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
             if start_checked:

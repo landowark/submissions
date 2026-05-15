@@ -29,35 +29,35 @@ class SubmissionsTree(QTreeView):
         self.total_count = ClientSubmission.__database_session__.query(ClientSubmission).count()
         self.setExpandsOnDoubleClick(False)
         self.model: ClientSubmissionRunModel = model
-        header_labels = ["Name", "Submission Type", "Client Lab", "Submitted Date"]
-        self.model.setHorizontalHeaderLabels(header_labels)
+        # header_labels = ["Name", "Submission Type", "Client Lab", "Submitted Date"]
+        # self.model.setHorizontalHeaderLabels(header_labels)
         self.setModel(self.model)
         self.setSelectionBehavior(QAbstractItemView.selectionBehavior(self).SelectRows)
         self.set_data()
         self.doubleClicked.connect(self.show_details)
-        self.setStyleSheet("""
-            QTreeView {
-                background-color: #f5f5f5;
-                alternate-background-color: "#cfe2f3";
-                border: 1px solid #d3d3d3;
-            }
-            QTreeView::item {
-                padding: 5px;
-                border-bottom: 1px solid #d3d3d3;
-            }
-            QTreeView::item:selected {
-                background-color: #0078d7;
-                color: white;
-            }
-        """)
+        # self.setStyleSheet("""
+        #     QTreeView {
+        #         background-color: #f5f5f5;
+        #         alternate-background-color: "#cfe2f3";
+        #         border: 1px solid #d3d3d3;
+        #     }
+        #     QTreeView::item {
+        #         padding: 5px;
+        #         border-bottom: 1px solid #d3d3d3;
+        #     }
+        #     QTreeView::item:selected {
+        #         background-color: #0078d7;
+        #         color: white;
+        #     }
+        # """)
 
         # NOTE: Enable alternating row colors
         self.setAlternatingRowColors(True)
         self.setIndentation(20)
         self.setItemsExpandable(True)
         self.setSortingEnabled(True)
-        for ii, _ in enumerate(header_labels):
-            self.resizeColumnToContents(ii)
+        # for ii, _ in enumerate(header_labels):
+        #     self.resizeColumnToContents(ii)
         self.sortByColumn(3, Qt.SortOrder.DescendingOrder)
         self.expanded.connect(self._route_expansion)
 
@@ -119,10 +119,6 @@ class SubmissionsTree(QTreeView):
         """
         from backend.db.models import Run, ClientSubmission, Procedure
         self.clear()
-        # self.data = sorted(
-        #     [item.details_dict_expand_fields({"run":['procedure']}) for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)],
-        #     key=itemgetter('submitted_date'), reverse=True
-        # )
         subs = [item.to_pydantic().improved_dict
                 for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
         self.data = sorted(subs, key=itemgetter('submitted_date'), reverse=True)
@@ -186,6 +182,7 @@ class SubmissionsTree(QTreeView):
     def clear(self):
         if self.model != None:
             self.model.setRowCount(0)  # works
+            # pass
 
     def show_details(self, sel: QModelIndex):
         # NOTE: Convert to data in id column (i.e. column 0)
@@ -195,32 +192,147 @@ class SubmissionsTree(QTreeView):
         obj.show_details(self)
 
 
-class ClientSubmissionRunModel(QStandardItemModel):
+from datetime import date, datetime
+from PyQt6.QtCore import Qt, QAbstractItemModel, QModelIndex
 
-    def __init__(self, parent):
-        super().__init__(parent)
-
-    def add_child(self, parent: QStandardItem, child:dict, additions:bool=False) -> QStandardItem:
-        # logger.debug(f"Adding child with data: {pformat(child['name'])}")
-        try:
-            item = QStandardItem(child['name'])
-        except Exception as e:
-            logger.error(f"Error creating QStandardItem:{child['name']}")
-            # raise e
-            item = QStandardItem("Unknown")
-        item.setData(dict(item_type=child['item_type'], query_str=child['query_str']), 1)
-        if additions:
-            item_client = QStandardItem(child['client'])
-            if isinstance(child['date'], str):
-                item_date = QStandardItem(child['date'])
-            elif isinstance(child['date'], (date, datetime)):
-                item_date = QStandardItem(child['date'].strftime("%Y-%m-%d"))
-            item_type = QStandardItem(child['type'])
-            parent.appendRow([item, item_type, item_client, item_date])
+class TreeItem:
+    def __init__(self, data: dict = None, parent=None):
+        self.parent_item = parent
+        self.child_items = []
+        
+        self.data_dict = data or {}
+        self.name = self.data_dict.get('name', 'Unknown')
+        self.item_type = self.data_dict.get('item_type')
+        self.query_str = self.data_dict.get('query_str')
+        self.client = self.data_dict.get('client', '')
+        self.type_str = self.data_dict.get('type', '')
+        
+        dt = self.data_dict.get('date', '')
+        if isinstance(dt, (date, datetime)):
+            self.date_str = dt.strftime("%Y-%m-%d")
         else:
-            parent.appendRow([item])
-        item.setEditable(False)
-        return item
+            self.date_str = str(dt)
 
-    def edit_item(self):
-        pass
+        # Lazy loading properties
+        self.is_loaded = False
+        # Procedures are leaf nodes (no children). Submissions & Runs have children.
+        from backend.db.models import Procedure
+        self.has_children_placeholder = (self.item_type != Procedure)
+
+
+class ClientSubmissionRunModel(QAbstractItemModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.root_item = TreeItem()
+        self.headers = ["Name", "Submission Type", "Client Lab", "Submitted Date"]
+
+    def hasChildren(self, parent=QModelIndex()):
+        if not parent.isValid():
+            return True
+        return parent.internalPointer().has_children_placeholder
+
+    def columnCount(self, parent=QModelIndex()):
+        return len(self.headers)
+
+    def rowCount(self, parent=QModelIndex()):
+        if parent.column() > 0:
+            return 0
+        parent_item = parent.internalPointer() if parent.isValid() else self.root_item
+        return len(parent_item.child_items)
+
+    def index(self, row, column, parent=QModelIndex()):
+        if not self.hasIndex(row, column, parent):
+            return QModelIndex()
+        parent_item = parent.internalPointer() if parent.isValid() else self.root_item
+        child_item = parent_item.child_items[row]
+        return self.createIndex(row, column, child_item)
+
+    def parent(self, index):
+        if not index.isValid():
+            return QModelIndex()
+        child_item = index.internalPointer()
+        parent_item = child_item.parent_item
+        if parent_item == self.root_item:
+            return QModelIndex()
+        grandparent = parent_item.parent_item
+        row = grandparent.child_items.index(parent_item)
+        return self.createIndex(row, 0, parent_item)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+        item = index.internalPointer()
+        
+        if role == Qt.ItemDataRole.DisplayRole:
+            if index.column() == 0: return item.name
+            elif index.column() == 1: return item.type_str
+            elif index.column() == 2: return item.client
+            elif index.column() == 3: return item.date_str
+
+        # Replaces your original item.setData(..., 1) metadata lookups
+        if role == Qt.ItemDataRole.UserRole:
+            return {
+                'item_type': item.item_type,
+                'query_str': item.query_str
+            }
+        return None
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            return self.headers[section]
+        return None
+
+    def clear(self):
+        self.beginResetModel()
+        self.root_item.child_items = []
+        self.endResetModel()
+
+    def add_top_level_submissions(self, submissions_list: list):
+        """Populates root level submissions efficiently."""
+        from backend.db.models import ClientSubmission
+        self.beginInsertRows(QModelIndex(), 0, len(submissions_list) - 1)
+        for sub in submissions_list:
+            group_str = f"{sub['submissiontype']}-{sub['submitter_plate_id']}-{sub['submitted_date']}"
+            child_dict = dict(
+                name=group_str,
+                client=sub['clientlab'],
+                date=sub['submitted_date'],
+                type=sub['submissiontype'],
+                query_str=sub['submitter_plate_id'],
+                item_type=ClientSubmission,
+                raw_run_data=sub.get('run', []) # Store temporarily for lazy step
+            )
+            self.root_item.child_items.append(TreeItem(child_dict, self.root_item))
+        self.endResetModel()
+
+
+
+# class ClientSubmissionRunModel(QStandardItemModel):
+
+#     def __init__(self, parent):
+#         super().__init__(parent)
+
+#     def add_child(self, parent: QStandardItem, child:dict, additions:bool=False) -> QStandardItem:
+#         # logger.debug(f"Adding child with data: {pformat(child['name'])}")
+#         try:
+#             item = QStandardItem(child['name'])
+#         except Exception as e:
+#             logger.error(f"Error creating QStandardItem:{child['name']}")
+#             # raise e
+#             item = QStandardItem("Unknown")
+#         item.setData(dict(item_type=child['item_type'], query_str=child['query_str']), 1)
+#         if additions:
+#             item_client = QStandardItem(child['client'])
+#             if isinstance(child['date'], str):
+#                 item_date = QStandardItem(child['date'])
+#             elif isinstance(child['date'], (date, datetime)):
+#                 item_date = QStandardItem(child['date'].strftime("%Y-%m-%d"))
+#             item_type = QStandardItem(child['type'])
+#             parent.appendRow([item, item_type, item_client, item_date])
+#         else:
+#             parent.appendRow([item])
+#         item.setEditable(False)
+#         return item
+
+#     def edit_item(self):
+#         pass

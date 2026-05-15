@@ -29,7 +29,7 @@ class ConcentrationViewer(PosNegPane):
         super().update_data()
         try:
             self.report_obj = ConcentrationMaker(**self.chart_settings)
-        except AttributeError as e:
+        except (TypeError,  AttributeError) as e:
             logger.error(f"Error occurred while creating concentration report: {e}")
             self.report_obj = None
         if self.report_obj is None or self.report_obj.df.empty:

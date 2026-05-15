@@ -49,7 +49,7 @@ class PCRFigure(ResultsFigure):
             self.update_traces(hovertemplate=hover_template)
             self.update_layout(hovermode='closest')
 
-        self.update_yaxes(title_text="Original Sample Concentration (ng/uL)")
+        self.update_yaxes(title_text="CQ Value")
         # Map the numeric ticks back to readable dates
         unique_days = self.df[['x_pos', 'procedure']].drop_duplicates()
         self.update_xaxes(
