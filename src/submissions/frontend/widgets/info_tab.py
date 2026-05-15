@@ -130,6 +130,7 @@ class PosNegPane(InfoPane):
         Returns:
             None
         """
+<<<<<<< HEAD
         if not getattr(self, "_initialized", False):
             return super().update_data(*args, **kwargs)
         # 5. Call parent to build start_date, end_date, and submission_types safely
@@ -139,6 +140,14 @@ class PosNegPane(InfoPane):
         if not hasattr(self, "pos_neg"):
             return 
         include = self.pos_neg.get_checked()
+=======
+        super().update_data()
+        try:
+            include = self.pos_neg.get_checked()
+        except AttributeError:
+            include = []
+        submission_types = self.submission_type.get_checked() if hasattr(self, 'submission_type') else []
+>>>>>>> b734f605ac9afa15a391470fa1b8921a92ceafc0
         months = self.diff_month(self.start_date, self.end_date)
         # 7. Store the settings as an instance attribute rather than breaking the return type
         self.chart_settings = dict(
