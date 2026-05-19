@@ -5,7 +5,6 @@ from __future__ import annotations
 import re, sys, logging, json, inspect
 from datetime import datetime, date, timedelta
 from dateutil.parser import parse
-from pandas import DataFrame
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, inspect as sql_inspect
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import AssociationProxy, _AssociationList

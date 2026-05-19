@@ -86,7 +86,6 @@ class InfoPane(QWidget):
 
     def save_excel(self):
         fname = select_save_file(self, default_name=f"{self.__class__.__name__} Report {self.start_date.strftime('%Y%m%d')} - {self.end_date.strftime('%Y%m%d')}", extension="xlsx")
-        print(self.report_obj)
         self.report_obj.write_report(fname, obj=self)
 
     def save_pdf(self):

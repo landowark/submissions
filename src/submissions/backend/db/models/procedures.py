@@ -6,6 +6,7 @@ process versions, tips, and related associations. It includes rich association t
 for flexible input types.
 """
 from __future__ import annotations
+import getpass
 from pprint import pformat
 from jinja2 import Template
 import zipfile, logging, re, numpy as np, json
@@ -16,6 +17,8 @@ from sqlalchemy.orm import relationship, Query
 from sqlalchemy.ext.associationproxy import association_proxy
 from datetime import date, datetime, timedelta
 from dateutil.parser import parse as dateparse, ParserError
+
+from frontend.widgets.submission_details import SubmissionComment
 from tools import check_authorization, setup_lookup, flatten_list, timezone
 from typing import Iterator, List, Any, Tuple, TYPE_CHECKING, Callable
 from . import BaseClass, ClientLab, LogMixin
@@ -1239,6 +1242,7 @@ class SubmissionType(BaseClass):
         submissiontypes = cls.__database_session__.query(cls).join(cls._proceduretype).join(ProcedureType._resultstype).filter(ResultsType.id == resultstype.id).all()
         return submissiontypes
 
+
 class ProcedureType(BaseClass):
     """
     Represents a category of procedure and its permitted reagents, equipment, results, and submission types.
@@ -1717,6 +1721,7 @@ class Procedure(BaseClass):
     run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="SET NULL",
                                         name="fk_PRO_basicrun_id"))  #: client lab id from _organizations))
     _run = relationship("Run", back_populates="_procedure")  #: Run this procedure is part of
+    _comment = Column(JSON)  #: user notes
 
     proceduresampleassociation = relationship(
         "ProcedureSampleAssociation",
@@ -1815,6 +1820,7 @@ class Procedure(BaseClass):
                 self.equipment = equipment
             except Exception:
                 logger.error(f"Couldn't set equipment to {equipment} for {self.__class__.__qualname__} with name {self.name}")
+        self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
     def name(self) -> str:
@@ -2218,6 +2224,23 @@ class Procedure(BaseClass):
 
         return grouped
 
+    @hybrid_property
+    def comment(self):
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
+
     @classmethod
     @setup_lookup
     def query(cls, id: int | None = None, name: str | None = None,
@@ -2339,6 +2362,11 @@ class Procedure(BaseClass):
         :return: None
         """
         logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        if dlg.exec():
+            comment = dlg.parse_form()
+            
 
     @check_authorization
     def delete(self, obj):
@@ -2392,6 +2420,7 @@ class Procedure(BaseClass):
         output['run'] = self.run.name
         output['excluded'] += self.get_default_info("details_ignore")
         output['sample_count'] = len(active_samples)
+        output['comment'] = self.comment
         try:
             output['clientlab'] = self.run.clientsubmission.clientlab.name
         except AttributeError:
@@ -6278,7 +6307,6 @@ class ResultsType(BaseClass):
             self._saved_settings = value
         else:
             raise ValueError(f"Unmatched type {type(value)} for {self.__class__.__qualname__}._saved_settings")
-
 
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs) -> BaseModel:
         return super().to_pydantic(pyd_model_name, **kwargs)

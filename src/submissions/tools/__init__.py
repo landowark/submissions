@@ -23,7 +23,6 @@ from typing import Any, Tuple, Literal, List, Generator
 from __init__ import project_path
 from configparser import ConfigParser
 from tkinter import Tk  # NOTE: This is for potentially choosing database path before app is created.
-from tkinter.filedialog import askdirectory
 from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
@@ -193,6 +192,7 @@ def check_if_app() -> bool:
     else:
         return False
 
+
 def clean_string(text):
     """
     Strips out whitespace and all non-alphanumeric symbols.
@@ -304,7 +304,6 @@ class CustomLogger(Logger):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-
 
 
 def jinja_template_loading() -> Environment:
@@ -522,6 +521,7 @@ def find_paths_to_value(target_key, data: dict) -> Generator[Tuple[dict, list], 
             # No match in this branch, move to the next top-level key
             continue
 
+
 def convert_strings(data):
     if isinstance(data, dict):
         return {k: convert_strings(v) for k, v in data.items()}
@@ -535,7 +535,6 @@ def convert_strings(data):
         except ValueError:
             return data
     return data
-
 
 
 def sort_dict_by_list(dictionary: dict, order_list: list) -> dict:
@@ -902,8 +901,12 @@ def handle_keys(input_key:str) -> str:
     output = output.replace("Rsl", "RSL")
     return output
 
-def handle_results(input_value:dict) -> str:
-    output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
+
+def handle_results(input_value:dict|str) -> str:
+    if isinstance(input_value, str):
+        output = f"{html.escape(input_value)}"
+    else:
+        output = f"<pre>{html.escape(json.dumps(input_value, indent=4))}</pre>"
     output = re.sub(r'[{}]|&quot;|,', '', output)
     return output
     

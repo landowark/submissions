@@ -174,11 +174,11 @@ class SubmissionComment(QDialog):
     a window for adding comment text to a procedure
     """
 
-    def __init__(self, parent, submission: Run) -> None:
+    def __init__(self, parent, submission) -> None:
         super().__init__(parent)
         self.app = get_application_from_parent(parent)
         self.submission = submission
-        self.setWindowTitle(f"{self.submission.rsl_plate_number} Submission Comment")
+        self.setWindowTitle(f"{self.submission.name} Submission Comment")
         # NOTE: create text field
         self.txt_editor = QTextEdit(self)
         self.txt_editor.setReadOnly(False)

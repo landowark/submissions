@@ -133,7 +133,7 @@ class KrakenViewer(InfoPane):
             
         from tools import ctx
 
-        API_TOKEN = b64encode(f"{ctx.irida_next.email}:{ctx.irida_next.token}".encode('utf-8')).decode('utf-8')  # Replace with your IRIDA Next API token
+        API_TOKEN = b64encode(f"{ctx.irida_next.email}:{ctx.irida_next.token}".encode('utf-8')).decode('utf-8')  # Pulls token from config and encodes for HTTP header
         PAGE_SIZE = 5  # Number of samples per request
         
 
@@ -231,14 +231,13 @@ class KrakenViewer(InfoPane):
                 break
             after_cursor = samples_data["pageInfo"]["endCursor"]
 
-        # Step 2: Get attachments and process CSVs
+        # Step 2: Get data and attachments and process CSVs (if requested by user)
         for sample in all_samples:
-            # regex = r"([0-9]{4}[-]?[0-9]{2}[-]?[0-9]{2})(?=-\d+$)"
             regex = r"(20\d{2}-?\d{2}-?\d{2})(?:-\d+)?$"
             match = re.search(regex, sample['name'])
             if match:
                 raw_date = match.group(1)
-                # Remove dashes if present so we have a consistent format for strptime
+                # Remove dashes if present for consistent strptime
                 clean_date = raw_date.replace("-", "")
                 try:
                     date_obj = datetime.strptime(clean_date, "%Y%m%d")

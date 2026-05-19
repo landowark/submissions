@@ -438,9 +438,10 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
     results: List[dict] | List[PydResults] = Field(default_factory=list, repr=False)
     started_date: datetime = Field(default_factory=datetime.now, repr=False)
     completed_date: datetime | None = Field(default_factory=datetime.now, repr=False)
+    comment: list | None = Field(default_factory=list, repr=False, validate_default=True)
 
     model_config = ConfigDict(
-        json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits',
+        json_schema_extra = {"excluded": ['control', 'equipment', 'excluded', 'id', 'misc_info', 'plate_map', 'possible_kits', 'comment',
                'procedureequipmentassociation', 'procedurereagentassociation', 'proceduresampleassociation', 'proceduretipsassociation', 'reagent',
                'reagentrole', 'results', 'sample', 'tips', 'reagentlot', 'platemap', "procedurereagentlotassociation", "result", "sample_results"]}
     )
@@ -912,7 +913,7 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
         details = self.improved_dict
         output = super().to_html(**details)
         return output
- 
+    
 
 class PydClientSubmission(PydConcrete):
 
@@ -923,7 +924,7 @@ class PydClientSubmission(PydConcrete):
     sample_count: dict | None = Field(default=dict(value=0, missing=True), validate_default=True)
     full_batch_size: int | dict = Field(default=0)
     submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    comments: dict | None = Field(default=dict(value="", missing=True), validate_default=True)
+    comment: list | None = Field(default_factory=list, repr=False, validate_default=True)
     cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
@@ -932,12 +933,14 @@ class PydClientSubmission(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ['filepath', 
+            "excluded": ['excluded', 'filepath', 'comment'
                          'sample', 
                          'run', 
                          'clientsubmissionsampleassociation',
                          'endrow', 
-                         "abbreviation"],
+                         "abbreviation",
+                         "full_batch_size",
+                         "submissiontype"],
             "key_value_order": ["submitter_plate_id",
                        "submitted_date",
                        "clientlab",
@@ -1094,12 +1097,12 @@ class PydClientSubmission(PydConcrete):
                 value['value'] = "NA"
         return value
 
-    @field_validator("comments", mode="before")
-    @classmethod
-    def convert_comment_string(cls, value):
-        if isinstance(value, str):
-            value = dict(value=value, missing=True)
-        return value
+    # @field_validator("comment", mode="before")
+    # @classmethod
+    # def convert_comment_string(cls, value):
+    #     if isinstance(value, str):
+    #         value = dict(value=value, missing=True)
+    #     return value
 
     @field_validator("full_batch_size")
     @classmethod
@@ -1222,7 +1225,7 @@ class PydRun(PydConcrete):
     rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
     started_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
     completed_date: dict | None = Field(default=dict(value=None, missing=True), validate_default=True, repr=False)
-    comment: dict | None = Field(default=dict(value="", missing=True), validate_default=True, repr=False)
+    comment: dict | None = Field(default_factory=dict(value=[], missing=True), validate_default=True, repr=False)
     sample: Annotated[List[PydSample] | Generator, AfterValidator(ensure_list)] = Field(default_factory=list, repr=False)
     run_cost: float | dict = Field(default=dict(value=0.0, missing=True), repr=False)
     signed_by: str | dict = Field(default="", validate_default=True, repr=False)
@@ -1492,8 +1495,8 @@ class PydProcedureSampleAssociation(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run',
-                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled'],
+            'excluded': ['excluded', 'results', 'sample', 'name', 'is_control', 'sampleclientsubmissionassociation', 'clientsubmission', 'run', 'comment',
+                               'samplerunassociation', 'sampleprocedureassociation', "background_color", 'control_type', 'rank', 'enabled', "submitted_date"],
             "renderclass": "sample"
         }
     )
@@ -1534,7 +1537,6 @@ class PydProcedureSampleAssociation(PydConcrete):
         output = super().improved_dict
         output['sample_id'] = self.sample.sample_id if isinstance(self.sample, PydSample) else self.sample
         output['procedure'] = self.procedure.name if isinstance(self.procedure, PydProcedure) else self.procedure
-        
         return output
     
     
@@ -1650,6 +1652,7 @@ class PydClientSubmissionSampleAssociation(PydConcrete):
     clientsubmission: str | dict | PydClientSubmission = Field(default="NA")
     sample: str | dict | PydSample = Field(default="NA")
     enabled: bool = Field(default=True)
+    comment: list | None = Field(default_factory=list, repr=False)
 
     def to_sql(self, update: bool = True):
         from backend.db.models import ClientSubmissionSampleAssociation

@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
+
 class QubitInfoParser(DefaultResultsInfoParser):
     """Object to pull data from Design and Analysis PCR export file."""
 

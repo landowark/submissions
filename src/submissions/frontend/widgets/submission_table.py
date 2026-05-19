@@ -59,17 +59,6 @@ class SubmissionsTree(QTreeView):
         self.sortByColumn(3, Qt.SortOrder.DescendingOrder)
         self.expanded.connect(self._route_expansion)
 
-    # def _route_expansion(self, index: QModelIndex):
-    #     item_type = index.data(1).get("item_type")
-    #     print(f"Class: {item_type.__name__} at row {index.row()} with parent {index.parent().data()}")
-    #     match item_type.__name__:
-    #         case "ClientSubmission":
-    #             self.clientsubmissionExpanded.emit(index)
-    #         case "Run":
-    #             self.runExpanded.emit(index)
-    #         case _:
-    #             logger.warning(f"Unknown item type expanded: {item_type.__name__}")
-
     def _route_expansion(self, index: QModelIndex):
         """Intercepts tree node expansion requests to build sub-items dynamically."""
         if not index.isValid():
@@ -124,9 +113,29 @@ class SubmissionsTree(QTreeView):
         Args:
             event (_type_): the item of interest
         """
-        indexes = self.selectedIndexes()
-        dicto = next((item.data(1) for item in indexes if item.data(1)))
-        query_obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
+        local_pos = event.pos()
+        sel: QModelIndex = self.indexAt(local_pos)
+        if not sel.isValid():
+            return
+        # indexes = self.selectedIndexes()
+        # dicto = next((item.data(1) for item in indexes if item.data(1)))
+        target_index = sel.siblingAtColumn(0)
+
+        # 2. Extract the data dictionary we stored in the UserRole namespace
+        metadata = target_index.data(Qt.ItemDataRole.UserRole)
+        if metadata and isinstance(metadata, dict):
+            item_type = metadata.get('item_type')
+            query_str = metadata.get('query_str')
+
+            if item_type and query_str:
+                # 3. Perform your database lookup using the safely extracted fields
+                query_obj = item_type.query(name=query_str, limit=1)
+                
+            else:
+                return
+        else:
+            return
+        # query_obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
         # NOTE: Convert to data in id column (i.e. column 0)
         self.menu = QMenu(self)
         self.con_actions = query_obj.custom_context_events
@@ -163,65 +172,14 @@ class SubmissionsTree(QTreeView):
         sets data in model
         """
         from backend.db.models import Run, ClientSubmission, Procedure
-        # self.clear()
         self.model.clear()
         subs = [item.to_pydantic().improved_dict
                 for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
-        # self.data = sorted(subs, key=itemgetter('submitted_date'), reverse=True)
         sorted_subs = sorted(subs, key=itemgetter('submitted_date'), reverse=True)
-        # root = self.model.invisibleRootItem()
-        # for submission in self.data:
-        #     group_str = f"{submission['submissiontype']}-{submission['submitter_plate_id']}-{submission['submitted_date']}"
-        #     submission_item: QStandardItem = self.model.add_child(parent=root, child=dict(
-        #         name=group_str,
-        #         client=submission['clientlab'],
-        #         date=submission['submitted_date'],
-        #         type=submission['submissiontype'],
-        #         query_str=submission['submitter_plate_id'],
-        #         item_type=ClientSubmission
-        #     ), additions=True)
-        #     asyncio.run(self._process_runs_async(submission['run'], submission_item, Run, Procedure))
         self.model.add_top_level_submissions(sorted_subs)
         
         for ii in range(len(self.model.headers)):
             self.resizeColumnToContents(ii)
-
-    # async def _process_runs_async(self, runs: List[Dict[str, Any]], submission_item: QStandardItem, run_type: type, procedure_type: type) -> None:
-    #     """
-    #     Asynchronously process all runs for a submission.
-        
-    #     Args:
-    #         runs: List of run dictionaries
-    #         submission_item: The parent QStandardItem for the submission
-    #         run_type: The type of run to process
-    #         procedure_type: The type of procedure to process
-    #     """
-    #     for run in runs:
-    #         run_item = self.model.add_child(parent=submission_item, child=dict(
-    #             name=run['plate_number'],
-    #             query_str=run['plate_number'],
-    #             item_type=run_type
-    #         ))
-    #         await self._process_procedures_async(run['procedure'], run_item, procedure_type)
-    #         await asyncio.sleep(0)  # Allow other tasks to run
-
-    # async def _process_procedures_async(self, procedures: List[Any], run_item: QStandardItem, procedure_type: type) -> None:
-    #     """
-    #     Asynchronously process all procedures for a run.
-        
-    #     Args:
-    #         procedures: List of procedure dictionaries or names
-    #         run_item: The parent QStandardItem for the run
-    #         procedure_type: The type of procedure to process
-    #     """
-    #     for procedure in procedures:
-    #         procedure_item = self.model.add_child(parent=run_item, child=dict(
-    #             name=procedure['name'] if isinstance(procedure, dict) else procedure,
-    #             query_str=procedure['name'] if isinstance(procedure, dict) else procedure,
-    #             item_type=procedure_type
-    #         ))
-    #         await asyncio.sleep(0)  # Allow other tasks to run
-
 
     def _populateTree(self, children, parent):
         for child in children:
@@ -235,13 +193,6 @@ class SubmissionsTree(QTreeView):
             self.model.setRowCount(0)  # works
             # pass
 
-    # def show_details(self, sel: QModelIndex):
-    #     # NOTE: Convert to data in id column (i.e. column 0)
-    #     indexes = self.selectedIndexes()
-    #     dicto = next((item.data() for item in indexes if item.data()))
-    #     obj = dicto['item_type'].query(name=dicto['query_str'], limit=1)
-    #     obj.show_details(self)
-
     def show_details(self, sel: QModelIndex):
         if not sel.isValid():
             return
@@ -252,7 +203,6 @@ class SubmissionsTree(QTreeView):
 
         # 2. Extract the data dictionary we stored in the UserRole namespace
         metadata = target_index.data(Qt.ItemDataRole.UserRole)
-        print(metadata)
         if metadata and isinstance(metadata, dict):
             item_type = metadata.get('item_type')
             query_str = metadata.get('query_str')
@@ -263,8 +213,6 @@ class SubmissionsTree(QTreeView):
                 
                 if obj:
                     obj.show_details(self)
-
-
 
 
 class TreeItem:
@@ -378,33 +326,3 @@ class ClientSubmissionRunModel(QAbstractItemModel):
         self.endResetModel()
 
 
-
-# class ClientSubmissionRunModel(QStandardItemModel):
-
-#     def __init__(self, parent):
-#         super().__init__(parent)
-
-#     def add_child(self, parent: QStandardItem, child:dict, additions:bool=False) -> QStandardItem:
-#         # logger.debug(f"Adding child with data: {pformat(child['name'])}")
-#         try:
-#             item = QStandardItem(child['name'])
-#         except Exception as e:
-#             logger.error(f"Error creating QStandardItem:{child['name']}")
-#             # raise e
-#             item = QStandardItem("Unknown")
-#         item.setData(dict(item_type=child['item_type'], query_str=child['query_str']), 1)
-#         if additions:
-#             item_client = QStandardItem(child['client'])
-#             if isinstance(child['date'], str):
-#                 item_date = QStandardItem(child['date'])
-#             elif isinstance(child['date'], (date, datetime)):
-#                 item_date = QStandardItem(child['date'].strftime("%Y-%m-%d"))
-#             item_type = QStandardItem(child['type'])
-#             parent.appendRow([item, item_type, item_client, item_date])
-#         else:
-#             parent.appendRow([item])
-#         item.setEditable(False)
-#         return item
-
-#     def edit_item(self):
-#         pass

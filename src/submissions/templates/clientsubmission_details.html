@@ -14,6 +14,12 @@
         &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ key | replace("_", " ") | title | replace("Id", "ID") }}:</b> {% if key=='cost' %}{% if clientsubmission['cost'] %} {{ "${:,.2f}".format(value) }}{% endif %}{% else %}{{ value }}{% endif %}<br/>
     {% endfor %}
     </p>
+    {% if clientsubmission['comment'] %}
+    <button type="button"><h3><u>Comments:</u></h3></button>
+    <p>{% for comment in clientsubmission['comment'] %}
+        &nbsp;&nbsp;&nbsp;&nbsp;<b>{{ comment['user'] }} ({{ comment['time'] }}):</b> {{ comment['text'] }}<br>
+    {% endfor %}</p>
+    {% endif %}
     {% if clientsubmission['sample'] %}
     <button type="button"><h3><u>Client Submitted Samples:</u></h3></button>
     <p>{% for sample in clientsubmission['sample'] %}

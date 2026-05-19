@@ -7,7 +7,6 @@ from random import sample
 import logging, tempfile, re, numpy as np, pandas as pd, types, sys, itertools
 from uuid import uuid4
 from inspect import isclass
-from zipfile import BadZipfile
 from operator import itemgetter
 from pprint import pformat
 from pandas import DataFrame
@@ -45,7 +44,7 @@ class ClientSubmission(BaseClass, LogMixin):
                                               name="fk_BS_sublab_id"))  #: client lab id from _organizations
     submission_category = Column(String(64))  #: i.e. Surveillance
     full_batch_size = Column(INTEGER)  #: Number of wells in provided plate. 0 if no plate.
-    comments = Column(JSON)  #: comment objects from users.
+    _comment = Column(JSON)  #: comment objects from users.
     _run = relationship("Run", back_populates="_clientsubmission")  #: many-to-one relationship
     _contact = relationship("Contact", back_populates="_clientsubmission")  #: contact representing submitting lab.
     contact_id = Column(INTEGER, ForeignKey("_contact.id", ondelete="SET NULL",
@@ -120,7 +119,8 @@ class ClientSubmission(BaseClass, LogMixin):
                 self.sample = sample
             except Exception:
                 logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
-    
+        self._comment = [] if self._comment is None else self._comment
+
     @hybrid_property
     def submitter_plate_id(self):
         return self._submitter_plate_id or "Not Set"
@@ -319,6 +319,23 @@ class ClientSubmission(BaseClass, LogMixin):
     def name(self):
         return self.submitter_plate_id
 
+    @hybrid_property
+    def comment(self):
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
+
     @property
     def sample_count(self) -> int:
         return len(self.clientsubmissionsampleassociation)
@@ -428,7 +445,6 @@ class ClientSubmission(BaseClass, LogMixin):
             query = query.order_by(cls.submitted_date.desc())
         return cls.execute_query(query=query, limit=limit, offset=offset, **kwargs)
 
-
     @classmethod
     def submissions_to_df(cls, submissiontype: str | None = None, limit: int = 0,
                           chronologic: bool = True, page: int = 1, page_size: int = 250) -> pd.DataFrame:
@@ -503,7 +519,22 @@ class ClientSubmission(BaseClass, LogMixin):
         logger.debug("Edit")
 
     def add_comment(self, obj):
-        logger.debug("Add Comment")
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
+        logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, submission=self)
+        if dlg.exec():
+            comment = dlg.parse_form()
+            self.comment = comment
+            self.save()
 
     @property
     def details_dict(self) -> dict:
@@ -710,6 +741,7 @@ class Run(BaseClass, LogMixin):
                 self.sample = sample
             except Exception:
                 logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
+        self._comment = [] if self._comment is None else self._comment
 
     @hybrid_property
     def rsl_plate_number(self):
@@ -906,7 +938,20 @@ class Run(BaseClass, LogMixin):
 
     @hybrid_property
     def comment(self):
-        return self._comment
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
 
     @hybrid_property
     def run_cost(self):
@@ -1311,17 +1356,19 @@ class Run(BaseClass, LogMixin):
 
     def add_comment(self, obj):
         """
-        Creates widget for adding comments to procedure
+        Add a comment to this procedure.
 
-        Args:
-            obj (_type_): parent widget
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
         """
-        from frontend.widgets.submission_details import SubmissionComment
-        dlg = SubmissionComment(parent=obj, submission=self)
+        logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
         if dlg.exec():
             comment = dlg.parse_form()
-            if comment in ["", None]:
-                return
             self.comment = comment
             self.save(original=False)
 
@@ -1463,6 +1510,7 @@ class Sample(BaseClass, LogMixin):
     id = Column(INTEGER, primary_key=True)  #: primary key
     sample_id = Column(String(64), nullable=False, unique=True)  #: identification from submitter
     _is_control = Column(INTEGER, default=0) #: 1 = positive, -1 = negative, 0 = not a control
+    _comment = Column(JSON, nullable=True) #: comments on sample
 
     sampleclientsubmissionassociation = relationship(
         "ClientSubmissionSampleAssociation",
@@ -1519,7 +1567,8 @@ class Sample(BaseClass, LogMixin):
                 self.procedure = procedure
             except Exception:
                 logger.error(f"Couldn't set procedure to {procedure} for {self.__class__.__qualname__} with name {self.name}")
-    
+        self._comment = [] if self._comment is None else self._comment
+
     @hybrid_property
     def clientsubmission(self):
         return self._clientsubmission
@@ -1662,6 +1711,24 @@ class Sample(BaseClass, LogMixin):
             value = str(value)    
         self.sample_id = value
 
+    @hybrid_property
+    def comment(self):
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
+
+
     @classmethod
     @declared_attr
     def searchables(cls):
@@ -1744,6 +1811,24 @@ class Sample(BaseClass, LogMixin):
             return
         super().save()                                    
 
+    def add_comment(self, obj):
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
+        logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        if dlg.exec():
+            comment = dlg.parse_form()
+            self.comment = comment
+            self.save(original=False)
+
 # NOTE: Submission to Sample Associations
 
 
@@ -1757,6 +1842,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
     clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id"),
                                  primary_key=True)  #: id of associated client submission
     submission_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
+    _comment = Column(JSON, nullable=True) #: comments on sample
     # NOTE: reference to the Submission object
     _clientsubmission = relationship("ClientSubmission",
                                     back_populates="clientsubmissionsampleassociation")  #: associated procedure
@@ -1789,6 +1875,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
             except Exception:
                 logger.error(f"Couldn't set sample to {sample} for {self.__class__.__qualname__} with name {self.name}")
         self.submission_rank = submission_rank
+        self._comment = [] if self._comment is None else self._comment
     
     @hybrid_property
     def name(self):
@@ -1876,6 +1963,24 @@ class ClientSubmissionSampleAssociation(BaseClass):
             self._clientsubmission = output
         else:
             logger.error(f"Could not set _clientsubmission to {type(output)}")
+
+    @hybrid_property
+    def comment(self):
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
+
 
     @property
     def details_dict(self) -> dict:
@@ -2016,6 +2121,23 @@ class ClientSubmissionSampleAssociation(BaseClass):
         """
         return super().aliases + ["equipmentequipmentroleassociation"]
 
+    def add_comment(self, obj):
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
+        logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        if dlg.exec():
+            comment = dlg.parse_form()
+            self.comment = comment
+            self.save(original=False)
 
 class RunSampleAssociation(BaseClass):
     """
@@ -2026,6 +2148,7 @@ class RunSampleAssociation(BaseClass):
     sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
     run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
     run_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
+    _comment = Column(JSON, nullable=True) #: comments on sample
 
     # NOTE: reference to the Submission object
 
@@ -2145,6 +2268,24 @@ class RunSampleAssociation(BaseClass):
             self._run = output
         else:
             logger.error(f"Could not set {self.__class__.__qualname__}._run to {type(output)}")
+
+    @hybrid_property
+    def comment(self):
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
+
 
     def to_pydantic(self) -> PydSample:
         """
@@ -2309,6 +2450,23 @@ class RunSampleAssociation(BaseClass):
         output['sql_instance'] = self.sample
         return output
 
+    def add_comment(self, obj):
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
+        logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        if dlg.exec():
+            comment = dlg.parse_form()
+            self.comment = comment
+            self.save(original=False)
 
 class ProcedureSampleAssociation(BaseClass):
 
@@ -2318,6 +2476,7 @@ class ProcedureSampleAssociation(BaseClass):
     row = Column(INTEGER)
     column = Column(INTEGER)
     procedure_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
+    _comment = Column(JSON, nullable=True) #: comments on sample
 
     _procedure = relationship(Procedure,
                              back_populates="proceduresampleassociation")  #: associated procedure
@@ -2391,6 +2550,41 @@ class ProcedureSampleAssociation(BaseClass):
         else:
             logger.error(f"Could not set _procedure to {type(output)}")
 
+    @hybrid_property
+    def comment(self):
+        if not self._comment:
+            return []
+        return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
+    
+    @comment.setter
+    def comment(self, value):
+        if not isinstance(value, dict):
+            logger.error(f"Invalid comment value {value} for {self.__class__.__qualname__}, must be a dictionary.")
+            return
+        if value['text'] in [""]:
+            return
+        current = self._comment or []
+        current.append(value)
+        self._comment = current
+
+    def add_comment(self, obj):
+        """
+        Add a comment to this procedure.
+
+        This method is a placeholder for comment UI integration.
+
+        :param obj: Parent object for the comment action.
+        :type obj: Any
+        :return: None
+        """
+        logger.debug("Add Comment!")
+        from frontend.widgets import SubmissionComment
+        dlg = SubmissionComment(parent=obj, title=f"Add comment to {self.name}", label="Comment:")
+        if dlg.exec():
+            comment = dlg.parse_form()
+            self.comment = comment
+            self.save(original=False)
+
     def __init__(self, new_id: int | None = None,  *args, **kwargs):
         """
         Resolve shorthand inputs (strings/dicts) for proceduretype and reagentrole
@@ -2429,6 +2623,7 @@ class ProcedureSampleAssociation(BaseClass):
             self.id = new_id
         else:
             self.id = self.__class__.autoincrement_id(procedure_rank=self.procedure_rank)
+        self._comment = [] if self._comment is None else self._comment
     
     @hybrid_property
     def name(self):
