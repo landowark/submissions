@@ -5,14 +5,18 @@ from __future__ import annotations
 import logging, sys
 from datetime import datetime, date
 from pprint import pformat
-from typing import Any
-from openpyxl.styles import Alignment, PatternFill
+from typing import Any, TYPE_CHECKING
+import numpy as np
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
-from backend.db.models import BaseClass, ProcedureType
+from backend.db.models import BaseClass
+from openpyxl.utils.dataframe import dataframe_to_rows
 from backend.validators.pydant import PydBaseClass
-from tools import flatten_list, sort_dict_by_list, row_map
+from tools import flatten_list, sort_dict_by_list, row_map, handle_keys
+if TYPE_CHECKING:
+    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -49,7 +53,10 @@ class DefaultWriter(object):
             case list():
                 value = "\\n".join([str(item) for item in value])
             case datetime() | date():
-                value = value.strftime("%Y-%m-%d %H:%M:%S")
+                try:
+                    value = value.strftime("%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    value = "Time not available."
             case _:
                 value = str(value)
         return value
@@ -160,9 +167,10 @@ class DefaultKEYVALUEWriter(DefaultWriter):
             value = self.stringify_value(value=v)
             if value is None:
                 continue
-            self.worksheet.cell(column=1, row=ii, value=self.prettify_key(k))
+            self.worksheet.cell(column=1, row=ii, value=handle_keys(k))
             self.worksheet.cell(column=2, row=ii, value=self.stringify_value(value))
         self.worksheet = self.postwrite(self.worksheet)
+        
         return workbook
 
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
@@ -183,37 +191,35 @@ class DefaultTABLEWriter(DefaultWriter):
         return row_count
 
     def delineate_end_row(self, start_row: int = 1) -> int:
-        end_row = start_row + len(self.pydant_obj) + 1
+        end_row = start_row + len(self.pydant_obj) + 2
         return end_row
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
         self.header_list = self.sort_header_row(list(set(flatten_list([item.fields for item in self.pydant_obj]))))
-        self.header_list = [(iii, item) for iii, item in enumerate(self.header_list, start=1)]
-        self.worksheet = self.write_header_row(worksheet=self.worksheet)
-        for row, object in enumerate(self.pydant_obj, start=1):
-            write_row = self.start_row + row
-            for column, header in self.header_list:
-                try:
-                    value = object.improved_dict[header.lower().replace(" ", "")]
-                except (AttributeError, KeyError) as e:
-                    try:
-                        value = object.improved_dict[header.lower().replace(" ", "_")]
-                    except (AttributeError, KeyError):
-                        value = ""
-                if header == "row":
-                    if value == 0:
-                        value = ""
-                    else:
-                        try:
-                            value = row_map[value]
-                        except KeyError:
-                            pass
-                elif header == "column" and value == 0:
-                    value = ""
-                value = self.stringify_value(value)
-                self.worksheet.cell(row=write_row, column=column, value=value)
+        records = [getattr(item, 'improved_dict', {}) for item in self.pydant_obj]
+        df = DataFrame(records)[self.header_list]
+        df.replace("", np.nan, inplace=True)
+        # Identify columns where ALL values are zero
+        is_all_zero = (df == 0).all()
+
+        # Identify columns where ANY value is a list
+        is_list_col = df.map(lambda x: isinstance(x, list)).all()
+
+        # Drop columns that meet either condition
+        df = df.loc[:, ~(is_all_zero | is_list_col)]
+        # Drop columns where all values are NaN (the data is empty)
+        df.dropna(axis=1, how='all', inplace=True)
+        df.fillna("", inplace=True)
+        # Rename column Headers.
+        # df.columns = df.columns.str.replace('_', ' ').str.title()
+        df = df.rename(columns=handle_keys)
+
+        rows = dataframe_to_rows(df, index=False, header=True)
+        for r_idx, row in enumerate(rows, start_row + 1 ):
+            for c_idx, value in enumerate(row, 1):
+                self.worksheet.cell(row=r_idx, column=c_idx, value=self.stringify_value(value))
         self.worksheet = self.postwrite(self.worksheet)
         return workbook
 
@@ -225,16 +231,22 @@ class DefaultTABLEWriter(DefaultWriter):
                 output.append(header_list.pop(header_list.index(item)))
         return output + sorted([item for item in header_list if item not in cls.exclude])
 
-    def write_header_row(self, worksheet: Worksheet) -> Worksheet:
-        for iii, header in self.header_list:
-            worksheet.cell(row=self.start_row, column=iii, value=self.prettify_key(header))
-            worksheet.cell(row=self.start_row, column=iii).alignment = Alignment(horizontal='center')
-            worksheet.cell(row=self.start_row, column=iii).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
-        return worksheet
-
     def postwrite(self, worksheet: Worksheet) -> Worksheet:
         worksheet = self.columns_best_fit(worksheet=worksheet)
+        worksheet = self.colour_start_row(worksheet=worksheet)
         return worksheet
+    
+    def colour_start_row(self, worksheet: Worksheet) -> Worksheet:
+        font = Font(bold=True, color="ffffffff")
+        fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
+        align = Alignment(horizontal="center")
+        for cell in worksheet[self.start_row]:
+            cell.font = font
+            cell.fill = fill
+            cell.alignment = align
+        return worksheet
+
+
 
 
 from .procedure_writers import ProcedureInfoWriter, ProcedureSampleWriter, ProcedureReagentWriter, ProcedureEquipmentWriter

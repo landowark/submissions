@@ -323,6 +323,9 @@ class ClientSubmission(BaseClass, LogMixin):
     def comment(self):
         if not self._comment:
             return []
+        if not isinstance(self._comment, list):
+            # logger.error(f"Comment for {self.__class__.__qualname__} with name {self.name} is not a list: {self._comment}")
+            return []
         return [item for item in self._comment if all(key in ['user', 'text', 'time'] for key in item.keys())]
     
     @comment.setter
@@ -544,13 +547,13 @@ class ClientSubmission(BaseClass, LogMixin):
             output['contact_email'] = output['contact']['email']
         output['sample'] = [sample for sample in output['clientsubmissionsampleassociation']]
         output['name'] = self.name
-        output['client_lab'] = output['clientlab']
-        output['submission_type'] = output.get('submissiontype')
+        # output['submission_type'] = output.get('submissiontype')
         output['abbreviation'] = self.submissiontype.abbreviation or "XX"
         output['sample_count'] = len(self.clientsubmissionsampleassociation)
+        output['comment'] = self.comment
         excl = ['run', "sample", "clientsubmissionsampleassociation", "excluded",
-                               "expanded", 'clientlab', 'submissiontype', 'id', 'info_placement', 'filepath', "name",
-                               "abbreviation", "endrow", "startrow", "full_batch_size"]
+                               "expanded", 'clientlab',  'id', 'info_placement', 'filepath', "name",
+                               "abbreviation", "endrow", "startrow", "full_batch_size", "comment"]
         try:
             output['excluded'] += excl
         except KeyError:
@@ -1992,6 +1995,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
         output.update(relevant)
         output['misc_info'] = misc
         output['rank'] = self.submission_rank
+        output['comment'] = self.comment
         return output
 
     @classmethod
@@ -2138,6 +2142,7 @@ class ClientSubmissionSampleAssociation(BaseClass):
             comment = dlg.parse_form()
             self.comment = comment
             self.save(original=False)
+
 
 class RunSampleAssociation(BaseClass):
     """
@@ -2467,6 +2472,7 @@ class RunSampleAssociation(BaseClass):
             comment = dlg.parse_form()
             self.comment = comment
             self.save(original=False)
+
 
 class ProcedureSampleAssociation(BaseClass):
 

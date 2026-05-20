@@ -13,14 +13,14 @@ from pathlib import Path
 from tools import Report, Alert, main_form_style, report_result, get_application_from_parent
 from backend.validators import PydClientSubmission, PydSample
 from backend.db.models import (
-    ClientLab, SubmissionType
+    ClientLab
 )
 from pprint import pformat
 from typing import List, Tuple, TYPE_CHECKING
 from datetime import date
 from .sample_checker import SampleChecker
 if TYPE_CHECKING:
-    from backend.db.models import ClientSubmission
+    from backend.db.models import ClientSubmission, SubmissionType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -169,7 +169,7 @@ class SubmissionFormWidget(QWidget):
     
     def __init__(self, parent: QWidget, pyd: PydClientSubmission, disable: list | None = None) -> None:
         super().__init__(parent)
-        from backend.db.models import Run
+        from backend.db.models import Run, SubmissionType
         if disable is None:
             disable = []
         self.app = get_application_from_parent(parent)
@@ -224,6 +224,7 @@ class SubmissionFormWidget(QWidget):
         Returns:
             SubmissionFormWidget.InfoItem: Form widget to hold name:value
         """
+        from backend.db.models import SubmissionType
         if isinstance(submission_type, str):
             submission_type = SubmissionType.query(name=submission_type)
         if key not in self.ignore:
@@ -281,6 +282,7 @@ class SubmissionFormWidget(QWidget):
 
         def __init__(self, parent: QWidget, key: str, value: dict, submission_type: str | SubmissionType | None = None,
                      clientsubmission_object: ClientSubmission | None = None, disable: bool = False) -> None:
+            from backend.db.models import SubmissionType
             super().__init__(parent)
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
@@ -344,7 +346,7 @@ class SubmissionFormWidget(QWidget):
             Returns:
                 QWidget: Form object
             """
-            from backend.db.models import ClientSubmission
+            from backend.db.models import ClientSubmission, SubmissionType
             if isinstance(submission_type, str):
                 submission_type = SubmissionType.query(name=submission_type)
             if isinstance(value, dict):

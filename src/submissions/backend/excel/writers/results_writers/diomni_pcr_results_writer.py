@@ -18,14 +18,16 @@ class DiomniPCRInfoWriter(DefaultResultsInfoWriter):
 
     start_row = 1
 
-    def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
-        super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
-        self.fill_dictionary = self.pydant_obj.improved_dict['result']
+    # def __init__(self, pydant_obj, proceduretype: ProcedureType | None = None, *args, **kwargs):
+    #     super().__init__(pydant_obj=pydant_obj, proceduretype=proceduretype, *args, **kwargs)
+        
+        # self.fill_dictionary = self.pydant_obj.improved_dict['result']
+        
 
-    def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
-                          start_row: int | None = None, *args, **kwargs) -> Workbook:
-        workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.proceduretype.name} Results")
-        return workbook
+    # def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
+    #                       start_row: int | None = None, *args, **kwargs) -> Workbook:
+    #     workbook = super().write_to_workbook(workbook=workbook, sheet=f"{self.proceduretype.name} Results")
+    #     return workbook
 
 
 class DiomniPCRSampleWriter(DefaultResultsSampleWriter):

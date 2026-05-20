@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import List
 from dateutil.parser import parse
 from sqlalchemy.orm import declarative_base, DeclarativeMeta, Query
-from . import BaseClass
+from . import BaseClass, ctx
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
 import logging
@@ -93,6 +93,7 @@ class AuditLog(Base):
            If both dates are None, returns all audit log entries.
         """
         session = BaseClass.__database_session__
+        # session = ctx.database.session()
         query: Query = session.query(cls)
         if start_date is not None and end_date is None:
             logger.warning(f"Start date with no end date, using today.")

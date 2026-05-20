@@ -99,7 +99,7 @@ class ReagentRole(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64), unique=True)  #: name of reagentrole reagent plays
+    name = Column(String(64), nullable=False, unique=True)  #: name of reagentrole reagent plays
     
     reagentroleproceduretypeassociation = relationship(
         "ProcedureTypeReagentRoleAssociation",
@@ -328,7 +328,7 @@ class Reagent(BaseClass, LogMixin):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
     _eol_ext = Column(Interval())  #: extension of life interval
-    name = Column(String(64), unique=True)  #: reagent name
+    name = Column(String(64), nullable=False, unique=True)  #: reagent name
     manufacturer = Column(String(32))
     ref = Column(String(16))
     cost_per_ml = Column(FLOAT(2))  #: amount a millilitre of reagent costs
@@ -538,7 +538,7 @@ class ReagentLot(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    lot = Column(String(64), unique=True)  #: lot number of reagent
+    lot = Column(String(64), nullable=False)  #: lot number of reagent
     _expiry = Column(TIMESTAMP)  #: expiry date - extended by eol_ext of parent programmatically
     _active = Column(INTEGER, default=1)
     reagent_id = Column(INTEGER, ForeignKey("_reagent.id", ondelete='SET NULL',
@@ -986,7 +986,7 @@ class SubmissionType(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(128), unique=True)  #: name of procedure type
+    name = Column(String(128), nullable=False, unique=True)  #: name of procedure type
     defaults = Column(JSON)  #: Basic information about this procedure type
     _file_name_template = Column(String(256))  #: Jinja2 template for naming files of this submission type
     regex = Column(String(1024)) #: Raw regex for finding filenames of this submission type
@@ -1023,7 +1023,7 @@ class SubmissionType(BaseClass):
     
     @hybrid_property
     def file_name_template(self):
-        return self._file_name_template or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}"
+        return self._file_name_template or "{{rsl_plate_number}}{% if _clientsubmission %}_{{_clientsubmission.submitter_plate_id}}{% endif %}{% if _completed_date %}_{{ _completed_date.strftime('%Y%m%d %H%M%S') }}{% endif %}"
     
     @file_name_template.setter
     def file_name_template(self, value):
@@ -1275,7 +1275,7 @@ class ProcedureType(BaseClass):
     :vartype _reagentrole: list[ReagentRole]
     """
     id = Column(INTEGER, primary_key=True)
-    name = Column(String(64), unique=True)
+    name = Column(String(64), nullable=False, unique=True)
     plate_columns = Column(INTEGER, default=0)
     plate_rows = Column(INTEGER, default=0)
     plate_cost = Column(FLOAT(2), default=0.00)
@@ -2112,7 +2112,7 @@ class Procedure(BaseClass):
     
     @hybrid_property
     def results(self):
-        return [result for result in self._results if not result.sample_id]  # filter out sample-level results, only return procedure-level results
+        return [result for result in self._results if not result.is_sample]  # filter out sample-level results, only return procedure-level results
 
     @results.setter
     def results(self, value):
@@ -2179,10 +2179,24 @@ class Procedure(BaseClass):
         return self._cost
 
     @property
+    def info_results(self) -> dict[str, dict]:
+        grouped_results: dict[str, dict] = {}
+        for result in self._results:
+            if result.is_sample:
+                continue
+            try:
+                resultstype = result.resultstype.name
+            except AttributeError:
+                resultstype = "Unassigned ResultsType"
+            assert result.assoc_id is None
+            grouped_results[resultstype] = result
+        return grouped_results
+
+    @property
     def sample_results(self) -> dict[str, list]:
         grouped_results: dict[str, list] = {}
         for result in self._results:
-            if not result.sample_id:
+            if result.assoc_id is None:
                 continue
             try:
                 resultstype = result.resultstype.name
@@ -2198,21 +2212,8 @@ class Procedure(BaseClass):
         Returns a dict keyed by resultstype, with nested "procedure" and "sample"
         result lists.
         """
-        def group_by_resultstype(results):
-            grouped: dict[str, List[Results] | Results | None] = {}
-            for result in results:
-                try:
-                    resultstype = result.resultstype.name
-                except AttributeError:
-                    resultstype = "Unassigned ResultsType"
-                if resultstype == "Sample":
-                    grouped.setdefault(resultstype, []).append(result)
-                else:
-                    grouped[resultstype] = result
-            return grouped
-
         grouped: dict[str, dict[str, list]] = {}
-        procedure_groups = group_by_resultstype(self.results)
+        procedure_groups = self.info_results
         sample_groups = self.sample_results
 
         all_resultstypes = set(procedure_groups) | set(sample_groups)
@@ -3256,7 +3257,7 @@ class EquipmentRole(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: Role id, primary key
-    name = Column(String(32))  #: Common name
+    name = Column(String(32), nullable=False, unique=True)  #: Common name
 
     equipmentroleproceduretypeassociation = relationship(
         "ProcedureTypeEquipmentRoleAssociation",
@@ -3463,7 +3464,7 @@ class Equipment(BaseClass, LogMixin):
     """
 
     id = Column(INTEGER, primary_key=True)  #: id, primary key
-    name = Column(String(64))  #: equipment name
+    name = Column(String(64), nullable=False, unique=True)  #: equipment name
     manufacturer = Column(String(32))
     ref = Column(String(16))
     serial_number = Column(String(16))
@@ -3961,7 +3962,7 @@ class Process(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: Process id, primary key
-    name = Column(String(64), unique=True)  #: Process name
+    name = Column(String(64), nullable=False, unique=True)  #: Process name
     _tips = relationship("Tips", back_populates='_process',
                         secondary=process_tips)  #: relation to KitType
 
@@ -4700,7 +4701,7 @@ class TipsLot(BaseClass, LogMixin):
     _tips = relationship("Tips", back_populates="_tipslot")  #: joined parent tip type
     tips_id = Column(INTEGER, ForeignKey("_tips.id", ondelete='SET NULL',
                                          name="fk_tips_id"))  #: id of parent tip type
-    lot = Column(String(64), unique=True)  #: lot number
+    lot = Column(String(64), nullable=False)  #: lot number
     _expiry = Column(TIMESTAMP)  #: date of expiry
     _active = Column(INTEGER, default=1)  #: whether or not these tips are currently in use.
     _procedureequipmenttipslotassociation = relationship("ProcedureEquipmentTipslotAssociation", 
@@ -5903,6 +5904,7 @@ class Results(BaseClass):
                                           name="fk_RES_ASSOC_id"))
     _sampleprocedureassociation = relationship("ProcedureSampleAssociation", back_populates="_results")
     _img = Column(String(128))
+    _is_sample = Column(INTEGER, default=0)
 
     resultstype_id = Column(INTEGER, ForeignKey("_resultstype.id", ondelete='SET NULL',
                                               name="fk_RES_resultstype_id"))
@@ -6156,6 +6158,20 @@ class Results(BaseClass):
     def image(self, value):
         self._img = value
 
+    @hybrid_property
+    def is_sample(self):
+        if self._is_sample is not None:
+            return bool(self._is_sample)
+        else:
+            return self.assoc_id is not None
+        
+    @is_sample.setter
+    def is_sample(self, value):
+        if value is None:
+            value = False
+        self._is_sample = int(value)
+
+
     def to_pydantic(self, pyd_model_name: str | None = None, **kwargs):
         output = super().to_pydantic(pyd_model_name=pyd_model_name, **kwargs)
         if bool(self.sample_id):
@@ -6169,7 +6185,7 @@ class Results(BaseClass):
 class ResultsType(BaseClass):
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64))
+    name = Column(String(64), nullable=False, unique=True)
     _info = Column(JSON) #: where to look for procedure information
     _samples = Column(JSON) # where to look for sample information
     _results = relationship("Results", back_populates="_resultstype", cascade="all, delete-orphan")

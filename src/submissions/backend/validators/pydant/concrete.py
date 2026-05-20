@@ -31,6 +31,7 @@ class PydResults(PydConcrete, arbitrary_types_allowed=True):
     procedure: str | PydProcedure | None = Field(default=None)
     sample: str | PydSample | None = Field(default=None)
     date_analyzed: datetime | None = Field(default=None, repr=False, validate_default=True)
+    is_sample: bool = Field(default=False, repr=False)
 
     @field_validator("date_analyzed", mode="before")
     @classmethod
@@ -933,14 +934,15 @@ class PydClientSubmission(PydConcrete):
 
     model_config = ConfigDict(
         json_schema_extra = {
-            "excluded": ['excluded', 'filepath', 'comment'
+            "excluded": ['excluded', 'filepath', 'comment',
                          'sample', 
                          'run', 
                          'clientsubmissionsampleassociation',
                          'endrow', 
                          "abbreviation",
-                         "full_batch_size",
-                         "submissiontype"],
+                         "full_batch_size"
+                         
+                         ],
             "key_value_order": ["submitter_plate_id",
                        "submitted_date",
                        "clientlab",
@@ -1187,7 +1189,6 @@ class PydClientSubmission(PydConcrete):
     def improved_dict(self) -> dict:
         output = super().improved_dict
         output['run'] = [item.to_pydantic().improved_dict for item in self.sql_instance.run]
-        output['clientlab'] = output['clientlab']
         try:
             output['contact_email'] = output['contact']['email']
         except TypeError:

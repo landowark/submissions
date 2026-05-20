@@ -5,7 +5,6 @@ from datetime import date, datetime
 from PyQt6.QtCore import QSignalBlocker
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QWidget, QGridLayout, QPushButton, QLabel
-from backend.db import SubmissionType
 from tools import Report, report_result, Alert
 from .misc import CheckableComboBox, StartEndDatePicker
 from .functions import select_save_file, save_pdf
@@ -53,6 +52,7 @@ class InfoPane(QWidget):
         self.chart_settings = {}
 
     def update_data(self, *args, **kwargs) -> Report | None:
+        from backend.db.models import SubmissionType
         report = Report()
         if self.datepicker.start_date.date() > self.datepicker.end_date.date():
             lastmonth = self.datepicker.end_date.date().addDays(-31)

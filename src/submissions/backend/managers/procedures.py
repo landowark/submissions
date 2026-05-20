@@ -107,6 +107,7 @@ class DefaultProcedureManager(DefaultManager):
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.
         self.result_writers = []
+        logger.debug(f"Grouped results:\n{pformat(self.pyd.sql_instance.grouped_results)}")
         for resulttype_name, parents in self.pyd.sql_instance.grouped_results.items():
             grouped_writer = {}
             info_result = parents['info']

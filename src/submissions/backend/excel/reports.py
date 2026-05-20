@@ -8,7 +8,7 @@ from pandas import DataFrame, ExcelWriter
 from pathlib import Path
 from datetime import date
 from typing import Generator, Tuple, List, TYPE_CHECKING
-from backend.db.models import Procedure 
+
 from tools import find_paths_to_value, jinja_template_loading, get_first_blank_df_row, row_map, convert_strings
 from PyQt6.QtWidgets import QWidget
 from openpyxl.worksheet.worksheet import Worksheet
@@ -47,6 +47,7 @@ class ReportArchetype(object):
 class ReportMaker(object):
 
     def __init__(self, start_date: date, end_date: date, organizations: list | None = None):
+        from backend.db.models import Procedure 
         self.start_date = start_date
         self.end_date = end_date
         # NOTE: Set page size to zero to override limiting query size.

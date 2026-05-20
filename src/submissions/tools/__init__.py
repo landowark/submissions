@@ -15,7 +15,8 @@ from dateutil.easter import easter
 from jinja2 import Environment, FileSystemLoader, Template
 from logging import handlers, Logger
 from pathlib import Path
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, InstrumentedAttribute, scoped_session, sessionmaker
+from contextlib import contextmanager
 from sqlalchemy import create_engine, text, MetaData
 from pydantic import ValidationError, field_validator, BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, YamlConfigSettingsSource
@@ -637,7 +638,7 @@ class Alert(BaseModel, arbitrary_types_allowed=True):
         return value
 
     def __repr__(self) -> str:
-        return f"Result({self.owner})"
+        return f"Alert({self.owner})"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -657,7 +658,7 @@ class Report(BaseModel):
     def __str__(self):
         return f"<Report(result_count:{len(self.results)})>"
 
-    def add_result(self, result: Result | Report | None):
+    def add_result(self, result: Alert | Report | None):
         """
         Takes a result object or all results in another report and adds them to this one.
 
@@ -676,7 +677,7 @@ class Report(BaseModel):
                     logger.info(f"Adding {res} from {result} to results.")
                     self.results.append(res)
             case _:
-                logger.error(f"Unknown variable type: {type(result)} for <Result> entry into <Report>")
+                logger.error(f"Unknown variable type: {type(result)} for <Alert> entry into <Report>")
 
 
 def is_developer() -> bool:
@@ -893,13 +894,20 @@ def flatten_list(input_list: list) -> list:
     return list(itertools.chain.from_iterable(input_list))
 
 
-def handle_keys(input_key:str) -> str:
-    output = input_key.replace("_", " ")
-    output = output.title()
-    output = output.replace("Ww", "WW")
-    output = output.replace(" Id", " ID")
-    output = output.replace("Rsl", "RSL")
-    return output
+def handle_keys(key:str) -> str:
+    key = key.replace("type", " type").strip()
+    key = key.replace("role", " role").strip()
+    key = key.replace("version", " version").strip()
+    key = key.replace("lot", " lot").strip()
+    key = key.replace("lab", " lab").strip()
+    key = key.replace("_", " ")
+    key = key.title()
+    key = key.replace(" Id", " ID")
+    key = key.replace("Ww", "WW")
+    key = key.replace(" Id", " ID")
+    key = key.replace("Rsl", "RSL")
+    key = " ".join(key.split())
+    return key
 
 
 def handle_results(input_value:dict|str) -> str:
@@ -1048,6 +1056,7 @@ class Settings(BaseSettings, extra="allow"):
 
     """
     database: DotDict = Field(default_factory=DotDict)
+    
     directories: DotDict = Field(default_factory=DotDict)
     # directory_path: Path | None = None
     # backup_path: Path | str | None = None
@@ -1172,49 +1181,9 @@ class Settings(BaseSettings, extra="allow"):
         print(f"Using {database_path} for database path")
         engine = create_engine(database_path)
         database.engine = engine
-        database.session = Session(engine)
+        database.session = scoped_session(sessionmaker(bind=engine))
         return database
         
-    # @field_validator('backup_path', mode="before")
-    # @classmethod
-    # def set_backup_path(cls, value, values):
-    #     match value:
-    #         case str():
-    #             value = Path(value)
-    #         case None:
-    #             value = values.data['directory_path'].joinpath("Database backups")
-    #     if not value.exists():
-    #         try:
-    #             value.mkdir(parents=True)
-    #         except OSError:
-    #             value = Path(askdirectory(title="Directory for backups."))
-    #     return value
-
-    # @field_validator('directory_path', mode="before")
-    # @classmethod
-    # def ensure_directory_exists(cls, value, values):
-    #     database = values.data['database'] 
-    #     if value is None:
-    #         match database.schema:
-    #             case "sqlite":
-    #                 if check_if_app():
-    #                     alembic_path = Path(sys._MEIPASS).joinpath("files", "alembic.ini")
-    #                 else:
-    #                     alembic_path = project_path.joinpath("alembic.ini")
-    #                 value = cls.get_alembic_db_path(alembic_path=alembic_path, mode='path').parent
-    #             case _:
-    #                 Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
-    #                 value = Path(askdirectory(
-    #                     title="Select directory for DB storage"))  # show an "Open" dialog box and return the path to the selected file
-    #     if isinstance(value, str):
-    #         value = Path(value)
-    #     try:
-    #         check = value.exists()
-    #     except AttributeError:
-    #         check = False
-    #     if not check:
-    #         value.mkdir(exist_ok=True, parents=True)
-    #     return value
     
     @field_validator('package', mode="before")
     @classmethod
@@ -1233,6 +1202,18 @@ class Settings(BaseSettings, extra="allow"):
         self.set_from_db()
         self.set_scripts()
         self.save()
+
+    @contextmanager
+    def db_session(self):
+        session = SessionFactory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            SessionFactory.remove()
 
     def close_database(self):
         """Close the active database session and dispose the engine."""
@@ -1268,7 +1249,7 @@ class Settings(BaseSettings, extra="allow"):
             session = self.database.session
             metadata = MetaData()
             try:
-                metadata.reflect(bind=session.get_bind())
+                metadata.reflect(bind=self.database.engine)
             except AttributeError as e:
                 print(f"Error getting tables: {e}")
                 return

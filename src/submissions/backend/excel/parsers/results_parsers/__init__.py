@@ -28,6 +28,7 @@ class DefaultResultsInfoParser(DefaultKEYVALUEParser):
             except KeyError:
                 pass
             yield key, value
+        
 
 
 class DefaultResultsSampleParser(DefaultTABLEParser):

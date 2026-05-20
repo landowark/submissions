@@ -13,7 +13,7 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.exc import ArgumentError
+from sqlalchemy.exc import ArgumentError, IntegrityError, OperationalError
 from typing import Any, List, ClassVar, Tuple, TYPE_CHECKING
 from pathlib import Path
 from tools import report_result, Report, Alert, ctx
@@ -758,11 +758,15 @@ class BaseClass(Base):
         try:
             self.__database_session__.add(self)
             self.__database_session__.commit()
-        except Exception as e:
-            logger.critical(f"Problem saving {self} due to: {e}")
+        except IntegrityError as e:
             self.__database_session__.rollback()
-            report.add_result(Alert(msg=e, status="Critical"))
-            return report
+            logger.error(f"Integrity error saving {self}: {e.orig}")
+            report.add_result(Result(msg=str(e.orig), status="Critical"))
+            raise  # or return report, but don't silently drop
+        except OperationalError as e:
+            self.__database_session__.rollback()
+            logger.critical(f"Operational error saving {self}: {e}")
+            raise
 
     @classmethod
     def pydantic_model(cls, pyd_model_name: str | None = None) -> Any:
@@ -792,8 +796,6 @@ class BaseClass(Base):
             return None
         return model
 
-    
-    
     def __setattr__(self, key, value):
         """
         Custom attribute setter to handle relationships and properties.

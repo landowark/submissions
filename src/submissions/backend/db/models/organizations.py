@@ -53,7 +53,7 @@ class ClientLab(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64))  #: clientlab name
+    name = Column(String(64), nullable=False, unique=True)  #: clientlab name
     _clientsubmission = relationship("ClientSubmission", back_populates="_clientlab")  #: submission this clientlab has submitted
     cost_centre = Column(String(32))  #: cost centre used by org for payment
     _contact = relationship("Contact", back_populates="_clientlab",
@@ -244,7 +244,6 @@ class ClientLab(BaseClass):
         super().save()
         
 
-
 class Contact(BaseClass):
     """
     Represents a contact person associated with client laboratories.
@@ -268,7 +267,7 @@ class Contact(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)  #: primary key
-    name = Column(String(64))  #: contact name
+    name = Column(String(64), nullable=False)  #: contact name
     email = Column(String(64))  #: contact email
     tel = Column(String(16))  #: contact phone number
     _clientlab = relationship("ClientLab", back_populates="_contact", uselist=True,

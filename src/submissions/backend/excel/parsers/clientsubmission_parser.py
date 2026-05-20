@@ -91,6 +91,8 @@ class ClientSubmissionSampleParser(DefaultTABLEParser):#, SubmissionTyperMixin):
     def determine_control(self, sample_id: str | None) -> Tuple[str, int]:
         if sample_id is None:
             return sample_id, 0
+        if not isinstance(sample_id, str):
+            sample_id = str(sample_id)
         if sample_id.lower() in ["", "blank", "na", "n/a", "n\\a"]:
             return "", 0
         if sample_id.lower().startswith(("atcc", "mcs", "pos", "positivecontrol", "poscontrol", "pc")):

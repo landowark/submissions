@@ -68,6 +68,10 @@ def select_save_file(obj: QMainWindow, default_name: str, extension: str) -> Pat
         home_dir = app.last_dir.joinpath(default_name).resolve().__str__()
     except FileNotFoundError:
         home_dir = Path.home().joinpath(default_name).resolve().__str__()
+    except AttributeError as e:
+        logger.warning(f"Could not get last directory from {app.last_dir}: {e}")
+        p = Path(app.last_dir) if app and app.last_dir else Path.home()
+        home_dir = p.joinpath(default_name).resolve().__str__()
     fname = Path(QFileDialog.getSaveFileName(obj, "Save File", home_dir, filter=f"{extension}(*.{extension})")[0])
     if app:
         app.last_dir = fname.parent

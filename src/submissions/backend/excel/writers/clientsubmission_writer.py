@@ -6,7 +6,7 @@ import logging, sys
 from pprint import pformat
 from openpyxl.cell import MergedCell
 from openpyxl.workbook import Workbook
-from openpyxl.styles import Alignment, PatternFill
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 from typing import TYPE_CHECKING
 from . import DefaultKEYVALUEWriter, DefaultTABLEWriter
@@ -28,8 +28,9 @@ class ClientSubmissionInfoWriter(DefaultKEYVALUEWriter):
     def prewrite(self, worksheet: Worksheet, start_row: int) -> Worksheet:
         worksheet.cell(row=start_row, column=1, value="Submitter Info")
         worksheet.cell(row=start_row, column=1).alignment = Alignment(horizontal="center")
-        worksheet.cell(row=start_row, column=1).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
-        worksheet.cell(row=start_row, column=2).fill = PatternFill(start_color='2DE733', end_color='2DE733', fill_type="solid")
+        worksheet.cell(row=start_row, column=1).font = Font(bold=True, color="FFFFFF")
+        worksheet.cell(row=start_row, column=1).fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
+        worksheet.cell(row=start_row, column=2).fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         return worksheet
 
 
@@ -48,11 +49,11 @@ class ClientSubmissionSampleWriter(DefaultTABLEWriter):
                           start_row: int | None = None, *args, **kwargs) -> Workbook:
         self.pydant_obj = self.pad_submission_samples_to_length()
         workbook = super().write_to_workbook(workbook=workbook, sheet=sheet, start_row=start_row, *args, **kwargs)
-        self.worksheet = self.postwrite(self.worksheet)
+        # self.worksheet = self.postwrite(self.worksheet, start_row)
         return workbook
 
-    def postwrite(self, worksheet: Worksheet) -> Worksheet:
-        worksheet = super().postwrite(worksheet)
+    def postwrite(self, worksheet: Worksheet, **kwargs) -> Worksheet:
+        worksheet = super().postwrite(worksheet, **kwargs)
         for row in worksheet.iter_rows(min_row=self.start_row, max_row=self.end_row):
             for cell in row:
                 if cell.value in [0, "0", "None"]:
