@@ -1346,6 +1346,7 @@ class Settings(BaseSettings, extra="allow"):
             pass
         finally:
             self.close_database()
+            
 
     @classmethod
     def get_alembic_db_path(cls, alembic_path, mode=Literal['path', 'schema', 'user', 'pass']) -> Path | str:

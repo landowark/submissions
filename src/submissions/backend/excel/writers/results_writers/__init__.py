@@ -1,12 +1,11 @@
 """
 Default results writers.
 """
+from pprint import pformat
 from openpyxl import Workbook
 from backend.excel.writers import DefaultKEYVALUEWriter, DefaultTABLEWriter
 import logging
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType    
+
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -18,7 +17,6 @@ class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
     def __init__(self, pydant_obj, proceduretype, *args, **kwargs):
         super().__init__(pydant_obj=pydant_obj, *args, **kwargs)
         self.fill_dictionary = pydant_obj.result
-        logger.debug(f"Pyd object: {self.pydant_obj}, Fill dict: {self.fill_dictionary}")
         self.sheet = f"{proceduretype.name[:10]} {pydant_obj.resultstype[:10]}"
         
     # NOTE: Required to pass self.sheet to function.
@@ -31,7 +29,7 @@ class DefaultResultsInfoWriter(DefaultKEYVALUEWriter):
 class DefaultResultsSampleWriter(DefaultTABLEWriter):
 
     exclude = ["excluded", "name", "procedure", "sample", "sampleprocedureassociation", "result", 
-               "image", 'img', "plate_barcode", "resultstype", "reagent_lot#"]
+               "image", 'img', "plate_barcode", "resultstype", "reagent_lot#", "is_sample"]
     header_order = ["sample_id"]
 
     def __init__(self, pydant_obj, proceduretype, resultstype: str, *args, **kwargs):
@@ -42,10 +40,10 @@ class DefaultResultsSampleWriter(DefaultTABLEWriter):
     # NOTE: Required to pass self.sheet to function.
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None,
                           start_row: int = 1, *args, **kwargs) -> Workbook:
+        logger.debug(f"Pyd_obj: {pformat(self.pydant_obj)}")
         workbook = super().write_to_workbook(workbook=workbook, sheet=self.sheet, start_row=start_row)
         return workbook
 
-    
 
 from .qubit_results_writer import QubitInfoWriter, QubitSampleWriter
 from .diomni_pcr_results_writer import DiomniPCRInfoWriter, DiomniPCRSampleWriter

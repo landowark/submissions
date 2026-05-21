@@ -181,9 +181,9 @@ class DefaultKEYVALUEWriter(DefaultWriter):
 class DefaultTABLEWriter(DefaultWriter):
 
     sheet = "Client Info"
-    start_row = 19
-    header_order = []
-    exclude = []
+    # start_row = 19
+    # header_order = []
+    # exclude = []
 
     def get_row_count(self, start_row: int = 1):
         list_df = DataFrame([item for item in self.worksheet.values][start_row - 1:])
@@ -240,6 +240,7 @@ class DefaultTABLEWriter(DefaultWriter):
         font = Font(bold=True, color="ffffffff")
         fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         align = Alignment(horizontal="center")
+        logger.debug(self.start_row)
         for cell in worksheet[self.start_row]:
             cell.font = font
             cell.fill = fill

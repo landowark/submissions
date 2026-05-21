@@ -107,7 +107,6 @@ class DefaultProcedureManager(DefaultManager):
         workbook = self.sample_writer.write_to_workbook(workbook, start_row=self.equipment_writer.end_row)
         # # TODO: Find way to group results by result_type.
         self.result_writers = []
-        logger.debug(f"Grouped results:\n{pformat(self.pyd.sql_instance.grouped_results)}")
         for resulttype_name, parents in self.pyd.sql_instance.grouped_results.items():
             grouped_writer = {}
             info_result = parents['info']
@@ -117,8 +116,9 @@ class DefaultProcedureManager(DefaultManager):
                 info_result = None
             if info_result is not None:
                 try:
-                    Writer = getattr(results_writers, f"{resulttype_name}InfoWriter")
+                    Writer = getattr(results_writers, f"{resulttype_name.replace(" ", "")}InfoWriter")
                 except AttributeError:
+                    logger.error(f"Couldn't get {resulttype_name.replace(" ", "")}InfoWriter, using DefaultResultsInfoWriter")
                     Writer = results_writers.DefaultResultsInfoWriter
                 res_info_writer = Writer(pydant_obj=info_result, proceduretype=self.proceduretype)
                 workbook = res_info_writer.write_to_workbook(workbook=workbook)
@@ -127,12 +127,13 @@ class DefaultProcedureManager(DefaultManager):
             sample_results = [res.to_pydantic() for res in parents['sample']]
             if len(sample_results) > 0:
                 try:
-                    Writer = getattr(results_writers, f"{resulttype_name}SampleWriter")
+                    Writer = getattr(results_writers, f"{resulttype_name.replace(" ", "")}SampleWriter")
                 except AttributeError:
+                    logger.error(f"Couldn't get {resulttype_name.replace(" ", "")}SampleWriter, using DefaultResultsSampleWriter")
                     Writer = results_writers.DefaultResultsSampleWriter
                 res_sample_writer = Writer(pydant_obj=sample_results, resultstype=resulttype_name, proceduretype=self.proceduretype)
                 try:
-                    new_start_row = res_info_writer.end_row + 1
+                    new_start_row = res_info_writer.end_row
                 except UnboundLocalError:
                     new_start_row = 1
                 workbook = res_sample_writer.write_to_workbook(workbook=workbook, start_row=new_start_row)

@@ -249,6 +249,8 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             for k, v in iterator.items():
                 if "sql_instance" in k:
                     continue
+                if k.count(" ") > 3:
+                    continue
                 if k not in output.keys():
                     output[k] = v
             del output['misc_info']
