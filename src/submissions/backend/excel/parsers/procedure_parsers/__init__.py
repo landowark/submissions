@@ -63,12 +63,14 @@ class ProcedureReagentParser(DefaultTABLEParser):
             item['reagent'] = item.pop('reagent_name', "NA")
             yield item
 
+    
+
 class ProcedureEquipmentParser(DefaultTABLEParser):
 
     def __init__(self, worksheet: Worksheet, start_row: int =1, end_row: int | None = None, *args, **kwargs):
-        from backend.validators.pydant import PydEquipment
+        from backend.validators.pydant import PydProcedureEquipmentAssociation
         super().__init__(worksheet=worksheet, start_row=start_row, end_row=end_row, *args, **kwargs)
-        self._pyd_object = PydEquipment
+        self._pyd_object = PydProcedureEquipmentAssociation
 
     @property
     def parsed_info(self):

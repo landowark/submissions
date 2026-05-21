@@ -19,7 +19,7 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 
 class DefaultClientSubmissionManager(DefaultManager):
-
+   
     sheets = {
         "info":[dict(sheet="Client Info", start_row=1)],
         "sample":[dict(sheet="Client Info", start_row=1)]
@@ -34,9 +34,9 @@ class DefaultClientSubmissionManager(DefaultManager):
         match input_object:
             case str() | Path() | Workbook():
                 self.namer = ClientSubmissionNamer(filepath=input_object)
-            case x if isinstance(input_object, ClientSubmission):
+            case _ if isinstance(input_object, ClientSubmission):
                 self.namer = input_object
-            case x if isinstance(input_object, PydClientSubmission):
+            case _ if isinstance(input_object, PydClientSubmission):
                 self.namer = input_object
             case _:
                 logger.warning(f"Skipping submission type")
@@ -68,6 +68,10 @@ class DefaultClientSubmissionManager(DefaultManager):
                 if run not in self.clientsubmission.run:
                     self.clientsubmission.run.append(run)
 
+    @property
+    def _pyd_object(self):
+        from backend.validators.pydant import PydClientSubmission
+        return PydClientSubmission
 
     def construct_run(self, procedure: PydProcedure) -> PydRun:
         from backend.validators.pydant import PydRun

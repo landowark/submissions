@@ -54,7 +54,9 @@ class DefaultManager(object):
                 self.sheets = {}
         self.set_pyd()
         
-    def set_pyd(self):
+    def set_pyd(self, _depth: int=0):
+        if _depth > 2:
+            raise RecursionError("set_pyd called too many times; could not resolve input_object.")
         if isinstance(self.input_object, str):
             self.input_object = Path(self.input_object)
         if isinstance(self.input_object, Path):
@@ -73,18 +75,17 @@ class DefaultManager(object):
         match self.input_object:
             case Workbook() | Worksheet():
                 self.pyd = self.parse()
-            case x if issubclass(self.input_object.__class__, pydant.PydBaseClass):
+            case _ if issubclass(self.input_object.__class__, pydant.PydBaseClass):
                 self.pyd = self.input_object
-            case x if issubclass(self.input_object.__class__, BaseClass):
+            case _ if issubclass(self.input_object.__class__, BaseClass):
                 self.pyd = self.input_object.to_pydantic()
-
             case _:
                 logger.warning(f"Unmatched input object: {type(self.input_object)}. Looking for file.")
                 if self.parent is not None:
                     # TODO: Allow for multiple filters. For now, just look for xlsx.
                     self.input_object = select_open_file(file_extension="xlsx", obj=get_application_from_parent(self.parent))
                     if self.input_object is not None:
-                        self.set_pyd()
+                        self.set_pyd(_depth=_depth + 1)
                 else:
                     raise ValueError(f"No parent, cannot get user input.")
 
@@ -128,17 +129,6 @@ class DefaultManager(object):
                 return self.input_object.worksheets[sheet - 1]
             case _:
                 raise TypeError(f"Invalid type for worksheet retrieval: {type(sheet)}")
-
-    def ratchet_start_row(self):
-        """
-        Changes start_row of sample_parser to end_row of info parser. Used when chaining parsers together.
-        """
-        output = []
-        for sheet in self.info_parser.sheets:
-            item = {k: v for k, v in sheet.items() if k != "end_row"}
-            item['start_row'] = sheet.get("end_row", 1)
-            output.append(item)
-        return output
 
 
 from .clientsubmissions import DefaultClientSubmissionManager

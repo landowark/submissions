@@ -4,15 +4,12 @@ Writers for PCR results from Design and Analysis Software
 from __future__ import annotations
 import logging
 from pprint import pformat
-from typing import Generator, TYPE_CHECKING
+from typing import Generator
 from openpyxl import Workbook
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl.styles import Alignment, Font, PatternFill
 from pandas import DataFrame
 from . import DefaultResultsInfoWriter, DefaultResultsSampleWriter
-from tools import flatten_list
-if TYPE_CHECKING:
-    from backend.db.models import ProcedureType
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -72,7 +69,7 @@ class DiomniPCRSampleWriter(DefaultResultsSampleWriter):
 
     def write_to_workbook(self, workbook: Workbook, sheet: str | None = None, start_row: int = 1, *args, **kwargs) -> Workbook:
         # super().write_to_workbook(workbook, sheet, start_row, *args, **kwargs)
-        font = Font(bold=True, color="ffffffff")
+        font = Font(bold=True, color="ffffffff", size=16)
         fill = PatternFill(start_color='376589', end_color='376589', fill_type="solid")
         align = Alignment(horizontal="center")
         start_row += 1

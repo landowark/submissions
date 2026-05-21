@@ -206,7 +206,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                                     output.append(new)
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict for item in value]
-                        case x if issubclass(value.__class__, models.BaseClass):
+                        case _ if issubclass(value.__class__, models.BaseClass):
                             output = value.to_pydantic().improved_dict
                         case _:
                             logger.warning(f"Got unmatched type for {field} during expand_fields: {value.__class__.__name__}")
@@ -221,7 +221,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields, **kwargs) for item in value]
                         case InstrumentedList():
                             output = [item.to_pydantic().improved_dict_expand_fields(new_fields, **kwargs) for item in value]
-                        case x if issubclass(value.__class__, models.BaseClass):
+                        case _ if issubclass(value.__class__, models.BaseClass):
                             output = value.to_pydantic().improved_dict_expand_fields(new_fields, **kwargs)
                         case _:
                             logger.warning(f"Got unmatched type during expand_fields: {value.__class__.__name__}")
@@ -334,7 +334,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                     pass
                 case list():
                     pass
-                case x if issubclass(v.__class__, PydBaseClass):
+                case _ if issubclass(v.__class__, PydBaseClass):
                     pass
                 case _:
                     continue
@@ -714,13 +714,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                                 value = value
                             else:
                                 continue
-                case x if issubclass(value.__class__, BaseClass): 
+                case _ if issubclass(value.__class__, BaseClass): 
                     try:
                         value = value.name
                     except AttributeError:
                         logger.error(f"Couldn't get name for BaseClass subclase {type(value)}")
                         continue
-                case x if issubclass(value.__class__, PydBaseClass):
+                case _ if issubclass(value.__class__, PydBaseClass):
                     try:
                         value = value.name
                     except AttributeError:

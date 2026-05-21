@@ -969,12 +969,12 @@ class BaseClass(Base):
                 return [cls.sanitize_obj_for_json(item, expand=expand) for item in obj_]
             case dict():
                 return {k: cls.sanitize_obj_for_json(v, expand=expand) for k, v in obj_.items()}
-            case x if issubclass(obj_.__class__, BaseClass):
+            case _ if issubclass(obj_.__class__, BaseClass):
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)
                 else:
                     return cls.sanitize_obj_for_json(obj_.to_pydantic().improved_dict, expand=expand)
-            case x if issubclass(obj_.__class__, PydBaseClass):
+            case _ if issubclass(obj_.__class__, PydBaseClass):
                 if not expand:
                     return cls.sanitize_obj_for_json(obj_.name)
                 else:
@@ -1023,7 +1023,7 @@ class BaseClass(Base):
                                     output.append(target)
                         case InstrumentedList():
                             output = [item.details_dict for item in value]
-                        case x if issubclass(value.__class__, BaseClass):
+                        case _ if issubclass(value.__class__, BaseClass):
                             output = value.details_dict
                         case _:
                             continue
@@ -1049,7 +1049,7 @@ class BaseClass(Base):
                                     output.append(target)
                         case InstrumentedList():
                             output = [item.details_dict_expand_fields(new_fields) for item in value]
-                        case x if issubclass(value.__class__, BaseClass):
+                        case _ if issubclass(value.__class__, BaseClass):
                             output = value.details_dict
                         case _:
                             continue

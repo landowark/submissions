@@ -12,9 +12,11 @@ logger = logging.getLogger(f"submissions.{__name__}")
 
 class DiomniPCRManager(DefaultResultsManager):
 
-    def __init__(self, procedure: Procedure, parent, input_object: Path | str | None = None):
-        super().__init__(procedure=procedure, parent=parent, input_object=input_object)
-        self.resultstype = "Diomni PCR"
+    resultstype = "Diomni PCR"
+
+    # def __init__(self, procedure: Procedure, parent, input_object: Path | str | None = None):
+    #     super().__init__(procedure=procedure, parent=parent, input_object=input_object)
+        
    
     def parse(self):
         self.info = {}

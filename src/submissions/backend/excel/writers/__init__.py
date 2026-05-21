@@ -44,9 +44,9 @@ class DefaultWriter(object):
                 except (KeyError, ValueError):
                     return
         match value:
-            case x if issubclass(value.__class__, BaseClass):
+            case _ if issubclass(value.__class__, BaseClass):
                 value = value.name
-            case x if issubclass(value.__class__, PydBaseClass):
+            case _ if issubclass(value.__class__, PydBaseClass):
                 value = value.name
             case bytes(): 
                 value = None

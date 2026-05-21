@@ -32,11 +32,10 @@ class DefaultSettings(object):
         # Check if the result was QDialog.Accepted (usually 1)
         if result == QDialog.DialogCode.Accepted:
             self.settings = self.dlg.settings
-            print(f"Dialog Accepted! Final settings: {self.settings}")
-            # Apply your logic here
+            # print(f"Dialog Accepted! Final settings: {self.settings}")
             self.write_output()
         else:
-            print("Dialog Cancelled or Rejected")
+            logger.info("Dialog Cancelled or Rejected")
 
     def write_output(self):
         raise NotImplementedError("This method is meant to be overwritten by subclasses only.")

@@ -929,7 +929,7 @@ def sanitize_object_for_json(input_obj):
             return [sanitize_object_for_json(item) for item in input_obj]
         case dict():
             return {k: sanitize_object_for_json(v) for k, v in input_obj.items()}
-        case x if issubclass(input_obj.__class__, BaseClass):
+        case _ if issubclass(input_obj.__class__, BaseClass):
             return sanitize_object_for_json(input_obj.name)
         case _:
             return input_obj
@@ -954,11 +954,11 @@ def find_first_matching_dict(list_of_dicts, key, value_to_match, mode: Literal["
         match d:
             case dict():
                 d_value = d.get(key)
-            case x if issubclass(d.__class__, PydBaseClass):
+            case _ if issubclass(d.__class__, PydBaseClass):
                 d_value = getattr(d, key)
-            case x if issubclass(d.__class__, BaseClass):
+            case _ if issubclass(d.__class__, BaseClass):
                 d_value = getattr(d, key)
-            case x if hasattr(d, "__dict__") or hasattr(d, key): # <--- Set for test purposes
+            case _ if hasattr(d, "__dict__") or hasattr(d, key): # <--- Set for test purposes
                 d_value = getattr(d, key)
             case str() | int() | float() | bool():
                 d_value = d
@@ -1300,7 +1300,7 @@ class Settings(BaseSettings, extra="allow"):
                 try:
                     if name in self.teardown_scripts.keys():
                         self.model_extra['teardown_scripts'][name] = func
-                except AttributeError:
+                except AttributeError as e:
                     print(f"Couldn't set teardown function due to {e}")
                     pass
         # NOTE: because Pydantic's model_extra is designed to be read-only by default during the serialization process. When you mutate the contents of model_extra 

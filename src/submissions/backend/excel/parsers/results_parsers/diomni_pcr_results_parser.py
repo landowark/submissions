@@ -5,10 +5,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pprint import pformat
-from typing import Generator, List, TYPE_CHECKING
+from typing import Generator, List, TYPE_CHECKING, Tuple
 from dateutil.parser import parse
 from backend.excel.parsers.results_parsers import DefaultResultsInfoParser, DefaultResultsSampleParser
-
+from functools import cached_property
 from openpyxl.worksheet.worksheet import Worksheet
 from tools import convert_well_to_row_column
 if TYPE_CHECKING:
@@ -40,8 +40,11 @@ class DiomniPCRSampleParser(DefaultResultsSampleParser):
         self.date_analyzed = date_analyzed
         super().__init__(worksheet=worksheet, results_type=self.resultstype, *args, **kwargs)
 
-    @property
-    def parsed_info(self) -> Generator[dict, None, None]:
+    @cached_property
+    def parsed_info(self) -> List[Tuple]:
+        return list(self._generate_parsed_info())
+
+    def _generate_parsed_info(self) -> Generator[dict, None, None]:
         output = [item for item in super().parsed_info]
         output = self.standardize_well_keys(output)
         try:

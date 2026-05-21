@@ -8,6 +8,7 @@ from typing import Generator
 from openpyxl.cell import MergedCell
 from openpyxl.worksheet.worksheet import Worksheet
 from pandas import DataFrame
+from itertools import islice
 
 logger = logging.getLogger(f"submissions.{__name__}")
 
@@ -63,6 +64,8 @@ class DefaultParser(object):
             if all([item.value is None for item in row]):
                 return iii
         return worksheet.max_row + 1
+    
+    
 
 
 class DefaultKEYVALUEParser(DefaultParser):
@@ -94,6 +97,9 @@ class DefaultKEYVALUEParser(DefaultParser):
                 value = dict(value=value, missing=missing)
                 yield key, value
 
+    def to_pydantic(self):
+        return self._pyd_object({k:v for k,v in self.parsed_info})
+
 
 class DefaultTABLEParser(DefaultParser):
 
@@ -105,10 +111,14 @@ class DefaultTABLEParser(DefaultParser):
         Returns:
             Generator[dict, None, None]: {column_header: row column value}
         """
-        df = DataFrame(
-            [item for item in self.worksheet.values][self.start_row - 1: self.end_row - 1])
-        df.columns = df.iloc[0]
-        df = df[1:]
+        rows = list(self.worksheet.iter_rows(
+            min_row=self.start_row,
+            max_row=self.end_row - 1,
+            values_only=True
+        ))
+        if not rows:
+            return
+        df = DataFrame(rows[1:], columns=rows[0])
         df = df.dropna(axis=1, how='all')
         for row in df.iterrows():
             output = {}
