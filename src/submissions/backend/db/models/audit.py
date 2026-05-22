@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import List
 from dateutil.parser import parse
 from sqlalchemy.orm import declarative_base, DeclarativeMeta, Query
-from . import BaseClass, ctx
+from . import BaseClass, ctx, Base
 from sqlalchemy import Column, INTEGER, String, JSON, TIMESTAMP, func
 from datetime import date, datetime, timedelta
 import logging
@@ -16,9 +16,9 @@ import logging
 logger = logging.getLogger(f"submissions.{__name__}")
 
 # NOTE: Need a seperate base for this.
-Base: DeclarativeMeta = declarative_base()
+# Base: DeclarativeMeta = declarative_base()
 
-# NOTE: When rebuilding db, change this to baseclass for alembic  
+# Fix: Inherit from the shared Base (and optionally BaseClass) and manage migration order via Alembic's depends_on:
 class AuditLog(Base):
     """
     Audit log model for tracking database transactions and changes.

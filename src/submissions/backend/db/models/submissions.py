@@ -1841,9 +1841,8 @@ class ClientSubmissionSampleAssociation(BaseClass):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
-    sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
-    clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id"),
-                                 primary_key=True)  #: id of associated client submission
+    clientsubmission_id = Column(INTEGER, ForeignKey("_clientsubmission.id", ondelete="CASCADE"), primary_key=True)  #: id of associated client submission
+    sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated sample
     submission_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
     _comment = Column(JSON, nullable=True) #: comments on sample
     # NOTE: reference to the Submission object
@@ -2150,8 +2149,8 @@ class RunSampleAssociation(BaseClass):
     DOC: https://docs.sqlalchemy.org/en/14/orm/extensions/associationproxy.html
     """
 
-    sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated sample
-    run_id = Column(INTEGER, ForeignKey("_run.id"), primary_key=True)  #: id of associated procedure
+    run_id = Column(INTEGER, ForeignKey("_run.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
+    sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated sample
     run_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list
     _comment = Column(JSON, nullable=True) #: comments on sample
 
@@ -2477,8 +2476,8 @@ class RunSampleAssociation(BaseClass):
 class ProcedureSampleAssociation(BaseClass):
 
     id = Column(INTEGER, unique=True, nullable=False) #: Exists to connect with results
-    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    sample_id = Column(INTEGER, ForeignKey("_sample.id"), primary_key=True)  #: id of associated equipment
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
+    sample_id = Column(INTEGER, ForeignKey("_sample.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated equipment
     row = Column(INTEGER)
     column = Column(INTEGER)
     procedure_rank = Column(INTEGER, primary_key=True, default=0)  #: Location in sample list

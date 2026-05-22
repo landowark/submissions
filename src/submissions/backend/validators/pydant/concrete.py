@@ -9,7 +9,7 @@ from pydantic import AfterValidator, ConfigDict, Field, field_validator, compute
 from PyQt6.QtWidgets import QWidget
 from dateutil.parser import parse, ParserError
 from backend.validators import RSLNamer
-from backend.validators.pydant import PydConcrete
+from backend.validators.pydant import PydConcrete, SourcedField
 from backend.validators.pydant.abstract import PydEquipmentRole, PydProcedureType, PydReagent, PydResultsType, PydReagentRole
 from tools import Alert, Report, check_not_nan, find_first_matching_dict, row_keys, sort_dict_by_list, timezone
 if TYPE_CHECKING:
@@ -919,16 +919,17 @@ class PydProcedure(PydConcrete, arbitrary_types_allowed=True):
 class PydClientSubmission(PydConcrete):
 
     filepath: Path | None = Field(default=None)
-    submissiontype: dict | None
-    submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
-    clientlab: dict | None
-    sample_count: dict | None = Field(default=dict(value=0, missing=True), validate_default=True)
+    submissiontype: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
+    # submitted_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True)
+    submitted_date:    SourcedField[datetime] = Field(default_factory=lambda: SourcedField(value=datetime.now(), missing=True))
+    clientlab: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
+    sample_count: SourcedField[int] = Field(default_factory=lambda: SourcedField(value=0, missing=True))
     full_batch_size: int | dict = Field(default=0)
-    submission_category: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    submission_category: SourcedField[str] = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     comment: list | None = Field(default_factory=list, repr=False, validate_default=True)
-    cost_centre: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    contact: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
-    submitter_plate_id: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    cost_centre: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
+    contact: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
+    submitter_plate_id: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     sample: List[str] | List[PydSample] = Field(default_factory=list, repr=False)
     run: List[str | PydRun | dict ] = Field(default_factory=list, repr=False)
 
@@ -1223,7 +1224,7 @@ class PydClientSubmission(PydConcrete):
 class PydRun(PydConcrete):
 
     clientsubmission: PydClientSubmission | str | None = Field(default=None, repr=False)
-    rsl_plate_number: dict | None = Field(default=dict(value=None, missing=True), validate_default=True)
+    rsl_plate_number: SourcedField[str]      = Field(default_factory=lambda: SourcedField(value=None, missing=True))
     started_date: dict | None = Field(default=dict(value=date.today(), missing=True), validate_default=True, repr=False)
     completed_date: dict | None = Field(default=dict(value=None, missing=True), validate_default=True, repr=False)
     comment: dict | None = Field(default_factory=dict(value=[], missing=True), validate_default=True, repr=False)

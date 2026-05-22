@@ -2848,9 +2848,9 @@ class ProcedureReagentLotAssociation(BaseClass):
 
     skip_on_edit = True
 
-    reagentlot_id = Column(INTEGER, ForeignKey("_reagentlot.id"), primary_key=True)  #: id of associated reagent
-    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
+    reagentlot_id = Column(INTEGER, ForeignKey("_reagentlot.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated reagent
+    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete="CASCADE"), primary_key=True)
     _comment = Column(String(1024))  #: Comments about reagent
 
     _procedure = relationship("Procedure",
@@ -3114,8 +3114,8 @@ class ReagentRoleReagentAssociation(BaseClass):
     :ivar _reagentrole: Related reagent role object
     :vartype _reagentrole: ReagentRole
     """
-    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id"), primary_key=True)  #: id of associated reagent
-    reagent_id = Column(INTEGER, ForeignKey("_reagent.id"), primary_key=True)  #: id of associated procedure
+    reagentrole_id = Column(INTEGER, ForeignKey("_reagentrole.id", ondelete="CASCADE"), primary_key=True)  #: id of associated reagent
+    reagent_id = Column(INTEGER, ForeignKey("_reagent.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
     ml_used_per_sample = Column(FLOAT(3))  #: amount of reagent used for this role.
     
     _reagent = relationship(Reagent, back_populates="reagentreagentroleassociation")  #: associated procedure
@@ -3713,8 +3713,8 @@ class EquipmentRoleEquipmentAssociation(BaseClass):
     :vartype _process: list[Process]
     """
     
-    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)  #: id of associated reagent
-    equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated procedure
+    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id", ondelete="CASCADE"), primary_key=True)  #: id of associated reagent
+    equipment_id = Column(INTEGER, ForeignKey("_equipment.id", ondelete="RESTRICT"), primary_key=True)  #: id of associated procedure
 
     _equipmentrole = relationship("EquipmentRole",
                                  back_populates="equipmentroleequipmentassociation")  #: associated procedure
@@ -5239,9 +5239,9 @@ class ProcedureEquipmentAssociation(BaseClass):
     :vartype _tipslot: list[TipsLot]
     """
 
-    equipment_id = Column(INTEGER, ForeignKey("_equipment.id"), primary_key=True)  #: id of associated equipment
-    procedure_id = Column(INTEGER, ForeignKey("_procedure.id"), primary_key=True)  #: id of associated procedure
-    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id"), primary_key=True)
+    procedure_id = Column(INTEGER, ForeignKey("_procedure.id", ondelete="CASCADE"), primary_key=True)  #: id of associated procedure
+    equipment_id = Column(INTEGER, ForeignKey("_equipment.id", ondelete="CASCADE"), primary_key=True)  #: id of associated equipment
+    equipmentrole_id = Column(INTEGER, ForeignKey("_equipmentrole.id", ondelete="CASCADE"), primary_key=True)
     processversion_id = Column(INTEGER, ForeignKey("_processversion.id", ondelete="SET NULL",
                                                    name="SEA_Process_id"))  #: Foreign key of process id
     _start_time = Column(TIMESTAMP)  #: start time of equipment use

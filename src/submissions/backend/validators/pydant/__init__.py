@@ -9,7 +9,7 @@ from jinja2 import Template, TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
 from datetime import date, datetime
-from typing import Any, Generator, List
+from typing import Any, Generator, List, Generic, TypeVar
 from types import UnionType
 from tools import classproperty, jinja_template_loading, row_keys, DotDict
 from backend.db import models
@@ -22,8 +22,9 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.ext.associationproxy import _AssociationList
 from PyQt6.QtWidgets import QDialog
 
-
 logger = logging.getLogger(f"submission.{__name__}")
+
+T = TypeVar("T")
 
 
 class PydBaseClass(BaseModel):#, validate_assignment=True):
@@ -749,6 +750,7 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         config = cls.model_config.get("json_schema_extra", {})
         return DotDict(config)
 
+
 class PydAbstract(PydBaseClass):
 
     @classmethod
@@ -782,6 +784,24 @@ class PydConcrete(PydBaseClass):
             if len(class_.described_fields) > 0:
                 yield class_
         
+
+class SourcedField(BaseModel, Generic[T]):
+    """
+    Wraps a field value with a flag indicating whether it was parsed
+    from the source document or generated as a fallback default.
+    """
+    value: T | None = None
+    missing: bool = True
+
+    @classmethod
+    def from_raw(cls, raw) -> "SourcedField[T]":
+        """Coerce a raw scalar, string, or existing dict into a SourcedField."""
+        if isinstance(raw, dict) and "value" in raw:
+            return cls(**raw)
+        if raw is None:
+            return cls(value=None, missing=True)
+        return cls(value=raw, missing=False)
+
 
 from .abstract import (
     PydEquipmentRole, 

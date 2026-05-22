@@ -88,7 +88,7 @@ class ClientLab(BaseClass):
                 try:
                     self._misc_info.update({'clientsubmission': clientsubmission})
                 except Exception:
-                    pass
+                    logger.error(f"Couldn't set ClientLab clientsubmission: {clientsubmission}")
         # Resolve contact
         if contact is not None:
             try:
@@ -97,7 +97,7 @@ class ClientLab(BaseClass):
                 try:
                     self._misc_info.update({'contact': contact})
                 except Exception:
-                    pass
+                    logger.error(f"Couldn't set ClientLab contact: {contact}")
 
     ##### Properties #####
     

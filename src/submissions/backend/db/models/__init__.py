@@ -323,7 +323,7 @@ class BaseClass(Base):
         """
         try:
             return [item.name for item in cls.__table__.columns if isinstance(item.type, JSON)]
-        except AttributeError:
+        except AttributeError as e:
             if not cls.__qualname__ == "BaseClass":
                 logger.error(f"Could not get timestamps due to {e}")
             return []
@@ -707,7 +707,7 @@ class BaseClass(Base):
                 logger.warning(f"{k} is in singles. Returning only one value.")
                 limit = 1
         if offset:
-            query.offset(offset)
+            query = query.offset(offset)
         with query.session.no_autoflush:
             match limit:
                 case 0:
@@ -1229,7 +1229,7 @@ class ConfigItem(BaseClass):
     """
 
     id = Column(INTEGER, primary_key=True)
-    key = Column(String(32))  #: Name of the configuration item.
+    key = Column(String(32), nullable=False, unique=True)  #: Name of the configuration item.
     value = Column(JSON)  #: Value associated with the config item.
 
     def __repr__(self) -> str:

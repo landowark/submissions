@@ -1205,7 +1205,7 @@ class Settings(BaseSettings, extra="allow"):
 
     @contextmanager
     def db_session(self):
-        session = SessionFactory()
+        session = self.database.session()
         try:
             yield session
             session.commit()
@@ -1213,7 +1213,7 @@ class Settings(BaseSettings, extra="allow"):
             session.rollback()
             raise
         finally:
-            SessionFactory.remove()
+            self.database.session.remove()
 
     def close_database(self):
         """Close the active database session and dispose the engine."""
