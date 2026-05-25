@@ -3,18 +3,20 @@ Contains pydantic models and accompanying validators
 """
 from __future__ import annotations
 from pathlib import Path
-import logging, sys, string, inspect
+import logging, sys, string, inspect, re
 from pprint import pformat
 from jinja2 import Template, TemplateNotFound
 from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator, ConfigDict, field_validator
 from pydantic_core import core_schema
+from pydantic.fields import FieldInfo
 from datetime import date, datetime
-from typing import Any, Generator, List, Generic, TypeVar
+from typing import Any, ClassVar, Generator, List, Generic, TypeVar, Annotated, get_args, get_origin
 from types import UnionType
 from tools import classproperty, jinja_template_loading, row_keys, DotDict
 from backend.db import models
 # NOTE: Below is necessary for test environment
 from backend.db.models import BaseClass
+from dateutil.parser import parse
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.orm import DeclarativeMeta, ColumnProperty
@@ -25,6 +27,233 @@ from PyQt6.QtWidgets import QDialog
 logger = logging.getLogger(f"submission.{__name__}")
 
 T = TypeVar("T")
+
+
+class SourcedField(BaseModel, Generic[T]):
+    """
+    Wraps a field value with a flag recording whether the value was
+    parsed from the source document (missing=False) or generated as a
+    fallback default (missing=True).
+ 
+    Replaces the ad-hoc  {value: ..., missing: bool}  dict pattern
+    used throughout PydClientSubmission and PydRun.
+ 
+    Usage
+    -----
+    # Construct directly
+    sf = SourcedField(value="RSL-WW-20240101-1", missing=False)
+ 
+    # Coerce from any raw input (str, scalar, existing dict, or None)
+    sf = SourcedField.from_raw("RSL-WW-20240101-1")    # missing=False
+    sf = SourcedField.from_raw(None)                   # missing=True
+    sf = SourcedField.from_raw({"value": "x", "missing": False})
+ 
+    # Unwrap
+    sf.value     # "RSL-WW-20240101-1"
+    sf.missing   # False
+    """
+ 
+    value: T | None = None
+    missing: bool = True
+ 
+    @classmethod
+    def from_raw(cls, raw: Any, missing_if_none: bool = True) -> "SourcedField[T]":
+        """
+        Coerce a raw value into a SourcedField.
+ 
+        Handles every input shape that currently exists in the codebase:
+          - Already a SourcedField  → returned as-is
+          - A {value, missing} dict → unpacked
+          - None                    → SourcedField(value=None, missing=True)
+          - Any scalar              → SourcedField(value=raw, missing=False)
+        """
+        if isinstance(raw, SourcedField):
+            return raw
+        if isinstance(raw, dict) and "value" in raw:
+            return cls(value=raw.get("value"), missing=raw.get("missing", True))
+        if raw is None:
+            return cls(value=None, missing=missing_if_none)
+        return cls(value=raw, missing=False)
+    
+    def get(self, attribute_name:str, default: Any | None=  None):
+        try:
+            value = self.__getattribute__(attribute_name)
+        except AttributeError:
+            value = default
+        return value
+ 
+    def __repr__(self) -> str:
+        flag = "~" if self.missing else ""
+        return f"SourcedField({flag}{self.value!r})"
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+# Shared coercion helpers used by both PydClientSubmission and PydRun.
+# These go at module level in pydant/__init__.py, just below SourcedField.
+#
+# Each helper takes a raw input and returns a SourcedField with the
+# value coerced to the expected Python type.
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def _coerce_str_field(raw: Any) -> SourcedField[str]:
+    """
+    Coerce a raw value to SourcedField[str].
+ 
+    Replaces:
+      enforce_value()            on submissiontype / clientlab / contact
+      enforce_submitter_plate_id() on submitter_plate_id
+      enforce_submission_category_id() on submission_category
+      str_to_dict()              on cost_centre
+      rescue_rsl_number()        on rsl_plate_number
+      rescue_signed_by()         on signed_by
+    """
+    if isinstance(raw, SourcedField):
+        return raw
+    if isinstance(raw, dict) and "value" in raw:
+        return SourcedField(value=str(raw["value"]) if raw["value"] is not None else None,
+                            missing=raw.get("missing", True))
+    if raw is None:
+        return SourcedField(value=None, missing=True)
+    return SourcedField(value=str(raw), missing=False)
+ 
+ 
+def _coerce_datetime_field(raw: Any, fallback: datetime | None = None) -> SourcedField[datetime]:
+    """
+    Coerce a raw value to SourcedField[datetime].
+ 
+    Replaces:
+      enforce_submitted_date()          (mode="before")
+      rescue_date()                     (mode="after")  — both on submitted_date
+      rescue_start_date()               (mode="before") — on started_date
+      rescue_completed_date()           (mode="before") — on completed_date
+      strip_started_datetime_string()   (mode="after")  — on started_date
+      strip_completed_datetime_string() (mode="after")  — on completed_date
+ 
+    The RSL-plate-number suffix stripping (r"(_|-)\d(R\d)?$") that lives
+    inside strip_started_datetime_string is preserved here via the regex
+    pre-clean step.
+    """
+    if isinstance(raw, SourcedField):
+        # If already a SourcedField, just ensure the inner value is a datetime.
+        raw = SourcedField.from_raw(raw)
+        raw_value = raw.value
+        was_missing = raw.missing
+    elif isinstance(raw, dict) and "value" in raw:
+        raw_value = raw["value"]
+        was_missing = raw.get("missing", True)
+    else:
+        raw_value = raw
+        was_missing = raw is None
+ 
+    coerced: datetime | None = None
+ 
+    match raw_value:
+        case datetime():
+            coerced = raw_value
+        case date():
+            coerced = datetime.combine(raw_value, datetime.min.time())
+        case int():
+            # Excel ordinal date
+            coerced = datetime.fromordinal(datetime(1900, 1, 1).toordinal() + raw_value - 2)
+        case str():
+            # Strip RSL plate suffix before parsing (e.g. "2024-01-01-1" → "2024-01-01")
+            cleaned = re.sub(r"(_|-)\d(R\d)?$", "", raw_value)
+            for attempt in (cleaned, cleaned.replace("-", "")):
+                try:
+                    coerced = parse(attempt)
+                    was_missing = True   # derived from string, treat as generated
+                    break
+                except (ParserError, ValueError):
+                    continue
+        case None:
+            pass
+        case _:
+            logger.warning(f"_coerce_datetime_field: unmatched type {type(raw_value)!r}")
+ 
+    if coerced is None:
+        coerced = fallback
+        was_missing = True
+ 
+    return SourcedField(value=coerced, missing=was_missing)
+ 
+ 
+def _coerce_int_field(raw: Any) -> SourcedField[int]:
+    """
+    Coerce a raw value to SourcedField[int].
+ 
+    Replaces:
+      enforce_sample_count()  (mode="before") — wraps into dict
+      enforce_integer()       (mode="after")  — coerces value to int
+      rescue_run_cost()                       — on run_cost (float variant)
+    """
+    if isinstance(raw, SourcedField):
+        inner = raw.value
+        missing = raw.missing
+    elif isinstance(raw, dict) and "value" in raw:
+        inner = raw["value"]
+        missing = raw.get("missing", True)
+    elif raw is None:
+        return SourcedField(value=0, missing=True)
+    else:
+        inner = raw
+        missing = False
+ 
+    if not inner:
+        inner = 0
+    try:
+        inner = int(inner)
+    except (ValueError, TypeError) as e:
+        raise TypeError(f"Expected integer, got {inner!r}: {e}") from e 
+    return SourcedField(value=inner, missing=missing)
+
+
+class RelationshipField:
+    """
+    Marker placed in Annotated[..., RelationshipField()] to tag a Pydantic
+    field as representing a SQLAlchemy relationship rather than a column.
+ 
+    Optional `uselist` mirrors the SQLAlchemy relationship parameter:
+      uselist=True  → one-to-many  (the field is a list)
+      uselist=False → many-to-one / one-to-one  (the field is a scalar)
+ 
+    Usage
+    -----
+    from typing import Annotated
+    from pydantic import Field
+ 
+    class PydReagent(PydAbstract):
+        reagentrole: Annotated[PydReagentRole | None, RelationshipField(uselist=False)] = Field(default=None)
+        reagentlot:  Annotated[List[PydReagentLot], RelationshipField(uselist=True)]    = Field(default_factory=list)
+    """
+ 
+    def __init__(self, uselist: bool = True):
+        self.uselist = uselist
+ 
+    def __repr__(self) -> str:
+        return f"RelationshipField(uselist={self.uselist})"
+
+
+def _get_relationship_marker(field_info: FieldInfo) -> RelationshipField | None:
+    """
+    Return the RelationshipField marker from a FieldInfo's Annotated metadata,
+    or None if the field is not tagged as a relationship.
+ 
+    Works with both forms:
+      Annotated[SomeType, RelationshipField()]
+      Annotated[SomeType | None, RelationshipField()]
+    """
+    annotation = field_info.annotation
+    # Unwrap Optional / Union to find the Annotated layer
+    if get_origin(annotation) is Annotated:
+        for meta in get_args(annotation)[1:]:
+            if isinstance(meta, RelationshipField):
+                return meta
+    # Also check metadata stored directly on the FieldInfo (Pydantic v2
+    # moves Annotated extras into field_info.metadata)
+    for meta in field_info.metadata:
+        if isinstance(meta, RelationshipField):
+            return meta
+    return None
+
 
 
 class PydBaseClass(BaseModel):#, validate_assignment=True):
@@ -39,6 +268,17 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
             "renderclass": "details"
         }
     )
+
+    sql_instance: BaseClass | None = Field(default=None, repr=False, exclude=True)
+
+    @field_validator("sql_instance", mode="before")
+    @classmethod
+    def validate_sql_instance(cls, value):
+        # Accept an existing instance; do not create one speculatively.
+        if value is not None and not isinstance(value, BaseClass):
+            logger.warning(f"sql_instance for {cls.__name__} is not a BaseClass; ignoring.")
+            return None
+        return value
 
     def __repr_args__(self) -> core_schema.ReprArgs:
         # Get the default repr arguments first
@@ -70,17 +310,13 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     def _sql_class(cls) -> models.BaseClass:
         # Lazy import here to reduce the chance of circular-import issues
         # (models may import pydant elsewhere during package import).
+        
         try:
-            from backend.db import models as _models
-        except Exception:
-            # If import fails, re-raise with context so caller can see
-            raise
-        try:
-            return getattr(_models, cls._sql_name)
+            return getattr(models, cls._sql_name)
         except AttributeError as e:
             # Provide a clearer error message listing available top-level
             # model names to help debugging name mismatches / import order.
-            available = [n for n in dir(_models) if not n.startswith("_")]
+            available = [n for n in dir(models) if not n.startswith("_")]
             raise AttributeError(
                 f"SQL model '{cls._sql_name}' not found on backend.db.models. "
                 f"Available top-level attributes: {available}") from e
@@ -107,41 +343,41 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
     
     @model_validator(mode="before")
     @classmethod
-    def prevalidate(cls, data):
-        sql_fields = [k for k, v in cls._sql_class.__dict__.items() if isinstance(v, InstrumentedAttribute)]
+    def prevalidate(cls, data: dict) -> dict:
+        """Strip leading underscores from keys that correspond to SQLAlchemy attributes."""
+        if not isinstance(data, dict):
+            return data
+        # Use sql_inspect to include inherited attributes
+        try:
+            from sqlalchemy import inspect as sql_inspect
+            mapper = sql_inspect(cls._sql_class)
+            sql_field_names = {attr.key for attr in mapper.column_attrs} | \
+                            {rel.key for rel in mapper.relationships}
+        except Exception:
+            sql_field_names = set()
         output = {}
-        match data:
-            case dict():
-                try:
-                    items = data.items()
-                except AttributeError as e:
-                    logger.error(f"Could not prevalidate {cls.__name__} due to {e} for {pformat(data)}")
-                    return data
-                for key, value in items:
-                    new_key = key.replace("_", "")
-                    if new_key in sql_fields:
-                        output[new_key] = value
-                    else:
-                        output[key] = value
-            case _:
-                output = data
+        for key, value in data.items():
+            stripped = key.lstrip("_")   # strip leading underscores only
+            if stripped in sql_field_names and key != stripped:
+                output[stripped] = value
+            else:
+                output[key] = value
         return output
 
     @model_validator(mode='after')
     def validate_model(self):
         for key, value in self.model_extra.items():
-            # NOTE: make sure all date variables are date objects.
             if key in self._sql_class.timestamps:
                 if isinstance(value, str):
-                    self.__setattr__(key, datetime.strptime(value, "%Y-%m-%d"))
-            # NOTE: translate row letter to an integer
+                    # Before: self.__setattr__(key, ...)
+                    object.__setattr__(self, key, datetime.strptime(value, "%Y-%m-%d"))
             if key == "row" and isinstance(value, str):
                 if value.lower() in string.ascii_lowercase[0:8]:
                     try:
                         value = row_keys[value]
                     except KeyError:
-                        value = value
-                self.__setattr__(key, value)
+                        pass
+                object.__setattr__(self, key, value)
         return self
 
     def filter_field(self, key: str, value: Any | None = None) -> Any:
@@ -156,13 +392,10 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         """
         if value is None:
             value = getattr(self, key)
-        match value:
-            case dict():
-                # Extract value from wrapper dicts like {"value": ..., "missing": ...}
-                if set(value.keys()) <= {"value", "missing"}:
-                    value = value.get('value', None)
-            case _:
-                pass
+        if isinstance(value, SourcedField):
+            return value.value
+        elif isinstance(value, dict):
+            return value['value']
         return value
 
     def improved_dict_expand_fields(self, fields: List[str | dict] | dict | str, **kwargs) -> dict:
@@ -263,39 +496,33 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         output['excluded'] = self.model_config.get("json_schema_extra", {}).get("excluded", [])
         
         return output
+    
+    @property
+    def _sql_lookup_kwargs(self):
+        list_ = {item for item in inspect.signature(self._sql_class.query).parameters.keys() if item in [attr for attr in dir(self) if not attr.startswith("_")]}
+        return {item: self.__getattribute__(item) for item in list_}
 
-    def to_sql(self, update: bool = True) -> models.BaseClass:
-        """
-        Converts this instance to the corresponding SQLAlchemy object.
-
-        Args:
-            update (bool): If True, relationships will be updated.
-
-        Returns:
-            models.BaseClass: SQLAlchemy translation of this object.
-
-        """
-        # Prevent accidental clearing of existing SQL relationship lists:
-        # Many SQLAlchemy relationship setters in this codebase treat an
-        # assignment of an empty list as an instruction to clear that
-        # relationship (often resulting in cascade delete-orphan).
-        # When converting a Pydantic model to SQL, an empty list usually
-        # means "no change" rather than "clear all associations". To be
-        # conservative, don't pass empty lists through to query_or_create
-        # so we don't unintentionally wipe related association rows.
+    def to_sql(self, update: bool = True):
+        if self.sql_instance is None:
+            # Resolve via query_or_create so we reuse existing DB rows
+            instance, _ = self._sql_class.query_or_create(**self._sql_lookup_kwargs())
+            self.sql_instance = instance
+        from sqlalchemy.ext.hybrid import hybrid_property
+        from sqlalchemy.orm.properties import ColumnProperty
+ 
         if not update:
             return self.sql_instance
-        sanitized_dicto = {k: v for k, v in self.improved_dict.items() if not (isinstance(v, list) and len(v) == 0)}
-        try:
-            assert self.sql_instance is not None
-        except AssertionError:
-            raise AttributeError(f"Sql Instance for {self.__class__.__name__} is None, cannot save")
-        for k, v in sanitized_dicto.items():
-            try:
-                class_attr = getattr(self._sql_class, k, None)
-            except AttributeError as e:
-                logger.error(f"Couldn't get class_attr {k} for {self._sql_class} due to {e}")
+ 
+        rel_fields   = self.__class__._relationship_fields   # {name: RelationshipField}
+        col_fields   = self.__class__._column_fields         # [name, ...]
+        improved     = self.improved_dict
+ 
+        # ── Column fields ────────────────────────────────────────────────────
+        for k in col_fields:
+            v = improved.get(k)
+            if v is None:
                 continue
+            class_attr = getattr(self._sql_class, k, None)
             if class_attr is None:
                 continue
             if hasattr(class_attr, "property"):
@@ -304,19 +531,38 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
                 case hybrid_property():
                     continue
                 case ColumnProperty():
-                    if getattr(self.sql_instance, k) == v:
-                        continue
-                    else:
+                    if getattr(self.sql_instance, k) != v:
                         try:
                             setattr(self.sql_instance, k, v)
                         except AttributeError as e:
-                            logger.error(f"Could not set attribute {k} on {self.sql_instance} due to {e}")
-                            continue
+                            logger.error(f"Could not set {k} on {self.sql_instance}: {e}")
                 case _:
                     pass
+ 
+        # ── Relationship fields ───────────────────────────────────────────────
+        # Subclasses previously overrode to_sql() solely to add these lines.
+        # With the tag, the base class handles them, and overrides are only
+        # needed for genuinely bespoke logic.
+        for k, marker in rel_fields.items():
+            v = getattr(self, k, None)
+            if v is None:
+                continue
+            if marker.uselist and isinstance(v, list) and len(v) == 0:
+                # Preserve the "don't clear existing associations" guard
+                continue
+            try:
+                setattr(self.sql_instance, k, v)
+            except Exception as e:
+                logger.error(f"Could not set relationship {k} on {self.sql_instance}: {e}")
+ 
         for k, v in self.model_extra.items():
             self.sql_instance._misc_info[k] = models.BaseClass.sanitize_obj_for_json(v)
+ 
         return self.sql_instance
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+
     
     @property
     def fields(self) -> list:
@@ -557,16 +803,12 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         return widget
 
     @classproperty
-    def subclasses(cls) -> Generator[PydBaseClass, None, None]:
-        """
-        Generates list of all PydBaseClass subclasses.
-
-        Returns:
-            Generator[PydBaseClass, None, None]: Generator of all subclasses.
-        """
-        for class_ in PydBaseClass.__subclasses__():
-            for subclass in class_.__subclasses__():
-                yield subclass       
+    def subclasses(cls) -> Generator[type[PydBaseClass], None, None]:
+        def _walk(class_):
+            for sub in class_.__subclasses__():
+                yield sub
+                yield from _walk(sub)
+        yield from _walk(PydBaseClass)   
 
     def add_relationship(self, field: str, value: str, data: dict | None = None):
         """
@@ -700,8 +942,14 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         output = {}
         for k, value in dictionary.items():
             match value:
+                case SourcedField():
+                    # Unwrap directly — no key guessing needed
+                    value = value.value
+                    if value is None:
+                        continue
                 case datetime() | date():
                     value = value.strftime("%Y-%m-%d")
+
                 case bytes():
                     continue
                 case dict():
@@ -750,6 +998,34 @@ class PydBaseClass(BaseModel):#, validate_assignment=True):
         config = cls.model_config.get("json_schema_extra", {})
         return DotDict(config)
 
+    @classproperty
+    def _relationship_fields(cls) -> dict[str, RelationshipField]:
+        """
+        Return a dict of {field_name: RelationshipField} for every field
+        tagged with RelationshipField in this class.
+ 
+        Example
+        -------
+        PydReagent.relationship_fields
+        # {'reagentrole': RelationshipField(uselist=False),
+        #  'reagentlot':  RelationshipField(uselist=True)}
+        """
+        result = {}
+        for name, field_info in cls.model_fields.items():
+            marker = _get_relationship_marker(field_info)
+            if marker is not None:
+                result[name] = marker
+        return result
+ 
+    @classproperty
+    def _column_fields(cls) -> list[str]:
+        """
+        Return field names that are NOT tagged as relationships.
+        Complements relationship_fields.
+        """
+        rel = cls._relationship_fields
+        return [name for name in cls.model_fields if name not in rel]
+
 
 class PydAbstract(PydBaseClass):
 
@@ -785,22 +1061,6 @@ class PydConcrete(PydBaseClass):
                 yield class_
         
 
-class SourcedField(BaseModel, Generic[T]):
-    """
-    Wraps a field value with a flag indicating whether it was parsed
-    from the source document or generated as a fallback default.
-    """
-    value: T | None = None
-    missing: bool = True
-
-    @classmethod
-    def from_raw(cls, raw) -> "SourcedField[T]":
-        """Coerce a raw scalar, string, or existing dict into a SourcedField."""
-        if isinstance(raw, dict) and "value" in raw:
-            return cls(**raw)
-        if raw is None:
-            return cls(value=None, missing=True)
-        return cls(value=raw, missing=False)
 
 
 from .abstract import (
@@ -819,6 +1079,7 @@ from .abstract import (
     )
 
 from .concrete import (
+    ParserError,
     PydEquipment, 
     PydClientLab, 
     PydClientSubmission, 

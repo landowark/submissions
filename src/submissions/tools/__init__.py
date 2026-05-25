@@ -28,6 +28,8 @@ from sqlalchemy.exc import IntegrityError as sqlalcIntegrityError
 from pytz import timezone as tz
 from functools import wraps
 
+
+
 timezone = tz("America/Winnipeg")
 
 logger = logging.getLogger(f"submissions.{__name__}")
@@ -562,17 +564,27 @@ def setup_lookup(func):
 
     @wraps(func)
     def wrapper(*args, **kwargs):
+        from backend.validators import SourcedField
         sanitized_kwargs = {}
         for k, v in locals()['kwargs'].items():
-            if isinstance(v, dict):
-                if not v:
-                    continue
-                try:
-                    sanitized_kwargs[k] = v['value']
-                except KeyError:
-                    raise ValueError(f"Could not sanitize dictionary {v} in query. Make sure you parse it first.")
-            elif v is not None:
-                sanitized_kwargs[k] = v
+            match v:
+                case dict():
+            # if isinstance(v, dict):
+                    if not v:
+                        continue
+                    try:
+                        sanitized_kwargs[k] = v['value']
+                    except KeyError:
+                        raise ValueError(f"Could not sanitize dictionary {v} in query. Make sure you parse it first.")
+                case SourcedField():
+                    try: 
+                        sanitized_kwargs[k] = v.value
+                    except AttributeError:
+                        raise AttributeError(f"Could not sanitize SourcedField {v} in query. Make sure you parse it first.")
+
+            # elif v is not None:
+                case _:
+                    sanitized_kwargs[k] = v
         return func(*args, **sanitized_kwargs)
     return wrapper
 

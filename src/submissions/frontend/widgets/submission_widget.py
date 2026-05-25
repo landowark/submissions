@@ -11,7 +11,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from .functions import select_open_file, select_save_file
 from pathlib import Path
 from tools import Report, Alert, main_form_style, report_result, get_application_from_parent
-from backend.validators import PydClientSubmission, PydSample
+from backend.validators import PydClientSubmission, PydSample, SourcedField
 from backend.db.models import (
     ClientLab
 )
@@ -358,6 +358,8 @@ class SubmissionFormWidget(QWidget):
                     labs = [item.name for item in ClientLab.query()]
                     if isinstance(value, dict):
                         value = value['value']
+                    if isinstance(value, SourcedField):
+                        value = value.value
                     if isinstance(value, ClientLab):
                         value = value.name
                     try:

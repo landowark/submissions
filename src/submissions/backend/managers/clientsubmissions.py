@@ -135,7 +135,7 @@ class DefaultClientSubmissionManager(DefaultManager):
         for sheet in self.sheets['sample']:
             ws = self.get_worksheet(sheet.get("sheet", 1))
             start_row = sheet.get("start_row", 1)
-            self.sample_parser = sample_parser(worksheet=ws, start_row=start_row, submitter_id=self.clientsubmission.submitter_plate_id['value'])
+            self.sample_parser = sample_parser(worksheet=ws, start_row=start_row, submitter_id=self.clientsubmission.submitter_plate_id.value)
             for sample in self.sample_parser.parsed_info:
                 samples.append(sample)
         for sample in samples:

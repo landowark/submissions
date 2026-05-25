@@ -77,8 +77,8 @@ class SubmissionsTree(QTreeView):
                 self.model.beginInsertRows(index, 0, len(runs_data) - 1)
                 for run in runs_data:
                     run_node = TreeItem(dict(
-                        name=run['plate_number'],
-                        query_str=run['plate_number'],
+                        name=run['rsl_plate_number'],
+                        query_str=run['rsl_plate_number'],
                         item_type=Run,
                         raw_procedure_data=run.get('procedure', [])
                     ), item)
@@ -94,6 +94,7 @@ class SubmissionsTree(QTreeView):
                 self.model.beginInsertRows(index, 0, len(procedures_data) - 1)
                 for proc in procedures_data:
                     proc_name = proc['name'] if isinstance(proc, dict) else proc
+                    logger.debug(f" Type: {type(proc_name)}, Value: {proc_name}")
                     proc_node = TreeItem(dict(
                         name=proc_name,
                         query_str=proc_name,
@@ -177,6 +178,7 @@ class SubmissionsTree(QTreeView):
                 for item in ClientSubmission.query(chronologic=True, page=page, page_size=page_size)]
         sorted_subs = sorted(subs, key=itemgetter('submitted_date'), reverse=True)
         self.model.add_top_level_submissions(sorted_subs)
+        # self.model.add_top_level_submissions(subs)
         
         for ii in range(len(self.model.headers)):
             self.resizeColumnToContents(ii)

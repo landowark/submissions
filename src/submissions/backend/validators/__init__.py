@@ -39,10 +39,17 @@ class ClientSubmissionNamer(DefaultNamer):
                  data: dict | None = None, **kwargs):
         from backend.db.models import SubmissionType
         super().__init__(filepath=filepath)
-        if not submissiontype:
-            self.submissiontype = self.retrieve_submissiontype()
-        if isinstance(submissiontype, str):
-            self.submissiontype = SubmissionType.query(name=submissiontype)
+        match submissiontype:
+            case str():
+                if submissiontype in ["", "None"]:
+                    self.submissiontype = self.retrieve_submissiontype()    
+                else:
+                    self.submissiontype = SubmissionType.query(name=submissiontype)
+            case SubmissionType():
+                self.submissiontype = submissiontype
+            case _:
+                logger.warning(f"Unrecognised submissiontype type {type(submissiontype)}, falling back to retrieval.")
+                self.submissiontype = self.retrieve_submissiontype()
 
     def retrieve_submissiontype(self) -> SubmissionType:
         """
@@ -141,6 +148,9 @@ class RSLNamer(object):
             case str():
                 self.sub_object = SubmissionType.query(name=submission_type, limit=1)
                 self.submission_type = submission_type
+            case SourcedField():
+                self.sub_object = SubmissionType.query(name=submission_type.value, limit=1)
+                self.submission_type = submission_type.value
             case dict():
                 self.sub_object = SubmissionType.query(name=submission_type['value'], limit=1)
                 self.submission_type = submission_type['value']
@@ -208,5 +218,5 @@ class RSLNamer(object):
 
 from .pydant import (
     PydRun, PydContact, PydClientLab, PydSample, PydReagent, PydReagentRole, PydEquipment, PydEquipmentRole, PydTips,
-    PydProcess, PydClientSubmission, PydProcedure, PydResults, PydReagentLot
+    PydProcess, PydClientSubmission, PydProcedure, PydResults, PydReagentLot, SourcedField
 )
